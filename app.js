@@ -1,4 +1,5 @@
 const STORAGE_KEY = "flashcord-state-v2";
+const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 
 function createId() {
   const cryptoApi = globalThis.crypto;
@@ -50,13 +51,15 @@ function buildInitialState() {
           {
             id: channelId,
             name: "general",
+            topic: "General discussion",
             messages: [
               {
                 id: createId(),
                 userId: null,
                 authorName: "system",
                 text: "Welcome to FlashCord. Create channels and start chatting.",
-                ts: new Date().toISOString()
+                ts: new Date().toISOString(),
+                reactions: []
               }
             ]
           }
@@ -95,6 +98,22 @@ function migrateState(raw) {
     if (!raw.preferences || typeof raw.preferences !== "object") {
       raw.preferences = buildInitialState().preferences;
     }
+    raw.servers = raw.servers.map((server) => ({
+      ...server,
+      memberIds: Array.isArray(server.memberIds) ? server.memberIds : [],
+      channels: Array.isArray(server.channels)
+        ? server.channels.map((channel) => ({
+            ...channel,
+            topic: typeof channel.topic === "string" ? channel.topic : "",
+            messages: Array.isArray(channel.messages)
+              ? channel.messages.map((message) => ({
+                  ...message,
+                  reactions: Array.isArray(message.reactions) ? message.reactions : []
+                }))
+              : []
+          }))
+        : []
+    }));
     return raw;
   }
 
@@ -127,12 +146,14 @@ function migrateState(raw) {
                   userId: account && msg.user === raw.currentUser ? account.id : null,
                   authorName: account && msg.user === raw.currentUser ? "" : (msg.user || "unknown"),
                   text: (msg.text || "").toString(),
-                  ts: msg.ts || new Date().toISOString()
+                  ts: msg.ts || new Date().toISOString(),
+                  reactions: []
                 }))
               : [];
             return {
               id: channel.id || createId(),
               name: channel.name || "general",
+              topic: "",
               messages
             };
           })
@@ -140,6 +161,7 @@ function migrateState(raw) {
             {
               id: createId(),
               name: "general",
+              topic: "",
               messages: []
             }
           ];
@@ -190,6 +212,8 @@ const ui = {
   memberList: document.getElementById("memberList"),
   activeServerName: document.getElementById("activeServerName"),
   activeChannelName: document.getElementById("activeChannelName"),
+  activeChannelTopic: document.getElementById("activeChannelTopic"),
+  editTopicBtn: document.getElementById("editTopicBtn"),
   messageList: document.getElementById("messageList"),
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
@@ -222,6 +246,10 @@ const ui = {
   createChannelForm: document.getElementById("createChannelForm"),
   channelNameInput: document.getElementById("channelNameInput"),
   channelCancel: document.getElementById("channelCancel"),
+  topicDialog: document.getElementById("topicDialog"),
+  topicForm: document.getElementById("topicForm"),
+  topicInput: document.getElementById("topicInput"),
+  topicCancel: document.getElementById("topicCancel"),
   selfMenuDialog: document.getElementById("selfMenuDialog"),
   selfPopoutBanner: document.getElementById("selfPopoutBanner"),
   selfPopoutAvatar: document.getElementById("selfPopoutAvatar"),
@@ -368,6 +396,34 @@ function applyAvatarStyle(element, account) {
   }
 }
 
+function normalizeReactions(reactions) {
+  if (!Array.isArray(reactions)) return [];
+  return reactions
+    .filter((item) => item && typeof item.emoji === "string")
+    .map((item) => ({
+      emoji: item.emoji,
+      userIds: Array.isArray(item.userIds) ? item.userIds : []
+    }))
+    .filter((item) => item.userIds.length > 0);
+}
+
+function toggleReaction(message, emoji, userId) {
+  message.reactions = normalizeReactions(message.reactions);
+  let reaction = message.reactions.find((item) => item.emoji === emoji);
+  if (!reaction) {
+    reaction = { emoji, userIds: [userId] };
+    message.reactions.push(reaction);
+    return;
+  }
+  const idx = reaction.userIds.indexOf(userId);
+  if (idx === -1) {
+    reaction.userIds.push(userId);
+  } else {
+    reaction.userIds.splice(idx, 1);
+  }
+  message.reactions = message.reactions.filter((item) => item.userIds.length > 0);
+}
+
 function applyPreferencesToUI() {
   const prefs = getPreferences();
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
@@ -449,6 +505,7 @@ function renderMessages() {
   const channel = getActiveChannel();
   ui.messageList.innerHTML = "";
   ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
+  ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
   ui.messageInput.placeholder = channel ? `Message #${channel.name}` : "No channel selected";
 
   if (!channel) return;
@@ -476,10 +533,48 @@ function renderMessages() {
     text.className = "message-text";
     text.textContent = message.text;
 
+    const reactions = document.createElement("div");
+    reactions.className = "message-reactions";
+    const normalizedReactions = normalizeReactions(message.reactions);
+    const currentUser = getCurrentAccount();
+    normalizedReactions.forEach((item) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = `reaction-chip ${currentUser && item.userIds.includes(currentUser.id) ? "active" : ""}`;
+      chip.textContent = `${item.emoji} ${item.userIds.length}`;
+      if (currentUser) {
+        chip.addEventListener("click", () => {
+          toggleReaction(message, item.emoji, currentUser.id);
+          saveState();
+          renderMessages();
+        });
+      }
+      reactions.appendChild(chip);
+    });
+
+    const reactionPicker = document.createElement("div");
+    reactionPicker.className = "reaction-picker";
+    if (currentUser) {
+      DEFAULT_REACTIONS.forEach((emoji) => {
+        const pickerBtn = document.createElement("button");
+        pickerBtn.type = "button";
+        pickerBtn.textContent = emoji;
+        pickerBtn.title = `React with ${emoji}`;
+        pickerBtn.addEventListener("click", () => {
+          toggleReaction(message, emoji, currentUser.id);
+          saveState();
+          renderMessages();
+        });
+        reactionPicker.appendChild(pickerBtn);
+      });
+    }
+
     head.appendChild(userButton);
     head.appendChild(time);
     messageRow.appendChild(head);
     messageRow.appendChild(text);
+    messageRow.appendChild(reactions);
+    messageRow.appendChild(reactionPicker);
     ui.messageList.appendChild(messageRow);
   });
 
@@ -635,6 +730,13 @@ function openProfileEditor() {
   ui.profileDialog.showModal();
 }
 
+function openTopicEditor() {
+  const channel = getActiveChannel();
+  if (!channel) return;
+  ui.topicInput.value = channel.topic || "";
+  ui.topicDialog.showModal();
+}
+
 function createOrSwitchAccount(usernameInput) {
   const normalized = normalizeUsername(usernameInput);
   if (!normalized) return false;
@@ -678,7 +780,8 @@ ui.messageForm.addEventListener("submit", (event) => {
     userId: account.id,
     authorName: "",
     text,
-    ts: new Date().toISOString()
+    ts: new Date().toISOString(),
+    reactions: []
   });
 
   ui.messageInput.value = "";
@@ -709,6 +812,7 @@ ui.createServerForm.addEventListener("submit", (event) => {
       {
         id: generalId,
         name: "general",
+        topic: "General discussion",
         messages: []
       }
     ]
@@ -737,6 +841,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
   const channel = {
     id: createId(),
     name: sanitizeChannelName(ui.channelNameInput.value, "new-channel"),
+    topic: "",
     messages: []
   };
 
@@ -745,6 +850,20 @@ ui.createChannelForm.addEventListener("submit", (event) => {
   saveState();
   ui.createChannelDialog.close();
   render();
+});
+
+ui.editTopicBtn.addEventListener("click", openTopicEditor);
+
+ui.topicCancel.addEventListener("click", () => ui.topicDialog.close());
+
+ui.topicForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const channel = getActiveChannel();
+  if (!channel) return;
+  channel.topic = ui.topicInput.value.trim().slice(0, 140);
+  saveState();
+  ui.topicDialog.close();
+  renderMessages();
 });
 
 ui.selfProfileBtn.addEventListener("click", () => {
@@ -879,6 +998,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.profileDialog,
   ui.createServerDialog,
   ui.createChannelDialog,
+  ui.topicDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.accountSwitchDialog

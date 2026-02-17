@@ -13,7 +13,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Bottom-left account dock with avatar, display name, status, and settings gear.
 - Full-screen user settings page (Discord-style categories: My Account, Profiles, Appearance, Advanced).
 - Create servers and channels.
+- Channel topics with inline edit control in chat header.
 - Send messages as current user.
+- Lightweight emoji reactions on messages.
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
