@@ -14,7 +14,7 @@
     <div id="loginScreen" class="screen screen--active">
       <div class="login-card">
         <h1>Welcome back</h1>
-        <p>Sign in to continue to FlashCord</p>
+        <p>Sign in with a username to continue to FlashCord</p>
         <form id="loginForm">
           <label for="loginUsername">Username</label>
           <input id="loginUsername" type="text" maxlength="24" placeholder="Type a username" required />
@@ -33,10 +33,24 @@
       <aside class="channel-panel">
         <div class="channel-panel__header">
           <span id="activeServerName">Server</span>
-          <button id="editProfileBtn" class="text-btn">Edit profile</button>
         </div>
+
         <div id="channelList" class="channel-list"></div>
-        <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
+
+        <div class="channel-panel__bottom">
+          <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
+
+          <div class="account-dock">
+            <button id="selfProfileBtn" class="account-dock__main" title="Open profile">
+              <div id="dockAvatar" class="dock-avatar"></div>
+              <div class="dock-meta">
+                <strong id="dockName">User</strong>
+                <span id="dockStatus">Online</span>
+              </div>
+            </button>
+            <button id="openSettingsBtn" class="account-dock__gear" title="User settings">⚙</button>
+          </div>
+        </div>
       </aside>
 
       <main class="chat-panel">
@@ -52,13 +66,9 @@
         </form>
       </main>
 
-      <aside class="profile-panel">
-        <div id="profileBanner" class="profile-banner"></div>
-        <div class="profile-card">
-          <div id="profileAvatar" class="profile-avatar"></div>
-          <h3 id="profileName">User</h3>
-          <p id="profileBio">No bio yet.</p>
-        </div>
+      <aside class="member-panel">
+        <h3>Members</h3>
+        <div id="memberList" class="member-list"></div>
       </aside>
     </div>
   </div>
@@ -66,12 +76,25 @@
   <dialog id="profileDialog" class="modal">
     <form id="profileForm" class="modal-form" method="dialog">
       <h3>Edit profile</h3>
+      <label for="displayNameInput">Display name</label>
+      <input id="displayNameInput" type="text" maxlength="32" placeholder="Display name" />
       <label for="profileBioInput">Bio</label>
       <textarea id="profileBioInput" maxlength="180"></textarea>
+      <label for="profileStatusInput">Custom status</label>
+      <input id="profileStatusInput" type="text" maxlength="80" placeholder="Grinding channels..." />
+      <label for="presenceInput">Presence</label>
+      <select id="presenceInput">
+        <option value="online">Online</option>
+        <option value="idle">Idle</option>
+        <option value="dnd">Do Not Disturb</option>
+        <option value="invisible">Invisible</option>
+      </select>
       <label for="profileBannerInput">Banner color or image URL</label>
       <input id="profileBannerInput" type="text" placeholder="#3f51b5 or https://..." />
       <label for="profileAvatarInput">Avatar color</label>
       <input id="profileAvatarInput" type="text" placeholder="#57f287" />
+      <label for="profileAvatarUrlInput">Avatar image URL</label>
+      <input id="profileAvatarUrlInput" type="text" placeholder="https://..." />
       <div class="modal-actions">
         <button type="button" id="profileCancel">Cancel</button>
         <button type="submit">Save</button>
@@ -99,6 +122,48 @@
       <div class="modal-actions">
         <button type="button" id="channelCancel">Cancel</button>
         <button type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="selfMenuDialog" class="modal profile-popout">
+    <div class="profile-preview">
+      <div id="selfPopoutBanner" class="profile-preview__banner"></div>
+      <div class="profile-preview__body">
+        <div id="selfPopoutAvatar" class="profile-preview__avatar"></div>
+        <h4 id="selfPopoutName">User</h4>
+        <p id="selfPopoutStatus">Online</p>
+        <p id="selfPopoutBio">No bio yet.</p>
+      </div>
+      <div class="modal-actions modal-actions--stack">
+        <button type="button" id="selfEditProfile">Edit Profile</button>
+        <button type="button" id="selfSwitchAccount">Switch Account</button>
+        <button type="button" id="selfLogout">Log Out</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="userPopoutDialog" class="modal profile-popout">
+    <div class="profile-preview">
+      <div id="userPopoutBanner" class="profile-preview__banner"></div>
+      <div class="profile-preview__body">
+        <div id="userPopoutAvatar" class="profile-preview__avatar"></div>
+        <h4 id="userPopoutName">User</h4>
+        <p id="userPopoutStatus">Online</p>
+        <p id="userPopoutBio">No bio yet.</p>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="accountSwitchDialog" class="modal">
+    <form id="accountSwitchForm" class="modal-form" method="dialog">
+      <h3>Switch account</h3>
+      <div id="accountList" class="account-list"></div>
+      <label for="newAccountInput">Login as another username</label>
+      <input id="newAccountInput" type="text" maxlength="24" placeholder="new_username" />
+      <div class="modal-actions">
+        <button type="button" id="accountCancel">Cancel</button>
+        <button type="submit">Use account</button>
       </div>
     </form>
   </dialog>

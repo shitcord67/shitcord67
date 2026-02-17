@@ -9,11 +9,16 @@ A lightweight Discord-style chat client prototype with local persistence.
    - open `http://localhost:8080`
 
 ## Implemented
-- Login by username.
+- Login by username (creates/switches local accounts).
+- Bottom-left account dock with avatar, display name, status, and settings gear.
 - Create servers and channels.
 - Send messages as current user.
-- Profile customization: bio, avatar color, banner color/image URL.
-- Persisted state in `localStorage` (`flashcord-state-v1`).
+- Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
+- Click usernames in chat to open profile popouts.
+- Click members in the right sidebar to open profile popouts.
+- Server member list on the right, with presence dots.
+- Account switching popup and logout.
+- Persisted state in `localStorage` (`flashcord-state-v2`, with migration from `flashcord-state-v1`).
 
 ## Files
 - `index.html`: app shell and dialogs.
@@ -22,8 +27,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - `TODO`: roadmap for XMPP/Matrix and advanced features.
 
 ## Debugging
-- Open browser DevTools and inspect `localStorage` key `flashcord-state-v1`.
-- Clear/reset state by deleting that key and refreshing.
+- Open browser DevTools and inspect `localStorage` key `flashcord-state-v2`.
+- Clear/reset state by deleting `flashcord-state-v2` (or old `flashcord-state-v1`) and refreshing.
 
 ## Next architecture step
 Add a transport adapter layer so UI logic stays independent from protocol backends (local JSON, XMPP, Matrix).

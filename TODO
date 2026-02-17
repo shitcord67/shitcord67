@@ -11,6 +11,7 @@
 
 ## Near-term
 - Add message editing/deleting.
+- Add reply threading and basic message reactions.
 - Add per-server members list.
 - Add channel topic + channel settings.
 - Add simple slash commands (`/me`, `/shrug`, `/clear`).
@@ -34,3 +35,15 @@
 - Multiple accounts logged in at the same time.
 - Remote XMPP server developer interface (for example ejabberd).
 - SVG/SWF picker for flash and SVG animations.
+
+## Discord parity targets (from official docs)
+- Per-server profiles and avatar variants.
+- Rich status and custom status flow.
+- Thread channels for focused sub-conversations.
+- Forum channels with post-style discussion.
+- Full slash-command command palette and app command support.
+- Channel type expansion (voice, stage, announcement/media-like channel support).
+- Upload flow + media embeds + sticker/GIF experience.
+
+## Others (user added to TODO, feel free to reposition)
+- Clients should build a P2P network and attachments should be stored there to make expensive server storage unnecessary
