@@ -11,11 +11,13 @@ A lightweight Discord-style chat client prototype with local persistence.
 ## Implemented
 - Login by username (creates/switches local accounts).
 - Bottom-left account dock with avatar, display name, status, and settings gear.
+- Full-screen user settings page (Discord-style categories: My Account, Profiles, Appearance, Advanced).
 - Create servers and channels.
 - Send messages as current user.
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
+- Popouts/dialogs close by clicking outside the card content.
 - Server member list on the right, with presence dots.
 - Account switching popup and logout.
 - Persisted state in `localStorage` (`flashcord-state-v2`, with migration from `flashcord-state-v1`).

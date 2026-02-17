@@ -44,6 +44,13 @@
 - Full slash-command command palette and app command support.
 - Channel type expansion (voice, stage, announcement/media-like channel support).
 - Upload flow + media embeds + sticker/GIF experience.
+- Reactions on messages.
+- Full user settings breadth (privacy, notifications, keybinds, accessibility, voice/video).
 
 ## Others (user added to TODO, feel free to reposition)
 - Clients should build a P2P network and attachments should be stored there to make expensive server storage unnecessary
+- Group servers/guild together
+- Vencord-like plugins
+- Widgets like Element Matrix messenger
+- More XMPP spec extensions
+- Read more on Discord blogpost about features, investigate screenshots

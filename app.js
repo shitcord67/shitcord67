@@ -64,7 +64,15 @@ function buildInitialState() {
       }
     ],
     activeServerId: serverId,
-    activeChannelId: channelId
+    activeChannelId: channelId,
+    preferences: {
+      uiScale: 100,
+      compactMembers: "off",
+      developerMode: "off",
+      debugOverlay: "off",
+      mute: "off",
+      deafen: "off"
+    }
   };
 }
 
@@ -84,6 +92,9 @@ function createAccount(username, displayName = "") {
 
 function migrateState(raw) {
   if (raw && Array.isArray(raw.accounts) && Array.isArray(raw.servers)) {
+    if (!raw.preferences || typeof raw.preferences !== "object") {
+      raw.preferences = buildInitialState().preferences;
+    }
     return raw;
   }
 
@@ -182,10 +193,14 @@ const ui = {
   messageList: document.getElementById("messageList"),
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
+  settingsScreen: document.getElementById("settingsScreen"),
   dockAvatar: document.getElementById("dockAvatar"),
+  dockPresenceDot: document.getElementById("dockPresenceDot"),
   dockName: document.getElementById("dockName"),
   dockStatus: document.getElementById("dockStatus"),
   selfProfileBtn: document.getElementById("selfProfileBtn"),
+  dockMuteBtn: document.getElementById("dockMuteBtn"),
+  dockHeadphonesBtn: document.getElementById("dockHeadphonesBtn"),
   openSettingsBtn: document.getElementById("openSettingsBtn"),
   createServerBtn: document.getElementById("createServerBtn"),
   createChannelBtn: document.getElementById("createChannelBtn"),
@@ -226,7 +241,24 @@ const ui = {
   accountSwitchForm: document.getElementById("accountSwitchForm"),
   accountList: document.getElementById("accountList"),
   newAccountInput: document.getElementById("newAccountInput"),
-  accountCancel: document.getElementById("accountCancel")
+  accountCancel: document.getElementById("accountCancel"),
+  settingsTitle: document.getElementById("settingsTitle"),
+  closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+  settingsDisplayName: document.getElementById("settingsDisplayName"),
+  settingsUsername: document.getElementById("settingsUsername"),
+  settingsCurrentStatus: document.getElementById("settingsCurrentStatus"),
+  settingsEditProfile: document.getElementById("settingsEditProfile"),
+  settingsSwitchAccount: document.getElementById("settingsSwitchAccount"),
+  settingsLogout: document.getElementById("settingsLogout"),
+  settingsOpenProfileEditor: document.getElementById("settingsOpenProfileEditor"),
+  appearanceForm: document.getElementById("appearanceForm"),
+  uiScaleInput: document.getElementById("uiScaleInput"),
+  compactModeInput: document.getElementById("compactModeInput"),
+  advancedForm: document.getElementById("advancedForm"),
+  developerModeInput: document.getElementById("developerModeInput"),
+  debugOverlayInput: document.getElementById("debugOverlayInput"),
+  settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
+  settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
 
 function saveState() {
@@ -282,6 +314,23 @@ function normalizePresence(value) {
   return "online";
 }
 
+function normalizeToggle(value) {
+  return value === "on" ? "on" : "off";
+}
+
+function getPreferences() {
+  const defaults = buildInitialState().preferences;
+  const current = state.preferences || {};
+  return {
+    uiScale: Number.isFinite(Number(current.uiScale)) ? Math.min(115, Math.max(90, Number(current.uiScale))) : defaults.uiScale,
+    compactMembers: normalizeToggle(current.compactMembers),
+    developerMode: normalizeToggle(current.developerMode),
+    debugOverlay: normalizeToggle(current.debugOverlay),
+    mute: normalizeToggle(current.mute),
+    deafen: normalizeToggle(current.deafen)
+  };
+}
+
 function displayStatus(account) {
   if (!account) return "Offline";
   return account.customStatus.trim() || presenceLabel(account.presence);
@@ -317,6 +366,16 @@ function applyAvatarStyle(element, account) {
     element.style.backgroundSize = "cover";
     element.style.backgroundPosition = "center";
   }
+}
+
+function applyPreferencesToUI() {
+  const prefs = getPreferences();
+  document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
+  document.body.dataset.compactMembers = prefs.compactMembers;
+  document.body.dataset.developerMode = prefs.developerMode;
+  document.body.dataset.debugOverlay = prefs.debugOverlay;
+  ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
+  ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
 }
 
 function displayNameForMessage(message) {
@@ -463,6 +522,7 @@ function renderDock() {
   ui.dockName.textContent = account.displayName || account.username;
   ui.dockStatus.textContent = displayStatus(account);
   applyAvatarStyle(ui.dockAvatar, account);
+  ui.dockPresenceDot.className = `dock-presence-dot presence-${normalizePresence(account.presence)}`;
 }
 
 function renderSelfPopout() {
@@ -495,8 +555,61 @@ function renderAccountSwitchList() {
   });
 }
 
+function setSettingsTab(tabId) {
+  const tabTitles = {
+    "my-account": "My Account",
+    profiles: "Profiles",
+    appearance: "Appearance",
+    advanced: "Advanced"
+  };
+  ui.settingsTitle.textContent = tabTitles[tabId] || "User Settings";
+  ui.settingsNavItems.forEach((item) => {
+    item.classList.toggle("active", item.dataset.settingsTab === tabId);
+  });
+  ui.settingsPanels.forEach((panel) => {
+    panel.classList.toggle("settings-panel--active", panel.dataset.settingsPanel === tabId);
+  });
+}
+
+function renderSettingsScreen() {
+  const account = getCurrentAccount();
+  const prefs = getPreferences();
+  if (!account) return;
+  ui.settingsDisplayName.textContent = account.displayName || account.username;
+  ui.settingsUsername.textContent = `@${account.username}`;
+  ui.settingsCurrentStatus.textContent = displayStatus(account);
+  ui.uiScaleInput.value = String(prefs.uiScale);
+  ui.compactModeInput.value = prefs.compactMembers;
+  ui.developerModeInput.value = prefs.developerMode;
+  ui.debugOverlayInput.value = prefs.debugOverlay;
+}
+
+function openSettingsScreen() {
+  renderSettingsScreen();
+  setSettingsTab("my-account");
+  ui.settingsScreen.classList.add("settings-screen--active");
+}
+
+function closeSettingsScreen() {
+  ui.settingsScreen.classList.remove("settings-screen--active");
+}
+
+function wireDialogBackdropClose(dialog) {
+  dialog.addEventListener("click", (event) => {
+    const bounds = dialog.getBoundingClientRect();
+    const inDialog = (
+      event.clientX >= bounds.left &&
+      event.clientX <= bounds.right &&
+      event.clientY >= bounds.top &&
+      event.clientY <= bounds.bottom
+    );
+    if (!inDialog) dialog.close();
+  });
+}
+
 function render() {
   renderScreens();
+  applyPreferencesToUI();
   if (!state.currentAccountId) return;
   if (ensureCurrentUserInActiveServer()) {
     saveState();
@@ -506,6 +619,7 @@ function render() {
   renderMessages();
   renderMemberList();
   renderDock();
+  renderSettingsScreen();
 }
 
 function openProfileEditor() {
@@ -638,7 +752,70 @@ ui.selfProfileBtn.addEventListener("click", () => {
   ui.selfMenuDialog.showModal();
 });
 
-ui.openSettingsBtn.addEventListener("click", openProfileEditor);
+ui.openSettingsBtn.addEventListener("click", openSettingsScreen);
+
+ui.closeSettingsBtn.addEventListener("click", closeSettingsScreen);
+
+ui.settingsNavItems.forEach((item) => {
+  item.addEventListener("click", () => setSettingsTab(item.dataset.settingsTab));
+});
+
+ui.settingsEditProfile.addEventListener("click", () => {
+  closeSettingsScreen();
+  openProfileEditor();
+});
+
+ui.settingsOpenProfileEditor.addEventListener("click", () => {
+  closeSettingsScreen();
+  openProfileEditor();
+});
+
+ui.settingsSwitchAccount.addEventListener("click", () => {
+  closeSettingsScreen();
+  selectedSwitchAccountId = state.currentAccountId;
+  renderAccountSwitchList();
+  ui.newAccountInput.value = "";
+  ui.accountSwitchDialog.showModal();
+});
+
+ui.settingsLogout.addEventListener("click", () => {
+  state.currentAccountId = null;
+  closeSettingsScreen();
+  saveState();
+  render();
+});
+
+ui.appearanceForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.preferences = getPreferences();
+  state.preferences.uiScale = Math.min(115, Math.max(90, Number(ui.uiScaleInput.value) || 100));
+  state.preferences.compactMembers = normalizeToggle(ui.compactModeInput.value);
+  saveState();
+  render();
+});
+
+ui.advancedForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.preferences = getPreferences();
+  state.preferences.developerMode = normalizeToggle(ui.developerModeInput.value);
+  state.preferences.debugOverlay = normalizeToggle(ui.debugOverlayInput.value);
+  saveState();
+  render();
+});
+
+ui.dockMuteBtn.addEventListener("click", () => {
+  state.preferences = getPreferences();
+  state.preferences.mute = state.preferences.mute === "on" ? "off" : "on";
+  saveState();
+  applyPreferencesToUI();
+});
+
+ui.dockHeadphonesBtn.addEventListener("click", () => {
+  state.preferences = getPreferences();
+  state.preferences.deafen = state.preferences.deafen === "on" ? "off" : "on";
+  saveState();
+  applyPreferencesToUI();
+});
 
 ui.selfEditProfile.addEventListener("click", () => {
   ui.selfMenuDialog.close();
@@ -696,6 +873,21 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   saveState();
   ui.accountSwitchDialog.close();
   render();
+});
+
+[
+  ui.profileDialog,
+  ui.createServerDialog,
+  ui.createChannelDialog,
+  ui.selfMenuDialog,
+  ui.userPopoutDialog,
+  ui.accountSwitchDialog
+].forEach(wireDialogBackdropClose);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && ui.settingsScreen.classList.contains("settings-screen--active")) {
+    closeSettingsScreen();
+  }
 });
 
 render();

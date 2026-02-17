@@ -20,6 +20,7 @@ body {
   background: var(--bg-main);
   color: var(--text-main);
   min-height: 100vh;
+  font-size: var(--ui-scale, 100%);
 }
 
 button,
@@ -207,11 +208,15 @@ button {
 }
 
 .account-dock {
-  background: #232428;
-  border-radius: 8px;
+  background:
+    linear-gradient(160deg, rgba(92, 133, 90, 0.28), rgba(35, 36, 40, 0.95)),
+    #232428;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   min-height: 52px;
+  border: 1px solid #34363b;
+  overflow: hidden;
 }
 
 .account-dock__main {
@@ -222,22 +227,32 @@ button {
   background: transparent;
   color: #fff;
   text-align: left;
-  padding: 0.35rem 0.45rem;
+  padding: 0.35rem 0.35rem;
+  min-height: 50px;
 }
 
 .account-dock__main:hover,
-.account-dock__gear:hover {
+.account-dock__icon:hover {
   background: #3d4047;
 }
 
-.account-dock__gear {
-  width: 42px;
-  height: 42px;
-  border-radius: 6px;
+.account-dock__actions {
+  display: flex;
+  align-items: center;
+  padding-right: 0.2rem;
+}
+
+.account-dock__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
   background: transparent;
   color: #c8ccd2;
-  font-size: 1rem;
-  margin-right: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.dock-avatar-wrap {
+  position: relative;
 }
 
 .dock-avatar {
@@ -249,18 +264,36 @@ button {
   background-position: center;
 }
 
+.dock-presence-dot {
+  width: 11px;
+  height: 11px;
+  border: 2px solid #232428;
+  border-radius: 50%;
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+}
+
 .dock-meta {
   display: grid;
+  line-height: 1.1;
 }
 
 .dock-meta strong {
-  font-size: 0.83rem;
-  line-height: 1;
+  font-size: 0.8rem;
+  max-width: 106px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dock-meta span {
-  color: #b8bdc5;
-  font-size: 0.74rem;
+  color: #c5cad1;
+  font-size: 0.72rem;
+  max-width: 106px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-panel {
@@ -367,6 +400,11 @@ button {
   padding: 0.4rem;
   border-radius: 6px;
   text-align: left;
+}
+
+body[data-compact-members="on"] .member-item {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 
 .member-item:hover {
@@ -520,6 +558,126 @@ button {
   background: #5865f2;
 }
 
+.settings-screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  grid-template-columns: 250px 1fr;
+  background: #313338;
+  z-index: 20;
+}
+
+.settings-screen.settings-screen--active {
+  display: grid;
+}
+
+.settings-nav {
+  background: #2b2d31;
+  border-right: 1px solid #1f2023;
+  padding: 1.25rem 0.7rem;
+}
+
+.settings-nav__title {
+  color: #f2f3f5;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  margin: 0 0.5rem 0.7rem;
+}
+
+.settings-nav__item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #b5bac1;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.2rem;
+}
+
+.settings-nav__item.active {
+  background: #404249;
+  color: #fff;
+}
+
+.settings-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.settings-content__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.settings-content__header h2 {
+  margin: 0;
+}
+
+.settings-close {
+  background: transparent;
+  color: #b5bac1;
+  border: 1px solid #646871;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.settings-panel {
+  display: none;
+}
+
+.settings-panel--active {
+  display: block;
+}
+
+.settings-card {
+  background: #232428;
+  border: 1px solid #17181b;
+  border-radius: 12px;
+  padding: 1rem;
+  max-width: 720px;
+}
+
+.settings-card h3 {
+  margin-top: 0;
+}
+
+.settings-inline-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 0.7rem;
+}
+
+.settings-inline-actions button,
+.settings-card > button,
+.settings-card button[type="submit"] {
+  background: #5865f2;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+}
+
+body[data-developer-mode="on"]::before {
+  content: "DEV MODE";
+  position: fixed;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  background: #111214;
+  color: #ffcc66;
+  border: 1px solid #34363b;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.35rem;
+  z-index: 30;
+}
+
+body[data-debug-overlay="on"] .chat-panel {
+  outline: 2px dashed rgba(88, 101, 242, 0.55);
+  outline-offset: -2px;
+}
+
 @media (max-width: 1080px) {
   #chatScreen.screen--active {
     grid-template-columns: 72px 240px 1fr;
@@ -536,6 +694,14 @@ button {
   }
 
   .channel-panel {
+    display: none;
+  }
+
+  .settings-screen.settings-screen--active {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-nav {
     display: none;
   }
 }

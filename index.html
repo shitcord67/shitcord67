@@ -42,13 +42,20 @@
 
           <div class="account-dock">
             <button id="selfProfileBtn" class="account-dock__main" title="Open profile">
-              <div id="dockAvatar" class="dock-avatar"></div>
+              <div class="dock-avatar-wrap">
+                <div id="dockAvatar" class="dock-avatar"></div>
+                <span id="dockPresenceDot" class="dock-presence-dot presence-online"></span>
+              </div>
               <div class="dock-meta">
                 <strong id="dockName">User</strong>
                 <span id="dockStatus">Online</span>
               </div>
             </button>
-            <button id="openSettingsBtn" class="account-dock__gear" title="User settings">⚙</button>
+            <div class="account-dock__actions">
+              <button id="dockMuteBtn" class="account-dock__icon" title="Mute">🎤</button>
+              <button id="dockHeadphonesBtn" class="account-dock__icon" title="Deafen">🎧</button>
+              <button id="openSettingsBtn" class="account-dock__icon" title="User settings">⚙</button>
+            </div>
           </div>
         </div>
       </aside>
@@ -71,6 +78,75 @@
         <div id="memberList" class="member-list"></div>
       </aside>
     </div>
+
+    <section id="settingsScreen" class="settings-screen">
+      <aside class="settings-nav">
+        <div class="settings-nav__title">User Settings</div>
+        <button class="settings-nav__item active" data-settings-tab="my-account">My Account</button>
+        <button class="settings-nav__item" data-settings-tab="profiles">Profiles</button>
+        <button class="settings-nav__item" data-settings-tab="appearance">Appearance</button>
+        <button class="settings-nav__item" data-settings-tab="advanced">Advanced</button>
+      </aside>
+      <main class="settings-content">
+        <header class="settings-content__header">
+          <h2 id="settingsTitle">My Account</h2>
+          <button id="closeSettingsBtn" class="settings-close" title="Close">✕</button>
+        </header>
+
+        <section class="settings-panel settings-panel--active" data-settings-panel="my-account">
+          <div class="settings-card">
+            <h3>Account</h3>
+            <p><strong id="settingsDisplayName">User</strong></p>
+            <p id="settingsUsername">@user</p>
+            <p id="settingsCurrentStatus">Online</p>
+            <div class="settings-inline-actions">
+              <button id="settingsEditProfile" type="button">Edit Profile</button>
+              <button id="settingsSwitchAccount" type="button">Switch Account</button>
+              <button id="settingsLogout" type="button">Log Out</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-panel" data-settings-panel="profiles">
+          <div class="settings-card">
+            <h3>Profile Quick Edit</h3>
+            <p>Use the edit profile flow to change banner, bio, status, avatar, and display name.</p>
+            <button id="settingsOpenProfileEditor" type="button">Open Profile Editor</button>
+          </div>
+        </section>
+
+        <section class="settings-panel" data-settings-panel="appearance">
+          <form id="appearanceForm" class="settings-card">
+            <h3>Appearance</h3>
+            <label for="uiScaleInput">UI Scale</label>
+            <input id="uiScaleInput" type="range" min="90" max="115" step="1" />
+            <label for="compactModeInput">Compact member list</label>
+            <select id="compactModeInput">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+            <button type="submit">Save Appearance</button>
+          </form>
+        </section>
+
+        <section class="settings-panel" data-settings-panel="advanced">
+          <form id="advancedForm" class="settings-card">
+            <h3>Advanced</h3>
+            <label for="developerModeInput">Developer mode</label>
+            <select id="developerModeInput">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+            <label for="debugOverlayInput">Debug overlay</label>
+            <select id="debugOverlayInput">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+            <button type="submit">Save Advanced</button>
+          </form>
+        </section>
+      </main>
+    </section>
   </div>
 
   <dialog id="profileDialog" class="modal">
