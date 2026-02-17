@@ -219,6 +219,18 @@
     </form>
   </dialog>
 
+  <dialog id="messageEditDialog" class="modal">
+    <form id="messageEditForm" class="modal-form" method="dialog">
+      <h3>Edit message</h3>
+      <label for="messageEditInput">Message</label>
+      <textarea id="messageEditInput" maxlength="400"></textarea>
+      <div class="modal-actions">
+        <button type="button" id="messageEditCancel">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="selfMenuDialog" class="modal profile-popout">
     <div class="profile-preview">
       <div id="selfPopoutBanner" class="profile-preview__banner"></div>
