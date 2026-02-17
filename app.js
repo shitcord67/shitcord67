@@ -201,6 +201,7 @@ function loadState() {
 
 let state = loadState();
 let selectedSwitchAccountId = null;
+let messageEditTarget = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -250,6 +251,10 @@ const ui = {
   topicForm: document.getElementById("topicForm"),
   topicInput: document.getElementById("topicInput"),
   topicCancel: document.getElementById("topicCancel"),
+  messageEditDialog: document.getElementById("messageEditDialog"),
+  messageEditForm: document.getElementById("messageEditForm"),
+  messageEditInput: document.getElementById("messageEditInput"),
+  messageEditCancel: document.getElementById("messageEditCancel"),
   selfMenuDialog: document.getElementById("selfMenuDialog"),
   selfPopoutBanner: document.getElementById("selfPopoutBanner"),
   selfPopoutAvatar: document.getElementById("selfPopoutAvatar"),
@@ -313,6 +318,19 @@ function getActiveChannel() {
   const server = getActiveServer();
   if (!server) return null;
   return server.channels.find((channel) => channel.id === state.activeChannelId) || null;
+}
+
+function findChannelById(channelId) {
+  for (const server of state.servers) {
+    const found = server.channels.find((channel) => channel.id === channelId);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findMessageInChannel(channel, messageId) {
+  if (!channel) return null;
+  return channel.messages.find((message) => message.id === messageId) || null;
 }
 
 function ensureCurrentUserInActiveServer() {
@@ -424,6 +442,75 @@ function toggleReaction(message, emoji, userId) {
   message.reactions = message.reactions.filter((item) => item.userIds.length > 0);
 }
 
+function addSystemMessage(channel, text) {
+  channel.messages.push({
+    id: createId(),
+    userId: null,
+    authorName: "system",
+    text,
+    ts: new Date().toISOString(),
+    reactions: []
+  });
+}
+
+function handleSlashCommand(rawText, channel, account) {
+  if (!rawText.startsWith("/")) return false;
+  const [command, ...rest] = rawText.slice(1).split(" ");
+  const arg = rest.join(" ").trim();
+
+  if (command === "me") {
+    if (!arg) return true;
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `*${account.displayName || account.username} ${arg}*`,
+      ts: new Date().toISOString(),
+      reactions: []
+    });
+    return true;
+  }
+
+  if (command === "shrug") {
+    const suffix = arg ? `${arg} ` : "";
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `${suffix}¯\\_(ツ)_/¯`,
+      ts: new Date().toISOString(),
+      reactions: []
+    });
+    return true;
+  }
+
+  if (command === "clear") {
+    channel.messages = [];
+    addSystemMessage(channel, "Channel history cleared.");
+    return true;
+  }
+
+  if (command === "topic") {
+    channel.topic = arg.slice(0, 140);
+    addSystemMessage(channel, channel.topic ? `Topic updated: ${channel.topic}` : "Topic cleared.");
+    return true;
+  }
+
+  if (command === "help") {
+    addSystemMessage(channel, "Commands: /me <text>, /shrug [text], /topic <text>, /clear, /help");
+    return true;
+  }
+
+  addSystemMessage(channel, `Unknown command: /${command}`);
+  return true;
+}
+
+function openMessageEditor(channelId, messageId, messageText) {
+  messageEditTarget = { channelId, messageId };
+  ui.messageEditInput.value = messageText || "";
+  ui.messageEditDialog.showModal();
+}
+
 function applyPreferencesToUI() {
   const prefs = getPreferences();
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
@@ -511,8 +598,10 @@ function renderMessages() {
   if (!channel) return;
 
   channel.messages.forEach((message) => {
+    const currentUser = getCurrentAccount();
     const messageRow = document.createElement("article");
     messageRow.className = "message";
+    messageRow.dataset.messageId = message.id;
 
     const head = document.createElement("div");
     head.className = "message-head";
@@ -533,10 +622,44 @@ function renderMessages() {
     text.className = "message-text";
     text.textContent = message.text;
 
+    const actionBar = document.createElement("div");
+    actionBar.className = "message-actions";
+
+    const reactBtn = document.createElement("button");
+    reactBtn.type = "button";
+    reactBtn.className = "message-action-btn";
+    reactBtn.textContent = "React";
+    reactBtn.addEventListener("click", () => {
+      const pickerBtn = reactionPicker.querySelector("button");
+      if (pickerBtn) pickerBtn.click();
+    });
+    actionBar.appendChild(reactBtn);
+
+    if (currentUser && message.userId === currentUser.id) {
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "message-action-btn";
+      editBtn.textContent = "Edit";
+      editBtn.addEventListener("click", () => openMessageEditor(channel.id, message.id, message.text));
+      actionBar.appendChild(editBtn);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "message-action-btn";
+      deleteBtn.textContent = "Delete";
+      deleteBtn.addEventListener("click", () => {
+        const scopedChannel = findChannelById(channel.id);
+        if (!scopedChannel) return;
+        scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
+        saveState();
+        renderMessages();
+      });
+      actionBar.appendChild(deleteBtn);
+    }
+
     const reactions = document.createElement("div");
     reactions.className = "message-reactions";
     const normalizedReactions = normalizeReactions(message.reactions);
-    const currentUser = getCurrentAccount();
     normalizedReactions.forEach((item) => {
       const chip = document.createElement("button");
       chip.type = "button";
@@ -572,6 +695,7 @@ function renderMessages() {
     head.appendChild(userButton);
     head.appendChild(time);
     messageRow.appendChild(head);
+    messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
     messageRow.appendChild(reactions);
     messageRow.appendChild(reactionPicker);
@@ -586,28 +710,50 @@ function renderMemberList() {
   ui.memberList.innerHTML = "";
   if (!server) return;
 
+  const online = [];
+  const offline = [];
+
   server.memberIds.forEach((memberId) => {
     const account = getAccountById(memberId);
     if (!account) return;
+    if (normalizePresence(account.presence) === "invisible") {
+      offline.push(account);
+    } else {
+      online.push(account);
+    }
+  });
 
-    const row = document.createElement("button");
-    row.className = "member-item";
+  const groups = [
+    { title: `Online — ${online.length}`, items: online },
+    { title: `Offline — ${offline.length}`, items: offline }
+  ];
 
-    const avatar = document.createElement("div");
-    avatar.className = "member-avatar";
-    applyAvatarStyle(avatar, account);
+  groups.forEach((group) => {
+    const title = document.createElement("div");
+    title.className = "member-group-title";
+    title.textContent = group.title;
+    ui.memberList.appendChild(title);
 
-    const dot = document.createElement("span");
-    dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
-    avatar.appendChild(dot);
+    group.items.forEach((account) => {
+      const row = document.createElement("button");
+      row.className = "member-item";
 
-    const label = document.createElement("span");
-    label.textContent = account.displayName || account.username;
+      const avatar = document.createElement("div");
+      avatar.className = "member-avatar";
+      applyAvatarStyle(avatar, account);
 
-    row.appendChild(avatar);
-    row.appendChild(label);
-    row.addEventListener("click", () => openUserPopout(account));
-    ui.memberList.appendChild(row);
+      const dot = document.createElement("span");
+      dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
+      avatar.appendChild(dot);
+
+      const label = document.createElement("span");
+      label.textContent = account.displayName || account.username;
+
+      row.appendChild(avatar);
+      row.appendChild(label);
+      row.addEventListener("click", () => openUserPopout(account));
+      ui.memberList.appendChild(row);
+    });
   });
 }
 
@@ -775,14 +921,16 @@ ui.messageForm.addEventListener("submit", (event) => {
   if (!channel || !account || !text) return;
 
   ensureCurrentUserInActiveServer();
-  channel.messages.push({
-    id: createId(),
-    userId: account.id,
-    authorName: "",
-    text,
-    ts: new Date().toISOString(),
-    reactions: []
-  });
+  if (!handleSlashCommand(text, channel, account)) {
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text,
+      ts: new Date().toISOString(),
+      reactions: []
+    });
+  }
 
   ui.messageInput.value = "";
   saveState();
@@ -863,6 +1011,24 @@ ui.topicForm.addEventListener("submit", (event) => {
   channel.topic = ui.topicInput.value.trim().slice(0, 140);
   saveState();
   ui.topicDialog.close();
+  renderMessages();
+});
+
+ui.messageEditCancel.addEventListener("click", () => {
+  messageEditTarget = null;
+  ui.messageEditDialog.close();
+});
+
+ui.messageEditForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!messageEditTarget) return;
+  const scopedChannel = findChannelById(messageEditTarget.channelId);
+  const scopedMessage = findMessageInChannel(scopedChannel, messageEditTarget.messageId);
+  if (!scopedChannel || !scopedMessage) return;
+  scopedMessage.text = ui.messageEditInput.value.trim().slice(0, 400);
+  saveState();
+  messageEditTarget = null;
+  ui.messageEditDialog.close();
   renderMessages();
 });
 
@@ -999,6 +1165,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.createServerDialog,
   ui.createChannelDialog,
   ui.topicDialog,
+  ui.messageEditDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.accountSwitchDialog

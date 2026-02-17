@@ -351,6 +351,13 @@ button {
 
 .message {
   margin-bottom: 1rem;
+  position: relative;
+  border-radius: 6px;
+  padding: 0.15rem 0.35rem 0.25rem;
+}
+
+.message:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .message-head {
@@ -382,6 +389,40 @@ button {
   white-space: pre-wrap;
 }
 
+.message-actions {
+  position: absolute;
+  right: 0.4rem;
+  top: -0.55rem;
+  display: flex;
+  gap: 0.25rem;
+  background: #1f2124;
+  border: 1px solid #2f3238;
+  border-radius: 8px;
+  padding: 0.2rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.message:hover .message-actions,
+.message:focus-within .message-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.message-action-btn {
+  background: transparent;
+  color: #bdc2cb;
+  border-radius: 5px;
+  padding: 0.18rem 0.35rem;
+  font-size: 0.73rem;
+}
+
+.message-action-btn:hover {
+  background: #3a3d44;
+  color: #fff;
+}
+
 .message-reactions {
   display: flex;
   flex-wrap: wrap;
@@ -407,6 +448,15 @@ button {
   display: flex;
   gap: 0.25rem;
   margin-top: 0.35rem;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+.message:hover .reaction-picker,
+.message:focus-within .reaction-picker {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .reaction-picker button {
@@ -454,6 +504,14 @@ button {
 .member-list {
   display: grid;
   gap: 0.25rem;
+}
+
+.member-group-title {
+  margin: 0.45rem 0 0.2rem;
+  color: #a8adb5;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 800;
 }
 
 .member-item {
