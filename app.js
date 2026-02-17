@@ -4,6 +4,8 @@ const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "me", args: "<text>", description: "Send an action-style message." },
   { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
+  { name: "nick", args: "<display name>", description: "Set your display name for this account." },
+  { name: "status", args: "<text>", description: "Set your custom status message." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "clear", args: "", description: "Clear all messages in this channel." }
 ];
@@ -510,6 +512,20 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "nick") {
+    if (arg) {
+      account.displayName = arg.slice(0, 32);
+      addSystemMessage(channel, `Display name changed to ${account.displayName}.`);
+    }
+    return true;
+  }
+
+  if (command === "status") {
+    account.customStatus = arg.slice(0, 80);
+    addSystemMessage(channel, account.customStatus ? `Status set to: ${account.customStatus}` : "Status cleared.");
+    return true;
+  }
+
   if (command === "help") {
     const summary = SLASH_COMMANDS
       .map((entry) => `/${entry.name}${entry.args ? ` ${entry.args}` : ""}`)
@@ -561,7 +577,10 @@ function renderSlashSuggestions() {
       slashSelectionIndex = index;
       renderSlashSuggestions();
     });
-    item.addEventListener("click", () => applySlashCompletion(command.name));
+    item.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      applySlashCompletion(command.name);
+    });
     ui.slashCommandList.appendChild(item);
   });
 }
@@ -673,6 +692,7 @@ function renderMessages() {
     const messageRow = document.createElement("article");
     messageRow.className = "message";
     messageRow.dataset.messageId = message.id;
+    let replyLine = null;
 
     const head = document.createElement("div");
     head.className = "message-head";
@@ -694,7 +714,7 @@ function renderMessages() {
     text.textContent = message.text;
 
     if (message.replyTo && typeof message.replyTo === "object") {
-      const replyLine = document.createElement("div");
+      replyLine = document.createElement("div");
       replyLine.className = "message-reply";
       const replyName = document.createElement("strong");
       replyName.textContent = message.replyTo.authorName || "Unknown";
@@ -704,7 +724,6 @@ function renderMessages() {
       replyLine.appendChild(replyName);
       replyLine.appendChild(document.createTextNode(": "));
       replyLine.appendChild(replyText);
-      messageRow.appendChild(replyLine);
     }
 
     const actionBar = document.createElement("div");
@@ -796,6 +815,7 @@ function renderMessages() {
     head.appendChild(userButton);
     head.appendChild(time);
     messageRow.appendChild(head);
+    if (replyLine) messageRow.appendChild(replyLine);
     messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
     messageRow.appendChild(reactions);
