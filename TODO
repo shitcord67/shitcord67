@@ -1,0 +1,36 @@
+# FlashCord TODO
+
+## Done (basic MVP)
+- Username login.
+- Discord-like multi-pane layout (server rail, channel list, chat, profile card).
+- Local profile customization: bio, avatar color, banner color or URL.
+- Create servers (guilds).
+- Create text channels.
+- Send messages as logged-in user.
+- Local persistence via browser storage for easy debugging and rapid iteration.
+
+## Near-term
+- Add message editing/deleting.
+- Add per-server members list.
+- Add channel topic + channel settings.
+- Add simple slash commands (`/me`, `/shrug`, `/clear`).
+- Add import/export JSON snapshot for backup and testing.
+- Add profile image upload and validation.
+
+## Protocol/transport path
+- Define transport adapter interface (`send`, `subscribe`, `fetchHistory`, `presence`).
+- Build `local-json` adapter first (file-backed or websocket-backed).
+- Add XMPP adapter skeleton (MUC rooms mapped to guild/channel abstraction).
+- Add Matrix adapter skeleton (space/room mapping).
+
+## Existing ideas to revisit
+- If possible make it Discord-API or discord.js compatible.
+- WebXDC.
+- SVG display support in chat.
+- In-line slash commands with rich media embeds.
+- GIF and sticker picker with provider consent and local fallback.
+- Forums: https://xmpp.org/extensions/xep-0508.html
+- XMPP Whiteboard plugin.
+- Multiple accounts logged in at the same time.
+- Remote XMPP server developer interface (for example ejabberd).
+- SVG/SWF picker for flash and SVG animations.

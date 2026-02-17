@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlashCord</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="loginScreen" class="screen screen--active">
+      <div class="login-card">
+        <h1>Welcome back</h1>
+        <p>Sign in to continue to FlashCord</p>
+        <form id="loginForm">
+          <label for="loginUsername">Username</label>
+          <input id="loginUsername" type="text" maxlength="24" placeholder="Type a username" required />
+          <button type="submit">Enter</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="chatScreen" class="screen">
+      <aside class="server-rail">
+        <div class="server-brand">FC</div>
+        <div id="serverList" class="server-list"></div>
+        <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Server">+</button>
+      </aside>
+
+      <aside class="channel-panel">
+        <div class="channel-panel__header">
+          <span id="activeServerName">Server</span>
+          <button id="editProfileBtn" class="text-btn">Edit profile</button>
+        </div>
+        <div id="channelList" class="channel-list"></div>
+        <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header">
+          <h2 id="activeChannelName">#general</h2>
+        </header>
+
+        <section id="messageList" class="message-list"></section>
+
+        <form id="messageForm" class="message-form">
+          <input id="messageInput" type="text" maxlength="400" placeholder="Message #general" required />
+          <button type="submit">Send</button>
+        </form>
+      </main>
+
+      <aside class="profile-panel">
+        <div id="profileBanner" class="profile-banner"></div>
+        <div class="profile-card">
+          <div id="profileAvatar" class="profile-avatar"></div>
+          <h3 id="profileName">User</h3>
+          <p id="profileBio">No bio yet.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <dialog id="profileDialog" class="modal">
+    <form id="profileForm" class="modal-form" method="dialog">
+      <h3>Edit profile</h3>
+      <label for="profileBioInput">Bio</label>
+      <textarea id="profileBioInput" maxlength="180"></textarea>
+      <label for="profileBannerInput">Banner color or image URL</label>
+      <input id="profileBannerInput" type="text" placeholder="#3f51b5 or https://..." />
+      <label for="profileAvatarInput">Avatar color</label>
+      <input id="profileAvatarInput" type="text" placeholder="#57f287" />
+      <div class="modal-actions">
+        <button type="button" id="profileCancel">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="createServerDialog" class="modal">
+    <form id="createServerForm" class="modal-form" method="dialog">
+      <h3>Create server</h3>
+      <label for="serverNameInput">Server name</label>
+      <input id="serverNameInput" type="text" maxlength="40" required />
+      <div class="modal-actions">
+        <button type="button" id="serverCancel">Cancel</button>
+        <button type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="createChannelDialog" class="modal">
+    <form id="createChannelForm" class="modal-form" method="dialog">
+      <h3>Create channel</h3>
+      <label for="channelNameInput">Channel name</label>
+      <input id="channelNameInput" type="text" maxlength="40" required />
+      <div class="modal-actions">
+        <button type="button" id="channelCancel">Cancel</button>
+        <button type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
