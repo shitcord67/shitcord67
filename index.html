@@ -72,10 +72,22 @@
 
         <section id="messageList" class="message-list"></section>
 
-        <form id="messageForm" class="message-form">
-          <input id="messageInput" type="text" maxlength="400" placeholder="Message #general" required />
-          <button type="submit">Send</button>
-        </form>
+        <div class="composer-stack">
+          <div id="composerReplyBar" class="composer-reply composer-reply--hidden">
+            <span id="replyPreviewText"></span>
+            <button id="cancelReplyBtn" type="button" title="Cancel reply">✕</button>
+          </div>
+
+          <div id="slashCommandPopup" class="slash-popup slash-popup--hidden">
+            <div class="slash-popup__hint">Use ↑↓ and Enter/Tab to select</div>
+            <div id="slashCommandList" class="slash-popup__list"></div>
+          </div>
+
+          <form id="messageForm" class="message-form">
+            <input id="messageInput" type="text" maxlength="400" placeholder="Message #general" required />
+            <button type="submit">Send</button>
+          </form>
+        </div>
       </main>
 
       <aside class="member-panel">

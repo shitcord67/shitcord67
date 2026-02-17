@@ -1,5 +1,12 @@
 const STORAGE_KEY = "flashcord-state-v2";
 const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
+const SLASH_COMMANDS = [
+  { name: "help", args: "", description: "List available commands." },
+  { name: "me", args: "<text>", description: "Send an action-style message." },
+  { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
+  { name: "topic", args: "<topic>", description: "Set the current channel topic." },
+  { name: "clear", args: "", description: "Clear all messages in this channel." }
+];
 
 function createId() {
   const cryptoApi = globalThis.crypto;
@@ -202,6 +209,8 @@ function loadState() {
 let state = loadState();
 let selectedSwitchAccountId = null;
 let messageEditTarget = null;
+let replyTarget = null;
+let slashSelectionIndex = 0;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -218,6 +227,11 @@ const ui = {
   messageList: document.getElementById("messageList"),
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
+  slashCommandPopup: document.getElementById("slashCommandPopup"),
+  slashCommandList: document.getElementById("slashCommandList"),
+  composerReplyBar: document.getElementById("composerReplyBar"),
+  replyPreviewText: document.getElementById("replyPreviewText"),
+  cancelReplyBtn: document.getElementById("cancelReplyBtn"),
   settingsScreen: document.getElementById("settingsScreen"),
   dockAvatar: document.getElementById("dockAvatar"),
   dockPresenceDot: document.getElementById("dockPresenceDot"),
@@ -497,7 +511,10 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "help") {
-    addSystemMessage(channel, "Commands: /me <text>, /shrug [text], /topic <text>, /clear, /help");
+    const summary = SLASH_COMMANDS
+      .map((entry) => `/${entry.name}${entry.args ? ` ${entry.args}` : ""}`)
+      .join(", ");
+    addSystemMessage(channel, `Commands: ${summary}`);
     return true;
   }
 
@@ -509,6 +526,55 @@ function openMessageEditor(channelId, messageId, messageText) {
   messageEditTarget = { channelId, messageId };
   ui.messageEditInput.value = messageText || "";
   ui.messageEditDialog.showModal();
+}
+
+function getSlashMatches(inputValue) {
+  if (!inputValue.startsWith("/")) return [];
+  const term = inputValue.slice(1).split(" ")[0].toLowerCase();
+  if (!term) return SLASH_COMMANDS;
+  return SLASH_COMMANDS.filter((command) => command.name.startsWith(term));
+}
+
+function applySlashCompletion(commandName) {
+  ui.messageInput.value = `/${commandName} `;
+  slashSelectionIndex = 0;
+  renderSlashSuggestions();
+}
+
+function renderSlashSuggestions() {
+  const matches = getSlashMatches(ui.messageInput.value.trimStart());
+  const firstChunk = ui.messageInput.value.trimStart().slice(1);
+  const hasWhitespace = /\s/.test(firstChunk);
+  const shouldShow = ui.messageInput.value.trimStart().startsWith("/") && !hasWhitespace && matches.length > 0;
+  ui.slashCommandPopup.classList.toggle("slash-popup--hidden", !shouldShow);
+  ui.slashCommandList.innerHTML = "";
+  if (!shouldShow) return;
+
+  slashSelectionIndex = Math.max(0, Math.min(slashSelectionIndex, matches.length - 1));
+  matches.forEach((command, index) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = `slash-item ${index === slashSelectionIndex ? "active" : ""}`;
+    const args = command.args ? ` ${command.args}` : "";
+    item.innerHTML = `<strong>/${command.name}${args}</strong><small>${command.description}</small>`;
+    item.addEventListener("mouseenter", () => {
+      slashSelectionIndex = index;
+      renderSlashSuggestions();
+    });
+    item.addEventListener("click", () => applySlashCompletion(command.name));
+    ui.slashCommandList.appendChild(item);
+  });
+}
+
+function renderReplyComposer() {
+  if (!replyTarget) {
+    ui.composerReplyBar.classList.add("composer-reply--hidden");
+    ui.replyPreviewText.textContent = "";
+    return;
+  }
+  const previewText = replyTarget.text.trim().slice(0, 100);
+  ui.replyPreviewText.textContent = `Replying to ${replyTarget.authorName}: ${previewText || "(empty message)"}`;
+  ui.composerReplyBar.classList.remove("composer-reply--hidden");
 }
 
 function applyPreferencesToUI() {
@@ -594,6 +660,11 @@ function renderMessages() {
   ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
   ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
   ui.messageInput.placeholder = channel ? `Message #${channel.name}` : "No channel selected";
+  if (!channel || (replyTarget && replyTarget.channelId !== channel.id)) {
+    replyTarget = null;
+  }
+  renderReplyComposer();
+  renderSlashSuggestions();
 
   if (!channel) return;
 
@@ -622,6 +693,20 @@ function renderMessages() {
     text.className = "message-text";
     text.textContent = message.text;
 
+    if (message.replyTo && typeof message.replyTo === "object") {
+      const replyLine = document.createElement("div");
+      replyLine.className = "message-reply";
+      const replyName = document.createElement("strong");
+      replyName.textContent = message.replyTo.authorName || "Unknown";
+      const replyText = document.createElement("span");
+      replyText.textContent = message.replyTo.text?.trim()?.slice(0, 90) || "(empty message)";
+      replyLine.appendChild(document.createTextNode("Replying to "));
+      replyLine.appendChild(replyName);
+      replyLine.appendChild(document.createTextNode(": "));
+      replyLine.appendChild(replyText);
+      messageRow.appendChild(replyLine);
+    }
+
     const actionBar = document.createElement("div");
     actionBar.className = "message-actions";
 
@@ -634,6 +719,22 @@ function renderMessages() {
       if (pickerBtn) pickerBtn.click();
     });
     actionBar.appendChild(reactBtn);
+
+    const replyBtn = document.createElement("button");
+    replyBtn.type = "button";
+    replyBtn.className = "message-action-btn";
+    replyBtn.textContent = "Reply";
+    replyBtn.addEventListener("click", () => {
+      replyTarget = {
+        channelId: channel.id,
+        messageId: message.id,
+        authorName: displayNameForMessage(message),
+        text: message.text || ""
+      };
+      renderReplyComposer();
+      ui.messageInput.focus();
+    });
+    actionBar.appendChild(replyBtn);
 
     if (currentUser && message.userId === currentUser.id) {
       const editBtn = document.createElement("button");
@@ -861,6 +962,8 @@ function render() {
   renderMemberList();
   renderDock();
   renderSettingsScreen();
+  renderReplyComposer();
+  renderSlashSuggestions();
 }
 
 function openProfileEditor() {
@@ -922,20 +1025,69 @@ ui.messageForm.addEventListener("submit", (event) => {
 
   ensureCurrentUserInActiveServer();
   if (!handleSlashCommand(text, channel, account)) {
+    const nextReply = replyTarget && replyTarget.channelId === channel.id
+      ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
+      : null;
     channel.messages.push({
       id: createId(),
       userId: account.id,
       authorName: "",
       text,
       ts: new Date().toISOString(),
-      reactions: []
+      reactions: [],
+      replyTo: nextReply
     });
+    replyTarget = null;
   }
 
   ui.messageInput.value = "";
+  slashSelectionIndex = 0;
   saveState();
   renderMessages();
   renderMemberList();
+});
+
+ui.messageInput.addEventListener("input", () => {
+  slashSelectionIndex = 0;
+  renderSlashSuggestions();
+});
+
+ui.messageInput.addEventListener("keydown", (event) => {
+  const matches = getSlashMatches(ui.messageInput.value.trimStart());
+  const firstChunk = ui.messageInput.value.trimStart().slice(1);
+  const hasWhitespace = /\s/.test(firstChunk);
+  const popupVisible = ui.messageInput.value.trimStart().startsWith("/") && !hasWhitespace && matches.length > 0;
+
+  if (event.key === "Escape") {
+    slashSelectionIndex = 0;
+    ui.slashCommandPopup.classList.add("slash-popup--hidden");
+    return;
+  }
+  if (!popupVisible) return;
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    slashSelectionIndex = (slashSelectionIndex + 1) % matches.length;
+    renderSlashSuggestions();
+    return;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    slashSelectionIndex = (slashSelectionIndex - 1 + matches.length) % matches.length;
+    renderSlashSuggestions();
+    return;
+  }
+  if (event.key === "Tab" || event.key === "Enter") {
+    event.preventDefault();
+    const selected = matches[slashSelectionIndex] || matches[0];
+    if (selected) applySlashCompletion(selected.name);
+  }
+});
+
+ui.cancelReplyBtn.addEventListener("click", () => {
+  replyTarget = null;
+  renderReplyComposer();
+  ui.messageInput.focus();
 });
 
 ui.createServerBtn.addEventListener("click", () => {

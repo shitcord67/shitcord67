@@ -15,12 +15,15 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Create servers and channels.
 - Channel topics with inline edit control in chat header.
 - Send messages as current user.
+- Message actions: reply, edit, delete.
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`).
 - Lightweight emoji reactions on messages.
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
 - Popouts/dialogs close by clicking outside the card content.
 - Server member list on the right, with presence dots.
+- Member list grouped into Online/Offline sections.
 - Account switching popup and logout.
 - Persisted state in `localStorage` (`flashcord-state-v2`, with migration from `flashcord-state-v1`).
 
