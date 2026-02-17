@@ -35,11 +35,12 @@
           <span id="activeServerName">Server</span>
         </div>
 
-        <div id="channelList" class="channel-list"></div>
+        <div class="channel-scroll">
+          <div id="channelList" class="channel-list"></div>
+          <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
+        </div>
 
         <div class="channel-panel__bottom">
-          <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
-
           <div class="account-dock">
             <button id="selfProfileBtn" class="account-dock__main" title="Open profile">
               <div class="dock-avatar-wrap">
@@ -63,6 +64,10 @@
       <main class="chat-panel">
         <header class="chat-header">
           <h2 id="activeChannelName">#general</h2>
+          <div class="chat-header__right">
+            <span id="activeChannelTopic" class="chat-topic"></span>
+            <button id="editTopicBtn" class="chat-topic-edit" title="Edit channel topic">Edit Topic</button>
+          </div>
         </header>
 
         <section id="messageList" class="message-list"></section>
@@ -198,6 +203,18 @@
       <div class="modal-actions">
         <button type="button" id="channelCancel">Cancel</button>
         <button type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="topicDialog" class="modal">
+    <form id="topicForm" class="modal-form" method="dialog">
+      <h3>Edit channel topic</h3>
+      <label for="topicInput">Topic</label>
+      <input id="topicInput" type="text" maxlength="140" placeholder="What is this channel about?" />
+      <div class="modal-actions">
+        <button type="button" id="topicCancel">Cancel</button>
+        <button type="submit">Save</button>
       </div>
     </form>
   </dialog>
