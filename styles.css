@@ -389,6 +389,19 @@ button {
   white-space: pre-wrap;
 }
 
+.message-reply {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #9fa6b2;
+  font-size: 0.76rem;
+  margin-bottom: 0.22rem;
+}
+
+.message-reply strong {
+  color: #c7ccd5;
+}
+
 .message-actions {
   position: absolute;
   right: 0.4rem;
@@ -468,10 +481,89 @@ button {
   font-size: 0.74rem;
 }
 
+.composer-stack {
+  padding: 0.3rem 1rem 1.1rem;
+}
+
+.composer-reply {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: #c2c7cf;
+  background: #2c2f35;
+  border: 1px solid #3a3d45;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  padding: 0.38rem 0.6rem;
+}
+
+.composer-reply--hidden {
+  display: none;
+}
+
+.composer-reply button {
+  background: transparent;
+  color: #c7ccd4;
+  padding: 0.12rem 0.35rem;
+}
+
+.slash-popup {
+  background: #1f2124;
+  border: 1px solid #383b42;
+  border-radius: 8px;
+  margin-bottom: 0.35rem;
+  max-height: 220px;
+  overflow: hidden;
+}
+
+.slash-popup--hidden {
+  display: none;
+}
+
+.slash-popup__hint {
+  color: #969ca6;
+  font-size: 0.72rem;
+  padding: 0.35rem 0.55rem;
+  border-bottom: 1px solid #32353c;
+}
+
+.slash-popup__list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.slash-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #dce0e5;
+  padding: 0.42rem 0.55rem;
+  border-radius: 0;
+}
+
+.slash-item strong {
+  color: #fff;
+}
+
+.slash-item small {
+  display: block;
+  color: #9ca2ac;
+  margin-top: 0.12rem;
+}
+
+.slash-item.active {
+  background: #3e4350;
+}
+
 .message-form {
   padding: 0.9rem 1rem 1.1rem;
   display: flex;
   gap: 0.7rem;
+  background: #313338;
+  border-radius: 0 0 8px 8px;
+  padding: 0.7rem 0.75rem;
 }
 
 .message-form input {
