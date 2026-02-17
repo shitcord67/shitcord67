@@ -16,7 +16,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Channel topics with inline edit control in chat header.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`, `/nick`, `/status`).
 - Lightweight emoji reactions on messages.
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
