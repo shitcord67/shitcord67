@@ -87,6 +87,14 @@ A lightweight Discord-style chat client prototype with local persistence.
 - `Shift+Click` on a message timestamp copies its raw timestamp.
 - Message context menu copy submenu includes `Timestamp (local)`.
 - Edit dialog quality-of-life: autofocus/select on open, `Ctrl+Enter` to save, `Escape` to cancel.
+- Added shortcuts help dialog in-app (`Shortcuts` header button), with hotkeys `Ctrl+/` and `Alt+0` to open.
+- Added `/shortcuts` slash command to open the shortcuts dialog.
+- Message actions now include `Quote` to append quote-formatted text into composer.
+- Message copy helpers now include a generated message permalink.
+- Message permalinks with `#msg=<conversationId>:<messageId>` auto-navigate and highlight when possible.
+- Emoji picker search now matches aliases/keywords and supports colon-style query terms (`:fire:`).
+- Emoji recents are persisted and prioritized in picker ordering.
+- Using emoji in picker/reactions updates recent emoji history.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).

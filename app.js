@@ -3,6 +3,7 @@ const SESSION_ACCOUNT_KEY = "shitcord67-session-account-id";
 const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
+  { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
   { name: "me", args: "<text>", description: "Send an action-style message." },
   { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
   { name: "note", args: "<text>", description: "Send a collaborative message editable by anyone in the channel." },
@@ -19,18 +20,38 @@ const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "pdf", "text", "doc
 const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const mediaAllowOnceUrls = new Set();
 const EMOJI_LIBRARY = [
-  { name: "grinning", value: "😀" },
-  { name: "joy", value: "😂" },
-  { name: "smile", value: "😄" },
-  { name: "thinking", value: "🤔" },
-  { name: "sob", value: "😭" },
-  { name: "fire", value: "🔥" },
-  { name: "thumbsup", value: "👍" },
-  { name: "heart", value: "❤️" },
-  { name: "party", value: "🥳" },
-  { name: "eyes", value: "👀" },
-  { name: "skull", value: "💀" },
-  { name: "sparkles", value: "✨" }
+  { name: "grinning", value: "😀", aliases: ["smile"], keywords: ["happy", "face"] },
+  { name: "joy", value: "😂", aliases: ["lol"], keywords: ["laugh", "tears"] },
+  { name: "smile", value: "😄", aliases: ["happy"], keywords: ["grin", "face"] },
+  { name: "thinking", value: "🤔", aliases: ["hmm"], keywords: ["question", "idea"] },
+  { name: "sob", value: "😭", aliases: ["cry"], keywords: ["sad", "tears"] },
+  { name: "fire", value: "🔥", aliases: ["lit"], keywords: ["hot", "flame"] },
+  { name: "thumbsup", value: "👍", aliases: ["approve"], keywords: ["yes", "ok"] },
+  { name: "heart", value: "❤️", aliases: ["love"], keywords: ["like", "favorite"] },
+  { name: "party", value: "🥳", aliases: ["celebrate"], keywords: ["birthday", "yay"] },
+  { name: "eyes", value: "👀", aliases: ["look"], keywords: ["watch", "seeing"] },
+  { name: "skull", value: "💀", aliases: ["dead"], keywords: ["bones", "spooky"] },
+  { name: "sparkles", value: "✨", aliases: ["shine"], keywords: ["star", "magic"] },
+  { name: "pray", value: "🙏", aliases: ["please"], keywords: ["thanks", "hope"] },
+  { name: "ok_hand", value: "👌", aliases: ["ok"], keywords: ["good", "fine"] },
+  { name: "wave", value: "👋", aliases: ["hello"], keywords: ["hi", "bye"] },
+  { name: "clap", value: "👏", aliases: ["applause"], keywords: ["bravo", "hands"] },
+  { name: "rocket", value: "🚀", aliases: ["launch"], keywords: ["ship", "space"] },
+  { name: "tada", value: "🎉", aliases: ["confetti"], keywords: ["party", "celebration"] },
+  { name: "100", value: "💯", aliases: ["perfect"], keywords: ["score", "full"] },
+  { name: "warning", value: "⚠️", aliases: ["alert"], keywords: ["danger", "caution"] },
+  { name: "check", value: "✅", aliases: ["done"], keywords: ["complete", "ok"] },
+  { name: "x", value: "❌", aliases: ["no"], keywords: ["cancel", "wrong"] },
+  { name: "bulb", value: "💡", aliases: ["idea"], keywords: ["light", "think"] },
+  { name: "nerd", value: "🤓", aliases: ["smart"], keywords: ["glasses", "geek"] },
+  { name: "sunglasses", value: "😎", aliases: ["cool"], keywords: ["sun", "vibe"] },
+  { name: "angry", value: "😠", aliases: ["mad"], keywords: ["rage", "upset"] },
+  { name: "sleeping", value: "😴", aliases: ["tired"], keywords: ["zzz", "rest"] },
+  { name: "poop", value: "💩", aliases: ["shit"], keywords: ["funny", "pile"] },
+  { name: "cat", value: "🐱", aliases: ["kitty"], keywords: ["pet", "animal"] },
+  { name: "dog", value: "🐶", aliases: ["puppy"], keywords: ["pet", "animal"] },
+  { name: "star", value: "⭐", aliases: ["favorite"], keywords: ["rating", "shine"] },
+  { name: "moon", value: "🌙", aliases: ["night"], keywords: ["sleep", "sky"] }
 ];
 const STICKER_LIBRARY = [
   { name: "blob wave", url: "https://media.tenor.com/LrSL7XDKVbgAAAAC/pepe-wave.gif" },
@@ -214,6 +235,7 @@ function buildInitialState() {
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],
       mediaLastTab: "gif",
+      recentEmojis: [],
       hideChannelPanel: "off",
       hideMemberPanel: "off",
       swfPipPosition: null
@@ -527,6 +549,7 @@ const ui = {
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
   openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
+  openShortcutsBtn: document.getElementById("openShortcutsBtn"),
   toggleChannelPanelBtn: document.getElementById("toggleChannelPanelBtn"),
   toggleMemberPanelBtn: document.getElementById("toggleMemberPanelBtn"),
   toggleSwfShelfBtn: document.getElementById("toggleSwfShelfBtn"),
@@ -613,6 +636,7 @@ const ui = {
   messageEditDialog: document.getElementById("messageEditDialog"),
   messageEditForm: document.getElementById("messageEditForm"),
   messageEditInput: document.getElementById("messageEditInput"),
+  shortcutsDialog: document.getElementById("shortcutsDialog"),
   messageEditCancel: document.getElementById("messageEditCancel"),
   selfMenuDialog: document.getElementById("selfMenuDialog"),
   selfPopoutBanner: document.getElementById("selfPopoutBanner"),
@@ -934,6 +958,53 @@ function findChannelById(channelId) {
     if (found) return found;
   }
   return null;
+}
+
+function findGuildByChannelId(channelId) {
+  for (const guild of state.guilds) {
+    if (guild.channels.some((channel) => channel.id === channelId)) return guild;
+  }
+  return null;
+}
+
+function applyHashConversationNavigation() {
+  const ref = parseHashMessageReference();
+  if (!ref) return false;
+  const dm = state.dmThreads.find((thread) => thread.id === ref.conversationId);
+  if (dm) {
+    let changed = false;
+    if (state.viewMode !== "dm") {
+      state.viewMode = "dm";
+      changed = true;
+    }
+    if (state.activeDmId !== dm.id) {
+      state.activeDmId = dm.id;
+      changed = true;
+    }
+    return changed;
+  }
+  const channel = findChannelById(ref.conversationId);
+  if (!channel) return false;
+  const guild = findGuildByChannelId(channel.id);
+  if (!guild) return false;
+  let changed = false;
+  if (state.viewMode !== "guild") {
+    state.viewMode = "guild";
+    changed = true;
+  }
+  if (state.activeGuildId !== guild.id) {
+    state.activeGuildId = guild.id;
+    changed = true;
+  }
+  if (state.activeChannelId !== channel.id) {
+    state.activeChannelId = channel.id;
+    changed = true;
+  }
+  if (state.activeDmId) {
+    state.activeDmId = null;
+    changed = true;
+  }
+  return changed;
 }
 
 function findMessageInChannel(channel, messageId) {
@@ -1294,6 +1365,40 @@ function focusMessageById(messageId) {
   return true;
 }
 
+function buildMessagePermalink(conversationId, messageId) {
+  const origin = window.location.origin === "null" ? "" : window.location.origin;
+  const base = `${origin}${window.location.pathname}`;
+  const conv = encodeURIComponent((conversationId || "").toString());
+  const msg = encodeURIComponent((messageId || "").toString());
+  return `${base}#msg=${conv}:${msg}`;
+}
+
+function parseHashMessageReference() {
+  const hash = (window.location.hash || "").replace(/^#/, "");
+  if (!hash.startsWith("msg=")) return null;
+  const payload = hash.slice(4);
+  const separator = payload.indexOf(":");
+  if (separator <= 0) return null;
+  try {
+    const conversationId = decodeURIComponent(payload.slice(0, separator));
+    const messageId = decodeURIComponent(payload.slice(separator + 1));
+    if (!conversationId || !messageId) return null;
+    return { conversationId, messageId };
+  } catch {
+    return null;
+  }
+}
+
+function quoteMessageInComposer(message) {
+  if (!message) return;
+  const quoted = (message.text || "").trim() || "(empty message)";
+  const line = `> ${quoted.replace(/\n/g, "\n> ")}\n`;
+  const base = ui.messageInput.value.trim();
+  ui.messageInput.value = `${base ? `${base}\n` : ""}${line}`;
+  ui.messageInput.focus();
+  ui.messageInput.setSelectionRange(ui.messageInput.value.length, ui.messageInput.value.length);
+}
+
 function messageDateKey(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -1436,6 +1541,19 @@ function normalizeMediaTrustRules(value) {
     .slice(0, 120);
 }
 
+function normalizeRecentEmojis(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const output = [];
+  value.forEach((entry) => {
+    const key = (entry || "").toString().trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    output.push(key);
+  });
+  return output.slice(0, 24);
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -1462,6 +1580,7 @@ function getPreferences() {
     mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
     mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
     mediaLastTab: normalizeMediaTab(current.mediaLastTab),
+    recentEmojis: normalizeRecentEmojis(current.recentEmojis),
     hideChannelPanel: normalizeToggle(current.hideChannelPanel),
     hideMemberPanel: normalizeToggle(current.hideMemberPanel),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
@@ -2231,6 +2350,7 @@ function serializeMessageAsXml(message) {
 }
 
 function toggleReaction(message, emoji, userId) {
+  if (emoji) rememberRecentEmoji(emoji);
   message.reactions = normalizeReactions(message.reactions);
   let reaction = message.reactions.find((item) => item.emoji === emoji);
   if (!reaction) {
@@ -2433,6 +2553,11 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "shortcuts") {
+    openShortcutsDialog();
+    return true;
+  }
+
   addSystemMessage(channel, `Unknown command: /${command}`);
   return true;
 }
@@ -2470,6 +2595,10 @@ function openMessageEditor(conversationId, messageId, messageText) {
     ui.messageEditInput.focus();
     ui.messageEditInput.select();
   });
+}
+
+function openShortcutsDialog() {
+  ui.shortcutsDialog?.showModal();
 }
 
 function findLastEditableMessageInActiveConversation() {
@@ -3053,7 +3182,21 @@ function mediaEntriesForActiveTab() {
   const guild = getActiveGuild();
   ensureGuildMediaCollections(guild);
   if (mediaPickerTab === "emoji") {
-    const builtIn = EMOJI_LIBRARY.map((entry) => ({ ...entry, source: "builtin" }));
+    const prefs = getPreferences();
+    const recents = normalizeRecentEmojis(prefs.recentEmojis);
+    const builtIn = EMOJI_LIBRARY
+      .map((entry) => {
+        const recentIndex = recents.indexOf(entry.value);
+        return { ...entry, source: "builtin", recentIndex };
+      })
+      .sort((a, b) => {
+        const aRecent = a.recentIndex >= 0;
+        const bRecent = b.recentIndex >= 0;
+        if (aRecent && bRecent) return a.recentIndex - b.recentIndex;
+        if (aRecent) return -1;
+        if (bRecent) return 1;
+        return a.name.localeCompare(b.name);
+      });
     const custom = (guild?.customEmojis || []).map((entry) => ({ ...entry, source: "guild-custom" }));
     return [...custom, ...builtIn];
   }
@@ -3094,8 +3237,21 @@ function mediaEntriesForActiveTab() {
 
 function filteredMediaEntries() {
   const term = mediaPickerQuery.trim().toLowerCase();
+  const normalizedTerm = term.replace(/^:+|:+$/g, "");
   if (!term) return mediaEntriesForActiveTab();
-  return mediaEntriesForActiveTab().filter((entry) => (entry.name || "").toLowerCase().includes(term));
+  return mediaEntriesForActiveTab().filter((entry) => {
+    const name = (entry.name || "").toLowerCase();
+    if (name.includes(term) || name.includes(normalizedTerm)) return true;
+    if (mediaPickerTab === "emoji") {
+      const aliases = Array.isArray(entry.aliases) ? entry.aliases.join(" ").toLowerCase() : "";
+      const keywords = Array.isArray(entry.keywords) ? entry.keywords.join(" ").toLowerCase() : "";
+      const value = (entry.value || "").toString();
+      if (aliases.includes(term) || aliases.includes(normalizedTerm)) return true;
+      if (keywords.includes(term) || keywords.includes(normalizedTerm)) return true;
+      if (value.includes(term) || value.includes(normalizedTerm)) return true;
+    }
+    return false;
+  });
 }
 
 function rememberMediaPickerTab(tab) {
@@ -3170,6 +3326,18 @@ function insertTextAtCursor(text) {
   const cursor = start + text.length;
   input.setSelectionRange(cursor, cursor);
   input.focus();
+}
+
+function findEmojiEntryByValue(value) {
+  return EMOJI_LIBRARY.find((entry) => entry.value === value) || null;
+}
+
+function rememberRecentEmoji(value) {
+  const emoji = (value || "").toString().trim();
+  if (!emoji) return;
+  state.preferences = getPreferences();
+  const current = normalizeRecentEmojis(state.preferences.recentEmojis);
+  state.preferences.recentEmojis = [emoji, ...current.filter((item) => item !== emoji)].slice(0, 24);
 }
 
 function stickerFormatFromName(name, url) {
@@ -3404,6 +3572,7 @@ function renderMediaPicker() {
     }
     if (mediaPickerTab === "emoji") {
       card.classList.add("media-card--emoji");
+      if (entry.recentIndex >= 0) card.classList.add("media-card--emoji-recent");
       if (entry.value) {
         card.textContent = entry.value;
       } else if (entry.url) {
@@ -3418,6 +3587,8 @@ function renderMediaPicker() {
       card.addEventListener("click", () => {
         if (entry.value) {
           insertTextAtCursor(entry.value);
+          rememberRecentEmoji(entry.value);
+          saveState();
         } else {
           insertTextAtCursor(`:${sanitizeMediaName(entry.name || "emoji")}:`);
         }
@@ -5731,6 +5902,12 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     replyBtn.textContent = "Reply";
     replyBtn.addEventListener("click", () => setReplyTarget(conversationId, post, post.id));
     postActions.appendChild(replyBtn);
+    const quoteBtn = document.createElement("button");
+    quoteBtn.type = "button";
+    quoteBtn.className = "message-action-btn";
+    quoteBtn.textContent = "Quote";
+    quoteBtn.addEventListener("click", () => quoteMessageInComposer(post));
+    postActions.appendChild(quoteBtn);
     const markReadBtn = document.createElement("button");
     markReadBtn.type = "button";
     markReadBtn.className = "message-action-btn";
@@ -5841,6 +6018,12 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         replyReplyBtn.textContent = "Reply";
         replyReplyBtn.addEventListener("click", () => setReplyTarget(conversationId, replyMessage, post.id));
         replyActions.appendChild(replyReplyBtn);
+        const replyQuoteBtn = document.createElement("button");
+        replyQuoteBtn.type = "button";
+        replyQuoteBtn.className = "message-action-btn";
+        replyQuoteBtn.textContent = "Quote";
+        replyQuoteBtn.addEventListener("click", () => quoteMessageInComposer(replyMessage));
+        replyActions.appendChild(replyQuoteBtn);
         replyRow.appendChild(replyActions);
 
         repliesWrap.appendChild(replyRow);
@@ -6168,6 +6351,15 @@ function renderMessages() {
     });
     actionBar.appendChild(replyBtn);
 
+    const quoteBtn = document.createElement("button");
+    quoteBtn.type = "button";
+    quoteBtn.className = "message-action-btn";
+    quoteBtn.textContent = "Quote";
+    quoteBtn.addEventListener("click", () => {
+      quoteMessageInComposer(message);
+    });
+    actionBar.appendChild(quoteBtn);
+
     const canPin = !isDm && currentUser && (message.userId === currentUser.id || canCurrentUser("manageMessages"));
     if (canPin) {
       const pinBtn = document.createElement("button");
@@ -6283,6 +6475,10 @@ function renderMessages() {
           }
         },
         {
+          label: "Quote in Composer",
+          action: () => quoteMessageInComposer(message)
+        },
+        {
           label: "Copy",
           submenu: [
             { label: "Text", action: () => copyText(message.text || "") },
@@ -6292,6 +6488,7 @@ function renderMessages() {
             } },
             { label: "Timestamp", action: () => copyText(message.ts || "") },
             { label: "Timestamp (local)", action: () => copyText(formatFullTimestamp(message.ts || "")) },
+            { label: "Message Link", action: () => copyText(buildMessagePermalink(conversationId, message.id)) },
             { label: "Message ID", action: () => copyText(message.id || "") },
             { label: "First Attachment URL", action: () => copyText(attachments[0]?.url ? resolveMediaUrl(attachments[0].url) : "") },
             { label: "Edit History JSON", action: () => copyText(JSON.stringify(messageEditHistory(message), null, 2)) },
@@ -6422,6 +6619,10 @@ function renderMessages() {
     unreadDividerEl.scrollIntoView({ block: "center" });
   } else {
     ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  }
+  const hashRef = parseHashMessageReference();
+  if (hashRef && hashRef.conversationId === conversationId) {
+    focusMessageById(hashRef.messageId);
   }
   updateJumpToBottomButton();
   const didMarkRead = isDm ? markDmRead(dmThread, currentAccount?.id) : markChannelRead(channel, currentAccount?.id);
@@ -6796,6 +6997,9 @@ function render() {
   if (ensureCurrentUserInActiveServer()) {
     saveState();
   }
+  if (applyHashConversationNavigation()) {
+    saveState();
+  }
   renderServers();
   renderDmList();
   renderChannels();
@@ -7105,7 +7309,12 @@ ui.mediaSearchInput.addEventListener("keydown", (event) => {
   const [first] = filteredMediaEntries();
   if (!first) return;
   if (mediaPickerTab === "emoji") {
-    insertTextAtCursor(first.value || "");
+    const value = first.value || "";
+    insertTextAtCursor(value);
+    if (value) {
+      rememberRecentEmoji(value);
+      saveState();
+    }
     closeMediaPicker();
     return;
   }
@@ -7281,11 +7490,16 @@ ui.messageInput.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === "Tab" || event.key === "Enter") {
-    event.preventDefault();
     if (suggestion.type === "slash") {
       const selected = suggestion.items[slashSelectionIndex] || suggestion.items[0];
+      const raw = ui.messageInput.value.trim();
+      if (event.key === "Enter" && selected && raw === `/${selected.name}`) {
+        return;
+      }
+      event.preventDefault();
       if (selected) applySlashCompletion(selected.name);
     } else {
+      event.preventDefault();
       const selected = suggestion.items[mentionSelectionIndex] || suggestion.items[0];
       if (selected) applyMentionCompletion(selected);
     }
@@ -7431,6 +7645,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
 
 ui.editTopicBtn.addEventListener("click", openTopicEditor);
 ui.openChannelSettingsBtn.addEventListener("click", openChannelSettings);
+ui.openShortcutsBtn?.addEventListener("click", openShortcutsDialog);
 ui.toggleChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
 ui.toggleMemberPanelBtn?.addEventListener("click", toggleMemberPanelVisibility);
 ui.toggleSwfShelfBtn.addEventListener("click", () => {
@@ -8059,6 +8274,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.pinsDialog,
   ui.channelSettingsDialog,
   ui.messageEditDialog,
+  ui.shortcutsDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.accountSwitchDialog,
@@ -8230,6 +8446,10 @@ window.addEventListener("resize", () => {
   updateSwfPipDockLayout();
   renderSwfPipDock();
 });
+window.addEventListener("hashchange", () => {
+  if (!state.currentAccountId) return;
+  render();
+});
 document.addEventListener("scroll", closeContextMenu, true);
 
 if (window.visualViewport) {
@@ -8259,6 +8479,18 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "/") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    openShortcutsDialog();
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "0" || event.code === "Digit0")) {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    openShortcutsDialog();
+    return;
+  }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
     if (!state.currentAccountId) return;
     const altDigit = (event.code || "").startsWith("Digit")
