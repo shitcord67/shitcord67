@@ -2708,6 +2708,13 @@ function renderSwfPipDock() {
     ui.swfPipTabs.appendChild(tabBtn);
   });
   // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
+  positionSwfPipRuntimeHosts();
+  const activeRuntime = swfRuntimes.get(swfPipActiveKey);
+  if (!activeRuntime?.pipHost) return;
+  setSwfPlayback(swfPipActiveKey, true, "user");
+}
+
+function positionSwfPipRuntimeHosts() {
   const pipRect = ui.swfPipHost.getBoundingClientRect();
   const dockRect = ui.swfPipDock.getBoundingClientRect();
   const collapsedAnchorLeft = Math.max(8, dockRect.right - 2);
@@ -2727,16 +2734,12 @@ function renderSwfPipDock() {
       runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
       runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
     } else {
-      // Keep the same live element mounted, but collapse it to a tiny footprint.
       runtime.pipHost.style.left = `${collapsedAnchorLeft}px`;
       runtime.pipHost.style.top = `${collapsedAnchorTop}px`;
       runtime.pipHost.style.width = "1px";
       runtime.pipHost.style.height = "1px";
     }
   });
-  const activeRuntime = swfRuntimes.get(swfPipActiveKey);
-  if (!activeRuntime?.pipHost) return;
-  setSwfPlayback(swfPipActiveKey, true, "user");
 }
 
 function updateSwfPipDockLayout() {
@@ -2761,17 +2764,21 @@ function updateSwfPipDockLayout() {
   }
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
   if (!composerRect) {
+    ui.swfPipDock.style.maxHeight = `${Math.max(160, window.innerHeight - 24)}px`;
     ui.swfPipDock.style.left = `${Math.max(10, window.innerWidth - 420 - 14)}px`;
     ui.swfPipDock.style.top = `${Math.max(10, window.innerHeight - 420)}px`;
     ui.swfPipDock.style.right = "auto";
     ui.swfPipDock.style.bottom = "auto";
     return;
   }
+  const maxHeight = Math.max(140, composerRect.top - 12);
+  ui.swfPipDock.style.maxHeight = `${Math.round(maxHeight)}px`;
   const rect = ui.swfPipDock.getBoundingClientRect();
   const width = rect.width || 420;
   const height = rect.height || 320;
   const left = Math.max(10, Math.min(window.innerWidth - width - 10, composerRect.right - width));
-  const top = Math.max(10, composerRect.top - height - 8);
+  const maxTopAboveComposer = composerRect.top - height - 8;
+  const top = Math.max(8, maxTopAboveComposer);
   ui.swfPipDock.style.left = `${Math.round(left)}px`;
   ui.swfPipDock.style.top = `${Math.round(top)}px`;
   ui.swfPipDock.style.right = "auto";
@@ -5185,12 +5192,17 @@ if (swfPipHeader) {
 document.addEventListener("mousemove", (event) => {
   if (!pipDragState?.dragging) return;
   const dockRect = ui.swfPipDock.getBoundingClientRect();
+  const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  const maxTop = composerRect
+    ? Math.max(8, composerRect.top - dockRect.height - 8)
+    : Math.max(8, window.innerHeight - dockRect.height - 8);
   const nextLeft = Math.max(8, Math.min(window.innerWidth - dockRect.width - 8, event.clientX - pipDragState.offsetX));
-  const nextTop = Math.max(8, Math.min(window.innerHeight - 48, event.clientY - pipDragState.offsetY));
+  const nextTop = Math.max(8, Math.min(maxTop, event.clientY - pipDragState.offsetY));
   ui.swfPipDock.style.left = `${Math.round(nextLeft)}px`;
   ui.swfPipDock.style.top = `${Math.round(nextTop)}px`;
   ui.swfPipDock.style.right = "auto";
   ui.swfPipDock.style.bottom = "auto";
+  positionSwfPipRuntimeHosts();
 });
 
 document.addEventListener("mouseup", () => {
