@@ -51,6 +51,12 @@ This file is intended as persistent context for future LLM runs.
 9. Slowmode channel settings control.
 10. Slowmode quick presets in channel context menu + cooldown enforcement on send.
 
+## Implemented In Follow-up Run
+
+1. Channel utility slash commands for quick moderation/navigation (`/pins`, `/unpinall`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`).
+2. Keyboard-first channel workflow (`Ctrl+Shift+R`, `Ctrl+Shift+I`, `Alt+ArrowUp/Down`).
+3. Message copy menu now includes Markdown quote output for cross-posting/logging.
+
 ## Operational Guidance
 
 1. Prefer PDF-first reference processing (`scripts/process_pdf_references.py`) to avoid brittle SVG artifacts.

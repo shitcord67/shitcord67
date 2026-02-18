@@ -19,7 +19,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`, `/pins`, `/unpinall`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
@@ -66,6 +66,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Binary (`.bin`) attachments render a compact HEX preview in chat.
 - PDF attachments now always include open/download controls plus a fallback note for browsers with inline PDF viewing disabled.
 - Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Ctrl+Shift+P` opens PDF tab, `Ctrl+U` opens file attach.
+- Extra channel shortcuts: `Ctrl+Shift+I` opens pins, `Ctrl+Shift+R` marks current channel read, `Alt+ArrowUp/Down` navigates channels.
 - Additional quick nav shortcuts: `Alt+1/2/3` open GIF/Sticker/Emoji tabs and `Ctrl+Shift+F` focuses channel/DM filter.
 - Guild channel rows now render dedicated channel-type icons with stronger active/hover states.
 - DM sidebar rows now render peer avatars + presence dots.
@@ -91,6 +92,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Added shortcuts help dialog in-app (`Shortcuts` header button), with hotkeys `Ctrl+/` and `Alt+0` to open.
 - Added `/shortcuts` slash command to open the shortcuts dialog.
 - Message actions now include `Quote` to append quote-formatted text into composer.
+- Message copy helpers include `Markdown Quote`.
 - Message copy helpers now include a generated message permalink.
 - Message permalinks with `#msg=<conversationId>:<messageId>` auto-navigate and highlight when possible.
 - Emoji picker search now matches aliases/keywords and supports colon-style query terms (`:fire:`).

@@ -24,6 +24,12 @@ const SLASH_COMMANDS = [
   { name: "mediaprivacy", args: "[status|safe|off]", description: "Control two-click external media loading privacy mode." },
   { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
   { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
+  { name: "pins", args: "", description: "Open pinned messages for current channel." },
+  { name: "unpinall", args: "", description: "Unpin all messages in current channel (manage messages)." },
+  { name: "rename", args: "<channel-name>", description: "Rename current channel (manage channels)." },
+  { name: "channelinfo", args: "", description: "Show current channel metadata." },
+  { name: "whereami", args: "", description: "Show active guild/channel IDs and mode." },
+  { name: "jumpunread", args: "", description: "Jump to first unread message in current channel." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -1221,6 +1227,28 @@ function getGuildUnreadStats(guild, account) {
   return applyGuildNotificationModeToStats(totals, getGuildNotificationMode(guild.id));
 }
 
+function getGuildChannelsForNavigation() {
+  const guild = getActiveGuild();
+  if (!guild || !Array.isArray(guild.channels)) return [];
+  return guild.channels;
+}
+
+function navigateGuildChannelByOffset(delta) {
+  const channels = getGuildChannelsForNavigation();
+  if (channels.length === 0) return false;
+  const currentIndex = channels.findIndex((channel) => channel.id === state.activeChannelId);
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  const nextIndex = Math.max(0, Math.min(channels.length - 1, safeIndex + delta));
+  const next = channels[nextIndex];
+  if (!next || next.id === state.activeChannelId) return false;
+  state.viewMode = "guild";
+  state.activeDmId = null;
+  state.activeChannelId = next.id;
+  saveState();
+  render();
+  return true;
+}
+
 async function copyText(value) {
   const text = (value || "").toString();
   if (!text) return false;
@@ -1524,6 +1552,14 @@ function buildMessagePermalink(conversationId, messageId) {
   const conv = encodeURIComponent((conversationId || "").toString());
   const msg = encodeURIComponent((messageId || "").toString());
   return `${base}#msg=${conv}:${msg}`;
+}
+
+function buildChannelPermalink(guildId, channelId) {
+  const origin = window.location.origin === "null" ? "" : window.location.origin;
+  const base = `${origin}${window.location.pathname}`;
+  const gid = encodeURIComponent((guildId || "").toString());
+  const cid = encodeURIComponent((channelId || "").toString());
+  return `${base}#ch=${gid}:${cid}`;
 }
 
 function parseHashMessageReference() {
@@ -3070,6 +3106,82 @@ function handleSlashCommand(rawText, channel, account) {
     channel.slowmodeSec = parsed;
     ensureChannelSlowmodeState(channel);
     addSystemMessage(channel, parsed > 0 ? `Slowmode set to ${parsed}s.` : "Slowmode disabled.");
+    return true;
+  }
+
+  if (command === "pins") {
+    renderPinsDialog();
+    ui.pinsDialog.showModal();
+    return true;
+  }
+
+  if (command === "unpinall") {
+    if (!canCurrentUser("manageMessages")) {
+      addSystemMessage(channel, "You need Manage Messages permission to unpin all messages.");
+      return true;
+    }
+    let changed = 0;
+    channel.messages.forEach((message) => {
+      if (!message.pinned) return;
+      message.pinned = false;
+      changed += 1;
+    });
+    addSystemMessage(channel, changed > 0 ? `Unpinned ${changed} message${changed === 1 ? "" : "s"}.` : "No pinned messages to unpin.");
+    return true;
+  }
+
+  if (command === "rename") {
+    if (!canCurrentUser("manageChannels")) {
+      addSystemMessage(channel, "You need Manage Channels permission to rename channels.");
+      return true;
+    }
+    const nextName = sanitizeChannelName(arg, channel.name || "general");
+    if (!nextName) {
+      addSystemMessage(channel, "Usage: /rename <channel-name>");
+      return true;
+    }
+    channel.name = nextName;
+    addSystemMessage(channel, `Channel renamed to #${nextName}.`);
+    return true;
+  }
+
+  if (command === "channelinfo") {
+    const pinnedCount = channel.messages.filter((message) => message.pinned).length;
+    const slowmode = getChannelSlowmodeSeconds(channel);
+    const info = [
+      `#${channel.name}`,
+      `Type: ${channel.type || "text"}`,
+      `Topic: ${(channel.topic || "No topic").slice(0, 140)}`,
+      `Slowmode: ${slowmode > 0 ? `${slowmode}s` : "off"}`,
+      `Messages: ${channel.messages.length}`,
+      `Pinned: ${pinnedCount}`
+    ];
+    addSystemMessage(channel, info.join(" · "));
+    return true;
+  }
+
+  if (command === "whereami") {
+    const guild = getActiveGuild();
+    const mode = getViewMode();
+    const link = guild ? buildChannelPermalink(guild.id, channel.id) : "";
+    addSystemMessage(channel, [
+      `Mode: ${mode}`,
+      `Guild: ${guild?.name || "n/a"} (${guild?.id || "n/a"})`,
+      `Channel: #${channel.name} (${channel.id})`,
+      link ? `Link: ${link}` : ""
+    ].filter(Boolean).join("\n"));
+    return true;
+  }
+
+  if (command === "jumpunread") {
+    const unreadMessageId = findFirstUnreadMessageId(channel, account);
+    if (!unreadMessageId) {
+      addSystemMessage(channel, "No unread messages in this channel.");
+      return true;
+    }
+    requestAnimationFrame(() => {
+      focusMessageById(unreadMessageId);
+    });
     return true;
   }
 
@@ -6813,6 +6925,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
           label: "Copy",
           submenu: [
             { label: "Thread Post ID", action: () => copyText(post.id || "") },
+            { label: "Markdown Quote", action: () => copyText(`> ${(post.text || "").replace(/\n/g, "\n> ")}`) },
             { label: "Post JSON", action: () => copyText(serializeMessageAsJson(post)) }
           ]
         }
@@ -7310,6 +7423,7 @@ function renderMessages() {
           label: "Copy",
           submenu: [
             { label: "Text", action: () => copyText(message.text || "") },
+            { label: "Markdown Quote", action: () => copyText(`> ${(message.text || "").replace(/\n/g, "\n> ")}`) },
             { label: "Author Username", action: () => {
               const author = message.userId ? getAccountById(message.userId) : null;
               copyText(author ? `@${author.username}` : "");
@@ -9494,6 +9608,33 @@ document.addEventListener("keydown", (event) => {
     if (!state.currentAccountId) return;
     event.preventDefault();
     openMediaPickerWithTab("pdf");
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "i") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    renderPinsDialog();
+    ui.pinsDialog.showModal();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "r") {
+    if (!state.currentAccountId) return;
+    if (getViewMode() === "dm") return;
+    event.preventDefault();
+    const channel = getActiveChannel();
+    const account = getCurrentAccount();
+    if (!channel || !account) return;
+    if (!markChannelRead(channel, account.id)) return;
+    saveState();
+    render();
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    const delta = event.key === "ArrowUp" ? -1 : 1;
+    navigateGuildChannelByOffset(delta);
     return;
   }
   if (event.ctrlKey && event.key.toLowerCase() === "k") {
