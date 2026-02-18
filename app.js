@@ -4,6 +4,8 @@ const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
+  { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
+  { name: "poll", args: "<question> | <option1> | <option2> [...]", description: "Create a quick poll." },
   { name: "me", args: "<text>", description: "Send an action-style message." },
   { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
   { name: "note", args: "<text>", description: "Send a collaborative message editable by anyone in the channel." },
@@ -321,7 +323,8 @@ function migrateState(raw) {
                     ...message,
                     reactions: Array.isArray(message.reactions) ? message.reactions : [],
                     pinned: Boolean(message.pinned),
-                    attachments: normalizeAttachments(message.attachments)
+                    attachments: normalizeAttachments(message.attachments),
+                    poll: normalizePoll(message.poll)
                   }))
                 : []
             }))
@@ -341,7 +344,8 @@ function migrateState(raw) {
                 ...message,
                 reactions: Array.isArray(message.reactions) ? message.reactions : [],
                 pinned: Boolean(message.pinned),
-                attachments: normalizeAttachments(message.attachments)
+                attachments: normalizeAttachments(message.attachments),
+                poll: normalizePoll(message.poll)
               }))
             : []
         }))
@@ -396,7 +400,8 @@ function migrateState(raw) {
                   ts: msg.ts || new Date().toISOString(),
                   reactions: [],
                   pinned: false,
-                  attachments: normalizeAttachments(msg.attachments)
+                  attachments: normalizeAttachments(msg.attachments),
+                  poll: normalizePoll(msg.poll)
                 }))
               : [];
             return {
@@ -2026,6 +2031,29 @@ function normalizeAttachments(attachments) {
     .slice(0, 6);
 }
 
+function normalizePoll(poll) {
+  if (!poll || typeof poll !== "object") return null;
+  const question = (poll.question || "").toString().trim().slice(0, 220);
+  if (!question) return null;
+  const options = Array.isArray(poll.options)
+    ? poll.options
+        .map((option) => ({
+          id: (option?.id || createId()).toString().slice(0, 64),
+          label: (option?.label || "").toString().trim().slice(0, 120),
+          voterIds: Array.isArray(option?.voterIds) ? option.voterIds.filter(Boolean) : []
+        }))
+        .filter((option) => option.label)
+    : [];
+  if (options.length < 2) return null;
+  return {
+    question,
+    options: options.slice(0, 12),
+    allowsMulti: Boolean(poll.allowsMulti),
+    closed: Boolean(poll.closed),
+    createdBy: (poll.createdBy || "").toString().slice(0, 64)
+  };
+}
+
 function normalizeSavedSwfs(list) {
   if (!Array.isArray(list)) return [];
   return list
@@ -2313,7 +2341,8 @@ function serializeMessageAsJson(message) {
     replyTo: message.replyTo || null,
     pinned: Boolean(message.pinned),
     reactions: normalizeReactions(message.reactions),
-    attachments: normalizeAttachments(message.attachments)
+    attachments: normalizeAttachments(message.attachments),
+    poll: normalizePoll(message.poll)
   }, null, 2);
 }
 
@@ -2338,6 +2367,10 @@ function serializeMessageAsXml(message) {
   const attachmentsXml = normalizeAttachments(message.attachments)
     .map((attachment) => `    <attachment type="${xmlEscape(attachment.type)}" format="${xmlEscape(attachment.format || "image")}" name="${xmlEscape(attachment.name || "")}" url="${xmlEscape(attachment.url)}" />`)
     .join("\n");
+  const poll = normalizePoll(message.poll);
+  const pollXml = poll
+    ? `  <poll question="${xmlEscape(poll.question)}" closed="${poll.closed ? "true" : "false"}" allowsMulti="${poll.allowsMulti ? "true" : "false"}">\n${poll.options.map((option) => `    <option id="${xmlEscape(option.id)}" votes="${option.voterIds.length}">${xmlEscape(option.label)}</option>`).join("\n")}\n  </poll>`
+    : "  <poll />";
   return [
     `<message id="${xmlEscape(message.id)}" ts="${xmlEscape(message.ts)}"${message.editedAt ? ` editedAt="${xmlEscape(message.editedAt)}"` : ""}${message.editedByStaff ? " editedByStaff=\"true\"" : ""}>`,
     `  <author userId="${xmlEscape(message.userId || "")}">${xmlEscape(displayNameForMessage(message))}</author>`,
@@ -2345,6 +2378,7 @@ function serializeMessageAsXml(message) {
     `  <pinned>${message.pinned ? "true" : "false"}</pinned>`,
     reactionsXml ? `  <reactions>\n${reactionsXml}\n  </reactions>` : "  <reactions />",
     attachmentsXml ? `  <attachments>\n${attachmentsXml}\n  </attachments>` : "  <attachments />",
+    pollXml,
     `</message>`
   ].join("\n");
 }
@@ -2365,6 +2399,116 @@ function toggleReaction(message, emoji, userId) {
     reaction.userIds.splice(idx, 1);
   }
   message.reactions = message.reactions.filter((item) => item.userIds.length > 0);
+}
+
+function parsePollFromCommandArg(arg) {
+  const parts = (arg || "")
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 3) return null;
+  const [question, ...optionParts] = parts;
+  const options = optionParts
+    .slice(0, 12)
+    .map((label) => ({ id: createId(), label: label.slice(0, 120), voterIds: [] }))
+    .filter((option) => option.label);
+  if (!question || options.length < 2) return null;
+  return {
+    question: question.slice(0, 220),
+    options,
+    allowsMulti: false,
+    closed: false
+  };
+}
+
+function getPollTotalVotes(poll) {
+  const normalized = normalizePoll(poll);
+  if (!normalized) return 0;
+  const voters = new Set();
+  normalized.options.forEach((option) => {
+    option.voterIds.forEach((voterId) => voters.add(voterId));
+  });
+  return voters.size;
+}
+
+function togglePollVote(message, optionId, userId) {
+  const poll = normalizePoll(message?.poll);
+  if (!poll || poll.closed || !optionId || !userId) return false;
+  const target = poll.options.find((option) => option.id === optionId);
+  if (!target) return false;
+  poll.options.forEach((option) => {
+    option.voterIds = option.voterIds.filter((voterId) => voterId !== userId);
+  });
+  const wasSelected = target.voterIds.includes(userId);
+  if (!wasSelected) {
+    target.voterIds.push(userId);
+  }
+  message.poll = poll;
+  return true;
+}
+
+function formatPollResultsText(message) {
+  const poll = normalizePoll(message?.poll);
+  if (!poll) return "No poll.";
+  const total = getPollTotalVotes(poll);
+  const lines = poll.options.map((option) => {
+    const votes = option.voterIds.length;
+    const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
+    return `- ${option.label}: ${votes} vote${votes === 1 ? "" : "s"} (${percent}%)`;
+  });
+  return `${poll.question}\n${lines.join("\n")}\nTotal voters: ${total}`;
+}
+
+function canManagePollMessage(message, { isDm = false, canManageMessages = false, currentUser = null } = {}) {
+  if (!message?.poll || !currentUser) return false;
+  if (message.userId && message.userId === currentUser.id) return true;
+  return !isDm && canManageMessages;
+}
+
+function renderMessagePoll(container, message, { currentUser = null, isDm = false, canManageMessages = false, onChanged = null } = {}) {
+  const poll = normalizePoll(message?.poll);
+  if (!poll) return;
+  const wrap = document.createElement("div");
+  wrap.className = "message-poll";
+  const question = document.createElement("div");
+  question.className = "message-poll__question";
+  question.textContent = poll.question;
+  wrap.appendChild(question);
+  const total = getPollTotalVotes(poll);
+  poll.options.forEach((option) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "message-poll__option";
+    const votes = option.voterIds.length;
+    const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
+    const isSelected = currentUser ? option.voterIds.includes(currentUser.id) : false;
+    row.classList.toggle("is-selected", isSelected);
+    if (poll.closed) row.disabled = true;
+    row.innerHTML = `<span>${option.label}</span><small>${votes} · ${percent}%</small>`;
+    row.addEventListener("click", () => {
+      if (!currentUser) return;
+      const changed = togglePollVote(message, option.id, currentUser.id);
+      if (!changed) return;
+      if (typeof onChanged === "function") onChanged();
+    });
+    wrap.appendChild(row);
+  });
+  const foot = document.createElement("div");
+  foot.className = "message-poll__meta";
+  foot.textContent = `${total} voter${total === 1 ? "" : "s"}${poll.closed ? " · closed" : ""}`;
+  if (canManagePollMessage(message, { isDm, canManageMessages, currentUser })) {
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "message-poll__close";
+    closeBtn.textContent = poll.closed ? "Reopen poll" : "Close poll";
+    closeBtn.addEventListener("click", () => {
+      message.poll = { ...poll, closed: !poll.closed };
+      if (typeof onChanged === "function") onChanged();
+    });
+    foot.appendChild(closeBtn);
+  }
+  wrap.appendChild(foot);
+  container.appendChild(wrap);
 }
 
 function addSystemMessage(channel, text) {
@@ -2423,6 +2567,45 @@ function handleSlashCommand(rawText, channel, account) {
       reactions: [],
       attachments: [],
       collaborative: true
+    });
+    return true;
+  }
+
+  if (command === "spoiler") {
+    if (!arg) {
+      addSystemMessage(channel, "Usage: /spoiler <text>");
+      return true;
+    }
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `||${arg.slice(0, 340)}||`,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: []
+    });
+    return true;
+  }
+
+  if (command === "poll") {
+    const poll = parsePollFromCommandArg(arg);
+    if (!poll) {
+      addSystemMessage(channel, "Usage: /poll <question> | <option1> | <option2> [...options]");
+      return true;
+    }
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: "",
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: [],
+      poll: {
+        ...poll,
+        createdBy: account.id
+      }
     });
     return true;
   }
@@ -2995,7 +3178,7 @@ function appendMentionOrEmoji(target, token, context) {
 }
 
 function appendInlineRichText(target, text, context) {
-  const tokenPattern = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]{1,80}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]{1,80}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
   let lastIndex = 0;
   let match = tokenPattern.exec(text);
   while (match) {
@@ -3003,7 +3186,16 @@ function appendInlineRichText(target, text, context) {
       target.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
     }
     const token = match[0];
-    if (token.startsWith("**") && token.endsWith("**")) {
+    if (token.startsWith("||") && token.endsWith("||")) {
+      const spoiler = document.createElement("span");
+      spoiler.className = "message-spoiler";
+      spoiler.textContent = token.slice(2, -2);
+      spoiler.title = "Click to reveal spoiler";
+      spoiler.addEventListener("click", () => {
+        spoiler.classList.toggle("is-revealed");
+      });
+      target.appendChild(spoiler);
+    } else if (token.startsWith("**") && token.endsWith("**")) {
       const strong = document.createElement("strong");
       strong.textContent = token.slice(2, -2);
       target.appendChild(strong);
@@ -5885,6 +6077,15 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       renderMessageText(text, body);
       postRow.appendChild(text);
     }
+    renderMessagePoll(postRow, post, {
+      currentUser,
+      isDm: false,
+      canManageMessages: canCurrentUser("manageMessages"),
+      onChanged: () => {
+        saveState();
+        renderMessages();
+      }
+    });
 
     const postAttachments = normalizeAttachments([
       ...normalizeAttachments(post.attachments),
@@ -6001,6 +6202,15 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         replyText.className = "message-text";
         renderMessageText(replyText, replyMessage.text || "");
         replyRow.appendChild(replyText);
+        renderMessagePoll(replyRow, replyMessage, {
+          currentUser,
+          isDm: false,
+          canManageMessages: canCurrentUser("manageMessages"),
+          onChanged: () => {
+            saveState();
+            renderMessages();
+          }
+        });
 
         const replyAttachments = normalizeAttachments([
           ...normalizeAttachments(replyMessage.attachments),
@@ -6042,10 +6252,15 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       toggleBtn.classList.add("forum-thread-toggle--disabled");
     }
     postRow.addEventListener("contextmenu", (event) => {
+      const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       openContextMenu(event, [
         {
           label: "Reply in Thread",
           action: () => setReplyTarget(conversationId, post, post.id)
+        },
+        {
+          label: "Quote in Composer",
+          action: () => quoteMessageInComposer(post)
         },
         {
           label: "Mark Thread Read",
@@ -6067,6 +6282,22 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
             saveState();
             renderMessages();
           }
+        },
+        {
+          label: normalizePoll(post.poll)?.closed ? "Reopen Poll" : "Close Poll",
+          disabled: !canManagePollMessage(post, { isDm: false, canManageMessages, currentUser }),
+          action: () => {
+            const next = normalizePoll(post.poll);
+            if (!next) return;
+            post.poll = { ...next, closed: !next.closed };
+            saveState();
+            renderMessages();
+          }
+        },
+        {
+          label: "Copy Poll Results",
+          disabled: !normalizePoll(post.poll),
+          action: () => copyText(formatPollResultsText(post))
         },
         {
           label: "Copy",
@@ -6454,6 +6685,15 @@ function renderMessages() {
     if (forumTitle) messageRow.appendChild(forumTitle);
     messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
+    renderMessagePoll(messageRow, message, {
+      currentUser,
+      isDm,
+      canManageMessages,
+      onChanged: () => {
+        saveState();
+        renderMessages();
+      }
+    });
     ui.messageList.appendChild(messageRow);
     if (imagePreview) messageRow.appendChild(imagePreview);
     attachments.forEach((attachment, index) => {
@@ -6477,6 +6717,11 @@ function renderMessages() {
         {
           label: "Quote in Composer",
           action: () => quoteMessageInComposer(message)
+        },
+        {
+          label: "Copy Poll Results",
+          disabled: !normalizePoll(message.poll),
+          action: () => copyText(formatPollResultsText(message))
         },
         {
           label: "Copy",
@@ -6512,6 +6757,17 @@ function renderMessages() {
           label: message.collaborative ? "Edit Shared Message" : "Edit Message",
           disabled: !canEditMessage,
           action: () => openMessageEditor(conversationId, message.id, message.text)
+        },
+        {
+          label: normalizePoll(message.poll)?.closed ? "Reopen Poll" : "Close Poll",
+          disabled: !canManagePollMessage(message, { isDm, canManageMessages, currentUser }),
+          action: () => {
+            const next = normalizePoll(message.poll);
+            if (!next) return;
+            message.poll = { ...next, closed: !next.closed };
+            saveState();
+            renderMessages();
+          }
         },
         {
           label: "View Edit History",
@@ -6636,6 +6892,9 @@ function renderMessages() {
 
 function appendMessageRowLite(channel, message) {
   if (!channel || !message) return;
+  const currentUser = getCurrentAccount();
+  const isDm = Boolean(channel.participantIds);
+  const canManageMessages = !isDm && canCurrentUser("manageMessages");
   const previous = [...ui.messageList.querySelectorAll(".message")].at(-1);
   const previousTs = previous?.dataset?.ts || "";
   const prevKey = previousTs ? messageDateKey(previousTs) : "";
@@ -6674,6 +6933,15 @@ function appendMessageRowLite(channel, message) {
   text.className = "message-text";
   renderMessageText(text, message.text);
   messageRow.appendChild(text);
+  renderMessagePoll(messageRow, message, {
+    currentUser,
+    isDm,
+    canManageMessages,
+    onChanged: () => {
+      saveState();
+      renderMessages();
+    }
+  });
   const attachments = normalizeAttachments([
     ...normalizeAttachments(message.attachments),
     ...extractInlineAttachmentsFromText(message.text)
@@ -7434,6 +7702,16 @@ ui.messageInput.addEventListener("keydown", (event) => {
   }
 
   if (event.ctrlKey && event.shiftKey) {
+    if (event.key.toLowerCase() === "o") {
+      event.preventDefault();
+      const start = ui.messageInput.selectionStart ?? 0;
+      const end = ui.messageInput.selectionEnd ?? 0;
+      const selected = ui.messageInput.value.slice(start, end);
+      if (!selected) return;
+      const wrapped = `||${selected}||`;
+      ui.messageInput.setRangeText(wrapped, start, end, "end");
+      return;
+    }
     if (event.key.toLowerCase() === "g") {
       event.preventDefault();
       openMediaPickerWithTab("gif");

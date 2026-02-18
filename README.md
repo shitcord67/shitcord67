@@ -95,6 +95,12 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Emoji picker search now matches aliases/keywords and supports colon-style query terms (`:fire:`).
 - Emoji recents are persisted and prioritized in picker ordering.
 - Using emoji in picker/reactions updates recent emoji history.
+- Spoiler formatting with `||text||` now renders as click-to-reveal hidden text.
+- New `/spoiler <text>` slash command sends spoiler-formatted messages quickly.
+- New `/poll <question> | <option1> | <option2> ...` slash command creates Telegram-style quick polls.
+- Poll cards support live voting, selected-state highlighting, unique voter counts, and close/reopen controls.
+- Poll results can be copied from message context menu (`Copy Poll Results`).
+- Composer shortcut `Ctrl+Shift+O` wraps selected text in spoiler markers.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
