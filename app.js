@@ -189,6 +189,7 @@ function buildInitialState() {
       swfVuMeter: "off",
       swfQuickAudioMode: "click",
       guildNotifications: {},
+      forumCollapsedThreads: {},
       swfPipPosition: null
     }
   };
@@ -1188,6 +1189,20 @@ function normalizeGuildNotificationsMap(value) {
   }, {});
 }
 
+function normalizeForumCollapsedThreadsMap(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.entries(value).reduce((acc, [channelId, threadMap]) => {
+    if (!channelId || !threadMap || typeof threadMap !== "object") return acc;
+    const normalizedThreadMap = Object.entries(threadMap).reduce((threadAcc, [threadId, collapsed]) => {
+      if (!threadId) return threadAcc;
+      threadAcc[threadId] = Boolean(collapsed);
+      return threadAcc;
+    }, {});
+    if (Object.keys(normalizedThreadMap).length > 0) acc[channelId] = normalizedThreadMap;
+    return acc;
+  }, {});
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -1208,6 +1223,7 @@ function getPreferences() {
     swfVuMeter: normalizeToggle(current.swfVuMeter),
     swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode),
     guildNotifications: normalizeGuildNotificationsMap(current.guildNotifications),
+    forumCollapsedThreads: normalizeForumCollapsedThreadsMap(current.forumCollapsedThreads),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -1237,6 +1253,25 @@ function applyGuildNotificationModeToStats(stats, mode) {
   if (mode === "mute") return { unread: 0, mentions: 0 };
   if (mode === "mentions") return { unread: 0, mentions: stats.mentions };
   return stats;
+}
+
+function isForumThreadCollapsed(channelId, threadId) {
+  if (!channelId || !threadId) return false;
+  const prefs = getPreferences();
+  return Boolean(prefs.forumCollapsedThreads?.[channelId]?.[threadId]);
+}
+
+function setForumThreadCollapsed(channelId, threadId, collapsed) {
+  if (!channelId || !threadId) return;
+  state.preferences = getPreferences();
+  const current = state.preferences.forumCollapsedThreads || {};
+  state.preferences.forumCollapsedThreads = {
+    ...current,
+    [channelId]: {
+      ...(current[channelId] || {}),
+      [threadId]: Boolean(collapsed)
+    }
+  };
 }
 
 function swfAutoplayFromPreferences() {
@@ -4473,6 +4508,7 @@ function setReplyTarget(conversationId, message, threadId = null) {
 function renderForumThreads(conversationId, channel, messages, currentAccount) {
   const topLevel = messages.filter((message) => !message.forumThreadId);
   const repliesByThread = new Map();
+  const lastReadMs = toTimestampMs(channel?.readState?.[currentAccount?.id]);
   messages.forEach((message) => {
     if (!message.forumThreadId) return;
     if (!repliesByThread.has(message.forumThreadId)) repliesByThread.set(message.forumThreadId, []);
@@ -4509,7 +4545,17 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     const { title, body } = forumMessageParts(post);
     const forumTitle = document.createElement("div");
     forumTitle.className = "forum-post-title";
-    forumTitle.textContent = title;
+    forumTitle.textContent = "";
+    const collapsed = isForumThreadCollapsed(channel?.id, post.id);
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "forum-thread-toggle";
+    toggleBtn.textContent = collapsed ? "▸" : "▾";
+    toggleBtn.title = collapsed ? "Expand thread" : "Collapse thread";
+    const titleText = document.createElement("span");
+    titleText.textContent = title;
+    forumTitle.appendChild(toggleBtn);
+    forumTitle.appendChild(titleText);
     postRow.appendChild(forumTitle);
 
     if (body) {
@@ -4538,9 +4584,22 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     postRow.appendChild(postActions);
 
     const replies = repliesByThread.get(post.id) || [];
+    const unreadReplies = replies.reduce((count, replyMessage) => {
+      if (toTimestampMs(replyMessage.ts) <= lastReadMs) return count;
+      if (replyMessage.userId && replyMessage.userId === currentAccount?.id) return count;
+      return count + 1;
+    }, 0);
+    if (unreadReplies > 0) {
+      const unreadBadge = document.createElement("span");
+      unreadBadge.className = "forum-thread-unread";
+      unreadBadge.textContent = unreadReplies > 99 ? "99+" : `${unreadReplies}`;
+      unreadBadge.title = `${unreadReplies} unread replies`;
+      forumTitle.appendChild(unreadBadge);
+    }
     if (replies.length > 0) {
       const repliesWrap = document.createElement("div");
       repliesWrap.className = "forum-thread-replies";
+      repliesWrap.hidden = collapsed;
       replies.forEach((replyMessage) => {
         const replyRow = document.createElement("article");
         replyRow.className = "message message--forum-reply";
@@ -4608,6 +4667,17 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         repliesWrap.appendChild(replyRow);
       });
       postRow.appendChild(repliesWrap);
+      toggleBtn.addEventListener("click", () => {
+        const nextCollapsed = !repliesWrap.hidden;
+        repliesWrap.hidden = nextCollapsed;
+        toggleBtn.textContent = nextCollapsed ? "▸" : "▾";
+        toggleBtn.title = nextCollapsed ? "Expand thread" : "Collapse thread";
+        setForumThreadCollapsed(channel?.id, post.id, nextCollapsed);
+        saveState();
+      });
+    } else {
+      toggleBtn.disabled = true;
+      toggleBtn.classList.add("forum-thread-toggle--disabled");
     }
 
     ui.messageList.appendChild(postRow);
