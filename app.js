@@ -2324,6 +2324,7 @@ function renderMessages() {
     if (pinIndicator) messageRow.appendChild(pinIndicator);
     messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
+    ui.messageList.appendChild(messageRow);
     if (imagePreview) messageRow.appendChild(imagePreview);
     attachments.forEach((attachment) => renderMessageAttachment(messageRow, attachment));
     messageRow.appendChild(reactions);
@@ -2388,7 +2389,6 @@ function renderMessages() {
         }
       ]);
     });
-    ui.messageList.appendChild(messageRow);
   });
 
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
@@ -3264,6 +3264,15 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && ui.settingsScreen.classList.contains("settings-screen--active")) {
     closeSettingsScreen();
   }
+});
+
+document.addEventListener("focusin", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (target.id !== "virtual-keyboard") return;
+  if (target.getAttribute("aria-hidden") !== "true") return;
+  target.blur();
+  addDebugLog("info", "Blurred hidden virtual-keyboard input to avoid aria-hidden focus warning");
 });
 
 render();
