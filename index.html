@@ -137,6 +137,7 @@
         <div class="settings-nav__title">User Settings</div>
         <button class="settings-nav__item active" data-settings-tab="my-account">My Account</button>
         <button class="settings-nav__item" data-settings-tab="profiles">Profiles</button>
+        <button class="settings-nav__item" data-settings-tab="notifications">Notifications</button>
         <button class="settings-nav__item" data-settings-tab="appearance">Appearance</button>
         <button class="settings-nav__item" data-settings-tab="advanced">Advanced</button>
       </aside>
@@ -179,6 +180,21 @@
               <option value="on">On</option>
             </select>
             <button type="submit">Save Appearance</button>
+          </form>
+        </section>
+
+        <section class="settings-panel" data-settings-panel="notifications">
+          <form id="guildNotifForm" class="settings-card">
+            <h3>Guild Notifications</h3>
+            <p>Configure notification mode for the currently active guild.</p>
+            <p><strong id="guildNotifGuildName">No guild selected</strong></p>
+            <label for="guildNotifModeInput">Notification mode</label>
+            <select id="guildNotifModeInput">
+              <option value="all">All messages</option>
+              <option value="mentions">Mentions only</option>
+              <option value="mute">Mute guild</option>
+            </select>
+            <button type="submit">Save Notifications</button>
           </form>
         </section>
 

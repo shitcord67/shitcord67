@@ -180,7 +180,8 @@ function buildInitialState() {
       swfAutoplay: "on",
       swfPauseOnMute: "off",
       swfVuMeter: "off",
-      swfQuickAudioMode: "click"
+      swfQuickAudioMode: "click",
+      guildNotifications: {}
     }
   };
 }
@@ -508,6 +509,9 @@ const ui = {
   settingsSwitchAccount: document.getElementById("settingsSwitchAccount"),
   settingsLogout: document.getElementById("settingsLogout"),
   settingsOpenProfileEditor: document.getElementById("settingsOpenProfileEditor"),
+  guildNotifForm: document.getElementById("guildNotifForm"),
+  guildNotifGuildName: document.getElementById("guildNotifGuildName"),
+  guildNotifModeInput: document.getElementById("guildNotifModeInput"),
   appearanceForm: document.getElementById("appearanceForm"),
   uiScaleInput: document.getElementById("uiScaleInput"),
   compactModeInput: document.getElementById("compactModeInput"),
@@ -705,13 +709,14 @@ function getGuildUnreadStats(guild, account) {
   if (!Array.isArray(guild.memberIds) || !guild.memberIds.includes(account.id)) {
     return { unread: 0, mentions: 0 };
   }
-  return guild.channels.reduce((acc, channel) => {
+  const totals = guild.channels.reduce((acc, channel) => {
     const stats = getChannelUnreadStats(channel, account);
     return {
       unread: acc.unread + stats.unread,
       mentions: acc.mentions + stats.mentions
     };
   }, { unread: 0, mentions: 0 });
+  return applyGuildNotificationModeToStats(totals, getGuildNotificationMode(guild.id));
 }
 
 async function copyText(value) {
@@ -880,6 +885,20 @@ function normalizeSwfQuickAudioMode(value) {
   return "click";
 }
 
+function normalizeGuildNotificationMode(value) {
+  if (value === "mentions" || value === "mute") return value;
+  return "all";
+}
+
+function normalizeGuildNotificationsMap(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.entries(value).reduce((acc, [guildId, mode]) => {
+    if (!guildId) return acc;
+    acc[guildId] = normalizeGuildNotificationMode(mode);
+    return acc;
+  }, {});
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -897,8 +916,30 @@ function getPreferences() {
     swfAutoplay: normalizeSwfAutoplay(current.swfAutoplay),
     swfPauseOnMute: normalizeToggle(current.swfPauseOnMute),
     swfVuMeter: normalizeToggle(current.swfVuMeter),
-    swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode)
+    swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode),
+    guildNotifications: normalizeGuildNotificationsMap(current.guildNotifications)
   };
+}
+
+function getGuildNotificationMode(guildId) {
+  if (!guildId) return "all";
+  const prefs = getPreferences();
+  return prefs.guildNotifications[guildId] || "all";
+}
+
+function setGuildNotificationMode(guildId, mode) {
+  if (!guildId) return;
+  state.preferences = getPreferences();
+  state.preferences.guildNotifications = {
+    ...state.preferences.guildNotifications,
+    [guildId]: normalizeGuildNotificationMode(mode)
+  };
+}
+
+function applyGuildNotificationModeToStats(stats, mode) {
+  if (mode === "mute") return { unread: 0, mentions: 0 };
+  if (mode === "mentions") return { unread: 0, mentions: stats.mentions };
+  return stats;
 }
 
 function swfAutoplayFromPreferences() {
@@ -3356,6 +3397,7 @@ function renderServers() {
     });
     button.addEventListener("contextmenu", (event) => {
       const currentUser = getCurrentAccount();
+      const guildNotifMode = getGuildNotificationMode(server.id);
       openContextMenu(event, [
         {
           label: "Open Guild",
@@ -3394,6 +3436,41 @@ function renderServers() {
           }
         },
         {
+          label: `Notifications: ${guildNotifMode === "mute" ? "Muted" : guildNotifMode === "mentions" ? "Mentions" : "All"}`,
+          disabled: true,
+          action: () => {}
+        },
+        {
+          label: "Notify: All Messages",
+          action: () => {
+            setGuildNotificationMode(server.id, "all");
+            saveState();
+            renderServers();
+            renderChannels();
+            renderSettingsScreen();
+          }
+        },
+        {
+          label: "Notify: Mentions Only",
+          action: () => {
+            setGuildNotificationMode(server.id, "mentions");
+            saveState();
+            renderServers();
+            renderChannels();
+            renderSettingsScreen();
+          }
+        },
+        {
+          label: "Notify: Mute Guild",
+          action: () => {
+            setGuildNotificationMode(server.id, "mute");
+            saveState();
+            renderServers();
+            renderChannels();
+            renderSettingsScreen();
+          }
+        },
+        {
           label: "Delete Guild",
           danger: true,
           disabled: state.guilds.length <= 1 || !currentUser || !hasServerPermission(server, currentUser.id, "administrator"),
@@ -3414,6 +3491,7 @@ function renderChannels() {
   }
 
   const currentAccount = getCurrentAccount();
+  const notificationMode = getGuildNotificationMode(server.id);
   const filter = channelFilterTerm.trim().toLowerCase();
   if (ui.channelFilterInput && ui.channelFilterInput.value !== channelFilterTerm) {
     ui.channelFilterInput.value = channelFilterTerm;
@@ -3427,7 +3505,10 @@ function renderChannels() {
     label.className = "channel-item__name";
     label.textContent = `# ${channel.name}`;
     button.appendChild(label);
-    const unreadStats = getChannelUnreadStats(channel, currentAccount);
+    const unreadStats = applyGuildNotificationModeToStats(
+      getChannelUnreadStats(channel, currentAccount),
+      notificationMode
+    );
     if (unreadStats.mentions > 0) {
       const mentionBadge = document.createElement("span");
       mentionBadge.className = "channel-badge channel-badge--mention";
@@ -4059,6 +4140,7 @@ function setSettingsTab(tabId) {
   const tabTitles = {
     "my-account": "My Account",
     profiles: "Profiles",
+    notifications: "Notifications",
     appearance: "Appearance",
     advanced: "Advanced"
   };
@@ -4073,6 +4155,7 @@ function setSettingsTab(tabId) {
 
 function renderSettingsScreen() {
   const account = getCurrentAccount();
+  const guild = getActiveGuild();
   const prefs = getPreferences();
   if (!account) return;
   ui.settingsDisplayName.textContent = account.displayName || account.username;
@@ -4087,6 +4170,13 @@ function renderSettingsScreen() {
   ui.swfAutoplayInput.value = prefs.swfAutoplay;
   ui.swfPauseOnMuteInput.value = prefs.swfPauseOnMute;
   ui.swfVuMeterInput.value = prefs.swfVuMeter;
+  if (ui.guildNotifGuildName) {
+    ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
+  }
+  if (ui.guildNotifModeInput) {
+    ui.guildNotifModeInput.value = guild ? getGuildNotificationMode(guild.id) : "all";
+    ui.guildNotifModeInput.disabled = !guild;
+  }
 }
 
 function openSettingsScreen() {
@@ -4646,6 +4736,17 @@ ui.settingsLogout.addEventListener("click", () => {
   closeSettingsScreen();
   saveState();
   render();
+});
+
+ui.guildNotifForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const guild = getActiveGuild();
+  if (!guild) return;
+  setGuildNotificationMode(guild.id, ui.guildNotifModeInput.value);
+  saveState();
+  renderServers();
+  renderChannels();
+  renderSettingsScreen();
 });
 
 ui.appearanceForm.addEventListener("submit", (event) => {
