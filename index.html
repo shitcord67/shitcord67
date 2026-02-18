@@ -62,6 +62,7 @@
           <h2 id="activeChannelName">#general</h2>
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
+            <button id="markChannelReadBtn" class="chat-topic-edit" title="Mark channel read">Mark Read</button>
             <button id="openChannelSettingsBtn" class="chat-topic-edit" title="Channel settings">Channel</button>
             <button id="openPinsBtn" class="chat-topic-edit" title="Pinned messages">Pins</button>
             <button id="openRolesBtn" class="chat-topic-edit" title="Manage roles">Roles</button>
@@ -133,6 +134,10 @@
             <input id="messageInput" type="text" maxlength="400" placeholder="Message #general" />
             <button type="submit">Send</button>
           </form>
+          <div class="composer-meta">
+            <span id="composerSystemNotice" class="composer-system-note" hidden></span>
+            <span id="composerCharCount" class="composer-char-count">0/400</span>
+          </div>
           <input id="quickAttachInput" type="file" accept=".pdf,.txt,.md,.log,.json,.js,.ts,.css,.xml,.yml,.yaml,.ini,.toml,.odt,.ods,.odp,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.bin,application/pdf,text/plain,application/json,application/rtf,text/rtf,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
         </div>
       </main>
@@ -394,6 +399,17 @@
       <h3>Channel settings</h3>
       <label for="channelRenameInput">Channel name</label>
       <input id="channelRenameInput" type="text" maxlength="40" />
+      <label for="channelSlowmodeInput">Slowmode</label>
+      <select id="channelSlowmodeInput">
+        <option value="0">Off</option>
+        <option value="5">5 seconds</option>
+        <option value="10">10 seconds</option>
+        <option value="15">15 seconds</option>
+        <option value="30">30 seconds</option>
+        <option value="60">1 minute</option>
+        <option value="120">2 minutes</option>
+        <option value="300">5 minutes</option>
+      </select>
       <div class="modal-actions">
         <button type="button" id="channelSettingsCancel">Cancel</button>
         <button type="submit">Save</button>
