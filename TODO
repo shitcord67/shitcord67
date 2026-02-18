@@ -118,8 +118,8 @@
 - [done] Show message editing history
 - [done] Allow moderators on guild to edit member messages; show (edited by staff) instead of just (edited)
 - Option to build a local client (electron for now or alternative to that?)
-- Implement drag & drop on window to attach files to chat (into the preview; user needs to still press enter once to send)
-- Option to store documents and texts in the picker
-- Implement viewer for displaying OpenDocument formats (spreadsheet, presentation, rich text documents)
-- Implement viewer for displaying Microsoft RTF
-- Implement some other funny viewers...
+- [done] Implement drag & drop on window to attach files to chat (into the preview; user needs to still press enter once to send)
+- [done] Option to store documents and texts in the picker
+- [done] Implement viewer for displaying OpenDocument formats (spreadsheet, presentation, rich text documents)
+- [done] Implement viewer for displaying Microsoft RTF
+- [done] Implement some other funny viewers... (example: inline HEX viewer for `.bin`)

@@ -15,7 +15,7 @@ const SLASH_COMMANDS = [
   { name: "clear", args: "", description: "Clear all messages in this channel." },
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
-const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "pdf", "html"];
+const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "pdf", "text", "docs", "html"];
 const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const mediaAllowOnceUrls = new Set();
 const EMOJI_LIBRARY = [
@@ -155,6 +155,8 @@ function buildInitialState() {
         customGifs: [],
         customSvgs: [],
         customPdfs: [],
+        customTexts: [],
+        customDocs: [],
         customSwfs: [],
         roles: [everyoneRole],
         memberRoles: {},
@@ -276,6 +278,8 @@ function migrateState(raw) {
         customGifs: Array.isArray(guild.customGifs) ? guild.customGifs : [],
         customSvgs: Array.isArray(guild.customSvgs) ? guild.customSvgs : [],
         customPdfs: Array.isArray(guild.customPdfs) ? guild.customPdfs : [],
+        customTexts: Array.isArray(guild.customTexts) ? guild.customTexts : [],
+        customDocs: Array.isArray(guild.customDocs) ? guild.customDocs : [],
         customSwfs: Array.isArray(guild.customSwfs) ? guild.customSwfs : [],
         customHtmls: Array.isArray(guild.customHtmls) ? guild.customHtmls : [],
         memberIds: Array.isArray(guild.memberIds) ? guild.memberIds : [],
@@ -396,6 +400,8 @@ function migrateState(raw) {
         customGifs: [],
         customSvgs: [],
         customPdfs: [],
+        customTexts: [],
+        customDocs: [],
         customSwfs: [],
         customHtmls: [],
         memberIds,
@@ -536,6 +542,9 @@ const ui = {
   mediaFileInput: document.getElementById("mediaFileInput"),
   mediaTabs: [...document.querySelectorAll(".media-picker__tab")],
   openMediaPickerBtn: document.getElementById("openMediaPickerBtn"),
+  openGifPickerBtn: document.getElementById("openGifPickerBtn"),
+  openStickerPickerBtn: document.getElementById("openStickerPickerBtn"),
+  openEmojiPickerBtn: document.getElementById("openEmojiPickerBtn"),
   quickFileAttachBtn: document.getElementById("quickFileAttachBtn"),
   quickAttachInput: document.getElementById("quickAttachInput"),
   toggleSwfAudioBtn: document.getElementById("toggleSwfAudioBtn"),
@@ -1654,16 +1663,28 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${bytes} B`;
+}
+
 function inferAttachmentTypeFromFile(file) {
   if (!file) return null;
   const name = (file.name || "").toLowerCase();
   const mime = (file.type || "").toLowerCase();
   if (name.endsWith(".pdf") || mime === "application/pdf") return "pdf";
+  if (name.endsWith(".rtf") || mime === "application/rtf" || mime === "text/rtf") return "rtf";
+  if (name.endsWith(".odt") || name.endsWith(".ods") || name.endsWith(".odp")
+    || mime.includes("vnd.oasis.opendocument")) return "odf";
+  if (/\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(name) || mime.includes("officedocument") || mime === "application/msword") return "odf";
   if (/\.(mp3|ogg|wav|m4a|flac)$/i.test(name) || /^audio\//i.test(mime)) return "audio";
   if (/\.(txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml)$/i.test(name) || /^text\//i.test(mime)) return "text";
   if (name.endsWith(".swf")) return "swf";
   if (name.endsWith(".svg") || mime === "image/svg+xml") return "svg";
   if (name.endsWith(".html") || name.endsWith(".htm") || mime === "text/html") return "html";
+  if (name.endsWith(".bin")) return "bin";
   if (name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".mp4") || name.endsWith(".webm")) return "gif";
   return "gif";
 }
@@ -1684,9 +1705,27 @@ function setComposerPendingAttachment(entry) {
   if (ui.composerAttachmentText) {
     const label = composerPendingAttachment.name || "file";
     const type = (composerPendingAttachment.type || "file").toUpperCase();
-    ui.composerAttachmentText.textContent = `Attached ${type}: ${label}`;
+    const size = formatFileSize(Number(composerPendingAttachment.sizeBytes || 0));
+    ui.composerAttachmentText.textContent = size
+      ? `Attached ${type}: ${label} (${size})`
+      : `Attached ${type}: ${label}`;
   }
   if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.remove("composer-reply--hidden");
+}
+
+async function attachFileToComposer(file) {
+  if (!file) return false;
+  const type = inferAttachmentTypeFromFile(file);
+  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  if (!allowed.has(type)) return false;
+  const url = await readFileAsDataUrl(file);
+  setComposerPendingAttachment({
+    type,
+    url,
+    name: file.name || `${type}-${Date.now()}`,
+    sizeBytes: Number(file.size) || 0
+  });
+  return true;
 }
 
 async function applyProfileAvatarFile(file) {
@@ -1726,7 +1765,7 @@ function normalizeReactions(reactions) {
 
 function normalizeAttachments(attachments) {
   if (!Array.isArray(attachments)) return [];
-  const allowedTypes = new Set(["gif", "sticker", "svg", "swf", "html", "pdf", "audio", "text"]);
+  const allowedTypes = new Set(["gif", "sticker", "svg", "swf", "html", "pdf", "audio", "text", "odf", "rtf", "bin"]);
   const allowedFormats = new Set(["image", "dotlottie", "apng"]);
   return attachments
     .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
@@ -1768,6 +1807,8 @@ function ensureGuildMediaCollections(guild) {
   if (!Array.isArray(guild.customGifs)) guild.customGifs = [];
   if (!Array.isArray(guild.customSvgs)) guild.customSvgs = [];
   if (!Array.isArray(guild.customPdfs)) guild.customPdfs = [];
+  if (!Array.isArray(guild.customTexts)) guild.customTexts = [];
+  if (!Array.isArray(guild.customDocs)) guild.customDocs = [];
   if (!Array.isArray(guild.customSwfs)) guild.customSwfs = [];
   if (!Array.isArray(guild.customHtmls)) guild.customHtmls = [];
 }
@@ -1779,6 +1820,8 @@ function getGuildResourceBucket(guild, tab) {
   if (tab === "gif") return guild.customGifs;
   if (tab === "svg") return guild.customSvgs;
   if (tab === "pdf") return guild.customPdfs;
+  if (tab === "text") return guild.customTexts;
+  if (tab === "docs") return guild.customDocs;
   if (tab === "swf") return guild.customSwfs;
   if (tab === "html") return guild.customHtmls;
   return [];
@@ -1793,7 +1836,8 @@ function upsertGuildResource(tab, entry) {
     id: entry.id || createId(),
     name,
     url: entry.url,
-    format: entry.format || "image"
+    format: entry.format || "image",
+    type: (entry.type || "").toString()
   };
   const existingIndex = bucket.findIndex((item) => item.name === normalized.name);
   if (existingIndex >= 0) {
@@ -2733,8 +2777,11 @@ function inferAttachmentTypeFromUrl(url) {
   if (clean.endsWith(".svg") || clean.includes(".svg?")) return "svg";
   if (clean.endsWith(".html") || clean.includes(".html?") || clean.endsWith(".htm") || clean.includes(".htm?")) return "html";
   if (clean.endsWith(".pdf") || clean.includes(".pdf?")) return "pdf";
+  if (clean.endsWith(".rtf") || clean.includes(".rtf?")) return "rtf";
+  if (/\.(odt|ods|odp|doc|docx|xls|xlsx|ppt|pptx)(\?|$)/i.test(clean)) return "odf";
   if (/\.(mp3|ogg|wav|m4a|flac)(\?|$)/i.test(clean)) return "audio";
   if (/\.(txt|md|log|json|js|ts|css|html|xml|yml|yaml|ini|toml)(\?|$)/i.test(clean)) return "text";
+  if (clean.endsWith(".bin") || clean.includes(".bin?")) return "bin";
   if (clean.endsWith(".apng") || clean.includes(".apng?")) return "sticker";
   if (clean.endsWith(".lottie") || clean.includes(".lottie?")) return "sticker";
   if (/\.(gif|webp|mp4|webm)(\?|$)/i.test(clean)) return "gif";
@@ -2749,7 +2796,7 @@ function inferAttachmentFormat(type, url) {
 function extractInlineAttachmentsFromText(text) {
   if (!text) return [];
   const results = [];
-  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|apng|lottie|gif|webp|mp4|webm|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml))/gi) || [];
+  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|gif|webp|mp4|webm|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
   const seen = new Set();
   matches.forEach((raw) => {
     const cleaned = raw.replace(/[),.!?]+$/, "");
@@ -2775,6 +2822,34 @@ async function loadTextAttachmentPreview(url) {
   const clipped = lines.slice(0, 40).join("\n").slice(0, 3500);
   const truncated = lines.length > 40 || text.length > clipped.length;
   return `${clipped}${truncated ? "\n… (truncated)" : ""}`;
+}
+
+async function loadBinaryPreview(url, limit = 512) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer.slice(0, Math.min(limit, buffer.byteLength)));
+  const lines = [];
+  for (let i = 0; i < bytes.length; i += 16) {
+    const chunk = bytes.slice(i, i + 16);
+    const hex = [...chunk].map((b) => b.toString(16).padStart(2, "0")).join(" ");
+    const ascii = [...chunk].map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : ".")).join("");
+    lines.push(`${i.toString(16).padStart(4, "0")}  ${hex.padEnd(47, " ")}  ${ascii}`);
+  }
+  const suffix = buffer.byteLength > bytes.length ? `\n… (${buffer.byteLength - bytes.length} bytes more)` : "";
+  return lines.join("\n") + suffix;
+}
+
+function rtfToPlainText(rtf) {
+  if (!rtf) return "";
+  return rtf
+    .replace(/\\par[d]?/g, "\n")
+    .replace(/\\tab/g, "\t")
+    .replace(/\\'[0-9a-f]{2}/gi, " ")
+    .replace(/\\[a-z]+-?\d* ?/gi, "")
+    .replace(/[{}]/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 async function loadSwfLibrary() {
@@ -2819,6 +2894,14 @@ function mediaEntriesForActiveTab() {
     const custom = (guild?.customPdfs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
     return custom;
   }
+  if (mediaPickerTab === "text") {
+    const custom = (guild?.customTexts || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return custom;
+  }
+  if (mediaPickerTab === "docs") {
+    const custom = (guild?.customDocs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return custom;
+  }
   if (mediaPickerTab === "swf") {
     const custom = (guild?.customSwfs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
     return [...custom, ...swfLibrary];
@@ -2848,6 +2931,14 @@ function openMediaPicker() {
   ui.mediaSearchInput.focus();
 }
 
+function openMediaPickerWithTab(tab, { resetQuery = false } = {}) {
+  if (MEDIA_TABS.includes(tab)) {
+    mediaPickerTab = tab;
+  }
+  if (resetQuery) mediaPickerQuery = "";
+  openMediaPicker();
+}
+
 function toggleMediaPicker() {
   if (mediaPickerOpen) {
     closeMediaPicker();
@@ -2869,6 +2960,8 @@ function mediaPlaceholderForTab(tab) {
   if (tab === "swf") return "Search SWFs";
   if (tab === "svg") return "Search SVGs";
   if (tab === "pdf") return "Search PDFs";
+  if (tab === "text") return "Search text files";
+  if (tab === "docs") return "Search documents";
   if (tab === "html") return "Search HTML embeds";
   return "Search media";
 }
@@ -2941,7 +3034,20 @@ function addMediaFromUrlFlow() {
   const name = sanitizeMediaName(typedName, `${tab}-${Date.now().toString().slice(-4)}`);
   const url = typedUrl.trim();
   if (!/^https?:\/\//i.test(url) && !/^data:/i.test(url)) return;
-  if (upsertGuildResource(tab, { name, url, format: tab === "sticker" ? stickerFormatFromName(name, url) : "image" })) {
+  const inferredType = inferAttachmentTypeFromUrl(url);
+  const resolvedType = tab === "docs"
+    ? (inferredType === "rtf" ? "rtf" : "odf")
+    : tab === "text"
+      ? "text"
+      : tab === "pdf"
+        ? "pdf"
+        : inferredType;
+  if (upsertGuildResource(tab, {
+    name,
+    url,
+    format: tab === "sticker" ? stickerFormatFromName(name, url) : "image",
+    type: resolvedType || tab
+  })) {
     saveState();
     renderMediaPicker();
   }
@@ -2954,6 +3060,8 @@ function fileAcceptForTab(tab) {
   if (tab === "swf") return ".swf,application/x-shockwave-flash";
   if (tab === "svg") return "image/svg+xml,.svg";
   if (tab === "pdf") return ".pdf,application/pdf";
+  if (tab === "text") return ".txt,.md,.log,.json,.js,.ts,.css,.xml,.yml,.yaml,.ini,.toml,text/plain,application/json,text/markdown";
+  if (tab === "docs") return ".odt,.ods,.odp,.rtf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation,application/rtf,text/rtf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (tab === "html") return "text/html,.html,.htm";
   return "*/*";
 }
@@ -2974,9 +3082,16 @@ async function addMediaFromFileFlow(file) {
   try {
     const url = await readFileAsDataUrl(file);
     const inferredType = inferAttachmentTypeFromFile(file);
-    const targetTab = tab === "pdf" || inferredType === tab ? tab : inferredType;
+    const inferredTab = inferredType === "odf" || inferredType === "rtf"
+      ? "docs"
+      : inferredType === "text"
+        ? "text"
+        : inferredType === "pdf"
+          ? "pdf"
+          : inferredType;
+    const targetTab = tab === "docs" || tab === "text" || tab === "pdf" || inferredTab === tab ? tab : inferredTab;
     const format = targetTab === "sticker" ? stickerFormatFromName(file.name, url) : "image";
-    if (upsertGuildResource(targetTab, { name, url, format })) {
+    if (upsertGuildResource(targetTab, { name, url, format, type: inferredType })) {
       saveState();
       if (targetTab !== mediaPickerTab) {
         mediaPickerTab = targetTab;
@@ -3180,6 +3295,39 @@ function renderMediaPicker() {
       return;
     }
 
+    if (mediaPickerTab === "text") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = "TXT";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, "text"));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    if (mediaPickerTab === "docs") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = entry.type === "rtf" ? "RTF" : "DOC";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => {
+        const docType = entry.type === "rtf" ? "rtf" : "odf";
+        sendMediaAttachment(entry, docType);
+      });
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
     if (mediaPickerTab === "gif" && entry.preview === "video") {
       const video = document.createElement("video");
       video.className = "media-card__preview";
@@ -3216,6 +3364,10 @@ function renderMediaPicker() {
             ? "html"
             : mediaPickerTab === "pdf"
               ? "pdf"
+              : mediaPickerTab === "text"
+                ? "text"
+                : mediaPickerTab === "docs"
+                  ? "odf"
               : "svg";
       sendMediaAttachment(entry, type);
     });
@@ -4577,6 +4729,53 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     return;
   }
 
+  if (type === "odf") {
+    const frame = document.createElement("iframe");
+    frame.className = "message-pdf-frame";
+    frame.loading = "lazy";
+    frame.referrerPolicy = "no-referrer";
+    frame.src = mediaUrl;
+    wrap.appendChild(frame);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open document in new tab";
+    wrap.appendChild(openBtn);
+    const downloadBtn = document.createElement("a");
+    downloadBtn.className = "message-swf-link";
+    downloadBtn.href = mediaUrl;
+    downloadBtn.download = attachment.name || "document";
+    downloadBtn.textContent = "Download document";
+    wrap.appendChild(downloadBtn);
+    container.appendChild(wrap);
+    return;
+  }
+
+  if (type === "rtf") {
+    const pre = document.createElement("pre");
+    pre.className = "message-text-file";
+    pre.textContent = "Loading RTF preview…";
+    wrap.appendChild(pre);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open RTF file";
+    wrap.appendChild(openBtn);
+    container.appendChild(wrap);
+    void loadTextAttachmentPreview(mediaUrl)
+      .then((preview) => {
+        pre.textContent = rtfToPlainText(preview) || "(empty file)";
+      })
+      .catch(() => {
+        pre.textContent = "Could not load RTF preview.";
+      });
+    return;
+  }
+
   if (type === "text") {
     const pre = document.createElement("pre");
     pre.className = "message-text-file";
@@ -4596,6 +4795,29 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       })
       .catch(() => {
         pre.textContent = "Could not load preview.";
+      });
+    return;
+  }
+
+  if (type === "bin") {
+    const pre = document.createElement("pre");
+    pre.className = "message-text-file";
+    pre.textContent = "Loading HEX preview…";
+    wrap.appendChild(pre);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open binary file";
+    wrap.appendChild(openBtn);
+    container.appendChild(wrap);
+    void loadBinaryPreview(mediaUrl)
+      .then((preview) => {
+        pre.textContent = preview || "(empty file)";
+      })
+      .catch(() => {
+        pre.textContent = "Could not load HEX preview.";
       });
     return;
   }
@@ -6415,10 +6637,24 @@ ui.messageInput.addEventListener("input", () => {
 });
 
 ui.openMediaPickerBtn.addEventListener("click", () => {
+  ui.quickAttachInput.click();
+});
+ui.openMediaPickerBtn.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
   toggleMediaPicker();
 });
 ui.openMediaPickerBtn.addEventListener("mouseenter", warmMediaPickerRuntimes);
 ui.openMediaPickerBtn.addEventListener("focus", warmMediaPickerRuntimes);
+
+ui.openGifPickerBtn?.addEventListener("click", () => {
+  openMediaPickerWithTab("gif");
+});
+ui.openStickerPickerBtn?.addEventListener("click", () => {
+  openMediaPickerWithTab("sticker");
+});
+ui.openEmojiPickerBtn?.addEventListener("click", () => {
+  openMediaPickerWithTab("emoji");
+});
 
 ui.quickFileAttachBtn.addEventListener("click", () => {
   ui.quickAttachInput.click();
@@ -6428,13 +6664,11 @@ ui.quickAttachInput.addEventListener("change", async () => {
   const file = ui.quickAttachInput.files?.[0];
   if (!file) return;
   try {
-    const url = await readFileAsDataUrl(file);
-    const type = inferAttachmentTypeFromFile(file) || "pdf";
-    setComposerPendingAttachment({
-      type,
-      url,
-      name: file.name || `${type}-${Date.now()}`
-    });
+    const attached = await attachFileToComposer(file);
+    if (!attached) {
+      showToast("Unsupported attachment type. Use PDF/Text/Docs/BIN.", { tone: "error" });
+      return;
+    }
     ui.messageInput.focus();
   } catch {
     showToast("Failed to attach file.", { tone: "error" });
@@ -6528,6 +6762,24 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
 });
 
 ui.messageInput.addEventListener("keydown", (event) => {
+  if (event.ctrlKey && event.shiftKey) {
+    if (event.key.toLowerCase() === "g") {
+      event.preventDefault();
+      openMediaPickerWithTab("gif");
+      return;
+    }
+    if (event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      openMediaPickerWithTab("sticker");
+      return;
+    }
+    if (event.key.toLowerCase() === "e") {
+      event.preventDefault();
+      openMediaPickerWithTab("emoji");
+      return;
+    }
+  }
+
   const suggestion = getComposerSuggestionState();
   const popupVisible = suggestion.type !== "none";
 
@@ -6572,6 +6824,24 @@ ui.messageInput.addEventListener("keydown", (event) => {
   }
 });
 
+ui.messageInput.addEventListener("paste", (event) => {
+  const files = event.clipboardData?.files;
+  if (!files || files.length === 0) return;
+  const [file] = files;
+  if (!file) return;
+  const inferred = inferAttachmentTypeFromFile(file);
+  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  if (!allowed.has(inferred)) return;
+  event.preventDefault();
+  void attachFileToComposer(file).then((attached) => {
+    if (!attached) return;
+    ui.messageInput.focus();
+    showToast("Attachment added from clipboard.");
+  }).catch(() => {
+    showToast("Failed to attach clipboard file.", { tone: "error" });
+  });
+});
+
 ui.cancelReplyBtn.addEventListener("click", () => {
   replyTarget = null;
   renderReplyComposer();
@@ -6610,6 +6880,9 @@ ui.createServerForm.addEventListener("submit", (event) => {
     customStickers: [],
     customGifs: [],
     customSvgs: [],
+    customPdfs: [],
+    customTexts: [],
+    customDocs: [],
     customSwfs: [],
     customHtmls: [],
     roles: [everyoneRole, adminRole],
@@ -7307,7 +7580,12 @@ document.addEventListener("click", (event) => {
   }
   if (mediaPickerOpen) {
     const inPicker = ui.mediaPicker.contains(event.target);
-    const onToggle = ui.openMediaPickerBtn.contains(event.target) || ui.toggleSwfAudioBtn.contains(event.target);
+    const onToggle = ui.openMediaPickerBtn.contains(event.target)
+      || ui.toggleSwfAudioBtn.contains(event.target)
+      || ui.quickFileAttachBtn.contains(event.target)
+      || ui.openGifPickerBtn?.contains(event.target)
+      || ui.openStickerPickerBtn?.contains(event.target)
+      || ui.openEmojiPickerBtn?.contains(event.target);
     if (!inPicker && !onToggle) closeMediaPicker();
   }
 });
@@ -7319,19 +7597,16 @@ function maybeHandleComposerDrop(event) {
   const [file] = files;
   if (!file) return false;
   const inferred = inferAttachmentTypeFromFile(file);
-  if (inferred !== "pdf") return false;
+  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  if (!allowed.has(inferred)) return false;
   event.preventDefault();
   event.stopPropagation();
-  void readFileAsDataUrl(file).then((url) => {
-    setComposerPendingAttachment({
-      type: "pdf",
-      url,
-      name: file.name || "document.pdf"
-    });
+  void attachFileToComposer(file).then((attached) => {
+    if (!attached) return;
     ui.messageInput.focus();
-    showToast("PDF attached. Press Enter to send.");
+    showToast(`${inferred.toUpperCase()} attached. Press Enter to send.`);
   }).catch(() => {
-    showToast("Failed to attach dropped PDF.", { tone: "error" });
+    showToast("Failed to attach dropped file.", { tone: "error" });
   });
   return true;
 }
@@ -7341,7 +7616,8 @@ document.addEventListener("dragover", (event) => {
   if (!files || files.length === 0) return;
   const [file] = files;
   const inferred = inferAttachmentTypeFromFile(file);
-  if (inferred !== "pdf") return;
+  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  if (!allowed.has(inferred)) return;
   event.preventDefault();
   ui.messageForm.classList.add("message-form--drop");
 });
