@@ -131,6 +131,7 @@ button {
   display: grid;
   place-items: center;
   font-weight: 800;
+  flex: 0 0 48px;
 }
 
 .server-brand {

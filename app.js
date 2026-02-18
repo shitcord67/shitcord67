@@ -308,6 +308,7 @@ const ui = {
   activeServerName: document.getElementById("activeServerName"),
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
+  openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
   openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
   editTopicBtn: document.getElementById("editTopicBtn"),
@@ -394,6 +395,14 @@ const ui = {
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
+  exportDataBtn: document.getElementById("exportDataBtn"),
+  importDataBtn: document.getElementById("importDataBtn"),
+  importDataInput: document.getElementById("importDataInput"),
+  channelSettingsDialog: document.getElementById("channelSettingsDialog"),
+  channelSettingsForm: document.getElementById("channelSettingsForm"),
+  channelRenameInput: document.getElementById("channelRenameInput"),
+  channelSettingsCancel: document.getElementById("channelSettingsCancel"),
+  deleteChannelBtn: document.getElementById("deleteChannelBtn"),
   rolesDialog: document.getElementById("rolesDialog"),
   rolesForm: document.getElementById("rolesForm"),
   roleNameInput: document.getElementById("roleNameInput"),
@@ -1372,6 +1381,17 @@ function openTopicEditor() {
   ui.topicDialog.showModal();
 }
 
+function openChannelSettings() {
+  const channel = getActiveChannel();
+  if (!channel) return;
+  if (!canCurrentUser("manageChannels")) {
+    notifyPermissionDenied("Manage Channels");
+    return;
+  }
+  ui.channelRenameInput.value = channel.name || "";
+  ui.channelSettingsDialog.showModal();
+}
+
 function createOrSwitchAccount(usernameInput) {
   const normalized = normalizeUsername(usernameInput);
   if (!normalized) return false;
@@ -1562,6 +1582,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
 });
 
 ui.editTopicBtn.addEventListener("click", openTopicEditor);
+ui.openChannelSettingsBtn.addEventListener("click", openChannelSettings);
 
 ui.openRolesBtn.addEventListener("click", () => {
   if (!canCurrentUser("manageRoles")) {
@@ -1590,6 +1611,33 @@ ui.topicForm.addEventListener("submit", (event) => {
   saveState();
   ui.topicDialog.close();
   renderMessages();
+});
+
+ui.channelSettingsCancel.addEventListener("click", () => ui.channelSettingsDialog.close());
+
+ui.channelSettingsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const channel = getActiveChannel();
+  if (!channel) return;
+  channel.name = sanitizeChannelName(ui.channelRenameInput.value, channel.name || "general");
+  saveState();
+  ui.channelSettingsDialog.close();
+  render();
+});
+
+ui.deleteChannelBtn.addEventListener("click", () => {
+  const guild = getActiveGuild();
+  const channel = getActiveChannel();
+  if (!guild || !channel) return;
+  if (guild.channels.length <= 1) {
+    notifyPermissionDenied("Cannot delete the last channel");
+    return;
+  }
+  guild.channels = guild.channels.filter((entry) => entry.id !== channel.id);
+  state.activeChannelId = guild.channels[0]?.id || null;
+  saveState();
+  ui.channelSettingsDialog.close();
+  render();
 });
 
 ui.rolesCloseBtn.addEventListener("click", () => ui.rolesDialog.close());
@@ -1710,6 +1758,41 @@ ui.advancedForm.addEventListener("submit", (event) => {
   render();
 });
 
+ui.exportDataBtn.addEventListener("click", () => {
+  const payload = JSON.stringify(state, null, 2);
+  const blob = new Blob([payload], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `shitcord67-export-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+ui.importDataBtn.addEventListener("click", () => ui.importDataInput.click());
+
+ui.importDataInput.addEventListener("change", async () => {
+  const file = ui.importDataInput.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    state = migrateState(parsed);
+    saveState();
+    render();
+    closeSettingsScreen();
+  } catch {
+    const channel = getActiveChannel();
+    if (channel) {
+      addSystemMessage(channel, "Import failed: invalid JSON snapshot.");
+      saveState();
+      renderMessages();
+    }
+  } finally {
+    ui.importDataInput.value = "";
+  }
+});
+
 ui.dockMuteBtn.addEventListener("click", () => {
   state.preferences = getPreferences();
   state.preferences.mute = state.preferences.mute === "on" ? "off" : "on";
@@ -1789,6 +1872,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.topicDialog,
   ui.rolesDialog,
   ui.pinsDialog,
+  ui.channelSettingsDialog,
   ui.messageEditDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,

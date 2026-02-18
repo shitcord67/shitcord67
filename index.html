@@ -47,6 +47,7 @@
           <h2 id="activeChannelName">#general</h2>
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
+            <button id="openChannelSettingsBtn" class="chat-topic-edit" title="Channel settings">Channel</button>
             <button id="openPinsBtn" class="chat-topic-edit" title="Pinned messages">Pins</button>
             <button id="openRolesBtn" class="chat-topic-edit" title="Manage roles">Roles</button>
             <button id="editTopicBtn" class="chat-topic-edit" title="Edit channel topic">Edit Topic</button>
@@ -162,6 +163,11 @@
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
+            <div class="settings-inline-actions">
+              <button id="exportDataBtn" type="button">Export JSON</button>
+              <button id="importDataBtn" type="button">Import JSON</button>
+            </div>
+            <input id="importDataInput" type="file" accept="application/json" hidden />
             <button type="submit">Save Advanced</button>
           </form>
         </section>
@@ -230,6 +236,21 @@
       <div class="modal-actions">
         <button type="button" id="topicCancel">Cancel</button>
         <button type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="channelSettingsDialog" class="modal">
+    <form id="channelSettingsForm" class="modal-form" method="dialog">
+      <h3>Channel settings</h3>
+      <label for="channelRenameInput">Channel name</label>
+      <input id="channelRenameInput" type="text" maxlength="40" />
+      <div class="modal-actions">
+        <button type="button" id="channelSettingsCancel">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="deleteChannelBtn">Delete channel</button>
       </div>
     </form>
   </dialog>
