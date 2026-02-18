@@ -376,6 +376,7 @@ let swfShelfOpen = false;
 let currentViewerSwf = null;
 let currentViewerRuntimeKey = null;
 let fullscreenRuntimeKey = null;
+let swfAudioFocusRuntimeKey = null;
 const swfRuntimes = new Map();
 const swfPendingAudio = new Map();
 
@@ -1889,11 +1890,36 @@ function setSwfPlayback(runtimeKey, shouldPlay) {
       if (typeof runtime.player.pause === "function") runtime.player.pause();
       runtime.playing = false;
     }
+    refreshSwfAudioFocus(shouldPlay ? runtimeKey : null);
     return true;
   } catch (error) {
     addDebugLog("warn", "SWF playback toggle failed", { key: runtimeKey, shouldPlay, error: String(error) });
     return false;
   }
+}
+
+function refreshSwfAudioFocus(preferredKey = null) {
+  const canUse = (key, runtime) => key && runtime?.playing && runtime.audioEnabled;
+  if (preferredKey) {
+    const preferred = swfRuntimes.get(preferredKey);
+    if (canUse(preferredKey, preferred)) swfAudioFocusRuntimeKey = preferredKey;
+  }
+  if (!canUse(swfAudioFocusRuntimeKey, swfRuntimes.get(swfAudioFocusRuntimeKey))) {
+    let fallbackKey = null;
+    swfRuntimes.forEach((runtime, key) => {
+      if (!fallbackKey && canUse(key, runtime)) fallbackKey = key;
+    });
+    swfAudioFocusRuntimeKey = fallbackKey;
+  }
+  swfRuntimes.forEach((runtime, key) => {
+    runtime.audioSuppressed = Boolean(
+      swfAudioFocusRuntimeKey
+      && key !== swfAudioFocusRuntimeKey
+      && runtime.playing
+      && runtime.audioEnabled
+    );
+    applySwfAudioToRuntime(key);
+  });
 }
 
 function applySwfAudioToRuntime(runtimeKey) {
@@ -1906,15 +1932,13 @@ function applySwfAudioToRuntime(runtimeKey) {
   const volumePercent = Number.isFinite(runtime.audioVolume)
     ? runtime.audioVolume
     : prefs.swfVolume;
-  const volume = audioEnabled ? Math.min(100, Math.max(0, volumePercent)) / 100 : 0;
+  const effectiveAudioEnabled = audioEnabled && !runtime.audioSuppressed;
+  const volume = effectiveAudioEnabled ? Math.min(100, Math.max(0, volumePercent)) / 100 : 0;
   try {
     if ("volume" in runtime.player) runtime.player.volume = volume;
     if (typeof runtime.player.set_volume === "function") runtime.player.set_volume(volume);
-    if ("muted" in runtime.player) runtime.player.muted = !audioEnabled;
-    if (!audioEnabled && typeof runtime.player.pause === "function") {
-      runtime.player.pause();
-    }
-    if (audioEnabled && runtime.playing && typeof runtime.player.play === "function") {
+    if ("muted" in runtime.player) runtime.player.muted = !effectiveAudioEnabled;
+    if (runtime.playing && typeof runtime.player.play === "function") {
       runtime.player.play();
     }
   } catch (error) {
@@ -1923,7 +1947,7 @@ function applySwfAudioToRuntime(runtimeKey) {
 }
 
 function applySwfAudioToAllRuntimes() {
-  swfRuntimes.forEach((_, key) => applySwfAudioToRuntime(key));
+  refreshSwfAudioFocus();
 }
 
 function updateSwfRuntimeAudio(runtimeKey, { enabled, volume } = {}) {
@@ -1938,7 +1962,7 @@ function updateSwfRuntimeAudio(runtimeKey, { enabled, volume } = {}) {
   }
   if (typeof enabled === "boolean") runtime.audioEnabled = enabled;
   if (Number.isFinite(volume)) runtime.audioVolume = Math.min(100, Math.max(0, volume));
-  applySwfAudioToRuntime(runtimeKey);
+  refreshSwfAudioFocus(enabled ? runtimeKey : null);
 }
 
 function getSwfRuntimeMetadata(runtimeKey) {
@@ -2053,7 +2077,10 @@ function resetSwfRuntime(runtimeKey, hostElement, attachment) {
   if (!confirm("Reset this SWF to the beginning?")) return;
   const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
   if (runtime?.observer) runtime.observer.disconnect();
-  if (runtimeKey) swfRuntimes.delete(runtimeKey);
+  if (runtimeKey) {
+    swfRuntimes.delete(runtimeKey);
+    refreshSwfAudioFocus();
+  }
   if (hostElement) {
     hostElement.innerHTML = "";
     hostElement.textContent = "Resetting SWF...";
@@ -2171,7 +2198,10 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       }
       if (!loaded && playerWrap.isConnected) {
         playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
-        if (runtimeKey) swfRuntimes.delete(runtimeKey);
+        if (runtimeKey) {
+          swfRuntimes.delete(runtimeKey);
+          refreshSwfAudioFocus();
+        }
         return;
       }
       if (runtimeKey) {
@@ -2186,7 +2216,8 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           floating: false,
           restoreStyle: "",
           audioEnabled: getPreferences().swfAudio === "on",
-          audioVolume: getPreferences().swfVolume
+          audioVolume: getPreferences().swfVolume,
+          audioSuppressed: false
         });
         const pendingAudio = swfPendingAudio.get(runtimeKey);
         if (pendingAudio) {
@@ -2197,7 +2228,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           }
           swfPendingAudio.delete(runtimeKey);
         }
-        applySwfAudioToRuntime(runtimeKey);
+        refreshSwfAudioFocus();
         bindSwfVisibilityObserver(runtimeKey);
       }
     };
@@ -2678,13 +2709,16 @@ function openUserPopout(account, fallbackName = "Unknown") {
 }
 
 function renderMessages() {
+  let removedRuntime = false;
   const channel = getActiveChannel();
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
     if (runtime.host?.isConnected) return;
     if (runtime.observer) runtime.observer.disconnect();
     swfRuntimes.delete(key);
+    removedRuntime = true;
   });
+  if (removedRuntime) refreshSwfAudioFocus();
   ui.messageList.innerHTML = "";
   ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
   ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
