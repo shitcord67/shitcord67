@@ -35,6 +35,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.
 - Debug Console in Advanced settings (runtime status + recent media/ruffle logs).
 - Message context menu can copy payload as JSON or Matrix-style XML.
+- Message context menu shows SWF actions only when that message has SWF attachments.
+- SWF message actions are grouped under a dedicated `SWF` submenu (open viewer/fullscreen/reset/save/copy URL/download).
 - SWFs auto-start in chat muted and are paused/resumed based on viewport visibility.
 - SWF controls include `Play`, `Pause`, `FullScreen`, `Reset` (with confirmation), `Resize`, and `Optimal Size`.
 - Per-SWF audio controls are shown on the left side of each SWF player (speaker toggle + vertical volume slider).
@@ -67,6 +69,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
 - Right-click context menus for guilds, channels, messages, and members (quick actions).
+- Context menu keyboard controls include arrow navigation, `Enter`, `Escape`, plus `Home`/`End` and `ArrowRight`/`ArrowLeft` submenu control.
 - Popouts/dialogs close by clicking outside the card content.
 - Guild member list on the right, with presence dots.
 - Member list grouped into Online/Offline sections.
