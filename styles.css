@@ -543,6 +543,26 @@ button {
   margin: 0.15rem 0 0.2rem;
 }
 
+.message--forum-root {
+  margin-bottom: 0.85rem;
+}
+
+.forum-thread-replies {
+  margin-top: 0.45rem;
+  margin-left: 0.55rem;
+  border-left: 2px solid rgba(97, 105, 120, 0.45);
+  padding-left: 0.6rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.message--forum-reply {
+  margin: 0;
+  padding: 0.15rem 0.25rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .message-head {
   display: flex;
   align-items: baseline;
