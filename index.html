@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FlashCord</title>
+  <title>shitcord67</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
@@ -14,7 +14,7 @@
     <div id="loginScreen" class="screen screen--active">
       <div class="login-card">
         <h1>Welcome back</h1>
-        <p>Sign in with a username to continue to FlashCord</p>
+        <p>Sign in with a username to continue to shitcord67</p>
         <form id="loginForm">
           <label for="loginUsername">Username</label>
           <input id="loginUsername" type="text" maxlength="24" placeholder="Type a username" required />
@@ -25,7 +25,7 @@
 
     <div id="chatScreen" class="screen">
       <aside class="server-rail">
-        <div class="server-brand">FC</div>
+        <div class="server-brand">S67</div>
         <div id="serverList" class="server-list"></div>
         <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Server">+</button>
       </aside>
@@ -47,6 +47,7 @@
           <h2 id="activeChannelName">#general</h2>
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
+            <button id="openPinsBtn" class="chat-topic-edit" title="Pinned messages">Pins</button>
             <button id="openRolesBtn" class="chat-topic-edit" title="Manage roles">Roles</button>
             <button id="editTopicBtn" class="chat-topic-edit" title="Edit channel topic">Edit Topic</button>
           </div>
@@ -305,6 +306,16 @@
 
       <div class="modal-actions">
         <button type="button" id="rolesCloseBtn">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="pinsDialog" class="modal">
+    <form id="pinsForm" class="modal-form" method="dialog">
+      <h3>Pinned Messages</h3>
+      <div id="pinsList" class="pins-list"></div>
+      <div class="modal-actions">
+        <button type="button" id="pinsCloseBtn">Close</button>
       </div>
     </form>
   </dialog>

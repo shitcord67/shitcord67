@@ -1,4 +1,4 @@
-const STORAGE_KEY = "flashcord-state-v2";
+const STORAGE_KEY = "shitcord67-state-v1";
 const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
@@ -103,9 +103,10 @@ function buildInitialState() {
                 id: createId(),
                 userId: null,
                 authorName: "system",
-                text: "Welcome to FlashCord. Create channels and start chatting.",
+                text: "Welcome to shitcord67. Create channels and start chatting.",
                 ts: new Date().toISOString(),
-                reactions: []
+                reactions: [],
+                pinned: false
               }
             ]
           }
@@ -179,7 +180,8 @@ function migrateState(raw) {
               messages: Array.isArray(channel.messages)
                 ? channel.messages.map((message) => ({
                     ...message,
-                    reactions: Array.isArray(message.reactions) ? message.reactions : []
+                    reactions: Array.isArray(message.reactions) ? message.reactions : [],
+                    pinned: Boolean(message.pinned)
                   }))
                 : []
             }))
@@ -222,7 +224,8 @@ function migrateState(raw) {
                   authorName: account && msg.user === raw.currentUser ? "" : (msg.user || "unknown"),
                   text: (msg.text || "").toString(),
                   ts: msg.ts || new Date().toISOString(),
-                  reactions: []
+                  reactions: [],
+                  pinned: false
                 }))
               : [];
             return {
@@ -263,6 +266,13 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return migrateState(JSON.parse(raw));
 
+    const v2Raw = localStorage.getItem("flashcord-state-v2");
+    if (v2Raw) {
+      const migrated = migrateState(JSON.parse(v2Raw));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+
     const legacyRaw = localStorage.getItem("flashcord-state-v1");
     if (legacyRaw) {
       const migrated = migrateState(JSON.parse(legacyRaw));
@@ -294,6 +304,7 @@ const ui = {
   activeServerName: document.getElementById("activeServerName"),
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
+  openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
   editTopicBtn: document.getElementById("editTopicBtn"),
   messageList: document.getElementById("messageList"),
@@ -390,6 +401,10 @@ const ui = {
   assignRoleBtn: document.getElementById("assignRoleBtn"),
   removeRoleBtn: document.getElementById("removeRoleBtn"),
   rolesCloseBtn: document.getElementById("rolesCloseBtn"),
+  pinsDialog: document.getElementById("pinsDialog"),
+  pinsForm: document.getElementById("pinsForm"),
+  pinsList: document.getElementById("pinsList"),
+  pinsCloseBtn: document.getElementById("pinsCloseBtn"),
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
@@ -969,6 +984,13 @@ function renderMessages() {
     text.className = "message-text";
     renderMessageText(text, message.text);
 
+    let pinIndicator = null;
+    if (message.pinned) {
+      pinIndicator = document.createElement("div");
+      pinIndicator.className = "pin-indicator";
+      pinIndicator.textContent = "Pinned message";
+    }
+
     if (message.replyTo && typeof message.replyTo === "object") {
       replyLine = document.createElement("div");
       replyLine.className = "message-reply";
@@ -1010,6 +1032,23 @@ function renderMessages() {
       ui.messageInput.focus();
     });
     actionBar.appendChild(replyBtn);
+
+    const canPin = currentUser && (message.userId === currentUser.id || canCurrentUser("manageMessages"));
+    if (canPin) {
+      const pinBtn = document.createElement("button");
+      pinBtn.type = "button";
+      pinBtn.className = "message-action-btn";
+      pinBtn.textContent = message.pinned ? "Unpin" : "Pin";
+      pinBtn.addEventListener("click", () => {
+        const scopedChannel = findChannelById(channel.id);
+        const scopedMessage = findMessageInChannel(scopedChannel, message.id);
+        if (!scopedChannel || !scopedMessage) return;
+        scopedMessage.pinned = !scopedMessage.pinned;
+        saveState();
+        renderMessages();
+      });
+      actionBar.appendChild(pinBtn);
+    }
 
     const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
     const isOwnMessage = currentUser && message.userId === currentUser.id;
@@ -1077,6 +1116,7 @@ function renderMessages() {
     head.appendChild(time);
     messageRow.appendChild(head);
     if (replyLine) messageRow.appendChild(replyLine);
+    if (pinIndicator) messageRow.appendChild(pinIndicator);
     messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
     messageRow.appendChild(reactions);
@@ -1200,6 +1240,34 @@ function renderRolesDialog() {
     option.value = role.id;
     option.textContent = role.name;
     ui.assignRoleRoleInput.appendChild(option);
+  });
+}
+
+function renderPinsDialog() {
+  const channel = getActiveChannel();
+  ui.pinsList.innerHTML = "";
+  if (!channel) return;
+  const pinned = channel.messages.filter((message) => message.pinned);
+  if (pinned.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "pin-item";
+    empty.textContent = "No pinned messages yet.";
+    ui.pinsList.appendChild(empty);
+    return;
+  }
+  pinned.forEach((message) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "pin-item";
+    const author = displayNameForMessage(message);
+    item.innerHTML = `<strong>${author}</strong><small>${formatTime(message.ts)}</small>${message.text}`;
+    item.addEventListener("click", () => {
+      ui.pinsDialog.close();
+      const target = ui.messageList.querySelector(`[data-message-id=\"${message.id}\"]`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    ui.pinsList.appendChild(item);
   });
 }
 
@@ -1499,6 +1567,11 @@ ui.openRolesBtn.addEventListener("click", () => {
   ui.rolesDialog.showModal();
 });
 
+ui.openPinsBtn.addEventListener("click", () => {
+  renderPinsDialog();
+  ui.pinsDialog.showModal();
+});
+
 ui.topicCancel.addEventListener("click", () => ui.topicDialog.close());
 
 ui.topicForm.addEventListener("submit", (event) => {
@@ -1512,6 +1585,7 @@ ui.topicForm.addEventListener("submit", (event) => {
 });
 
 ui.rolesCloseBtn.addEventListener("click", () => ui.rolesDialog.close());
+ui.pinsCloseBtn.addEventListener("click", () => ui.pinsDialog.close());
 
 ui.createRoleNowBtn.addEventListener("click", () => {
   const server = getActiveServer();
@@ -1706,6 +1780,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.createChannelDialog,
   ui.topicDialog,
   ui.rolesDialog,
+  ui.pinsDialog,
   ui.messageEditDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
