@@ -387,9 +387,11 @@ let swfSoloRuntimeKey = null;
 const swfRuntimes = new Map();
 const swfPendingAudio = new Map();
 const swfPendingUi = new Map();
+let swfRuntimeParkingRoot = null;
 const swfPipTabs = [];
 let swfPipActiveKey = null;
 let swfPipManuallyHidden = false;
+let swfPipCollapsed = false;
 let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
@@ -1808,7 +1810,7 @@ function sendMediaAttachment(entry, type) {
   const nextReply = replyTarget && replyTarget.channelId === channel.id
     ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
     : null;
-  channel.messages.push({
+  const nextMessage = {
     id: createId(),
     userId: account.id,
     authorName: "",
@@ -1822,7 +1824,8 @@ function sendMediaAttachment(entry, type) {
       format: entry.format || (type === "sticker" ? stickerFormatFromName(entry.name, entry.url) : "image")
     }],
     replyTo: nextReply
-  });
+  };
+  channel.messages.push(nextMessage);
   if (type === "swf") {
     addDebugLog("info", "Sent SWF attachment message", { url: entry.url, name: entry.name || "" });
   }
@@ -1830,7 +1833,13 @@ function sendMediaAttachment(entry, type) {
   ui.messageInput.value = "";
   saveState();
   closeMediaPicker();
-  render();
+  if (swfPipTabs.length > 0) {
+    appendMessageRowLite(channel, nextMessage);
+    renderChannels();
+    renderMemberList();
+  } else {
+    render();
+  }
 }
 
 function addMediaFromUrlFlow() {
@@ -2177,6 +2186,58 @@ function removeSwfPipTab(runtimeKey) {
   renderSwfPipDock();
 }
 
+function collectLiveSwfRuntimeKeys() {
+  const keys = new Set();
+  state.guilds.forEach((guild) => {
+    guild.channels.forEach((channel) => {
+      channel.messages.forEach((message) => {
+        (message.attachments || []).forEach((attachment, index) => {
+          if (attachment?.type === "swf") keys.add(`${message.id}:${index}`);
+        });
+      });
+    });
+  });
+  return keys;
+}
+
+function getSwfRuntimeParkingRoot() {
+  if (swfRuntimeParkingRoot?.isConnected) return swfRuntimeParkingRoot;
+  const root = document.createElement("div");
+  root.id = "swf-runtime-parking";
+  root.style.position = "fixed";
+  root.style.left = "-30000px";
+  root.style.top = "-30000px";
+  root.style.width = "1px";
+  root.style.height = "1px";
+  root.style.overflow = "hidden";
+  root.style.pointerEvents = "none";
+  root.style.opacity = "0";
+  document.body.appendChild(root);
+  swfRuntimeParkingRoot = root;
+  return root;
+}
+
+function parkSwfRuntimeHost(runtime) {
+  if (!(runtime?.host instanceof HTMLElement)) return;
+  const root = getSwfRuntimeParkingRoot();
+  if (runtime.host.parentElement === root) return;
+  root.appendChild(runtime.host);
+}
+
+function attachExistingSwfRuntime(runtimeKey, hostElement) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.player || !(hostElement instanceof HTMLElement)) return false;
+  const liveHost = runtime.host instanceof HTMLElement ? runtime.host : null;
+  if (!liveHost) return false;
+  if (liveHost !== hostElement) {
+    hostElement.replaceWith(liveHost);
+  }
+  runtime.host = liveHost;
+  runtime.originHost = liveHost;
+  bindSwfVisibilityObserver(runtimeKey);
+  return liveHost;
+}
+
 function setSwfRuntimePip(runtimeKey, enabled) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player || !(runtime.host instanceof HTMLElement)) return false;
@@ -2192,15 +2253,6 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     }
     runtime.pipTransitioning = true;
     runtime.inPip = true;
-    if (runtime.host.parentElement !== document.body) {
-      const placeholder = document.createElement("div");
-      placeholder.className = "message-swf-pip-placeholder";
-      placeholder.style.width = "100%";
-      placeholder.style.minHeight = `${Math.max(120, Math.round(runtime.host.getBoundingClientRect().height || 220))}px`;
-      runtime.host.parentElement?.insertBefore(placeholder, runtime.host);
-      runtime.pipPlaceholder = placeholder;
-      document.body.appendChild(runtime.host);
-    }
     runtime.pipHost = runtime.host;
     runtime.pipHost.classList.add("swf-pip-player", "message-swf-player--pip-floating");
     runtime.pipTransitioning = false;
@@ -2210,12 +2262,6 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   }
   runtime.pipTransitioning = true;
   runtime.inPip = false;
-  if (runtime.pipPlaceholder instanceof HTMLElement && runtime.pipPlaceholder.isConnected) {
-    runtime.pipPlaceholder.replaceWith(runtime.host);
-  } else if (runtime.host.parentElement === document.body) {
-    runtime.host.remove();
-  }
-  runtime.pipPlaceholder = null;
   runtime.host.classList.remove("swf-pip-player", "message-swf-player--pip-floating");
   runtime.host.style.left = "";
   runtime.host.style.top = "";
@@ -2232,6 +2278,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
 function renderSwfPipDock() {
   const hasTabs = swfPipTabs.length > 0;
   ui.swfPipDock.classList.toggle("swf-pip--hidden", !hasTabs || swfPipManuallyHidden);
+  ui.swfPipDock.classList.toggle("swf-pip--collapsed", swfPipCollapsed);
   ui.swfPipTabs.innerHTML = "";
   if (!hasTabs) return;
   if (!swfPipActiveKey || !swfPipTabs.includes(swfPipActiveKey)) swfPipActiveKey = swfPipTabs[0];
@@ -2970,7 +3017,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     body.className = "message-swf-body";
     const audioRail = document.createElement("div");
     audioRail.className = "message-swf-audio-rail";
-    const playerWrap = document.createElement("div");
+    let playerWrap = document.createElement("div");
     playerWrap.className = "message-swf-player";
     playerWrap.style.display = "grid";
     playerWrap.style.placeItems = "center";
@@ -3071,6 +3118,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     if (runtimeInMap?.inPip) {
       runtimeInMap.originHost = playerWrap;
       playerWrap.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
+    } else if (runtimeInMap?.player instanceof HTMLElement) {
+      const reusedHost = attachExistingSwfRuntime(swfKey, playerWrap);
+      if (reusedHost instanceof HTMLElement) playerWrap = reusedHost;
     } else if (swfKey) {
       attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
     }
@@ -3391,20 +3441,24 @@ function openUserPopout(account, fallbackName = "Unknown") {
 }
 
 function renderMessages() {
-  let removedRuntime = false;
   const channel = getActiveChannel();
+  const liveSwfKeys = collectLiveSwfRuntimeKeys();
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
     if (runtime.inPip || runtime.pipTransitioning) return;
-    if (runtime.host?.isConnected) return;
+    if (liveSwfKeys.has(key)) {
+      parkSwfRuntimeHost(runtime);
+      return;
+    }
     if (runtime.observer) runtime.observer.disconnect();
+    if (runtime.host instanceof HTMLElement) runtime.host.remove();
     swfRuntimes.delete(key);
     removeSwfPipTab(key);
     if (swfSoloRuntimeKey === key) swfSoloRuntimeKey = null;
     swfPendingUi.delete(key);
-    removedRuntime = true;
+    swfPendingAudio.delete(key);
   });
-  if (removedRuntime) refreshSwfAudioFocus();
+  refreshSwfAudioFocus();
   ui.messageList.innerHTML = "";
   ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
   ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
@@ -3730,6 +3784,41 @@ function renderMessages() {
   }
 }
 
+function appendMessageRowLite(channel, message) {
+  if (!channel || !message) return;
+  const messageRow = document.createElement("article");
+  messageRow.className = "message";
+  messageRow.dataset.messageId = message.id;
+  const head = document.createElement("div");
+  head.className = "message-head";
+  const userButton = document.createElement("button");
+  userButton.className = "message-user";
+  userButton.textContent = displayNameForMessage(message);
+  userButton.addEventListener("click", () => {
+    const author = message.userId ? getAccountById(message.userId) : null;
+    openUserPopout(author, message.authorName || "Unknown");
+  });
+  const time = document.createElement("span");
+  time.className = "message-time";
+  time.textContent = formatTime(message.ts);
+  head.appendChild(userButton);
+  head.appendChild(time);
+  messageRow.appendChild(head);
+  const text = document.createElement("div");
+  text.className = "message-text";
+  renderMessageText(text, message.text);
+  messageRow.appendChild(text);
+  const attachments = normalizeAttachments([
+    ...normalizeAttachments(message.attachments),
+    ...extractInlineAttachmentsFromText(message.text)
+  ]);
+  attachments.forEach((attachment, index) => {
+    renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
+  });
+  ui.messageList.appendChild(messageRow);
+  ui.messageList.scrollTop = ui.messageList.scrollHeight;
+}
+
 function renderMemberList() {
   const server = getActiveServer();
   ui.memberList.innerHTML = "";
@@ -4048,7 +4137,7 @@ ui.messageForm.addEventListener("submit", (event) => {
     const nextReply = replyTarget && replyTarget.channelId === channel.id
       ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
       : null;
-    channel.messages.push({
+    const nextMessage = {
       id: createId(),
       userId: account.id,
       authorName: "",
@@ -4057,8 +4146,19 @@ ui.messageForm.addEventListener("submit", (event) => {
       reactions: [],
       attachments: [],
       replyTo: nextReply
-    });
+    };
+    channel.messages.push(nextMessage);
     replyTarget = null;
+    if (swfPipTabs.length > 0) {
+      ui.messageInput.value = "";
+      slashSelectionIndex = 0;
+      closeMediaPicker();
+      saveState();
+      appendMessageRowLite(channel, nextMessage);
+      renderChannels();
+      renderMemberList();
+      return;
+    }
   }
 
   ui.messageInput.value = "";
@@ -4279,6 +4379,15 @@ ui.swfPipCloseBtn.addEventListener("click", () => {
   swfPipManuallyHidden = true;
   renderSwfPipDock();
 });
+
+const swfPipHeader = ui.swfPipDock.querySelector(".swf-pip__header");
+if (swfPipHeader) {
+  swfPipHeader.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+    swfPipCollapsed = !swfPipCollapsed;
+    renderSwfPipDock();
+  });
+}
 ui.clearSwfShelfBtn.addEventListener("click", () => {
   state.savedSwfs = [];
   saveState();

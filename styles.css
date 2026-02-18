@@ -1135,7 +1135,7 @@ button {
 .swf-pip {
   position: fixed;
   right: 14px;
-  bottom: 74px;
+  bottom: 208px;
   width: min(420px, 42vw);
   background: #1e2026;
   border: 1px solid #3a3e47;
@@ -1204,6 +1204,11 @@ button {
   padding: 0.4rem;
 }
 
+.swf-pip--collapsed .swf-pip__tabs,
+.swf-pip--collapsed .swf-pip__host {
+  display: none;
+}
+
 .swf-pip-player {
   min-height: 220px;
 }
@@ -1212,12 +1217,6 @@ button {
   position: fixed !important;
   z-index: 125;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
-}
-
-.message-swf-pip-placeholder {
-  border: 1px dashed #333845;
-  border-radius: 8px;
-  background: #16181d;
 }
 
 .debug-output {
