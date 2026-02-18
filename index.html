@@ -38,7 +38,8 @@
         </div>
 
         <div class="channel-scroll">
-          <div class="channel-section-title">Direct Messages</div>
+        <div class="channel-section-title">Direct Messages</div>
+          <input id="dmSearchInput" class="channel-filter" type="text" maxlength="40" placeholder="Find or start DM" />
           <div id="dmList" class="channel-list channel-list--dm"></div>
           <button id="newDmBtn" class="channel-create">+ New DM</button>
           <div class="channel-section-title">Channels</div>
@@ -283,6 +284,10 @@
       </select>
       <label for="profileGuildNicknameInput">Nickname (active guild)</label>
       <input id="profileGuildNicknameInput" type="text" maxlength="32" placeholder="Server nickname" />
+      <label for="profileGuildAvatarInput">Avatar color (active guild)</label>
+      <input id="profileGuildAvatarInput" type="text" placeholder="#57f287" />
+      <label for="profileGuildAvatarUrlInput">Avatar image URL (active guild)</label>
+      <input id="profileGuildAvatarUrlInput" type="text" placeholder="https://..." />
       <label for="presenceInput">Presence</label>
       <select id="presenceInput">
         <option value="online">Online</option>

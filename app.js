@@ -421,6 +421,7 @@ let mentionSelectionIndex = 0;
 let contextMenuOpen = false;
 let contextMenuFocusIndex = 0;
 let channelFilterTerm = "";
+let dmSearchTerm = "";
 let selectedUserPopoutId = null;
 let mediaPickerOpen = false;
 let mediaPickerTab = "gif";
@@ -455,6 +456,7 @@ const ui = {
   serverList: document.getElementById("serverList"),
   channelList: document.getElementById("channelList"),
   dmList: document.getElementById("dmList"),
+  dmSearchInput: document.getElementById("dmSearchInput"),
   newDmBtn: document.getElementById("newDmBtn"),
   channelFilterInput: document.getElementById("channelFilterInput"),
   memberList: document.getElementById("memberList"),
@@ -506,6 +508,8 @@ const ui = {
   profileStatusEmojiInput: document.getElementById("profileStatusEmojiInput"),
   profileStatusExpiryInput: document.getElementById("profileStatusExpiryInput"),
   profileGuildNicknameInput: document.getElementById("profileGuildNicknameInput"),
+  profileGuildAvatarInput: document.getElementById("profileGuildAvatarInput"),
+  profileGuildAvatarUrlInput: document.getElementById("profileGuildAvatarUrlInput"),
   presenceInput: document.getElementById("presenceInput"),
   profileBannerInput: document.getElementById("profileBannerInput"),
   profileAvatarInput: document.getElementById("profileAvatarInput"),
@@ -963,18 +967,58 @@ function closeContextMenu() {
   contextMenuFocusIndex = 0;
   ui.contextMenu.classList.add("context-menu--hidden");
   ui.contextMenu.innerHTML = "";
+  document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
 }
 
 function openContextMenu(event, items) {
   event.preventDefault();
   if (!Array.isArray(items) || items.length === 0) return;
+  document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
   ui.contextMenu.innerHTML = "";
+  const openSubmenu = (anchor, submenuItems) => {
+    document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
+    const submenu = document.createElement("div");
+    submenu.className = "context-menu context-submenu";
+    submenuItems.forEach((entry) => {
+      const subButton = document.createElement("button");
+      subButton.type = "button";
+      subButton.textContent = entry.label;
+      subButton.disabled = Boolean(entry.disabled);
+      if (entry.danger) subButton.classList.add("danger");
+      subButton.addEventListener("click", async () => {
+        closeContextMenu();
+        if (typeof entry.action === "function") await entry.action();
+      });
+      submenu.appendChild(subButton);
+    });
+    document.body.appendChild(submenu);
+    const anchorRect = anchor.getBoundingClientRect();
+    const subRect = submenu.getBoundingClientRect();
+    const margin = 8;
+    let left = anchorRect.right + 6;
+    if (left + subRect.width > window.innerWidth - margin) left = anchorRect.left - subRect.width - 6;
+    const top = Math.max(margin, Math.min(anchorRect.top, window.innerHeight - subRect.height - margin));
+    submenu.style.left = `${Math.round(left)}px`;
+    submenu.style.top = `${Math.round(top)}px`;
+  };
   items.forEach((item) => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = item.label;
     button.disabled = Boolean(item.disabled);
     if (item.danger) button.classList.add("danger");
+    if (Array.isArray(item.submenu) && item.submenu.length > 0) {
+      button.classList.add("context-menu__has-submenu");
+      button.textContent = `${item.label} ▸`;
+      button.addEventListener("mouseenter", () => openSubmenu(button, item.submenu));
+      button.addEventListener("focus", () => openSubmenu(button, item.submenu));
+      button.addEventListener("click", (e) => {
+        e.preventDefault();
+        openSubmenu(button, item.submenu);
+      });
+      ui.contextMenu.appendChild(button);
+      return;
+    }
     button.addEventListener("click", async () => {
       closeContextMenu();
       if (typeof item.action === "function") await item.action();
@@ -1159,6 +1203,22 @@ function displayNameForAccount(account, guildId = null) {
   return account.displayName || account.username;
 }
 
+function resolveAccountAvatar(account, guildId = null) {
+  const fallback = {
+    color: account?.avatarColor || "#57f287",
+    url: account?.avatarUrl || ""
+  };
+  if (!account || !guildId || !account.guildProfiles || typeof account.guildProfiles !== "object") {
+    return fallback;
+  }
+  const profile = account.guildProfiles[guildId];
+  if (!profile || typeof profile !== "object") return fallback;
+  return {
+    color: (profile.avatarColor || fallback.color || "#57f287").toString(),
+    url: (profile.avatarUrl || fallback.url || "").toString()
+  };
+}
+
 function parseStatusExpiryAt(value) {
   const now = new Date();
   if (value === "30m") return new Date(now.getTime() + 30 * 60 * 1000).toISOString();
@@ -1246,11 +1306,12 @@ function applyBannerStyle(element, bannerValue) {
   element.style.background = value;
 }
 
-function applyAvatarStyle(element, account) {
+function applyAvatarStyle(element, account, guildId = null) {
+  const avatar = resolveAccountAvatar(account, guildId);
   element.style.backgroundImage = "";
-  element.style.backgroundColor = account?.avatarColor || "#57f287";
-  if (account && isRenderableAvatarUrl(account.avatarUrl || "")) {
-    element.style.backgroundImage = `url(${account.avatarUrl})`;
+  element.style.backgroundColor = avatar.color || "#57f287";
+  if (isRenderableAvatarUrl(avatar.url || "")) {
+    element.style.backgroundImage = `url(${avatar.url})`;
     element.style.backgroundSize = "cover";
     element.style.backgroundPosition = "center";
   }
@@ -3880,8 +3941,11 @@ function renderServers() {
           }
         },
         {
-          label: "Copy Guild ID",
-          action: () => copyText(server.id)
+          label: "Copy",
+          submenu: [
+            { label: "Guild ID", action: () => copyText(server.id) },
+            { label: "First Channel ID", action: () => copyText(server.channels[0]?.id || "") }
+          ]
         },
         {
           label: "Rename Guild",
@@ -4022,9 +4086,27 @@ function renderDmList() {
   ui.dmList.innerHTML = "";
   const currentAccount = getCurrentAccount();
   if (!currentAccount) return;
+  const filter = dmSearchTerm.trim().toLowerCase();
+  if (ui.dmSearchInput && ui.dmSearchInput.value !== dmSearchTerm) ui.dmSearchInput.value = dmSearchTerm;
   const threads = state.dmThreads
     .filter((thread) => Array.isArray(thread.participantIds) && thread.participantIds.includes(currentAccount.id))
+    .filter((thread) => {
+      if (!filter) return true;
+      const peerId = thread.participantIds.find((id) => id !== currentAccount.id);
+      const peer = peerId ? getAccountById(peerId) : null;
+      const username = (peer?.username || "").toLowerCase();
+      const display = (peer?.displayName || "").toLowerCase();
+      const nick = resolveAccountGuildNickname(peer, getActiveGuild()?.id || "").toLowerCase();
+      return username.includes(filter) || display.includes(filter) || nick.includes(filter);
+    })
     .slice(0, 80);
+  if (threads.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = filter ? "No DMs match your search." : "No direct messages yet.";
+    ui.dmList.appendChild(empty);
+    return;
+  }
   threads.forEach((thread) => {
     const peerId = thread.participantIds.find((id) => id !== currentAccount.id);
     const peer = peerId ? getAccountById(peerId) : null;
@@ -4070,8 +4152,11 @@ function renderDmList() {
           }
         },
         {
-          label: "Copy Thread ID",
-          action: () => copyText(thread.id)
+          label: "Copy",
+          submenu: [
+            { label: "Thread ID", action: () => copyText(thread.id) },
+            { label: "Peer User ID", action: () => copyText(peer?.id || "") }
+          ]
         },
         {
           label: "Close DM",
@@ -4150,12 +4235,11 @@ function renderChannels() {
           }
         },
         {
-          label: "Copy Channel Name",
-          action: () => copyText(`#${channel.name}`)
-        },
-        {
-          label: "Copy Channel ID",
-          action: () => copyText(channel.id)
+          label: "Copy",
+          submenu: [
+            { label: "Channel Name", action: () => copyText(`#${channel.name}`) },
+            { label: "Channel ID", action: () => copyText(channel.id) }
+          ]
         },
         {
           label: "Mark Channel Read",
@@ -4208,7 +4292,7 @@ function openUserPopout(account, fallbackName = "Unknown") {
   ui.userPopoutName.textContent = displayName;
   ui.userPopoutStatus.textContent = account ? displayStatus(account) : "Offline";
   ui.userPopoutBio.textContent = bio;
-  applyAvatarStyle(ui.userPopoutAvatar, account);
+  applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
   applyBannerStyle(ui.userPopoutBanner, account?.banner || "");
   renderRoleChips(ui.userPopoutRoles, account?.id);
   if (ui.userNoteInput) {
@@ -4303,14 +4387,19 @@ function renderMessages() {
           action: () => mentionInComposer(author)
         },
         {
-          label: "Copy Username",
-          disabled: !author,
-          action: () => copyText(author ? `@${author.username}` : "")
-        },
-        {
-          label: "Copy User ID",
-          disabled: !author,
-          action: () => copyText(author ? author.id : "")
+          label: "Copy",
+          submenu: [
+            {
+              label: "Username",
+              disabled: !author,
+              action: () => copyText(author ? `@${author.username}` : "")
+            },
+            {
+              label: "User ID",
+              disabled: !author,
+              action: () => copyText(author ? author.id : "")
+            }
+          ]
         }
       ]);
     });
@@ -4510,20 +4599,13 @@ function renderMessages() {
           }
         },
         {
-          label: "Copy Text",
-          action: () => copyText(message.text || "")
-        },
-        {
-          label: "Copy Message ID",
-          action: () => copyText(message.id || "")
-        },
-        {
-          label: "Copy JSON",
-          action: () => copyText(serializeMessageAsJson(message))
-        },
-        {
-          label: "Copy XML",
-          action: () => copyText(serializeMessageAsXml(message))
+          label: "Copy",
+          submenu: [
+            { label: "Text", action: () => copyText(message.text || "") },
+            { label: "Message ID", action: () => copyText(message.id || "") },
+            { label: "JSON", action: () => copyText(serializeMessageAsJson(message)) },
+            { label: "XML", action: () => copyText(serializeMessageAsXml(message)) }
+          ]
         },
         {
           label: "FullScreen SWF",
@@ -4657,7 +4739,7 @@ function renderMemberList() {
         row.className = "member-item";
         const avatar = document.createElement("div");
         avatar.className = "member-avatar";
-        applyAvatarStyle(avatar, account);
+        applyAvatarStyle(avatar, account, null);
         const dot = document.createElement("span");
         dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
         avatar.appendChild(dot);
@@ -4670,8 +4752,13 @@ function renderMemberList() {
           openContextMenu(event, [
             { label: "View Profile", action: () => openUserPopout(account) },
             { label: "Start DM", disabled: account.id === current?.id, action: () => openDmWithAccount(account) },
-            { label: "Copy Username", action: () => copyText(`@${account.username}`) },
-            { label: "Copy User ID", action: () => copyText(account.id) }
+            {
+              label: "Copy",
+              submenu: [
+                { label: "Username", action: () => copyText(`@${account.username}`) },
+                { label: "User ID", action: () => copyText(account.id) }
+              ]
+            }
           ]);
         });
         ui.memberList.appendChild(row);
@@ -4712,7 +4799,7 @@ function renderMemberList() {
 
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
-      applyAvatarStyle(avatar, account);
+      applyAvatarStyle(avatar, account, server.id);
 
       const dot = document.createElement("span");
       dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
@@ -4740,12 +4827,11 @@ function renderMemberList() {
             action: () => mentionInComposer(account)
           },
           {
-            label: "Copy Username",
-            action: () => copyText(`@${account.username}`)
-          },
-          {
-            label: "Copy User ID",
-            action: () => copyText(account.id)
+            label: "Copy",
+            submenu: [
+              { label: "Username", action: () => copyText(`@${account.username}`) },
+              { label: "User ID", action: () => copyText(account.id) }
+            ]
           }
         ]);
       });
@@ -4761,7 +4847,7 @@ function renderDock() {
   const guildId = conversation?.type === "channel" ? getActiveGuild()?.id || null : null;
   ui.dockName.textContent = displayNameForAccount(account, guildId);
   ui.dockStatus.textContent = displayStatus(account);
-  applyAvatarStyle(ui.dockAvatar, account);
+  applyAvatarStyle(ui.dockAvatar, account, guildId);
   ui.dockPresenceDot.className = `dock-presence-dot presence-${normalizePresence(account.presence)}`;
 }
 
@@ -4771,7 +4857,7 @@ function renderSelfPopout() {
   ui.selfPopoutName.textContent = displayNameForAccount(account, getActiveGuild()?.id || null);
   ui.selfPopoutStatus.textContent = displayStatus(account);
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
-  applyAvatarStyle(ui.selfPopoutAvatar, account);
+  applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);
   applyBannerStyle(ui.selfPopoutBanner, account.banner || "");
   renderRoleChips(ui.selfPopoutRoles, account.id);
 }
@@ -4951,7 +5037,12 @@ function openProfileEditor() {
   ui.profileStatusEmojiInput.value = account.customStatusEmoji || "";
   ui.profileStatusExpiryInput.value = statusExpiryPreset(account);
   ui.profileGuildNicknameInput.value = guild ? resolveAccountGuildNickname(account, guild.id) : "";
+  const guildAvatar = guild ? resolveAccountAvatar(account, guild.id) : { color: "", url: "" };
+  ui.profileGuildAvatarInput.value = guild ? (guildAvatar.color || "") : "";
+  ui.profileGuildAvatarUrlInput.value = guild ? (guildAvatar.url || "") : "";
   ui.profileGuildNicknameInput.disabled = !guild;
+  ui.profileGuildAvatarInput.disabled = !guild;
+  ui.profileGuildAvatarUrlInput.disabled = !guild;
   ui.presenceInput.value = account.presence || "online";
   ui.profileBannerInput.value = account.banner || "";
   ui.profileAvatarInput.value = account.avatarColor || "#57f287";
@@ -5135,6 +5226,28 @@ ui.channelFilterInput.addEventListener("input", () => {
   renderChannels();
 });
 
+ui.dmSearchInput.addEventListener("input", () => {
+  dmSearchTerm = ui.dmSearchInput.value.trim().slice(0, 40);
+  renderDmList();
+});
+
+ui.dmSearchInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  const current = getCurrentAccount();
+  if (!current) return;
+  const query = dmSearchTerm.trim().toLowerCase();
+  if (!query) return;
+  const candidate = state.accounts.find((account) => {
+    if (!account || account.id === current.id) return false;
+    const username = (account.username || "").toLowerCase();
+    const display = (account.displayName || "").toLowerCase();
+    return username.startsWith(query) || display.startsWith(query);
+  });
+  if (!candidate) return;
+  openDmWithAccount(candidate);
+});
+
 ui.messageInput.addEventListener("keydown", (event) => {
   const suggestion = getComposerSuggestionState();
   const popupVisible = suggestion.type !== "none";
@@ -5249,7 +5362,7 @@ ui.createChannelBtn.addEventListener("click", () => {
 ui.newDmBtn.addEventListener("click", () => {
   const current = getCurrentAccount();
   if (!current) return;
-  const typed = prompt("Start DM with username", "");
+  const typed = prompt("Start DM with username", dmSearchTerm || "");
   if (typeof typed !== "string") return;
   const normalized = normalizeUsername(typed);
   if (!normalized) return;
@@ -5778,11 +5891,24 @@ ui.profileForm.addEventListener("submit", (event) => {
   if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
   if (guild) {
     const guildNickname = ui.profileGuildNicknameInput.value.trim().slice(0, 32);
+    const guildAvatarColor = ui.profileGuildAvatarInput.value.trim();
+    const guildAvatarUrlRaw = ui.profileGuildAvatarUrlInput.value.trim();
+    const guildAvatarUrl = isRenderableAvatarUrl(guildAvatarUrlRaw) ? guildAvatarUrlRaw : "";
     if (guildNickname) {
       account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), nickname: guildNickname };
+    }
+    if (guildAvatarColor) {
+      account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), avatarColor: guildAvatarColor };
+    }
+    if (guildAvatarUrl) {
+      account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), avatarUrl: guildAvatarUrl };
     } else if (account.guildProfiles[guild.id]) {
-      delete account.guildProfiles[guild.id].nickname;
-      if (Object.keys(account.guildProfiles[guild.id]).length === 0) delete account.guildProfiles[guild.id];
+      delete account.guildProfiles[guild.id].avatarUrl;
+    }
+    if (!guildNickname && account.guildProfiles[guild.id]) delete account.guildProfiles[guild.id].nickname;
+    if (!guildAvatarColor && account.guildProfiles[guild.id]) delete account.guildProfiles[guild.id].avatarColor;
+    if (account.guildProfiles[guild.id] && Object.keys(account.guildProfiles[guild.id]).length === 0) {
+      delete account.guildProfiles[guild.id];
     }
   }
 
