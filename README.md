@@ -15,6 +15,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Bottom-left account dock with avatar, display name, status, and settings gear.
 - Full-screen user settings page (Discord-style categories: My Account, Profiles, Appearance, Advanced).
 - Create guilds and channels.
+- Guild creation now supports template presets (friends/gaming/community/study/blank) with optional starter channels.
+- Guild settings dialog supports rename, description, accent color, and admin-gated delete flow.
 - Channel topics with inline edit control in chat header.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
@@ -70,6 +72,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Additional quick nav shortcuts: `Alt+1/2/3` open GIF/Sticker/Emoji tabs and `Ctrl+Shift+F` focuses channel/DM filter.
 - Guild channel rows now render dedicated channel-type icons with stronger active/hover states.
 - DM sidebar rows now render peer avatars + presence dots.
+- DM mode now has a dedicated home screen (`Friends`) when no DM thread is selected.
 - Member panel title now shows live member count for the active guild/DM.
 - Chat message list includes day separators and full timestamp tooltips on hover.
 - Guild channels with unread messages show a sticky unread banner with quick `Mark read` and `Jump` actions.
@@ -111,6 +114,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Per-channel slowmode is supported (channel settings, context-menu presets, and `/slowmode` slash command).
 - Header now includes a direct `Mark Read` action and live pinned-message count on the `Pins` button.
 - Discord-like visual tuning pass applied (font stack, channel row states, header controls, message spacing, member-list hover treatment).
+- Composer input bar now uses compact Discord-style action sizing with arrow send button treatment.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).

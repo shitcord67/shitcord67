@@ -58,6 +58,8 @@ This file is intended as persistent context for future LLM runs.
 3. Message copy menu now includes Markdown quote output for cross-posting/logging.
 4. Header unread workflow extended with direct next-unread jump control and unread counters.
 5. Visual fidelity pass aligned core surfaces toward Discord (typography stack, channel-row contrast, header utility buttons, message rhythm, member hover states).
+6. Guild lifecycle UX improved: setup templates at creation time plus first-class guild settings (name/description/accent/delete).
+7. DM mode now has a dedicated home surface instead of falling through to empty channel UI.
 
 ## Operational Guidance
 
