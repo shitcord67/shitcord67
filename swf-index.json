@@ -8,11 +8,23 @@
     "url": "precious_thing.swf"
   },
   {
-    "name": "Nanaca Crash.swf",
-    "url": "Nanaca%20Crash.swf"
+    "name": "nanaca-crash_v110.swf",
+    "url": "nanaca-crash_v110.swf"
   },
   {
     "name": "Protector IVv.swf",
     "url": "Protector%20IVv.swf"
+  },
+  {
+    "name": "protectorNDM0.swf",
+    "url": "protectorNDM0.swf"
+  },
+  {
+    "name": "protector_3_1_12_Secure.swf",
+    "url": "protector_3_1_12_Secure.swf"
+  },
+  {
+    "name": "protector_3_map-editor.swf",
+    "url": "protector_3_map-editor.swf"
   }
 ]
