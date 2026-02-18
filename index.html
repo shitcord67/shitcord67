@@ -65,6 +65,7 @@
             <button id="openChannelSettingsBtn" class="chat-topic-edit" title="Channel settings">Channel</button>
             <button id="openPinsBtn" class="chat-topic-edit" title="Pinned messages">Pins</button>
             <button id="openRolesBtn" class="chat-topic-edit" title="Manage roles">Roles</button>
+            <button id="openShortcutsBtn" class="chat-topic-edit" title="Keyboard shortcuts">Shortcuts</button>
             <button id="toggleChannelPanelBtn" class="chat-topic-edit" title="Toggle channel sidebar">Channels</button>
             <button id="toggleMemberPanelBtn" class="chat-topic-edit" title="Toggle member sidebar">Members</button>
             <button id="toggleSwfShelfBtn" class="chat-topic-edit" title="Toggle SWF shelf">SWF Shelf</button>
@@ -411,6 +412,29 @@
       <div class="modal-actions">
         <button type="button" id="messageEditCancel">Cancel</button>
         <button type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="shortcutsDialog" class="modal">
+    <form method="dialog" class="modal-form">
+      <h3>Keyboard Shortcuts</h3>
+      <div class="shortcut-list">
+        <div><kbd>Ctrl+K</kbd> Focus channel/DM search</div>
+        <div><kbd>Ctrl+Shift+F</kbd> Focus channel/DM filter</div>
+        <div><kbd>Ctrl+Shift+L</kbd> Focus message composer</div>
+        <div><kbd>Ctrl+U</kbd> Attach file</div>
+        <div><kbd>Ctrl+Shift+G / S / E / P</kbd> Open GIF / Sticker / Emoji / PDF tab</div>
+        <div><kbd>Alt+1..9</kbd> Open media tab quickly</div>
+        <div><kbd>Ctrl+Shift+B</kbd> Toggle channel sidebar</div>
+        <div><kbd>Ctrl+Shift+M</kbd> Toggle member sidebar</div>
+        <div><kbd>Alt+D</kbd> Toggle DM / guild mode</div>
+        <div><kbd>ArrowUp</kbd> (empty composer) edit latest editable message</div>
+        <div><kbd>Shift+Click timestamp</kbd> Copy raw timestamp</div>
+        <div><kbd>Double click message</kbd> Start reply</div>
+      </div>
+      <div class="modal-actions">
+        <button type="submit">Close</button>
       </div>
     </form>
   </dialog>
