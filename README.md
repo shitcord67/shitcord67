@@ -34,8 +34,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Debug Console in Advanced settings (runtime status + recent media/ruffle logs).
 - Message context menu can copy payload as JSON or Matrix-style XML.
 - SWFs auto-start in chat muted and are paused/resumed based on viewport visibility.
-- SWF controls include `Play`, `Pause`, `FullScreen`, `Reset` (with confirmation), `Resize`, and `Save to Shelf`.
-- Per-SWF audio controls directly below each SWF (`Audio On/Off` + volume slider).
+- SWF controls include `Play`, `Pause`, `FullScreen`, `Reset` (with confirmation), `Resize`, and `Optimal Size`.
+- Per-SWF audio controls are shown on the left side of each SWF player (speaker toggle + vertical volume slider).
+- SWF cards include a top-right `💾` save icon in the filename row for quick save-to-shelf.
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
@@ -62,6 +63,14 @@ A lightweight Discord-style chat client prototype with local persistence.
 ## Debugging
 - Open browser DevTools and inspect `localStorage` key `shitcord67-state-v1`.
 - Clear/reset state by deleting `shitcord67-state-v1` (or old `flashcord-state-v2` / `flashcord-state-v1`) and refreshing.
+
+## Ruffle Save Notes
+- In browser mode, SWF save data is stored by the browser in site storage/local storage (not as normal files on disk).
+- In desktop Ruffle mode, files are stored by platform:
+  - Linux (Flatpak): `~/.var/app/rs.ruffle.Ruffle/data/ruffle/SharedObjects/`
+  - Linux (non-Flatpak): `~/.local/share/ruffle/SharedObjects/`
+  - macOS: `/Users/<username>/Library/Application Support/ruffle/SharedObjects/`
+  - Windows: `C:\\Users\\<username>\\AppData\\Local\\Ruffle\\SharedObjects\\`
 
 ## Next architecture step
 Add a transport adapter layer so UI logic stays independent from protocol backends (local JSON, XMPP, Matrix).

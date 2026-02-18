@@ -1941,6 +1941,41 @@ function updateSwfRuntimeAudio(runtimeKey, { enabled, volume } = {}) {
   applySwfAudioToRuntime(runtimeKey);
 }
 
+function getSwfRuntimeMetadata(runtimeKey) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.player || typeof runtime.player.ruffle !== "function") return null;
+  try {
+    const api = runtime.player.ruffle();
+    if (!api?.metadata) return null;
+    runtime.metadata = api.metadata;
+    return runtime.metadata;
+  } catch {
+    return runtime?.metadata || null;
+  }
+}
+
+function applySwfOptimalSize(runtimeKey, hostElement) {
+  if (!hostElement) return false;
+  const metadata = runtimeKey ? getSwfRuntimeMetadata(runtimeKey) : null;
+  if (!metadata) {
+    addDebugLog("info", "SWF metadata unavailable for optimal size", { key: runtimeKey || null });
+    return false;
+  }
+  const width = Number(metadata.width);
+  const height = Number(metadata.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    addDebugLog("info", "SWF metadata missing dimensions for optimal size", { key: runtimeKey || null, metadata });
+    return false;
+  }
+  const targetWidth = Math.max(240, Math.min(1200, Math.round(width)));
+  const targetHeight = Math.max(160, Math.min(900, Math.round(height)));
+  hostElement.style.width = `${targetWidth}px`;
+  hostElement.style.height = `${targetHeight}px`;
+  hostElement.classList.add("message-swf-player--resizable");
+  addDebugLog("info", "Applied SWF optimal size", { key: runtimeKey || null, width: targetWidth, height: targetHeight });
+  return true;
+}
+
 async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
   let runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
   if (!runtime && hostElement && attachment) {
@@ -2009,6 +2044,12 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
     const player = ruffle.createPlayer();
     player.style.width = "100%";
     player.style.height = "100%";
+    if (runtimeKey) {
+      player.addEventListener("loadedmetadata", () => {
+        const metadata = getSwfRuntimeMetadata(runtimeKey);
+        if (metadata) addDebugLog("info", "SWF metadata loaded", { key: runtimeKey, metadata });
+      });
+    }
     playerWrap.innerHTML = "";
     playerWrap.appendChild(player);
     const urlCandidates = [mediaUrl];
@@ -2185,10 +2226,25 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   if (type === "swf") {
     const card = document.createElement("div");
     card.className = "message-swf";
+    const header = document.createElement("div");
+    header.className = "message-swf-header";
     const title = document.createElement("strong");
     title.textContent = attachment.name || "SWF file";
-    card.appendChild(title);
+    const saveIconBtn = document.createElement("button");
+    saveIconBtn.type = "button";
+    saveIconBtn.className = "message-swf-save-icon";
+    saveIconBtn.title = "Save to Shelf";
+    saveIconBtn.setAttribute("aria-label", "Save SWF to shelf");
+    saveIconBtn.textContent = "💾";
+    saveIconBtn.addEventListener("click", () => saveSwfToShelf(attachment));
+    header.appendChild(title);
+    header.appendChild(saveIconBtn);
+    card.appendChild(header);
 
+    const body = document.createElement("div");
+    body.className = "message-swf-body";
+    const audioRail = document.createElement("div");
+    audioRail.className = "message-swf-audio-rail";
     const playerWrap = document.createElement("div");
     playerWrap.className = "message-swf-player";
     playerWrap.style.display = "grid";
@@ -2196,7 +2252,39 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     playerWrap.style.color = "#a6aeb9";
     playerWrap.style.fontSize = "0.78rem";
     playerWrap.textContent = "Loading SWF...";
-    card.appendChild(playerWrap);
+    const audioToggleBtn = document.createElement("button");
+    audioToggleBtn.type = "button";
+    audioToggleBtn.className = "message-swf-audio-toggle";
+    const prefs = getPreferences();
+    const initialEnabled = prefs.swfAudio === "on";
+    let audioEnabled = initialEnabled;
+    audioToggleBtn.textContent = audioEnabled ? "🔊" : "🔇";
+    audioToggleBtn.title = audioEnabled ? "Mute SWF audio" : "Unmute SWF audio";
+    audioToggleBtn.setAttribute("aria-label", audioEnabled ? "Mute SWF audio" : "Unmute SWF audio");
+    audioToggleBtn.addEventListener("click", () => {
+      audioEnabled = !audioEnabled;
+      audioToggleBtn.textContent = audioEnabled ? "🔊" : "🔇";
+      audioToggleBtn.title = audioEnabled ? "Mute SWF audio" : "Unmute SWF audio";
+      audioToggleBtn.setAttribute("aria-label", audioEnabled ? "Mute SWF audio" : "Unmute SWF audio");
+      updateSwfRuntimeAudio(swfKey, { enabled: audioEnabled });
+    });
+    const audioSlider = document.createElement("input");
+    audioSlider.type = "range";
+    audioSlider.min = "0";
+    audioSlider.max = "100";
+    audioSlider.step = "1";
+    audioSlider.value = String(Math.round(prefs.swfVolume));
+    audioSlider.className = "message-swf-audio-slider";
+    audioSlider.title = "SWF volume";
+    audioSlider.setAttribute("aria-label", "SWF volume");
+    audioSlider.addEventListener("input", () => {
+      updateSwfRuntimeAudio(swfKey, { volume: Number(audioSlider.value) });
+    });
+    audioRail.appendChild(audioToggleBtn);
+    audioRail.appendChild(audioSlider);
+    body.appendChild(audioRail);
+    body.appendChild(playerWrap);
+    card.appendChild(body);
     if (swfKey) {
       attachRufflePlayer(playerWrap, attachment, { autoplay: "on", runtimeKey: swfKey });
     }
@@ -2238,10 +2326,15 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
         resizeBtn.textContent = "Resize";
       }
     });
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "button";
-    saveBtn.textContent = "Save to Shelf";
-    saveBtn.addEventListener("click", () => saveSwfToShelf(attachment));
+    const optimalBtn = document.createElement("button");
+    optimalBtn.type = "button";
+    optimalBtn.textContent = "Optimal Size";
+    optimalBtn.addEventListener("click", () => {
+      const ok = applySwfOptimalSize(swfKey, playerWrap);
+      if (!ok) {
+        addDebugLog("info", "Optimal size not available yet; SWF metadata pending", { key: swfKey || null });
+      }
+    });
     const resetBtn = document.createElement("button");
     resetBtn.type = "button";
     resetBtn.textContent = "Reset";
@@ -2253,42 +2346,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controls.appendChild(fullscreenBtn);
     controls.appendChild(resetBtn);
     controls.appendChild(resizeBtn);
-    controls.appendChild(saveBtn);
+    controls.appendChild(optimalBtn);
     card.appendChild(controls);
-
-    const audioRow = document.createElement("div");
-    audioRow.className = "message-swf-audio";
-    const audioToggleBtn = document.createElement("button");
-    audioToggleBtn.type = "button";
-    const prefs = getPreferences();
-    const initialEnabled = prefs.swfAudio === "on";
-    let audioEnabled = initialEnabled;
-    audioToggleBtn.textContent = audioEnabled ? "Audio On" : "Audio Off";
-    audioToggleBtn.addEventListener("click", () => {
-      audioEnabled = !audioEnabled;
-      audioToggleBtn.textContent = audioEnabled ? "Audio On" : "Audio Off";
-      updateSwfRuntimeAudio(swfKey, { enabled: audioEnabled });
-    });
-    const audioSlider = document.createElement("input");
-    audioSlider.type = "range";
-    audioSlider.min = "0";
-    audioSlider.max = "100";
-    audioSlider.step = "1";
-    audioSlider.value = String(Math.round(prefs.swfVolume));
-    audioSlider.addEventListener("input", () => {
-      updateSwfRuntimeAudio(swfKey, { volume: Number(audioSlider.value) });
-    });
-    audioRow.appendChild(audioToggleBtn);
-    audioRow.appendChild(audioSlider);
-    card.appendChild(audioRow);
-
-    const link = document.createElement("a");
-    link.className = "message-swf-link";
-    link.href = mediaUrl;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = "Open SWF file";
-    card.appendChild(link);
     wrap.appendChild(card);
     container.appendChild(wrap);
     return;
