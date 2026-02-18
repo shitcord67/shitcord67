@@ -20,6 +20,7 @@
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
+- Add per-message debug inspector pane with decoded attachment/network info.
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term

@@ -189,6 +189,7 @@
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export JSON</button>
               <button id="importDataBtn" type="button">Import JSON</button>
+              <button id="openDebugConsoleBtn" type="button">Debug Console</button>
             </div>
             <input id="importDataInput" type="file" accept="application/json" hidden />
             <button type="submit">Save Advanced</button>
@@ -373,6 +374,19 @@
       <div class="modal-actions">
         <button type="button" id="accountCancel">Cancel</button>
         <button type="submit">Use account</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="debugDialog" class="modal">
+    <form id="debugForm" class="modal-form" method="dialog">
+      <h3>Debug Console</h3>
+      <pre id="debugOutput" class="debug-output"></pre>
+      <div class="modal-actions">
+        <button id="copyDebugBtn" type="button">Copy Logs</button>
+        <button id="refreshDebugBtn" type="button">Refresh</button>
+        <button id="clearDebugBtn" type="button">Clear</button>
+        <button id="debugCloseBtn" type="button">Close</button>
       </div>
     </form>
   </dialog>
