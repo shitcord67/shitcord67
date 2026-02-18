@@ -877,15 +877,43 @@ button {
 
 .message-swf-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.22rem;
   margin-bottom: 0.28rem;
 }
 
 .message-swf strong {
   display: block;
   font-size: 0.8rem;
+}
+
+.message-swf-meta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.message-swf-audio-indicator {
+  font-size: 0.66rem;
+  color: #b4bac5;
+  border: 1px solid #363a43;
+  border-radius: 999px;
+  padding: 0.08rem 0.46rem;
+}
+
+.message-swf-audio-indicator.is-active {
+  color: #b9ffd5;
+  border-color: #238850;
+  background: rgba(35, 136, 80, 0.2);
+}
+
+.message-swf-audio-indicator.is-pinned {
+  color: #fff1a8;
+  border-color: #9b7f1f;
+  background: rgba(155, 127, 31, 0.25);
 }
 
 .message-swf-save-icon {
@@ -932,6 +960,11 @@ button {
   border-radius: 6px;
   line-height: 1;
   padding: 0;
+}
+
+.message-swf-audio-toggle.is-pinned {
+  box-shadow: inset 0 0 0 1px #b0882f;
+  background: #4a3d20;
 }
 
 .message-swf-audio-slider {

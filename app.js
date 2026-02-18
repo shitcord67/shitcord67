@@ -173,7 +173,9 @@ function buildInitialState() {
       mute: "off",
       deafen: "off",
       swfAudio: "off",
-      swfVolume: 20
+      swfVolume: 20,
+      swfAudioPolicy: "single",
+      swfAudioScope: "global"
     }
   };
 }
@@ -379,6 +381,7 @@ let fullscreenRuntimeKey = null;
 let swfAudioFocusRuntimeKey = null;
 const swfRuntimes = new Map();
 const swfPendingAudio = new Map();
+const swfPendingUi = new Map();
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -491,6 +494,8 @@ const ui = {
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
+  swfAudioPolicyInput: document.getElementById("swfAudioPolicyInput"),
+  swfAudioScopeInput: document.getElementById("swfAudioScopeInput"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -828,6 +833,14 @@ function normalizeToggle(value) {
   return value === "on" ? "on" : "off";
 }
 
+function normalizeSwfAudioPolicy(value) {
+  return value === "multi" ? "multi" : "single";
+}
+
+function normalizeSwfAudioScope(value) {
+  return value === "guild" ? "guild" : "global";
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -839,7 +852,9 @@ function getPreferences() {
     mute: normalizeToggle(current.mute),
     deafen: normalizeToggle(current.deafen),
     swfAudio: normalizeToggle(current.swfAudio),
-    swfVolume: Number.isFinite(Number(current.swfVolume)) ? Math.min(100, Math.max(0, Number(current.swfVolume))) : defaults.swfVolume
+    swfVolume: Number.isFinite(Number(current.swfVolume)) ? Math.min(100, Math.max(0, Number(current.swfVolume))) : defaults.swfVolume,
+    swfAudioPolicy: normalizeSwfAudioPolicy(current.swfAudioPolicy),
+    swfAudioScope: normalizeSwfAudioScope(current.swfAudioScope)
   };
 }
 
@@ -1898,8 +1913,77 @@ function setSwfPlayback(runtimeKey, shouldPlay) {
   }
 }
 
+function updateSwfAudioUi(runtimeKey) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime) return;
+  if (runtime.audioToggleEl instanceof HTMLElement) {
+    const muted = !runtime.audioEnabled;
+    const pinSuffix = runtime.audioPinned ? " (Pinned)" : "";
+    const titleText = `${muted ? "Unmute SWF audio" : "Mute SWF audio"}${pinSuffix}. Right-click to ${runtime.audioPinned ? "unpin" : "pin"} (skip auto-mute).`;
+    runtime.audioToggleEl.textContent = muted ? "🔇" : "🔊";
+    runtime.audioToggleEl.title = titleText;
+    runtime.audioToggleEl.setAttribute("aria-label", titleText);
+    runtime.audioToggleEl.classList.toggle("is-pinned", Boolean(runtime.audioPinned));
+    runtime.audioToggleEl.dataset.pinned = runtime.audioPinned ? "on" : "off";
+  }
+  if (runtime.audioIndicatorEl instanceof HTMLElement) {
+    const audible = runtime.playing && runtime.audioEnabled && !runtime.audioSuppressed;
+    if (!runtime.audioEnabled) {
+      runtime.audioIndicatorEl.textContent = "Muted";
+    } else if (runtime.audioSuppressed) {
+      runtime.audioIndicatorEl.textContent = "Suppressed";
+    } else if (audible) {
+      runtime.audioIndicatorEl.textContent = "Audio Active";
+    } else {
+      runtime.audioIndicatorEl.textContent = "Audio Idle";
+    }
+    runtime.audioIndicatorEl.classList.toggle("is-active", audible);
+    runtime.audioIndicatorEl.classList.toggle("is-pinned", Boolean(runtime.audioPinned));
+  }
+}
+
 function refreshSwfAudioFocus(preferredKey = null) {
-  const canUse = (key, runtime) => key && runtime?.playing && runtime.audioEnabled;
+  const prefs = getPreferences();
+  const canUse = (key, runtime) => key && runtime?.playing && runtime.audioEnabled && !runtime.audioPinned;
+  if (prefs.swfAudioPolicy === "multi") {
+    swfAudioFocusRuntimeKey = null;
+    swfRuntimes.forEach((runtime, key) => {
+      runtime.audioSuppressed = false;
+      applySwfAudioToRuntime(key);
+      updateSwfAudioUi(key);
+    });
+    return;
+  }
+
+  if (prefs.swfAudioScope === "guild") {
+    const focusByGuild = new Map();
+    if (preferredKey) {
+      const preferred = swfRuntimes.get(preferredKey);
+      if (canUse(preferredKey, preferred)) {
+        focusByGuild.set(preferred.guildId || "__ungrouped__", preferredKey);
+      }
+    }
+    swfRuntimes.forEach((runtime, key) => {
+      if (!canUse(key, runtime)) return;
+      const guildKey = runtime.guildId || "__ungrouped__";
+      if (!focusByGuild.has(guildKey)) focusByGuild.set(guildKey, key);
+    });
+    swfAudioFocusRuntimeKey = null;
+    swfRuntimes.forEach((runtime, key) => {
+      const guildKey = runtime.guildId || "__ungrouped__";
+      runtime.audioSuppressed = Boolean(
+        !runtime.audioPinned
+        && runtime.playing
+        && runtime.audioEnabled
+        && focusByGuild.get(guildKey)
+        && focusByGuild.get(guildKey) !== key
+      );
+      applySwfAudioToRuntime(key);
+      updateSwfAudioUi(key);
+    });
+    return;
+  }
+
   if (preferredKey) {
     const preferred = swfRuntimes.get(preferredKey);
     if (canUse(preferredKey, preferred)) swfAudioFocusRuntimeKey = preferredKey;
@@ -1913,12 +1997,14 @@ function refreshSwfAudioFocus(preferredKey = null) {
   }
   swfRuntimes.forEach((runtime, key) => {
     runtime.audioSuppressed = Boolean(
-      swfAudioFocusRuntimeKey
+      !runtime.audioPinned
+      && swfAudioFocusRuntimeKey
       && key !== swfAudioFocusRuntimeKey
       && runtime.playing
       && runtime.audioEnabled
     );
     applySwfAudioToRuntime(key);
+    updateSwfAudioUi(key);
   });
 }
 
@@ -1963,6 +2049,19 @@ function updateSwfRuntimeAudio(runtimeKey, { enabled, volume } = {}) {
   if (typeof enabled === "boolean") runtime.audioEnabled = enabled;
   if (Number.isFinite(volume)) runtime.audioVolume = Math.min(100, Math.max(0, volume));
   refreshSwfAudioFocus(enabled ? runtimeKey : null);
+}
+
+function setSwfRuntimeAudioPinned(runtimeKey, pinned) {
+  if (!runtimeKey) return;
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime) {
+    const nextPending = swfPendingAudio.get(runtimeKey) || {};
+    nextPending.pinned = Boolean(pinned);
+    swfPendingAudio.set(runtimeKey, nextPending);
+    return;
+  }
+  runtime.audioPinned = Boolean(pinned);
+  refreshSwfAudioFocus(runtimeKey);
 }
 
 function getSwfRuntimeMetadata(runtimeKey) {
@@ -2076,6 +2175,12 @@ async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
 function resetSwfRuntime(runtimeKey, hostElement, attachment) {
   if (!confirm("Reset this SWF to the beginning?")) return;
   const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+  if (runtimeKey && runtime) {
+    swfPendingUi.set(runtimeKey, {
+      audioToggleEl: runtime.audioToggleEl || null,
+      audioIndicatorEl: runtime.audioIndicatorEl || null
+    });
+  }
   if (runtime?.observer) runtime.observer.disconnect();
   if (runtimeKey) {
     swfRuntimes.delete(runtimeKey);
@@ -2200,31 +2305,47 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
         if (runtimeKey) {
           swfRuntimes.delete(runtimeKey);
+          swfPendingUi.delete(runtimeKey);
           refreshSwfAudioFocus();
         }
         return;
       }
       if (runtimeKey) {
+        const activeGuildId = getActiveGuild()?.id || null;
         swfRuntimes.set(runtimeKey, {
           key: runtimeKey,
           attachment: { ...attachment },
           player,
           host: playerWrap,
           originHost: playerWrap,
+          guildId: activeGuildId,
           playing: autoplay !== "off",
           observer: null,
           floating: false,
           restoreStyle: "",
           audioEnabled: getPreferences().swfAudio === "on",
           audioVolume: getPreferences().swfVolume,
-          audioSuppressed: false
+          audioSuppressed: false,
+          audioPinned: false,
+          audioToggleEl: null,
+          audioIndicatorEl: null
         });
+        const pendingUi = swfPendingUi.get(runtimeKey);
+        if (pendingUi) {
+          const runtime = swfRuntimes.get(runtimeKey);
+          if (runtime) {
+            runtime.audioToggleEl = pendingUi.audioToggleEl || null;
+            runtime.audioIndicatorEl = pendingUi.audioIndicatorEl || null;
+          }
+          swfPendingUi.delete(runtimeKey);
+        }
         const pendingAudio = swfPendingAudio.get(runtimeKey);
         if (pendingAudio) {
           const runtime = swfRuntimes.get(runtimeKey);
           if (runtime) {
             if (typeof pendingAudio.enabled === "boolean") runtime.audioEnabled = pendingAudio.enabled;
             if (Number.isFinite(pendingAudio.volume)) runtime.audioVolume = pendingAudio.volume;
+            if (typeof pendingAudio.pinned === "boolean") runtime.audioPinned = pendingAudio.pinned;
           }
           swfPendingAudio.delete(runtimeKey);
         }
@@ -2335,6 +2456,11 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     header.className = "message-swf-header";
     const title = document.createElement("strong");
     title.textContent = attachment.name || "SWF file";
+    const meta = document.createElement("div");
+    meta.className = "message-swf-meta";
+    const audioIndicator = document.createElement("span");
+    audioIndicator.className = "message-swf-audio-indicator";
+    audioIndicator.textContent = "Audio Idle";
     const saveIconBtn = document.createElement("button");
     saveIconBtn.type = "button";
     saveIconBtn.className = "message-swf-save-icon";
@@ -2343,7 +2469,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     saveIconBtn.textContent = "💾";
     saveIconBtn.addEventListener("click", () => saveSwfToShelf(attachment));
     header.appendChild(title);
-    header.appendChild(saveIconBtn);
+    meta.appendChild(audioIndicator);
+    meta.appendChild(saveIconBtn);
+    header.appendChild(meta);
     card.appendChild(header);
 
     const body = document.createElement("div");
@@ -2364,14 +2492,24 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const initialEnabled = prefs.swfAudio === "on";
     let audioEnabled = initialEnabled;
     audioToggleBtn.textContent = audioEnabled ? "🔊" : "🔇";
-    audioToggleBtn.title = audioEnabled ? "Mute SWF audio" : "Unmute SWF audio";
-    audioToggleBtn.setAttribute("aria-label", audioEnabled ? "Mute SWF audio" : "Unmute SWF audio");
+    audioToggleBtn.title = `${audioEnabled ? "Mute SWF audio" : "Unmute SWF audio"}. Right-click to pin (skip auto-mute).`;
+    audioToggleBtn.setAttribute("aria-label", `${audioEnabled ? "Mute SWF audio" : "Unmute SWF audio"}. Right-click to pin (skip auto-mute).`);
     audioToggleBtn.addEventListener("click", () => {
       audioEnabled = !audioEnabled;
       audioToggleBtn.textContent = audioEnabled ? "🔊" : "🔇";
-      audioToggleBtn.title = audioEnabled ? "Mute SWF audio" : "Unmute SWF audio";
-      audioToggleBtn.setAttribute("aria-label", audioEnabled ? "Mute SWF audio" : "Unmute SWF audio");
+      audioToggleBtn.title = `${audioEnabled ? "Mute SWF audio" : "Unmute SWF audio"}. Right-click to pin (skip auto-mute).`;
+      audioToggleBtn.setAttribute("aria-label", `${audioEnabled ? "Mute SWF audio" : "Unmute SWF audio"}. Right-click to pin (skip auto-mute).`);
       updateSwfRuntimeAudio(swfKey, { enabled: audioEnabled });
+    });
+    audioToggleBtn.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      const runtime = swfKey ? swfRuntimes.get(swfKey) : null;
+      const pinned = !(runtime?.audioPinned || false);
+      setSwfRuntimeAudioPinned(swfKey, pinned);
+      addDebugLog("info", pinned ? "Pinned SWF audio (skip auto-mute)" : "Unpinned SWF audio (auto-mute applies)", {
+        key: swfKey || null,
+        name: attachment.name || "SWF file"
+      });
     });
     const audioSlider = document.createElement("input");
     audioSlider.type = "range";
@@ -2390,6 +2528,12 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     body.appendChild(audioRail);
     body.appendChild(playerWrap);
     card.appendChild(body);
+    if (swfKey) {
+      swfPendingUi.set(swfKey, {
+        audioToggleEl: audioToggleBtn,
+        audioIndicatorEl: audioIndicator
+      });
+    }
     if (swfKey) {
       attachRufflePlayer(playerWrap, attachment, { autoplay: "on", runtimeKey: swfKey });
     }
@@ -2716,6 +2860,7 @@ function renderMessages() {
     if (runtime.host?.isConnected) return;
     if (runtime.observer) runtime.observer.disconnect();
     swfRuntimes.delete(key);
+    swfPendingUi.delete(key);
     removedRuntime = true;
   });
   if (removedRuntime) refreshSwfAudioFocus();
@@ -3231,6 +3376,8 @@ function renderSettingsScreen() {
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;
+  ui.swfAudioPolicyInput.value = prefs.swfAudioPolicy;
+  ui.swfAudioScopeInput.value = prefs.swfAudioScope;
 }
 
 function openSettingsScreen() {
@@ -3754,7 +3901,10 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences = getPreferences();
   state.preferences.developerMode = normalizeToggle(ui.developerModeInput.value);
   state.preferences.debugOverlay = normalizeToggle(ui.debugOverlayInput.value);
+  state.preferences.swfAudioPolicy = normalizeSwfAudioPolicy(ui.swfAudioPolicyInput.value);
+  state.preferences.swfAudioScope = normalizeSwfAudioScope(ui.swfAudioScopeInput.value);
   saveState();
+  refreshSwfAudioFocus();
   render();
 });
 

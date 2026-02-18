@@ -194,6 +194,16 @@
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
+            <label for="swfAudioPolicyInput">SWF audio policy</label>
+            <select id="swfAudioPolicyInput">
+              <option value="single">Only one SWF with audio</option>
+              <option value="multi">Allow multiple SWFs with audio</option>
+            </select>
+            <label for="swfAudioScopeInput">SWF audio scope</label>
+            <select id="swfAudioScopeInput">
+              <option value="global">Global (all guilds/chats)</option>
+              <option value="guild">Per guild/chat</option>
+            </select>
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export JSON</button>
               <button id="importDataBtn" type="button">Import JSON</button>
