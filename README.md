@@ -33,10 +33,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.
 - Debug Console in Advanced settings (runtime status + recent media/ruffle logs).
 - Message context menu can copy payload as JSON or Matrix-style XML.
-- SWFs are click-to-play in chat to avoid surprise audio on channel load.
-- SWF viewer modal supports larger playback and zoom controls.
+- SWFs auto-start in chat muted and are paused/resumed based on viewport visibility.
+- SWF controls include `Play`, `Pause`, `FullScreen`, `Reset` (with confirmation), `Resize`, and `Save to Shelf`.
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
-- Opening viewer from a running chat SWF now reuses the same live instance (no hard re-create).
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
 - Channel settings dialog (rename/delete with permission checks).
