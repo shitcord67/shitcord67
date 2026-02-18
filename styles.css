@@ -162,6 +162,7 @@ button {
   place-items: center;
   font-weight: 800;
   flex: 0 0 48px;
+  transition: border-radius 140ms ease, transform 140ms ease, background-color 140ms ease;
 }
 
 .server-brand {
@@ -219,6 +220,12 @@ button {
   background: #313338;
   color: #d7dbe0;
   position: relative;
+}
+
+.server-brand:hover,
+.server-item:hover {
+  border-radius: 14px;
+  transform: translateY(-1px);
 }
 
 .server-item.active {
@@ -324,6 +331,12 @@ button {
   padding: 0.45rem 0.5rem;
   border-radius: 6px;
   margin-bottom: 0.25rem;
+  position: relative;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.channel-item:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .channel-item.channel-item--dm {
@@ -333,6 +346,25 @@ button {
 .channel-item.active {
   background: var(--bg-light);
   color: var(--text-main);
+}
+
+.channel-item.active::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 999px;
+  background: #f2f3f5;
+}
+
+.channel-item__icon {
+  width: 1.1rem;
+  min-width: 1.1rem;
+  text-align: center;
+  color: #98a2b2;
+  font-size: 0.83rem;
 }
 
 .channel-item--unread {
@@ -345,6 +377,28 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.channel-dm-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #5f6af5;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  color: #fff;
+}
+
+.channel-dm-avatar .presence-dot {
+  width: 8px;
+  height: 8px;
+  border-width: 1px;
+  right: -2px;
+  bottom: -2px;
 }
 
 .channel-badge {
@@ -484,6 +538,7 @@ button {
   grid-template-rows: 48px 1fr auto;
   grid-column: 3;
   grid-row: 1 / 3;
+  position: relative;
 }
 
 .chat-header {
@@ -493,6 +548,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 0.7rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .chat-header h2 {
@@ -526,7 +582,7 @@ button {
 
 .message-list {
   overflow-y: auto;
-  padding: 1rem;
+  padding: 1rem 1rem 1.8rem;
 }
 
 .message {
@@ -646,6 +702,27 @@ button {
 .message-time {
   color: #949ba4;
   font-size: 0.78rem;
+  cursor: default;
+}
+
+.message-day-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.65rem 0 0.55rem;
+}
+
+.message-day-divider__line {
+  height: 1px;
+  background: #343842;
+  flex: 1;
+}
+
+.message-day-divider__label {
+  color: #a8afbc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .message-text {
@@ -750,6 +827,24 @@ button {
   font-size: 0.72rem;
   font-weight: 700;
   padding-top: 0.2rem;
+}
+
+.jump-to-bottom {
+  position: absolute;
+  right: 1rem;
+  bottom: 6.4rem;
+  z-index: 4;
+  background: #2d66e3;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 0.32rem 0.72rem;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.38);
+}
+
+.jump-to-bottom--hidden {
+  display: none;
 }
 
 .message-actions {

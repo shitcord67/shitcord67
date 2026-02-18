@@ -518,6 +518,7 @@ const ui = {
   newDmBtn: document.getElementById("newDmBtn"),
   channelFilterInput: document.getElementById("channelFilterInput"),
   memberList: document.getElementById("memberList"),
+  memberPanelTitle: document.getElementById("memberPanelTitle"),
   activeServerName: document.getElementById("activeServerName"),
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
@@ -527,6 +528,7 @@ const ui = {
   toggleSwfShelfBtn: document.getElementById("toggleSwfShelfBtn"),
   editTopicBtn: document.getElementById("editTopicBtn"),
   messageList: document.getElementById("messageList"),
+  jumpToBottomBtn: document.getElementById("jumpToBottomBtn"),
   swfShelf: document.getElementById("swfShelf"),
   swfShelfList: document.getElementById("swfShelfList"),
   clearSwfShelfBtn: document.getElementById("clearSwfShelfBtn"),
@@ -1264,6 +1266,52 @@ function formatTime(iso) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatFullTimestamp(iso) {
+  return new Date(iso).toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function messageDateKey(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function formatMessageDayLabel(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  const now = new Date();
+  const todayKey = messageDateKey(now.toISOString());
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  const yesterdayKey = messageDateKey(y.toISOString());
+  const key = messageDateKey(iso);
+  if (key === todayKey) return "Today";
+  if (key === yesterdayKey) return "Yesterday";
+  return date.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+}
+
+function createMessageDayDivider(iso) {
+  const divider = document.createElement("div");
+  divider.className = "message-day-divider";
+  const lineLeft = document.createElement("span");
+  lineLeft.className = "message-day-divider__line";
+  const label = document.createElement("span");
+  label.className = "message-day-divider__label";
+  label.textContent = formatMessageDayLabel(iso);
+  const lineRight = document.createElement("span");
+  lineRight.className = "message-day-divider__line";
+  divider.appendChild(lineLeft);
+  divider.appendChild(label);
+  divider.appendChild(lineRight);
+  return divider;
+}
+
 function presenceLabel(presence) {
   if (presence === "idle") return "Idle";
   if (presence === "dnd") return "Do Not Disturb";
@@ -1601,6 +1649,14 @@ function channelTypePrefix(channel) {
   if (!channel || channel.type === "text") return "#";
   if (channel.type === "announcement") return "📣";
   if (channel.type === "forum") return "🗂";
+  if (channel.type === "media") return "🖼";
+  return "#";
+}
+
+function channelTypeSymbol(channel) {
+  if (!channel || channel.type === "text") return "#";
+  if (channel.type === "announcement") return "📣";
+  if (channel.type === "forum") return "🧵";
   if (channel.type === "media") return "🖼";
   return "#";
 }
@@ -5154,6 +5210,17 @@ function renderDmList() {
     const peer = peerId ? getAccountById(peerId) : null;
     const button = document.createElement("button");
     button.className = `channel-item channel-item--dm ${state.activeDmId === thread.id ? "active" : ""}`;
+    const avatar = document.createElement("div");
+    avatar.className = "channel-dm-avatar";
+    if (peer) {
+      applyAvatarStyle(avatar, peer, null);
+      const dot = document.createElement("span");
+      dot.className = `presence-dot presence-${normalizePresence(peer.presence)}`;
+      avatar.appendChild(dot);
+    } else {
+      avatar.textContent = "?";
+    }
+    button.appendChild(avatar);
     const label = document.createElement("span");
     label.className = "channel-item__name";
     label.textContent = peer ? `@${peer.username}` : "Unknown DM";
@@ -5246,9 +5313,13 @@ function renderChannels() {
   channelsToRender.forEach((channel) => {
     const button = document.createElement("button");
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
+    const icon = document.createElement("span");
+    icon.className = "channel-item__icon";
+    icon.textContent = channelTypeSymbol(channel);
+    button.appendChild(icon);
     const label = document.createElement("span");
     label.className = "channel-item__name";
-    label.textContent = `${channelTypePrefix(channel)} ${channel.name}`;
+    label.textContent = channel.name;
     button.appendChild(label);
     const unreadStats = applyGuildNotificationModeToStats(
       getChannelUnreadStats(channel, currentAccount),
@@ -5335,6 +5406,34 @@ function renderChannels() {
     empty.textContent = "No channels match your filter.";
     ui.channelList.appendChild(empty);
   }
+}
+
+function hiddenMessagesBelowCount() {
+  const rows = [...ui.messageList.querySelectorAll(".message")];
+  if (rows.length === 0) return 0;
+  const listRect = ui.messageList.getBoundingClientRect();
+  let hidden = 0;
+  rows.forEach((row) => {
+    const rect = row.getBoundingClientRect();
+    if (rect.top > listRect.bottom - 8) hidden += 1;
+  });
+  return hidden;
+}
+
+function updateJumpToBottomButton() {
+  if (!ui.jumpToBottomBtn) return;
+  const distanceFromBottom = ui.messageList.scrollHeight - ui.messageList.scrollTop - ui.messageList.clientHeight;
+  const nearBottom = distanceFromBottom < 36;
+  if (nearBottom) {
+    ui.jumpToBottomBtn.classList.add("jump-to-bottom--hidden");
+    ui.jumpToBottomBtn.textContent = "Jump to present";
+    return;
+  }
+  const hiddenCount = hiddenMessagesBelowCount();
+  ui.jumpToBottomBtn.textContent = hiddenCount > 0
+    ? `${hiddenCount > 99 ? "99+" : hiddenCount} below`
+    : "Jump to present";
+  ui.jumpToBottomBtn.classList.remove("jump-to-bottom--hidden");
 }
 
 function openUserPopout(account, fallbackName = "Unknown") {
@@ -5492,6 +5591,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     const time = document.createElement("span");
     time.className = "message-time";
     time.textContent = formatTime(post.ts);
+    time.title = formatFullTimestamp(post.ts);
     head.appendChild(userButton);
     head.appendChild(time);
     postRow.appendChild(head);
@@ -5590,6 +5690,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         const replyTime = document.createElement("span");
         replyTime.className = "message-time";
         replyTime.textContent = formatTime(replyMessage.ts);
+        replyTime.title = formatFullTimestamp(replyMessage.ts);
         replyHead.appendChild(replyUserButton);
         replyHead.appendChild(replyTime);
         replyRow.appendChild(replyHead);
@@ -5736,7 +5837,10 @@ function renderMessages() {
   renderReplyComposer();
   renderSlashSuggestions();
 
-  if (!conversationId) return;
+  if (!conversationId) {
+    updateJumpToBottomButton();
+    return;
+  }
   if (!isDm && channel?.type === "forum") {
     renderForumThreads(conversationId, channel, messageBucket, getCurrentAccount());
     return;
@@ -5765,8 +5869,14 @@ function renderMessages() {
     ui.messageList.appendChild(tools);
   }
 
+  let lastDayKey = "";
   messageBucket.forEach((message) => {
     const currentUser = getCurrentAccount();
+    const dayKey = messageDateKey(message.ts);
+    if (dayKey && dayKey !== lastDayKey) {
+      ui.messageList.appendChild(createMessageDayDivider(message.ts));
+      lastDayKey = dayKey;
+    }
     if (isDm && unreadDividerMessageId && unreadDividerMessageId === message.id) {
       const divider = document.createElement("div");
       divider.className = "dm-unread-divider";
@@ -5777,6 +5887,7 @@ function renderMessages() {
     const messageRow = document.createElement("article");
     messageRow.className = `message ${!isDm && channel?.type === "forum" ? "message--forum" : ""}`;
     messageRow.dataset.messageId = message.id;
+    messageRow.dataset.ts = message.ts;
     messageRow.tabIndex = -1;
     messageRow.addEventListener("mousedown", () => {
       messageRow.focus({ preventScroll: true });
@@ -5838,6 +5949,7 @@ function renderMessages() {
     const time = document.createElement("span");
     time.className = "message-time";
     time.textContent = formatTime(message.ts);
+    time.title = formatFullTimestamp(message.ts);
     let editedBadge = null;
     if (message.editedAt) {
       editedBadge = document.createElement("span");
@@ -6179,6 +6291,7 @@ function renderMessages() {
   } else {
     ui.messageList.scrollTop = ui.messageList.scrollHeight;
   }
+  updateJumpToBottomButton();
   const didMarkRead = isDm ? markDmRead(dmThread, currentAccount?.id) : markChannelRead(channel, currentAccount?.id);
   if (currentAccount && didMarkRead) {
     saveState();
@@ -6190,9 +6303,17 @@ function renderMessages() {
 
 function appendMessageRowLite(channel, message) {
   if (!channel || !message) return;
+  const previous = [...ui.messageList.querySelectorAll(".message")].at(-1);
+  const previousTs = previous?.dataset?.ts || "";
+  const prevKey = previousTs ? messageDateKey(previousTs) : "";
+  const nextKey = messageDateKey(message.ts);
+  if (nextKey && nextKey !== prevKey) {
+    ui.messageList.appendChild(createMessageDayDivider(message.ts));
+  }
   const messageRow = document.createElement("article");
   messageRow.className = "message";
   messageRow.dataset.messageId = message.id;
+  messageRow.dataset.ts = message.ts;
   const head = document.createElement("div");
   head.className = "message-head";
   const userButton = document.createElement("button");
@@ -6205,6 +6326,7 @@ function appendMessageRowLite(channel, message) {
   const time = document.createElement("span");
   time.className = "message-time";
   time.textContent = formatTime(message.ts);
+  time.title = formatFullTimestamp(message.ts);
   head.appendChild(userButton);
   head.appendChild(time);
   messageRow.appendChild(head);
@@ -6221,12 +6343,14 @@ function appendMessageRowLite(channel, message) {
   });
   ui.messageList.appendChild(messageRow);
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  updateJumpToBottomButton();
 }
 
 function renderMemberList() {
   const activeDm = getActiveDmThread();
   if (activeDm) {
     const current = getCurrentAccount();
+    if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `Members — ${activeDm.participantIds.length}`;
     ui.memberList.innerHTML = "";
     const title = document.createElement("div");
     title.className = "member-group-title";
@@ -6268,7 +6392,10 @@ function renderMemberList() {
   }
   const server = getActiveServer();
   ui.memberList.innerHTML = "";
-  if (!server) return;
+  if (!server) {
+    if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = "Members";
+    return;
+  }
 
   const online = [];
   const offline = [];
@@ -6287,6 +6414,7 @@ function renderMemberList() {
     { title: `Online — ${online.length}`, items: online },
     { title: `Offline — ${offline.length}`, items: offline }
   ];
+  if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `Members — ${online.length + offline.length}`;
 
   groups.forEach((group) => {
     const title = document.createElement("div");
@@ -7006,6 +7134,15 @@ ui.messageInput.addEventListener("paste", (event) => {
   }).catch(() => {
     showToast("Failed to attach clipboard file.", { tone: "error" });
   });
+});
+
+ui.messageList.addEventListener("scroll", () => {
+  updateJumpToBottomButton();
+});
+
+ui.jumpToBottomBtn?.addEventListener("click", () => {
+  ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  updateJumpToBottomButton();
 });
 
 ui.cancelReplyBtn.addEventListener("click", () => {
@@ -7933,6 +8070,32 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+    if (!state.currentAccountId) return;
+    if (event.key === "1") {
+      event.preventDefault();
+      openMediaPickerWithTab("gif");
+      return;
+    }
+    if (event.key === "2") {
+      event.preventDefault();
+      openMediaPickerWithTab("sticker");
+      return;
+    }
+    if (event.key === "3") {
+      event.preventDefault();
+      openMediaPickerWithTab("emoji");
+      return;
+    }
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "f") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    const target = getViewMode() === "dm" ? ui.dmSearchInput : ui.channelFilterInput;
+    target?.focus();
+    target?.select?.();
+    return;
+  }
   if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === "u") {
     if (!state.currentAccountId) return;
     if (isTypingInputTarget(event.target)) return;

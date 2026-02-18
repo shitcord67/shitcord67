@@ -123,3 +123,4 @@
 - [done] Implement viewer for displaying OpenDocument formats (spreadsheet, presentation, rich text documents)
 - [done] Implement viewer for displaying Microsoft RTF
 - [done] Implement some other funny viewers... (example: inline HEX viewer for `.bin`)
+- Implement PDF viewer independent from browser
