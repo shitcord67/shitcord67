@@ -366,6 +366,7 @@ let mediaPickerOpen = false;
 let mediaPickerTab = "gif";
 let mediaPickerQuery = "";
 let swfLibrary = [];
+const debugLogs = [];
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -477,6 +478,7 @@ const ui = {
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
+  openDebugConsoleBtn: document.getElementById("openDebugConsoleBtn"),
   channelSettingsDialog: document.getElementById("channelSettingsDialog"),
   channelSettingsForm: document.getElementById("channelSettingsForm"),
   channelRenameInput: document.getElementById("channelRenameInput"),
@@ -497,6 +499,13 @@ const ui = {
   pinsForm: document.getElementById("pinsForm"),
   pinsList: document.getElementById("pinsList"),
   pinsCloseBtn: document.getElementById("pinsCloseBtn"),
+  debugDialog: document.getElementById("debugDialog"),
+  debugForm: document.getElementById("debugForm"),
+  debugOutput: document.getElementById("debugOutput"),
+  copyDebugBtn: document.getElementById("copyDebugBtn"),
+  refreshDebugBtn: document.getElementById("refreshDebugBtn"),
+  clearDebugBtn: document.getElementById("clearDebugBtn"),
+  debugCloseBtn: document.getElementById("debugCloseBtn"),
   contextMenu: document.getElementById("contextMenu"),
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
@@ -949,22 +958,28 @@ async function deployMediaRuntimes() {
   try {
     await loadScriptTag("ruffle/ruffle.js");
     shouldRerender = true;
+    addDebugLog("info", "Loaded local Ruffle runtime", { src: "ruffle/ruffle.js" });
   } catch {
     try {
       await loadScriptTag("https://unpkg.com/@ruffle-rs/ruffle");
       shouldRerender = true;
+      addDebugLog("info", "Loaded CDN Ruffle runtime", { src: "https://unpkg.com/@ruffle-rs/ruffle" });
     } catch {
+      addDebugLog("warn", "Failed to load Ruffle runtime (local and CDN)");
       // SWF fallback card remains available.
     }
   }
   try {
     await loadScriptTag("dotlottie/dotlottie-player.mjs", "module");
     shouldRerender = true;
+    addDebugLog("info", "Loaded local dotLottie runtime", { src: "dotlottie/dotlottie-player.mjs" });
   } catch {
     try {
       await loadScriptTag("https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs", "module");
       shouldRerender = true;
+      addDebugLog("info", "Loaded CDN dotLottie runtime", { src: "https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" });
     } catch {
+      addDebugLog("warn", "Failed to load dotLottie runtime (local and CDN)");
       // dotLottie falls back to link/file preview behavior.
     }
   }
@@ -979,6 +994,80 @@ function resolveMediaUrl(url) {
   } catch {
     return url;
   }
+}
+
+function addDebugLog(level, message, data = null) {
+  const entry = {
+    ts: new Date().toISOString(),
+    level,
+    message,
+    data
+  };
+  debugLogs.push(entry);
+  if (debugLogs.length > 220) debugLogs.shift();
+}
+
+function formatDebugLogs() {
+  const runtime = {
+    location: window.location.href,
+    ruffleReady: Boolean(window.RufflePlayer?.newest),
+    dotLottieReady: typeof customElements !== "undefined" && Boolean(customElements.get("dotlottie-player")),
+    activeGuildId: state.activeGuildId || null,
+    activeChannelId: state.activeChannelId || null
+  };
+  return JSON.stringify({ runtime, logs: debugLogs }, null, 2);
+}
+
+function renderDebugDialog() {
+  ui.debugOutput.textContent = formatDebugLogs();
+}
+
+function openDebugDialog() {
+  renderDebugDialog();
+  ui.debugDialog.showModal();
+}
+
+function serializeMessageAsJson(message) {
+  return JSON.stringify({
+    id: message.id,
+    userId: message.userId || null,
+    authorName: message.authorName || "",
+    text: message.text || "",
+    ts: message.ts,
+    editedAt: message.editedAt || null,
+    replyTo: message.replyTo || null,
+    pinned: Boolean(message.pinned),
+    reactions: normalizeReactions(message.reactions),
+    attachments: normalizeAttachments(message.attachments)
+  }, null, 2);
+}
+
+function xmlEscape(value) {
+  return (value || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function serializeMessageAsXml(message) {
+  const reactionsXml = normalizeReactions(message.reactions)
+    .map((reaction) => `    <reaction emoji="${xmlEscape(reaction.emoji)}" count="${reaction.userIds.length}" />`)
+    .join("\n");
+  const attachmentsXml = normalizeAttachments(message.attachments)
+    .map((attachment) => `    <attachment type="${xmlEscape(attachment.type)}" format="${xmlEscape(attachment.format || "image")}" name="${xmlEscape(attachment.name || "")}" url="${xmlEscape(attachment.url)}" />`)
+    .join("\n");
+  return [
+    `<message id="${xmlEscape(message.id)}" ts="${xmlEscape(message.ts)}"${message.editedAt ? ` editedAt="${xmlEscape(message.editedAt)}"` : ""}>`,
+    `  <author userId="${xmlEscape(message.userId || "")}">${xmlEscape(displayNameForMessage(message))}</author>`,
+    `  <text>${xmlEscape(message.text || "")}</text>`,
+    `  <pinned>${message.pinned ? "true" : "false"}</pinned>`,
+    reactionsXml ? `  <reactions>\n${reactionsXml}\n  </reactions>` : "  <reactions />",
+    attachmentsXml ? `  <attachments>\n${attachmentsXml}\n  </attachments>` : "  <attachments />",
+    `</message>`
+  ].join("\n");
 }
 
 function toggleReaction(message, emoji, userId) {
@@ -1470,6 +1559,9 @@ function sendMediaAttachment(entry, type) {
     }],
     replyTo: nextReply
   });
+  if (type === "swf") {
+    addDebugLog("info", "Sent SWF attachment message", { url: entry.url, name: entry.name || "" });
+  }
   replyTarget = null;
   ui.messageInput.value = "";
   saveState();
@@ -1660,9 +1752,45 @@ function renderMessageAttachment(container, attachment) {
         const player = ruffle.createPlayer();
         player.style.width = "100%";
         player.style.height = "180px";
-        player.load({ url: mediaUrl, autoplay: "on", unmuteOverlay: "hidden" });
-        playerWrap.appendChild(player);
+        const urlCandidates = [mediaUrl];
+        try {
+          const decoded = decodeURI(mediaUrl);
+          if (!urlCandidates.includes(decoded)) urlCandidates.push(decoded);
+        } catch {
+          // ignore
+        }
+        const loadWithFallback = async () => {
+          let loaded = false;
+          for (const candidate of urlCandidates) {
+            try {
+              await Promise.resolve(player.load({ url: candidate, autoplay: "on", unmuteOverlay: "hidden" }));
+              addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
+              loaded = true;
+              break;
+            } catch (errorObjectMode) {
+              addDebugLog("warn", "Ruffle object payload load failed", { url: candidate, error: String(errorObjectMode) });
+              try {
+                await Promise.resolve(player.load(candidate));
+                addDebugLog("info", "Ruffle loaded SWF via string payload", { url: candidate, name: attachment.name || "" });
+                loaded = true;
+                break;
+              } catch (errorStringMode) {
+                addDebugLog("warn", "Ruffle string payload load failed", { url: candidate, error: String(errorStringMode) });
+              }
+            }
+          }
+          if (!loaded) {
+            playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+            return;
+          }
+          if (!playerWrap.contains(player)) {
+            playerWrap.innerHTML = "";
+            playerWrap.appendChild(player);
+          }
+        };
+        void loadWithFallback();
       } catch {
+        addDebugLog("error", "Ruffle player creation failed", { url: mediaUrl, name: attachment.name || "" });
         playerWrap.textContent = "Ruffle failed to load this SWF.";
       }
     } else {
@@ -1671,6 +1799,7 @@ function renderMessageAttachment(container, attachment) {
       playerWrap.style.color = "#a6aeb9";
       playerWrap.style.fontSize = "0.78rem";
       playerWrap.textContent = "Ruffle loading or unavailable. Falling back to file link.";
+      addDebugLog("warn", "Ruffle runtime unavailable for SWF message", { url: mediaUrl, name: attachment.name || "" });
     }
     card.appendChild(playerWrap);
 
@@ -2175,6 +2304,14 @@ function renderMessages() {
         {
           label: "Copy Text",
           action: () => copyText(message.text || "")
+        },
+        {
+          label: "Copy JSON",
+          action: () => copyText(serializeMessageAsJson(message))
+        },
+        {
+          label: "Copy XML",
+          action: () => copyText(serializeMessageAsXml(message))
         },
         {
           label: message.pinned ? "Unpin Message" : "Pin Message",
@@ -2917,6 +3054,28 @@ ui.exportDataBtn.addEventListener("click", () => {
 
 ui.importDataBtn.addEventListener("click", () => ui.importDataInput.click());
 
+ui.openDebugConsoleBtn.addEventListener("click", () => {
+  openDebugDialog();
+});
+
+ui.refreshDebugBtn.addEventListener("click", () => {
+  renderDebugDialog();
+});
+
+ui.copyDebugBtn.addEventListener("click", () => {
+  copyText(formatDebugLogs());
+});
+
+ui.clearDebugBtn.addEventListener("click", () => {
+  debugLogs.length = 0;
+  addDebugLog("info", "Debug log cleared");
+  renderDebugDialog();
+});
+
+ui.debugCloseBtn.addEventListener("click", () => {
+  ui.debugDialog.close();
+});
+
 ui.importDataInput.addEventListener("change", async () => {
   const file = ui.importDataInput.files?.[0];
   if (!file) return;
@@ -3022,7 +3181,8 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.messageEditDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
-  ui.accountSwitchDialog
+  ui.accountSwitchDialog,
+  ui.debugDialog
 ].forEach(wireDialogBackdropClose);
 
 document.addEventListener("click", (event) => {

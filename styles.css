@@ -896,6 +896,19 @@ button {
   display: inline-block;
 }
 
+.debug-output {
+  background: #15161a;
+  border: 1px solid #2f3239;
+  border-radius: 8px;
+  color: #d8dbe1;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  max-height: 330px;
+  overflow: auto;
+  padding: 0.6rem;
+  white-space: pre-wrap;
+}
+
 .member-panel {
   background: var(--bg-member);
   border-left: 1px solid var(--line);
