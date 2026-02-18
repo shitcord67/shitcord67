@@ -1720,44 +1720,114 @@ function displayNameForMessage(message) {
   return message.authorName || "Unknown";
 }
 
+function appendMentionOrEmoji(target, token, context) {
+  const mentionMatch = token.match(/^@([a-z0-9._-]+)$/i);
+  if (mentionMatch) {
+    const username = mentionMatch[1].toLowerCase();
+    const account = getAccountByUsername(username);
+    if (!account) {
+      target.appendChild(document.createTextNode(token));
+      return;
+    }
+    const mention = document.createElement("span");
+    mention.className = `mention ${context.current && context.current.id === account.id ? "mention--self" : ""}`;
+    mention.textContent = `@${account.username}`;
+    mention.addEventListener("click", () => openUserPopout(account));
+    target.appendChild(mention);
+    return;
+  }
+  const emojiMatch = token.match(/^:([a-z0-9_-]{1,32}):$/i);
+  if (emojiMatch) {
+    const emojiUrl = context.customEmojiMap.get(emojiMatch[1].toLowerCase());
+    if (!emojiUrl) {
+      target.appendChild(document.createTextNode(token));
+      return;
+    }
+    const emojiImage = document.createElement("img");
+    emojiImage.className = "inline-custom-emoji";
+    emojiImage.src = emojiUrl;
+    emojiImage.alt = token;
+    emojiImage.loading = "lazy";
+    target.appendChild(emojiImage);
+    return;
+  }
+  target.appendChild(document.createTextNode(token));
+}
+
+function appendInlineRichText(target, text, context) {
+  const tokenPattern = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]{1,80}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  let lastIndex = 0;
+  let match = tokenPattern.exec(text);
+  while (match) {
+    if (match.index > lastIndex) {
+      target.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+    }
+    const token = match[0];
+    if (token.startsWith("**") && token.endsWith("**")) {
+      const strong = document.createElement("strong");
+      strong.textContent = token.slice(2, -2);
+      target.appendChild(strong);
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      const em = document.createElement("em");
+      em.textContent = token.slice(1, -1);
+      target.appendChild(em);
+    } else if (token.startsWith("~~") && token.endsWith("~~")) {
+      const strike = document.createElement("s");
+      strike.textContent = token.slice(2, -2);
+      target.appendChild(strike);
+    } else if (token.startsWith("`") && token.endsWith("`")) {
+      const code = document.createElement("code");
+      code.textContent = token.slice(1, -1);
+      target.appendChild(code);
+    } else if (token.startsWith("[") && token.includes("](") && token.endsWith(")")) {
+      const parts = token.match(/^\[([^\]]{1,80})\]\((https?:\/\/[^\s)]+)\)$/i);
+      if (parts) {
+        const link = document.createElement("a");
+        link.href = parts[2];
+        link.textContent = parts[1];
+        link.target = "_blank";
+        link.rel = "noreferrer noopener";
+        target.appendChild(link);
+      } else {
+        target.appendChild(document.createTextNode(token));
+      }
+    } else if (isLikelyUrl(token)) {
+      const link = document.createElement("a");
+      link.href = token;
+      link.textContent = token;
+      link.target = "_blank";
+      link.rel = "noreferrer noopener";
+      target.appendChild(link);
+    } else {
+      appendMentionOrEmoji(target, token, context);
+    }
+    lastIndex = tokenPattern.lastIndex;
+    match = tokenPattern.exec(text);
+  }
+  if (lastIndex < text.length) {
+    target.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
+}
+
 function renderMessageText(container, rawText) {
   const current = getCurrentAccount();
   const guild = getActiveGuild();
   ensureGuildMediaCollections(guild);
-  const customEmojiMap = new Map((guild?.customEmojis || []).map((emoji) => [emoji.name, emoji.url]));
-  const tokens = (rawText || "").split(/(@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi);
-  tokens.forEach((token) => {
-    const mentionMatch = token.match(/^@([a-z0-9._-]+)$/i);
-    if (mentionMatch) {
-      const username = mentionMatch[1].toLowerCase();
-      const account = getAccountByUsername(username);
-      if (!account) {
-        container.appendChild(document.createTextNode(token));
-        return;
-      }
-      const mention = document.createElement("span");
-      mention.className = `mention ${current && current.id === account.id ? "mention--self" : ""}`;
-      mention.textContent = `@${account.username}`;
-      mention.addEventListener("click", () => openUserPopout(account));
-      container.appendChild(mention);
-      return;
+  const context = {
+    current,
+    customEmojiMap: new Map((guild?.customEmojis || []).map((emoji) => [emoji.name, emoji.url]))
+  };
+  const lines = (rawText || "").split("\n");
+  lines.forEach((line, index) => {
+    if (line.startsWith("> ")) {
+      const quote = document.createElement("span");
+      quote.className = "message-quote";
+      appendInlineRichText(quote, line.slice(2), context);
+      container.appendChild(quote);
+    } else {
+      appendInlineRichText(container, line, context);
     }
-    const emojiMatch = token.match(/^:([a-z0-9_-]{1,32}):$/i);
-    if (emojiMatch) {
-      const emojiUrl = customEmojiMap.get(emojiMatch[1].toLowerCase());
-      if (!emojiUrl) {
-        container.appendChild(document.createTextNode(token));
-        return;
-      }
-      const emojiImage = document.createElement("img");
-      emojiImage.className = "inline-custom-emoji";
-      emojiImage.src = emojiUrl;
-      emojiImage.alt = token;
-      emojiImage.loading = "lazy";
-      container.appendChild(emojiImage);
-      return;
-    }
-    container.appendChild(document.createTextNode(token));
+    if (index < lines.length - 1) container.appendChild(document.createElement("br"));
   });
 }
 

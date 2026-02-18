@@ -20,6 +20,7 @@
 - Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
+- Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
 - Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
 - Add per-message debug inspector pane with decoded attachment/network info.
 - Add true detachable SWF mini-player (PiP-like floating window) independent of channel view.

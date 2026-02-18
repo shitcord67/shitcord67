@@ -488,6 +488,26 @@ button {
   white-space: pre-wrap;
 }
 
+.message-text a {
+  color: #7fb2ff;
+}
+
+.message-text code {
+  background: #1f222a;
+  border: 1px solid #363b46;
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  font-family: "Fira Code", "Consolas", monospace;
+  font-size: 0.86em;
+}
+
+.message-quote {
+  display: block;
+  border-left: 3px solid #4e5562;
+  padding-left: 0.55rem;
+  color: #c3cad5;
+}
+
 .inline-custom-emoji {
   width: 1.25em;
   height: 1.25em;
