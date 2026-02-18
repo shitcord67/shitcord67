@@ -57,6 +57,7 @@ This file is intended as persistent context for future LLM runs.
 2. Keyboard-first channel workflow (`Alt+R`, `Alt+I`, `Alt+N/P`, `Alt+ArrowUp/Down`) without overriding browser-reserved shortcuts.
 3. Message copy menu now includes Markdown quote output for cross-posting/logging.
 4. Header unread workflow extended with direct next-unread jump control and unread counters.
+5. Visual fidelity pass aligned core surfaces toward Discord (typography stack, channel-row contrast, header utility buttons, message rhythm, member hover states).
 
 ## Operational Guidance
 
