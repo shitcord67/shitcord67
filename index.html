@@ -47,6 +47,7 @@
           <h2 id="activeChannelName">#general</h2>
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
+            <button id="openRolesBtn" class="chat-topic-edit" title="Manage roles">Roles</button>
             <button id="editTopicBtn" class="chat-topic-edit" title="Edit channel topic">Edit Topic</button>
           </div>
         </header>
@@ -252,6 +253,7 @@
         <h4 id="selfPopoutName">User</h4>
         <p id="selfPopoutStatus">Online</p>
         <p id="selfPopoutBio">No bio yet.</p>
+        <div id="selfPopoutRoles" class="role-chip-list"></div>
       </div>
       <div class="modal-actions modal-actions--stack">
         <button type="button" id="selfEditProfile">Edit Profile</button>
@@ -269,8 +271,42 @@
         <h4 id="userPopoutName">User</h4>
         <p id="userPopoutStatus">Online</p>
         <p id="userPopoutBio">No bio yet.</p>
+        <div id="userPopoutRoles" class="role-chip-list"></div>
       </div>
     </div>
+  </dialog>
+
+  <dialog id="rolesDialog" class="modal">
+    <form id="rolesForm" class="modal-form" method="dialog">
+      <h3>Server Roles</h3>
+
+      <label for="roleNameInput">Create role name</label>
+      <input id="roleNameInput" type="text" maxlength="28" placeholder="Moderator" />
+      <label for="roleColorInput">Role color</label>
+      <input id="roleColorInput" type="text" maxlength="24" placeholder="#f23f43" />
+
+      <label for="rolePermPresetInput">Permission preset</label>
+      <select id="rolePermPresetInput">
+        <option value="member">Member</option>
+        <option value="mod">Moderator</option>
+        <option value="admin">Admin</option>
+      </select>
+
+      <button id="createRoleNowBtn" type="button">Create Role</button>
+
+      <label for="assignRoleMemberInput">Assign role to member</label>
+      <select id="assignRoleMemberInput"></select>
+      <label for="assignRoleRoleInput">Role</label>
+      <select id="assignRoleRoleInput"></select>
+      <div class="modal-actions">
+        <button type="button" id="removeRoleBtn">Remove</button>
+        <button type="button" id="assignRoleBtn">Assign</button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="rolesCloseBtn">Close</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="accountSwitchDialog" class="modal">

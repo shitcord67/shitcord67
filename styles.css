@@ -116,7 +116,7 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 0.45rem;
+  padding: 0.75rem 0.45rem 5rem;
 }
 
 .server-brand,
@@ -158,6 +158,8 @@ button {
   background: #2b2d31;
   color: #44d16f;
   font-size: 1.6rem;
+  position: relative;
+  z-index: 4;
 }
 
 .channel-panel {
@@ -397,6 +399,19 @@ button {
   margin-top: 0.2rem;
   color: #dbdee1;
   white-space: pre-wrap;
+}
+
+.mention {
+  color: #8ab4ff;
+  background: rgba(88, 101, 242, 0.2);
+  border-radius: 4px;
+  padding: 0 0.2rem;
+  cursor: pointer;
+}
+
+.mention--self {
+  background: rgba(88, 101, 242, 0.45);
+  color: #eef2ff;
 }
 
 .message-reply {
@@ -763,6 +778,21 @@ body[data-compact-members="on"] .member-item {
 
 .profile-preview__body p + p {
   margin-top: 0.45rem;
+}
+
+.role-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+}
+
+.role-chip {
+  border: 1px solid #4b4f59;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0.16rem 0.45rem;
+  color: #e3e6eb;
 }
 
 .account-list {

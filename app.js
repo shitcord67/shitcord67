@@ -45,9 +45,44 @@ function sanitizeChannelName(value, fallback) {
   return cleaned || fallback;
 }
 
+function rolePresetPermissions(preset) {
+  if (preset === "admin") {
+    return {
+      administrator: true,
+      manageChannels: true,
+      manageRoles: true,
+      manageMessages: true
+    };
+  }
+  if (preset === "mod") {
+    return {
+      administrator: false,
+      manageChannels: true,
+      manageRoles: false,
+      manageMessages: true
+    };
+  }
+  return {
+    administrator: false,
+    manageChannels: false,
+    manageRoles: false,
+    manageMessages: false
+  };
+}
+
+function createRole(name, color, preset = "member") {
+  return {
+    id: createId(),
+    name,
+    color,
+    permissions: rolePresetPermissions(preset)
+  };
+}
+
 function buildInitialState() {
   const serverId = createId();
   const channelId = createId();
+  const everyoneRole = createRole("@everyone", "#b5bac1", "member");
   return {
     accounts: [],
     currentAccountId: null,
@@ -56,6 +91,8 @@ function buildInitialState() {
         id: serverId,
         name: "My First Server",
         memberIds: [],
+        roles: [everyoneRole],
+        memberRoles: {},
         channels: [
           {
             id: channelId,
@@ -107,22 +144,48 @@ function migrateState(raw) {
     if (!raw.preferences || typeof raw.preferences !== "object") {
       raw.preferences = buildInitialState().preferences;
     }
-    raw.servers = raw.servers.map((server) => ({
-      ...server,
-      memberIds: Array.isArray(server.memberIds) ? server.memberIds : [],
-      channels: Array.isArray(server.channels)
-        ? server.channels.map((channel) => ({
-            ...channel,
-            topic: typeof channel.topic === "string" ? channel.topic : "",
-            messages: Array.isArray(channel.messages)
-              ? channel.messages.map((message) => ({
-                  ...message,
-                  reactions: Array.isArray(message.reactions) ? message.reactions : []
-                }))
-              : []
+    raw.servers = raw.servers.map((server) => {
+      const baseRole = createRole("@everyone", "#b5bac1", "member");
+      const roles = Array.isArray(server.roles) && server.roles.length > 0
+        ? server.roles.map((role) => ({
+            id: role.id || createId(),
+            name: role.name || "Role",
+            color: role.color || "#b5bac1",
+            permissions: {
+              administrator: Boolean(role.permissions?.administrator),
+              manageChannels: Boolean(role.permissions?.manageChannels),
+              manageRoles: Boolean(role.permissions?.manageRoles),
+              manageMessages: Boolean(role.permissions?.manageMessages)
+            }
           }))
-        : []
-    }));
+        : [baseRole];
+      const everyoneId = roles[0].id;
+      const memberRoles = typeof server.memberRoles === "object" && server.memberRoles
+        ? { ...server.memberRoles }
+        : {};
+      (Array.isArray(server.memberIds) ? server.memberIds : []).forEach((memberId) => {
+        if (!Array.isArray(memberRoles[memberId])) memberRoles[memberId] = [];
+        if (!memberRoles[memberId].includes(everyoneId)) memberRoles[memberId].push(everyoneId);
+      });
+      return {
+        ...server,
+        memberIds: Array.isArray(server.memberIds) ? server.memberIds : [],
+        roles,
+        memberRoles,
+        channels: Array.isArray(server.channels)
+          ? server.channels.map((channel) => ({
+              ...channel,
+              topic: typeof channel.topic === "string" ? channel.topic : "",
+              messages: Array.isArray(channel.messages)
+                ? channel.messages.map((message) => ({
+                    ...message,
+                    reactions: Array.isArray(message.reactions) ? message.reactions : []
+                  }))
+                : []
+            }))
+          : []
+      };
+    });
     return raw;
   }
 
@@ -145,8 +208,11 @@ function migrateState(raw) {
   if (Array.isArray(raw.servers) && raw.servers.length > 0) {
     migrated.servers = raw.servers.map((server) => {
       const serverId = server.id || createId();
+      const everyoneRole = createRole("@everyone", "#b5bac1", "member");
       const memberIds = [];
       if (account) memberIds.push(account.id);
+      const memberRoles = {};
+      if (account) memberRoles[account.id] = [everyoneRole.id];
       const channels = Array.isArray(server.channels) && server.channels.length > 0
         ? server.channels.map((channel) => {
             const messages = Array.isArray(channel.messages)
@@ -178,6 +244,8 @@ function migrateState(raw) {
         id: serverId,
         name: server.name || "Untitled Server",
         memberIds,
+        roles: [everyoneRole],
+        memberRoles,
         channels
       };
     });
@@ -226,6 +294,7 @@ const ui = {
   activeServerName: document.getElementById("activeServerName"),
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
+  openRolesBtn: document.getElementById("openRolesBtn"),
   editTopicBtn: document.getElementById("editTopicBtn"),
   messageList: document.getElementById("messageList"),
   messageForm: document.getElementById("messageForm"),
@@ -279,6 +348,7 @@ const ui = {
   selfPopoutName: document.getElementById("selfPopoutName"),
   selfPopoutStatus: document.getElementById("selfPopoutStatus"),
   selfPopoutBio: document.getElementById("selfPopoutBio"),
+  selfPopoutRoles: document.getElementById("selfPopoutRoles"),
   selfEditProfile: document.getElementById("selfEditProfile"),
   selfSwitchAccount: document.getElementById("selfSwitchAccount"),
   selfLogout: document.getElementById("selfLogout"),
@@ -288,6 +358,7 @@ const ui = {
   userPopoutName: document.getElementById("userPopoutName"),
   userPopoutStatus: document.getElementById("userPopoutStatus"),
   userPopoutBio: document.getElementById("userPopoutBio"),
+  userPopoutRoles: document.getElementById("userPopoutRoles"),
   accountSwitchDialog: document.getElementById("accountSwitchDialog"),
   accountSwitchForm: document.getElementById("accountSwitchForm"),
   accountList: document.getElementById("accountList"),
@@ -308,6 +379,17 @@ const ui = {
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
+  rolesDialog: document.getElementById("rolesDialog"),
+  rolesForm: document.getElementById("rolesForm"),
+  roleNameInput: document.getElementById("roleNameInput"),
+  roleColorInput: document.getElementById("roleColorInput"),
+  rolePermPresetInput: document.getElementById("rolePermPresetInput"),
+  createRoleNowBtn: document.getElementById("createRoleNowBtn"),
+  assignRoleMemberInput: document.getElementById("assignRoleMemberInput"),
+  assignRoleRoleInput: document.getElementById("assignRoleRoleInput"),
+  assignRoleBtn: document.getElementById("assignRoleBtn"),
+  removeRoleBtn: document.getElementById("removeRoleBtn"),
+  rolesCloseBtn: document.getElementById("rolesCloseBtn"),
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
@@ -338,6 +420,46 @@ function getActiveChannel() {
   return server.channels.find((channel) => channel.id === state.activeChannelId) || null;
 }
 
+function getServerRoles(server) {
+  if (!server) return [];
+  return Array.isArray(server.roles) ? server.roles : [];
+}
+
+function getMemberRoleIds(server, accountId) {
+  if (!server || !accountId) return [];
+  if (!server.memberRoles || typeof server.memberRoles !== "object") return [];
+  return Array.isArray(server.memberRoles[accountId]) ? server.memberRoles[accountId] : [];
+}
+
+function getMemberRoles(server, accountId) {
+  const roleIds = getMemberRoleIds(server, accountId);
+  const roles = getServerRoles(server);
+  return roleIds
+    .map((roleId) => roles.find((role) => role.id === roleId))
+    .filter(Boolean);
+}
+
+function hasServerPermission(server, accountId, permissionKey) {
+  const roles = getMemberRoles(server, accountId);
+  if (roles.some((role) => role.permissions?.administrator)) return true;
+  return roles.some((role) => Boolean(role.permissions?.[permissionKey]));
+}
+
+function canCurrentUser(permissionKey) {
+  const account = getCurrentAccount();
+  const server = getActiveServer();
+  if (!account || !server) return false;
+  return hasServerPermission(server, account.id, permissionKey);
+}
+
+function notifyPermissionDenied(permissionLabel) {
+  const channel = getActiveChannel();
+  if (!channel) return;
+  addSystemMessage(channel, `Missing permission: ${permissionLabel}`);
+  saveState();
+  renderMessages();
+}
+
 function findChannelById(channelId) {
   for (const server of state.servers) {
     const found = server.channels.find((channel) => channel.id === channelId);
@@ -355,6 +477,19 @@ function ensureCurrentUserInActiveServer() {
   const account = getCurrentAccount();
   const server = getActiveServer();
   if (!account || !server) return false;
+  if (!Array.isArray(server.roles) || server.roles.length === 0) {
+    server.roles = [createRole("@everyone", "#b5bac1", "member")];
+  }
+  if (!server.memberRoles || typeof server.memberRoles !== "object") {
+    server.memberRoles = {};
+  }
+  const everyoneRoleId = server.roles[0].id;
+  if (!Array.isArray(server.memberRoles[account.id])) {
+    server.memberRoles[account.id] = [];
+  }
+  if (!server.memberRoles[account.id].includes(everyoneRoleId)) {
+    server.memberRoles[account.id].push(everyoneRoleId);
+  }
   if (!server.memberIds.includes(account.id)) {
     server.memberIds.push(account.id);
     return true;
@@ -678,6 +813,21 @@ function renderReplyComposer() {
   ui.composerReplyBar.classList.remove("composer-reply--hidden");
 }
 
+function renderRoleChips(container, accountId) {
+  const server = getActiveServer();
+  container.innerHTML = "";
+  if (!server || !accountId) return;
+  const roles = getMemberRoles(server, accountId).filter((role) => role.name !== "@everyone");
+  roles.forEach((role) => {
+    const chip = document.createElement("span");
+    chip.className = "role-chip";
+    chip.textContent = role.name;
+    chip.style.borderColor = role.color || "#4b4f59";
+    chip.style.color = role.color || "#e3e6eb";
+    container.appendChild(chip);
+  });
+}
+
 function applyPreferencesToUI() {
   const prefs = getPreferences();
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
@@ -694,6 +844,29 @@ function displayNameForMessage(message) {
     if (account) return account.displayName || account.username;
   }
   return message.authorName || "Unknown";
+}
+
+function renderMessageText(container, rawText) {
+  const current = getCurrentAccount();
+  const tokens = (rawText || "").split(/(@[a-z0-9._-]+)/gi);
+  tokens.forEach((token) => {
+    const mentionMatch = token.match(/^@([a-z0-9._-]+)$/i);
+    if (!mentionMatch) {
+      container.appendChild(document.createTextNode(token));
+      return;
+    }
+    const username = mentionMatch[1].toLowerCase();
+    const account = getAccountByUsername(username);
+    if (!account) {
+      container.appendChild(document.createTextNode(token));
+      return;
+    }
+    const mention = document.createElement("span");
+    mention.className = `mention ${current && current.id === account.id ? "mention--self" : ""}`;
+    mention.textContent = `@${account.username}`;
+    mention.addEventListener("click", () => openUserPopout(account));
+    container.appendChild(mention);
+  });
 }
 
 function renderScreens() {
@@ -752,6 +925,7 @@ function openUserPopout(account, fallbackName = "Unknown") {
   ui.userPopoutBio.textContent = bio;
   applyAvatarStyle(ui.userPopoutAvatar, account);
   applyBannerStyle(ui.userPopoutBanner, account?.banner || "");
+  renderRoleChips(ui.userPopoutRoles, account?.id);
   ui.userPopoutDialog.showModal();
 }
 
@@ -793,7 +967,7 @@ function renderMessages() {
 
     const text = document.createElement("div");
     text.className = "message-text";
-    text.textContent = message.text;
+    renderMessageText(text, message.text);
 
     if (message.replyTo && typeof message.replyTo === "object") {
       replyLine = document.createElement("div");
@@ -837,7 +1011,9 @@ function renderMessages() {
     });
     actionBar.appendChild(replyBtn);
 
-    if (currentUser && message.userId === currentUser.id) {
+    const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
+    const isOwnMessage = currentUser && message.userId === currentUser.id;
+    if (isOwnMessage) {
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "message-action-btn";
@@ -845,6 +1021,9 @@ function renderMessages() {
       editBtn.addEventListener("click", () => openMessageEditor(channel.id, message.id, message.text));
       actionBar.appendChild(editBtn);
 
+    }
+
+    if (isOwnMessage || canManageMessages) {
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "message-action-btn";
@@ -977,6 +1156,7 @@ function renderSelfPopout() {
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account);
   applyBannerStyle(ui.selfPopoutBanner, account.banner || "");
+  renderRoleChips(ui.selfPopoutRoles, account.id);
 }
 
 function renderAccountSwitchList() {
@@ -996,6 +1176,30 @@ function renderAccountSwitchList() {
       renderAccountSwitchList();
     });
     ui.accountList.appendChild(row);
+  });
+}
+
+function renderRolesDialog() {
+  const server = getActiveServer();
+  if (!server) return;
+
+  ui.assignRoleMemberInput.innerHTML = "";
+  server.memberIds.forEach((memberId) => {
+    const account = getAccountById(memberId);
+    if (!account) return;
+    const option = document.createElement("option");
+    option.value = account.id;
+    option.textContent = `${account.displayName || account.username} (@${account.username})`;
+    ui.assignRoleMemberInput.appendChild(option);
+  });
+
+  ui.assignRoleRoleInput.innerHTML = "";
+  getServerRoles(server).forEach((role) => {
+    if (role.name === "@everyone") return;
+    const option = document.createElement("option");
+    option.value = role.id;
+    option.textContent = role.name;
+    ui.assignRoleRoleInput.appendChild(option);
   });
 }
 
@@ -1084,6 +1288,10 @@ function openProfileEditor() {
 function openTopicEditor() {
   const channel = getActiveChannel();
   if (!channel) return;
+  if (!canCurrentUser("manageChannels")) {
+    notifyPermissionDenied("Manage Channels");
+    return;
+  }
   ui.topicInput.value = channel.topic || "";
   ui.topicDialog.showModal();
 }
@@ -1219,10 +1427,16 @@ ui.createServerForm.addEventListener("submit", (event) => {
   if (!name) return;
 
   const generalId = createId();
+  const everyoneRole = createRole("@everyone", "#b5bac1", "member");
+  const adminRole = createRole("Admin", "#f23f43", "admin");
+  const memberRoles = {};
+  if (account) memberRoles[account.id] = [everyoneRole.id, adminRole.id];
   const server = {
     id: createId(),
     name,
     memberIds: account ? [account.id] : [],
+    roles: [everyoneRole, adminRole],
+    memberRoles,
     channels: [
       {
         id: generalId,
@@ -1242,6 +1456,10 @@ ui.createServerForm.addEventListener("submit", (event) => {
 });
 
 ui.createChannelBtn.addEventListener("click", () => {
+  if (!canCurrentUser("manageChannels")) {
+    notifyPermissionDenied("Manage Channels");
+    return;
+  }
   ui.channelNameInput.value = "";
   ui.createChannelDialog.showModal();
 });
@@ -1269,6 +1487,18 @@ ui.createChannelForm.addEventListener("submit", (event) => {
 
 ui.editTopicBtn.addEventListener("click", openTopicEditor);
 
+ui.openRolesBtn.addEventListener("click", () => {
+  if (!canCurrentUser("manageRoles")) {
+    notifyPermissionDenied("Manage Roles");
+    return;
+  }
+  renderRolesDialog();
+  ui.roleNameInput.value = "";
+  ui.roleColorInput.value = "";
+  ui.rolePermPresetInput.value = "member";
+  ui.rolesDialog.showModal();
+});
+
 ui.topicCancel.addEventListener("click", () => ui.topicDialog.close());
 
 ui.topicForm.addEventListener("submit", (event) => {
@@ -1279,6 +1509,49 @@ ui.topicForm.addEventListener("submit", (event) => {
   saveState();
   ui.topicDialog.close();
   renderMessages();
+});
+
+ui.rolesCloseBtn.addEventListener("click", () => ui.rolesDialog.close());
+
+ui.createRoleNowBtn.addEventListener("click", () => {
+  const server = getActiveServer();
+  if (!server) return;
+  const name = ui.roleNameInput.value.trim().slice(0, 28);
+  if (!name) return;
+  const color = ui.roleColorInput.value.trim() || "#b5bac1";
+  const preset = ui.rolePermPresetInput.value;
+  server.roles.push(createRole(name, color, preset));
+  saveState();
+  renderRolesDialog();
+  ui.roleNameInput.value = "";
+  ui.roleColorInput.value = "";
+});
+
+ui.assignRoleBtn.addEventListener("click", () => {
+  const server = getActiveServer();
+  if (!server) return;
+  const memberId = ui.assignRoleMemberInput.value;
+  const roleId = ui.assignRoleRoleInput.value;
+  if (!memberId || !roleId) return;
+  if (!server.memberRoles || typeof server.memberRoles !== "object") {
+    server.memberRoles = {};
+  }
+  if (!Array.isArray(server.memberRoles[memberId])) server.memberRoles[memberId] = [];
+  if (!server.memberRoles[memberId].includes(roleId)) {
+    server.memberRoles[memberId].push(roleId);
+  }
+  saveState();
+});
+
+ui.removeRoleBtn.addEventListener("click", () => {
+  const server = getActiveServer();
+  if (!server) return;
+  const memberId = ui.assignRoleMemberInput.value;
+  const roleId = ui.assignRoleRoleInput.value;
+  if (!memberId || !roleId) return;
+  if (!Array.isArray(server.memberRoles?.[memberId])) return;
+  server.memberRoles[memberId] = server.memberRoles[memberId].filter((id) => id !== roleId);
+  saveState();
 });
 
 ui.messageEditCancel.addEventListener("click", () => {
@@ -1432,6 +1705,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.createServerDialog,
   ui.createChannelDialog,
   ui.topicDialog,
+  ui.rolesDialog,
   ui.messageEditDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
