@@ -35,7 +35,7 @@
         </div>
       </aside>
 
-      <aside class="channel-panel">
+      <aside id="channelPanel" class="channel-panel">
         <div class="channel-panel__header">
           <span id="activeServerName">Guild</span>
         </div>
@@ -65,6 +65,8 @@
             <button id="openChannelSettingsBtn" class="chat-topic-edit" title="Channel settings">Channel</button>
             <button id="openPinsBtn" class="chat-topic-edit" title="Pinned messages">Pins</button>
             <button id="openRolesBtn" class="chat-topic-edit" title="Manage roles">Roles</button>
+            <button id="toggleChannelPanelBtn" class="chat-topic-edit" title="Toggle channel sidebar">Channels</button>
+            <button id="toggleMemberPanelBtn" class="chat-topic-edit" title="Toggle member sidebar">Members</button>
             <button id="toggleSwfShelfBtn" class="chat-topic-edit" title="Toggle SWF shelf">SWF Shelf</button>
             <button id="editTopicBtn" class="chat-topic-edit" title="Edit channel topic">Edit Topic</button>
           </div>
@@ -134,7 +136,7 @@
         </div>
       </main>
 
-      <aside class="member-panel">
+      <aside id="memberPanel" class="member-panel">
         <h3 id="memberPanelTitle">Members</h3>
         <div id="memberList" class="member-list"></div>
       </aside>
