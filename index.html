@@ -26,7 +26,7 @@
     <div id="chatScreen" class="screen">
       <aside class="server-rail">
         <div class="server-rail-scroll">
-          <div class="server-brand">S67</div>
+          <button id="serverBrand" class="server-brand" title="Direct Messages">S67</button>
           <div id="serverList" class="server-list"></div>
           <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Guild">+</button>
         </div>
@@ -38,14 +38,18 @@
         </div>
 
         <div class="channel-scroll">
-        <div class="channel-section-title">Direct Messages</div>
-          <input id="dmSearchInput" class="channel-filter" type="text" maxlength="40" placeholder="Find or start DM" />
-          <div id="dmList" class="channel-list channel-list--dm"></div>
-          <button id="newDmBtn" class="channel-create">+ New DM</button>
-          <div class="channel-section-title">Channels</div>
-          <input id="channelFilterInput" class="channel-filter" type="text" maxlength="40" placeholder="Filter channels" />
-          <div id="channelList" class="channel-list"></div>
-          <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
+          <section id="dmSection">
+            <div class="channel-section-title">Direct Messages</div>
+            <input id="dmSearchInput" class="channel-filter" type="text" maxlength="40" placeholder="Find or start DM" />
+            <div id="dmList" class="channel-list channel-list--dm"></div>
+            <button id="newDmBtn" class="channel-create">+ New DM</button>
+          </section>
+          <section id="guildSection">
+            <div class="channel-section-title">Channels</div>
+            <input id="channelFilterInput" class="channel-filter" type="text" maxlength="40" placeholder="Filter channels" />
+            <div id="channelList" class="channel-list"></div>
+            <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
+          </section>
         </div>
 
       </aside>
