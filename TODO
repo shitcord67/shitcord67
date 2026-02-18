@@ -144,3 +144,7 @@
 - [done] Channel productivity shortcuts (`Alt+R`, `Alt+I`, `Alt+N/P`, `Alt+ArrowUp/Down`)
 - [done] Unread navigation slash commands (`/nextunread`, `/prevunread`, `/unreadcount`)
 - [done] Avoid browser-reserved shortcut overrides (moved file/PDF/pins/read actions to `Alt+...`)
+- [done] Header next-unread control with live unread-channel count
+- [done] Discord-like visual polish pass (font stack, channel rows, header/actions, message spacing, member list)
+- Make in-line chat commands clickable in the pop-up. Also e.g. when bots display rich media visual things like playing cards, then those can also be defined as individually click able even when displayed in the same line
+- Create a bot which provides a shedding-type card game that users can start in chat and play together (each user gets displayed their own deck by leveraging advanced in-line commands

@@ -247,7 +247,7 @@ function buildInitialState() {
     savedSwfs: [],
     preferences: {
       uiScale: 100,
-      theme: "oled",
+      theme: "discord",
       compactMembers: "off",
       developerMode: "off",
       debugOverlay: "off",
@@ -1690,7 +1690,7 @@ function normalizeSwfQuickAudioMode(value) {
 }
 
 function normalizeTheme(value) {
-  return value === "discord" ? "discord" : "oled";
+  return value === "oled" ? "oled" : "discord";
 }
 
 function normalizeGuildNotificationMode(value) {
@@ -9728,7 +9728,7 @@ document.addEventListener("keydown", (event) => {
     openMediaPickerWithTab("pdf");
     return;
   }
-  if (event.ctrlKey && event.key.toLowerCase() === "k") {
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "k") {
     if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
     const dmMode = getViewMode() === "dm";

@@ -73,6 +73,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Member panel title now shows live member count for the active guild/DM.
 - Chat message list includes day separators and full timestamp tooltips on hover.
 - Guild channels with unread messages show a sticky unread banner with quick `Mark read` and `Jump` actions.
+- Chat header includes `Next Unread` with live unread-channel count and quick jump behavior.
 - Added floating `Jump to present` button when scrolled up, including count of messages below viewport.
 - Collapsible sidebars: header buttons toggle channel/member panels, with persisted visibility state.
 - Sidebar layout shortcuts: `Ctrl+Shift+B` toggles channels, `Ctrl+Shift+M` toggles members.
@@ -109,6 +110,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Announcement channels are read-only for non-moderators (permission notice shown in composer).
 - Per-channel slowmode is supported (channel settings, context-menu presets, and `/slowmode` slash command).
 - Header now includes a direct `Mark Read` action and live pinned-message count on the `Pins` button.
+- Discord-like visual tuning pass applied (font stack, channel row states, header controls, message spacing, member-list hover treatment).
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
@@ -132,7 +134,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Message rows now support keyboard context menus (`Shift+F10` or `ContextMenu` key).
 - SWF context actions show inline toast feedback for copy/download/save outcomes.
 - Forum thread toolbar includes a `Mark all threads read` bulk action.
-- Keyboard shortcuts: `Ctrl+K` focus current search, `Ctrl+,` open settings, `Alt+D` toggle DM/guild mode.
+- Keyboard shortcuts: `Alt+K` focus current search, `Ctrl+,` open settings, `Alt+D` toggle DM/guild mode.
 - External HTTP(S) media uses a privacy gate (safe mode) with two-click load options and trust rules (exact domain, `*.wildcard`, `/regex/`).
 - Collaborative `shared` messages can be created with `/note` and edited by members.
 - Message edits keep a history trail; moderator edits are labeled as `edited by staff`.
