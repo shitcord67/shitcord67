@@ -1164,7 +1164,7 @@ button {
   background: #121317;
   border-radius: 6px;
   border: 1px solid #2f3239;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .message-swf-player--floating {
@@ -1206,6 +1206,7 @@ button {
   border-radius: 10px;
   z-index: 120;
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
 
 .swf-pip--hidden {
@@ -1266,6 +1267,7 @@ button {
 
 .swf-pip__host {
   padding: 0.4rem;
+  overflow: hidden;
 }
 
 .swf-pip--collapsed .swf-pip__tabs,
