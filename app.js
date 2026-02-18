@@ -2172,35 +2172,43 @@ function removeSwfPipTab(runtimeKey) {
 
 function setSwfRuntimePip(runtimeKey, enabled) {
   const runtime = swfRuntimes.get(runtimeKey);
-  if (!runtime?.player) return false;
+  if (!runtime?.player || !(runtime.host instanceof HTMLElement)) return false;
   if (enabled) {
     if (runtime.observer) {
       runtime.observer.disconnect();
       runtime.observer = null;
     }
+    if (runtime.inPip) {
+      activateSwfPipTab(runtimeKey);
+      setSwfPlayback(runtimeKey, true, "user");
+      return true;
+    }
     runtime.inPip = true;
-    if (!(runtime.pipHost instanceof HTMLElement)) {
-      const pipHost = document.createElement("div");
-      pipHost.className = "message-swf-player swf-pip-player";
-      runtime.pipHost = pipHost;
+    if (runtime.host.parentElement && runtime.host.parentElement !== ui.swfPipHost) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "channel-empty";
+      placeholder.textContent = "Running in PiP tab.";
+      runtime.host.replaceWith(placeholder);
+      runtime.pipPlaceholder = placeholder;
     }
-    runtime.pipHost.innerHTML = "";
-    runtime.pipHost.appendChild(runtime.player);
-    runtime.host = runtime.pipHost;
-    if (runtime.originHost?.isConnected) {
-      runtime.originHost.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
-    }
+    runtime.pipHost = runtime.host;
+    runtime.pipHost.classList.add("swf-pip-player");
     activateSwfPipTab(runtimeKey);
     setSwfPlayback(runtimeKey, true, "user");
     return true;
   }
   runtime.inPip = false;
-  if (runtime.originHost?.isConnected) {
+  if (runtime.pipPlaceholder?.isConnected) {
+    runtime.pipPlaceholder.replaceWith(runtime.host);
+    runtime.originHost = runtime.host;
+  } else if (runtime.originHost?.isConnected) {
     runtime.originHost.innerHTML = "";
-    runtime.originHost.appendChild(runtime.player);
-    runtime.host = runtime.originHost;
-    bindSwfVisibilityObserver(runtimeKey);
+    runtime.originHost.appendChild(runtime.host);
   }
+  runtime.host.classList.remove("swf-pip-player");
+  runtime.pipHost = null;
+  runtime.pipPlaceholder = null;
+  bindSwfVisibilityObserver(runtimeKey);
   removeSwfPipTab(runtimeKey);
   setSwfPlayback(runtimeKey, true, "user");
   return true;
