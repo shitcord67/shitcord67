@@ -488,6 +488,13 @@ button {
   white-space: pre-wrap;
 }
 
+.inline-custom-emoji {
+  width: 1.25em;
+  height: 1.25em;
+  object-fit: contain;
+  vertical-align: -0.25em;
+}
+
 .message-edited {
   color: #8f96a1;
   font-size: 0.72rem;
@@ -725,12 +732,27 @@ button {
 .media-picker__header {
   padding: 0.45rem;
   border-bottom: 1px solid #2d3138;
+  display: grid;
+  gap: 0.4rem;
 }
 
 .media-picker__header input {
   margin: 0;
   border-color: #2b2d32;
   background: #1b1c20;
+}
+
+.media-picker__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.media-picker__actions button {
+  background: #30333a;
+  color: #e0e4ea;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  padding: 0.28rem 0.5rem;
 }
 
 .media-picker__grid {
@@ -771,6 +793,13 @@ button {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.media-card__kind {
+  display: inline-block;
+  margin-left: 0.2rem;
+  color: #97a4bd;
+  font-size: 0.66rem;
 }
 
 .media-card--emoji {

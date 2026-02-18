@@ -133,6 +133,11 @@ function buildInitialState() {
         id: guildId,
         name: "My First Guild",
         memberIds: [],
+        customEmojis: [],
+        customStickers: [],
+        customGifs: [],
+        customSvgs: [],
+        customSwfs: [],
         roles: [everyoneRole],
         memberRoles: {},
         channels: [
@@ -215,6 +220,11 @@ function migrateState(raw) {
       });
       return {
         ...guild,
+        customEmojis: Array.isArray(guild.customEmojis) ? guild.customEmojis : [],
+        customStickers: Array.isArray(guild.customStickers) ? guild.customStickers : [],
+        customGifs: Array.isArray(guild.customGifs) ? guild.customGifs : [],
+        customSvgs: Array.isArray(guild.customSvgs) ? guild.customSvgs : [],
+        customSwfs: Array.isArray(guild.customSwfs) ? guild.customSwfs : [],
         memberIds: Array.isArray(guild.memberIds) ? guild.memberIds : [],
         roles,
         memberRoles,
@@ -299,6 +309,11 @@ function migrateState(raw) {
       return {
         id: guildId,
         name: guild.name || "Untitled Guild",
+        customEmojis: [],
+        customStickers: [],
+        customGifs: [],
+        customSvgs: [],
+        customSwfs: [],
         memberIds,
         roles: [everyoneRole],
         memberRoles,
@@ -377,6 +392,9 @@ const ui = {
   mediaPicker: document.getElementById("mediaPicker"),
   mediaSearchInput: document.getElementById("mediaSearchInput"),
   mediaGrid: document.getElementById("mediaGrid"),
+  addMediaUrlBtn: document.getElementById("addMediaUrlBtn"),
+  addMediaFileBtn: document.getElementById("addMediaFileBtn"),
+  mediaFileInput: document.getElementById("mediaFileInput"),
   mediaTabs: [...document.querySelectorAll(".media-picker__tab")],
   openMediaPickerBtn: document.getElementById("openMediaPickerBtn"),
   composerReplyBar: document.getElementById("composerReplyBar"),
@@ -841,14 +859,102 @@ function normalizeReactions(reactions) {
 function normalizeAttachments(attachments) {
   if (!Array.isArray(attachments)) return [];
   const allowedTypes = new Set(["gif", "sticker", "svg", "swf"]);
+  const allowedFormats = new Set(["image", "dotlottie", "apng"]);
   return attachments
     .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
     .map((item) => ({
       type: allowedTypes.has(item.type) ? item.type : "gif",
       url: item.url,
-      name: (item.name || "").toString().slice(0, 120)
+      name: (item.name || "").toString().slice(0, 120),
+      format: allowedFormats.has(item.format) ? item.format : "image"
     }))
     .slice(0, 6);
+}
+
+function sanitizeMediaName(value, fallback = "resource") {
+  const cleaned = (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 32);
+  return cleaned || fallback;
+}
+
+function ensureGuildMediaCollections(guild) {
+  if (!guild) return;
+  if (!Array.isArray(guild.customEmojis)) guild.customEmojis = [];
+  if (!Array.isArray(guild.customStickers)) guild.customStickers = [];
+  if (!Array.isArray(guild.customGifs)) guild.customGifs = [];
+  if (!Array.isArray(guild.customSvgs)) guild.customSvgs = [];
+  if (!Array.isArray(guild.customSwfs)) guild.customSwfs = [];
+}
+
+function getGuildResourceBucket(guild, tab) {
+  ensureGuildMediaCollections(guild);
+  if (tab === "emoji") return guild.customEmojis;
+  if (tab === "sticker") return guild.customStickers;
+  if (tab === "gif") return guild.customGifs;
+  if (tab === "svg") return guild.customSvgs;
+  if (tab === "swf") return guild.customSwfs;
+  return [];
+}
+
+function upsertGuildResource(tab, entry) {
+  const guild = getActiveGuild();
+  if (!guild || !entry?.url) return false;
+  const bucket = getGuildResourceBucket(guild, tab);
+  const name = sanitizeMediaName(entry.name || `${tab}-${bucket.length + 1}`);
+  const normalized = {
+    id: entry.id || createId(),
+    name,
+    url: entry.url,
+    format: entry.format || "image"
+  };
+  const existingIndex = bucket.findIndex((item) => item.name === normalized.name);
+  if (existingIndex >= 0) {
+    bucket[existingIndex] = { ...bucket[existingIndex], ...normalized };
+  } else {
+    bucket.unshift(normalized);
+  }
+  return true;
+}
+
+function loadScriptTag(src, type = "text/javascript") {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-src="${src}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+      if (existing.dataset.loaded === "1") resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.async = true;
+    script.dataset.src = src;
+    if (type === "module") script.type = "module";
+    script.src = src;
+    script.addEventListener("load", () => {
+      script.dataset.loaded = "1";
+      resolve();
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+    document.head.appendChild(script);
+  });
+}
+
+async function deployMediaRuntimes() {
+  try {
+    await loadScriptTag("https://unpkg.com/@ruffle-rs/ruffle");
+  } catch {
+    // SWF fallback card remains available.
+  }
+  try {
+    await loadScriptTag("https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs", "module");
+  } catch {
+    // dotLottie falls back to link/file preview behavior.
+  }
 }
 
 function toggleReaction(message, emoji, userId) {
@@ -1137,24 +1243,42 @@ function displayNameForMessage(message) {
 
 function renderMessageText(container, rawText) {
   const current = getCurrentAccount();
-  const tokens = (rawText || "").split(/(@[a-z0-9._-]+)/gi);
+  const guild = getActiveGuild();
+  ensureGuildMediaCollections(guild);
+  const customEmojiMap = new Map((guild?.customEmojis || []).map((emoji) => [emoji.name, emoji.url]));
+  const tokens = (rawText || "").split(/(@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi);
   tokens.forEach((token) => {
     const mentionMatch = token.match(/^@([a-z0-9._-]+)$/i);
-    if (!mentionMatch) {
-      container.appendChild(document.createTextNode(token));
+    if (mentionMatch) {
+      const username = mentionMatch[1].toLowerCase();
+      const account = getAccountByUsername(username);
+      if (!account) {
+        container.appendChild(document.createTextNode(token));
+        return;
+      }
+      const mention = document.createElement("span");
+      mention.className = `mention ${current && current.id === account.id ? "mention--self" : ""}`;
+      mention.textContent = `@${account.username}`;
+      mention.addEventListener("click", () => openUserPopout(account));
+      container.appendChild(mention);
       return;
     }
-    const username = mentionMatch[1].toLowerCase();
-    const account = getAccountByUsername(username);
-    if (!account) {
-      container.appendChild(document.createTextNode(token));
+    const emojiMatch = token.match(/^:([a-z0-9_-]{1,32}):$/i);
+    if (emojiMatch) {
+      const emojiUrl = customEmojiMap.get(emojiMatch[1].toLowerCase());
+      if (!emojiUrl) {
+        container.appendChild(document.createTextNode(token));
+        return;
+      }
+      const emojiImage = document.createElement("img");
+      emojiImage.className = "inline-custom-emoji";
+      emojiImage.src = emojiUrl;
+      emojiImage.alt = token;
+      emojiImage.loading = "lazy";
+      container.appendChild(emojiImage);
       return;
     }
-    const mention = document.createElement("span");
-    mention.className = `mention ${current && current.id === account.id ? "mention--self" : ""}`;
-    mention.textContent = `@${account.username}`;
-    mention.addEventListener("click", () => openUserPopout(account));
-    container.appendChild(mention);
+    container.appendChild(document.createTextNode(token));
   });
 }
 
@@ -1185,11 +1309,29 @@ async function loadSwfLibrary() {
 }
 
 function mediaEntriesForActiveTab() {
-  if (mediaPickerTab === "emoji") return EMOJI_LIBRARY;
-  if (mediaPickerTab === "gif") return GIF_LIBRARY;
-  if (mediaPickerTab === "sticker") return STICKER_LIBRARY;
-  if (mediaPickerTab === "svg") return SVG_LIBRARY;
-  if (mediaPickerTab === "swf") return swfLibrary;
+  const guild = getActiveGuild();
+  ensureGuildMediaCollections(guild);
+  if (mediaPickerTab === "emoji") {
+    const builtIn = EMOJI_LIBRARY.map((entry) => ({ ...entry, source: "builtin" }));
+    const custom = (guild?.customEmojis || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return [...custom, ...builtIn];
+  }
+  if (mediaPickerTab === "gif") {
+    const custom = (guild?.customGifs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return [...custom, ...GIF_LIBRARY];
+  }
+  if (mediaPickerTab === "sticker") {
+    const custom = (guild?.customStickers || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return [...custom, ...STICKER_LIBRARY];
+  }
+  if (mediaPickerTab === "svg") {
+    const custom = (guild?.customSvgs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return [...custom, ...SVG_LIBRARY];
+  }
+  if (mediaPickerTab === "swf") {
+    const custom = (guild?.customSwfs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return [...custom, ...swfLibrary];
+  }
   return [];
 }
 
@@ -1228,6 +1370,23 @@ function mediaPlaceholderForTab(tab) {
   return "Search media";
 }
 
+function insertTextAtCursor(text) {
+  const input = ui.messageInput;
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.value = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
+  const cursor = start + text.length;
+  input.setSelectionRange(cursor, cursor);
+  input.focus();
+}
+
+function stickerFormatFromName(name, url) {
+  const value = `${name || ""} ${url || ""}`.toLowerCase();
+  if (value.includes(".lottie")) return "dotlottie";
+  if (value.includes(".apng")) return "apng";
+  return "image";
+}
+
 function sendMediaAttachment(entry, type) {
   const channel = getActiveChannel();
   const account = getCurrentAccount();
@@ -1243,7 +1402,12 @@ function sendMediaAttachment(entry, type) {
     text,
     ts: new Date().toISOString(),
     reactions: [],
-    attachments: [{ type, url: entry.url, name: entry.name || type }],
+    attachments: [{
+      type,
+      url: entry.url,
+      name: entry.name || type,
+      format: entry.format || (type === "sticker" ? stickerFormatFromName(entry.name, entry.url) : "image")
+    }],
     replyTo: nextReply
   });
   replyTarget = null;
@@ -1251,6 +1415,58 @@ function sendMediaAttachment(entry, type) {
   saveState();
   closeMediaPicker();
   render();
+}
+
+function addMediaFromUrlFlow() {
+  const tab = mediaPickerTab;
+  const nameLabel = tab === "emoji" ? "emoji short name" : `${tab} name`;
+  const typedName = prompt(`Add ${nameLabel}`, "");
+  if (typedName === null) return;
+  const typedUrl = prompt(`Add ${tab.toUpperCase()} URL`, "https://");
+  if (!typedUrl) return;
+  const name = sanitizeMediaName(typedName, `${tab}-${Date.now().toString().slice(-4)}`);
+  const url = typedUrl.trim();
+  if (!/^https?:\/\//i.test(url) && !/^data:/i.test(url)) return;
+  if (upsertGuildResource(tab, { name, url, format: tab === "sticker" ? stickerFormatFromName(name, url) : "image" })) {
+    saveState();
+    renderMediaPicker();
+  }
+}
+
+function fileAcceptForTab(tab) {
+  if (tab === "gif") return "image/gif,image/webp,video/mp4,video/webm";
+  if (tab === "sticker") return "image/png,image/apng,image/gif,image/webp,image/svg+xml,.apng,.lottie";
+  if (tab === "emoji") return "image/png,image/gif,image/webp,image/svg+xml";
+  if (tab === "swf") return ".swf,application/x-shockwave-flash";
+  if (tab === "svg") return "image/svg+xml,.svg";
+  return "*/*";
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addMediaFromFileFlow(file) {
+  if (!file) return;
+  const tab = mediaPickerTab;
+  const name = sanitizeMediaName(file.name.replace(/\.[^/.]+$/, ""), `${tab}-${Date.now().toString().slice(-4)}`);
+  try {
+    const url = await readFileAsDataUrl(file);
+    const format = tab === "sticker" ? stickerFormatFromName(file.name, url) : "image";
+    if (upsertGuildResource(tab, { name, url, format })) {
+      saveState();
+      renderMediaPicker();
+    }
+  } catch {
+    // Ignore failed local resource import.
+  } finally {
+    ui.mediaFileInput.value = "";
+  }
 }
 
 function renderMediaPicker() {
@@ -1279,11 +1495,23 @@ function renderMediaPicker() {
     card.className = "media-card";
     if (mediaPickerTab === "emoji") {
       card.classList.add("media-card--emoji");
-      card.textContent = entry.value;
-      card.title = `:${entry.name}:`;
+      if (entry.value) {
+        card.textContent = entry.value;
+      } else if (entry.url) {
+        const emojiImage = document.createElement("img");
+        emojiImage.className = "media-card__preview";
+        emojiImage.style.height = "80px";
+        emojiImage.src = entry.url;
+        emojiImage.alt = entry.name || "emoji";
+        card.appendChild(emojiImage);
+      }
+      card.title = `:${entry.name || "emoji"}:`;
       card.addEventListener("click", () => {
-        ui.messageInput.value = `${ui.messageInput.value}${entry.value}`;
-        ui.messageInput.focus();
+        if (entry.value) {
+          insertTextAtCursor(entry.value);
+        } else {
+          insertTextAtCursor(`:${sanitizeMediaName(entry.name || "emoji")}:`);
+        }
       });
       ui.mediaGrid.appendChild(card);
       return;
@@ -1292,6 +1520,12 @@ function renderMediaPicker() {
     const label = document.createElement("span");
     label.className = "media-card__label";
     label.textContent = entry.name || "media";
+    if (entry.source === "guild-custom") {
+      const kind = document.createElement("span");
+      kind.className = "media-card__kind";
+      kind.textContent = "guild";
+      label.appendChild(kind);
+    }
 
     if (mediaPickerTab === "swf") {
       const preview = document.createElement("div");
@@ -1317,6 +1551,15 @@ function renderMediaPicker() {
       video.muted = true;
       video.playsInline = true;
       card.appendChild(video);
+    } else if (mediaPickerTab === "sticker" && stickerFormatFromName(entry.name, entry.url) === "dotlottie") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.color = "#c4ccd8";
+      preview.style.fontSize = "0.72rem";
+      preview.textContent = ".lottie";
+      card.appendChild(preview);
     } else {
       const img = document.createElement("img");
       img.className = "media-card__preview";
@@ -1366,7 +1609,7 @@ function renderMessageAttachment(container, attachment) {
       playerWrap.style.placeItems = "center";
       playerWrap.style.color = "#a6aeb9";
       playerWrap.style.fontSize = "0.78rem";
-      playerWrap.textContent = "Ruffle not detected. Install Ruffle to preview SWFs inline.";
+      playerWrap.textContent = "Ruffle loading or unavailable. Falling back to file link.";
     }
     card.appendChild(playerWrap);
 
@@ -1387,8 +1630,10 @@ function renderMessageAttachment(container, attachment) {
     if (videoLike) {
       const video = document.createElement("video");
       video.src = attachment.url;
-      video.controls = true;
+      video.autoplay = true;
       video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
       wrap.appendChild(video);
     } else {
       const img = document.createElement("img");
@@ -1396,6 +1641,33 @@ function renderMessageAttachment(container, attachment) {
       img.loading = "lazy";
       img.alt = attachment.name || "GIF";
       wrap.appendChild(img);
+    }
+    container.appendChild(wrap);
+    return;
+  }
+
+  if (type === "sticker" && attachment.format === "dotlottie") {
+    const canRenderDotLottie = typeof customElements !== "undefined" && customElements.get("dotlottie-player");
+    if (canRenderDotLottie) {
+      const lottie = document.createElement("dotlottie-player");
+      lottie.setAttribute("src", attachment.url);
+      lottie.setAttribute("autoplay", "");
+      lottie.setAttribute("loop", "");
+      lottie.style.width = "180px";
+      lottie.style.height = "180px";
+      wrap.appendChild(lottie);
+    } else {
+      const fallback = document.createElement("div");
+      fallback.className = "message-swf";
+      fallback.textContent = "dotLottie runtime loading or unavailable.";
+      const link = document.createElement("a");
+      link.className = "message-swf-link";
+      link.href = attachment.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Open .lottie file";
+      fallback.appendChild(link);
+      wrap.appendChild(fallback);
     }
     container.appendChild(wrap);
     return;
@@ -2241,6 +2513,20 @@ ui.mediaSearchInput.addEventListener("input", () => {
   renderMediaPicker();
 });
 
+ui.addMediaUrlBtn.addEventListener("click", () => {
+  addMediaFromUrlFlow();
+});
+
+ui.addMediaFileBtn.addEventListener("click", () => {
+  ui.mediaFileInput.accept = fileAcceptForTab(mediaPickerTab);
+  ui.mediaFileInput.click();
+});
+
+ui.mediaFileInput.addEventListener("change", async () => {
+  const file = ui.mediaFileInput.files?.[0];
+  await addMediaFromFileFlow(file);
+});
+
 ui.channelFilterInput.addEventListener("input", () => {
   channelFilterTerm = ui.channelFilterInput.value.trim().slice(0, 40);
   renderChannels();
@@ -2319,6 +2605,11 @@ ui.createServerForm.addEventListener("submit", (event) => {
     id: createId(),
     name,
     memberIds: account ? [account.id] : [],
+    customEmojis: [],
+    customStickers: [],
+    customGifs: [],
+    customSvgs: [],
+    customSwfs: [],
     roles: [everyoneRole, adminRole],
     memberRoles,
     channels: [
@@ -2709,3 +3000,4 @@ document.addEventListener("keydown", (event) => {
 
 render();
 loadSwfLibrary();
+deployMediaRuntimes();
