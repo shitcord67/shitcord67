@@ -38,6 +38,10 @@
         </div>
 
         <div class="channel-scroll">
+          <div class="channel-section-title">Direct Messages</div>
+          <div id="dmList" class="channel-list channel-list--dm"></div>
+          <button id="newDmBtn" class="channel-create">+ New DM</button>
+          <div class="channel-section-title">Channels</div>
           <input id="channelFilterInput" class="channel-filter" type="text" maxlength="40" placeholder="Filter channels" />
           <div id="channelList" class="channel-list"></div>
           <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
@@ -85,6 +89,7 @@
               <button type="button" class="media-picker__tab" data-media-tab="emoji">Emojis</button>
               <button type="button" class="media-picker__tab" data-media-tab="swf">SWFs</button>
               <button type="button" class="media-picker__tab" data-media-tab="svg">SVGs</button>
+              <button type="button" class="media-picker__tab" data-media-tab="html">HTML</button>
             </nav>
             <div class="media-picker__header">
               <input id="mediaSearchInput" type="text" maxlength="80" placeholder="Search media" />
@@ -174,6 +179,11 @@
             <h3>Appearance</h3>
             <label for="uiScaleInput">UI Scale</label>
             <input id="uiScaleInput" type="range" min="90" max="115" step="1" />
+            <label for="themeInput">Theme</label>
+            <select id="themeInput">
+              <option value="oled">OLED</option>
+              <option value="discord">Discord-like</option>
+            </select>
             <label for="compactModeInput">Compact member list</label>
             <select id="compactModeInput">
               <option value="off">Off</option>
@@ -380,6 +390,12 @@
         <p id="userPopoutStatus">Online</p>
         <p id="userPopoutBio">No bio yet.</p>
         <div id="userPopoutRoles" class="role-chip-list"></div>
+        <label for="userNoteInput">Your note about this user</label>
+        <textarea id="userNoteInput" maxlength="240" placeholder="Private note only visible to you"></textarea>
+      </div>
+      <div class="modal-actions modal-actions--stack">
+        <button type="button" id="userStartDmBtn">Start DM</button>
+        <button type="button" id="userSaveNoteBtn">Save Note</button>
       </div>
     </div>
   </dialog>

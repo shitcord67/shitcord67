@@ -10,7 +10,7 @@ const SLASH_COMMANDS = [
   { name: "clear", args: "", description: "Clear all messages in this channel." },
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
-const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg"];
+const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "html"];
 const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const EMOJI_LIBRARY = [
   { name: "grinning", value: "😀" },
@@ -165,9 +165,14 @@ function buildInitialState() {
     ],
     activeGuildId: guildId,
     activeChannelId: channelId,
+    activeDmId: null,
+    dmThreads: [],
+    guildFolders: [],
+    userNotes: {},
     savedSwfs: [],
     preferences: {
       uiScale: 100,
+      theme: "oled",
       compactMembers: "off",
       developerMode: "off",
       debugOverlay: "off",
@@ -181,7 +186,8 @@ function buildInitialState() {
       swfPauseOnMute: "off",
       swfVuMeter: "off",
       swfQuickAudioMode: "click",
-      guildNotifications: {}
+      guildNotifications: {},
+      swfPipPosition: null
     }
   };
 }
@@ -237,6 +243,7 @@ function migrateState(raw) {
         customGifs: Array.isArray(guild.customGifs) ? guild.customGifs : [],
         customSvgs: Array.isArray(guild.customSvgs) ? guild.customSvgs : [],
         customSwfs: Array.isArray(guild.customSwfs) ? guild.customSwfs : [],
+        customHtmls: Array.isArray(guild.customHtmls) ? guild.customHtmls : [],
         memberIds: Array.isArray(guild.memberIds) ? guild.memberIds : [],
         roles,
         memberRoles,
@@ -258,6 +265,31 @@ function migrateState(raw) {
       };
     });
     raw.activeGuildId = raw.activeGuildId || raw.activeServerId || raw.guilds[0]?.id || null;
+    raw.activeDmId = typeof raw.activeDmId === "string" ? raw.activeDmId : null;
+    raw.dmThreads = Array.isArray(raw.dmThreads)
+      ? raw.dmThreads.map((thread) => ({
+          id: thread.id || createId(),
+          participantIds: Array.isArray(thread.participantIds) ? thread.participantIds.filter(Boolean).slice(0, 2) : [],
+          readState: typeof thread.readState === "object" && thread.readState ? { ...thread.readState } : {},
+          messages: Array.isArray(thread.messages)
+            ? thread.messages.map((message) => ({
+                ...message,
+                reactions: Array.isArray(message.reactions) ? message.reactions : [],
+                pinned: Boolean(message.pinned),
+                attachments: normalizeAttachments(message.attachments)
+              }))
+            : []
+        }))
+      : [];
+    raw.guildFolders = Array.isArray(raw.guildFolders)
+      ? raw.guildFolders.map((folder) => ({
+          id: folder.id || createId(),
+          name: (folder.name || "Folder").toString().slice(0, 24),
+          guildIds: Array.isArray(folder.guildIds) ? folder.guildIds.filter(Boolean) : [],
+          collapsed: Boolean(folder.collapsed)
+        }))
+      : [];
+    raw.userNotes = raw.userNotes && typeof raw.userNotes === "object" ? { ...raw.userNotes } : {};
     delete raw.servers;
     delete raw.activeServerId;
     return raw;
@@ -327,6 +359,7 @@ function migrateState(raw) {
         customGifs: [],
         customSvgs: [],
         customSwfs: [],
+        customHtmls: [],
         memberIds,
         roles: [everyoneRole],
         memberRoles,
@@ -374,7 +407,9 @@ let replyTarget = null;
 let slashSelectionIndex = 0;
 let mentionSelectionIndex = 0;
 let contextMenuOpen = false;
+let contextMenuFocusIndex = 0;
 let channelFilterTerm = "";
+let selectedUserPopoutId = null;
 let mediaPickerOpen = false;
 let mediaPickerTab = "gif";
 let mediaPickerQuery = "";
@@ -397,6 +432,7 @@ let swfPipCollapsed = false;
 let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
+let pipDragState = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -405,6 +441,8 @@ const ui = {
   loginUsername: document.getElementById("loginUsername"),
   serverList: document.getElementById("serverList"),
   channelList: document.getElementById("channelList"),
+  dmList: document.getElementById("dmList"),
+  newDmBtn: document.getElementById("newDmBtn"),
   channelFilterInput: document.getElementById("channelFilterInput"),
   memberList: document.getElementById("memberList"),
   activeServerName: document.getElementById("activeServerName"),
@@ -495,6 +533,9 @@ const ui = {
   userPopoutStatus: document.getElementById("userPopoutStatus"),
   userPopoutBio: document.getElementById("userPopoutBio"),
   userPopoutRoles: document.getElementById("userPopoutRoles"),
+  userNoteInput: document.getElementById("userNoteInput"),
+  userStartDmBtn: document.getElementById("userStartDmBtn"),
+  userSaveNoteBtn: document.getElementById("userSaveNoteBtn"),
   accountSwitchDialog: document.getElementById("accountSwitchDialog"),
   accountSwitchForm: document.getElementById("accountSwitchForm"),
   accountList: document.getElementById("accountList"),
@@ -514,6 +555,7 @@ const ui = {
   guildNotifModeInput: document.getElementById("guildNotifModeInput"),
   appearanceForm: document.getElementById("appearanceForm"),
   uiScaleInput: document.getElementById("uiScaleInput"),
+  themeInput: document.getElementById("themeInput"),
   compactModeInput: document.getElementById("compactModeInput"),
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
@@ -602,6 +644,94 @@ function getActiveChannel() {
   const guild = getActiveGuild();
   if (!guild) return null;
   return guild.channels.find((channel) => channel.id === state.activeChannelId) || null;
+}
+
+function getActiveDmThread() {
+  if (!state.activeDmId) return null;
+  return state.dmThreads.find((thread) => thread.id === state.activeDmId) || null;
+}
+
+function getActiveConversation() {
+  const dm = getActiveDmThread();
+  if (dm) return { type: "dm", thread: dm, id: dm.id };
+  const channel = getActiveChannel();
+  if (!channel) return null;
+  return { type: "channel", channel, id: channel.id };
+}
+
+function getUserNoteKey(ownerId, targetId) {
+  return `${ownerId || ""}:${targetId || ""}`;
+}
+
+function getUserNote(ownerId, targetId) {
+  if (!ownerId || !targetId) return "";
+  return (state.userNotes?.[getUserNoteKey(ownerId, targetId)] || "").toString();
+}
+
+function setUserNote(ownerId, targetId, text) {
+  if (!ownerId || !targetId) return;
+  if (!state.userNotes || typeof state.userNotes !== "object") state.userNotes = {};
+  state.userNotes[getUserNoteKey(ownerId, targetId)] = (text || "").toString().trim().slice(0, 240);
+}
+
+function getDmUnreadStats(thread, account) {
+  if (!thread || !account) return { unread: 0, mentions: 0 };
+  const lastReadMs = toTimestampMs(thread.readState?.[account.id]);
+  let unread = 0;
+  let mentions = 0;
+  thread.messages.forEach((message) => {
+    if (toTimestampMs(message.ts) <= lastReadMs) return;
+    if (message.userId && message.userId === account.id) return;
+    unread += 1;
+    if (messageMentionsAccount(message.text, account)) mentions += 1;
+  });
+  return { unread, mentions };
+}
+
+function ensureDmReadState(thread) {
+  if (!thread || (thread.readState && typeof thread.readState === "object")) return;
+  thread.readState = {};
+}
+
+function markDmRead(thread, accountId) {
+  if (!thread || !accountId) return false;
+  ensureDmReadState(thread);
+  const newestTs = thread.messages[thread.messages.length - 1]?.ts || new Date().toISOString();
+  const currentMs = toTimestampMs(thread.readState[accountId]);
+  const nextMs = toTimestampMs(newestTs);
+  if (nextMs <= currentMs) return false;
+  thread.readState[accountId] = newestTs;
+  return true;
+}
+
+function getOrCreateDmThread(accountA, accountB) {
+  if (!accountA?.id || !accountB?.id || accountA.id === accountB.id) return null;
+  let thread = state.dmThreads.find((entry) => {
+    if (!Array.isArray(entry.participantIds)) return false;
+    return entry.participantIds.includes(accountA.id) && entry.participantIds.includes(accountB.id);
+  });
+  if (thread) return thread;
+  thread = {
+    id: createId(),
+    participantIds: [accountA.id, accountB.id],
+    readState: {
+      [accountA.id]: new Date().toISOString(),
+      [accountB.id]: new Date().toISOString()
+    },
+    messages: []
+  };
+  state.dmThreads.unshift(thread);
+  return thread;
+}
+
+function openDmWithAccount(targetAccount) {
+  const current = getCurrentAccount();
+  if (!current || !targetAccount || current.id === targetAccount.id) return;
+  const thread = getOrCreateDmThread(current, targetAccount);
+  if (!thread) return;
+  state.activeDmId = thread.id;
+  saveState();
+  render();
 }
 
 function getServerRoles(server) {
@@ -766,6 +896,7 @@ function deleteGuildById(guildId) {
   if (!guild) return;
   const confirmed = confirm(`Delete guild "${guild.name}"? This removes all channels and messages in it.`);
   if (!confirmed) return;
+  removeGuildFromFolders(guildId);
   state.guilds = state.guilds.filter((entry) => entry.id !== guildId);
   if (state.activeGuildId === guildId) {
     const nextGuild = state.guilds[0] || null;
@@ -776,9 +907,43 @@ function deleteGuildById(guildId) {
   render();
 }
 
+function ensureFolderState() {
+  if (!Array.isArray(state.guildFolders)) state.guildFolders = [];
+  state.guildFolders = state.guildFolders
+    .filter((folder) => folder && typeof folder === "object")
+    .map((folder) => ({
+      id: folder.id || createId(),
+      name: (folder.name || "Folder").toString().slice(0, 24),
+      guildIds: Array.isArray(folder.guildIds) ? folder.guildIds.filter(Boolean) : [],
+      collapsed: Boolean(folder.collapsed)
+    }));
+}
+
+function getFolderForGuild(guildId) {
+  ensureFolderState();
+  return state.guildFolders.find((folder) => folder.guildIds.includes(guildId)) || null;
+}
+
+function removeGuildFromFolders(guildId) {
+  ensureFolderState();
+  state.guildFolders.forEach((folder) => {
+    folder.guildIds = folder.guildIds.filter((id) => id !== guildId);
+  });
+  state.guildFolders = state.guildFolders.filter((folder) => folder.guildIds.length > 0);
+}
+
+function assignGuildToFolder(guildId, folderId) {
+  ensureFolderState();
+  removeGuildFromFolders(guildId);
+  const folder = state.guildFolders.find((entry) => entry.id === folderId);
+  if (!folder) return;
+  folder.guildIds.push(guildId);
+}
+
 function closeContextMenu() {
   if (!contextMenuOpen) return;
   contextMenuOpen = false;
+  contextMenuFocusIndex = 0;
   ui.contextMenu.classList.add("context-menu--hidden");
   ui.contextMenu.innerHTML = "";
 }
@@ -801,6 +966,7 @@ function openContextMenu(event, items) {
   });
   ui.contextMenu.classList.remove("context-menu--hidden");
   contextMenuOpen = true;
+  contextMenuFocusIndex = 0;
 
   const margin = 8;
   const menuRect = ui.contextMenu.getBoundingClientRect();
@@ -810,6 +976,10 @@ function openContextMenu(event, items) {
   const top = Math.max(margin, Math.min(event.clientY, maxTop));
   ui.contextMenu.style.left = `${left}px`;
   ui.contextMenu.style.top = `${top}px`;
+  const buttons = [...ui.contextMenu.querySelectorAll("button:not(:disabled)")];
+  if (buttons.length > 0) {
+    buttons[0].focus();
+  }
 }
 
 function ensureCurrentUserInActiveServer() {
@@ -885,6 +1055,10 @@ function normalizeSwfQuickAudioMode(value) {
   return "click";
 }
 
+function normalizeTheme(value) {
+  return value === "discord" ? "discord" : "oled";
+}
+
 function normalizeGuildNotificationMode(value) {
   if (value === "mentions" || value === "mute") return value;
   return "all";
@@ -904,6 +1078,7 @@ function getPreferences() {
   const current = state.preferences || {};
   return {
     uiScale: Number.isFinite(Number(current.uiScale)) ? Math.min(115, Math.max(90, Number(current.uiScale))) : defaults.uiScale,
+    theme: normalizeTheme(current.theme),
     compactMembers: normalizeToggle(current.compactMembers),
     developerMode: normalizeToggle(current.developerMode),
     debugOverlay: normalizeToggle(current.debugOverlay),
@@ -917,7 +1092,13 @@ function getPreferences() {
     swfPauseOnMute: normalizeToggle(current.swfPauseOnMute),
     swfVuMeter: normalizeToggle(current.swfVuMeter),
     swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode),
-    guildNotifications: normalizeGuildNotificationsMap(current.guildNotifications)
+    guildNotifications: normalizeGuildNotificationsMap(current.guildNotifications),
+    swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
+      ? {
+          left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
+          top: Number.isFinite(Number(current.swfPipPosition.top)) ? Math.max(0, Number(current.swfPipPosition.top)) : null
+        }
+      : null
   };
 }
 
@@ -1055,7 +1236,7 @@ function normalizeReactions(reactions) {
 
 function normalizeAttachments(attachments) {
   if (!Array.isArray(attachments)) return [];
-  const allowedTypes = new Set(["gif", "sticker", "svg", "swf"]);
+  const allowedTypes = new Set(["gif", "sticker", "svg", "swf", "html"]);
   const allowedFormats = new Set(["image", "dotlottie", "apng"]);
   return attachments
     .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
@@ -1097,6 +1278,7 @@ function ensureGuildMediaCollections(guild) {
   if (!Array.isArray(guild.customGifs)) guild.customGifs = [];
   if (!Array.isArray(guild.customSvgs)) guild.customSvgs = [];
   if (!Array.isArray(guild.customSwfs)) guild.customSwfs = [];
+  if (!Array.isArray(guild.customHtmls)) guild.customHtmls = [];
 }
 
 function getGuildResourceBucket(guild, tab) {
@@ -1106,6 +1288,7 @@ function getGuildResourceBucket(guild, tab) {
   if (tab === "gif") return guild.customGifs;
   if (tab === "svg") return guild.customSvgs;
   if (tab === "swf") return guild.customSwfs;
+  if (tab === "html") return guild.customHtmls;
   return [];
 }
 
@@ -1421,8 +1604,8 @@ function handleSlashCommand(rawText, channel, account) {
   return true;
 }
 
-function openMessageEditor(channelId, messageId, messageText) {
-  messageEditTarget = { channelId, messageId };
+function openMessageEditor(conversationId, messageId, messageText) {
+  messageEditTarget = { conversationId, messageId };
   ui.messageEditInput.value = messageText || "";
   ui.messageEditDialog.showModal();
 }
@@ -1453,6 +1636,18 @@ function getMentionContext(inputValue) {
 }
 
 function getMentionMatches(query) {
+  const dm = getActiveDmThread();
+  if (dm) {
+    return dm.participantIds
+      .map((memberId) => getAccountById(memberId))
+      .filter(Boolean)
+      .filter((account) => {
+        const username = account.username.toLowerCase();
+        const displayName = (account.displayName || "").toLowerCase();
+        return !query || username.startsWith(query) || displayName.startsWith(query);
+      })
+      .slice(0, 8);
+  }
   const server = getActiveServer();
   if (!server) return [];
   const accounts = server.memberIds
@@ -1577,6 +1772,7 @@ function renderRoleChips(container, accountId) {
 function applyPreferencesToUI() {
   const prefs = getPreferences();
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
+  document.body.dataset.theme = prefs.theme;
   document.body.dataset.compactMembers = prefs.compactMembers;
   document.body.dataset.developerMode = prefs.developerMode;
   document.body.dataset.debugOverlay = prefs.debugOverlay;
@@ -1843,6 +2039,7 @@ function inferAttachmentTypeFromUrl(url) {
   const clean = (url || "").toLowerCase();
   if (clean.endsWith(".swf") || clean.includes(".swf?")) return "swf";
   if (clean.endsWith(".svg") || clean.includes(".svg?")) return "svg";
+  if (clean.endsWith(".html") || clean.includes(".html?") || clean.endsWith(".htm") || clean.includes(".htm?")) return "html";
   if (clean.endsWith(".apng") || clean.includes(".apng?")) return "sticker";
   if (clean.endsWith(".lottie") || clean.includes(".lottie?")) return "sticker";
   if (/\.(gif|webp|mp4|webm)(\?|$)/i.test(clean)) return "gif";
@@ -1857,7 +2054,7 @@ function inferAttachmentFormat(type, url) {
 function extractInlineAttachmentsFromText(text) {
   if (!text) return [];
   const results = [];
-  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|apng|lottie|gif|webp|mp4|webm))/gi) || [];
+  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|apng|lottie|gif|webp|mp4|webm))/gi) || [];
   const seen = new Set();
   matches.forEach((raw) => {
     const cleaned = raw.replace(/[),.!?]+$/, "");
@@ -1917,6 +2114,10 @@ function mediaEntriesForActiveTab() {
     const custom = (guild?.customSwfs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
     return [...custom, ...swfLibrary];
   }
+  if (mediaPickerTab === "html") {
+    const custom = (guild?.customHtmls || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return custom;
+  }
   return [];
 }
 
@@ -1958,6 +2159,7 @@ function mediaPlaceholderForTab(tab) {
   if (tab === "emoji") return "Search emojis";
   if (tab === "swf") return "Search SWFs";
   if (tab === "svg") return "Search SVGs";
+  if (tab === "html") return "Search HTML embeds";
   return "Search media";
 }
 
@@ -1979,11 +2181,11 @@ function stickerFormatFromName(name, url) {
 }
 
 function sendMediaAttachment(entry, type) {
-  const channel = getActiveChannel();
+  const conversation = getActiveConversation();
   const account = getCurrentAccount();
-  if (!channel || !account || !entry || !entry.url) return;
+  if (!conversation || !account || !entry || !entry.url) return;
   const text = ui.messageInput.value.trim().slice(0, 400);
-  const nextReply = replyTarget && replyTarget.channelId === channel.id
+  const nextReply = replyTarget && replyTarget.channelId === conversation.id
     ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
     : null;
   const nextMessage = {
@@ -2001,7 +2203,8 @@ function sendMediaAttachment(entry, type) {
     }],
     replyTo: nextReply
   };
-  channel.messages.push(nextMessage);
+  const messageBucket = conversation.type === "dm" ? conversation.thread.messages : conversation.channel.messages;
+  messageBucket.push(nextMessage);
   if (type === "swf") {
     addDebugLog("info", "Sent SWF attachment message", { url: entry.url, name: entry.name || "" });
   }
@@ -2010,7 +2213,7 @@ function sendMediaAttachment(entry, type) {
   saveState();
   closeMediaPicker();
   if (swfPipTabs.length > 0) {
-    appendMessageRowLite(channel, nextMessage);
+    appendMessageRowLite(conversation.type === "dm" ? conversation.thread : conversation.channel, nextMessage);
     renderChannels();
     renderMemberList();
   } else {
@@ -2040,6 +2243,7 @@ function fileAcceptForTab(tab) {
   if (tab === "emoji") return "image/png,image/gif,image/webp,image/svg+xml";
   if (tab === "swf") return ".swf,application/x-shockwave-flash";
   if (tab === "svg") return "image/svg+xml,.svg";
+  if (tab === "html") return "text/html,.html,.htm";
   return "*/*";
 }
 
@@ -2230,6 +2434,21 @@ function renderMediaPicker() {
       return;
     }
 
+    if (mediaPickerTab === "html") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = "HTML";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, "html"));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
     if (mediaPickerTab === "gif" && entry.preview === "video") {
       const video = document.createElement("video");
       video.className = "media-card__preview";
@@ -2258,7 +2477,7 @@ function renderMediaPicker() {
     }
     card.appendChild(label);
     card.addEventListener("click", () => {
-      const type = mediaPickerTab === "gif" ? "gif" : mediaPickerTab === "sticker" ? "sticker" : "svg";
+      const type = mediaPickerTab === "gif" ? "gif" : mediaPickerTab === "sticker" ? "sticker" : mediaPickerTab === "html" ? "html" : "svg";
       sendMediaAttachment(entry, type);
     });
     ui.mediaGrid.appendChild(card);
@@ -2520,15 +2739,37 @@ function renderSwfPipDock() {
 
 function updateSwfPipDockLayout() {
   if (!(ui.swfPipDock instanceof HTMLElement)) return;
-  const composerRect = ui.messageForm?.getBoundingClientRect?.();
-  if (!composerRect) {
-    ui.swfPipDock.style.right = "14px";
-    ui.swfPipDock.style.bottom = "208px";
+  if (pipDragState?.dragging) return;
+  const prefs = getPreferences();
+  if (prefs.swfPipPosition && Number.isFinite(prefs.swfPipPosition.left) && Number.isFinite(prefs.swfPipPosition.top)) {
+    const rect = ui.swfPipDock.getBoundingClientRect();
+    const width = rect.width || 420;
+    const height = rect.height || 320;
+    const left = Math.max(8, Math.min(window.innerWidth - width - 8, prefs.swfPipPosition.left));
+    const top = Math.max(8, Math.min(window.innerHeight - 48, prefs.swfPipPosition.top));
+    ui.swfPipDock.style.left = `${Math.round(left)}px`;
+    ui.swfPipDock.style.top = `${Math.round(top)}px`;
+    ui.swfPipDock.style.right = "auto";
+    ui.swfPipDock.style.bottom = "auto";
     return;
   }
-  const rightGap = Math.max(10, window.innerWidth - composerRect.right + 10);
-  ui.swfPipDock.style.right = `${Math.round(rightGap)}px`;
-  ui.swfPipDock.style.bottom = "208px";
+  const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  if (!composerRect) {
+    ui.swfPipDock.style.left = `${Math.max(10, window.innerWidth - 420 - 14)}px`;
+    ui.swfPipDock.style.top = `${Math.max(10, window.innerHeight - 420)}px`;
+    ui.swfPipDock.style.right = "auto";
+    ui.swfPipDock.style.bottom = "auto";
+    return;
+  }
+  const rect = ui.swfPipDock.getBoundingClientRect();
+  const width = rect.width || 420;
+  const height = rect.height || 320;
+  const left = Math.max(10, Math.min(window.innerWidth - width - 10, composerRect.right - width));
+  const top = Math.max(10, composerRect.top - height - 8);
+  ui.swfPipDock.style.left = `${Math.round(left)}px`;
+  ui.swfPipDock.style.top = `${Math.round(top)}px`;
+  ui.swfPipDock.style.right = "auto";
+  ui.swfPipDock.style.bottom = "auto";
 }
 
 async function openSavedSwfFromShelf(entry) {
@@ -3443,6 +3684,25 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     return;
   }
 
+  if (type === "html") {
+    const frame = document.createElement("iframe");
+    frame.className = "message-html-frame";
+    frame.loading = "lazy";
+    frame.referrerPolicy = "no-referrer";
+    frame.sandbox = "allow-same-origin";
+    frame.src = mediaUrl;
+    wrap.appendChild(frame);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open HTML in new tab";
+    wrap.appendChild(openBtn);
+    container.appendChild(wrap);
+    return;
+  }
+
   const img = document.createElement("img");
   img.src = mediaUrl;
   img.loading = "lazy";
@@ -3460,7 +3720,8 @@ function renderScreens() {
 function renderServers() {
   ui.serverList.innerHTML = "";
   const currentAccount = getCurrentAccount();
-  state.guilds.forEach((server) => {
+  ensureFolderState();
+  const renderGuildButton = (server) => {
     const button = document.createElement("button");
     button.className = `server-item ${server.id === state.activeGuildId ? "active" : ""}`;
     button.textContent = server.name.slice(0, 2).toUpperCase();
@@ -3479,6 +3740,7 @@ function renderServers() {
     button.addEventListener("click", () => {
       state.activeGuildId = server.id;
       state.activeChannelId = server.channels[0]?.id || null;
+      state.activeDmId = null;
       ensureCurrentUserInActiveServer();
       saveState();
       render();
@@ -3492,15 +3754,57 @@ function renderServers() {
           action: () => {
             state.activeGuildId = server.id;
             state.activeChannelId = server.channels[0]?.id || null;
+            state.activeDmId = null;
             ensureCurrentUserInActiveServer();
             saveState();
             render();
           }
         },
         {
+          label: "Copy Guild ID",
+          action: () => copyText(server.id)
+        },
+        {
           label: "Rename Guild",
           disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
           action: () => renameGuildById(server.id)
+        },
+        {
+          label: "Create Folder With Guild",
+          action: () => {
+            const folderName = prompt("Folder name", "New Folder");
+            if (typeof folderName !== "string") return;
+            const cleaned = folderName.trim().slice(0, 24);
+            if (!cleaned) return;
+            const folder = { id: createId(), name: cleaned, guildIds: [], collapsed: false };
+            state.guildFolders.push(folder);
+            assignGuildToFolder(server.id, folder.id);
+            saveState();
+            renderServers();
+          }
+        },
+        {
+          label: "Move To Folder…",
+          disabled: state.guildFolders.length === 0,
+          action: () => {
+            const folderNames = state.guildFolders.map((folder, index) => `${index + 1}. ${folder.name}`).join("\n");
+            const pick = prompt(`Choose folder number:\n${folderNames}`, "1");
+            const index = Math.max(1, Number(pick || 0)) - 1;
+            const folder = state.guildFolders[index];
+            if (!folder) return;
+            assignGuildToFolder(server.id, folder.id);
+            saveState();
+            renderServers();
+          }
+        },
+        {
+          label: "Remove From Folder",
+          disabled: !getFolderForGuild(server.id),
+          action: () => {
+            removeGuildFromFolders(server.id);
+            saveState();
+            renderServers();
+          }
         },
         {
           label: "Create Channel",
@@ -3567,10 +3871,106 @@ function renderServers() {
       ]);
     });
     ui.serverList.appendChild(button);
+  };
+
+  state.guildFolders.forEach((folder) => {
+    const label = document.createElement("button");
+    label.type = "button";
+    label.className = "server-folder-label";
+    label.textContent = `${folder.collapsed ? "▸" : "▾"} ${folder.name}`;
+    label.title = folder.name;
+    label.addEventListener("click", () => {
+      folder.collapsed = !folder.collapsed;
+      saveState();
+      renderServers();
+    });
+    ui.serverList.appendChild(label);
+    if (folder.collapsed) return;
+    folder.guildIds
+      .map((guildId) => state.guilds.find((guild) => guild.id === guildId))
+      .filter(Boolean)
+      .forEach((guild) => renderGuildButton(guild));
+  });
+
+  const folderGuildIds = new Set(state.guildFolders.flatMap((folder) => folder.guildIds));
+  state.guilds
+    .filter((guild) => !folderGuildIds.has(guild.id))
+    .forEach((guild) => renderGuildButton(guild));
+}
+
+function renderDmList() {
+  ui.dmList.innerHTML = "";
+  const currentAccount = getCurrentAccount();
+  if (!currentAccount) return;
+  const threads = state.dmThreads
+    .filter((thread) => Array.isArray(thread.participantIds) && thread.participantIds.includes(currentAccount.id))
+    .slice(0, 80);
+  threads.forEach((thread) => {
+    const peerId = thread.participantIds.find((id) => id !== currentAccount.id);
+    const peer = peerId ? getAccountById(peerId) : null;
+    const button = document.createElement("button");
+    button.className = `channel-item channel-item--dm ${state.activeDmId === thread.id ? "active" : ""}`;
+    const label = document.createElement("span");
+    label.className = "channel-item__name";
+    label.textContent = peer ? `@${peer.username}` : "Unknown DM";
+    button.appendChild(label);
+    const unread = getDmUnreadStats(thread, currentAccount);
+    if (unread.unread > 0) {
+      const badge = document.createElement("span");
+      badge.className = `channel-badge ${unread.mentions > 0 ? "channel-badge--mention" : ""}`;
+      badge.textContent = unread.unread > 99 ? "99+" : String(unread.unread);
+      button.appendChild(badge);
+    }
+    button.addEventListener("click", () => {
+      state.activeDmId = thread.id;
+      saveState();
+      renderMessages();
+      renderChannels();
+      renderMemberList();
+    });
+    button.addEventListener("contextmenu", (event) => {
+      openContextMenu(event, [
+        {
+          label: "Open DM",
+          action: () => {
+            state.activeDmId = thread.id;
+            saveState();
+            renderMessages();
+            renderChannels();
+          }
+        },
+        {
+          label: "Mark DM Read",
+          disabled: unread.unread === 0,
+          action: () => {
+            if (!markDmRead(thread, currentAccount.id)) return;
+            saveState();
+            renderDmList();
+            renderChannels();
+          }
+        },
+        {
+          label: "Copy Thread ID",
+          action: () => copyText(thread.id)
+        },
+        {
+          label: "Close DM",
+          danger: true,
+          action: () => {
+            state.dmThreads = state.dmThreads.filter((entry) => entry.id !== thread.id);
+            if (state.activeDmId === thread.id) state.activeDmId = null;
+            saveState();
+            render();
+          }
+        }
+      ]);
+    });
+    ui.dmList.appendChild(button);
   });
 }
 
 function renderChannels() {
+  renderDmList();
   const server = getActiveServer();
   ui.channelList.innerHTML = "";
   if (!server) {
@@ -3584,7 +3984,7 @@ function renderChannels() {
   if (ui.channelFilterInput && ui.channelFilterInput.value !== channelFilterTerm) {
     ui.channelFilterInput.value = channelFilterTerm;
   }
-  ui.activeServerName.textContent = server.name;
+  ui.activeServerName.textContent = state.activeDmId ? "Direct Messages" : server.name;
   const channelsToRender = server.channels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
   channelsToRender.forEach((channel) => {
     const button = document.createElement("button");
@@ -3612,6 +4012,7 @@ function renderChannels() {
     }
     button.addEventListener("click", () => {
       state.activeChannelId = channel.id;
+      state.activeDmId = null;
       saveState();
       renderMessages();
       renderChannels();
@@ -3622,6 +4023,7 @@ function renderChannels() {
           label: "Open Channel",
           action: () => {
             state.activeChannelId = channel.id;
+            state.activeDmId = null;
             saveState();
             renderMessages();
             renderChannels();
@@ -3630,6 +4032,10 @@ function renderChannels() {
         {
           label: "Copy Channel Name",
           action: () => copyText(`#${channel.name}`)
+        },
+        {
+          label: "Copy Channel ID",
+          action: () => copyText(channel.id)
         },
         {
           label: "Mark Channel Read",
@@ -3675,6 +4081,8 @@ function renderChannels() {
 function openUserPopout(account, fallbackName = "Unknown") {
   const displayName = account?.displayName || account?.username || fallbackName;
   const bio = account?.bio?.trim() || "No bio yet.";
+  const current = getCurrentAccount();
+  selectedUserPopoutId = account?.id || null;
 
   ui.userPopoutName.textContent = displayName;
   ui.userPopoutStatus.textContent = account ? displayStatus(account) : "Offline";
@@ -3682,11 +4090,22 @@ function openUserPopout(account, fallbackName = "Unknown") {
   applyAvatarStyle(ui.userPopoutAvatar, account);
   applyBannerStyle(ui.userPopoutBanner, account?.banner || "");
   renderRoleChips(ui.userPopoutRoles, account?.id);
+  if (ui.userNoteInput) {
+    ui.userNoteInput.value = current && selectedUserPopoutId ? getUserNote(current.id, selectedUserPopoutId) : "";
+    ui.userNoteInput.disabled = !selectedUserPopoutId;
+  }
+  if (ui.userStartDmBtn) ui.userStartDmBtn.disabled = !account?.id || account.id === current?.id;
+  if (ui.userSaveNoteBtn) ui.userSaveNoteBtn.disabled = !selectedUserPopoutId || !current;
   ui.userPopoutDialog.showModal();
 }
 
 function renderMessages() {
-  const channel = getActiveChannel();
+  const conversation = getActiveConversation();
+  const isDm = conversation?.type === "dm";
+  const channel = !isDm ? conversation?.channel : null;
+  const dmThread = isDm ? conversation?.thread : null;
+  const conversationId = conversation?.id || null;
+  const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
   const liveSwfKeys = collectLiveSwfRuntimeKeys();
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
@@ -3705,18 +4124,27 @@ function renderMessages() {
   });
   refreshSwfAudioFocus();
   ui.messageList.innerHTML = "";
-  ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
-  ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
-  ui.messageInput.placeholder = channel ? `Message #${channel.name}` : "No channel selected";
-  if (!channel || (replyTarget && replyTarget.channelId !== channel.id)) {
+  if (isDm && dmThread) {
+    const current = getCurrentAccount();
+    const peerId = dmThread.participantIds.find((id) => id !== current?.id);
+    const peer = peerId ? getAccountById(peerId) : null;
+    ui.activeChannelName.textContent = peer ? `@${peer.username}` : "@dm";
+    ui.activeChannelTopic.textContent = "Direct Message";
+    ui.messageInput.placeholder = peer ? `Message @${peer.username}` : "Message DM";
+  } else {
+    ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
+    ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
+    ui.messageInput.placeholder = channel ? `Message #${channel.name}` : "No channel selected";
+  }
+  if (!conversationId || (replyTarget && replyTarget.channelId !== conversationId)) {
     replyTarget = null;
   }
   renderReplyComposer();
   renderSlashSuggestions();
 
-  if (!channel) return;
+  if (!conversationId) return;
 
-  channel.messages.forEach((message) => {
+  messageBucket.forEach((message) => {
     const currentUser = getCurrentAccount();
     const messageRow = document.createElement("article");
     messageRow.className = "message";
@@ -3741,6 +4169,14 @@ function renderMessages() {
           action: () => openUserPopout(author, message.authorName || "Unknown")
         },
         {
+          label: "Start DM",
+          disabled: !author || author.id === getCurrentAccount()?.id,
+          action: () => {
+            if (!author) return;
+            openDmWithAccount(author);
+          }
+        },
+        {
           label: "Mention User",
           disabled: !author,
           action: () => mentionInComposer(author)
@@ -3749,6 +4185,11 @@ function renderMessages() {
           label: "Copy Username",
           disabled: !author,
           action: () => copyText(author ? `@${author.username}` : "")
+        },
+        {
+          label: "Copy User ID",
+          disabled: !author,
+          action: () => copyText(author ? author.id : "")
         }
       ]);
     });
@@ -3820,7 +4261,7 @@ function renderMessages() {
     replyBtn.textContent = "Reply";
     replyBtn.addEventListener("click", () => {
       replyTarget = {
-        channelId: channel.id,
+        channelId: conversationId,
         messageId: message.id,
         authorName: displayNameForMessage(message),
         text: message.text || ""
@@ -3830,7 +4271,7 @@ function renderMessages() {
     });
     actionBar.appendChild(replyBtn);
 
-    const canPin = currentUser && (message.userId === currentUser.id || canCurrentUser("manageMessages"));
+    const canPin = !isDm && currentUser && (message.userId === currentUser.id || canCurrentUser("manageMessages"));
     if (canPin) {
       const pinBtn = document.createElement("button");
       pinBtn.type = "button";
@@ -3847,14 +4288,14 @@ function renderMessages() {
       actionBar.appendChild(pinBtn);
     }
 
-    const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
+    const canManageMessages = isDm ? false : (currentUser ? canCurrentUser("manageMessages") : false);
     const isOwnMessage = currentUser && message.userId === currentUser.id;
     if (isOwnMessage) {
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "message-action-btn";
       editBtn.textContent = "Edit";
-      editBtn.addEventListener("click", () => openMessageEditor(channel.id, message.id, message.text));
+      editBtn.addEventListener("click", () => openMessageEditor(conversationId, message.id, message.text));
       actionBar.appendChild(editBtn);
 
     }
@@ -3865,9 +4306,13 @@ function renderMessages() {
       deleteBtn.className = "message-action-btn";
       deleteBtn.textContent = "Delete";
       deleteBtn.addEventListener("click", () => {
-        const scopedChannel = findChannelById(channel.id);
-        if (!scopedChannel) return;
-        scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
+        if (isDm && dmThread) {
+          dmThread.messages = dmThread.messages.filter((entry) => entry.id !== message.id);
+        } else {
+          const scopedChannel = findChannelById(channel.id);
+          if (!scopedChannel) return;
+          scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
+        }
         saveState();
         renderMessages();
       });
@@ -3934,7 +4379,7 @@ function renderMessages() {
           label: "Reply",
           action: () => {
             replyTarget = {
-              channelId: channel.id,
+              channelId: conversationId,
               messageId: message.id,
               authorName: displayNameForMessage(message),
               text: message.text || ""
@@ -3946,6 +4391,10 @@ function renderMessages() {
         {
           label: "Copy Text",
           action: () => copyText(message.text || "")
+        },
+        {
+          label: "Copy Message ID",
+          action: () => copyText(message.id || "")
         },
         {
           label: "Copy JSON",
@@ -3989,7 +4438,7 @@ function renderMessages() {
         },
         {
           label: message.pinned ? "Unpin Message" : "Pin Message",
-          disabled: !(currentUser && (message.userId === currentUser.id || canManageMessages)),
+          disabled: isDm || !(currentUser && (message.userId === currentUser.id || canManageMessages)),
           action: () => {
             const scopedChannel = findChannelById(channel.id);
             const scopedMessage = findMessageInChannel(scopedChannel, message.id);
@@ -4002,16 +4451,20 @@ function renderMessages() {
         {
           label: "Edit Message",
           disabled: !isOwnMessage,
-          action: () => openMessageEditor(channel.id, message.id, message.text)
+          action: () => openMessageEditor(conversationId, message.id, message.text)
         },
         {
           label: "Delete Message",
           danger: true,
           disabled: !(isOwnMessage || canManageMessages),
           action: () => {
-            const scopedChannel = findChannelById(channel.id);
-            if (!scopedChannel) return;
-            scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
+            if (isDm && dmThread) {
+              dmThread.messages = dmThread.messages.filter((entry) => entry.id !== message.id);
+            } else {
+              const scopedChannel = findChannelById(channel.id);
+              if (!scopedChannel) return;
+              scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
+            }
             saveState();
             renderMessages();
           }
@@ -4022,9 +4475,11 @@ function renderMessages() {
 
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
   const currentAccount = getCurrentAccount();
-  if (currentAccount && markChannelRead(channel, currentAccount.id)) {
+  const didMarkRead = isDm ? markDmRead(dmThread, currentAccount?.id) : markChannelRead(channel, currentAccount?.id);
+  if (currentAccount && didMarkRead) {
     saveState();
     renderServers();
+    renderDmList();
     renderChannels();
   }
 }
@@ -4065,6 +4520,43 @@ function appendMessageRowLite(channel, message) {
 }
 
 function renderMemberList() {
+  const activeDm = getActiveDmThread();
+  if (activeDm) {
+    const current = getCurrentAccount();
+    ui.memberList.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "member-group-title";
+    title.textContent = "Direct Message";
+    ui.memberList.appendChild(title);
+    activeDm.participantIds
+      .map((id) => getAccountById(id))
+      .filter(Boolean)
+      .forEach((account) => {
+        const row = document.createElement("button");
+        row.className = "member-item";
+        const avatar = document.createElement("div");
+        avatar.className = "member-avatar";
+        applyAvatarStyle(avatar, account);
+        const dot = document.createElement("span");
+        dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
+        avatar.appendChild(dot);
+        const label = document.createElement("span");
+        label.textContent = account.displayName || account.username;
+        row.appendChild(avatar);
+        row.appendChild(label);
+        row.addEventListener("click", () => openUserPopout(account));
+        row.addEventListener("contextmenu", (event) => {
+          openContextMenu(event, [
+            { label: "View Profile", action: () => openUserPopout(account) },
+            { label: "Start DM", disabled: account.id === current?.id, action: () => openDmWithAccount(account) },
+            { label: "Copy Username", action: () => copyText(`@${account.username}`) },
+            { label: "Copy User ID", action: () => copyText(account.id) }
+          ]);
+        });
+        ui.memberList.appendChild(row);
+      });
+    return;
+  }
   const server = getActiveServer();
   ui.memberList.innerHTML = "";
   if (!server) return;
@@ -4118,12 +4610,21 @@ function renderMemberList() {
             action: () => openUserPopout(account)
           },
           {
+            label: "Start DM",
+            disabled: account.id === getCurrentAccount()?.id,
+            action: () => openDmWithAccount(account)
+          },
+          {
             label: "Mention User",
             action: () => mentionInComposer(account)
           },
           {
             label: "Copy Username",
             action: () => copyText(`@${account.username}`)
+          },
+          {
+            label: "Copy User ID",
+            action: () => copyText(account.id)
           }
         ]);
       });
@@ -4250,6 +4751,7 @@ function renderSettingsScreen() {
   ui.settingsUsername.textContent = `@${account.username}`;
   ui.settingsCurrentStatus.textContent = displayStatus(account);
   ui.uiScaleInput.value = String(prefs.uiScale);
+  ui.themeInput.value = prefs.theme;
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;
@@ -4302,6 +4804,7 @@ function render() {
     saveState();
   }
   renderServers();
+  renderDmList();
   renderChannels();
   renderMessages();
   renderSwfShelf();
@@ -4384,13 +4887,13 @@ ui.loginForm.addEventListener("submit", (event) => {
 ui.messageForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const text = ui.messageInput.value.trim();
-  const channel = getActiveChannel();
+  const conversation = getActiveConversation();
   const account = getCurrentAccount();
-  if (!channel || !account || !text) return;
+  if (!conversation || !account || !text) return;
 
-  ensureCurrentUserInActiveServer();
-  if (!handleSlashCommand(text, channel, account)) {
-    const nextReply = replyTarget && replyTarget.channelId === channel.id
+  if (conversation.type === "channel") ensureCurrentUserInActiveServer();
+  if (!(conversation.type === "channel" && handleSlashCommand(text, conversation.channel, account))) {
+    const nextReply = replyTarget && replyTarget.channelId === conversation.id
       ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
       : null;
     const nextMessage = {
@@ -4403,14 +4906,18 @@ ui.messageForm.addEventListener("submit", (event) => {
       attachments: [],
       replyTo: nextReply
     };
-    channel.messages.push(nextMessage);
+    if (conversation.type === "dm") {
+      conversation.thread.messages.push(nextMessage);
+    } else {
+      conversation.channel.messages.push(nextMessage);
+    }
     replyTarget = null;
     if (swfPipTabs.length > 0) {
       ui.messageInput.value = "";
       slashSelectionIndex = 0;
       closeMediaPicker();
       saveState();
-      appendMessageRowLite(channel, nextMessage);
+      appendMessageRowLite(conversation.type === "dm" ? conversation.thread : conversation.channel, nextMessage);
       renderChannels();
       renderMemberList();
       return;
@@ -4573,6 +5080,7 @@ ui.createServerForm.addEventListener("submit", (event) => {
     customGifs: [],
     customSvgs: [],
     customSwfs: [],
+    customHtmls: [],
     roles: [everyoneRole, adminRole],
     memberRoles,
     channels: [
@@ -4601,6 +5109,18 @@ ui.createChannelBtn.addEventListener("click", () => {
   }
   ui.channelNameInput.value = "";
   ui.createChannelDialog.showModal();
+});
+
+ui.newDmBtn.addEventListener("click", () => {
+  const current = getCurrentAccount();
+  if (!current) return;
+  const typed = prompt("Start DM with username", "");
+  if (typeof typed !== "string") return;
+  const normalized = normalizeUsername(typed);
+  if (!normalized) return;
+  const target = getAccountByUsername(normalized);
+  if (!target || target.id === current.id) return;
+  openDmWithAccount(target);
 });
 
 ui.channelCancel.addEventListener("click", () => ui.createChannelDialog.close());
@@ -4638,12 +5158,43 @@ ui.swfPipCloseBtn.addEventListener("click", () => {
 
 const swfPipHeader = ui.swfPipDock.querySelector(".swf-pip__header");
 if (swfPipHeader) {
+  swfPipHeader.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+    const dockRect = ui.swfPipDock.getBoundingClientRect();
+    pipDragState = {
+      dragging: true,
+      offsetX: event.clientX - dockRect.left,
+      offsetY: event.clientY - dockRect.top
+    };
+    event.preventDefault();
+  });
   swfPipHeader.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.closest("button")) return;
     swfPipCollapsed = !swfPipCollapsed;
     renderSwfPipDock();
   });
 }
+
+document.addEventListener("mousemove", (event) => {
+  if (!pipDragState?.dragging) return;
+  const dockRect = ui.swfPipDock.getBoundingClientRect();
+  const nextLeft = Math.max(8, Math.min(window.innerWidth - dockRect.width - 8, event.clientX - pipDragState.offsetX));
+  const nextTop = Math.max(8, Math.min(window.innerHeight - 48, event.clientY - pipDragState.offsetY));
+  ui.swfPipDock.style.left = `${Math.round(nextLeft)}px`;
+  ui.swfPipDock.style.top = `${Math.round(nextTop)}px`;
+  ui.swfPipDock.style.right = "auto";
+  ui.swfPipDock.style.bottom = "auto";
+});
+
+document.addEventListener("mouseup", () => {
+  if (!pipDragState?.dragging) return;
+  pipDragState.dragging = false;
+  const rect = ui.swfPipDock.getBoundingClientRect();
+  state.preferences = getPreferences();
+  state.preferences.swfPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top) };
+  saveState();
+});
 ui.clearSwfShelfBtn.addEventListener("click", () => {
   state.savedSwfs = [];
   saveState();
@@ -4667,6 +5218,9 @@ ui.swfViewerDialog.addEventListener("close", () => {
   if (currentViewerRuntimeKey) {
     closeSwfViewerAndRestore();
   }
+});
+ui.userPopoutDialog.addEventListener("close", () => {
+  selectedUserPopoutId = null;
 });
 
 ui.openRolesBtn.addEventListener("click", () => {
@@ -4777,9 +5331,15 @@ ui.messageEditCancel.addEventListener("click", () => {
 ui.messageEditForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!messageEditTarget) return;
-  const scopedChannel = findChannelById(messageEditTarget.channelId);
-  const scopedMessage = findMessageInChannel(scopedChannel, messageEditTarget.messageId);
-  if (!scopedChannel || !scopedMessage) return;
+  let scopedMessage = null;
+  const scopedThread = state.dmThreads.find((thread) => thread.id === messageEditTarget.conversationId) || null;
+  if (scopedThread) {
+    scopedMessage = findMessageInChannel(scopedThread, messageEditTarget.messageId);
+  } else {
+    const scopedChannel = findChannelById(messageEditTarget.conversationId);
+    scopedMessage = findMessageInChannel(scopedChannel, messageEditTarget.messageId);
+  }
+  if (!scopedMessage) return;
   scopedMessage.text = ui.messageEditInput.value.trim().slice(0, 400);
   scopedMessage.editedAt = new Date().toISOString();
   saveState();
@@ -4841,6 +5401,7 @@ ui.appearanceForm.addEventListener("submit", (event) => {
   event.preventDefault();
   state.preferences = getPreferences();
   state.preferences.uiScale = Math.min(115, Math.max(90, Number(ui.uiScaleInput.value) || 100));
+  state.preferences.theme = normalizeTheme(ui.themeInput.value);
   state.preferences.compactMembers = normalizeToggle(ui.compactModeInput.value);
   saveState();
   render();
@@ -5008,6 +5569,20 @@ ui.selfLogout.addEventListener("click", () => {
   render();
 });
 
+ui.userStartDmBtn.addEventListener("click", () => {
+  const target = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
+  if (!target) return;
+  ui.userPopoutDialog.close();
+  openDmWithAccount(target);
+});
+
+ui.userSaveNoteBtn.addEventListener("click", () => {
+  const current = getCurrentAccount();
+  if (!current || !selectedUserPopoutId) return;
+  setUserNote(current.id, selectedUserPopoutId, ui.userNoteInput.value);
+  saveState();
+});
+
 ui.profileCancel.addEventListener("click", () => ui.profileDialog.close());
 
 ui.profileAvatarUploadBtn.addEventListener("click", () => {
@@ -5098,6 +5673,36 @@ document.addEventListener("contextmenu", (event) => {
   if (!contextMenuOpen) return;
   if (ui.contextMenu.contains(event.target)) return;
   closeContextMenu();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!contextMenuOpen) return;
+  const buttons = [...ui.contextMenu.querySelectorAll("button:not(:disabled)")];
+  if (buttons.length === 0) {
+    if (event.key === "Escape") closeContextMenu();
+    return;
+  }
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    contextMenuFocusIndex = (contextMenuFocusIndex + 1) % buttons.length;
+    buttons[contextMenuFocusIndex].focus();
+    return;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    contextMenuFocusIndex = (contextMenuFocusIndex - 1 + buttons.length) % buttons.length;
+    buttons[contextMenuFocusIndex].focus();
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    buttons[contextMenuFocusIndex]?.click();
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeContextMenu();
+  }
 });
 
 window.addEventListener("resize", () => {

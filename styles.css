@@ -1,15 +1,24 @@
 :root {
   --rail-w: 80px;
   --channel-w: 260px;
+  --bg-main: #0d0d10;
+  --bg-dark: #08090b;
+  --bg-mid: #111217;
+  --bg-light: #191b22;
+  --bg-member: #0f1014;
+  --line: #050507;
+  --text-main: #f2f3f5;
+  --text-muted: #b5bac1;
+  --accent: #5865f2;
+}
+
+body[data-theme="discord"] {
   --bg-main: #313338;
   --bg-dark: #1e1f22;
   --bg-mid: #2b2d31;
   --bg-light: #383a40;
   --bg-member: #2b2d31;
   --line: #1b1c1f;
-  --text-main: #f2f3f5;
-  --text-muted: #b5bac1;
-  --accent: #5865f2;
 }
 
 * {
@@ -156,6 +165,16 @@ button {
   align-items: center;
 }
 
+.server-folder-label {
+  width: 100%;
+  background: transparent;
+  color: #9ba3af;
+  font-size: 0.65rem;
+  text-align: left;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+}
+
 .server-item {
   background: #313338;
   color: #d7dbe0;
@@ -215,6 +234,15 @@ button {
   min-height: 0;
 }
 
+.channel-section-title {
+  color: #8f96a3;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin: 0.25rem 0 0.45rem;
+  letter-spacing: 0.03em;
+}
+
 .channel-panel__header {
   min-height: 48px;
   border-bottom: 1px solid var(--line);
@@ -226,6 +254,10 @@ button {
 
 .channel-list {
   padding: 0;
+}
+
+.channel-list--dm {
+  margin-bottom: 0.35rem;
 }
 
 .channel-filter {
@@ -247,6 +279,10 @@ button {
   padding: 0.45rem 0.5rem;
   border-radius: 6px;
   margin-bottom: 0.25rem;
+}
+
+.channel-item.channel-item--dm {
+  color: #d7dce5;
 }
 
 .channel-item.active {
@@ -1152,6 +1188,14 @@ button {
   display: inline-block;
 }
 
+.message-html-frame {
+  width: min(540px, 92vw);
+  height: 320px;
+  border: 1px solid #3b3f48;
+  border-radius: 10px;
+  background: #fff;
+}
+
 .swf-pip {
   position: fixed;
   right: 14px;
@@ -1712,6 +1756,11 @@ body[data-compact-members="on"] .member-item {
   border-radius: 6px;
   padding: 0.42rem 0.52rem;
   font-size: 0.84rem;
+}
+
+.context-menu button:focus-visible {
+  outline: 2px solid #6f7bff;
+  outline-offset: -2px;
 }
 
 .context-menu button:hover {

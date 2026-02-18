@@ -15,9 +15,15 @@
 - Slash commands (`/me`, `/shrug`, `/clear`, `/topic`, `/nick`, `/status`, `/markread`) with live popup.
 - Import/export JSON snapshot for backup/testing.
 - Right-click context menus for guilds/channels/messages/users.
+- Keyboard navigation for context menus (arrow/enter/esc).
 - Unread + mention badges for channels and guild rail with mark-as-read actions.
 - Channel list filter/search input.
 - Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
+- HTML media tab + HTML embed rendering in chat attachments.
+- DM sidebar with 1:1 direct-message threads.
+- User profile notes (private notes per account/user pair).
+- Guild folder grouping in server rail.
+- OLED theme mode with Appearance toggle.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
