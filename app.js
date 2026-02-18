@@ -2012,7 +2012,8 @@ function renderReplyComposer() {
     return;
   }
   const previewText = replyTarget.text.trim().slice(0, 100);
-  ui.replyPreviewText.textContent = `Replying to ${replyTarget.authorName}: ${previewText || "(empty message)"}`;
+  const threadHint = replyTarget.threadId ? " in thread" : "";
+  ui.replyPreviewText.textContent = `Replying to ${replyTarget.authorName}${threadHint}: ${previewText || "(empty message)"}`;
   ui.composerReplyBar.classList.remove("composer-reply--hidden");
 }
 
@@ -4446,6 +4447,182 @@ function openUserPopout(account, fallbackName = "Unknown") {
   ui.userPopoutDialog.showModal();
 }
 
+function forumMessageParts(message) {
+  const rawText = typeof message?.text === "string" ? message.text : "";
+  if (message?.forumTitle) {
+    return { title: message.forumTitle, body: rawText };
+  }
+  const [firstLine, ...rest] = rawText.split("\n");
+  const title = (firstLine || "Untitled Post").trim().slice(0, 100) || "Untitled Post";
+  const body = rest.join("\n").trim();
+  return { title, body: body || firstLine || "" };
+}
+
+function setReplyTarget(conversationId, message, threadId = null) {
+  replyTarget = {
+    channelId: conversationId,
+    messageId: message.id,
+    authorName: displayNameForMessage(message),
+    text: message.text || "",
+    threadId: threadId || null
+  };
+  renderReplyComposer();
+  ui.messageInput.focus();
+}
+
+function renderForumThreads(conversationId, channel, messages, currentAccount) {
+  const topLevel = messages.filter((message) => !message.forumThreadId);
+  const repliesByThread = new Map();
+  messages.forEach((message) => {
+    if (!message.forumThreadId) return;
+    if (!repliesByThread.has(message.forumThreadId)) repliesByThread.set(message.forumThreadId, []);
+    repliesByThread.get(message.forumThreadId).push(message);
+  });
+
+  topLevel.forEach((post) => {
+    const postRow = document.createElement("article");
+    postRow.className = "message message--forum message--forum-root";
+    postRow.dataset.messageId = post.id;
+
+    const head = document.createElement("div");
+    head.className = "message-head";
+
+    const userButton = document.createElement("button");
+    userButton.className = "message-user";
+    userButton.textContent = displayNameForMessage(post);
+    if (channel && post.userId) {
+      const roleColor = getMemberTopRoleColor(getActiveServer(), post.userId);
+      if (roleColor) userButton.style.color = roleColor;
+    }
+    userButton.addEventListener("click", () => {
+      const author = post.userId ? getAccountById(post.userId) : null;
+      openUserPopout(author, post.authorName || "Unknown");
+    });
+
+    const time = document.createElement("span");
+    time.className = "message-time";
+    time.textContent = formatTime(post.ts);
+    head.appendChild(userButton);
+    head.appendChild(time);
+    postRow.appendChild(head);
+
+    const { title, body } = forumMessageParts(post);
+    const forumTitle = document.createElement("div");
+    forumTitle.className = "forum-post-title";
+    forumTitle.textContent = title;
+    postRow.appendChild(forumTitle);
+
+    if (body) {
+      const text = document.createElement("div");
+      text.className = "message-text";
+      renderMessageText(text, body);
+      postRow.appendChild(text);
+    }
+
+    const postAttachments = normalizeAttachments([
+      ...normalizeAttachments(post.attachments),
+      ...extractInlineAttachmentsFromText(post.text)
+    ]);
+    postAttachments.forEach((attachment, index) => {
+      renderMessageAttachment(postRow, attachment, { swfKey: `${post.id}:${index}` });
+    });
+
+    const postActions = document.createElement("div");
+    postActions.className = "message-actions";
+    const replyBtn = document.createElement("button");
+    replyBtn.type = "button";
+    replyBtn.className = "message-action-btn";
+    replyBtn.textContent = "Reply";
+    replyBtn.addEventListener("click", () => setReplyTarget(conversationId, post, post.id));
+    postActions.appendChild(replyBtn);
+    postRow.appendChild(postActions);
+
+    const replies = repliesByThread.get(post.id) || [];
+    if (replies.length > 0) {
+      const repliesWrap = document.createElement("div");
+      repliesWrap.className = "forum-thread-replies";
+      replies.forEach((replyMessage) => {
+        const replyRow = document.createElement("article");
+        replyRow.className = "message message--forum-reply";
+        replyRow.dataset.messageId = replyMessage.id;
+
+        const replyHead = document.createElement("div");
+        replyHead.className = "message-head";
+
+        const replyUserButton = document.createElement("button");
+        replyUserButton.className = "message-user";
+        replyUserButton.textContent = displayNameForMessage(replyMessage);
+        if (channel && replyMessage.userId) {
+          const roleColor = getMemberTopRoleColor(getActiveServer(), replyMessage.userId);
+          if (roleColor) replyUserButton.style.color = roleColor;
+        }
+        replyUserButton.addEventListener("click", () => {
+          const author = replyMessage.userId ? getAccountById(replyMessage.userId) : null;
+          openUserPopout(author, replyMessage.authorName || "Unknown");
+        });
+
+        const replyTime = document.createElement("span");
+        replyTime.className = "message-time";
+        replyTime.textContent = formatTime(replyMessage.ts);
+        replyHead.appendChild(replyUserButton);
+        replyHead.appendChild(replyTime);
+        replyRow.appendChild(replyHead);
+
+        if (replyMessage.replyTo && typeof replyMessage.replyTo === "object") {
+          const replyLine = document.createElement("div");
+          replyLine.className = "message-reply";
+          const replyName = document.createElement("strong");
+          replyName.textContent = replyMessage.replyTo.authorName || "Unknown";
+          const replyText = document.createElement("span");
+          replyText.textContent = replyMessage.replyTo.text?.trim()?.slice(0, 90) || "(empty message)";
+          replyLine.appendChild(document.createTextNode("Replying to "));
+          replyLine.appendChild(replyName);
+          replyLine.appendChild(document.createTextNode(": "));
+          replyLine.appendChild(replyText);
+          replyRow.appendChild(replyLine);
+        }
+
+        const replyText = document.createElement("div");
+        replyText.className = "message-text";
+        renderMessageText(replyText, replyMessage.text || "");
+        replyRow.appendChild(replyText);
+
+        const replyAttachments = normalizeAttachments([
+          ...normalizeAttachments(replyMessage.attachments),
+          ...extractInlineAttachmentsFromText(replyMessage.text)
+        ]);
+        replyAttachments.forEach((attachment, index) => {
+          renderMessageAttachment(replyRow, attachment, { swfKey: `${replyMessage.id}:${index}` });
+        });
+
+        const replyActions = document.createElement("div");
+        replyActions.className = "message-actions";
+        const replyReplyBtn = document.createElement("button");
+        replyReplyBtn.type = "button";
+        replyReplyBtn.className = "message-action-btn";
+        replyReplyBtn.textContent = "Reply";
+        replyReplyBtn.addEventListener("click", () => setReplyTarget(conversationId, replyMessage, post.id));
+        replyActions.appendChild(replyReplyBtn);
+        replyRow.appendChild(replyActions);
+
+        repliesWrap.appendChild(replyRow);
+      });
+      postRow.appendChild(repliesWrap);
+    }
+
+    ui.messageList.appendChild(postRow);
+  });
+
+  ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  const didMarkRead = markChannelRead(channel, currentAccount?.id);
+  if (currentAccount && didMarkRead) {
+    saveState();
+    renderServers();
+    renderDmList();
+    renderChannels();
+  }
+}
+
 function renderMessages() {
   const conversation = getActiveConversation();
   const isDm = conversation?.type === "dm";
@@ -4494,6 +4671,10 @@ function renderMessages() {
   renderSlashSuggestions();
 
   if (!conversationId) return;
+  if (!isDm && channel?.type === "forum") {
+    renderForumThreads(conversationId, channel, messageBucket, getCurrentAccount());
+    return;
+  }
 
   const currentAccount = getCurrentAccount();
   let unreadDividerMessageId = null;
@@ -4660,14 +4841,7 @@ function renderMessages() {
     replyBtn.className = "message-action-btn";
     replyBtn.textContent = "Reply";
     replyBtn.addEventListener("click", () => {
-      replyTarget = {
-        channelId: conversationId,
-        messageId: message.id,
-        authorName: displayNameForMessage(message),
-        text: message.text || ""
-      };
-      renderReplyComposer();
-      ui.messageInput.focus();
+      setReplyTarget(conversationId, message, message.forumThreadId || null);
     });
     actionBar.appendChild(replyBtn);
 
@@ -4779,14 +4953,7 @@ function renderMessages() {
         {
           label: "Reply",
           action: () => {
-            replyTarget = {
-              channelId: conversationId,
-              messageId: message.id,
-              authorName: displayNameForMessage(message),
-              text: message.text || ""
-            };
-            renderReplyComposer();
-            ui.messageInput.focus();
+            setReplyTarget(conversationId, message, message.forumThreadId || null);
           }
         },
         {
@@ -5322,7 +5489,12 @@ ui.messageForm.addEventListener("submit", (event) => {
   if (conversation.type === "channel") ensureCurrentUserInActiveServer();
   if (!(conversation.type === "channel" && handleSlashCommand(text, conversation.channel, account))) {
     const nextReply = replyTarget && replyTarget.channelId === conversation.id
-      ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
+      ? {
+        messageId: replyTarget.messageId,
+        authorName: replyTarget.authorName,
+        text: replyTarget.text,
+        threadId: replyTarget.threadId || null
+      }
       : null;
     const nextMessage = {
       id: createId(),
@@ -5334,13 +5506,23 @@ ui.messageForm.addEventListener("submit", (event) => {
       attachments: [],
       replyTo: nextReply
     };
+    if (conversation.type === "channel" && conversation.channel.type === "forum") {
+      if (nextReply?.threadId) {
+        nextMessage.forumThreadId = nextReply.threadId;
+        nextMessage.forumParentId = nextReply.messageId || nextReply.threadId;
+      } else {
+        const [firstLine, ...rest] = text.split("\n");
+        nextMessage.forumTitle = (firstLine || "Untitled Post").trim().slice(0, 100) || "Untitled Post";
+        nextMessage.text = rest.join("\n").trim();
+      }
+    }
     if (conversation.type === "dm") {
       conversation.thread.messages.push(nextMessage);
     } else {
       conversation.channel.messages.push(nextMessage);
     }
     replyTarget = null;
-    if (swfPipTabs.length > 0) {
+    if (swfPipTabs.length > 0 && !(conversation.type === "channel" && conversation.channel.type === "forum")) {
       ui.messageInput.value = "";
       slashSelectionIndex = 0;
       closeMediaPicker();
