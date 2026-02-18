@@ -963,18 +963,23 @@ async function localRuntimeExists(src) {
 }
 
 async function deployMediaRuntimes() {
+  const allowLocalRuntime = new URLSearchParams(window.location.search).get("localRuntime") === "1";
   let shouldRerender = false;
-  try {
-    const hasLocalRuffle = await localRuntimeExists("ruffle/ruffle.js");
-    if (hasLocalRuffle) {
-      await loadScriptTag("ruffle/ruffle.js");
-      shouldRerender = true;
-      addDebugLog("info", "Loaded local Ruffle runtime", { src: "ruffle/ruffle.js" });
-    } else {
-      addDebugLog("info", "Local Ruffle runtime not found, using CDN fallback");
+  if (allowLocalRuntime) {
+    try {
+      const hasLocalRuffle = await localRuntimeExists("ruffle/ruffle.js");
+      if (hasLocalRuffle) {
+        await loadScriptTag("ruffle/ruffle.js");
+        shouldRerender = true;
+        addDebugLog("info", "Loaded local Ruffle runtime", { src: "ruffle/ruffle.js" });
+      } else {
+        addDebugLog("info", "Local Ruffle runtime not found, using CDN fallback");
+      }
+    } catch {
+      addDebugLog("warn", "Local Ruffle runtime probe failed, using CDN fallback");
     }
-  } catch {
-    addDebugLog("warn", "Local Ruffle runtime probe failed, using CDN fallback");
+  } else {
+    addDebugLog("info", "Skipping local Ruffle runtime probe (use ?localRuntime=1 to enable)");
   }
   if (!window.RufflePlayer?.newest) {
     try {
@@ -986,17 +991,21 @@ async function deployMediaRuntimes() {
       // SWF fallback card remains available.
     }
   }
-  try {
-    const hasLocalDotLottie = await localRuntimeExists("dotlottie/dotlottie-player.mjs");
-    if (hasLocalDotLottie) {
-      await loadScriptTag("dotlottie/dotlottie-player.mjs", "module");
-      shouldRerender = true;
-      addDebugLog("info", "Loaded local dotLottie runtime", { src: "dotlottie/dotlottie-player.mjs" });
-    } else {
-      addDebugLog("info", "Local dotLottie runtime not found, using CDN fallback");
+  if (allowLocalRuntime) {
+    try {
+      const hasLocalDotLottie = await localRuntimeExists("dotlottie/dotlottie-player.mjs");
+      if (hasLocalDotLottie) {
+        await loadScriptTag("dotlottie/dotlottie-player.mjs", "module");
+        shouldRerender = true;
+        addDebugLog("info", "Loaded local dotLottie runtime", { src: "dotlottie/dotlottie-player.mjs" });
+      } else {
+        addDebugLog("info", "Local dotLottie runtime not found, using CDN fallback");
+      }
+    } catch {
+      addDebugLog("warn", "Local dotLottie runtime probe failed, using CDN fallback");
     }
-  } catch {
-    addDebugLog("warn", "Local dotLottie runtime probe failed, using CDN fallback");
+  } else {
+    addDebugLog("info", "Skipping local dotLottie runtime probe (use ?localRuntime=1 to enable)");
   }
   if (!(typeof customElements !== "undefined" && customElements.get("dotlottie-player"))) {
     try {
