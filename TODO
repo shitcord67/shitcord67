@@ -4,6 +4,7 @@
 - Username login.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
+- Profile image upload with validation and preview.
 - Create servers (guilds).
 - Create text channels.
 - Send messages as logged-in user.
@@ -25,7 +26,6 @@
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
-- Add profile image upload and validation.
 - DM sidebar and 1:1 direct-message threads.
 - Per-guild notification settings (mute/mentions only/all).
 - WebXDC packaging path: `.xdc` zip, `manifest.toml`, and realtime sync via `joinRealtimeChannel().send`.
