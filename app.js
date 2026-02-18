@@ -1903,9 +1903,9 @@ function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPicke
     }
     return;
   }
-  if (index > 11) return;
   try {
     const player = window.RufflePlayer.newest().createPlayer();
+    player.style.pointerEvents = "none";
     if ("volume" in player) player.volume = 0;
     if ("muted" in player) player.muted = true;
     if (typeof player.set_volume === "function") player.set_volume(0);
@@ -2018,6 +2018,13 @@ function renderMediaPicker() {
     if (mediaPickerTab === "swf") {
       const preview = document.createElement("div");
       preview.className = "media-card__preview";
+      const previewMedia = document.createElement("div");
+      previewMedia.className = "media-card__preview-media";
+      const overlay = document.createElement("span");
+      overlay.className = "media-card__overlay";
+      overlay.textContent = "";
+      preview.appendChild(previewMedia);
+      preview.appendChild(overlay);
       card.appendChild(preview);
       card.appendChild(label);
       card.addEventListener("click", () => sendMediaAttachment(entry, "swf"));
@@ -2028,8 +2035,8 @@ function renderMediaPicker() {
       });
       ui.mediaGrid.appendChild(card);
       requestAnimationFrame(() => {
-        if (!preview.isConnected) return;
-        renderSwfPickerPreview(preview, entry, index, renderToken);
+        if (!previewMedia.isConnected) return;
+        renderSwfPickerPreview(previewMedia, entry, index, renderToken);
       });
       return;
     }
@@ -2183,6 +2190,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
       setSwfPlayback(runtimeKey, true, "user");
       return true;
     }
+    runtime.pipTransitioning = true;
     runtime.inPip = true;
     if (runtime.host.parentElement && runtime.host.parentElement !== ui.swfPipHost) {
       const placeholder = document.createElement("div");
@@ -2191,12 +2199,17 @@ function setSwfRuntimePip(runtimeKey, enabled) {
       runtime.host.replaceWith(placeholder);
       runtime.pipPlaceholder = placeholder;
     }
+    if (runtime.host.parentElement !== ui.swfPipHost) {
+      ui.swfPipHost.appendChild(runtime.host);
+    }
     runtime.pipHost = runtime.host;
     runtime.pipHost.classList.add("swf-pip-player");
+    runtime.pipTransitioning = false;
     activateSwfPipTab(runtimeKey);
     setSwfPlayback(runtimeKey, true, "user");
     return true;
   }
+  runtime.pipTransitioning = true;
   runtime.inPip = false;
   if (runtime.pipPlaceholder?.isConnected) {
     runtime.pipPlaceholder.replaceWith(runtime.host);
@@ -2208,6 +2221,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   runtime.host.classList.remove("swf-pip-player");
   runtime.pipHost = null;
   runtime.pipPlaceholder = null;
+  runtime.pipTransitioning = false;
   bindSwfVisibilityObserver(runtimeKey);
   removeSwfPipTab(runtimeKey);
   setSwfPlayback(runtimeKey, true, "user");
@@ -2874,6 +2888,18 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       event.preventDefault();
       saveSwfToShelf(attachment);
     });
+    const exportSavesBtn = document.createElement("button");
+    exportSavesBtn.type = "button";
+    exportSavesBtn.className = "message-swf-top-btn";
+    exportSavesBtn.textContent = "⇩";
+    exportSavesBtn.title = "Export SWF saves";
+    exportSavesBtn.addEventListener("click", () => exportSwfSavesNow());
+    const importSavesBtn = document.createElement("button");
+    importSavesBtn.type = "button";
+    importSavesBtn.className = "message-swf-top-btn";
+    importSavesBtn.textContent = "⇧";
+    importSavesBtn.title = "Import SWF saves";
+    importSavesBtn.addEventListener("click", () => triggerImportSwfSaves());
     const audioIndicator = document.createElement("span");
     audioIndicator.className = "message-swf-audio-indicator";
     audioIndicator.textContent = "Audio Idle";
@@ -2920,6 +2946,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     pipBtn.title = "Pin to PiP";
     header.appendChild(title);
     controlRow.appendChild(saveIconBtn);
+    controlRow.appendChild(exportSavesBtn);
+    controlRow.appendChild(importSavesBtn);
     controlRow.appendChild(playBtn);
     controlRow.appendChild(pauseBtn);
     controlRow.appendChild(fullscreenBtn);
@@ -3362,6 +3390,7 @@ function renderMessages() {
   const channel = getActiveChannel();
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
+    if (runtime.inPip || runtime.pipTransitioning) return;
     if (runtime.host?.isConnected) return;
     if (runtime.observer) runtime.observer.disconnect();
     swfRuntimes.delete(key);
@@ -4463,7 +4492,10 @@ ui.exportDataBtn.addEventListener("click", () => {
 });
 
 ui.importDataBtn.addEventListener("click", () => ui.importDataInput.click());
-ui.importSwfSavesBtn.addEventListener("click", () => ui.importSwfSavesInput.click());
+function triggerImportSwfSaves() {
+  ui.importSwfSavesInput.click();
+}
+ui.importSwfSavesBtn.addEventListener("click", triggerImportSwfSaves);
 
 function collectRuffleSaveEntries() {
   const entries = [];
@@ -4478,7 +4510,7 @@ function collectRuffleSaveEntries() {
   return entries;
 }
 
-ui.exportSwfSavesBtn.addEventListener("click", () => {
+function exportSwfSavesNow() {
   const payload = {
     exportedAt: new Date().toISOString(),
     origin: location.origin,
@@ -4491,7 +4523,9 @@ ui.exportSwfSavesBtn.addEventListener("click", () => {
   a.download = `shitcord67-swf-saves-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-});
+}
+
+ui.exportSwfSavesBtn.addEventListener("click", exportSwfSavesNow);
 
 ui.openDebugConsoleBtn.addEventListener("click", () => {
   openDebugDialog();

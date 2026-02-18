@@ -758,7 +758,7 @@ button {
 .media-picker__grid {
   column-count: 2;
   column-gap: 0.45rem;
-  max-height: 238px;
+  max-height: 360px;
   overflow-y: auto;
   padding: 0.5rem;
 }
@@ -786,10 +786,11 @@ button {
 }
 
 .media-card__preview {
+  position: relative;
   width: 100%;
   height: auto;
   min-height: 110px;
-  max-height: 260px;
+  max-height: 180px;
   background: #2c2f36;
   display: block;
   object-fit: contain;
@@ -798,6 +799,17 @@ button {
 .media-card__preview > * {
   width: 100%;
   height: 100%;
+}
+
+.media-card__preview-media {
+  pointer-events: none;
+}
+
+.media-card__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  background: transparent;
 }
 
 .media-card--swf .media-card__preview {
