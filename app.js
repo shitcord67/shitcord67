@@ -1,4 +1,5 @@
 const STORAGE_KEY = "shitcord67-state-v1";
+const SESSION_ACCOUNT_KEY = "shitcord67-session-account-id";
 const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
@@ -403,20 +404,38 @@ function migrateState(raw) {
 }
 
 function loadState() {
+  const applySessionRestore = (restored) => {
+    if (!restored || !Array.isArray(restored.accounts)) return restored;
+    const accountIds = restored.accounts.map((account) => account?.id).filter(Boolean);
+    const validIds = new Set(accountIds);
+    if (restored.currentAccountId && validIds.has(restored.currentAccountId)) {
+      localStorage.setItem(SESSION_ACCOUNT_KEY, restored.currentAccountId);
+      return restored;
+    }
+    const remembered = localStorage.getItem(SESSION_ACCOUNT_KEY);
+    if (remembered && validIds.has(remembered)) {
+      restored.currentAccountId = remembered;
+      return restored;
+    }
+    if (!restored.currentAccountId && accountIds.length === 1) {
+      [restored.currentAccountId] = accountIds;
+    }
+    return restored;
+  };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return migrateState(JSON.parse(raw));
+    if (raw) return applySessionRestore(migrateState(JSON.parse(raw)));
 
     const v2Raw = localStorage.getItem("flashcord-state-v2");
     if (v2Raw) {
-      const migrated = migrateState(JSON.parse(v2Raw));
+      const migrated = applySessionRestore(migrateState(JSON.parse(v2Raw)));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
       return migrated;
     }
 
     const legacyRaw = localStorage.getItem("flashcord-state-v1");
     if (legacyRaw) {
-      const migrated = migrateState(JSON.parse(legacyRaw));
+      const migrated = applySessionRestore(migrateState(JSON.parse(legacyRaw)));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
       return migrated;
     }
@@ -664,6 +683,15 @@ const ui = {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function rememberAccountSession(accountId) {
+  if (!accountId) return;
+  localStorage.setItem(SESSION_ACCOUNT_KEY, accountId);
+}
+
+function clearRememberedAccountSession() {
+  localStorage.removeItem(SESSION_ACCOUNT_KEY);
 }
 
 function getCurrentAccount() {
@@ -5908,6 +5936,7 @@ function createOrSwitchAccount(usernameInput) {
   }
 
   state.currentAccountId = account.id;
+  rememberAccountSession(account.id);
   if (state.viewMode !== "dm" && state.viewMode !== "guild") state.viewMode = "guild";
   if (!state.activeGuildId && state.guilds[0]) {
     state.activeGuildId = state.guilds[0].id;
@@ -6500,6 +6529,7 @@ ui.settingsSwitchAccount.addEventListener("click", () => {
 
 ui.settingsLogout.addEventListener("click", () => {
   state.currentAccountId = null;
+  clearRememberedAccountSession();
   closeSettingsScreen();
   saveState();
   render();
@@ -6683,6 +6713,7 @@ ui.selfSwitchAccount.addEventListener("click", () => {
 
 ui.selfLogout.addEventListener("click", () => {
   state.currentAccountId = null;
+  clearRememberedAccountSession();
   ui.selfMenuDialog.close();
   saveState();
   render();
@@ -6814,6 +6845,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
     createOrSwitchAccount(typed);
   } else if (selectedSwitchAccountId) {
     state.currentAccountId = selectedSwitchAccountId;
+    rememberAccountSession(selectedSwitchAccountId);
   }
 
   ensureCurrentUserInActiveServer();
