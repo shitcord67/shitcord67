@@ -924,6 +924,7 @@ button {
 
 .media-picker__tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.2rem;
   padding: 0.4rem 0.45rem;
   border-bottom: 1px solid #2d3138;
@@ -1101,6 +1102,14 @@ button {
   background: #3f4248;
   color: #d2d8e0;
   font-size: 1.2rem;
+}
+
+.message-form__tab-btn {
+  width: 44px;
+  min-width: 44px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .message-form__media-btn--active {
