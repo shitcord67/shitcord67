@@ -213,6 +213,7 @@ let selectedSwitchAccountId = null;
 let messageEditTarget = null;
 let replyTarget = null;
 let slashSelectionIndex = 0;
+let mentionSelectionIndex = 0;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -230,6 +231,7 @@ const ui = {
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
   slashCommandPopup: document.getElementById("slashCommandPopup"),
+  suggestionHint: document.getElementById("suggestionHint"),
   slashCommandList: document.getElementById("slashCommandList"),
   composerReplyBar: document.getElementById("composerReplyBar"),
   replyPreviewText: document.getElementById("replyPreviewText"),
@@ -557,29 +559,109 @@ function applySlashCompletion(commandName) {
   renderSlashSuggestions();
 }
 
+function getMentionContext(inputValue) {
+  const caret = ui.messageInput.selectionStart ?? inputValue.length;
+  const beforeCaret = inputValue.slice(0, caret);
+  const match = beforeCaret.match(/(^|\s)@([a-z0-9._-]*)$/i);
+  if (!match) return null;
+  return {
+    query: match[2].toLowerCase(),
+    tokenStart: caret - match[2].length - 1,
+    tokenEnd: caret
+  };
+}
+
+function getMentionMatches(query) {
+  const server = getActiveServer();
+  if (!server) return [];
+  const accounts = server.memberIds
+    .map((memberId) => getAccountById(memberId))
+    .filter(Boolean);
+  return accounts
+    .filter((account) => {
+      const username = account.username.toLowerCase();
+      const displayName = (account.displayName || "").toLowerCase();
+      return !query || username.startsWith(query) || displayName.startsWith(query);
+    })
+    .slice(0, 8);
+}
+
+function applyMentionCompletion(account) {
+  const raw = ui.messageInput.value;
+  const context = getMentionContext(raw);
+  if (!context) return;
+  const prefix = raw.slice(0, context.tokenStart);
+  const suffix = raw.slice(context.tokenEnd);
+  ui.messageInput.value = `${prefix}@${account.username} ${suffix}`.replace(/\s{2,}/g, " ");
+  mentionSelectionIndex = 0;
+  renderSlashSuggestions();
+}
+
+function getComposerSuggestionState() {
+  const raw = ui.messageInput.value;
+  const trimmedStart = raw.trimStart();
+  const slashFirstChunk = trimmedStart.slice(1);
+  const slashHasWhitespace = /\s/.test(slashFirstChunk);
+  if (trimmedStart.startsWith("/") && !slashHasWhitespace) {
+    const slashMatches = getSlashMatches(trimmedStart);
+    if (slashMatches.length > 0) {
+      return { type: "slash", items: slashMatches };
+    }
+  }
+
+  const mentionContext = getMentionContext(raw);
+  if (mentionContext) {
+    const mentionMatches = getMentionMatches(mentionContext.query);
+    if (mentionMatches.length > 0) {
+      return { type: "mention", items: mentionMatches };
+    }
+  }
+  return { type: "none", items: [] };
+}
+
 function renderSlashSuggestions() {
-  const matches = getSlashMatches(ui.messageInput.value.trimStart());
-  const firstChunk = ui.messageInput.value.trimStart().slice(1);
-  const hasWhitespace = /\s/.test(firstChunk);
-  const shouldShow = ui.messageInput.value.trimStart().startsWith("/") && !hasWhitespace && matches.length > 0;
+  const suggestion = getComposerSuggestionState();
+  const shouldShow = suggestion.type !== "none";
   ui.slashCommandPopup.classList.toggle("slash-popup--hidden", !shouldShow);
   ui.slashCommandList.innerHTML = "";
   if (!shouldShow) return;
 
-  slashSelectionIndex = Math.max(0, Math.min(slashSelectionIndex, matches.length - 1));
-  matches.forEach((command, index) => {
+  if (suggestion.type === "slash") {
+    ui.suggestionHint.textContent = "Commands: use ↑↓ and Enter/Tab";
+    slashSelectionIndex = Math.max(0, Math.min(slashSelectionIndex, suggestion.items.length - 1));
+    suggestion.items.forEach((command, index) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = `slash-item ${index === slashSelectionIndex ? "active" : ""}`;
+      const args = command.args ? ` ${command.args}` : "";
+      item.innerHTML = `<strong>/${command.name}${args}</strong><small>${command.description}</small>`;
+      item.addEventListener("mouseenter", () => {
+        slashSelectionIndex = index;
+        renderSlashSuggestions();
+      });
+      item.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        applySlashCompletion(command.name);
+      });
+      ui.slashCommandList.appendChild(item);
+    });
+    return;
+  }
+
+  ui.suggestionHint.textContent = "Mentions: use ↑↓ and Enter/Tab";
+  mentionSelectionIndex = Math.max(0, Math.min(mentionSelectionIndex, suggestion.items.length - 1));
+  suggestion.items.forEach((account, index) => {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = `slash-item ${index === slashSelectionIndex ? "active" : ""}`;
-    const args = command.args ? ` ${command.args}` : "";
-    item.innerHTML = `<strong>/${command.name}${args}</strong><small>${command.description}</small>`;
+    item.className = `slash-item ${index === mentionSelectionIndex ? "active" : ""}`;
+    item.innerHTML = `<strong>@${account.username}</strong><small>${account.displayName || account.username} · ${displayStatus(account)}</small>`;
     item.addEventListener("mouseenter", () => {
-      slashSelectionIndex = index;
+      mentionSelectionIndex = index;
       renderSlashSuggestions();
     });
     item.addEventListener("mousedown", (event) => {
       event.preventDefault();
-      applySlashCompletion(command.name);
+      applyMentionCompletion(account);
     });
     ui.slashCommandList.appendChild(item);
   });
@@ -1069,17 +1151,17 @@ ui.messageForm.addEventListener("submit", (event) => {
 
 ui.messageInput.addEventListener("input", () => {
   slashSelectionIndex = 0;
+  mentionSelectionIndex = 0;
   renderSlashSuggestions();
 });
 
 ui.messageInput.addEventListener("keydown", (event) => {
-  const matches = getSlashMatches(ui.messageInput.value.trimStart());
-  const firstChunk = ui.messageInput.value.trimStart().slice(1);
-  const hasWhitespace = /\s/.test(firstChunk);
-  const popupVisible = ui.messageInput.value.trimStart().startsWith("/") && !hasWhitespace && matches.length > 0;
+  const suggestion = getComposerSuggestionState();
+  const popupVisible = suggestion.type !== "none";
 
   if (event.key === "Escape") {
     slashSelectionIndex = 0;
+    mentionSelectionIndex = 0;
     ui.slashCommandPopup.classList.add("slash-popup--hidden");
     return;
   }
@@ -1087,20 +1169,33 @@ ui.messageInput.addEventListener("keydown", (event) => {
 
   if (event.key === "ArrowDown") {
     event.preventDefault();
-    slashSelectionIndex = (slashSelectionIndex + 1) % matches.length;
+    if (suggestion.type === "slash") {
+      slashSelectionIndex = (slashSelectionIndex + 1) % suggestion.items.length;
+    } else {
+      mentionSelectionIndex = (mentionSelectionIndex + 1) % suggestion.items.length;
+    }
     renderSlashSuggestions();
     return;
   }
   if (event.key === "ArrowUp") {
     event.preventDefault();
-    slashSelectionIndex = (slashSelectionIndex - 1 + matches.length) % matches.length;
+    if (suggestion.type === "slash") {
+      slashSelectionIndex = (slashSelectionIndex - 1 + suggestion.items.length) % suggestion.items.length;
+    } else {
+      mentionSelectionIndex = (mentionSelectionIndex - 1 + suggestion.items.length) % suggestion.items.length;
+    }
     renderSlashSuggestions();
     return;
   }
   if (event.key === "Tab" || event.key === "Enter") {
     event.preventDefault();
-    const selected = matches[slashSelectionIndex] || matches[0];
-    if (selected) applySlashCompletion(selected.name);
+    if (suggestion.type === "slash") {
+      const selected = suggestion.items[slashSelectionIndex] || suggestion.items[0];
+      if (selected) applySlashCompletion(selected.name);
+    } else {
+      const selected = suggestion.items[mentionSelectionIndex] || suggestion.items[0];
+      if (selected) applyMentionCompletion(selected);
+    }
   }
 });
 
