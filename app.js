@@ -300,6 +300,8 @@ function buildInitialState() {
       recentEmojis: [],
       hideChannelPanel: "off",
       hideMemberPanel: "off",
+      collapseDmSection: "off",
+      collapseGuildSection: "off",
       swfPipPosition: null
     }
   };
@@ -616,6 +618,10 @@ const ui = {
   serverList: document.getElementById("serverList"),
   dmSection: document.getElementById("dmSection"),
   guildSection: document.getElementById("guildSection"),
+  toggleDmSectionBtn: document.getElementById("toggleDmSectionBtn"),
+  toggleGuildSectionBtn: document.getElementById("toggleGuildSectionBtn"),
+  toggleDmSectionChevron: document.getElementById("toggleDmSectionChevron"),
+  toggleGuildSectionChevron: document.getElementById("toggleGuildSectionChevron"),
   channelList: document.getElementById("channelList"),
   dmList: document.getElementById("dmList"),
   dmSearchInput: document.getElementById("dmSearchInput"),
@@ -626,6 +632,8 @@ const ui = {
   activeServerName: document.getElementById("activeServerName"),
   openGuildSettingsBtn: document.getElementById("openGuildSettingsBtn"),
   activeChannelName: document.getElementById("activeChannelName"),
+  activeChannelGlyph: document.getElementById("activeChannelGlyph"),
+  activeChannelLabel: document.getElementById("activeChannelLabel"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
   nextUnreadBtn: document.getElementById("nextUnreadBtn"),
@@ -938,6 +946,7 @@ function syncComposerDraftConversation(nextConversationId) {
   if ((ui.messageInput.value || "") !== nextDraft) {
     ui.messageInput.value = nextDraft;
   }
+  resizeComposerInput();
 }
 
 function getUserNoteKey(ownerId, targetId) {
@@ -1855,6 +1864,8 @@ function getPreferences() {
     recentEmojis: normalizeRecentEmojis(current.recentEmojis),
     hideChannelPanel: normalizeToggle(current.hideChannelPanel),
     hideMemberPanel: normalizeToggle(current.hideMemberPanel),
+    collapseDmSection: normalizeToggle(current.collapseDmSection),
+    collapseGuildSection: normalizeToggle(current.collapseGuildSection),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -2070,6 +2081,38 @@ function channelTypeSymbol(channel) {
   if (channel.type === "forum") return "🧵";
   if (channel.type === "media") return "🖼";
   return "#";
+}
+
+function channelHeaderGlyph(channel, mode = "channel") {
+  if (mode === "dm") return "@";
+  if (!channel || channel.type === "text") return "#";
+  if (channel.type === "announcement") return "!";
+  if (channel.type === "forum") return "≡";
+  if (channel.type === "media") return "▦";
+  return "#";
+}
+
+function setActiveChannelHeader(label, glyph = "#", title = "") {
+  if (ui.activeChannelLabel) ui.activeChannelLabel.textContent = label || "";
+  if (ui.activeChannelGlyph) ui.activeChannelGlyph.textContent = glyph || "#";
+  if (ui.activeChannelName) {
+    ui.activeChannelName.title = title || label || "";
+  }
+}
+
+function setActiveChannelTopic(text) {
+  const nextText = (text || "").toString().trim();
+  if (ui.activeChannelTopic) {
+    ui.activeChannelTopic.textContent = nextText;
+    ui.activeChannelTopic.classList.toggle("chat-topic--empty", !nextText);
+  }
+}
+
+function resizeComposerInput() {
+  if (!(ui.messageInput instanceof HTMLTextAreaElement)) return;
+  ui.messageInput.style.height = "0px";
+  const next = Math.max(40, Math.min(160, ui.messageInput.scrollHeight));
+  ui.messageInput.style.height = `${next}px`;
 }
 
 function isLikelyUrl(value) {
@@ -3689,6 +3732,8 @@ function applyPreferencesToUI() {
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   document.body.dataset.hideChannelPanel = prefs.hideChannelPanel;
   document.body.dataset.hideMemberPanel = prefs.hideMemberPanel;
+  document.body.dataset.collapseDmSection = prefs.collapseDmSection;
+  document.body.dataset.collapseGuildSection = prefs.collapseGuildSection;
   ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
   ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
   if (ui.toggleChannelPanelBtn) {
@@ -3701,6 +3746,18 @@ function applyPreferencesToUI() {
     ui.toggleMemberPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
     ui.toggleMemberPanelBtn.textContent = hidden ? "Members Off" : "Members";
   }
+  if (ui.toggleDmSectionBtn) {
+    const collapsed = prefs.collapseDmSection === "on";
+    ui.toggleDmSectionBtn.title = collapsed ? "Expand Direct Messages" : "Collapse Direct Messages";
+    ui.toggleDmSectionBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  }
+  if (ui.toggleGuildSectionBtn) {
+    const collapsed = prefs.collapseGuildSection === "on";
+    ui.toggleGuildSectionBtn.title = collapsed ? "Expand Channels" : "Collapse Channels";
+    ui.toggleGuildSectionBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  }
+  if (ui.toggleDmSectionChevron) ui.toggleDmSectionChevron.textContent = prefs.collapseDmSection === "on" ? "▸" : "▾";
+  if (ui.toggleGuildSectionChevron) ui.toggleGuildSectionChevron.textContent = prefs.collapseGuildSection === "on" ? "▸" : "▾";
   if (ui.toggleSwfAudioBtn) {
     const mode = prefs.swfQuickAudioMode;
     const icon = mode === "on" ? "🔊" : mode === "click" ? "🔉" : "🔇";
@@ -3720,6 +3777,7 @@ function applyPreferencesToUI() {
     if (prefs.swfQuickAudioMode === "on") runtime.audioClickAllowed = true;
   });
   applySwfAudioToAllRuntimes();
+  resizeComposerInput();
 }
 
 function toggleChannelPanelVisibility() {
@@ -3734,6 +3792,22 @@ function toggleMemberPanelVisibility() {
   state.preferences.hideMemberPanel = state.preferences.hideMemberPanel === "on" ? "off" : "on";
   saveState();
   applyPreferencesToUI();
+}
+
+function toggleDmSectionCollapsed() {
+  state.preferences = getPreferences();
+  state.preferences.collapseDmSection = state.preferences.collapseDmSection === "on" ? "off" : "on";
+  saveState();
+  applyPreferencesToUI();
+  renderChannels();
+}
+
+function toggleGuildSectionCollapsed() {
+  state.preferences = getPreferences();
+  state.preferences.collapseGuildSection = state.preferences.collapseGuildSection === "on" ? "off" : "on";
+  saveState();
+  applyPreferencesToUI();
+  renderChannels();
 }
 
 function setSwfQuickAudioMode(mode) {
@@ -6494,8 +6568,11 @@ function renderDmList() {
 function renderChannels() {
   renderDmList();
   const dmMode = getViewMode() === "dm";
+  const prefs = getPreferences();
   ui.dmSection.classList.toggle("panel-section--hidden", !dmMode);
   ui.guildSection.classList.toggle("panel-section--hidden", dmMode);
+  ui.dmSection.classList.toggle("panel-section--collapsed", prefs.collapseDmSection === "on");
+  ui.guildSection.classList.toggle("panel-section--collapsed", prefs.collapseGuildSection === "on");
   if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = dmMode;
   const server = getActiveServer();
   ui.channelList.innerHTML = "";
@@ -6546,8 +6623,8 @@ function renderChannels() {
       button.classList.add("channel-item--unread");
     } else if (unreadStats.unread > 0) {
       const unreadBadge = document.createElement("span");
-      unreadBadge.className = "channel-badge";
-      unreadBadge.textContent = unreadStats.unread > 99 ? "99+" : String(unreadStats.unread);
+      unreadBadge.className = "channel-badge channel-badge--dot";
+      unreadBadge.textContent = "";
       button.appendChild(unreadBadge);
       button.classList.add("channel-item--unread");
     }
@@ -7094,8 +7171,8 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
 
 function renderDmHome() {
   const current = getCurrentAccount();
-  ui.activeChannelName.textContent = "Friends";
-  ui.activeChannelTopic.textContent = "Direct Messages";
+  setActiveChannelHeader("Friends", "@", "Friends");
+  setActiveChannelTopic("Direct Messages");
   ui.messageInput.placeholder = "Pick a DM to start chatting";
   if (ui.markChannelReadBtn) ui.markChannelReadBtn.hidden = true;
   if (ui.nextUnreadBtn) ui.nextUnreadBtn.hidden = true;
@@ -7209,12 +7286,12 @@ function renderMessages() {
     const current = getCurrentAccount();
     const peerId = dmThread.participantIds.find((id) => id !== current?.id);
     const peer = peerId ? getAccountById(peerId) : null;
-    ui.activeChannelName.textContent = peer ? `@${peer.username}` : "@dm";
-    ui.activeChannelTopic.textContent = "Direct Message";
+    setActiveChannelHeader(peer ? peer.username : "dm", "@", peer ? `@${peer.username}` : "@dm");
+    setActiveChannelTopic("Direct Message");
     ui.messageInput.placeholder = peer ? `Message @${peer.username}` : "Message DM";
   } else {
-    ui.activeChannelName.textContent = channel ? `${channelTypePrefix(channel)} ${channel.name}` : "#none";
-    ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
+    setActiveChannelHeader(channel ? channel.name : "none", channelHeaderGlyph(channel, "channel"), channel ? `#${channel.name}` : "#none");
+    setActiveChannelTopic(channel?.topic?.trim() || "");
     if (channel?.type === "forum") {
       ui.messageInput.placeholder = channel ? `New post in ${channelTypePrefix(channel)} ${channel.name} (title on first line)` : "No channel selected";
     } else if (channel?.type === "announcement") {
@@ -7266,8 +7343,8 @@ function renderMessages() {
   }
   const channelSlowmode = !isDm ? getChannelSlowmodeSeconds(channel) : 0;
   if (!isDm && channelSlowmode > 0) {
-    const baseTopic = channel?.topic?.trim() || "No topic";
-    ui.activeChannelTopic.textContent = `${baseTopic} · ${formatSlowmodeLabel(channelSlowmode)}`;
+    const baseTopic = channel?.topic?.trim() || "";
+    setActiveChannelTopic(baseTopic ? `${baseTopic} · ${formatSlowmodeLabel(channelSlowmode)}` : `${formatSlowmodeLabel(channelSlowmode)}`);
   }
   let unreadDividerMessageId = null;
   if (currentAccount && isDm && dmThread) {
@@ -7935,10 +8012,18 @@ function renderMemberList() {
         const dot = document.createElement("span");
         dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
         avatar.appendChild(dot);
+        const meta = document.createElement("span");
+        meta.className = "member-meta";
         const label = document.createElement("span");
+        label.className = "member-meta__name";
         label.textContent = displayNameForAccount(account, null);
+        const status = document.createElement("small");
+        status.className = "member-meta__status";
+        status.textContent = presenceLabel(account.presence);
+        meta.appendChild(label);
+        meta.appendChild(status);
         row.appendChild(avatar);
-        row.appendChild(label);
+        row.appendChild(meta);
         row.addEventListener("click", () => openUserPopout(account));
         row.addEventListener("contextmenu", (event) => {
           openContextMenu(event, [
@@ -8005,13 +8090,21 @@ function renderMemberList() {
       dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
       avatar.appendChild(dot);
 
+      const meta = document.createElement("span");
+      meta.className = "member-meta";
       const label = document.createElement("span");
+      label.className = "member-meta__name";
       label.textContent = displayNameForAccount(account, server.id);
       const roleColor = getMemberTopRoleColor(server, account.id);
       if (roleColor) label.style.color = roleColor;
+      const status = document.createElement("small");
+      status.className = "member-meta__status";
+      status.textContent = displayStatus(account, server.id);
+      meta.appendChild(label);
+      meta.appendChild(status);
 
       row.appendChild(avatar);
-      row.appendChild(label);
+      row.appendChild(meta);
       row.addEventListener("click", () => openUserPopout(account));
       row.addEventListener("contextmenu", (event) => {
         openContextMenu(event, [
@@ -8408,6 +8501,7 @@ ui.messageForm.addEventListener("submit", (event) => {
     if (swfPipTabs.length > 0 && !(conversation.type === "channel" && conversation.channel.type === "forum")) {
       ui.messageInput.value = "";
       setComposerDraft(conversation.id, "");
+      resizeComposerInput();
       slashSelectionIndex = 0;
       closeMediaPicker();
       saveState();
@@ -8423,6 +8517,7 @@ ui.messageForm.addEventListener("submit", (event) => {
   clearComposerPendingAttachment();
   slashSelectionIndex = 0;
   closeMediaPicker();
+  resizeComposerInput();
   saveState();
   renderMessages();
   renderMemberList();
@@ -8432,6 +8527,7 @@ ui.messageForm.addEventListener("submit", (event) => {
 ui.messageInput.addEventListener("input", () => {
   setComposerDraft(composerDraftConversationId, ui.messageInput.value);
   queueComposerDraftSave();
+  resizeComposerInput();
   slashSelectionIndex = 0;
   mentionSelectionIndex = 0;
   renderSlashSuggestions();
@@ -8662,6 +8758,14 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
   openDmWithAccount(candidate);
 });
 
+ui.toggleDmSectionBtn?.addEventListener("click", () => {
+  toggleDmSectionCollapsed();
+});
+
+ui.toggleGuildSectionBtn?.addEventListener("click", () => {
+  toggleGuildSectionCollapsed();
+});
+
 ui.messageInput.addEventListener("keydown", (event) => {
   if (event.key === "ArrowUp" && !ui.messageInput.value.trim()) {
     const last = findLastEditableMessageInActiveConversation();
@@ -8738,6 +8842,18 @@ ui.messageInput.addEventListener("keydown", (event) => {
     slashSelectionIndex = 0;
     mentionSelectionIndex = 0;
     ui.slashCommandPopup.classList.add("slash-popup--hidden");
+    return;
+  }
+  if (
+    event.key === "Enter"
+    && !event.shiftKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.altKey
+    && !popupVisible
+  ) {
+    event.preventDefault();
+    ui.messageForm.requestSubmit();
     return;
   }
   if (!popupVisible) return;
@@ -9828,6 +9944,20 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     openShortcutsDialog();
     return;
+  }
+  if (event.altKey && event.shiftKey && !event.ctrlKey && !event.metaKey) {
+    if (!state.currentAccountId) return;
+    const key = event.key.toLowerCase();
+    if (key === "d") {
+      event.preventDefault();
+      toggleDmSectionCollapsed();
+      return;
+    }
+    if (key === "c") {
+      event.preventDefault();
+      toggleGuildSectionCollapsed();
+      return;
+    }
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
     if (!state.currentAccountId) return;

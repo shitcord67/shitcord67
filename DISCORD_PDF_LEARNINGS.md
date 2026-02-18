@@ -68,6 +68,9 @@ This file is intended as persistent context for future LLM runs.
 3. DM home cards now include avatar + presence + time + better preview hierarchy.
 4. Global surface spacing/radii updated toward Discord desktop proportions (rail/channel/header/member/composer).
 5. Login/chat view switching hardened against partial render failure (`safeRender` + deterministic screen sync).
+6. Channel list sections now support collapsible headers with persisted state and chevron affordances.
+7. Header title now uses dedicated glyph + label slots with cleaner topic separator behavior.
+8. Composer switched to textarea rhythm (`Enter` send, `Shift+Enter` newline), closer to desktop Discord typing.
 
 ## Operational Guidance
 

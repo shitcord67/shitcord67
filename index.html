@@ -43,13 +43,19 @@
 
         <div class="channel-scroll">
           <section id="dmSection">
-            <div class="channel-section-title">Direct Messages</div>
+            <button id="toggleDmSectionBtn" class="channel-section-title channel-section-toggle" type="button">
+              <span>Direct Messages</span>
+              <span id="toggleDmSectionChevron" class="channel-section-toggle__chevron" aria-hidden="true">▾</span>
+            </button>
             <input id="dmSearchInput" class="channel-filter" type="text" maxlength="40" placeholder="Find or start DM" />
             <div id="dmList" class="channel-list channel-list--dm"></div>
             <button id="newDmBtn" class="channel-create">+ New DM</button>
           </section>
           <section id="guildSection">
-            <div class="channel-section-title">Channels</div>
+            <button id="toggleGuildSectionBtn" class="channel-section-title channel-section-toggle" type="button">
+              <span>Channels</span>
+              <span id="toggleGuildSectionChevron" class="channel-section-toggle__chevron" aria-hidden="true">▾</span>
+            </button>
             <input id="channelFilterInput" class="channel-filter" type="text" maxlength="40" placeholder="Filter channels" />
             <div id="channelList" class="channel-list"></div>
             <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
@@ -60,7 +66,10 @@
 
       <main class="chat-panel">
         <header class="chat-header">
-          <h2 id="activeChannelName">#general</h2>
+          <h2 id="activeChannelName">
+            <span id="activeChannelGlyph" class="chat-channel-glyph" aria-hidden="true">#</span>
+            <span id="activeChannelLabel">general</span>
+          </h2>
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
             <button id="markChannelReadBtn" class="chat-topic-edit" title="Mark channel read">Mark Read</button>
@@ -133,7 +142,7 @@
             <button id="openEmojiPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Emoji picker">🙂</button>
             <button id="quickFileAttachBtn" type="button" class="message-form__media-btn" title="Attach file from computer (PDF/Text/Docs)">📎</button>
             <button id="toggleSwfAudioBtn" type="button" class="message-form__media-btn" title="Toggle SWF audio">🔇</button>
-            <input id="messageInput" type="text" maxlength="400" placeholder="Message #general" />
+            <textarea id="messageInput" rows="1" maxlength="400" placeholder="Message #general"></textarea>
             <button type="submit">Send</button>
           </form>
           <div class="composer-meta">
@@ -481,9 +490,11 @@
         <div><kbd>Alt+N / Alt+P</kbd> Jump next / previous unread channel</div>
         <div><kbd>Alt+1..9</kbd> Open media tab quickly</div>
         <div><kbd>Alt+ArrowUp / ArrowDown</kbd> Switch channel up/down</div>
+        <div><kbd>Alt+Shift+D / Alt+Shift+C</kbd> Collapse DM / channel section</div>
         <div><kbd>Ctrl+Shift+B</kbd> Toggle channel sidebar</div>
         <div><kbd>Ctrl+Shift+M</kbd> Toggle member sidebar</div>
         <div><kbd>Alt+D</kbd> Toggle DM / guild mode</div>
+        <div><kbd>Enter / Shift+Enter</kbd> Send message / newline</div>
         <div><kbd>ArrowUp</kbd> (empty composer) edit latest editable message</div>
         <div><kbd>Shift+Click timestamp</kbd> Copy raw timestamp</div>
         <div><kbd>Double click message</kbd> Start reply</div>
