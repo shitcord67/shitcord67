@@ -517,6 +517,7 @@ const ui = {
   profileGuildAvatarInput: document.getElementById("profileGuildAvatarInput"),
   profileGuildAvatarUrlInput: document.getElementById("profileGuildAvatarUrlInput"),
   profileGuildBannerInput: document.getElementById("profileGuildBannerInput"),
+  profileGuildStatusInput: document.getElementById("profileGuildStatusInput"),
   presenceInput: document.getElementById("presenceInput"),
   profileBannerInput: document.getElementById("profileBannerInput"),
   profileAvatarInput: document.getElementById("profileAvatarInput"),
@@ -1311,6 +1312,24 @@ function statusExpiryPreset(account) {
   return "today";
 }
 
+function resolveAccountStatus(account, guildId = null) {
+  if (!account) return { text: "", emoji: "" };
+  if (guildId && account.guildProfiles && typeof account.guildProfiles === "object") {
+    const profile = account.guildProfiles[guildId];
+    const guildStatus = (profile?.status || "").toString().trim().slice(0, 80);
+    if (guildStatus) {
+      return {
+        text: guildStatus,
+        emoji: (profile?.statusEmoji || account.customStatusEmoji || "").toString().trim().slice(0, 4)
+      };
+    }
+  }
+  return {
+    text: (account.customStatus || "").trim(),
+    emoji: (account.customStatusEmoji || "").trim().slice(0, 4)
+  };
+}
+
 function pruneExpiredStatuses() {
   let changed = false;
   const now = Date.now();
@@ -1326,11 +1345,12 @@ function pruneExpiredStatuses() {
   return changed;
 }
 
-function displayStatus(account) {
+function displayStatus(account, guildId = null) {
   if (!account) return "Offline";
-  const statusText = (account.customStatus || "").trim();
+  const status = resolveAccountStatus(account, guildId);
+  const statusText = status.text;
   if (statusText) {
-    const emoji = (account.customStatusEmoji || "").trim();
+    const emoji = status.emoji;
     return emoji ? `${emoji} ${statusText}` : statusText;
   }
   return presenceLabel(account.presence);
@@ -1808,8 +1828,27 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "status") {
-    account.customStatus = arg.slice(0, 80);
-    addSystemMessage(channel, account.customStatus ? `Status set to: ${account.customStatus}` : "Status cleared.");
+    const guild = getActiveGuild();
+    if (guild) {
+      if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+      const scoped = arg.slice(0, 80);
+      if (scoped) {
+        account.guildProfiles[guild.id] = {
+          ...(account.guildProfiles[guild.id] || {}),
+          status: scoped,
+          statusEmoji: account.customStatusEmoji || ""
+        };
+        addSystemMessage(channel, `Guild status set to: ${scoped}`);
+      } else if (account.guildProfiles[guild.id]) {
+        delete account.guildProfiles[guild.id].status;
+        delete account.guildProfiles[guild.id].statusEmoji;
+        if (Object.keys(account.guildProfiles[guild.id]).length === 0) delete account.guildProfiles[guild.id];
+        addSystemMessage(channel, "Guild status cleared.");
+      }
+    } else {
+      account.customStatus = arg.slice(0, 80);
+      addSystemMessage(channel, account.customStatus ? `Status set to: ${account.customStatus}` : "Status cleared.");
+    }
     return true;
   }
 
@@ -1953,7 +1992,7 @@ function renderSlashSuggestions() {
     item.type = "button";
     item.className = `slash-item ${index === mentionSelectionIndex ? "active" : ""}`;
     const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
-    item.innerHTML = `<strong>@${account.username}</strong><small>${displayNameForAccount(account, guildId)} · ${displayStatus(account)}</small>`;
+    item.innerHTML = `<strong>@${account.username}</strong><small>${displayNameForAccount(account, guildId)} · ${displayStatus(account, guildId)}</small>`;
     item.addEventListener("mouseenter", () => {
       mentionSelectionIndex = index;
       renderSlashSuggestions();
@@ -4390,7 +4429,7 @@ function openUserPopout(account, fallbackName = "Unknown") {
   const activeServer = getActiveConversation()?.type === "channel" ? getActiveServer() : null;
   const userRoleColor = account?.id && activeServer ? getMemberTopRoleColor(activeServer, account.id) : "";
   ui.userPopoutName.style.color = userRoleColor || "";
-  ui.userPopoutStatus.textContent = account ? displayStatus(account) : "Offline";
+  ui.userPopoutStatus.textContent = account ? displayStatus(account, guildId) : "Offline";
   ui.userPopoutBio.textContent = bio;
   applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
   applyBannerStyle(ui.userPopoutBanner, resolveAccountBanner(account, guildId));
@@ -4442,7 +4481,11 @@ function renderMessages() {
   } else {
     ui.activeChannelName.textContent = channel ? `${channelTypePrefix(channel)} ${channel.name}` : "#none";
     ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
-    ui.messageInput.placeholder = channel ? `Message ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
+    if (channel?.type === "forum") {
+      ui.messageInput.placeholder = channel ? `New post in ${channelTypePrefix(channel)} ${channel.name} (title on first line)` : "No channel selected";
+    } else {
+      ui.messageInput.placeholder = channel ? `Message ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
+    }
   }
   if (!conversationId || (replyTarget && replyTarget.channelId !== conversationId)) {
     replyTarget = null;
@@ -4452,10 +4495,40 @@ function renderMessages() {
 
   if (!conversationId) return;
 
+  const currentAccount = getCurrentAccount();
+  let unreadDividerMessageId = null;
+  if (currentAccount && isDm && dmThread) {
+    const lastReadMs = toTimestampMs(dmThread.readState?.[currentAccount.id]);
+    const unreadMessage = messageBucket.find((message) => (
+      toTimestampMs(message.ts) > lastReadMs && message.userId !== currentAccount.id
+    ));
+    unreadDividerMessageId = unreadMessage?.id || null;
+  }
+  let unreadDividerEl = null;
+  if (isDm) {
+    const tools = document.createElement("div");
+    tools.className = "dm-thread-tools";
+    const jumpNewestBtn = document.createElement("button");
+    jumpNewestBtn.type = "button";
+    jumpNewestBtn.textContent = "Jump to newest";
+    jumpNewestBtn.addEventListener("click", () => {
+      ui.messageList.scrollTop = ui.messageList.scrollHeight;
+    });
+    tools.appendChild(jumpNewestBtn);
+    ui.messageList.appendChild(tools);
+  }
+
   messageBucket.forEach((message) => {
     const currentUser = getCurrentAccount();
+    if (isDm && unreadDividerMessageId && unreadDividerMessageId === message.id) {
+      const divider = document.createElement("div");
+      divider.className = "dm-unread-divider";
+      divider.textContent = "New messages";
+      ui.messageList.appendChild(divider);
+      unreadDividerEl = divider;
+    }
     const messageRow = document.createElement("article");
-    messageRow.className = "message";
+    messageRow.className = `message ${!isDm && channel?.type === "forum" ? "message--forum" : ""}`;
     messageRow.dataset.messageId = message.id;
     let replyLine = null;
 
@@ -4521,9 +4594,19 @@ function renderMessages() {
       editedBadge.textContent = "(edited)";
     }
 
+    let forumTitle = null;
+    let renderedText = message.text;
+    if (!isDm && channel?.type === "forum") {
+      const [firstLine, ...rest] = (message.text || "").split("\n");
+      forumTitle = document.createElement("div");
+      forumTitle.className = "forum-post-title";
+      forumTitle.textContent = (firstLine || "Untitled Post").trim().slice(0, 100) || "Untitled Post";
+      const body = rest.join("\n").trim();
+      renderedText = body || firstLine || "";
+    }
     const text = document.createElement("div");
     text.className = "message-text";
-    renderMessageText(text, message.text);
+    renderMessageText(text, renderedText);
 
     const imageUrl = extractImageUrl(message.text);
     let imagePreview = null;
@@ -4677,6 +4760,7 @@ function renderMessages() {
     messageRow.appendChild(head);
     if (replyLine) messageRow.appendChild(replyLine);
     if (pinIndicator) messageRow.appendChild(pinIndicator);
+    if (forumTitle) messageRow.appendChild(forumTitle);
     messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
     ui.messageList.appendChild(messageRow);
@@ -4783,8 +4867,11 @@ function renderMessages() {
     });
   });
 
-  ui.messageList.scrollTop = ui.messageList.scrollHeight;
-  const currentAccount = getCurrentAccount();
+  if (isDm && unreadDividerEl) {
+    unreadDividerEl.scrollIntoView({ block: "center" });
+  } else {
+    ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  }
   const didMarkRead = isDm ? markDmRead(dmThread, currentAccount?.id) : markChannelRead(channel, currentAccount?.id);
   if (currentAccount && didMarkRead) {
     saveState();
@@ -4955,7 +5042,7 @@ function renderDock() {
   const conversation = getActiveConversation();
   const guildId = conversation?.type === "channel" ? getActiveGuild()?.id || null : null;
   ui.dockName.textContent = displayNameForAccount(account, guildId);
-  ui.dockStatus.textContent = displayStatus(account);
+  ui.dockStatus.textContent = displayStatus(account, guildId);
   applyAvatarStyle(ui.dockAvatar, account, guildId);
   ui.dockPresenceDot.className = `dock-presence-dot presence-${normalizePresence(account.presence)}`;
 }
@@ -4966,7 +5053,7 @@ function renderSelfPopout() {
   ui.selfPopoutName.textContent = displayNameForAccount(account, getActiveGuild()?.id || null);
   const selfRoleColor = getActiveServer() ? getMemberTopRoleColor(getActiveServer(), account.id) : "";
   ui.selfPopoutName.style.color = selfRoleColor || "";
-  ui.selfPopoutStatus.textContent = displayStatus(account);
+  ui.selfPopoutStatus.textContent = displayStatus(account, getActiveGuild()?.id || null);
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);
   applyBannerStyle(ui.selfPopoutBanner, resolveAccountBanner(account, getActiveGuild()?.id || null));
@@ -5069,7 +5156,7 @@ function renderSettingsScreen() {
   if (!account) return;
   ui.settingsDisplayName.textContent = displayNameForAccount(account, guild?.id || null);
   ui.settingsUsername.textContent = `@${account.username}`;
-  ui.settingsCurrentStatus.textContent = displayStatus(account);
+  ui.settingsCurrentStatus.textContent = displayStatus(account, guild?.id || null);
   ui.uiScaleInput.value = String(prefs.uiScale);
   ui.themeInput.value = prefs.theme;
   ui.compactModeInput.value = prefs.compactMembers;
@@ -5153,10 +5240,12 @@ function openProfileEditor() {
   ui.profileGuildAvatarInput.value = guild ? (guildAvatar.color || "") : "";
   ui.profileGuildAvatarUrlInput.value = guild ? (guildAvatar.url || "") : "";
   ui.profileGuildBannerInput.value = guild ? guildBanner : "";
+  ui.profileGuildStatusInput.value = guild ? ((account.guildProfiles?.[guild.id]?.status || "").toString()) : "";
   ui.profileGuildNicknameInput.disabled = !guild;
   ui.profileGuildAvatarInput.disabled = !guild;
   ui.profileGuildAvatarUrlInput.disabled = !guild;
   ui.profileGuildBannerInput.disabled = !guild;
+  ui.profileGuildStatusInput.disabled = !guild;
   ui.presenceInput.value = account.presence || "online";
   ui.profileBannerInput.value = account.banner || "";
   ui.profileAvatarInput.value = account.avatarColor || "#57f287";
@@ -6031,6 +6120,7 @@ ui.profileForm.addEventListener("submit", (event) => {
     const guildAvatarUrlRaw = ui.profileGuildAvatarUrlInput.value.trim();
     const guildAvatarUrl = isRenderableAvatarUrl(guildAvatarUrlRaw) ? guildAvatarUrlRaw : "";
     const guildBanner = ui.profileGuildBannerInput.value.trim();
+    const guildStatus = ui.profileGuildStatusInput.value.trim().slice(0, 80);
     if (guildNickname) {
       account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), nickname: guildNickname };
     }
@@ -6046,6 +6136,16 @@ ui.profileForm.addEventListener("submit", (event) => {
       account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), banner: guildBanner };
     } else if (account.guildProfiles[guild.id]) {
       delete account.guildProfiles[guild.id].banner;
+    }
+    if (guildStatus) {
+      account.guildProfiles[guild.id] = {
+        ...(account.guildProfiles[guild.id] || {}),
+        status: guildStatus,
+        statusEmoji: account.customStatusEmoji || ""
+      };
+    } else if (account.guildProfiles[guild.id]) {
+      delete account.guildProfiles[guild.id].status;
+      delete account.guildProfiles[guild.id].statusEmoji;
     }
     if (!guildNickname && account.guildProfiles[guild.id]) delete account.guildProfiles[guild.id].nickname;
     if (!guildAvatarColor && account.guildProfiles[guild.id]) delete account.guildProfiles[guild.id].avatarColor;
