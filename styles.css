@@ -1357,6 +1357,13 @@ button {
   display: inline-block;
 }
 
+.message-embed-note {
+  font-size: 0.73rem;
+  color: #aeb6c4;
+  margin-bottom: 0.35rem;
+  max-width: min(620px, 94vw);
+}
+
 .message-html-frame {
   width: min(540px, 92vw);
   height: 320px;

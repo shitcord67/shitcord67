@@ -55,7 +55,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SVG attachments in chat include a direct `Download SVG` action.
 - PDF links/attachments render inline in chat with open-in-tab fallback.
 - Media picker includes dedicated `PDFs`, `Text`, and `Docs` tabs for guild-scoped resources (URL or local file import).
-- Composer `+` button now opens system file upload quickly (PDF/Text/Docs/BIN), and right-click on `+` opens the media picker.
+- Composer `+` button opens the media picker, while `📎` opens system file upload (PDF/Text/Docs/BIN).
+- Right-click `+` opens file upload directly; right-click `📎` jumps to the PDF picker tab.
 - Composer has dedicated quick buttons for GIF, Sticker, and Emoji picker tabs.
 - Drag and drop or clipboard paste of supported files (`.pdf`, text, OpenDocument, RTF, `.bin`) attaches them to composer; press `Enter` to send.
 - Audio links/attachments render with native playback controls.
@@ -63,6 +64,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - RTF attachments render as inline plain-text previews.
 - OpenDocument/Office attachments render in an inline frame with open/download fallback links.
 - Binary (`.bin`) attachments render a compact HEX preview in chat.
+- PDF attachments now always include open/download controls plus a fallback note for browsers with inline PDF viewing disabled.
+- Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Ctrl+Shift+P` opens PDF tab, `Ctrl+U` opens file attach.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
