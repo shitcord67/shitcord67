@@ -541,6 +541,37 @@ button {
   font-weight: 800;
   color: #e7ebf3;
   margin: 0.15rem 0 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.forum-thread-toggle {
+  background: transparent;
+  color: #aeb5c2;
+  font-size: 0.8rem;
+  padding: 0;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.forum-thread-toggle--disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.forum-thread-unread {
+  margin-left: auto;
+  background: #4d70d7;
+  color: #fff;
+  border-radius: 999px;
+  min-width: 22px;
+  padding: 0.12rem 0.4rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .message--forum-root {
