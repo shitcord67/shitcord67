@@ -47,7 +47,7 @@
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
-- Per-guild notification settings (mute/mentions only/all).
+- [done] Per-guild notification settings (mute/mentions only/all).
 - WebXDC packaging path: `.xdc` zip, `manifest.toml`, and realtime sync via `joinRealtimeChannel().send`.
 - Bundle Ruffle locally (self-hosted script) and support richer SWF controls/fallback.
 - dotLottie controls parity (pause/speed/scrub) and richer APNG/sticker management.
@@ -62,7 +62,7 @@
 ## Existing ideas to revisit
 - If possible make it Discord-API or discord.js compatible.
 - WebXDC.
-- SVG display support in chat.
+- [done] SVG display support in chat.
 - In-line slash commands with rich media embeds.
 - GIF and sticker picker with provider consent and local fallback.
 - Forums: https://xmpp.org/extensions/xep-0508.html
@@ -97,12 +97,12 @@
 - Markdown support (preferably Discord-compatible, maybe even more like GitHub-flavoured?)
 - Discord embeds
 - Discord RPC
-- Implement PDF viewer in chat
+- [done] Implement PDF viewer in chat
 - Implement local Linux terminal emulator with some syntax to run some commands, SIXEL display?
 - WASM applications, console emulators for e.g. Nintendo, some co-op stuff...
 - cohost-like CSS crimes blogs
 - Blogs accessible on user profiles
-- Display simple HTML files in chat.
+- [done] Display simple HTML files in chat.
 - HTMl formatting of messages
 - Full-fledged image editor, sticker and animation maker
 - Support openraster

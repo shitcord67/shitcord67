@@ -1623,7 +1623,7 @@ function normalizeReactions(reactions) {
 
 function normalizeAttachments(attachments) {
   if (!Array.isArray(attachments)) return [];
-  const allowedTypes = new Set(["gif", "sticker", "svg", "swf", "html"]);
+  const allowedTypes = new Set(["gif", "sticker", "svg", "swf", "html", "pdf", "audio", "text"]);
   const allowedFormats = new Set(["image", "dotlottie", "apng"]);
   return attachments
     .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
@@ -2461,6 +2461,9 @@ function inferAttachmentTypeFromUrl(url) {
   if (clean.endsWith(".swf") || clean.includes(".swf?")) return "swf";
   if (clean.endsWith(".svg") || clean.includes(".svg?")) return "svg";
   if (clean.endsWith(".html") || clean.includes(".html?") || clean.endsWith(".htm") || clean.includes(".htm?")) return "html";
+  if (clean.endsWith(".pdf") || clean.includes(".pdf?")) return "pdf";
+  if (/\.(mp3|ogg|wav|m4a|flac)(\?|$)/i.test(clean)) return "audio";
+  if (/\.(txt|md|log|json|js|ts|css|html|xml|yml|yaml|ini|toml)(\?|$)/i.test(clean)) return "text";
   if (clean.endsWith(".apng") || clean.includes(".apng?")) return "sticker";
   if (clean.endsWith(".lottie") || clean.includes(".lottie?")) return "sticker";
   if (/\.(gif|webp|mp4|webm)(\?|$)/i.test(clean)) return "gif";
@@ -2475,7 +2478,7 @@ function inferAttachmentFormat(type, url) {
 function extractInlineAttachmentsFromText(text) {
   if (!text) return [];
   const results = [];
-  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|apng|lottie|gif|webp|mp4|webm))/gi) || [];
+  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|apng|lottie|gif|webp|mp4|webm|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml))/gi) || [];
   const seen = new Set();
   matches.forEach((raw) => {
     const cleaned = raw.replace(/[),.!?]+$/, "");
@@ -2491,6 +2494,16 @@ function extractInlineAttachmentsFromText(text) {
     });
   });
   return results.slice(0, 4);
+}
+
+async function loadTextAttachmentPreview(url) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const text = await response.text();
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const clipped = lines.slice(0, 40).join("\n").slice(0, 3500);
+  const truncated = lines.length > 40 || text.length > clipped.length;
+  return `${clipped}${truncated ? "\n… (truncated)" : ""}`;
 }
 
 async function loadSwfLibrary() {
@@ -4131,7 +4144,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     frame.className = "message-html-frame";
     frame.loading = "lazy";
     frame.referrerPolicy = "no-referrer";
-    frame.sandbox = "allow-same-origin";
+    frame.sandbox = "allow-same-origin allow-scripts allow-forms allow-popups allow-downloads";
     frame.src = mediaUrl;
     wrap.appendChild(frame);
     const openBtn = document.createElement("a");
@@ -4142,6 +4155,65 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     openBtn.textContent = "Open HTML in new tab";
     wrap.appendChild(openBtn);
     container.appendChild(wrap);
+    return;
+  }
+
+  if (type === "pdf") {
+    const frame = document.createElement("iframe");
+    frame.className = "message-pdf-frame";
+    frame.loading = "lazy";
+    frame.referrerPolicy = "no-referrer";
+    frame.src = mediaUrl;
+    wrap.appendChild(frame);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open PDF in new tab";
+    wrap.appendChild(openBtn);
+    container.appendChild(wrap);
+    return;
+  }
+
+  if (type === "audio") {
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.preload = "none";
+    audio.src = mediaUrl;
+    audio.className = "message-audio";
+    wrap.appendChild(audio);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open audio file";
+    wrap.appendChild(openBtn);
+    container.appendChild(wrap);
+    return;
+  }
+
+  if (type === "text") {
+    const pre = document.createElement("pre");
+    pre.className = "message-text-file";
+    pre.textContent = "Loading text preview…";
+    wrap.appendChild(pre);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open text file";
+    wrap.appendChild(openBtn);
+    container.appendChild(wrap);
+    void loadTextAttachmentPreview(mediaUrl)
+      .then((preview) => {
+        pre.textContent = preview || "(empty file)";
+      })
+      .catch(() => {
+        pre.textContent = "Could not load preview.";
+      });
     return;
   }
 
@@ -4157,6 +4229,9 @@ function renderScreens() {
   const loggedIn = Boolean(state.currentAccountId);
   ui.loginScreen.classList.toggle("screen--active", !loggedIn);
   ui.chatScreen.classList.toggle("screen--active", loggedIn);
+  if (!loggedIn && ui.settingsScreen.classList.contains("settings-screen--active")) {
+    closeSettingsScreen();
+  }
 }
 
 function renderServers() {
@@ -4223,6 +4298,7 @@ function renderServers() {
         {
           label: "Copy",
           submenu: [
+            { label: "Guild Name", action: () => copyText(server.name || "") },
             { label: "Guild ID", action: () => copyText(server.id) },
             { label: "First Channel ID", action: () => copyText(server.channels[0]?.id || "") }
           ]
@@ -4436,6 +4512,7 @@ function renderDmList() {
         {
           label: "Copy",
           submenu: [
+            { label: "Peer Username", action: () => copyText(peer ? `@${peer.username}` : "") },
             { label: "Thread ID", action: () => copyText(thread.id) },
             { label: "Peer User ID", action: () => copyText(peer?.id || "") }
           ]
@@ -4529,6 +4606,7 @@ function renderChannels() {
           label: "Copy",
           submenu: [
             { label: "Channel Name", action: () => copyText(`#${channel.name}`) },
+            { label: "Channel Topic", action: () => copyText(channel.topic || "") },
             { label: "Channel ID", action: () => copyText(channel.id) }
           ]
         },
@@ -4686,6 +4764,21 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       renderMessages();
     });
     toolbar.appendChild(expandAllBtn);
+
+    const markAllReadBtn = document.createElement("button");
+    markAllReadBtn.type = "button";
+    markAllReadBtn.className = "forum-thread-toolbar__btn";
+    markAllReadBtn.textContent = "Mark all threads read";
+    markAllReadBtn.addEventListener("click", () => {
+      threadModels.forEach(({ post, replies }) => {
+        const latestThreadTs = replies[replies.length - 1]?.ts || post.ts || new Date().toISOString();
+        setForumThreadReadTimestamp(channel?.id, post.id, latestThreadTs);
+      });
+      saveState();
+      renderMessages();
+      renderChannels();
+    });
+    toolbar.appendChild(markAllReadBtn);
 
     ui.messageList.appendChild(toolbar);
   }
@@ -5251,7 +5344,13 @@ function renderMessages() {
           label: "Copy",
           submenu: [
             { label: "Text", action: () => copyText(message.text || "") },
+            { label: "Author Username", action: () => {
+              const author = message.userId ? getAccountById(message.userId) : null;
+              copyText(author ? `@${author.username}` : "");
+            } },
+            { label: "Timestamp", action: () => copyText(message.ts || "") },
             { label: "Message ID", action: () => copyText(message.id || "") },
+            { label: "First Attachment URL", action: () => copyText(attachments[0]?.url ? resolveMediaUrl(attachments[0].url) : "") },
             { label: "JSON", action: () => copyText(serializeMessageAsJson(message)) },
             { label: "XML", action: () => copyText(serializeMessageAsXml(message)) }
           ]
@@ -5700,6 +5799,12 @@ function wireDialogBackdropClose(dialog) {
   });
 }
 
+function isTypingInputTarget(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.closest("input, textarea, [contenteditable='true']")) return true;
+  return false;
+}
+
 function render() {
   closeContextMenu();
   if (pruneExpiredStatuses()) saveState();
@@ -5807,10 +5912,17 @@ function createOrSwitchAccount(usernameInput) {
 ui.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const typed = ui.loginUsername.value;
-  if (!createOrSwitchAccount(typed)) return;
+  if (!createOrSwitchAccount(typed)) {
+    showToast("Username must include at least one letter or number.", { tone: "error" });
+    return;
+  }
   ui.loginUsername.value = "";
   saveState();
   render();
+  closeSettingsScreen();
+  requestAnimationFrame(() => {
+    ui.messageInput.focus();
+  });
 });
 
 ui.messageForm.addEventListener("submit", (event) => {
@@ -6856,6 +6968,33 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.ctrlKey && event.key.toLowerCase() === "k") {
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    const dmMode = getViewMode() === "dm";
+    const focusTarget = dmMode ? ui.dmSearchInput : ui.channelFilterInput;
+    focusTarget?.focus();
+    focusTarget?.select?.();
+    return;
+  }
+  if (event.ctrlKey && event.key === ",") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    openSettingsScreen();
+    return;
+  }
+  if (event.altKey && event.key.toLowerCase() === "d") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    state.viewMode = getViewMode() === "dm" ? "guild" : "dm";
+    if (state.viewMode === "guild" && !state.activeGuildId && state.guilds[0]) {
+      state.activeGuildId = state.guilds[0].id;
+      state.activeChannelId = state.guilds[0].channels[0]?.id || state.activeChannelId;
+    }
+    saveState();
+    render();
+    return;
+  }
   if (event.key === "Escape" && contextMenuOpen) {
     closeContextMenu();
     return;
