@@ -842,6 +842,27 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   color: #c7ccd5;
 }
 
+.message-reply--jump {
+  cursor: pointer;
+}
+
+.message-reply--jump:hover {
+  color: #c6d2e9;
+}
+
+.message--flash {
+  animation: messageFlash 1200ms ease;
+}
+
+@keyframes messageFlash {
+  0% {
+    background: rgba(88, 101, 242, 0.28);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
 .dm-thread-tools {
   position: sticky;
   top: 0;

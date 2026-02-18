@@ -81,6 +81,12 @@ A lightweight Discord-style chat client prototype with local persistence.
 - DM list is now sorted by latest message activity.
 - DM rows include one-line last-message previews.
 - Guild member lists are sorted alphabetically inside Online/Offline groups.
+- Extra media hotkeys: `Alt+4/5/6/7/8/9` open PDF/Text/Docs/HTML/SWF/SVG tabs.
+- Message rows support double-click to start reply quickly.
+- Reply preview lines can jump to the referenced message in-view.
+- `Shift+Click` on a message timestamp copies its raw timestamp.
+- Message context menu copy submenu includes `Timestamp (local)`.
+- Edit dialog quality-of-life: autofocus/select on open, `Ctrl+Enter` to save, `Escape` to cancel.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
