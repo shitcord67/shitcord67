@@ -27,7 +27,10 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Quick channel filter input in the sidebar.
 - Discord-like media picker panel in the composer (tabs: GIFs, Stickers, Emojis, SWFs, SVGs).
 - Click-to-send media attachments from picker (GIF/sticker/SVG/SWF), including local SWF index support via `swf-index.json`.
-- SWF message cards render with optional inline Ruffle playback when `window.RufflePlayer` is available.
+- GIF video attachments autoplay/loop in chat.
+- Sticker picker supports image stickers plus `.apng` and `.lottie` resources.
+- Ruffle and dotLottie runtimes are auto-loaded by the app (no manual user install flow).
+- Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.

@@ -80,6 +80,11 @@
             </nav>
             <div class="media-picker__header">
               <input id="mediaSearchInput" type="text" maxlength="80" placeholder="Search media" />
+              <div class="media-picker__actions">
+                <button id="addMediaUrlBtn" type="button">Add URL</button>
+                <button id="addMediaFileBtn" type="button">Add File</button>
+              </div>
+              <input id="mediaFileInput" type="file" hidden />
             </div>
             <div id="mediaGrid" class="media-picker__grid"></div>
           </div>
