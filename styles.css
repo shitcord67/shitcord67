@@ -25,6 +25,12 @@ body[data-theme="discord"] {
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   font-family: "Nunito", "Helvetica Neue", Arial, sans-serif;
@@ -43,6 +49,7 @@ select {
 
 .screen {
   display: none;
+  height: 100%;
 }
 
 .screen--active {
@@ -50,11 +57,15 @@ select {
 }
 
 #loginScreen {
-  min-height: 100vh;
+  min-height: 100%;
   display: grid;
   place-items: center;
   background: radial-gradient(circle at 20% 20%, #1c2f55, #0e1014 55%);
   padding: 1rem;
+}
+
+#app {
+  height: 100%;
 }
 
 .login-card {
