@@ -873,6 +873,8 @@ button {
 }
 
 .message-swf {
+  display: inline-block;
+  width: fit-content;
   background: #1f2126;
   border: 1px solid #393d46;
   border-radius: 10px;
@@ -913,8 +915,12 @@ button {
   font-size: 0.66rem;
   color: #b4bac5;
   border: 1px solid #363a43;
-  border-radius: 999px;
-  padding: 0.08rem 0.46rem;
+  border-radius: 6px;
+  padding: 0.08rem 0.28rem;
+  max-width: 28px;
+  line-height: 1.05;
+  text-align: center;
+  word-break: break-word;
 }
 
 .message-swf-audio-indicator.is-active {
@@ -963,6 +969,7 @@ button {
 }
 
 .message-swf-body {
+  position: relative;
   display: flex;
   gap: 0.42rem;
   align-items: flex-start;
@@ -977,7 +984,7 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 0.28rem 0.18rem;
   gap: 0.28rem;
 }
@@ -1009,6 +1016,9 @@ button {
 }
 
 .message-swf-jump {
+  position: absolute;
+  left: 2px;
+  bottom: 6px;
   background: #2f3340;
   color: #d5dbe4;
   font-size: 0.72rem;
@@ -1052,7 +1062,7 @@ button {
 
 .message-swf-player {
   width: 420px;
-  max-width: calc(100% - 42px);
+  max-width: calc(100vw - 120px);
   flex: 0 1 auto;
   min-height: 180px;
   background: #121317;

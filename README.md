@@ -45,6 +45,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Tabbed SWF PiP dock lets you keep selected SWFs open while switching guilds/channels.
 - SWF picker now supports muted Ruffle previews with lightweight sampled frame playback.
 - SWF link opens are configured with confirmation prompts (`openUrlMode: "confirm"`).
+- Advanced settings now include dedicated `Export SWF Saves` / `Import SWF Saves` (browser local-storage based).
+- SVG attachments in chat include a direct `Download SVG` action.
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
