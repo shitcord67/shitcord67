@@ -2281,6 +2281,7 @@ function renderSwfPipDock() {
   ui.swfPipDock.classList.toggle("swf-pip--collapsed", swfPipCollapsed);
   ui.swfPipTabs.innerHTML = "";
   if (!hasTabs) return;
+  updateSwfPipDockLayout();
   if (!swfPipActiveKey || !swfPipTabs.includes(swfPipActiveKey)) swfPipActiveKey = swfPipTabs[0];
   // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
   const pipRect = ui.swfPipHost.getBoundingClientRect();
@@ -2324,6 +2325,16 @@ function renderSwfPipDock() {
   const activeRuntime = swfRuntimes.get(swfPipActiveKey);
   if (!activeRuntime?.pipHost) return;
   setSwfPlayback(swfPipActiveKey, true, "user");
+}
+
+function updateSwfPipDockLayout() {
+  if (!(ui.swfPipDock instanceof HTMLElement)) return;
+  const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  if (!composerRect) return;
+  const rightGap = Math.max(10, window.innerWidth - composerRect.right + 10);
+  const bottomGap = Math.max(10, window.innerHeight - composerRect.top + 10);
+  ui.swfPipDock.style.right = `${Math.round(rightGap)}px`;
+  ui.swfPipDock.style.bottom = `${Math.round(bottomGap)}px`;
 }
 
 async function openSavedSwfFromShelf(entry) {
@@ -4819,8 +4830,21 @@ window.addEventListener("resize", () => {
     const runtime = swfRuntimes.get(currentViewerRuntimeKey);
     if (runtime?.floating) positionFloatingSwfHost(runtime);
   }
+  updateSwfPipDockLayout();
+  renderSwfPipDock();
 });
 document.addEventListener("scroll", closeContextMenu, true);
+
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", () => {
+    updateSwfPipDockLayout();
+    renderSwfPipDock();
+  });
+  window.visualViewport.addEventListener("scroll", () => {
+    updateSwfPipDockLayout();
+    renderSwfPipDock();
+  });
+}
 
 document.addEventListener("fullscreenchange", () => {
   if (document.fullscreenElement) {
