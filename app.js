@@ -1795,13 +1795,13 @@ function renderMessageAttachment(container, attachment) {
           // ignore
         }
         const loadWithFallback = async () => {
-          if (!player.isConnected || !playerWrap.isConnected) {
+          if (!playerWrap.isConnected || !ui.messageList.isConnected) {
             addDebugLog("info", "Skipped SWF load because player was detached before start", { url: mediaUrl });
             return;
           }
           let loaded = false;
           for (const candidate of urlCandidates) {
-            if (!player.isConnected || !playerWrap.isConnected) {
+            if (!playerWrap.isConnected || !ui.messageList.isConnected) {
               addDebugLog("info", "Aborted SWF load because player became detached", { url: candidate });
               return;
             }
