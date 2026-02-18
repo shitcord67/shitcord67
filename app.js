@@ -5,7 +5,17 @@ const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
+  { name: "tableflip", args: "[text]", description: "Send a table-flip message." },
+  { name: "unflip", args: "", description: "Send table reset emote." },
+  { name: "lenny", args: "[text]", description: "Send a lenny face message." },
+  { name: "roll", args: "[NdM]", description: "Roll dice, e.g. /roll 2d6." },
+  { name: "timestamp", args: "[now|unix|date]", description: "Send a Discord-style timestamp token." },
   { name: "poll", args: "<question> | <option1> | <option2> [...]", description: "Create a quick poll." },
+  { name: "pollm", args: "<question> | <option1> | <option2> [...]", description: "Create a multi-choice poll." },
+  { name: "closepoll", args: "", description: "Close latest poll in this channel." },
+  { name: "reopenpoll", args: "", description: "Reopen latest closed poll in this channel." },
+  { name: "pollresults", args: "[voters]", description: "Show results for latest poll." },
+  { name: "vote", args: "<option-number[,option-number...]>", description: "Vote in latest poll by option number." },
   { name: "me", args: "<text>", description: "Send an action-style message." },
   { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
   { name: "note", args: "<text>", description: "Send a collaborative message editable by anyone in the channel." },
@@ -118,6 +128,14 @@ function sanitizeChannelName(value, fallback) {
   return cleaned || fallback;
 }
 
+function normalizeComposerDrafts(value) {
+  if (!value || typeof value !== "object") return {};
+  const entries = Object.entries(value)
+    .filter(([conversationId]) => typeof conversationId === "string" && conversationId)
+    .map(([conversationId, draft]) => [conversationId, (draft || "").toString().slice(0, 400)]);
+  return Object.fromEntries(entries.filter(([, draft]) => draft.length > 0));
+}
+
 function escapeRegExp(value) {
   return (value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -213,6 +231,7 @@ function buildInitialState() {
     dmThreads: [],
     guildFolders: [],
     userNotes: {},
+    composerDrafts: {},
     savedSwfs: [],
     preferences: {
       uiScale: 100,
@@ -359,6 +378,7 @@ function migrateState(raw) {
         }))
       : [];
     raw.userNotes = raw.userNotes && typeof raw.userNotes === "object" ? { ...raw.userNotes } : {};
+    raw.composerDrafts = normalizeComposerDrafts(raw.composerDrafts);
     delete raw.servers;
     delete raw.activeServerId;
     return raw;
@@ -367,6 +387,7 @@ function migrateState(raw) {
   const migrated = buildInitialState();
   if (!raw || typeof raw !== "object") return migrated;
   migrated.savedSwfs = normalizeSavedSwfs(raw.savedSwfs);
+  migrated.composerDrafts = normalizeComposerDrafts(raw.composerDrafts);
 
   const maybeUser = typeof raw.currentUser === "string" ? normalizeUsername(raw.currentUser) : "";
   let account = null;
@@ -530,6 +551,8 @@ let pipDragState = null;
 let pipSuppressHeaderToggle = false;
 let toastHideTimer = null;
 let composerPendingAttachment = null;
+let composerDraftConversationId = null;
+let composerDraftSaveTimer = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -804,6 +827,50 @@ function getActiveConversation() {
   const channel = getActiveChannel();
   if (!channel) return null;
   return { type: "channel", channel, id: channel.id };
+}
+
+function ensureComposerDraftsStore() {
+  if (!state.composerDrafts || typeof state.composerDrafts !== "object") {
+    state.composerDrafts = {};
+  }
+  return state.composerDrafts;
+}
+
+function setComposerDraft(conversationId, text) {
+  if (!conversationId) return;
+  const drafts = ensureComposerDraftsStore();
+  const next = (text || "").toString().slice(0, 400);
+  if (next.trim()) {
+    drafts[conversationId] = next;
+    return;
+  }
+  delete drafts[conversationId];
+}
+
+function getComposerDraft(conversationId) {
+  if (!conversationId) return "";
+  const drafts = ensureComposerDraftsStore();
+  return (drafts[conversationId] || "").toString().slice(0, 400);
+}
+
+function queueComposerDraftSave() {
+  if (composerDraftSaveTimer) clearTimeout(composerDraftSaveTimer);
+  composerDraftSaveTimer = setTimeout(() => {
+    composerDraftSaveTimer = null;
+    saveState();
+  }, 250);
+}
+
+function syncComposerDraftConversation(nextConversationId) {
+  const previousId = composerDraftConversationId;
+  if (previousId && previousId !== nextConversationId) {
+    setComposerDraft(previousId, ui.messageInput.value);
+  }
+  composerDraftConversationId = nextConversationId || null;
+  const nextDraft = nextConversationId ? getComposerDraft(nextConversationId) : "";
+  if ((ui.messageInput.value || "") !== nextDraft) {
+    ui.messageInput.value = nextDraft;
+  }
 }
 
 function getUserNoteKey(ownerId, targetId) {
@@ -2421,6 +2488,15 @@ function parsePollFromCommandArg(arg) {
   };
 }
 
+function findLatestPollMessage(channel) {
+  if (!channel || !Array.isArray(channel.messages)) return null;
+  for (let i = channel.messages.length - 1; i >= 0; i -= 1) {
+    const message = channel.messages[i];
+    if (normalizePoll(message?.poll)) return message;
+  }
+  return null;
+}
+
 function getPollTotalVotes(poll) {
   const normalized = normalizePoll(poll);
   if (!normalized) return 0;
@@ -2431,32 +2507,88 @@ function getPollTotalVotes(poll) {
   return voters.size;
 }
 
+function setPollVotesForUser(message, optionIds, userId) {
+  const poll = normalizePoll(message?.poll);
+  if (!poll || poll.closed || !poll.allowsMulti || !userId) return false;
+  const allowed = new Set(poll.options.map((option) => option.id));
+  const requested = [...new Set((Array.isArray(optionIds) ? optionIds : []).filter((id) => allowed.has(id)))];
+  const before = poll.options
+    .filter((option) => option.voterIds.includes(userId))
+    .map((option) => option.id)
+    .sort()
+    .join(",");
+  poll.options.forEach((option) => {
+    option.voterIds = option.voterIds.filter((voterId) => voterId !== userId);
+    if (requested.includes(option.id)) option.voterIds.push(userId);
+  });
+  message.poll = poll;
+  const after = poll.options
+    .filter((option) => option.voterIds.includes(userId))
+    .map((option) => option.id)
+    .sort()
+    .join(",");
+  return before !== after;
+}
+
 function togglePollVote(message, optionId, userId) {
   const poll = normalizePoll(message?.poll);
   if (!poll || poll.closed || !optionId || !userId) return false;
   const target = poll.options.find((option) => option.id === optionId);
   if (!target) return false;
-  poll.options.forEach((option) => {
-    option.voterIds = option.voterIds.filter((voterId) => voterId !== userId);
-  });
-  const wasSelected = target.voterIds.includes(userId);
-  if (!wasSelected) {
-    target.voterIds.push(userId);
+  if (poll.allowsMulti) {
+    const wasSelected = target.voterIds.includes(userId);
+    if (wasSelected) {
+      target.voterIds = target.voterIds.filter((voterId) => voterId !== userId);
+    } else {
+      target.voterIds.push(userId);
+    }
+  } else {
+    const wasSelected = target.voterIds.includes(userId);
+    poll.options.forEach((option) => {
+      option.voterIds = option.voterIds.filter((voterId) => voterId !== userId);
+    });
+    if (!wasSelected) {
+      target.voterIds.push(userId);
+    }
   }
   message.poll = poll;
   return true;
 }
 
-function formatPollResultsText(message) {
+function closeOrOpenLatestPoll(channel, closed) {
+  const pollMessage = findLatestPollMessage(channel);
+  if (!pollMessage) return false;
+  const poll = normalizePoll(pollMessage.poll);
+  if (!poll) return false;
+  if (poll.closed === closed) return false;
+  pollMessage.poll = { ...poll, closed };
+  return true;
+}
+
+function formatPollResultsText(message, { includeVoters = false } = {}) {
   const poll = normalizePoll(message?.poll);
   if (!poll) return "No poll.";
   const total = getPollTotalVotes(poll);
   const lines = poll.options.map((option) => {
     const votes = option.voterIds.length;
     const percent = total > 0 ? Math.round((votes / total) * 100) : 0;
-    return `- ${option.label}: ${votes} vote${votes === 1 ? "" : "s"} (${percent}%)`;
+    const voterSuffix = includeVoters ? ` [${formatPollOptionVoters(option)}]` : "";
+    return `- ${option.label}: ${votes} vote${votes === 1 ? "" : "s"} (${percent}%)${voterSuffix}`;
   });
   return `${poll.question}\n${lines.join("\n")}\nTotal voters: ${total}`;
+}
+
+function formatPollOptionVoters(option) {
+  const ids = Array.isArray(option?.voterIds) ? option.voterIds : [];
+  if (ids.length === 0) return "No votes yet.";
+  const labels = ids
+    .slice(0, 8)
+    .map((id) => {
+      const account = getAccountById(id);
+      return account ? `@${account.username}` : id.slice(0, 8);
+    });
+  const suffix = ids.length > labels.length ? ` +${ids.length - labels.length} more` : "";
+  return `${labels.join(", ")}${suffix}`;
 }
 
 function canManagePollMessage(message, { isDm = false, canManageMessages = false, currentUser = null } = {}) {
@@ -2484,7 +2616,9 @@ function renderMessagePoll(container, message, { currentUser = null, isDm = fals
     const isSelected = currentUser ? option.voterIds.includes(currentUser.id) : false;
     row.classList.toggle("is-selected", isSelected);
     if (poll.closed) row.disabled = true;
-    row.innerHTML = `<span>${option.label}</span><small>${votes} · ${percent}%</small>`;
+    row.style.setProperty("--poll-fill", `${percent}%`);
+    row.title = formatPollOptionVoters(option);
+    row.innerHTML = `<span>${index + 1}. ${option.label}</span><small>${votes} · ${percent}%</small>`;
     row.addEventListener("click", () => {
       if (!currentUser) return;
       const changed = togglePollVote(message, option.id, currentUser.id);
@@ -2495,7 +2629,7 @@ function renderMessagePoll(container, message, { currentUser = null, isDm = fals
   });
   const foot = document.createElement("div");
   foot.className = "message-poll__meta";
-  foot.textContent = `${total} voter${total === 1 ? "" : "s"}${poll.closed ? " · closed" : ""}`;
+  foot.textContent = `${total} voter${total === 1 ? "" : "s"} · ${poll.allowsMulti ? "multi-choice" : "single-choice"}${poll.closed ? " · closed" : ""}`;
   if (canManagePollMessage(message, { isDm, canManageMessages, currentUser })) {
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";
@@ -2521,6 +2655,37 @@ function addSystemMessage(channel, text) {
     reactions: [],
     attachments: []
   });
+}
+
+function parseRollExpression(arg) {
+  const cleaned = (arg || "").trim().toLowerCase();
+  if (!cleaned) return { count: 1, sides: 6, label: "1d6" };
+  const direct = Number(cleaned);
+  if (Number.isInteger(direct) && direct >= 2 && direct <= 1000) {
+    return { count: 1, sides: direct, label: `1d${direct}` };
+  }
+  const match = cleaned.match(/^(\d{1,2})d(\d{1,4})$/i);
+  if (!match) return null;
+  const count = Number(match[1]);
+  const sides = Number(match[2]);
+  if (!Number.isInteger(count) || !Number.isInteger(sides)) return null;
+  if (count < 1 || count > 30 || sides < 2 || sides > 1000) return null;
+  return { count, sides, label: `${count}d${sides}` };
+}
+
+function parseTimestampArg(arg) {
+  const cleaned = (arg || "").trim();
+  if (!cleaned || cleaned.toLowerCase() === "now") {
+    return Math.floor(Date.now() / 1000);
+  }
+  if (/^\d{10,13}$/.test(cleaned)) {
+    const raw = Number(cleaned);
+    if (!Number.isFinite(raw)) return null;
+    return cleaned.length === 13 ? Math.floor(raw / 1000) : raw;
+  }
+  const parsed = Date.parse(cleaned);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.floor(parsed / 1000);
 }
 
 function handleSlashCommand(rawText, channel, account) {
@@ -2588,6 +2753,85 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "tableflip") {
+    const prefix = arg ? `${arg} ` : "";
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `${prefix}(ノಠ益ಠ)ノ彡┻━┻`,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: []
+    });
+    return true;
+  }
+
+  if (command === "unflip") {
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: "┬─┬ ノ( ゜-゜ノ)",
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: []
+    });
+    return true;
+  }
+
+  if (command === "lenny") {
+    const suffix = arg ? ` ${arg}` : "";
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `( ͡° ͜ʖ ͡°)${suffix}`,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: []
+    });
+    return true;
+  }
+
+  if (command === "roll") {
+    const roll = parseRollExpression(arg);
+    if (!roll) {
+      addSystemMessage(channel, "Usage: /roll [NdM], e.g. /roll 2d6");
+      return true;
+    }
+    const values = Array.from({ length: roll.count }, () => Math.floor(Math.random() * roll.sides) + 1);
+    const total = values.reduce((sum, value) => sum + value, 0);
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `🎲 rolled ${roll.label}: [${values.join(", ")}] = ${total}`,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: []
+    });
+    return true;
+  }
+
+  if (command === "timestamp") {
+    const unix = parseTimestampArg(arg);
+    if (!unix || unix < 0) {
+      addSystemMessage(channel, "Usage: /timestamp [now|unix|date], e.g. /timestamp 2026-02-18 13:30");
+      return true;
+    }
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `<t:${unix}:F> (<t:${unix}:R>)`,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: []
+    });
+    return true;
+  }
+
   if (command === "poll") {
     const poll = parsePollFromCommandArg(arg);
     if (!poll) {
@@ -2604,9 +2848,99 @@ function handleSlashCommand(rawText, channel, account) {
       attachments: [],
       poll: {
         ...poll,
+        allowsMulti: false,
         createdBy: account.id
       }
     });
+    return true;
+  }
+
+  if (command === "pollm") {
+    const poll = parsePollFromCommandArg(arg);
+    if (!poll) {
+      addSystemMessage(channel, "Usage: /pollm <question> | <option1> | <option2> [...options]");
+      return true;
+    }
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: "",
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: [],
+      poll: {
+        ...poll,
+        allowsMulti: true,
+        createdBy: account.id
+      }
+    });
+    return true;
+  }
+
+  if (command === "closepoll") {
+    const changed = closeOrOpenLatestPoll(channel, true);
+    addSystemMessage(channel, changed ? "Latest poll closed." : "No open poll found.");
+    return true;
+  }
+
+  if (command === "reopenpoll") {
+    const changed = closeOrOpenLatestPoll(channel, false);
+    addSystemMessage(channel, changed ? "Latest poll reopened." : "No closed poll found.");
+    return true;
+  }
+
+  if (command === "pollresults") {
+    const pollMessage = findLatestPollMessage(channel);
+    if (!pollMessage) {
+      addSystemMessage(channel, "No poll found in this channel.");
+      return true;
+    }
+    const includeVoters = arg.toLowerCase() === "voters";
+    addSystemMessage(channel, formatPollResultsText(pollMessage, { includeVoters }));
+    return true;
+  }
+
+  if (command === "vote") {
+    const pollMessage = findLatestPollMessage(channel);
+    if (!pollMessage) {
+      addSystemMessage(channel, "No poll found in this channel.");
+      return true;
+    }
+    const poll = normalizePoll(pollMessage.poll);
+    if (!poll || poll.closed) {
+      addSystemMessage(channel, "Latest poll is closed.");
+      return true;
+    }
+    const indexes = (arg || "")
+      .split(/[,\s]+/)
+      .map((part) => Number(part))
+      .filter((value) => Number.isInteger(value) && value > 0)
+      .map((value) => value - 1);
+    const uniqueIndexes = [...new Set(indexes)];
+    if (uniqueIndexes.length === 0) {
+      addSystemMessage(channel, "Usage: /vote <option-number> (for latest poll)");
+      return true;
+    }
+    if (poll.allowsMulti && uniqueIndexes.length > 1) {
+      const optionIds = uniqueIndexes
+        .map((index) => poll.options[index]?.id)
+        .filter(Boolean);
+      if (optionIds.length === 0) {
+        addSystemMessage(channel, "Usage: /vote <option-number[,option-number...]>");
+        return true;
+      }
+      const changed = setPollVotesForUser(pollMessage, optionIds, account.id);
+      addSystemMessage(channel, changed ? `Voted: ${optionIds.length} option(s).` : "Vote unchanged.");
+      return true;
+    }
+    const option = poll.options[uniqueIndexes[0]];
+    if (!option) {
+      addSystemMessage(channel, "Usage: /vote <option-number> (for latest poll)");
+      return true;
+    }
+    const changed = togglePollVote(pollMessage, option.id, account.id);
+    addSystemMessage(channel, changed ? `Voted: ${option.label}` : "Vote failed.");
     return true;
   }
 
@@ -6321,6 +6655,7 @@ function renderMessages() {
   const channel = !isDm ? conversation?.channel : null;
   const dmThread = isDm ? conversation?.thread : null;
   const conversationId = conversation?.id || null;
+  syncComposerDraftConversation(conversationId);
   const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
   const liveSwfKeys = collectLiveSwfRuntimeKeys();
   swfRuntimes.forEach((runtime, key) => {
@@ -6707,6 +7042,18 @@ function renderMessages() {
       const canEditMessage = canEditMessageEntry(message, { isDm, canManageMessages, currentUser });
       const firstSwfAttachment = attachments.find((attachment) => attachment.type === "swf");
       const firstSwfIndex = attachments.findIndex((attachment) => attachment.type === "swf");
+      const poll = normalizePoll(message.poll);
+      const pollVoteSubmenu = poll && !poll.closed && currentUser
+        ? poll.options.map((option, index) => ({
+            label: `${index + 1}. ${option.label}`,
+            action: () => {
+              const changed = togglePollVote(message, option.id, currentUser.id);
+              if (!changed) return;
+              saveState();
+              renderMessages();
+            }
+          }))
+        : [];
       const menuItems = [
         {
           label: "Reply",
@@ -6719,9 +7066,27 @@ function renderMessages() {
           action: () => quoteMessageInComposer(message)
         },
         {
-          label: "Copy Poll Results",
-          disabled: !normalizePoll(message.poll),
-          action: () => copyText(formatPollResultsText(message))
+          label: "Poll",
+          disabled: !poll,
+          submenu: [
+            {
+              label: poll?.closed ? "Reopen Poll" : "Close Poll",
+              disabled: !canManagePollMessage(message, { isDm, canManageMessages, currentUser }),
+              action: () => {
+                const next = normalizePoll(message.poll);
+                if (!next) return;
+                message.poll = { ...next, closed: !next.closed };
+                saveState();
+                renderMessages();
+              }
+            },
+            {
+              label: "Copy Poll Results",
+              disabled: !poll,
+              action: () => copyText(formatPollResultsText(message))
+            },
+            ...pollVoteSubmenu
+          ]
         },
         {
           label: "Copy",
@@ -6757,17 +7122,6 @@ function renderMessages() {
           label: message.collaborative ? "Edit Shared Message" : "Edit Message",
           disabled: !canEditMessage,
           action: () => openMessageEditor(conversationId, message.id, message.text)
-        },
-        {
-          label: normalizePoll(message.poll)?.closed ? "Reopen Poll" : "Close Poll",
-          disabled: !canManagePollMessage(message, { isDm, canManageMessages, currentUser }),
-          action: () => {
-            const next = normalizePoll(message.poll);
-            if (!next) return;
-            message.poll = { ...next, closed: !next.closed };
-            saveState();
-            renderMessages();
-          }
         },
         {
           label: "View Edit History",
@@ -7435,6 +7789,7 @@ ui.messageForm.addEventListener("submit", (event) => {
     clearComposerPendingAttachment();
     if (swfPipTabs.length > 0 && !(conversation.type === "channel" && conversation.channel.type === "forum")) {
       ui.messageInput.value = "";
+      setComposerDraft(conversation.id, "");
       slashSelectionIndex = 0;
       closeMediaPicker();
       saveState();
@@ -7446,6 +7801,7 @@ ui.messageForm.addEventListener("submit", (event) => {
   }
 
   ui.messageInput.value = "";
+  setComposerDraft(conversation.id, "");
   clearComposerPendingAttachment();
   slashSelectionIndex = 0;
   closeMediaPicker();
@@ -7455,6 +7811,8 @@ ui.messageForm.addEventListener("submit", (event) => {
 });
 
 ui.messageInput.addEventListener("input", () => {
+  setComposerDraft(composerDraftConversationId, ui.messageInput.value);
+  queueComposerDraftSave();
   slashSelectionIndex = 0;
   mentionSelectionIndex = 0;
   renderSlashSuggestions();
@@ -7707,9 +8065,25 @@ ui.messageInput.addEventListener("keydown", (event) => {
       const start = ui.messageInput.selectionStart ?? 0;
       const end = ui.messageInput.selectionEnd ?? 0;
       const selected = ui.messageInput.value.slice(start, end);
-      if (!selected) return;
-      const wrapped = `||${selected}||`;
-      ui.messageInput.setRangeText(wrapped, start, end, "end");
+      if (selected) {
+        ui.messageInput.setRangeText(`||${selected}||`, start, end, "end");
+        return;
+      }
+      const source = ui.messageInput.value;
+      let wordStart = start;
+      let wordEnd = end;
+      while (wordStart > 0 && !/\s/.test(source[wordStart - 1])) wordStart -= 1;
+      while (wordEnd < source.length && !/\s/.test(source[wordEnd])) wordEnd += 1;
+      const word = source.slice(wordStart, wordEnd);
+      if (word) {
+        ui.messageInput.setRangeText(`||${word}||`, wordStart, wordEnd, "end");
+      } else {
+        ui.messageInput.setRangeText("||||", start, end, "end");
+        const caret = start + 2;
+        ui.messageInput.setSelectionRange(caret, caret);
+      }
+      setComposerDraft(composerDraftConversationId, ui.messageInput.value);
+      queueComposerDraftSave();
       return;
     }
     if (event.key.toLowerCase() === "g") {

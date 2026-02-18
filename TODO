@@ -135,3 +135,5 @@
 - Discord-style per-channel slowmode option
 - [done] Spoiler message support (`||spoiler||`) with click-to-reveal in chat
 - [done] Telegram-style quick polls (`/poll question | option1 | option2...`) with vote + close/reopen flow
+- [done] Per-conversation composer drafts (channel/DM) with restore on switch/refresh
+- [done] Utility slash commands (`/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`)
