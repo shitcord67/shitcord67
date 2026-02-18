@@ -1,4 +1,6 @@
 :root {
+  --rail-w: 72px;
+  --channel-w: 260px;
   --bg-main: #313338;
   --bg-dark: #1e1f22;
   --bg-mid: #2b2d31;
@@ -99,7 +101,8 @@ button {
 #chatScreen {
   display: none;
   height: 100vh;
-  grid-template-columns: 72px 260px 1fr 260px;
+  grid-template-columns: var(--rail-w) var(--channel-w) 1fr 260px;
+  position: relative;
 }
 
 #chatScreen.screen--active {
@@ -113,7 +116,7 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 0.45rem 4.75rem;
+  padding: 0.75rem 0.45rem;
 }
 
 .server-brand,
@@ -161,12 +164,12 @@ button {
   background: var(--bg-mid);
   border-right: 1px solid var(--line);
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
 }
 
 .channel-scroll {
   overflow-y: auto;
-  padding: 0.6rem 0.6rem 0.8rem;
+  padding: 0.6rem 0.6rem 5rem;
 }
 
 .channel-panel__header {
@@ -197,11 +200,6 @@ button {
   color: var(--text-main);
 }
 
-.channel-panel__bottom {
-  border-top: 1px solid var(--line);
-  padding: 0.7rem;
-}
-
 .channel-create {
   width: 100%;
   margin-top: 0.35rem;
@@ -209,6 +207,18 @@ button {
   font-weight: 700;
   background: #444957;
   color: #fff;
+}
+
+.left-bottom-dock {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: calc(var(--rail-w) + var(--channel-w));
+  padding: 0.45rem 0.6rem;
+  background: #1f2023;
+  border-top: 1px solid #121315;
+  border-right: 1px solid var(--line);
+  z-index: 3;
 }
 
 .account-dock {
@@ -896,7 +906,8 @@ body[data-debug-overlay="on"] .chat-panel {
 
 @media (max-width: 1080px) {
   #chatScreen.screen--active {
-    grid-template-columns: 72px 240px 1fr;
+    --channel-w: 240px;
+    grid-template-columns: var(--rail-w) var(--channel-w) 1fr;
   }
 
   .member-panel {
@@ -910,6 +921,10 @@ body[data-debug-overlay="on"] .chat-panel {
   }
 
   .channel-panel {
+    display: none;
+  }
+
+  .left-bottom-dock {
     display: none;
   }
 

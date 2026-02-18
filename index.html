@@ -40,25 +40,6 @@
           <button id="createChannelBtn" class="channel-create">+ Create Channel</button>
         </div>
 
-        <div class="channel-panel__bottom">
-          <div class="account-dock">
-            <button id="selfProfileBtn" class="account-dock__main" title="Open profile">
-              <div class="dock-avatar-wrap">
-                <div id="dockAvatar" class="dock-avatar"></div>
-                <span id="dockPresenceDot" class="dock-presence-dot presence-online"></span>
-              </div>
-              <div class="dock-meta">
-                <strong id="dockName">User</strong>
-                <span id="dockStatus">Online</span>
-              </div>
-            </button>
-            <div class="account-dock__actions">
-              <button id="dockMuteBtn" class="account-dock__icon" title="Mute">🎤</button>
-              <button id="dockHeadphonesBtn" class="account-dock__icon" title="Deafen">🎧</button>
-              <button id="openSettingsBtn" class="account-dock__icon" title="User settings">⚙</button>
-            </div>
-          </div>
-        </div>
       </aside>
 
       <main class="chat-panel">
@@ -79,7 +60,7 @@
           </div>
 
           <div id="slashCommandPopup" class="slash-popup slash-popup--hidden">
-            <div class="slash-popup__hint">Use ↑↓ and Enter/Tab to select</div>
+            <div id="suggestionHint" class="slash-popup__hint">Use ↑↓ and Enter/Tab to select</div>
             <div id="slashCommandList" class="slash-popup__list"></div>
           </div>
 
@@ -94,6 +75,26 @@
         <h3>Members</h3>
         <div id="memberList" class="member-list"></div>
       </aside>
+
+      <div class="left-bottom-dock">
+        <div class="account-dock">
+          <button id="selfProfileBtn" class="account-dock__main" title="Open profile">
+            <div class="dock-avatar-wrap">
+              <div id="dockAvatar" class="dock-avatar"></div>
+              <span id="dockPresenceDot" class="dock-presence-dot presence-online"></span>
+            </div>
+            <div class="dock-meta">
+              <strong id="dockName">User</strong>
+              <span id="dockStatus">Online</span>
+            </div>
+          </button>
+          <div class="account-dock__actions">
+            <button id="dockMuteBtn" class="account-dock__icon" title="Mute">🎤</button>
+            <button id="dockHeadphonesBtn" class="account-dock__icon" title="Deafen">🎧</button>
+            <button id="openSettingsBtn" class="account-dock__icon" title="User settings">⚙</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <section id="settingsScreen" class="settings-screen">
