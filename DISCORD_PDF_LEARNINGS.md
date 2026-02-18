@@ -61,6 +61,14 @@ This file is intended as persistent context for future LLM runs.
 6. Guild lifecycle UX improved: setup templates at creation time plus first-class guild settings (name/description/accent/delete).
 7. DM mode now has a dedicated home surface instead of falling through to empty channel UI.
 
+## Implemented In Latest Parity Pass
+
+1. Message rows now use a Discord-like avatar column with tighter two-column rhythm.
+2. Consecutive same-author messages compact/group (name hidden on grouped rows, timestamp-on-hover behavior).
+3. DM home cards now include avatar + presence + time + better preview hierarchy.
+4. Global surface spacing/radii updated toward Discord desktop proportions (rail/channel/header/member/composer).
+5. Login/chat view switching hardened against partial render failure (`safeRender` + deterministic screen sync).
+
 ## Operational Guidance
 
 1. Prefer PDF-first reference processing (`scripts/process_pdf_references.py`) to avoid brittle SVG artifacts.

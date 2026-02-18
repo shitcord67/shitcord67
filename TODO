@@ -149,5 +149,10 @@
 - [done] Guild setup presets + starter-channel wizard options
 - [done] Guild settings dialog (name/description/accent + admin delete)
 - [done] DM home/friends-style screen when no DM thread is selected
+- [done] Login/chat screen-state hardening (`safeRender` + forced auth-based screen sync on startup/login/hashchange)
+- [done] Message list now uses Discord-like avatar column + compact grouping for consecutive messages
+- [done] DM home cards upgraded with avatar/presence/time preview layout
+- [done] Discord-style surface spacing pass: server rail/channel panel/header/member panel tightened toward desktop proportions
+- [done] Composer shell updated toward Discord geometry (pill shell, icon-centric controls, compact submit)
 - Make in-line chat commands clickable in the pop-up. Also e.g. when bots display rich media visual things like playing cards, then those can also be defined as individually click able even when displayed in the same line
 - Create a bot which provides a shedding-type card game that users can start in chat and play together (each user gets displayed their own deck by leveraging advanced in-line commands

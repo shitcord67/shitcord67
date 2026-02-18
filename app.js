@@ -3857,6 +3857,25 @@ function displayNameForMessage(message) {
   return message.authorName || "Unknown";
 }
 
+function initialsForName(name) {
+  const cleaned = (name || "").replace(/[^a-z0-9 ]/gi, " ").trim();
+  if (!cleaned) return "?";
+  const chunks = cleaned.split(/\s+/).filter(Boolean).slice(0, 2);
+  return chunks.map((part) => part[0]?.toUpperCase() || "").join("") || cleaned.slice(0, 1).toUpperCase();
+}
+
+function shouldGroupMessageWithPrevious(currentMessage, previousMessage) {
+  if (!currentMessage || !previousMessage) return false;
+  if (!currentMessage.userId || !previousMessage.userId) return false;
+  if (currentMessage.userId !== previousMessage.userId) return false;
+  if (currentMessage.replyTo || previousMessage.replyTo) return false;
+  if (currentMessage.poll || previousMessage.poll) return false;
+  const currentTs = toTimestampMs(currentMessage.ts);
+  const previousTs = toTimestampMs(previousMessage.ts);
+  if (!currentTs || !previousTs) return false;
+  return (currentTs - previousTs) <= (6 * 60 * 1000);
+}
+
 function appendMentionOrEmoji(target, token, context) {
   const mentionMatch = token.match(/^@([a-z0-9._-]+)$/i);
   if (mentionMatch) {
@@ -6123,6 +6142,16 @@ function renderScreens() {
   }
 }
 
+function safeRender(reason = "runtime") {
+  try {
+    render();
+  } catch (error) {
+    console.error(`Render failed (${reason})`, error);
+    renderScreens();
+    showToast("UI refresh failed. Check console for details.", { tone: "error", duration: 2800 });
+  }
+}
+
 function renderServers() {
   ui.serverList.innerHTML = "";
   ui.serverBrand.classList.toggle("active", getViewMode() === "dm");
@@ -7104,7 +7133,33 @@ function renderDmHome() {
       card.type = "button";
       card.className = "dm-home__item";
       const last = thread.messages[thread.messages.length - 1];
-      card.innerHTML = `<strong>@${peer?.username || "unknown"}</strong><small>${(last?.text || "(no messages)").slice(0, 80)}</small>`;
+      const avatar = document.createElement("div");
+      avatar.className = "dm-home__avatar";
+      if (peer) {
+        applyAvatarStyle(avatar, peer, null);
+        const dot = document.createElement("span");
+        dot.className = `presence-dot presence-${normalizePresence(peer.presence)}`;
+        avatar.appendChild(dot);
+      } else {
+        avatar.textContent = "?";
+      }
+      const body = document.createElement("div");
+      body.className = "dm-home__body";
+      const top = document.createElement("div");
+      top.className = "dm-home__top";
+      const name = document.createElement("strong");
+      name.textContent = `@${peer?.username || "unknown"}`;
+      const ts = document.createElement("small");
+      ts.className = "dm-home__time";
+      ts.textContent = last?.ts ? formatTime(last.ts) : "";
+      top.appendChild(name);
+      top.appendChild(ts);
+      const preview = document.createElement("small");
+      preview.textContent = (last?.text || "(no messages)").slice(0, 80);
+      body.appendChild(top);
+      body.appendChild(preview);
+      card.appendChild(avatar);
+      card.appendChild(body);
       card.addEventListener("click", () => {
         state.viewMode = "dm";
         state.activeDmId = thread.id;
@@ -7261,12 +7316,14 @@ function renderMessages() {
   }
 
   let lastDayKey = "";
+  let previousThreadMessage = null;
   messageBucket.forEach((message) => {
     const currentUser = getCurrentAccount();
     const dayKey = messageDateKey(message.ts);
     if (dayKey && dayKey !== lastDayKey) {
       ui.messageList.appendChild(createMessageDayDivider(message.ts));
       lastDayKey = dayKey;
+      previousThreadMessage = null;
     }
     if (isDm && unreadDividerMessageId && unreadDividerMessageId === message.id) {
       const divider = document.createElement("div");
@@ -7277,6 +7334,8 @@ function renderMessages() {
     }
     const messageRow = document.createElement("article");
     messageRow.className = `message ${!isDm && channel?.type === "forum" ? "message--forum" : ""}`;
+    const groupedWithPrevious = !(!isDm && channel?.type === "forum") && shouldGroupMessageWithPrevious(message, previousThreadMessage);
+    if (groupedWithPrevious) messageRow.classList.add("message--grouped");
     messageRow.dataset.messageId = message.id;
     messageRow.dataset.ts = message.ts;
     messageRow.tabIndex = -1;
@@ -7289,6 +7348,18 @@ function renderMessages() {
       setReplyTarget(conversationId, message, message.forumThreadId || null);
     });
     let replyLine = null;
+
+    const avatar = document.createElement("div");
+    avatar.className = `message-avatar ${groupedWithPrevious ? "message-avatar--hidden" : ""}`;
+    const author = message.userId ? getAccountById(message.userId) : null;
+    const guildId = !isDm ? getActiveGuild()?.id || null : null;
+    if (author) {
+      applyAvatarStyle(avatar, author, guildId);
+    } else {
+      avatar.textContent = initialsForName(displayNameForMessage(message));
+    }
+    avatar.title = displayNameForMessage(message);
+    messageRow.appendChild(avatar);
 
     const head = document.createElement("div");
     head.className = "message-head";
@@ -7567,6 +7638,7 @@ function renderMessages() {
     });
     messageRow.appendChild(reactions);
     messageRow.appendChild(reactionPicker);
+    previousThreadMessage = message;
     const openMessageContextMenuAt = (event) => {
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       const isOwnMessage = currentUser && message.userId === currentUser.id;
@@ -8259,16 +8331,10 @@ ui.loginForm.addEventListener("submit", (event) => {
     showToast("Username must include at least one letter or number.", { tone: "error" });
     return;
   }
-  ui.loginScreen.classList.remove("screen--active");
-  ui.chatScreen.classList.add("screen--active");
+  renderScreens();
   ui.loginUsername.value = "";
   saveState();
-  try {
-    render();
-  } catch (error) {
-    console.error("Render failed after login", error);
-    showToast("Logged in, but render failed. Open DevTools for details.", { tone: "error", duration: 3000 });
-  }
+  safeRender("login-submit");
   closeSettingsScreen();
   requestAnimationFrame(() => {
     ui.messageInput.focus();
@@ -9720,7 +9786,7 @@ window.addEventListener("resize", () => {
 });
 window.addEventListener("hashchange", () => {
   if (!state.currentAccountId) return;
-  render();
+  safeRender("hashchange");
 });
 document.addEventListener("scroll", closeContextMenu, true);
 
@@ -9951,6 +10017,6 @@ document.addEventListener("focusin", (event) => {
 
 mediaPickerTab = getPreferences().mediaLastTab;
 renderComposerMediaButtons();
-render();
+safeRender("startup");
 loadSwfLibrary();
 deployMediaRuntimes();
