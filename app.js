@@ -1086,6 +1086,10 @@ function xmlEscape(value) {
     .replace(/'/g, "&apos;");
 }
 
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
 function serializeMessageAsXml(message) {
   const reactionsXml = normalizeReactions(message.reactions)
     .map((reaction) => `    <reaction emoji="${xmlEscape(reaction.emoji)}" count="${reaction.userIds.length}" />`)
@@ -1795,13 +1799,21 @@ function renderMessageAttachment(container, attachment) {
           // ignore
         }
         const loadWithFallback = async () => {
-          if (!playerWrap.isConnected || !ui.messageList.isConnected) {
-            addDebugLog("info", "Skipped SWF load because player was detached before start", { url: mediaUrl });
+          let mounted = playerWrap.isConnected && ui.messageList.isConnected;
+          if (!mounted) {
+            for (let attempt = 0; attempt < 6; attempt += 1) {
+              await nextFrame();
+              mounted = playerWrap.isConnected && ui.messageList.isConnected;
+              if (mounted) break;
+            }
+          }
+          if (!mounted) {
+            addDebugLog("info", "Skipped SWF load because player never mounted", { url: mediaUrl });
             return;
           }
           let loaded = false;
           for (const candidate of urlCandidates) {
-            if (!playerWrap.isConnected || !ui.messageList.isConnected) {
+            if (!playerWrap.isConnected) {
               addDebugLog("info", "Aborted SWF load because player became detached", { url: candidate });
               return;
             }
