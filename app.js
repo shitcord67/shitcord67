@@ -2461,15 +2461,30 @@ function renderSwfPipDock() {
   if (!swfPipActiveKey || !swfPipTabs.includes(swfPipActiveKey)) swfPipActiveKey = swfPipTabs[0];
   // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
   const pipRect = ui.swfPipHost.getBoundingClientRect();
+  const dockRect = ui.swfPipDock.getBoundingClientRect();
+  const collapsedAnchorLeft = Math.max(8, dockRect.right - 2);
+  const collapsedAnchorTop = Math.max(8, dockRect.bottom - 2);
   swfPipTabs.forEach((runtimeKey) => {
     const runtime = swfRuntimes.get(runtimeKey);
     if (!runtime?.pipHost) return;
-    const visible = runtimeKey === swfPipActiveKey && !ui.swfPipDock.classList.contains("swf-pip--hidden");
+    const visible = (
+      runtimeKey === swfPipActiveKey
+      && !ui.swfPipDock.classList.contains("swf-pip--hidden")
+      && !swfPipCollapsed
+    );
     runtime.pipHost.style.display = "block";
-    runtime.pipHost.style.left = `${visible ? Math.max(8, pipRect.left) : -20000}px`;
-    runtime.pipHost.style.top = `${visible ? Math.max(8, pipRect.top) : -20000}px`;
-    runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
-    runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
+    if (visible) {
+      runtime.pipHost.style.left = `${Math.max(8, pipRect.left)}px`;
+      runtime.pipHost.style.top = `${Math.max(8, pipRect.top)}px`;
+      runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
+      runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
+    } else {
+      // Keep the same live element mounted, but collapse it to a tiny footprint.
+      runtime.pipHost.style.left = `${collapsedAnchorLeft}px`;
+      runtime.pipHost.style.top = `${collapsedAnchorTop}px`;
+      runtime.pipHost.style.width = "1px";
+      runtime.pipHost.style.height = "1px";
+    }
   });
   swfPipTabs.forEach((runtimeKey) => {
     const runtime = swfRuntimes.get(runtimeKey);
@@ -2506,11 +2521,14 @@ function renderSwfPipDock() {
 function updateSwfPipDockLayout() {
   if (!(ui.swfPipDock instanceof HTMLElement)) return;
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
-  if (!composerRect) return;
+  if (!composerRect) {
+    ui.swfPipDock.style.right = "14px";
+    ui.swfPipDock.style.bottom = "208px";
+    return;
+  }
   const rightGap = Math.max(10, window.innerWidth - composerRect.right + 10);
-  const bottomGap = Math.max(10, window.innerHeight - composerRect.top + 10);
   ui.swfPipDock.style.right = `${Math.round(rightGap)}px`;
-  ui.swfPipDock.style.bottom = `${Math.round(bottomGap)}px`;
+  ui.swfPipDock.style.bottom = "208px";
 }
 
 async function openSavedSwfFromShelf(entry) {
