@@ -516,6 +516,7 @@ const ui = {
   profileGuildNicknameInput: document.getElementById("profileGuildNicknameInput"),
   profileGuildAvatarInput: document.getElementById("profileGuildAvatarInput"),
   profileGuildAvatarUrlInput: document.getElementById("profileGuildAvatarUrlInput"),
+  profileGuildBannerInput: document.getElementById("profileGuildBannerInput"),
   presenceInput: document.getElementById("presenceInput"),
   profileBannerInput: document.getElementById("profileBannerInput"),
   profileAvatarInput: document.getElementById("profileAvatarInput"),
@@ -561,7 +562,9 @@ const ui = {
   userPopoutBio: document.getElementById("userPopoutBio"),
   userPopoutRoles: document.getElementById("userPopoutRoles"),
   userNoteInput: document.getElementById("userNoteInput"),
+  userDmInput: document.getElementById("userDmInput"),
   userStartDmBtn: document.getElementById("userStartDmBtn"),
+  userSendDmBtn: document.getElementById("userSendDmBtn"),
   userSaveNoteBtn: document.getElementById("userSaveNoteBtn"),
   accountSwitchDialog: document.getElementById("accountSwitchDialog"),
   accountSwitchForm: document.getElementById("accountSwitchForm"),
@@ -779,6 +782,29 @@ function openDmWithAccount(targetAccount) {
   state.activeDmId = thread.id;
   saveState();
   render();
+}
+
+function sendDirectMessageToAccount(targetAccount, text) {
+  const current = getCurrentAccount();
+  const body = (text || "").trim().slice(0, 400);
+  if (!current || !targetAccount || targetAccount.id === current.id || !body) return false;
+  const thread = getOrCreateDmThread(current, targetAccount);
+  if (!thread) return false;
+  thread.messages.push({
+    id: createId(),
+    userId: current.id,
+    authorName: "",
+    text: body,
+    ts: new Date().toISOString(),
+    reactions: [],
+    attachments: [],
+    replyTo: null
+  });
+  state.viewMode = "dm";
+  state.activeDmId = thread.id;
+  saveState();
+  render();
+  return true;
 }
 
 function getServerRoles(server) {
@@ -1244,6 +1270,21 @@ function resolveAccountAvatar(account, guildId = null) {
     color: (profile.avatarColor || fallback.color || "#57f287").toString(),
     url: (profile.avatarUrl || fallback.url || "").toString()
   };
+}
+
+function resolveAccountBanner(account, guildId = null) {
+  const fallback = (account?.banner || "").toString();
+  if (!account || !guildId || !account.guildProfiles || typeof account.guildProfiles !== "object") return fallback;
+  const profile = account.guildProfiles[guildId];
+  if (!profile || typeof profile !== "object") return fallback;
+  return (profile.banner || fallback || "").toString();
+}
+
+function getMemberTopRoleColor(server, accountId) {
+  const roles = getMemberRoles(server, accountId).filter((role) => role.name !== "@everyone");
+  if (roles.length === 0) return "";
+  const top = roles[roles.length - 1];
+  return (top?.color || "").toString();
 }
 
 function parseStatusExpiryAt(value) {
@@ -4346,10 +4387,13 @@ function openUserPopout(account, fallbackName = "Unknown") {
   selectedUserPopoutId = account?.id || null;
 
   ui.userPopoutName.textContent = displayName;
+  const activeServer = getActiveConversation()?.type === "channel" ? getActiveServer() : null;
+  const userRoleColor = account?.id && activeServer ? getMemberTopRoleColor(activeServer, account.id) : "";
+  ui.userPopoutName.style.color = userRoleColor || "";
   ui.userPopoutStatus.textContent = account ? displayStatus(account) : "Offline";
   ui.userPopoutBio.textContent = bio;
   applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
-  applyBannerStyle(ui.userPopoutBanner, account?.banner || "");
+  applyBannerStyle(ui.userPopoutBanner, resolveAccountBanner(account, guildId));
   renderRoleChips(ui.userPopoutRoles, account?.id);
   if (ui.userNoteInput) {
     ui.userNoteInput.value = current && selectedUserPopoutId ? getUserNote(current.id, selectedUserPopoutId) : "";
@@ -4357,6 +4401,9 @@ function openUserPopout(account, fallbackName = "Unknown") {
   }
   if (ui.userStartDmBtn) ui.userStartDmBtn.disabled = !account?.id || account.id === current?.id;
   if (ui.userSaveNoteBtn) ui.userSaveNoteBtn.disabled = !selectedUserPopoutId || !current;
+  if (ui.userSendDmBtn) ui.userSendDmBtn.disabled = !account?.id || account.id === current?.id || !current;
+  if (ui.userDmInput) ui.userDmInput.value = "";
+  if (account?.id && current && account.id !== current.id && ui.userDmInput) ui.userDmInput.focus();
   ui.userPopoutDialog.showModal();
 }
 
@@ -4418,6 +4465,10 @@ function renderMessages() {
     const userButton = document.createElement("button");
     userButton.className = "message-user";
     userButton.textContent = displayNameForMessage(message);
+    if (!isDm && channel && message.userId) {
+      const roleColor = getMemberTopRoleColor(getActiveServer(), message.userId);
+      if (roleColor) userButton.style.color = roleColor;
+    }
     userButton.addEventListener("click", () => {
       const author = message.userId ? getAccountById(message.userId) : null;
       openUserPopout(author, message.authorName || "Unknown");
@@ -4863,6 +4914,8 @@ function renderMemberList() {
 
       const label = document.createElement("span");
       label.textContent = displayNameForAccount(account, server.id);
+      const roleColor = getMemberTopRoleColor(server, account.id);
+      if (roleColor) label.style.color = roleColor;
 
       row.appendChild(avatar);
       row.appendChild(label);
@@ -4911,10 +4964,12 @@ function renderSelfPopout() {
   const account = getCurrentAccount();
   if (!account) return;
   ui.selfPopoutName.textContent = displayNameForAccount(account, getActiveGuild()?.id || null);
+  const selfRoleColor = getActiveServer() ? getMemberTopRoleColor(getActiveServer(), account.id) : "";
+  ui.selfPopoutName.style.color = selfRoleColor || "";
   ui.selfPopoutStatus.textContent = displayStatus(account);
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);
-  applyBannerStyle(ui.selfPopoutBanner, account.banner || "");
+  applyBannerStyle(ui.selfPopoutBanner, resolveAccountBanner(account, getActiveGuild()?.id || null));
   renderRoleChips(ui.selfPopoutRoles, account.id);
 }
 
@@ -5094,11 +5149,14 @@ function openProfileEditor() {
   ui.profileStatusExpiryInput.value = statusExpiryPreset(account);
   ui.profileGuildNicknameInput.value = guild ? resolveAccountGuildNickname(account, guild.id) : "";
   const guildAvatar = guild ? resolveAccountAvatar(account, guild.id) : { color: "", url: "" };
+  const guildBanner = guild ? resolveAccountBanner(account, guild.id) : "";
   ui.profileGuildAvatarInput.value = guild ? (guildAvatar.color || "") : "";
   ui.profileGuildAvatarUrlInput.value = guild ? (guildAvatar.url || "") : "";
+  ui.profileGuildBannerInput.value = guild ? guildBanner : "";
   ui.profileGuildNicknameInput.disabled = !guild;
   ui.profileGuildAvatarInput.disabled = !guild;
   ui.profileGuildAvatarUrlInput.disabled = !guild;
+  ui.profileGuildBannerInput.disabled = !guild;
   ui.presenceInput.value = account.presence || "online";
   ui.profileBannerInput.value = account.banner || "";
   ui.profileAvatarInput.value = account.avatarColor || "#57f287";
@@ -5903,6 +5961,21 @@ ui.userStartDmBtn.addEventListener("click", () => {
   openDmWithAccount(target);
 });
 
+ui.userSendDmBtn.addEventListener("click", () => {
+  const target = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
+  if (!target) return;
+  const sent = sendDirectMessageToAccount(target, ui.userDmInput.value);
+  if (!sent) return;
+  ui.userDmInput.value = "";
+  ui.userPopoutDialog.close();
+});
+
+ui.userDmInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  ui.userSendDmBtn.click();
+});
+
 ui.userSaveNoteBtn.addEventListener("click", () => {
   const current = getCurrentAccount();
   if (!current || !selectedUserPopoutId) return;
@@ -5957,6 +6030,7 @@ ui.profileForm.addEventListener("submit", (event) => {
     const guildAvatarColor = ui.profileGuildAvatarInput.value.trim();
     const guildAvatarUrlRaw = ui.profileGuildAvatarUrlInput.value.trim();
     const guildAvatarUrl = isRenderableAvatarUrl(guildAvatarUrlRaw) ? guildAvatarUrlRaw : "";
+    const guildBanner = ui.profileGuildBannerInput.value.trim();
     if (guildNickname) {
       account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), nickname: guildNickname };
     }
@@ -5967,6 +6041,11 @@ ui.profileForm.addEventListener("submit", (event) => {
       account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), avatarUrl: guildAvatarUrl };
     } else if (account.guildProfiles[guild.id]) {
       delete account.guildProfiles[guild.id].avatarUrl;
+    }
+    if (guildBanner) {
+      account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), banner: guildBanner };
+    } else if (account.guildProfiles[guild.id]) {
+      delete account.guildProfiles[guild.id].banner;
     }
     if (!guildNickname && account.guildProfiles[guild.id]) delete account.guildProfiles[guild.id].nickname;
     if (!guildAvatarColor && account.guildProfiles[guild.id]) delete account.guildProfiles[guild.id].avatarColor;

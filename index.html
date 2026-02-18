@@ -295,6 +295,8 @@
       <input id="profileGuildAvatarInput" type="text" placeholder="#57f287" />
       <label for="profileGuildAvatarUrlInput">Avatar image URL (active guild)</label>
       <input id="profileGuildAvatarUrlInput" type="text" placeholder="https://..." />
+      <label for="profileGuildBannerInput">Banner color/image URL (active guild)</label>
+      <input id="profileGuildBannerInput" type="text" placeholder="#3f51b5 or https://..." />
       <label for="presenceInput">Presence</label>
       <select id="presenceInput">
         <option value="online">Online</option>
@@ -423,9 +425,12 @@
         <div id="userPopoutRoles" class="role-chip-list"></div>
         <label for="userNoteInput">Your note about this user</label>
         <textarea id="userNoteInput" maxlength="240" placeholder="Private note only visible to you"></textarea>
+        <label for="userDmInput">Quick DM</label>
+        <input id="userDmInput" type="text" maxlength="240" placeholder="Send a direct message..." />
       </div>
       <div class="modal-actions modal-actions--stack">
         <button type="button" id="userStartDmBtn">Start DM</button>
+        <button type="button" id="userSendDmBtn">Send Quick DM</button>
         <button type="button" id="userSaveNoteBtn">Save Note</button>
       </div>
     </div>

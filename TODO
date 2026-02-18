@@ -26,12 +26,15 @@
 - OLED theme mode with Appearance toggle.
 - Per-guild nicknames via profile editor and `/nick`.
 - Per-guild avatar variants via profile editor.
+- Per-guild banner variants via profile editor.
 - Custom status emoji + timed expiry presets (30m/1h/4h/today).
 - Channel type variants (text/announcement/forum/media) with distinct labels.
 - DM search/quick switch via sidebar filter and Enter-to-open.
 - Nested context-menu submenus for grouped actions.
 - DM-only sidebar mode toggled via top `S67` button.
 - Top DM switcher uses emoji-style icon and shows DM unread/mention badge.
+- Quick DM input in user popout (send without leaving profile card).
+- Role color applied to member list, message usernames, and profile names.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
@@ -104,3 +107,6 @@
 - Get inspiration from chinese WeChat which is the everything app, lol
 - The guild channel sidebar and the DM sidebar should be seperate. The DM sidebar should only be visible when clicking at the top icon (S67 for now, maybe replace with SVG version of 🫪  emoi)
 - Please split the sign-in/welcome back part from the actual application. By that I mean I don't want to be able to scroll up/down to the different parts...
+- A person creating a guild should by default have owner permissions over it, allowed to do everything regarding it.
+ - Do not show SWF options in context menu when no SWF is in message 
+ - Do not overlay custom context menu when right-clicking over Ruffle
