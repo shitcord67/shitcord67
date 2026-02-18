@@ -30,6 +30,9 @@ const SLASH_COMMANDS = [
   { name: "channelinfo", args: "", description: "Show current channel metadata." },
   { name: "whereami", args: "", description: "Show active guild/channel IDs and mode." },
   { name: "jumpunread", args: "", description: "Jump to first unread message in current channel." },
+  { name: "nextunread", args: "", description: "Switch to next unread channel in this guild." },
+  { name: "prevunread", args: "", description: "Switch to previous unread channel in this guild." },
+  { name: "unreadcount", args: "", description: "Show unread/mention totals for this guild." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -591,6 +594,7 @@ const ui = {
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
+  nextUnreadBtn: document.getElementById("nextUnreadBtn"),
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
   openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
@@ -1244,6 +1248,34 @@ function navigateGuildChannelByOffset(delta) {
   state.viewMode = "guild";
   state.activeDmId = null;
   state.activeChannelId = next.id;
+  saveState();
+  render();
+  return true;
+}
+
+function listUnreadGuildChannels(guild, account) {
+  if (!guild || !account) return [];
+  return guild.channels
+    .map((channel) => ({ channel, stats: getChannelUnreadStats(channel, account) }))
+    .filter((entry) => entry.stats.unread > 0);
+}
+
+function jumpToUnreadGuildChannel(direction = 1) {
+  const guild = getActiveGuild();
+  const account = getCurrentAccount();
+  if (!guild || !account) return false;
+  const unread = listUnreadGuildChannels(guild, account);
+  if (unread.length === 0) return false;
+  const unreadIds = unread.map((entry) => entry.channel.id);
+  const currentIndex = unreadIds.indexOf(state.activeChannelId);
+  const fallback = direction >= 0 ? 0 : unreadIds.length - 1;
+  const base = currentIndex >= 0 ? currentIndex : fallback;
+  const nextIndex = (base + (direction >= 0 ? 1 : -1) + unreadIds.length) % unreadIds.length;
+  const nextId = unreadIds[nextIndex];
+  if (!nextId) return false;
+  state.viewMode = "guild";
+  state.activeDmId = null;
+  state.activeChannelId = nextId;
   saveState();
   render();
   return true;
@@ -3182,6 +3214,29 @@ function handleSlashCommand(rawText, channel, account) {
     requestAnimationFrame(() => {
       focusMessageById(unreadMessageId);
     });
+    return true;
+  }
+
+  if (command === "nextunread") {
+    const moved = jumpToUnreadGuildChannel(1);
+    if (!moved) addSystemMessage(channel, "No other unread channels in this guild.");
+    return true;
+  }
+
+  if (command === "prevunread") {
+    const moved = jumpToUnreadGuildChannel(-1);
+    if (!moved) addSystemMessage(channel, "No other unread channels in this guild.");
+    return true;
+  }
+
+  if (command === "unreadcount") {
+    const guild = getActiveGuild();
+    if (!guild) return true;
+    const totals = getGuildUnreadStats(guild, account);
+    addSystemMessage(
+      channel,
+      `Unread in ${guild.name}: ${totals.unread} message${totals.unread === 1 ? "" : "s"}, ${totals.mentions} mention${totals.mentions === 1 ? "" : "s"}.`
+    );
     return true;
   }
 
@@ -6424,7 +6479,8 @@ function renderChannels() {
           submenu: [
             { label: "Channel Name", action: () => copyText(`#${channel.name}`) },
             { label: "Channel Topic", action: () => copyText(channel.topic || "") },
-            { label: "Channel ID", action: () => copyText(channel.id) }
+            { label: "Channel ID", action: () => copyText(channel.id) },
+            { label: "Channel Link", action: () => copyText(buildChannelPermalink(server.id, channel.id)) }
           ]
         },
         {
@@ -7000,6 +7056,7 @@ function renderMessages() {
   const currentAccount = getCurrentAccount();
   const unreadStats = !isDm ? getChannelUnreadStats(channel, currentAccount) : { unread: 0, mentions: 0 };
   const firstUnreadMessageId = !isDm ? findFirstUnreadMessageId(channel, currentAccount) : null;
+  const guildUnreadChannels = !isDm ? listUnreadGuildChannels(getActiveGuild(), currentAccount) : [];
   const channelPinnedCount = !isDm ? messageBucket.filter((message) => message.pinned).length : 0;
   if (ui.openPinsBtn) {
     ui.openPinsBtn.textContent = channelPinnedCount > 0 ? `Pins (${channelPinnedCount})` : "Pins";
@@ -7008,6 +7065,19 @@ function renderMessages() {
     ui.markChannelReadBtn.hidden = isDm;
     ui.markChannelReadBtn.disabled = isDm || !currentAccount || unreadStats.unread === 0;
     ui.markChannelReadBtn.classList.toggle("chat-topic-edit--active", !isDm && unreadStats.unread > 0);
+    if (!isDm && unreadStats.unread > 0) {
+      ui.markChannelReadBtn.textContent = `Mark Read (${unreadStats.unread > 99 ? "99+" : unreadStats.unread})`;
+    } else {
+      ui.markChannelReadBtn.textContent = "Mark Read";
+    }
+  }
+  if (ui.nextUnreadBtn) {
+    ui.nextUnreadBtn.hidden = isDm;
+    ui.nextUnreadBtn.disabled = isDm || guildUnreadChannels.length === 0;
+    ui.nextUnreadBtn.classList.toggle("chat-topic-edit--active", !isDm && guildUnreadChannels.length > 0);
+    ui.nextUnreadBtn.textContent = guildUnreadChannels.length > 0
+      ? `Next Unread (${guildUnreadChannels.length > 99 ? "99+" : guildUnreadChannels.length})`
+      : "Next Unread";
   }
   const channelSlowmode = !isDm ? getChannelSlowmodeSeconds(channel) : 0;
   if (!isDm && channelSlowmode > 0) {
@@ -8778,6 +8848,10 @@ ui.markChannelReadBtn?.addEventListener("click", () => {
   renderMessages();
 });
 
+ui.nextUnreadBtn?.addEventListener("click", () => {
+  jumpToUnreadGuildChannel(1);
+});
+
 ui.topicCancel.addEventListener("click", () => ui.topicDialog.close());
 
 ui.topicForm.addEventListener("submit", (event) => {
@@ -9597,28 +9671,25 @@ document.addEventListener("keydown", (event) => {
     ui.messageInput.focus();
     return;
   }
-  if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === "u") {
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
     if (!state.currentAccountId) return;
     if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
-    ui.quickAttachInput.click();
+    const delta = event.key === "ArrowUp" ? -1 : 1;
+    navigateGuildChannelByOffset(delta);
     return;
   }
-  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "p") {
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "i") {
     if (!state.currentAccountId) return;
-    event.preventDefault();
-    openMediaPickerWithTab("pdf");
-    return;
-  }
-  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "i") {
-    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
     renderPinsDialog();
     ui.pinsDialog.showModal();
     return;
   }
-  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "r") {
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "r") {
     if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
     if (getViewMode() === "dm") return;
     event.preventDefault();
     const channel = getActiveChannel();
@@ -9629,12 +9700,32 @@ document.addEventListener("keydown", (event) => {
     render();
     return;
   }
-  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "n") {
     if (!state.currentAccountId) return;
     if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
-    const delta = event.key === "ArrowUp" ? -1 : 1;
-    navigateGuildChannelByOffset(delta);
+    jumpToUnreadGuildChannel(1);
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "p") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    jumpToUnreadGuildChannel(-1);
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "u") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    ui.quickAttachInput.click();
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "o") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    openMediaPickerWithTab("pdf");
     return;
   }
   if (event.ctrlKey && event.key.toLowerCase() === "k") {

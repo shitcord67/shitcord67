@@ -19,7 +19,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`, `/pins`, `/unpinall`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`, `/nextunread`, `/prevunread`, `/unreadcount`, `/pins`, `/unpinall`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
@@ -65,8 +65,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - OpenDocument/Office attachments render in an inline frame with open/download fallback links.
 - Binary (`.bin`) attachments render a compact HEX preview in chat.
 - PDF attachments now always include open/download controls plus a fallback note for browsers with inline PDF viewing disabled.
-- Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Ctrl+Shift+P` opens PDF tab, `Ctrl+U` opens file attach.
-- Extra channel shortcuts: `Ctrl+Shift+I` opens pins, `Ctrl+Shift+R` marks current channel read, `Alt+ArrowUp/Down` navigates channels.
+- Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Alt+O` opens PDF tab, `Alt+U` opens file attach.
+- Extra channel shortcuts: `Alt+I` opens pins, `Alt+R` marks current channel read, `Alt+N/P` jumps unread channels, `Alt+ArrowUp/Down` navigates channels.
 - Additional quick nav shortcuts: `Alt+1/2/3` open GIF/Sticker/Emoji tabs and `Ctrl+Shift+F` focuses channel/DM filter.
 - Guild channel rows now render dedicated channel-type icons with stronger active/hover states.
 - DM sidebar rows now render peer avatars + presence dots.

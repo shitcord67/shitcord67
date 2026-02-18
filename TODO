@@ -141,4 +141,6 @@
 - [done] Announcement channels are read-only for non-moderators (composer notice + send guard)
 - [done] Per-channel slowmode (`/slowmode`, channel settings, channel context presets, cooldown enforcement)
 - [done] Channel utility slash commands (`/pins`, `/unpinall`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`)
-- [done] Channel productivity shortcuts (`Ctrl+Shift+R`, `Ctrl+Shift+I`, `Alt+ArrowUp/Down`)
+- [done] Channel productivity shortcuts (`Alt+R`, `Alt+I`, `Alt+N/P`, `Alt+ArrowUp/Down`)
+- [done] Unread navigation slash commands (`/nextunread`, `/prevunread`, `/unreadcount`)
+- [done] Avoid browser-reserved shortcut overrides (moved file/PDF/pins/read actions to `Alt+...`)
