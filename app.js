@@ -296,6 +296,7 @@ let messageEditTarget = null;
 let replyTarget = null;
 let slashSelectionIndex = 0;
 let mentionSelectionIndex = 0;
+let contextMenuOpen = false;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -418,6 +419,7 @@ const ui = {
   pinsForm: document.getElementById("pinsForm"),
   pinsList: document.getElementById("pinsList"),
   pinsCloseBtn: document.getElementById("pinsCloseBtn"),
+  contextMenu: document.getElementById("contextMenu"),
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
@@ -503,6 +505,99 @@ function findChannelById(channelId) {
 function findMessageInChannel(channel, messageId) {
   if (!channel) return null;
   return channel.messages.find((message) => message.id === messageId) || null;
+}
+
+async function copyText(value) {
+  const text = (value || "").toString();
+  if (!text) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch {
+    // Fallback below.
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand("copy");
+  area.remove();
+}
+
+function mentionInComposer(account) {
+  if (!account) return;
+  const base = ui.messageInput.value.trim();
+  ui.messageInput.value = `${base ? `${base} ` : ""}@${account.username} `;
+  ui.messageInput.focus();
+  renderSlashSuggestions();
+}
+
+function renameGuildById(guildId) {
+  const guild = state.guilds.find((entry) => entry.id === guildId);
+  if (!guild) return;
+  const nextName = prompt("Rename guild", guild.name || "");
+  if (typeof nextName !== "string") return;
+  const cleaned = nextName.trim().slice(0, 40);
+  if (!cleaned || cleaned === guild.name) return;
+  guild.name = cleaned;
+  saveState();
+  render();
+}
+
+function deleteGuildById(guildId) {
+  if (state.guilds.length <= 1) return;
+  const guild = state.guilds.find((entry) => entry.id === guildId);
+  if (!guild) return;
+  const confirmed = confirm(`Delete guild "${guild.name}"? This removes all channels and messages in it.`);
+  if (!confirmed) return;
+  state.guilds = state.guilds.filter((entry) => entry.id !== guildId);
+  if (state.activeGuildId === guildId) {
+    const nextGuild = state.guilds[0] || null;
+    state.activeGuildId = nextGuild?.id || null;
+    state.activeChannelId = nextGuild?.channels[0]?.id || null;
+  }
+  saveState();
+  render();
+}
+
+function closeContextMenu() {
+  if (!contextMenuOpen) return;
+  contextMenuOpen = false;
+  ui.contextMenu.classList.add("context-menu--hidden");
+  ui.contextMenu.innerHTML = "";
+}
+
+function openContextMenu(event, items) {
+  event.preventDefault();
+  if (!Array.isArray(items) || items.length === 0) return;
+  ui.contextMenu.innerHTML = "";
+  items.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = item.label;
+    button.disabled = Boolean(item.disabled);
+    if (item.danger) button.classList.add("danger");
+    button.addEventListener("click", async () => {
+      closeContextMenu();
+      if (typeof item.action === "function") await item.action();
+    });
+    ui.contextMenu.appendChild(button);
+  });
+  ui.contextMenu.classList.remove("context-menu--hidden");
+  contextMenuOpen = true;
+
+  const margin = 8;
+  const menuRect = ui.contextMenu.getBoundingClientRect();
+  const maxLeft = window.innerWidth - menuRect.width - margin;
+  const maxTop = window.innerHeight - menuRect.height - margin;
+  const left = Math.max(margin, Math.min(event.clientX, maxLeft));
+  const top = Math.max(margin, Math.min(event.clientY, maxTop));
+  ui.contextMenu.style.left = `${left}px`;
+  ui.contextMenu.style.top = `${top}px`;
 }
 
 function ensureCurrentUserInActiveServer() {
@@ -901,6 +996,14 @@ function renderMessageText(container, rawText) {
   });
 }
 
+function extractImageUrl(text) {
+  if (!text) return null;
+  const matches = text.match(/https?:\/\/\S+/gi);
+  if (!matches) return null;
+  const imageUrl = matches.find((url) => /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url));
+  return imageUrl || null;
+}
+
 function renderScreens() {
   const loggedIn = Boolean(state.currentAccountId);
   ui.loginScreen.classList.toggle("screen--active", !loggedIn);
@@ -920,6 +1023,42 @@ function renderServers() {
       ensureCurrentUserInActiveServer();
       saveState();
       render();
+    });
+    button.addEventListener("contextmenu", (event) => {
+      const currentUser = getCurrentAccount();
+      openContextMenu(event, [
+        {
+          label: "Open Guild",
+          action: () => {
+            state.activeGuildId = server.id;
+            state.activeChannelId = server.channels[0]?.id || null;
+            ensureCurrentUserInActiveServer();
+            saveState();
+            render();
+          }
+        },
+        {
+          label: "Rename Guild",
+          disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
+          action: () => renameGuildById(server.id)
+        },
+        {
+          label: "Create Channel",
+          disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
+          action: () => {
+            state.activeGuildId = server.id;
+            state.activeChannelId = server.channels[0]?.id || null;
+            ui.channelNameInput.value = "";
+            ui.createChannelDialog.showModal();
+          }
+        },
+        {
+          label: "Delete Guild",
+          danger: true,
+          disabled: state.guilds.length <= 1 || !currentUser || !hasServerPermission(server, currentUser.id, "administrator"),
+          action: () => deleteGuildById(server.id)
+        }
+      ]);
     });
     ui.serverList.appendChild(button);
   });
@@ -943,6 +1082,41 @@ function renderChannels() {
       saveState();
       renderMessages();
       renderChannels();
+    });
+    button.addEventListener("contextmenu", (event) => {
+      openContextMenu(event, [
+        {
+          label: "Open Channel",
+          action: () => {
+            state.activeChannelId = channel.id;
+            saveState();
+            renderMessages();
+            renderChannels();
+          }
+        },
+        {
+          label: "Copy Channel Name",
+          action: () => copyText(`#${channel.name}`)
+        },
+        {
+          label: "Rename Channel",
+          disabled: !canCurrentUser("manageChannels"),
+          action: () => {
+            state.activeChannelId = channel.id;
+            ui.channelRenameInput.value = channel.name || "";
+            ui.channelSettingsDialog.showModal();
+          }
+        },
+        {
+          label: "Delete Channel",
+          danger: true,
+          disabled: !canCurrentUser("manageChannels") || server.channels.length <= 1,
+          action: () => {
+            state.activeChannelId = channel.id;
+            ui.deleteChannelBtn.click();
+          }
+        }
+      ]);
     });
     ui.channelList.appendChild(button);
   });
@@ -992,14 +1166,49 @@ function renderMessages() {
       const author = message.userId ? getAccountById(message.userId) : null;
       openUserPopout(author, message.authorName || "Unknown");
     });
+    userButton.addEventListener("contextmenu", (event) => {
+      const author = message.userId ? getAccountById(message.userId) : null;
+      openContextMenu(event, [
+        {
+          label: "View Profile",
+          action: () => openUserPopout(author, message.authorName || "Unknown")
+        },
+        {
+          label: "Mention User",
+          disabled: !author,
+          action: () => mentionInComposer(author)
+        },
+        {
+          label: "Copy Username",
+          disabled: !author,
+          action: () => copyText(author ? `@${author.username}` : "")
+        }
+      ]);
+    });
 
     const time = document.createElement("span");
     time.className = "message-time";
     time.textContent = formatTime(message.ts);
+    let editedBadge = null;
+    if (message.editedAt) {
+      editedBadge = document.createElement("span");
+      editedBadge.className = "message-edited";
+      editedBadge.textContent = "(edited)";
+    }
 
     const text = document.createElement("div");
     text.className = "message-text";
     renderMessageText(text, message.text);
+
+    const imageUrl = extractImageUrl(message.text);
+    let imagePreview = null;
+    if (imageUrl) {
+      imagePreview = document.createElement("img");
+      imagePreview.className = "message-image-preview";
+      imagePreview.src = imageUrl;
+      imagePreview.alt = "shared image";
+      imagePreview.loading = "lazy";
+    }
 
     let pinIndicator = null;
     if (message.pinned) {
@@ -1131,13 +1340,67 @@ function renderMessages() {
 
     head.appendChild(userButton);
     head.appendChild(time);
+    if (editedBadge) head.appendChild(editedBadge);
     messageRow.appendChild(head);
     if (replyLine) messageRow.appendChild(replyLine);
     if (pinIndicator) messageRow.appendChild(pinIndicator);
     messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
+    if (imagePreview) messageRow.appendChild(imagePreview);
     messageRow.appendChild(reactions);
     messageRow.appendChild(reactionPicker);
+    messageRow.addEventListener("contextmenu", (event) => {
+      const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
+      const isOwnMessage = currentUser && message.userId === currentUser.id;
+      openContextMenu(event, [
+        {
+          label: "Reply",
+          action: () => {
+            replyTarget = {
+              channelId: channel.id,
+              messageId: message.id,
+              authorName: displayNameForMessage(message),
+              text: message.text || ""
+            };
+            renderReplyComposer();
+            ui.messageInput.focus();
+          }
+        },
+        {
+          label: "Copy Text",
+          action: () => copyText(message.text || "")
+        },
+        {
+          label: message.pinned ? "Unpin Message" : "Pin Message",
+          disabled: !(currentUser && (message.userId === currentUser.id || canManageMessages)),
+          action: () => {
+            const scopedChannel = findChannelById(channel.id);
+            const scopedMessage = findMessageInChannel(scopedChannel, message.id);
+            if (!scopedChannel || !scopedMessage) return;
+            scopedMessage.pinned = !scopedMessage.pinned;
+            saveState();
+            renderMessages();
+          }
+        },
+        {
+          label: "Edit Message",
+          disabled: !isOwnMessage,
+          action: () => openMessageEditor(channel.id, message.id, message.text)
+        },
+        {
+          label: "Delete Message",
+          danger: true,
+          disabled: !(isOwnMessage || canManageMessages),
+          action: () => {
+            const scopedChannel = findChannelById(channel.id);
+            if (!scopedChannel) return;
+            scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
+            saveState();
+            renderMessages();
+          }
+        }
+      ]);
+    });
     ui.messageList.appendChild(messageRow);
   });
 
@@ -1191,6 +1454,22 @@ function renderMemberList() {
       row.appendChild(avatar);
       row.appendChild(label);
       row.addEventListener("click", () => openUserPopout(account));
+      row.addEventListener("contextmenu", (event) => {
+        openContextMenu(event, [
+          {
+            label: "View Profile",
+            action: () => openUserPopout(account)
+          },
+          {
+            label: "Mention User",
+            action: () => mentionInComposer(account)
+          },
+          {
+            label: "Copy Username",
+            action: () => copyText(`@${account.username}`)
+          }
+        ]);
+      });
       ui.memberList.appendChild(row);
     });
   });
@@ -1341,6 +1620,7 @@ function wireDialogBackdropClose(dialog) {
 }
 
 function render() {
+  closeContextMenu();
   renderScreens();
   applyPreferencesToUI();
   if (!state.currentAccountId) return;
@@ -1696,6 +1976,7 @@ ui.messageEditForm.addEventListener("submit", (event) => {
   const scopedMessage = findMessageInChannel(scopedChannel, messageEditTarget.messageId);
   if (!scopedChannel || !scopedMessage) return;
   scopedMessage.text = ui.messageEditInput.value.trim().slice(0, 400);
+  scopedMessage.editedAt = new Date().toISOString();
   saveState();
   messageEditTarget = null;
   ui.messageEditDialog.close();
@@ -1879,7 +2160,26 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.accountSwitchDialog
 ].forEach(wireDialogBackdropClose);
 
+document.addEventListener("click", (event) => {
+  if (!contextMenuOpen) return;
+  if (ui.contextMenu.contains(event.target)) return;
+  closeContextMenu();
+});
+
+document.addEventListener("contextmenu", (event) => {
+  if (!contextMenuOpen) return;
+  if (ui.contextMenu.contains(event.target)) return;
+  closeContextMenu();
+});
+
+window.addEventListener("resize", closeContextMenu);
+document.addEventListener("scroll", closeContextMenu, true);
+
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && contextMenuOpen) {
+    closeContextMenu();
+    return;
+  }
   if (event.key === "Escape" && ui.settingsScreen.classList.contains("settings-screen--active")) {
     closeSettingsScreen();
   }

@@ -7,16 +7,20 @@
 - Create servers (guilds).
 - Create text channels.
 - Send messages as logged-in user.
+- Message editing/deleting.
+- Reply threading and basic message reactions.
+- Per-guild member list with presence groups.
+- Channel topic + channel settings.
+- Slash commands (`/me`, `/shrug`, `/clear`, `/topic`, `/nick`, `/status`) with live popup.
+- Import/export JSON snapshot for backup/testing.
+- Right-click context menus for guilds/channels/messages/users.
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
-- Add message editing/deleting.
-- Add reply threading and basic message reactions.
-- Add per-server members list.
-- Add channel topic + channel settings.
-- Add simple slash commands (`/me`, `/shrug`, `/clear`).
-- Add import/export JSON snapshot for backup and testing.
 - Add profile image upload and validation.
+- Channel-level unread counters and mention badges.
+- DM sidebar and 1:1 direct-message threads.
+- Per-guild notification settings (mute/mentions only/all).
 
 ## Protocol/transport path
 - Define transport adapter interface (`send`, `subscribe`, `fetchHistory`, `presence`).
@@ -58,4 +62,4 @@
 - Direct messages to users. In the lower-left of the client or by clicking on username or user list when profile pops open there is a chat input field
 - Save notes about users on profiles of other users
 - OLED theme by default
-- Right click on guilds, channels, messages and users should provide custom context-menus that fit to the context
+- Add full nested context menu variants (invite/copy-id/submenus) and keyboard navigation.
