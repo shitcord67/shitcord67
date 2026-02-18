@@ -25,6 +25,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Guild rail now scrolls as one native-feeling column (brand, guild icons, and `+` create button).
 - Unread + mention badges for channels and guilds, with per-account read tracking.
 - Quick channel filter input in the sidebar.
+- Discord-like media picker panel in the composer (tabs: GIFs, Stickers, Emojis, SWFs, SVGs).
+- Click-to-send media attachments from picker (GIF/sticker/SVG/SWF), including local SWF index support via `swf-index.json`.
+- SWF message cards render with optional inline Ruffle playback when `window.RufflePlayer` is available.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
@@ -44,6 +47,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - `styles.css`: Discord-inspired layout and theme.
 - `app.js`: state, rendering, actions, persistence.
 - `TODO`: roadmap for XMPP/Matrix and advanced features.
+- `swf-index.json`: searchable local SWF catalog for the picker.
 
 ## Debugging
 - Open browser DevTools and inspect `localStorage` key `shitcord67-state-v1`.
