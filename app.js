@@ -453,6 +453,7 @@ let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
 let pipDragState = null;
 let pipSuppressHeaderToggle = false;
+let toastHideTimer = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -929,11 +930,11 @@ function getGuildUnreadStats(guild, account) {
 
 async function copyText(value) {
   const text = (value || "").toString();
-  if (!text) return;
+  if (!text) return false;
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
-      return;
+      return true;
     }
   } catch {
     // Fallback below.
@@ -944,8 +945,33 @@ async function copyText(value) {
   area.style.opacity = "0";
   document.body.appendChild(area);
   area.select();
-  document.execCommand("copy");
+  const copied = document.execCommand("copy");
   area.remove();
+  return Boolean(copied);
+}
+
+function ensureToastHost() {
+  let host = document.getElementById("appToastHost");
+  if (host) return host;
+  host = document.createElement("div");
+  host.id = "appToastHost";
+  host.className = "toast-host";
+  host.setAttribute("role", "status");
+  host.setAttribute("aria-live", "polite");
+  document.body.appendChild(host);
+  return host;
+}
+
+function showToast(message, { tone = "info", duration = 1800 } = {}) {
+  if (!message) return;
+  const host = ensureToastHost();
+  host.textContent = message;
+  host.classList.toggle("is-error", tone === "error");
+  host.classList.add("is-visible");
+  if (toastHideTimer) clearTimeout(toastHideTimer);
+  toastHideTimer = setTimeout(() => {
+    host.classList.remove("is-visible");
+  }, Math.max(500, Number(duration) || 1800));
 }
 
 function mentionInComposer(account) {
@@ -1109,6 +1135,25 @@ function openContextMenu(event, items) {
   }
 }
 
+function ensureServerOwnerRole(server, accountId) {
+  if (!server || !accountId) return false;
+  if (!Array.isArray(server.roles) || server.roles.length === 0) return false;
+  if (!server.memberRoles || typeof server.memberRoles !== "object") server.memberRoles = {};
+  const everyoneRoleId = server.roles[0].id;
+  if (!Array.isArray(server.memberRoles[accountId])) server.memberRoles[accountId] = [everyoneRoleId];
+  const adminRoleIds = server.roles.filter((role) => role.permissions?.administrator).map((role) => role.id);
+  const anyMemberHasAdmin = Object.values(server.memberRoles).some((roleIds) => (
+    Array.isArray(roleIds) && roleIds.some((id) => adminRoleIds.includes(id))
+  ));
+  const accountRoleIds = server.memberRoles[accountId];
+  const accountHasAdmin = accountRoleIds.some((id) => adminRoleIds.includes(id));
+  if (accountHasAdmin || anyMemberHasAdmin) return false;
+  const ownerRole = createRole("Owner", "#f23f43", "admin");
+  server.roles.push(ownerRole);
+  accountRoleIds.push(ownerRole.id);
+  return true;
+}
+
 function ensureCurrentUserInActiveServer() {
   const account = getCurrentAccount();
   const server = getActiveServer();
@@ -1133,6 +1178,9 @@ function ensureCurrentUserInActiveServer() {
   }
   if (!server.memberIds.includes(account.id)) {
     server.memberIds.push(account.id);
+    changed = true;
+  }
+  if (ensureServerOwnerRole(server, account.id)) {
     changed = true;
   }
   server.channels.forEach((channel) => {
@@ -4950,6 +4998,10 @@ function renderMessages() {
     const messageRow = document.createElement("article");
     messageRow.className = `message ${!isDm && channel?.type === "forum" ? "message--forum" : ""}`;
     messageRow.dataset.messageId = message.id;
+    messageRow.tabIndex = -1;
+    messageRow.addEventListener("mousedown", () => {
+      messageRow.focus({ preventScroll: true });
+    });
     let replyLine = null;
 
     const head = document.createElement("div");
@@ -5183,8 +5235,7 @@ function renderMessages() {
     });
     messageRow.appendChild(reactions);
     messageRow.appendChild(reactionPicker);
-    messageRow.addEventListener("contextmenu", (event) => {
-      if (shouldUseNativeContextMenu(event.target)) return;
+    const openMessageContextMenuAt = (event) => {
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       const isOwnMessage = currentUser && message.userId === currentUser.id;
       const firstSwfAttachment = attachments.find((attachment) => attachment.type === "swf");
@@ -5273,25 +5324,47 @@ function renderMessages() {
             {
               label: "Save to Shelf",
               action: () => {
-                saveSwfToShelf(firstSwfAttachment);
+                const saved = saveSwfToShelf(firstSwfAttachment);
+                showToast(saved ? "SWF saved to shelf" : "SWF is already in shelf");
               }
             },
             {
               label: "Copy URL",
-              action: () => {
-                copyText(resolveMediaUrl(firstSwfAttachment.url));
+              action: async () => {
+                const copied = await copyText(resolveMediaUrl(firstSwfAttachment.url));
+                showToast(copied ? "SWF URL copied" : "Failed to copy SWF URL", { tone: copied ? "info" : "error" });
               }
             },
             {
               label: "Download",
-              action: () => {
-                void downloadAttachmentFile(firstSwfAttachment, "swf");
+              action: async () => {
+                const ok = await downloadAttachmentFile(firstSwfAttachment, "swf");
+                showToast(ok ? "SWF download started" : "SWF download failed", { tone: ok ? "info" : "error" });
               }
             }
           ]
         });
       }
       openContextMenu(event, menuItems);
+    };
+    messageRow.addEventListener("contextmenu", (event) => {
+      if (shouldUseNativeContextMenu(event.target)) return;
+      openMessageContextMenuAt(event);
+    });
+    messageRow.addEventListener("keydown", (event) => {
+      const wantsContextMenu = event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+      if (!wantsContextMenu) return;
+      if (shouldUseNativeContextMenu(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = messageRow.getBoundingClientRect();
+      const syntheticEvent = {
+        preventDefault() {},
+        stopPropagation() {},
+        clientX: Math.max(8, Math.min(window.innerWidth - 8, Math.round(rect.left + 24))),
+        clientY: Math.max(8, Math.min(window.innerHeight - 8, Math.round(rect.top + Math.min(rect.height, 30))))
+      };
+      openMessageContextMenuAt(syntheticEvent);
     });
   });
 
@@ -6673,25 +6746,37 @@ document.addEventListener("contextmenu", (event) => {
 
 document.addEventListener("keydown", (event) => {
   if (!contextMenuOpen) return;
-  const buttons = [...ui.contextMenu.querySelectorAll("button:not(:disabled)")];
+  const activeEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const activeMenu = activeEl?.closest(".context-submenu, #contextMenu");
+  const menuRoot = activeMenu instanceof HTMLElement ? activeMenu : ui.contextMenu;
+  const buttons = [...menuRoot.querySelectorAll("button:not(:disabled)")];
+  let focusIndex = activeEl ? buttons.indexOf(activeEl) : -1;
+  if (focusIndex < 0) {
+    focusIndex = menuRoot === ui.contextMenu
+      ? Math.max(0, Math.min(contextMenuFocusIndex, buttons.length - 1))
+      : 0;
+  }
   if (buttons.length === 0) {
     if (event.key === "Escape") closeContextMenu();
     return;
   }
+  const focusButton = (index) => {
+    const nextIndex = Math.max(0, Math.min(index, buttons.length - 1));
+    if (menuRoot === ui.contextMenu) contextMenuFocusIndex = nextIndex;
+    buttons[nextIndex]?.focus();
+  };
   if (event.key === "ArrowDown") {
     event.preventDefault();
-    contextMenuFocusIndex = (contextMenuFocusIndex + 1) % buttons.length;
-    buttons[contextMenuFocusIndex].focus();
+    focusButton((focusIndex + 1) % buttons.length);
     return;
   }
   if (event.key === "ArrowUp") {
     event.preventDefault();
-    contextMenuFocusIndex = (contextMenuFocusIndex - 1 + buttons.length) % buttons.length;
-    buttons[contextMenuFocusIndex].focus();
+    focusButton((focusIndex - 1 + buttons.length) % buttons.length);
     return;
   }
   if (event.key === "ArrowRight") {
-    const focused = document.activeElement instanceof HTMLButtonElement ? document.activeElement : buttons[contextMenuFocusIndex];
+    const focused = buttons[focusIndex];
     if (!focused?.classList.contains("context-menu__has-submenu")) return;
     event.preventDefault();
     focused.click();
@@ -6700,27 +6785,30 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === "ArrowLeft") {
-    if (!contextMenuSubmenuAnchor) return;
+    if (!(menuRoot instanceof HTMLElement) || !menuRoot.classList.contains("context-submenu")) return;
     event.preventDefault();
     document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
-    contextMenuSubmenuAnchor.focus();
+    if (contextMenuSubmenuAnchor instanceof HTMLButtonElement) {
+      const mainButtons = [...ui.contextMenu.querySelectorAll("button:not(:disabled)")];
+      const anchorIndex = mainButtons.indexOf(contextMenuSubmenuAnchor);
+      if (anchorIndex >= 0) contextMenuFocusIndex = anchorIndex;
+      contextMenuSubmenuAnchor.focus();
+    }
     return;
   }
   if (event.key === "Home") {
     event.preventDefault();
-    contextMenuFocusIndex = 0;
-    buttons[contextMenuFocusIndex].focus();
+    focusButton(0);
     return;
   }
   if (event.key === "End") {
     event.preventDefault();
-    contextMenuFocusIndex = buttons.length - 1;
-    buttons[contextMenuFocusIndex].focus();
+    focusButton(buttons.length - 1);
     return;
   }
   if (event.key === "Enter") {
     event.preventDefault();
-    buttons[contextMenuFocusIndex]?.click();
+    buttons[focusIndex]?.click();
     return;
   }
   if (event.key === "Escape") {

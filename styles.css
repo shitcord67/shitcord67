@@ -529,6 +529,11 @@ button {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.message:focus-visible {
+  outline: 2px solid #6f7bff;
+  outline-offset: -2px;
+}
+
 .message--forum {
   background: rgba(23, 25, 32, 0.9);
   border: 1px solid #343845;
@@ -1935,6 +1940,34 @@ body[data-compact-members="on"] .member-item {
 
 .context-submenu .context-menu__has-submenu {
   font-weight: 600;
+}
+
+.toast-host {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translate(-50%, 10px);
+  background: #181a1f;
+  border: 1px solid #343844;
+  color: #e8ebf1;
+  padding: 0.45rem 0.72rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 95;
+}
+
+.toast-host.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.toast-host.is-error {
+  border-color: #a44547;
+  color: #ffd4d6;
 }
 
 .settings-card {
