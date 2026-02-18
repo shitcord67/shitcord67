@@ -54,6 +54,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Advanced settings now include dedicated `Export SWF Saves` / `Import SWF Saves` (browser local-storage based).
 - SVG attachments in chat include a direct `Download SVG` action.
 - PDF links/attachments render inline in chat with open-in-tab fallback.
+- Media picker includes a dedicated `PDFs` tab (`+` button), and composer has a separate quick file-attach button (`📎`) for direct system PDF upload.
+- Dragging and dropping a `.pdf` onto the app attaches it to the composer; press `Enter` to send.
 - Audio links/attachments render with native playback controls.
 - Plain-text/code links (`.txt/.md/.json/.js/.css/...`) render inline preview snippets.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.

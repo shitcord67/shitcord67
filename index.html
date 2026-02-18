@@ -97,6 +97,7 @@
               <button type="button" class="media-picker__tab" data-media-tab="emoji">Emojis</button>
               <button type="button" class="media-picker__tab" data-media-tab="swf">SWFs</button>
               <button type="button" class="media-picker__tab" data-media-tab="svg">SVGs</button>
+              <button type="button" class="media-picker__tab" data-media-tab="pdf">PDFs</button>
               <button type="button" class="media-picker__tab" data-media-tab="html">HTML</button>
             </nav>
             <div class="media-picker__header">
@@ -110,12 +111,19 @@
             <div id="mediaGrid" class="media-picker__grid"></div>
           </div>
 
+          <div id="composerAttachmentBar" class="composer-reply composer-reply--hidden">
+            <span id="composerAttachmentText"></span>
+            <button id="clearComposerAttachmentBtn" type="button" title="Clear attachment">✕</button>
+          </div>
+
           <form id="messageForm" class="message-form">
             <button id="openMediaPickerBtn" type="button" class="message-form__media-btn" title="Open media picker">+</button>
+            <button id="quickFileAttachBtn" type="button" class="message-form__media-btn" title="Attach file from computer">📎</button>
             <button id="toggleSwfAudioBtn" type="button" class="message-form__media-btn" title="Toggle SWF audio">🔇</button>
-            <input id="messageInput" type="text" maxlength="400" placeholder="Message #general" required />
+            <input id="messageInput" type="text" maxlength="400" placeholder="Message #general" />
             <button type="submit">Send</button>
           </form>
+          <input id="quickAttachInput" type="file" accept=".pdf,application/pdf" hidden />
         </div>
       </main>
 
