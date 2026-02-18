@@ -865,6 +865,12 @@ button {
   color: #f4f7ff;
 }
 
+.message-form__media-btn--force-muted {
+  background: #5a3131;
+  color: #ffe7e7;
+  box-shadow: inset 0 0 0 1px #8d4747;
+}
+
 .message-attachment {
   margin-top: 0.45rem;
 }
@@ -924,12 +930,11 @@ button {
   font-size: 0.66rem;
   color: #b4bac5;
   border: 1px solid #363a43;
-  border-radius: 6px;
-  padding: 0.08rem 0.28rem;
-  max-width: 28px;
-  line-height: 1.05;
+  border-radius: 999px;
+  padding: 0.08rem 0.46rem;
+  line-height: 1.2;
   text-align: center;
-  word-break: break-word;
+  white-space: nowrap;
 }
 
 .message-swf-audio-indicator.is-active {
