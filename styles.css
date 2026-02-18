@@ -529,6 +529,20 @@ button {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.message--forum {
+  background: rgba(23, 25, 32, 0.9);
+  border: 1px solid #343845;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem 0.6rem;
+}
+
+.forum-post-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #e7ebf3;
+  margin: 0.15rem 0 0.2rem;
+}
+
 .message-head {
   display: flex;
   align-items: baseline;
@@ -628,6 +642,32 @@ button {
 
 .message-reply strong {
   color: #c7ccd5;
+}
+
+.dm-thread-tools {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.25rem 0 0.35rem;
+}
+
+.dm-thread-tools button {
+  background: #3a3f4b;
+  color: #e9edf3;
+  font-size: 0.72rem;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+}
+
+.dm-unread-divider {
+  margin: 0.35rem 0 0.5rem;
+  border-top: 1px solid #cb5255;
+  color: #ff8f92;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding-top: 0.2rem;
 }
 
 .message-actions {
