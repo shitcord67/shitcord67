@@ -110,6 +110,6 @@
 - Get inspiration from chinese WeChat which is the everything app, lol
 - The guild channel sidebar and the DM sidebar should be seperate. The DM sidebar should only be visible when clicking at the top icon (S67 for now, maybe replace with SVG version of 🫪  emoi)
 - Please split the sign-in/welcome back part from the actual application. By that I mean I don't want to be able to scroll up/down to the different parts...
-- A person creating a guild should by default have owner permissions over it, allowed to do everything regarding it.
+- [done] A person creating a guild should by default have owner permissions over it, allowed to do everything regarding it.
 - [done] Do not show SWF options in context menu when no SWF is in message
 - [done] Do not overlay custom context menu when right-clicking over Ruffle

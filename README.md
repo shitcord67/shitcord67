@@ -64,12 +64,15 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
+- If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
 - Right-click context menus for guilds, channels, messages, and members (quick actions).
 - Context menu keyboard controls include arrow navigation, `Enter`, `Escape`, plus `Home`/`End` and `ArrowRight`/`ArrowLeft` submenu control.
+- Message rows now support keyboard context menus (`Shift+F10` or `ContextMenu` key).
+- SWF context actions show inline toast feedback for copy/download/save outcomes.
 - Popouts/dialogs close by clicking outside the card content.
 - Guild member list on the right, with presence dots.
 - Member list grouped into Online/Offline sections.
