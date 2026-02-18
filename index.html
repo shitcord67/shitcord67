@@ -38,6 +38,7 @@
       <aside id="channelPanel" class="channel-panel">
         <div class="channel-panel__header">
           <span id="activeServerName">Guild</span>
+          <button id="openGuildSettingsBtn" class="chat-topic-edit" title="Guild settings">⚙</button>
         </div>
 
         <div class="channel-scroll">
@@ -355,11 +356,42 @@
   <dialog id="createServerDialog" class="modal">
     <form id="createServerForm" class="modal-form" method="dialog">
       <h3>Create guild</h3>
+      <label for="serverTemplateInput">Template</label>
+      <select id="serverTemplateInput">
+        <option value="blank">Blank</option>
+        <option value="friends">Friends</option>
+        <option value="gaming">Gaming</option>
+        <option value="community">Community</option>
+        <option value="study">Study</option>
+      </select>
       <label for="serverNameInput">Guild name</label>
       <input id="serverNameInput" type="text" maxlength="40" required />
+      <label class="modal-check">
+        <input id="serverStarterChannelsInput" type="checkbox" checked />
+        Create starter channels
+      </label>
       <div class="modal-actions">
         <button type="button" id="serverCancel">Cancel</button>
         <button type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="guildSettingsDialog" class="modal">
+    <form id="guildSettingsForm" class="modal-form" method="dialog">
+      <h3>Guild settings</h3>
+      <label for="guildSettingsNameInput">Guild name</label>
+      <input id="guildSettingsNameInput" type="text" maxlength="40" />
+      <label for="guildSettingsDescriptionInput">Description</label>
+      <textarea id="guildSettingsDescriptionInput" maxlength="180" placeholder="Describe this guild"></textarea>
+      <label for="guildSettingsAccentInput">Accent color</label>
+      <input id="guildSettingsAccentInput" type="text" placeholder="#5865f2" />
+      <div class="modal-actions">
+        <button type="button" id="guildSettingsCancel">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="deleteGuildBtn">Delete guild</button>
       </div>
     </form>
   </dialog>

@@ -189,6 +189,33 @@ function createRole(name, color, preset = "member") {
   };
 }
 
+function buildStarterChannels(template, accountId) {
+  const readState = accountId ? { [accountId]: new Date().toISOString() } : {};
+  const mk = (name, type = "text", topic = "") => ({
+    id: createId(),
+    name,
+    type,
+    topic,
+    readState: { ...readState },
+    slowmodeSec: 0,
+    slowmodeState: {},
+    messages: []
+  });
+  if (template === "friends") {
+    return [mk("general", "text", "General chat"), mk("memes"), mk("media", "media", "Photos and clips")];
+  }
+  if (template === "gaming") {
+    return [mk("general"), mk("clips", "media"), mk("announcements", "announcement"), mk("lfg", "forum")];
+  }
+  if (template === "community") {
+    return [mk("rules", "announcement"), mk("announcements", "announcement"), mk("general"), mk("help", "forum")];
+  }
+  if (template === "study") {
+    return [mk("general"), mk("resources"), mk("questions", "forum"), mk("announcements", "announcement")];
+  }
+  return [mk("general", "text", "General discussion")];
+}
+
 function buildInitialState() {
   const guildId = createId();
   const channelId = createId();
@@ -200,6 +227,8 @@ function buildInitialState() {
       {
         id: guildId,
         name: "My First Guild",
+        description: "General-purpose guild",
+        accentColor: "#5865f2",
         memberIds: [],
         customEmojis: [],
         customStickers: [],
@@ -331,6 +360,8 @@ function migrateState(raw) {
       });
       return {
         ...guild,
+        description: typeof guild.description === "string" ? guild.description.slice(0, 180) : "",
+        accentColor: (guild.accentColor || "#5865f2").toString().slice(0, 24),
         customEmojis: Array.isArray(guild.customEmojis) ? guild.customEmojis : [],
         customStickers: Array.isArray(guild.customStickers) ? guild.customStickers : [],
         customGifs: Array.isArray(guild.customGifs) ? guild.customGifs : [],
@@ -464,6 +495,8 @@ function migrateState(raw) {
       return {
         id: guildId,
         name: guild.name || "Untitled Guild",
+        description: "",
+        accentColor: "#5865f2",
         customEmojis: [],
         customStickers: [],
         customGifs: [],
@@ -591,6 +624,7 @@ const ui = {
   memberList: document.getElementById("memberList"),
   memberPanelTitle: document.getElementById("memberPanelTitle"),
   activeServerName: document.getElementById("activeServerName"),
+  openGuildSettingsBtn: document.getElementById("openGuildSettingsBtn"),
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
@@ -673,8 +707,17 @@ const ui = {
   profileCancel: document.getElementById("profileCancel"),
   createServerDialog: document.getElementById("createServerDialog"),
   createServerForm: document.getElementById("createServerForm"),
+  serverTemplateInput: document.getElementById("serverTemplateInput"),
+  serverStarterChannelsInput: document.getElementById("serverStarterChannelsInput"),
   serverNameInput: document.getElementById("serverNameInput"),
   serverCancel: document.getElementById("serverCancel"),
+  guildSettingsDialog: document.getElementById("guildSettingsDialog"),
+  guildSettingsForm: document.getElementById("guildSettingsForm"),
+  guildSettingsNameInput: document.getElementById("guildSettingsNameInput"),
+  guildSettingsDescriptionInput: document.getElementById("guildSettingsDescriptionInput"),
+  guildSettingsAccentInput: document.getElementById("guildSettingsAccentInput"),
+  guildSettingsCancel: document.getElementById("guildSettingsCancel"),
+  deleteGuildBtn: document.getElementById("deleteGuildBtn"),
   createChannelDialog: document.getElementById("createChannelDialog"),
   createChannelForm: document.getElementById("createChannelForm"),
   channelNameInput: document.getElementById("channelNameInput"),
@@ -1335,16 +1378,24 @@ function mentionInComposer(account) {
   renderSlashSuggestions();
 }
 
+function openGuildSettingsDialog(guild = null) {
+  const target = guild || getActiveGuild();
+  const current = getCurrentAccount();
+  if (!target) return;
+  ui.guildSettingsNameInput.value = target.name || "";
+  ui.guildSettingsDescriptionInput.value = (target.description || "").toString().slice(0, 180);
+  ui.guildSettingsAccentInput.value = (target.accentColor || "#5865f2").toString().slice(0, 24);
+  if (ui.deleteGuildBtn) {
+    const canDelete = Boolean(current && hasServerPermission(target, current.id, "administrator") && state.guilds.length > 1);
+    ui.deleteGuildBtn.disabled = !canDelete;
+  }
+  ui.guildSettingsDialog.showModal();
+}
+
 function renameGuildById(guildId) {
   const guild = state.guilds.find((entry) => entry.id === guildId);
   if (!guild) return;
-  const nextName = prompt("Rename guild", guild.name || "");
-  if (typeof nextName !== "string") return;
-  const cleaned = nextName.trim().slice(0, 40);
-  if (!cleaned || cleaned === guild.name) return;
-  guild.name = cleaned;
-  saveState();
-  render();
+  openGuildSettingsDialog(guild);
 }
 
 function deleteGuildById(guildId) {
@@ -6096,10 +6147,14 @@ function renderServers() {
     const button = document.createElement("button");
     button.className = `server-item ${server.id === state.activeGuildId ? "active" : ""}`;
     button.textContent = server.name.slice(0, 2).toUpperCase();
+    const accent = (server.accentColor || "").trim();
+    if (/^#[0-9a-f]{3,8}$/i.test(accent)) {
+      button.style.background = server.id === state.activeGuildId ? accent : "";
+    }
     const guildStats = getGuildUnreadStats(server, currentAccount);
     button.title = guildStats.unread > 0
       ? `${server.name} (${guildStats.unread} unread${guildStats.mentions ? `, ${guildStats.mentions} mentions` : ""})`
-      : server.name;
+      : [server.name, (server.description || "").trim()].filter(Boolean).join(" • ");
     if (guildStats.unread > 0) {
       const dot = document.createElement("span");
       dot.className = `server-unread-pill ${guildStats.mentions > 0 ? "server-unread-pill--mention" : ""}`;
@@ -6138,13 +6193,19 @@ function renderServers() {
           submenu: [
             { label: "Guild Name", action: () => copyText(server.name || "") },
             { label: "Guild ID", action: () => copyText(server.id) },
-            { label: "First Channel ID", action: () => copyText(server.channels[0]?.id || "") }
+            { label: "First Channel ID", action: () => copyText(server.channels[0]?.id || "") },
+            { label: "Guild Link", action: () => copyText(buildChannelPermalink(server.id, server.channels[0]?.id || "")) }
           ]
         },
         {
           label: "Rename Guild",
           disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
           action: () => renameGuildById(server.id)
+        },
+        {
+          label: "Guild Settings",
+          disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
+          action: () => openGuildSettingsDialog(server)
         },
         {
           label: "Create Folder With Guild",
@@ -6406,6 +6467,7 @@ function renderChannels() {
   const dmMode = getViewMode() === "dm";
   ui.dmSection.classList.toggle("panel-section--hidden", !dmMode);
   ui.guildSection.classList.toggle("panel-section--hidden", dmMode);
+  if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = dmMode;
   const server = getActiveServer();
   ui.channelList.innerHTML = "";
   if (dmMode) {
@@ -6424,6 +6486,13 @@ function renderChannels() {
     ui.channelFilterInput.value = channelFilterTerm;
   }
   ui.activeServerName.textContent = server.name;
+  ui.activeServerName.title = [server.name, (server.description || "").trim()].filter(Boolean).join(" • ");
+  if (ui.openGuildSettingsBtn) {
+    const current = getCurrentAccount();
+    const canManage = Boolean(current && hasServerPermission(server, current.id, "manageChannels"));
+    ui.openGuildSettingsBtn.disabled = !canManage;
+    ui.openGuildSettingsBtn.title = canManage ? "Guild settings" : "Manage Channels permission required";
+  }
   const channelsToRender = server.channels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
   channelsToRender.forEach((channel) => {
     const button = document.createElement("button");
@@ -6994,6 +7063,63 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
 }
 
+function renderDmHome() {
+  const current = getCurrentAccount();
+  ui.activeChannelName.textContent = "Friends";
+  ui.activeChannelTopic.textContent = "Direct Messages";
+  ui.messageInput.placeholder = "Pick a DM to start chatting";
+  if (ui.markChannelReadBtn) ui.markChannelReadBtn.hidden = true;
+  if (ui.nextUnreadBtn) ui.nextUnreadBtn.hidden = true;
+  if (ui.openPinsBtn) ui.openPinsBtn.textContent = "Pins";
+  if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = true;
+  ui.messageList.innerHTML = "";
+  const shell = document.createElement("section");
+  shell.className = "dm-home";
+  const title = document.createElement("h3");
+  title.textContent = "Direct Messages";
+  shell.appendChild(title);
+  const subtitle = document.createElement("p");
+  subtitle.textContent = "Pick a conversation or start a new DM.";
+  shell.appendChild(subtitle);
+  const list = document.createElement("div");
+  list.className = "dm-home__list";
+  const threads = state.dmThreads
+    .filter((thread) => Array.isArray(thread.participantIds) && current && thread.participantIds.includes(current.id))
+    .slice()
+    .sort((a, b) => {
+      const aTs = toTimestampMs(a.messages[a.messages.length - 1]?.ts || "");
+      const bTs = toTimestampMs(b.messages[b.messages.length - 1]?.ts || "");
+      return bTs - aTs;
+    });
+  if (threads.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "dm-home__empty";
+    empty.textContent = "No DMs yet. Use + New DM in the sidebar.";
+    list.appendChild(empty);
+  } else {
+    threads.forEach((thread) => {
+      const peerId = thread.participantIds.find((id) => id !== current?.id);
+      const peer = peerId ? getAccountById(peerId) : null;
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "dm-home__item";
+      const last = thread.messages[thread.messages.length - 1];
+      card.innerHTML = `<strong>@${peer?.username || "unknown"}</strong><small>${(last?.text || "(no messages)").slice(0, 80)}</small>`;
+      card.addEventListener("click", () => {
+        state.viewMode = "dm";
+        state.activeDmId = thread.id;
+        saveState();
+        render();
+      });
+      list.appendChild(card);
+    });
+  }
+  shell.appendChild(list);
+  ui.messageList.appendChild(shell);
+  updateJumpToBottomButton();
+  renderComposerMeta();
+}
+
 function renderMessages() {
   const conversation = getActiveConversation();
   const isDm = conversation?.type === "dm";
@@ -7020,6 +7146,10 @@ function renderMessages() {
   });
   refreshSwfAudioFocus();
   ui.messageList.innerHTML = "";
+  if (getViewMode() === "dm" && !dmThread) {
+    renderDmHome();
+    return;
+  }
   if (isDm && dmThread) {
     const current = getCurrentAccount();
     const peerId = dmThread.participantIds.find((id) => id !== current?.id);
@@ -8618,13 +8748,24 @@ ui.cancelReplyBtn.addEventListener("click", () => {
 
 ui.createServerBtn.addEventListener("click", () => {
   ui.serverNameInput.value = "";
+  if (ui.serverTemplateInput) ui.serverTemplateInput.value = "blank";
+  if (ui.serverStarterChannelsInput) ui.serverStarterChannelsInput.checked = true;
   ui.createServerDialog.showModal();
 });
 
 ui.serverBrand.addEventListener("click", () => {
   state.viewMode = "dm";
+  state.activeDmId = null;
   saveState();
   render();
+});
+
+ui.activeServerName.addEventListener("dblclick", () => {
+  if (getViewMode() !== "guild") return;
+  const guild = getActiveGuild();
+  const current = getCurrentAccount();
+  if (!guild || !current || !hasServerPermission(guild, current.id, "manageChannels")) return;
+  openGuildSettingsDialog(guild);
 });
 
 ui.serverCancel.addEventListener("click", () => ui.createServerDialog.close());
@@ -8632,17 +8773,23 @@ ui.serverCancel.addEventListener("click", () => ui.createServerDialog.close());
 ui.createServerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = ui.serverNameInput.value.trim().slice(0, 40);
+  const template = (ui.serverTemplateInput?.value || "blank").trim().toLowerCase();
+  const withStarterChannels = Boolean(ui.serverStarterChannelsInput?.checked);
   const account = getCurrentAccount();
   if (!name) return;
 
-  const generalId = createId();
   const everyoneRole = createRole("@everyone", "#b5bac1", "member");
   const adminRole = createRole("Admin", "#f23f43", "admin");
   const memberRoles = {};
   if (account) memberRoles[account.id] = [everyoneRole.id, adminRole.id];
+  const channels = withStarterChannels
+    ? buildStarterChannels(template, account?.id || null)
+    : buildStarterChannels("blank", account?.id || null);
   const server = {
     id: createId(),
     name,
+    description: `${template[0] ? template[0].toUpperCase() + template.slice(1) : "Blank"} guild`,
+    accentColor: "#5865f2",
     memberIds: account ? [account.id] : [],
     customEmojis: [],
     customStickers: [],
@@ -8655,23 +8802,12 @@ ui.createServerForm.addEventListener("submit", (event) => {
     customHtmls: [],
     roles: [everyoneRole, adminRole],
     memberRoles,
-    channels: [
-      {
-        id: generalId,
-        name: "general",
-        type: "text",
-        topic: "General discussion",
-        readState: account ? { [account.id]: new Date().toISOString() } : {},
-        slowmodeSec: 0,
-        slowmodeState: {},
-        messages: []
-      }
-    ]
+    channels
   };
 
   state.guilds.push(server);
   state.activeGuildId = server.id;
-  state.activeChannelId = generalId;
+  state.activeChannelId = channels[0]?.id || null;
   saveState();
   ui.createServerDialog.close();
   render();
@@ -8725,6 +8861,15 @@ ui.createChannelForm.addEventListener("submit", (event) => {
 });
 
 ui.editTopicBtn.addEventListener("click", openTopicEditor);
+ui.openGuildSettingsBtn?.addEventListener("click", () => {
+  const guild = getActiveGuild();
+  const current = getCurrentAccount();
+  if (!guild || !current || !hasServerPermission(guild, current.id, "manageChannels")) {
+    notifyPermissionDenied("Manage Channels");
+    return;
+  }
+  openGuildSettingsDialog(guild);
+});
 ui.openChannelSettingsBtn.addEventListener("click", openChannelSettings);
 ui.openShortcutsBtn?.addEventListener("click", openShortcutsDialog);
 ui.toggleChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
@@ -8865,6 +9010,33 @@ ui.topicForm.addEventListener("submit", (event) => {
 });
 
 ui.channelSettingsCancel.addEventListener("click", () => ui.channelSettingsDialog.close());
+
+ui.guildSettingsCancel?.addEventListener("click", () => ui.guildSettingsDialog.close());
+ui.guildSettingsForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const guild = getActiveGuild();
+  if (!guild) return;
+  const nextName = ui.guildSettingsNameInput.value.trim().slice(0, 40);
+  if (nextName) guild.name = nextName;
+  guild.description = ui.guildSettingsDescriptionInput.value.trim().slice(0, 180);
+  const rawAccent = ui.guildSettingsAccentInput.value.trim();
+  guild.accentColor = /^#[0-9a-f]{3,8}$/i.test(rawAccent) ? rawAccent : "#5865f2";
+  saveState();
+  ui.guildSettingsDialog.close();
+  render();
+});
+ui.deleteGuildBtn?.addEventListener("click", () => {
+  const guild = getActiveGuild();
+  const current = getCurrentAccount();
+  if (!guild) return;
+  if (!current || !hasServerPermission(guild, current.id, "administrator")) {
+    notifyPermissionDenied("Administrator");
+    return;
+  }
+  const guildId = guild.id;
+  ui.guildSettingsDialog.close();
+  deleteGuildById(guildId);
+});
 
 ui.channelSettingsForm.addEventListener("submit", (event) => {
   event.preventDefault();
