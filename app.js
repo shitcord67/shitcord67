@@ -1954,7 +1954,9 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           host: playerWrap,
           originHost: playerWrap,
           playing: autoplay !== "off",
-          observer: null
+          observer: null,
+          floating: false,
+          restoreStyle: ""
         });
         bindSwfVisibilityObserver(runtimeKey);
       }
@@ -1981,10 +1983,13 @@ function openSwfViewer(attachment, runtimeKey = null) {
   host.style.transformOrigin = "top left";
   ui.swfViewerHost.appendChild(host);
   const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
-  if (runtime?.player instanceof HTMLElement) {
-    runtime.host = host;
-    host.innerHTML = "";
-    host.appendChild(runtime.player);
+  if (runtime?.player instanceof HTMLElement && runtime.host instanceof HTMLElement) {
+    runtime.floating = true;
+    runtime.restoreStyle = runtime.host.getAttribute("style") || "";
+    runtime.host.classList.add("message-swf-player--floating");
+    runtime.host.style.transformOrigin = "top left";
+    runtime.host.style.transform = "translate(-50%, -50%) scale(1)";
+    ui.swfViewerHost.innerHTML = "<div class=\"channel-empty\">Using the live running SWF instance.</div>";
     setSwfPlayback(runtimeKey, true);
   } else {
     attachRufflePlayer(host, currentViewerSwf, { autoplay: "on", runtimeKey });
@@ -1993,25 +1998,38 @@ function openSwfViewer(attachment, runtimeKey = null) {
 }
 
 function applySwfViewerZoom() {
-  const host = ui.swfViewerHost.firstElementChild;
+  const floatingRuntime = currentViewerRuntimeKey ? swfRuntimes.get(currentViewerRuntimeKey) : null;
+  const host = floatingRuntime?.floating
+    ? floatingRuntime.host
+    : ui.swfViewerHost.firstElementChild;
   if (!(host instanceof HTMLElement)) return;
   const zoomPercent = Math.max(50, Math.min(200, Number(ui.swfViewerZoomInput.value) || 100));
   const factor = zoomPercent / 100;
-  host.style.transform = `scale(${factor})`;
-  host.style.transformOrigin = "top left";
+  if (floatingRuntime?.floating) {
+    host.style.transform = `translate(-50%, -50%) scale(${factor})`;
+  } else {
+    host.style.transform = `scale(${factor})`;
+    host.style.transformOrigin = "top left";
+  }
 }
 
 function closeSwfViewerAndRestore() {
   const runtimeKey = currentViewerRuntimeKey;
+  currentViewerRuntimeKey = null;
   const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
   if (runtime?.player instanceof HTMLElement && runtime.originHost?.isConnected) {
-    runtime.originHost.innerHTML = "";
-    runtime.originHost.appendChild(runtime.player);
-    runtime.host = runtime.originHost;
+    if (runtime.floating && runtime.host instanceof HTMLElement) {
+      runtime.host.classList.remove("message-swf-player--floating");
+      runtime.host.setAttribute("style", runtime.restoreStyle || "");
+      runtime.floating = false;
+    } else if (runtime.host !== runtime.originHost) {
+      runtime.originHost.innerHTML = "";
+      runtime.originHost.appendChild(runtime.player);
+      runtime.host = runtime.originHost;
+    }
     bindSwfVisibilityObserver(runtimeKey);
   }
   if (ui.swfViewerDialog.open) ui.swfViewerDialog.close();
-  currentViewerRuntimeKey = null;
 }
 
 function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
@@ -2565,6 +2583,7 @@ function renderMessages() {
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       const isOwnMessage = currentUser && message.userId === currentUser.id;
       const firstSwfAttachment = attachments.find((attachment) => attachment.type === "swf");
+      const firstSwfIndex = attachments.findIndex((attachment) => attachment.type === "swf");
       openContextMenu(event, [
         {
           label: "Reply",
@@ -2596,7 +2615,7 @@ function renderMessages() {
           disabled: !firstSwfAttachment,
           action: () => {
             if (!firstSwfAttachment) return;
-            openSwfViewer(firstSwfAttachment);
+            openSwfViewer(firstSwfAttachment, firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null);
           }
         },
         {
