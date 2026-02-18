@@ -21,6 +21,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Lightweight emoji reactions on messages.
 - Pin/unpin messages per channel, with a pinned-messages panel.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
+- Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
@@ -29,6 +30,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Member list grouped into Online/Offline sections.
 - Role badges are shown on user profile popouts for the active guild.
 - Account switching popup and logout.
+- JSON export/import from Advanced settings for snapshot backup/restore.
 - Persisted state in `localStorage` (`shitcord67-state-v1`, with migration from `flashcord-state-v2` and `flashcord-state-v1`).
 
 ## Files
