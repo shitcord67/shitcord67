@@ -31,6 +31,7 @@
 - DM search/quick switch via sidebar filter and Enter-to-open.
 - Nested context-menu submenus for grouped actions.
 - DM-only sidebar mode toggled via top `S67` button.
+- Top DM switcher uses emoji-style icon and shows DM unread/mention badge.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
@@ -102,3 +103,4 @@
 - Option to send mails? shitcord67 as a mail client with option to save mail files?
 - Get inspiration from chinese WeChat which is the everything app, lol
 - The guild channel sidebar and the DM sidebar should be seperate. The DM sidebar should only be visible when clicking at the top icon (S67 for now, maybe replace with SVG version of 🫪  emoi)
+- Please split the sign-in/welcome back part from the actual application. By that I mean I don't want to be able to scroll up/down to the different parts...

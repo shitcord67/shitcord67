@@ -157,10 +157,33 @@ button {
   background: var(--accent);
   border: 0;
   color: #fff;
+  position: relative;
 }
 
 .server-brand.active {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55);
+}
+
+.server-brand__icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.server-brand__badge {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  background: #da373c;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px var(--bg-dark);
 }
 
 .server-list {
