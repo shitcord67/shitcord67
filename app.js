@@ -1282,6 +1282,18 @@ function formatFullTimestamp(iso) {
   });
 }
 
+function focusMessageById(messageId) {
+  if (!messageId) return false;
+  const row = ui.messageList.querySelector(`[data-message-id="${messageId}"]`);
+  if (!(row instanceof HTMLElement)) return false;
+  row.scrollIntoView({ block: "center", behavior: "smooth" });
+  row.classList.add("message--flash");
+  window.setTimeout(() => {
+    row.classList.remove("message--flash");
+  }, 1200);
+  return true;
+}
+
 function messageDateKey(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -2454,6 +2466,10 @@ function openMessageEditor(conversationId, messageId, messageText) {
   messageEditTarget = { conversationId, messageId };
   ui.messageEditInput.value = messageText || "";
   ui.messageEditDialog.showModal();
+  requestAnimationFrame(() => {
+    ui.messageEditInput.focus();
+    ui.messageEditInput.select();
+  });
 }
 
 function findLastEditableMessageInActiveConversation() {
@@ -5665,6 +5681,13 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     time.className = "message-time";
     time.textContent = formatTime(post.ts);
     time.title = formatFullTimestamp(post.ts);
+    time.addEventListener("click", (event) => {
+      if (!event.shiftKey) return;
+      event.preventDefault();
+      void copyText(post.ts || "").then((copied) => {
+        showToast(copied ? "Timestamp copied." : "Failed to copy timestamp.", { tone: copied ? "info" : "error" });
+      });
+    });
     head.appendChild(userButton);
     head.appendChild(time);
     postRow.appendChild(head);
@@ -5764,6 +5787,13 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         replyTime.className = "message-time";
         replyTime.textContent = formatTime(replyMessage.ts);
         replyTime.title = formatFullTimestamp(replyMessage.ts);
+        replyTime.addEventListener("click", (event) => {
+          if (!event.shiftKey) return;
+          event.preventDefault();
+          void copyText(replyMessage.ts || "").then((copied) => {
+            showToast(copied ? "Timestamp copied." : "Failed to copy timestamp.", { tone: copied ? "info" : "error" });
+          });
+        });
         replyHead.appendChild(replyUserButton);
         replyHead.appendChild(replyTime);
         replyRow.appendChild(replyHead);
@@ -5779,6 +5809,14 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
           replyLine.appendChild(replyName);
           replyLine.appendChild(document.createTextNode(": "));
           replyLine.appendChild(replyText);
+          if (replyMessage.replyTo.messageId) {
+            replyLine.title = "Jump to referenced message";
+            replyLine.classList.add("message-reply--jump");
+            replyLine.addEventListener("click", () => {
+              const ok = focusMessageById(replyMessage.replyTo.messageId);
+              if (!ok) showToast("Referenced message is not visible in this view.");
+            });
+          }
           replyRow.appendChild(replyLine);
         }
 
@@ -5965,6 +6003,11 @@ function renderMessages() {
     messageRow.addEventListener("mousedown", () => {
       messageRow.focus({ preventScroll: true });
     });
+    messageRow.addEventListener("dblclick", (event) => {
+      if (!(event.target instanceof HTMLElement)) return;
+      if (event.target.closest("button, a, input, textarea, iframe, video, audio, .reaction-chip")) return;
+      setReplyTarget(conversationId, message, message.forumThreadId || null);
+    });
     let replyLine = null;
 
     const head = document.createElement("div");
@@ -6023,6 +6066,13 @@ function renderMessages() {
     time.className = "message-time";
     time.textContent = formatTime(message.ts);
     time.title = formatFullTimestamp(message.ts);
+    time.addEventListener("click", (event) => {
+      if (!event.shiftKey) return;
+      event.preventDefault();
+      void copyText(message.ts || "").then((copied) => {
+        showToast(copied ? "Timestamp copied." : "Failed to copy timestamp.", { tone: copied ? "info" : "error" });
+      });
+    });
     let editedBadge = null;
     if (message.editedAt) {
       editedBadge = document.createElement("span");
@@ -6086,6 +6136,14 @@ function renderMessages() {
       replyLine.appendChild(replyName);
       replyLine.appendChild(document.createTextNode(": "));
       replyLine.appendChild(replyText);
+      if (message.replyTo.messageId) {
+        replyLine.title = "Jump to referenced message";
+        replyLine.classList.add("message-reply--jump");
+        replyLine.addEventListener("click", () => {
+          const ok = focusMessageById(message.replyTo.messageId);
+          if (!ok) showToast("Referenced message is not visible in this view.");
+        });
+      }
     }
 
     const actionBar = document.createElement("div");
@@ -6233,6 +6291,7 @@ function renderMessages() {
               copyText(author ? `@${author.username}` : "");
             } },
             { label: "Timestamp", action: () => copyText(message.ts || "") },
+            { label: "Timestamp (local)", action: () => copyText(formatFullTimestamp(message.ts || "")) },
             { label: "Message ID", action: () => copyText(message.id || "") },
             { label: "First Attachment URL", action: () => copyText(attachments[0]?.url ? resolveMediaUrl(attachments[0].url) : "") },
             { label: "Edit History JSON", action: () => copyText(JSON.stringify(messageEditHistory(message), null, 2)) },
@@ -6400,6 +6459,13 @@ function appendMessageRowLite(channel, message) {
   time.className = "message-time";
   time.textContent = formatTime(message.ts);
   time.title = formatFullTimestamp(message.ts);
+  time.addEventListener("click", (event) => {
+    if (!event.shiftKey) return;
+    event.preventDefault();
+    void copyText(message.ts || "").then((copied) => {
+      showToast(copied ? "Timestamp copied." : "Failed to copy timestamp.", { tone: copied ? "info" : "error" });
+    });
+  });
   head.appendChild(userButton);
   head.appendChild(time);
   messageRow.appendChild(head);
@@ -7563,6 +7629,19 @@ ui.messageEditCancel.addEventListener("click", () => {
   ui.messageEditDialog.close();
 });
 
+ui.messageEditInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    messageEditTarget = null;
+    ui.messageEditDialog.close();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    ui.messageEditForm.requestSubmit();
+  }
+});
+
 ui.messageEditForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!messageEditTarget) return;
@@ -8182,19 +8261,52 @@ document.addEventListener("fullscreenchange", () => {
 document.addEventListener("keydown", (event) => {
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
     if (!state.currentAccountId) return;
-    if (event.key === "1") {
+    const altDigit = (event.code || "").startsWith("Digit")
+      ? (event.code || "").slice(5)
+      : event.key;
+    if (altDigit === "1") {
       event.preventDefault();
       openMediaPickerWithTab("gif");
       return;
     }
-    if (event.key === "2") {
+    if (altDigit === "2") {
       event.preventDefault();
       openMediaPickerWithTab("sticker");
       return;
     }
-    if (event.key === "3") {
+    if (altDigit === "3") {
       event.preventDefault();
       openMediaPickerWithTab("emoji");
+      return;
+    }
+    if (altDigit === "4") {
+      event.preventDefault();
+      openMediaPickerWithTab("pdf");
+      return;
+    }
+    if (altDigit === "5") {
+      event.preventDefault();
+      openMediaPickerWithTab("text");
+      return;
+    }
+    if (altDigit === "6") {
+      event.preventDefault();
+      openMediaPickerWithTab("docs");
+      return;
+    }
+    if (altDigit === "7") {
+      event.preventDefault();
+      openMediaPickerWithTab("html");
+      return;
+    }
+    if (altDigit === "8") {
+      event.preventDefault();
+      openMediaPickerWithTab("swf");
+      return;
+    }
+    if (altDigit === "9") {
+      event.preventDefault();
+      openMediaPickerWithTab("svg");
       return;
     }
   }
