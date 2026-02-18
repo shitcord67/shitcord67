@@ -890,6 +890,17 @@ button {
   overflow: auto;
 }
 
+.message-swf-player--floating {
+  position: fixed !important;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(960px, 92vw) !important;
+  height: min(70vh, 760px) !important;
+  z-index: 130;
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.55);
+}
+
 .message-swf-controls {
   display: flex;
   gap: 0.35rem;
