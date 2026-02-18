@@ -1,4 +1,4 @@
-# FlashCord TODO
+# shitcord67 TODO
 
 ## Done (basic MVP)
 - Username login.
@@ -54,3 +54,7 @@
 - Widgets like Element Matrix messenger
 - More XMPP spec extensions
 - Read more on Discord blogpost about features, investigate screenshots
+- in-line chat slash commands like Telegram (featuring images poppin up fitting to context e.g. cards for a uno game run by an application bot)
+- Direct messages to users. In the lower-left of the client or by clicking on username or user list when profile pops open there is a chat input field
+- Save notes about users on profiles of other users
+- OLED theme by default

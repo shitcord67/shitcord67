@@ -401,6 +401,12 @@ button {
   white-space: pre-wrap;
 }
 
+.pin-indicator {
+  color: #c8ced8;
+  font-size: 0.72rem;
+  margin-top: 0.2rem;
+}
+
 .mention {
   color: #8ab4ff;
   background: rgba(88, 101, 242, 0.2);
@@ -793,6 +799,28 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.72rem;
   padding: 0.16rem 0.45rem;
   color: #e3e6eb;
+}
+
+.pins-list {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 0.7rem;
+}
+
+.pin-item {
+  background: #343840;
+  border: 1px solid #454a54;
+  border-radius: 8px;
+  color: #e6e9ee;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+}
+
+.pin-item small {
+  display: block;
+  color: #adb4bf;
 }
 
 .account-list {

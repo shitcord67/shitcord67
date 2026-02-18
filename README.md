@@ -1,4 +1,4 @@
-# FlashCord (Discord-lookalike MVP)
+# shitcord67 (Discord-lookalike MVP)
 
 A lightweight Discord-style chat client prototype with local persistence.
 
@@ -19,6 +19,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`, `/nick`, `/status`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
+- Pin/unpin messages per channel, with a pinned-messages panel.
 - Basic per-server role and permission system (create/assign roles, channel/topic/role management gates).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
@@ -28,7 +29,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Member list grouped into Online/Offline sections.
 - Role badges are shown on user profile popouts for the active server.
 - Account switching popup and logout.
-- Persisted state in `localStorage` (`flashcord-state-v2`, with migration from `flashcord-state-v1`).
+- Persisted state in `localStorage` (`shitcord67-state-v1`, with migration from `flashcord-state-v2` and `flashcord-state-v1`).
 
 ## Files
 - `index.html`: app shell and dialogs.
@@ -37,8 +38,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - `TODO`: roadmap for XMPP/Matrix and advanced features.
 
 ## Debugging
-- Open browser DevTools and inspect `localStorage` key `flashcord-state-v2`.
-- Clear/reset state by deleting `flashcord-state-v2` (or old `flashcord-state-v1`) and refreshing.
+- Open browser DevTools and inspect `localStorage` key `shitcord67-state-v1`.
+- Clear/reset state by deleting `shitcord67-state-v1` (or old `flashcord-state-v2` / `flashcord-state-v1`) and refreshing.
 
 ## Next architecture step
 Add a transport adapter layer so UI logic stays independent from protocol backends (local JSON, XMPP, Matrix).
