@@ -574,6 +574,21 @@ button {
   text-align: center;
 }
 
+.forum-thread-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.6rem;
+}
+
+.forum-thread-toolbar__btn {
+  background: #2d313b;
+  color: #d7dce6;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  padding: 0.24rem 0.52rem;
+}
+
 .message--forum-root {
   margin-bottom: 0.85rem;
 }

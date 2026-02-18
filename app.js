@@ -190,6 +190,8 @@ function buildInitialState() {
       swfQuickAudioMode: "click",
       guildNotifications: {},
       forumCollapsedThreads: {},
+      forumThreadReadState: {},
+      forumThreadSort: {},
       swfPipPosition: null
     }
   };
@@ -1203,6 +1205,30 @@ function normalizeForumCollapsedThreadsMap(value) {
   }, {});
 }
 
+function normalizeForumThreadReadStateMap(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.entries(value).reduce((acc, [channelId, threadMap]) => {
+    if (!channelId || !threadMap || typeof threadMap !== "object") return acc;
+    const normalizedThreadMap = Object.entries(threadMap).reduce((threadAcc, [threadId, ts]) => {
+      if (!threadId) return threadAcc;
+      const nextTs = typeof ts === "string" ? ts : "";
+      threadAcc[threadId] = nextTs;
+      return threadAcc;
+    }, {});
+    if (Object.keys(normalizedThreadMap).length > 0) acc[channelId] = normalizedThreadMap;
+    return acc;
+  }, {});
+}
+
+function normalizeForumThreadSortMap(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.entries(value).reduce((acc, [channelId, sortMode]) => {
+    if (!channelId) return acc;
+    acc[channelId] = sortMode === "created" ? "created" : "latest";
+    return acc;
+  }, {});
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -1224,6 +1250,8 @@ function getPreferences() {
     swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode),
     guildNotifications: normalizeGuildNotificationsMap(current.guildNotifications),
     forumCollapsedThreads: normalizeForumCollapsedThreadsMap(current.forumCollapsedThreads),
+    forumThreadReadState: normalizeForumThreadReadStateMap(current.forumThreadReadState),
+    forumThreadSort: normalizeForumThreadSortMap(current.forumThreadSort),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -1271,6 +1299,40 @@ function setForumThreadCollapsed(channelId, threadId, collapsed) {
       ...(current[channelId] || {}),
       [threadId]: Boolean(collapsed)
     }
+  };
+}
+
+function getForumThreadReadTimestamp(channelId, threadId) {
+  if (!channelId || !threadId) return "";
+  const prefs = getPreferences();
+  return prefs.forumThreadReadState?.[channelId]?.[threadId] || "";
+}
+
+function setForumThreadReadTimestamp(channelId, threadId, tsValue) {
+  if (!channelId || !threadId) return;
+  state.preferences = getPreferences();
+  const current = state.preferences.forumThreadReadState || {};
+  state.preferences.forumThreadReadState = {
+    ...current,
+    [channelId]: {
+      ...(current[channelId] || {}),
+      [threadId]: typeof tsValue === "string" ? tsValue : new Date().toISOString()
+    }
+  };
+}
+
+function getForumThreadSortMode(channelId) {
+  if (!channelId) return "latest";
+  const prefs = getPreferences();
+  return prefs.forumThreadSort?.[channelId] === "created" ? "created" : "latest";
+}
+
+function setForumThreadSortMode(channelId, mode) {
+  if (!channelId) return;
+  state.preferences = getPreferences();
+  state.preferences.forumThreadSort = {
+    ...(state.preferences.forumThreadSort || {}),
+    [channelId]: mode === "created" ? "created" : "latest"
   };
 }
 
@@ -4508,14 +4570,70 @@ function setReplyTarget(conversationId, message, threadId = null) {
 function renderForumThreads(conversationId, channel, messages, currentAccount) {
   const topLevel = messages.filter((message) => !message.forumThreadId);
   const repliesByThread = new Map();
-  const lastReadMs = toTimestampMs(channel?.readState?.[currentAccount?.id]);
+  const channelLastReadMs = toTimestampMs(channel?.readState?.[currentAccount?.id]);
   messages.forEach((message) => {
     if (!message.forumThreadId) return;
     if (!repliesByThread.has(message.forumThreadId)) repliesByThread.set(message.forumThreadId, []);
     repliesByThread.get(message.forumThreadId).push(message);
   });
 
-  topLevel.forEach((post) => {
+  const threadSortMode = getForumThreadSortMode(channel?.id);
+  const threadModels = topLevel.map((post) => {
+    const replies = (repliesByThread.get(post.id) || []).slice().sort((a, b) => toTimestampMs(a.ts) - toTimestampMs(b.ts));
+    const latestTsMs = replies.reduce((maxTs, replyMessage) => Math.max(maxTs, toTimestampMs(replyMessage.ts)), toTimestampMs(post.ts));
+    return { post, replies, latestTsMs };
+  });
+  threadModels.sort((a, b) => {
+    if (threadSortMode === "created") return toTimestampMs(b.post.ts) - toTimestampMs(a.post.ts);
+    return b.latestTsMs - a.latestTsMs;
+  });
+
+  if (threadModels.length > 0) {
+    const toolbar = document.createElement("div");
+    toolbar.className = "forum-thread-toolbar";
+
+    const sortBtn = document.createElement("button");
+    sortBtn.type = "button";
+    sortBtn.className = "forum-thread-toolbar__btn";
+    sortBtn.textContent = threadSortMode === "created" ? "Sort: Created time" : "Sort: Latest activity";
+    sortBtn.addEventListener("click", () => {
+      const nextMode = threadSortMode === "created" ? "latest" : "created";
+      setForumThreadSortMode(channel?.id, nextMode);
+      saveState();
+      renderMessages();
+    });
+    toolbar.appendChild(sortBtn);
+
+    const collapseAllBtn = document.createElement("button");
+    collapseAllBtn.type = "button";
+    collapseAllBtn.className = "forum-thread-toolbar__btn";
+    collapseAllBtn.textContent = "Collapse all";
+    collapseAllBtn.addEventListener("click", () => {
+      threadModels.forEach(({ post, replies }) => {
+        if (replies.length > 0) setForumThreadCollapsed(channel?.id, post.id, true);
+      });
+      saveState();
+      renderMessages();
+    });
+    toolbar.appendChild(collapseAllBtn);
+
+    const expandAllBtn = document.createElement("button");
+    expandAllBtn.type = "button";
+    expandAllBtn.className = "forum-thread-toolbar__btn";
+    expandAllBtn.textContent = "Expand all";
+    expandAllBtn.addEventListener("click", () => {
+      threadModels.forEach(({ post, replies }) => {
+        if (replies.length > 0) setForumThreadCollapsed(channel?.id, post.id, false);
+      });
+      saveState();
+      renderMessages();
+    });
+    toolbar.appendChild(expandAllBtn);
+
+    ui.messageList.appendChild(toolbar);
+  }
+
+  threadModels.forEach(({ post, replies }) => {
     const postRow = document.createElement("article");
     postRow.className = "message message--forum message--forum-root";
     postRow.dataset.messageId = post.id;
@@ -4581,11 +4699,24 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     replyBtn.textContent = "Reply";
     replyBtn.addEventListener("click", () => setReplyTarget(conversationId, post, post.id));
     postActions.appendChild(replyBtn);
+    const markReadBtn = document.createElement("button");
+    markReadBtn.type = "button";
+    markReadBtn.className = "message-action-btn";
+    markReadBtn.textContent = "Mark Thread Read";
+    markReadBtn.addEventListener("click", () => {
+      const latestThreadTs = replies[replies.length - 1]?.ts || post.ts || new Date().toISOString();
+      setForumThreadReadTimestamp(channel?.id, post.id, latestThreadTs);
+      saveState();
+      renderMessages();
+      renderChannels();
+    });
+    postActions.appendChild(markReadBtn);
     postRow.appendChild(postActions);
 
-    const replies = repliesByThread.get(post.id) || [];
+    const threadReadMs = toTimestampMs(getForumThreadReadTimestamp(channel?.id, post.id));
+    const effectiveReadMs = Math.max(channelLastReadMs, threadReadMs);
     const unreadReplies = replies.reduce((count, replyMessage) => {
-      if (toTimestampMs(replyMessage.ts) <= lastReadMs) return count;
+      if (toTimestampMs(replyMessage.ts) <= effectiveReadMs) return count;
       if (replyMessage.userId && replyMessage.userId === currentAccount?.id) return count;
       return count + 1;
     }, 0);
@@ -4679,18 +4810,47 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       toggleBtn.disabled = true;
       toggleBtn.classList.add("forum-thread-toggle--disabled");
     }
+    postRow.addEventListener("contextmenu", (event) => {
+      openContextMenu(event, [
+        {
+          label: "Reply in Thread",
+          action: () => setReplyTarget(conversationId, post, post.id)
+        },
+        {
+          label: "Mark Thread Read",
+          action: () => {
+            const latestThreadTs = replies[replies.length - 1]?.ts || post.ts || new Date().toISOString();
+            setForumThreadReadTimestamp(channel?.id, post.id, latestThreadTs);
+            saveState();
+            renderMessages();
+            renderChannels();
+          }
+        },
+        {
+          label: replies.length > 0 && !isForumThreadCollapsed(channel?.id, post.id) ? "Collapse Thread" : "Expand Thread",
+          disabled: replies.length === 0,
+          action: () => {
+            if (replies.length === 0) return;
+            const nextCollapsed = !isForumThreadCollapsed(channel?.id, post.id);
+            setForumThreadCollapsed(channel?.id, post.id, nextCollapsed);
+            saveState();
+            renderMessages();
+          }
+        },
+        {
+          label: "Copy",
+          submenu: [
+            { label: "Thread Post ID", action: () => copyText(post.id || "") },
+            { label: "Post JSON", action: () => copyText(serializeMessageAsJson(post)) }
+          ]
+        }
+      ]);
+    });
 
     ui.messageList.appendChild(postRow);
   });
 
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
-  const didMarkRead = markChannelRead(channel, currentAccount?.id);
-  if (currentAccount && didMarkRead) {
-    saveState();
-    renderServers();
-    renderDmList();
-    renderChannels();
-  }
 }
 
 function renderMessages() {
