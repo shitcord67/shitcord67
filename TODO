@@ -129,3 +129,9 @@
 - Some things should use dropdowns like some status-related things
 - Please really think about how to improve UX
 - Make sure emojis display correctly not only in Chromium but also Gecko
+- Telegram-style polls in channels/DMs (single-choice and optional multiple-choice)
+- Discord-style forum tags and per-thread tag filtering
+- Telegram-style message scheduling / send later
+- Discord-style per-channel slowmode option
+- [done] Spoiler message support (`||spoiler||`) with click-to-reveal in chat
+- [done] Telegram-style quick polls (`/poll question | option1 | option2...`) with vote + close/reopen flow

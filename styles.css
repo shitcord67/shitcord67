@@ -783,6 +783,22 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   font-size: 0.86em;
 }
 
+.message-spoiler {
+  display: inline-block;
+  background: #2e3340;
+  color: transparent;
+  border-radius: 4px;
+  padding: 0 0.22rem;
+  cursor: pointer;
+  user-select: none;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.message-spoiler.is-revealed {
+  color: #dbe0e9;
+  background: #20242d;
+}
+
 .message-quote {
   display: block;
   border-left: 3px solid #4e5562;
@@ -1284,6 +1300,64 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message-attachment {
   margin-top: 0.45rem;
+}
+
+.message-poll {
+  margin-top: 0.45rem;
+  width: min(440px, 92vw);
+  border: 1px solid #3b4050;
+  border-radius: 10px;
+  background: #1f232d;
+  padding: 0.45rem 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.message-poll__question {
+  font-size: 0.83rem;
+  font-weight: 800;
+  color: #e7ebf3;
+}
+
+.message-poll__option {
+  width: 100%;
+  text-align: left;
+  background: #2c3240;
+  color: #e5e9f0;
+  border-radius: 8px;
+  border: 1px solid #3e4556;
+  padding: 0.34rem 0.45rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.message-poll__option.is-selected {
+  border-color: #6d8bff;
+  background: #2f3d64;
+}
+
+.message-poll__option small {
+  color: #aeb7c7;
+  font-size: 0.68rem;
+}
+
+.message-poll__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  color: #a5aebe;
+  font-size: 0.72rem;
+}
+
+.message-poll__close {
+  background: #3b4254;
+  color: #e9edf7;
+  border-radius: 6px;
+  padding: 0.22rem 0.45rem;
+  font-size: 0.7rem;
 }
 
 .message-attachment img,
