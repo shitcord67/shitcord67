@@ -1076,6 +1076,10 @@ button {
   padding: 0.7rem 0.75rem;
 }
 
+.message-form--drop {
+  box-shadow: inset 0 0 0 2px #6f7bff;
+}
+
 .message-form input {
   margin: 0;
   border: 0;

@@ -15,7 +15,7 @@ const SLASH_COMMANDS = [
   { name: "clear", args: "", description: "Clear all messages in this channel." },
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
-const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "html"];
+const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "pdf", "html"];
 const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const mediaAllowOnceUrls = new Set();
 const EMOJI_LIBRARY = [
@@ -154,6 +154,7 @@ function buildInitialState() {
         customStickers: [],
         customGifs: [],
         customSvgs: [],
+        customPdfs: [],
         customSwfs: [],
         roles: [everyoneRole],
         memberRoles: {},
@@ -274,6 +275,7 @@ function migrateState(raw) {
         customStickers: Array.isArray(guild.customStickers) ? guild.customStickers : [],
         customGifs: Array.isArray(guild.customGifs) ? guild.customGifs : [],
         customSvgs: Array.isArray(guild.customSvgs) ? guild.customSvgs : [],
+        customPdfs: Array.isArray(guild.customPdfs) ? guild.customPdfs : [],
         customSwfs: Array.isArray(guild.customSwfs) ? guild.customSwfs : [],
         customHtmls: Array.isArray(guild.customHtmls) ? guild.customHtmls : [],
         memberIds: Array.isArray(guild.memberIds) ? guild.memberIds : [],
@@ -393,6 +395,7 @@ function migrateState(raw) {
         customStickers: [],
         customGifs: [],
         customSvgs: [],
+        customPdfs: [],
         customSwfs: [],
         customHtmls: [],
         memberIds,
@@ -490,6 +493,7 @@ let mediaRuntimeWarmed = false;
 let pipDragState = null;
 let pipSuppressHeaderToggle = false;
 let toastHideTimer = null;
+let composerPendingAttachment = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -532,10 +536,15 @@ const ui = {
   mediaFileInput: document.getElementById("mediaFileInput"),
   mediaTabs: [...document.querySelectorAll(".media-picker__tab")],
   openMediaPickerBtn: document.getElementById("openMediaPickerBtn"),
+  quickFileAttachBtn: document.getElementById("quickFileAttachBtn"),
+  quickAttachInput: document.getElementById("quickAttachInput"),
   toggleSwfAudioBtn: document.getElementById("toggleSwfAudioBtn"),
   composerReplyBar: document.getElementById("composerReplyBar"),
   replyPreviewText: document.getElementById("replyPreviewText"),
   cancelReplyBtn: document.getElementById("cancelReplyBtn"),
+  composerAttachmentBar: document.getElementById("composerAttachmentBar"),
+  composerAttachmentText: document.getElementById("composerAttachmentText"),
+  clearComposerAttachmentBtn: document.getElementById("clearComposerAttachmentBtn"),
   settingsScreen: document.getElementById("settingsScreen"),
   dockAvatar: document.getElementById("dockAvatar"),
   dockPresenceDot: document.getElementById("dockPresenceDot"),
@@ -1645,6 +1654,41 @@ function readFileAsDataUrl(file) {
   });
 }
 
+function inferAttachmentTypeFromFile(file) {
+  if (!file) return null;
+  const name = (file.name || "").toLowerCase();
+  const mime = (file.type || "").toLowerCase();
+  if (name.endsWith(".pdf") || mime === "application/pdf") return "pdf";
+  if (/\.(mp3|ogg|wav|m4a|flac)$/i.test(name) || /^audio\//i.test(mime)) return "audio";
+  if (/\.(txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml)$/i.test(name) || /^text\//i.test(mime)) return "text";
+  if (name.endsWith(".swf")) return "swf";
+  if (name.endsWith(".svg") || mime === "image/svg+xml") return "svg";
+  if (name.endsWith(".html") || name.endsWith(".htm") || mime === "text/html") return "html";
+  if (name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".mp4") || name.endsWith(".webm")) return "gif";
+  return "gif";
+}
+
+function clearComposerPendingAttachment() {
+  composerPendingAttachment = null;
+  if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.add("composer-reply--hidden");
+  if (ui.composerAttachmentText) ui.composerAttachmentText.textContent = "";
+  if (ui.quickAttachInput) ui.quickAttachInput.value = "";
+}
+
+function setComposerPendingAttachment(entry) {
+  composerPendingAttachment = entry || null;
+  if (!composerPendingAttachment) {
+    clearComposerPendingAttachment();
+    return;
+  }
+  if (ui.composerAttachmentText) {
+    const label = composerPendingAttachment.name || "file";
+    const type = (composerPendingAttachment.type || "file").toUpperCase();
+    ui.composerAttachmentText.textContent = `Attached ${type}: ${label}`;
+  }
+  if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.remove("composer-reply--hidden");
+}
+
 async function applyProfileAvatarFile(file) {
   if (!file) return;
   if (!file.type.startsWith("image/")) {
@@ -1723,6 +1767,7 @@ function ensureGuildMediaCollections(guild) {
   if (!Array.isArray(guild.customStickers)) guild.customStickers = [];
   if (!Array.isArray(guild.customGifs)) guild.customGifs = [];
   if (!Array.isArray(guild.customSvgs)) guild.customSvgs = [];
+  if (!Array.isArray(guild.customPdfs)) guild.customPdfs = [];
   if (!Array.isArray(guild.customSwfs)) guild.customSwfs = [];
   if (!Array.isArray(guild.customHtmls)) guild.customHtmls = [];
 }
@@ -1733,6 +1778,7 @@ function getGuildResourceBucket(guild, tab) {
   if (tab === "sticker") return guild.customStickers;
   if (tab === "gif") return guild.customGifs;
   if (tab === "svg") return guild.customSvgs;
+  if (tab === "pdf") return guild.customPdfs;
   if (tab === "swf") return guild.customSwfs;
   if (tab === "html") return guild.customHtmls;
   return [];
@@ -2769,6 +2815,10 @@ function mediaEntriesForActiveTab() {
     const custom = (guild?.customSvgs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
     return [...custom, ...SVG_LIBRARY];
   }
+  if (mediaPickerTab === "pdf") {
+    const custom = (guild?.customPdfs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
+    return custom;
+  }
   if (mediaPickerTab === "swf") {
     const custom = (guild?.customSwfs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
     return [...custom, ...swfLibrary];
@@ -2818,6 +2868,7 @@ function mediaPlaceholderForTab(tab) {
   if (tab === "emoji") return "Search emojis";
   if (tab === "swf") return "Search SWFs";
   if (tab === "svg") return "Search SVGs";
+  if (tab === "pdf") return "Search PDFs";
   if (tab === "html") return "Search HTML embeds";
   return "Search media";
 }
@@ -2902,6 +2953,7 @@ function fileAcceptForTab(tab) {
   if (tab === "emoji") return "image/png,image/gif,image/webp,image/svg+xml";
   if (tab === "swf") return ".swf,application/x-shockwave-flash";
   if (tab === "svg") return "image/svg+xml,.svg";
+  if (tab === "pdf") return ".pdf,application/pdf";
   if (tab === "html") return "text/html,.html,.htm";
   return "*/*";
 }
@@ -2921,9 +2973,14 @@ async function addMediaFromFileFlow(file) {
   const name = sanitizeMediaName(file.name.replace(/\.[^/.]+$/, ""), `${tab}-${Date.now().toString().slice(-4)}`);
   try {
     const url = await readFileAsDataUrl(file);
-    const format = tab === "sticker" ? stickerFormatFromName(file.name, url) : "image";
-    if (upsertGuildResource(tab, { name, url, format })) {
+    const inferredType = inferAttachmentTypeFromFile(file);
+    const targetTab = tab === "pdf" || inferredType === tab ? tab : inferredType;
+    const format = targetTab === "sticker" ? stickerFormatFromName(file.name, url) : "image";
+    if (upsertGuildResource(targetTab, { name, url, format })) {
       saveState();
+      if (targetTab !== mediaPickerTab) {
+        mediaPickerTab = targetTab;
+      }
       renderMediaPicker();
     }
   } catch {
@@ -3108,6 +3165,21 @@ function renderMediaPicker() {
       return;
     }
 
+    if (mediaPickerTab === "pdf") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = "PDF";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, "pdf"));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
     if (mediaPickerTab === "gif" && entry.preview === "video") {
       const video = document.createElement("video");
       video.className = "media-card__preview";
@@ -3136,7 +3208,15 @@ function renderMediaPicker() {
     }
     card.appendChild(label);
     card.addEventListener("click", () => {
-      const type = mediaPickerTab === "gif" ? "gif" : mediaPickerTab === "sticker" ? "sticker" : mediaPickerTab === "html" ? "html" : "svg";
+      const type = mediaPickerTab === "gif"
+        ? "gif"
+        : mediaPickerTab === "sticker"
+          ? "sticker"
+          : mediaPickerTab === "html"
+            ? "html"
+            : mediaPickerTab === "pdf"
+              ? "pdf"
+              : "svg";
       sendMediaAttachment(entry, type);
     });
     ui.mediaGrid.appendChild(card);
@@ -6136,6 +6216,7 @@ function render() {
   applyPreferencesToUI();
   if (!state.currentAccountId) {
     closeMediaPicker();
+    clearComposerPendingAttachment();
     return;
   }
   if (ensureCurrentUserInActiveServer()) {
@@ -6262,10 +6343,10 @@ ui.messageForm.addEventListener("submit", (event) => {
   const text = ui.messageInput.value.trim();
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
-  if (!conversation || !account || !text) return;
+  if (!conversation || !account || (!text && !composerPendingAttachment)) return;
 
-  if (conversation.type === "channel") ensureCurrentUserInActiveServer();
-  if (!(conversation.type === "channel" && handleSlashCommand(text, conversation.channel, account))) {
+  if (conversation.type === "channel" && text) ensureCurrentUserInActiveServer();
+  if (!(conversation.type === "channel" && text && handleSlashCommand(text, conversation.channel, account))) {
     const nextReply = replyTarget && replyTarget.channelId === conversation.id
       ? {
         messageId: replyTarget.messageId,
@@ -6281,7 +6362,12 @@ ui.messageForm.addEventListener("submit", (event) => {
       text,
       ts: new Date().toISOString(),
       reactions: [],
-      attachments: [],
+      attachments: composerPendingAttachment ? [{
+        type: composerPendingAttachment.type || "pdf",
+        url: composerPendingAttachment.url,
+        name: composerPendingAttachment.name || "file",
+        format: composerPendingAttachment.format || "image"
+      }] : [],
       replyTo: nextReply
     };
     if (conversation.type === "channel" && conversation.channel.type === "forum") {
@@ -6300,6 +6386,7 @@ ui.messageForm.addEventListener("submit", (event) => {
       conversation.channel.messages.push(nextMessage);
     }
     replyTarget = null;
+    clearComposerPendingAttachment();
     if (swfPipTabs.length > 0 && !(conversation.type === "channel" && conversation.channel.type === "forum")) {
       ui.messageInput.value = "";
       slashSelectionIndex = 0;
@@ -6313,6 +6400,7 @@ ui.messageForm.addEventListener("submit", (event) => {
   }
 
   ui.messageInput.value = "";
+  clearComposerPendingAttachment();
   slashSelectionIndex = 0;
   closeMediaPicker();
   saveState();
@@ -6331,6 +6419,33 @@ ui.openMediaPickerBtn.addEventListener("click", () => {
 });
 ui.openMediaPickerBtn.addEventListener("mouseenter", warmMediaPickerRuntimes);
 ui.openMediaPickerBtn.addEventListener("focus", warmMediaPickerRuntimes);
+
+ui.quickFileAttachBtn.addEventListener("click", () => {
+  ui.quickAttachInput.click();
+});
+
+ui.quickAttachInput.addEventListener("change", async () => {
+  const file = ui.quickAttachInput.files?.[0];
+  if (!file) return;
+  try {
+    const url = await readFileAsDataUrl(file);
+    const type = inferAttachmentTypeFromFile(file) || "pdf";
+    setComposerPendingAttachment({
+      type,
+      url,
+      name: file.name || `${type}-${Date.now()}`
+    });
+    ui.messageInput.focus();
+  } catch {
+    showToast("Failed to attach file.", { tone: "error" });
+  } finally {
+    ui.quickAttachInput.value = "";
+  }
+});
+
+ui.clearComposerAttachmentBtn.addEventListener("click", () => {
+  clearComposerPendingAttachment();
+});
 
 ui.toggleSwfAudioBtn.addEventListener("click", () => {
   const mode = getPreferences().swfQuickAudioMode;
@@ -7195,6 +7310,49 @@ document.addEventListener("click", (event) => {
     const onToggle = ui.openMediaPickerBtn.contains(event.target) || ui.toggleSwfAudioBtn.contains(event.target);
     if (!inPicker && !onToggle) closeMediaPicker();
   }
+});
+
+function maybeHandleComposerDrop(event) {
+  if (!state.currentAccountId) return false;
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return false;
+  const [file] = files;
+  if (!file) return false;
+  const inferred = inferAttachmentTypeFromFile(file);
+  if (inferred !== "pdf") return false;
+  event.preventDefault();
+  event.stopPropagation();
+  void readFileAsDataUrl(file).then((url) => {
+    setComposerPendingAttachment({
+      type: "pdf",
+      url,
+      name: file.name || "document.pdf"
+    });
+    ui.messageInput.focus();
+    showToast("PDF attached. Press Enter to send.");
+  }).catch(() => {
+    showToast("Failed to attach dropped PDF.", { tone: "error" });
+  });
+  return true;
+}
+
+document.addEventListener("dragover", (event) => {
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  const [file] = files;
+  const inferred = inferAttachmentTypeFromFile(file);
+  if (inferred !== "pdf") return;
+  event.preventDefault();
+  ui.messageForm.classList.add("message-form--drop");
+});
+
+document.addEventListener("dragleave", () => {
+  ui.messageForm.classList.remove("message-form--drop");
+});
+
+document.addEventListener("drop", (event) => {
+  ui.messageForm.classList.remove("message-form--drop");
+  maybeHandleComposerDrop(event);
 });
 
 document.addEventListener("contextmenu", (event) => {
