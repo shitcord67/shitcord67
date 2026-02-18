@@ -2,6 +2,8 @@
 
 A lightweight Discord-style chat client prototype with local persistence.
 
+![shitcord67 UI screenshot](Screenshot.png)
+
 ## Run (Linux)
 1. Open `index.html` in a browser.
 2. Optional local server:
