@@ -26,7 +26,10 @@
     <div id="chatScreen" class="screen">
       <aside class="server-rail">
         <div class="server-rail-scroll">
-          <button id="serverBrand" class="server-brand" title="Direct Messages">S67</button>
+          <button id="serverBrand" class="server-brand" title="Direct Messages" aria-label="Direct Messages">
+            <span class="server-brand__icon" aria-hidden="true">🫪</span>
+            <span id="serverBrandBadge" class="server-brand__badge" hidden></span>
+          </button>
           <div id="serverList" class="server-list"></div>
           <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Guild">+</button>
         </div>

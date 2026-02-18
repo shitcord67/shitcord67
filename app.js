@@ -456,6 +456,7 @@ const ui = {
   loginForm: document.getElementById("loginForm"),
   loginUsername: document.getElementById("loginUsername"),
   serverBrand: document.getElementById("serverBrand"),
+  serverBrandBadge: document.getElementById("serverBrandBadge"),
   serverList: document.getElementById("serverList"),
   dmSection: document.getElementById("dmSection"),
   guildSection: document.getElementById("guildSection"),
@@ -719,6 +720,18 @@ function getDmUnreadStats(thread, account) {
     if (messageMentionsAccount(message.text, account)) mentions += 1;
   });
   return { unread, mentions };
+}
+
+function getTotalDmUnreadStats(account) {
+  if (!account) return { unread: 0, mentions: 0 };
+  return state.dmThreads.reduce((acc, thread) => {
+    if (!Array.isArray(thread.participantIds) || !thread.participantIds.includes(account.id)) return acc;
+    const stats = getDmUnreadStats(thread, account);
+    return {
+      unread: acc.unread + stats.unread,
+      mentions: acc.mentions + stats.mentions
+    };
+  }, { unread: 0, mentions: 0 });
 }
 
 function ensureDmReadState(thread) {
@@ -3915,6 +3928,21 @@ function renderServers() {
   ui.serverList.innerHTML = "";
   ui.serverBrand.classList.toggle("active", getViewMode() === "dm");
   const currentAccount = getCurrentAccount();
+  const dmStats = getTotalDmUnreadStats(currentAccount);
+  if (ui.serverBrandBadge) {
+    const count = dmStats.mentions > 0 ? dmStats.mentions : dmStats.unread;
+    if (count > 0) {
+      ui.serverBrandBadge.hidden = false;
+      ui.serverBrandBadge.textContent = count > 99 ? "99+" : String(count);
+      ui.serverBrandBadge.title = dmStats.mentions > 0
+        ? `${dmStats.mentions} DM mention${dmStats.mentions === 1 ? "" : "s"}`
+        : `${dmStats.unread} unread DM${dmStats.unread === 1 ? "" : "s"}`;
+    } else {
+      ui.serverBrandBadge.hidden = true;
+      ui.serverBrandBadge.textContent = "";
+      ui.serverBrandBadge.title = "";
+    }
+  }
   ensureFolderState();
   const renderGuildButton = (server) => {
     const button = document.createElement("button");
