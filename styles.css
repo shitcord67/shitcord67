@@ -872,17 +872,80 @@ button {
   border: 1px solid #393d46;
   border-radius: 10px;
   padding: 0.45rem 0.55rem;
-  max-width: 380px;
+  max-width: min(96vw, 940px);
+}
+
+.message-swf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-bottom: 0.28rem;
 }
 
 .message-swf strong {
   display: block;
   font-size: 0.8rem;
-  margin-bottom: 0.28rem;
+}
+
+.message-swf-save-icon {
+  background: #343840;
+  color: #d5dbe4;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.message-swf-body {
+  display: flex;
+  gap: 0.42rem;
+  align-items: stretch;
+}
+
+.message-swf-audio-rail {
+  width: 34px;
+  min-width: 34px;
+  border: 1px solid #2f3239;
+  background: #121317;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.28rem 0.18rem;
+  gap: 0.28rem;
+}
+
+.message-swf-audio-toggle {
+  background: #343840;
+  color: #d5dbe4;
+  font-size: 0.95rem;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  line-height: 1;
+  padding: 0;
+}
+
+.message-swf-audio-slider {
+  margin: 0;
+  width: 18px;
+  height: 132px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  -webkit-appearance: slider-vertical;
 }
 
 .message-swf-player {
-  width: 100%;
+  width: min(100%, 760px);
+  flex: 1;
   min-height: 180px;
   background: #121317;
   border-radius: 6px;
@@ -906,6 +969,7 @@ button {
 
 .message-swf-controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
   margin-top: 0.38rem;
 }
@@ -916,26 +980,6 @@ button {
   font-size: 0.72rem;
   padding: 0.22rem 0.45rem;
   border-radius: 6px;
-}
-
-.message-swf-audio {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.35rem;
-}
-
-.message-swf-audio button {
-  background: #343840;
-  color: #d5dbe4;
-  font-size: 0.72rem;
-  padding: 0.22rem 0.45rem;
-  border-radius: 6px;
-}
-
-.message-swf-audio input[type="range"] {
-  margin: 0;
-  flex: 1;
 }
 
 .message-swf-link {
