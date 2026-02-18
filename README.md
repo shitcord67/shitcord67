@@ -19,7 +19,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
@@ -99,8 +99,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - New `/spoiler <text>` slash command sends spoiler-formatted messages quickly.
 - New `/poll <question> | <option1> | <option2> ...` slash command creates Telegram-style quick polls.
 - Poll cards support live voting, selected-state highlighting, unique voter counts, and close/reopen controls.
-- Poll results can be copied from message context menu (`Copy Poll Results`).
-- Composer shortcut `Ctrl+Shift+O` wraps selected text in spoiler markers.
+- Poll results can be copied from message context menu (`Copy Poll Results`) and posted with optional voter list via `/pollresults voters`.
+- Composer shortcut `Ctrl+Shift+O` wraps selected text (or current word) in spoiler markers.
+- Composer drafts are persisted per channel/DM and restored when switching conversations or refreshing.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
