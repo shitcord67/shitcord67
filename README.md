@@ -37,6 +37,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF viewer modal supports larger playback and zoom controls.
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - Opening viewer from a running chat SWF now reuses the same live instance (no hard re-create).
+- In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.

@@ -1987,8 +1987,7 @@ function openSwfViewer(attachment, runtimeKey = null) {
     runtime.floating = true;
     runtime.restoreStyle = runtime.host.getAttribute("style") || "";
     runtime.host.classList.add("message-swf-player--floating");
-    runtime.host.style.transformOrigin = "top left";
-    runtime.host.style.transform = "translate(-50%, -50%) scale(1)";
+    positionFloatingSwfHost(runtime);
     ui.swfViewerHost.innerHTML = "<div class=\"channel-empty\">Using the live running SWF instance.</div>";
     setSwfPlayback(runtimeKey, true);
   } else {
@@ -2006,11 +2005,29 @@ function applySwfViewerZoom() {
   const zoomPercent = Math.max(50, Math.min(200, Number(ui.swfViewerZoomInput.value) || 100));
   const factor = zoomPercent / 100;
   if (floatingRuntime?.floating) {
-    host.style.transform = `translate(-50%, -50%) scale(${factor})`;
+    host.dataset.zoom = String(factor);
+    applyFloatingTransform(floatingRuntime);
   } else {
     host.style.transform = `scale(${factor})`;
     host.style.transformOrigin = "top left";
   }
+}
+
+function applyFloatingTransform(runtime) {
+  if (!runtime?.host) return;
+  const factor = Number(runtime.host.dataset.zoom || "1");
+  runtime.host.style.transform = `scale(${factor})`;
+  runtime.host.style.transformOrigin = "top left";
+}
+
+function positionFloatingSwfHost(runtime) {
+  if (!runtime?.host || !ui.swfViewerDialog.open) return;
+  const rect = ui.swfViewerHost.getBoundingClientRect();
+  runtime.host.style.left = `${Math.max(8, rect.left)}px`;
+  runtime.host.style.top = `${Math.max(8, rect.top)}px`;
+  runtime.host.style.width = `${Math.max(280, rect.width)}px`;
+  runtime.host.style.height = `${Math.max(220, rect.height)}px`;
+  applyFloatingTransform(runtime);
 }
 
 function closeSwfViewerAndRestore() {
@@ -2021,6 +2038,7 @@ function closeSwfViewerAndRestore() {
     if (runtime.floating && runtime.host instanceof HTMLElement) {
       runtime.host.classList.remove("message-swf-player--floating");
       runtime.host.setAttribute("style", runtime.restoreStyle || "");
+      delete runtime.host.dataset.zoom;
       runtime.floating = false;
     } else if (runtime.host !== runtime.originHost) {
       runtime.originHost.innerHTML = "";
@@ -2079,6 +2097,17 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     viewerBtn.type = "button";
     viewerBtn.textContent = "Open Viewer";
     viewerBtn.addEventListener("click", () => openSwfViewer(attachment, swfKey));
+    const resizeBtn = document.createElement("button");
+    resizeBtn.type = "button";
+    resizeBtn.textContent = "Resize";
+    resizeBtn.addEventListener("click", () => {
+      playerWrap.classList.toggle("message-swf-player--resizable");
+      if (playerWrap.classList.contains("message-swf-player--resizable")) {
+        resizeBtn.textContent = "Lock Size";
+      } else {
+        resizeBtn.textContent = "Resize";
+      }
+    });
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.textContent = "Save to Shelf";
@@ -2086,6 +2115,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controls.appendChild(playBtn);
     controls.appendChild(pauseBtn);
     controls.appendChild(viewerBtn);
+    controls.appendChild(resizeBtn);
     controls.appendChild(saveBtn);
     card.appendChild(controls);
 
@@ -3547,6 +3577,10 @@ document.addEventListener("contextmenu", (event) => {
 window.addEventListener("resize", () => {
   closeContextMenu();
   closeMediaPicker();
+  if (currentViewerRuntimeKey) {
+    const runtime = swfRuntimes.get(currentViewerRuntimeKey);
+    if (runtime?.floating) positionFloatingSwfHost(runtime);
+  }
 });
 document.addEventListener("scroll", closeContextMenu, true);
 
