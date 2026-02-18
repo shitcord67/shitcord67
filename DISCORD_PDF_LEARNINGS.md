@@ -54,8 +54,9 @@ This file is intended as persistent context for future LLM runs.
 ## Implemented In Follow-up Run
 
 1. Channel utility slash commands for quick moderation/navigation (`/pins`, `/unpinall`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`).
-2. Keyboard-first channel workflow (`Ctrl+Shift+R`, `Ctrl+Shift+I`, `Alt+ArrowUp/Down`).
+2. Keyboard-first channel workflow (`Alt+R`, `Alt+I`, `Alt+N/P`, `Alt+ArrowUp/Down`) without overriding browser-reserved shortcuts.
 3. Message copy menu now includes Markdown quote output for cross-posting/logging.
+4. Header unread workflow extended with direct next-unread jump control and unread counters.
 
 ## Operational Guidance
 
