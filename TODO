@@ -30,6 +30,7 @@
 - Channel type variants (text/announcement/forum/media) with distinct labels.
 - DM search/quick switch via sidebar filter and Enter-to-open.
 - Nested context-menu submenus for grouped actions.
+- DM-only sidebar mode toggled via top `S67` button.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).

@@ -167,6 +167,7 @@ function buildInitialState() {
     activeGuildId: guildId,
     activeChannelId: channelId,
     activeDmId: null,
+    viewMode: "guild",
     dmThreads: [],
     guildFolders: [],
     userNotes: {},
@@ -277,6 +278,7 @@ function migrateState(raw) {
     });
     raw.activeGuildId = raw.activeGuildId || raw.activeServerId || raw.guilds[0]?.id || null;
     raw.activeDmId = typeof raw.activeDmId === "string" ? raw.activeDmId : null;
+    raw.viewMode = raw.viewMode === "dm" ? "dm" : "guild";
     raw.dmThreads = Array.isArray(raw.dmThreads)
       ? raw.dmThreads.map((thread) => ({
           id: thread.id || createId(),
@@ -453,7 +455,10 @@ const ui = {
   chatScreen: document.getElementById("chatScreen"),
   loginForm: document.getElementById("loginForm"),
   loginUsername: document.getElementById("loginUsername"),
+  serverBrand: document.getElementById("serverBrand"),
   serverList: document.getElementById("serverList"),
+  dmSection: document.getElementById("dmSection"),
+  guildSection: document.getElementById("guildSection"),
   channelList: document.getElementById("channelList"),
   dmList: document.getElementById("dmList"),
   dmSearchInput: document.getElementById("dmSearchInput"),
@@ -672,9 +677,16 @@ function getActiveDmThread() {
   return state.dmThreads.find((thread) => thread.id === state.activeDmId) || null;
 }
 
+function getViewMode() {
+  return state.viewMode === "dm" ? "dm" : "guild";
+}
+
 function getActiveConversation() {
-  const dm = getActiveDmThread();
-  if (dm) return { type: "dm", thread: dm, id: dm.id };
+  if (getViewMode() === "dm") {
+    const dm = getActiveDmThread();
+    if (dm) return { type: "dm", thread: dm, id: dm.id };
+    return null;
+  }
   const channel = getActiveChannel();
   if (!channel) return null;
   return { type: "channel", channel, id: channel.id };
@@ -750,6 +762,7 @@ function openDmWithAccount(targetAccount) {
   if (!current || !targetAccount || current.id === targetAccount.id) return;
   const thread = getOrCreateDmThread(current, targetAccount);
   if (!thread) return;
+  state.viewMode = "dm";
   state.activeDmId = thread.id;
   saveState();
   render();
@@ -972,6 +985,7 @@ function closeContextMenu() {
 
 function openContextMenu(event, items) {
   event.preventDefault();
+  event.stopPropagation();
   if (!Array.isArray(items) || items.length === 0) return;
   document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
   ui.contextMenu.innerHTML = "";
@@ -3899,6 +3913,7 @@ function renderScreens() {
 
 function renderServers() {
   ui.serverList.innerHTML = "";
+  ui.serverBrand.classList.toggle("active", getViewMode() === "dm");
   const currentAccount = getCurrentAccount();
   ensureFolderState();
   const renderGuildButton = (server) => {
@@ -3918,6 +3933,7 @@ function renderServers() {
       button.appendChild(dot);
     }
     button.addEventListener("click", () => {
+      state.viewMode = "guild";
       state.activeGuildId = server.id;
       state.activeChannelId = server.channels[0]?.id || null;
       state.activeDmId = null;
@@ -3932,6 +3948,7 @@ function renderServers() {
         {
           label: "Open Guild",
           action: () => {
+            state.viewMode = "guild";
             state.activeGuildId = server.id;
             state.activeChannelId = server.channels[0]?.id || null;
             state.activeDmId = null;
@@ -4124,6 +4141,7 @@ function renderDmList() {
       button.appendChild(badge);
     }
     button.addEventListener("click", () => {
+      state.viewMode = "dm";
       state.activeDmId = thread.id;
       saveState();
       renderMessages();
@@ -4135,6 +4153,7 @@ function renderDmList() {
         {
           label: "Open DM",
           action: () => {
+            state.viewMode = "dm";
             state.activeDmId = thread.id;
             saveState();
             renderMessages();
@@ -4176,8 +4195,15 @@ function renderDmList() {
 
 function renderChannels() {
   renderDmList();
+  const dmMode = getViewMode() === "dm";
+  ui.dmSection.classList.toggle("panel-section--hidden", !dmMode);
+  ui.guildSection.classList.toggle("panel-section--hidden", dmMode);
   const server = getActiveServer();
   ui.channelList.innerHTML = "";
+  if (dmMode) {
+    ui.activeServerName.textContent = "Direct Messages";
+    return;
+  }
   if (!server) {
     ui.activeServerName.textContent = "No guild";
     return;
@@ -4189,7 +4215,7 @@ function renderChannels() {
   if (ui.channelFilterInput && ui.channelFilterInput.value !== channelFilterTerm) {
     ui.channelFilterInput.value = channelFilterTerm;
   }
-  ui.activeServerName.textContent = state.activeDmId ? "Direct Messages" : server.name;
+  ui.activeServerName.textContent = server.name;
   const channelsToRender = server.channels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
   channelsToRender.forEach((channel) => {
     const button = document.createElement("button");
@@ -4216,6 +4242,7 @@ function renderChannels() {
       button.classList.add("channel-item--unread");
     }
     button.addEventListener("click", () => {
+      state.viewMode = "guild";
       state.activeChannelId = channel.id;
       state.activeDmId = null;
       saveState();
@@ -4227,6 +4254,7 @@ function renderChannels() {
         {
           label: "Open Channel",
           action: () => {
+            state.viewMode = "guild";
             state.activeChannelId = channel.id;
             state.activeDmId = null;
             saveState();
@@ -5089,6 +5117,7 @@ function createOrSwitchAccount(usernameInput) {
   }
 
   state.currentAccountId = account.id;
+  if (state.viewMode !== "dm" && state.viewMode !== "guild") state.viewMode = "guild";
   if (!state.activeGuildId && state.guilds[0]) {
     state.activeGuildId = state.guilds[0].id;
   }
@@ -5302,6 +5331,12 @@ ui.cancelReplyBtn.addEventListener("click", () => {
 ui.createServerBtn.addEventListener("click", () => {
   ui.serverNameInput.value = "";
   ui.createServerDialog.showModal();
+});
+
+ui.serverBrand.addEventListener("click", () => {
+  state.viewMode = "dm";
+  saveState();
+  render();
 });
 
 ui.serverCancel.addEventListener("click", () => ui.createServerDialog.close());
@@ -5963,6 +5998,19 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("contextmenu", (event) => {
+  if (event.defaultPrevented) return;
+  const target = event.target;
+  if (target instanceof HTMLElement) {
+    const isEditable = target.closest("input, textarea, [contenteditable='true']");
+    const insideApp = Boolean(target.closest("#app"));
+    if (insideApp && !isEditable) {
+      event.preventDefault();
+      if (!contextMenuOpen) return;
+      if (ui.contextMenu.contains(target)) return;
+      closeContextMenu();
+      return;
+    }
+  }
   if (!contextMenuOpen) return;
   if (ui.contextMenu.contains(event.target)) return;
   closeContextMenu();
