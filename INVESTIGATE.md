@@ -31,3 +31,10 @@ This file lists things that are likely environment- or content-specific and shou
 1. Two-click privacy-preserving media loading.
 - Goal: avoid loading third-party media/HTML until user explicitly allows it.
 - Suggested direction: domain allowlist + “remember choice” + optional wildcard/regex matching.
+
+## Design Reference Workflow
+
+1. Prefer PDF references over SVG for Discord UI snapshots.
+- Reason: some SVG exports are structurally broken or visually inconsistent.
+- Tooling: run `python3 scripts/process_pdf_references.py --root SVGscreenshots` to render stable PNG previews into `SVGscreenshots/pdf-previews/`.
+- Optional: `--also-svg` keeps a best-effort SVG export path only when needed.
