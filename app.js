@@ -945,15 +945,39 @@ function loadScriptTag(src, type = "text/javascript") {
 }
 
 async function deployMediaRuntimes() {
+  let shouldRerender = false;
   try {
-    await loadScriptTag("https://unpkg.com/@ruffle-rs/ruffle");
+    await loadScriptTag("ruffle/ruffle.js");
+    shouldRerender = true;
   } catch {
-    // SWF fallback card remains available.
+    try {
+      await loadScriptTag("https://unpkg.com/@ruffle-rs/ruffle");
+      shouldRerender = true;
+    } catch {
+      // SWF fallback card remains available.
+    }
   }
   try {
-    await loadScriptTag("https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs", "module");
+    await loadScriptTag("dotlottie/dotlottie-player.mjs", "module");
+    shouldRerender = true;
   } catch {
-    // dotLottie falls back to link/file preview behavior.
+    try {
+      await loadScriptTag("https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs", "module");
+      shouldRerender = true;
+    } catch {
+      // dotLottie falls back to link/file preview behavior.
+    }
+  }
+  if (shouldRerender && state.currentAccountId) {
+    renderMessages();
+  }
+}
+
+function resolveMediaUrl(url) {
+  try {
+    return new URL(url, window.location.href).href;
+  } catch {
+    return url;
   }
 }
 
@@ -1290,6 +1314,42 @@ function extractImageUrl(text) {
   return imageUrl || null;
 }
 
+function inferAttachmentTypeFromUrl(url) {
+  const clean = (url || "").toLowerCase();
+  if (clean.endsWith(".swf") || clean.includes(".swf?")) return "swf";
+  if (clean.endsWith(".svg") || clean.includes(".svg?")) return "svg";
+  if (clean.endsWith(".apng") || clean.includes(".apng?")) return "sticker";
+  if (clean.endsWith(".lottie") || clean.includes(".lottie?")) return "sticker";
+  if (/\.(gif|webp|mp4|webm)(\?|$)/i.test(clean)) return "gif";
+  return null;
+}
+
+function inferAttachmentFormat(type, url) {
+  if (type !== "sticker") return "image";
+  return stickerFormatFromName("", url);
+}
+
+function extractInlineAttachmentsFromText(text) {
+  if (!text) return [];
+  const results = [];
+  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|apng|lottie|gif|webp|mp4|webm))/gi) || [];
+  const seen = new Set();
+  matches.forEach((raw) => {
+    const cleaned = raw.replace(/[),.!?]+$/, "");
+    if (seen.has(cleaned)) return;
+    const type = inferAttachmentTypeFromUrl(cleaned);
+    if (!type) return;
+    seen.add(cleaned);
+    results.push({
+      type,
+      url: cleaned,
+      name: cleaned.split("/").pop() || cleaned,
+      format: inferAttachmentFormat(type, cleaned)
+    });
+  });
+  return results.slice(0, 4);
+}
+
 async function loadSwfLibrary() {
   try {
     const response = await fetch("swf-index.json", { cache: "no-cache" });
@@ -1580,6 +1640,7 @@ function renderMediaPicker() {
 function renderMessageAttachment(container, attachment) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
+  const mediaUrl = resolveMediaUrl(attachment.url);
   const wrap = document.createElement("div");
   wrap.className = `message-attachment message-attachment--${type}`;
 
@@ -1599,7 +1660,7 @@ function renderMessageAttachment(container, attachment) {
         const player = ruffle.createPlayer();
         player.style.width = "100%";
         player.style.height = "180px";
-        player.load({ url: attachment.url, autoplay: "on", unmuteOverlay: "hidden" });
+        player.load({ url: mediaUrl, autoplay: "on", unmuteOverlay: "hidden" });
         playerWrap.appendChild(player);
       } catch {
         playerWrap.textContent = "Ruffle failed to load this SWF.";
@@ -1615,7 +1676,7 @@ function renderMessageAttachment(container, attachment) {
 
     const link = document.createElement("a");
     link.className = "message-swf-link";
-    link.href = attachment.url;
+    link.href = mediaUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = "Open SWF file";
@@ -1626,10 +1687,10 @@ function renderMessageAttachment(container, attachment) {
   }
 
   if (type === "gif") {
-    const videoLike = /\.(mp4|webm)(\?.*)?$/i.test(attachment.url);
+    const videoLike = /\.(mp4|webm)(\?.*)?$/i.test(mediaUrl);
     if (videoLike) {
       const video = document.createElement("video");
-      video.src = attachment.url;
+      video.src = mediaUrl;
       video.autoplay = true;
       video.loop = true;
       video.muted = true;
@@ -1637,7 +1698,7 @@ function renderMessageAttachment(container, attachment) {
       wrap.appendChild(video);
     } else {
       const img = document.createElement("img");
-      img.src = attachment.url;
+      img.src = mediaUrl;
       img.loading = "lazy";
       img.alt = attachment.name || "GIF";
       wrap.appendChild(img);
@@ -1650,7 +1711,7 @@ function renderMessageAttachment(container, attachment) {
     const canRenderDotLottie = typeof customElements !== "undefined" && customElements.get("dotlottie-player");
     if (canRenderDotLottie) {
       const lottie = document.createElement("dotlottie-player");
-      lottie.setAttribute("src", attachment.url);
+      lottie.setAttribute("src", mediaUrl);
       lottie.setAttribute("autoplay", "");
       lottie.setAttribute("loop", "");
       lottie.style.width = "180px";
@@ -1662,7 +1723,7 @@ function renderMessageAttachment(container, attachment) {
       fallback.textContent = "dotLottie runtime loading or unavailable.";
       const link = document.createElement("a");
       link.className = "message-swf-link";
-      link.href = attachment.url;
+      link.href = mediaUrl;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.textContent = "Open .lottie file";
@@ -1674,7 +1735,7 @@ function renderMessageAttachment(container, attachment) {
   }
 
   const img = document.createElement("img");
-  img.src = attachment.url;
+  img.src = mediaUrl;
   img.loading = "lazy";
   img.alt = attachment.name || type.toUpperCase();
   wrap.appendChild(img);
@@ -1949,7 +2010,10 @@ function renderMessages() {
       imagePreview.alt = "shared image";
       imagePreview.loading = "lazy";
     }
-    const attachments = normalizeAttachments(message.attachments);
+    const attachments = normalizeAttachments([
+      ...normalizeAttachments(message.attachments),
+      ...extractInlineAttachmentsFromText(message.text)
+    ]);
 
     let pinIndicator = null;
     if (message.pinned) {
