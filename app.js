@@ -391,6 +391,8 @@ const swfPipTabs = [];
 let swfPipActiveKey = null;
 let swfPipManuallyHidden = false;
 let swfPreviewBootstrapInFlight = false;
+let mediaPickerRenderToken = 0;
+let mediaRuntimeWarmed = false;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -1766,6 +1768,12 @@ function toggleMediaPicker() {
   }
 }
 
+function warmMediaPickerRuntimes() {
+  if (mediaRuntimeWarmed) return;
+  mediaRuntimeWarmed = true;
+  void deployMediaRuntimes();
+}
+
 function mediaPlaceholderForTab(tab) {
   if (tab === "gif") return "Search GIFs";
   if (tab === "sticker") return "Search stickers";
@@ -1877,7 +1885,7 @@ async function addMediaFromFileFlow(file) {
   }
 }
 
-function renderSwfPickerPreview(host, entry, index = 0) {
+function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPickerRenderToken) {
   host.innerHTML = "";
   host.style.display = "grid";
   host.style.placeItems = "center";
@@ -1898,10 +1906,14 @@ function renderSwfPickerPreview(host, entry, index = 0) {
   if (index > 11) return;
   try {
     const player = window.RufflePlayer.newest().createPlayer();
+    if ("volume" in player) player.volume = 0;
+    if ("muted" in player) player.muted = true;
+    if (typeof player.set_volume === "function") player.set_volume(0);
     player.style.width = "100%";
     player.style.height = "100%";
     host.innerHTML = "";
     host.appendChild(player);
+    if (!host.isConnected || renderToken !== mediaPickerRenderToken) return;
     const mediaUrl = resolveMediaUrl(entry.url);
     Promise.resolve(player.load({
       url: mediaUrl,
@@ -1912,13 +1924,14 @@ function renderSwfPickerPreview(host, entry, index = 0) {
       letterbox: "on",
       openUrlMode: "deny"
     })).then(() => {
+      if (!host.isConnected || renderToken !== mediaPickerRenderToken) return;
       try {
         if ("volume" in player) player.volume = 0;
         if ("muted" in player) player.muted = true;
         if (typeof player.set_volume === "function") player.set_volume(0);
         if (typeof player.play === "function") player.play();
         const pulse = window.setInterval(() => {
-          if (!host.isConnected) {
+          if (!host.isConnected || renderToken !== mediaPickerRenderToken) {
             clearInterval(pulse);
             return;
           }
@@ -1939,6 +1952,7 @@ function renderSwfPickerPreview(host, entry, index = 0) {
 }
 
 function renderMediaPicker() {
+  const renderToken = ++mediaPickerRenderToken;
   ui.mediaTabs.forEach((tabBtn) => {
     tabBtn.classList.toggle("active", tabBtn.dataset.mediaTab === mediaPickerTab);
   });
@@ -2015,7 +2029,7 @@ function renderMediaPicker() {
       ui.mediaGrid.appendChild(card);
       requestAnimationFrame(() => {
         if (!preview.isConnected) return;
-        renderSwfPickerPreview(preview, entry, index);
+        renderSwfPickerPreview(preview, entry, index, renderToken);
       });
       return;
     }
@@ -4022,6 +4036,8 @@ ui.messageInput.addEventListener("input", () => {
 ui.openMediaPickerBtn.addEventListener("click", () => {
   toggleMediaPicker();
 });
+ui.openMediaPickerBtn.addEventListener("mouseenter", warmMediaPickerRuntimes);
+ui.openMediaPickerBtn.addEventListener("focus", warmMediaPickerRuntimes);
 
 ui.toggleSwfAudioBtn.addEventListener("click", () => {
   const mode = getPreferences().swfQuickAudioMode;

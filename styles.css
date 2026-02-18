@@ -756,15 +756,18 @@ button {
 }
 
 .media-picker__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  column-count: 2;
+  column-gap: 0.45rem;
   max-height: 238px;
   overflow-y: auto;
   padding: 0.5rem;
 }
 
 .media-card {
+  display: inline-block;
+  width: 100%;
+  break-inside: avoid;
+  margin: 0 0 0.45rem;
   background: #1b1d21;
   border: 1px solid #2c3038;
   border-radius: 8px;
@@ -784,15 +787,23 @@ button {
 
 .media-card__preview {
   width: 100%;
-  height: 100px;
+  height: auto;
+  min-height: 110px;
+  max-height: 260px;
   background: #2c2f36;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .media-card__preview > * {
   width: 100%;
   height: 100%;
+}
+
+.media-card--swf .media-card__preview {
+  aspect-ratio: 4 / 3;
+  min-height: 120px;
+  max-height: none;
 }
 
 .media-card__label {
