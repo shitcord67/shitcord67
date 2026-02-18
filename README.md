@@ -80,6 +80,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Account switching popup and logout.
 - JSON export/import from Advanced settings for snapshot backup/restore.
 - Persisted state in `localStorage` (`shitcord67-state-v1`, with migration from `flashcord-state-v2` and `flashcord-state-v1`).
+- Login/settings/chat views are now viewport-isolated (no page-level scroll between app sections).
 
 ## Files
 - `index.html`: app shell and dialogs.
