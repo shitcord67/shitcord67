@@ -54,6 +54,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF picker previews are initialized after DOM mount to avoid detached-Ruffle playback warnings.
 - Hovering/focusing the media `+` button pre-warms media runtimes (Ruffle/dotLottie) for faster picker previews.
 - Media picker uses a 2-column masonry-style flow with better aspect-ratio preservation for preview media.
+- SWF picker previews are non-interactive (overlay captures click-to-send), and preview players are pointer-disabled/muted.
+- Each SWF card top bar includes quick SWF save import/export buttons (`⇧`/`⇩`) next to the floppy control.
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
