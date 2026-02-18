@@ -47,6 +47,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF link opens are configured with confirmation prompts (`openUrlMode: "confirm"`).
 - Advanced settings now include dedicated `Export SWF Saves` / `Import SWF Saves` (browser local-storage based).
 - SVG attachments in chat include a direct `Download SVG` action.
+- Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
+- Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).

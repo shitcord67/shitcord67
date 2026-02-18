@@ -389,6 +389,7 @@ const swfPendingUi = new Map();
 const swfPipTabs = [];
 let swfPipActiveKey = null;
 let swfPipManuallyHidden = false;
+let swfPreviewBootstrapInFlight = false;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -424,6 +425,7 @@ const ui = {
   mediaFileInput: document.getElementById("mediaFileInput"),
   mediaTabs: [...document.querySelectorAll(".media-picker__tab")],
   openMediaPickerBtn: document.getElementById("openMediaPickerBtn"),
+  toggleSwfAudioBtn: document.getElementById("toggleSwfAudioBtn"),
   composerReplyBar: document.getElementById("composerReplyBar"),
   replyPreviewText: document.getElementById("replyPreviewText"),
   cancelReplyBtn: document.getElementById("cancelReplyBtn"),
@@ -1099,6 +1101,7 @@ async function deployMediaRuntimes() {
   }
   if (shouldRerender && state.currentAccountId) {
     renderMessages();
+    if (mediaPickerOpen && mediaPickerTab === "swf") renderMediaPicker();
   }
 }
 
@@ -1462,6 +1465,13 @@ function applyPreferencesToUI() {
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
   ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
+  if (ui.toggleSwfAudioBtn) {
+    const enabled = prefs.swfAudio === "on";
+    ui.toggleSwfAudioBtn.textContent = enabled ? "🔊" : "🔇";
+    ui.toggleSwfAudioBtn.title = enabled ? "SWF audio enabled (click to mute)" : "SWF audio muted (click to enable)";
+    ui.toggleSwfAudioBtn.setAttribute("aria-label", ui.toggleSwfAudioBtn.title);
+    ui.toggleSwfAudioBtn.classList.toggle("message-form__media-btn--active", enabled);
+  }
   applySwfAudioToAllRuntimes();
 }
 
@@ -1747,7 +1757,17 @@ function renderSwfPickerPreview(host, entry, index = 0) {
   host.style.color = "#c4ccd8";
   host.style.fontSize = "0.76rem";
   host.textContent = "SWF";
-  if (!window.RufflePlayer?.newest) return;
+  if (!window.RufflePlayer?.newest) {
+    host.textContent = "Ruffle…";
+    if (!swfPreviewBootstrapInFlight) {
+      swfPreviewBootstrapInFlight = true;
+      void deployMediaRuntimes().finally(() => {
+        swfPreviewBootstrapInFlight = false;
+        if (mediaPickerOpen && mediaPickerTab === "swf") renderMediaPicker();
+      });
+    }
+    return;
+  }
   if (index > 5) return;
   try {
     const player = window.RufflePlayer.newest().createPlayer();
@@ -1780,7 +1800,8 @@ function renderSwfPickerPreview(host, entry, index = 0) {
       } catch {
         // Ignore preview sampling failures.
       }
-    }).catch(() => {
+    }).catch((error) => {
+      addDebugLog("warn", "SWF picker preview failed", { name: entry?.name || "", url: mediaUrl, error: String(error) });
       host.innerHTML = "";
       host.textContent = "SWF";
     });
@@ -1811,9 +1832,14 @@ function renderMediaPicker() {
   }
 
   entries.slice(0, 140).forEach((entry, index) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "media-card";
+    const useSwfCard = mediaPickerTab === "swf";
+    const card = document.createElement(useSwfCard ? "div" : "button");
+    if (card instanceof HTMLButtonElement) card.type = "button";
+    card.className = `media-card${useSwfCard ? " media-card--swf" : ""}`;
+    if (useSwfCard) {
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+    }
     if (mediaPickerTab === "emoji") {
       card.classList.add("media-card--emoji");
       if (entry.value) {
@@ -1855,6 +1881,11 @@ function renderMediaPicker() {
       card.appendChild(preview);
       card.appendChild(label);
       card.addEventListener("click", () => sendMediaAttachment(entry, "swf"));
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        sendMediaAttachment(entry, "swf");
+      });
       ui.mediaGrid.appendChild(card);
       return;
     }
@@ -2778,6 +2809,13 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     playerWrap.style.color = "#a6aeb9";
     playerWrap.style.fontSize = "0.78rem";
     playerWrap.textContent = "Loading SWF...";
+    playerWrap.addEventListener("click", () => {
+      if (!swfKey) return;
+      const runtime = swfRuntimes.get(swfKey);
+      if (!runtime) return;
+      setSwfPlayback(swfKey, true, "user");
+      if (runtime.audioEnabled) refreshSwfAudioFocus(swfKey);
+    });
     const audioToggleBtn = document.createElement("button");
     audioToggleBtn.type = "button";
     audioToggleBtn.className = "message-swf-audio-toggle";
@@ -3866,6 +3904,20 @@ ui.openMediaPickerBtn.addEventListener("click", () => {
   toggleMediaPicker();
 });
 
+ui.toggleSwfAudioBtn.addEventListener("click", () => {
+  state.preferences = getPreferences();
+  const next = state.preferences.swfAudio === "on" ? "off" : "on";
+  state.preferences.swfAudio = next;
+  swfRuntimes.forEach((runtime) => {
+    runtime.audioEnabled = next === "on";
+  });
+  swfPendingAudio.forEach((pending) => {
+    pending.enabled = next === "on";
+  });
+  saveState();
+  applyPreferencesToUI();
+});
+
 ui.mediaTabs.forEach((tabBtn) => {
   tabBtn.addEventListener("click", () => {
     const nextTab = tabBtn.dataset.mediaTab;
@@ -4449,7 +4501,7 @@ document.addEventListener("click", (event) => {
   }
   if (mediaPickerOpen) {
     const inPicker = ui.mediaPicker.contains(event.target);
-    const onToggle = ui.openMediaPickerBtn.contains(event.target);
+    const onToggle = ui.openMediaPickerBtn.contains(event.target) || ui.toggleSwfAudioBtn.contains(event.target);
     if (!inPicker && !onToggle) closeMediaPicker();
   }
 });
