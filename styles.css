@@ -1502,6 +1502,43 @@ body[data-compact-members="on"] .member-item {
   margin-top: 0.45rem;
 }
 
+.profile-avatar-upload {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.profile-avatar-upload__preview {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid #454954;
+  background: #57f287;
+  background-size: cover;
+  background-position: center;
+  flex: 0 0 52px;
+}
+
+.profile-avatar-upload__actions {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.profile-avatar-upload__actions button {
+  background: #40444b;
+  color: #fff;
+  border: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  text-align: left;
+}
+
+.profile-avatar-upload__actions small {
+  color: #aeb4bf;
+}
+
 .role-chip-list {
   display: flex;
   flex-wrap: wrap;
