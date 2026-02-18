@@ -1026,7 +1026,6 @@ button {
   height: 132px;
   writing-mode: vertical-lr;
   direction: rtl;
-  -webkit-appearance: slider-vertical;
 }
 
 .message-swf-jump {
