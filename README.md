@@ -19,7 +19,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
@@ -71,6 +71,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - DM sidebar rows now render peer avatars + presence dots.
 - Member panel title now shows live member count for the active guild/DM.
 - Chat message list includes day separators and full timestamp tooltips on hover.
+- Guild channels with unread messages show a sticky unread banner with quick `Mark read` and `Jump` actions.
 - Added floating `Jump to present` button when scrolled up, including count of messages below viewport.
 - Collapsible sidebars: header buttons toggle channel/member panels, with persisted visibility state.
 - Sidebar layout shortcuts: `Ctrl+Shift+B` toggles channels, `Ctrl+Shift+M` toggles members.
@@ -102,6 +103,10 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Poll results can be copied from message context menu (`Copy Poll Results`) and posted with optional voter list via `/pollresults voters`.
 - Composer shortcut `Ctrl+Shift+O` wraps selected text (or current word) in spoiler markers.
 - Composer drafts are persisted per channel/DM and restored when switching conversations or refreshing.
+- Composer footer now shows character usage (`0/400`) with near-limit warnings.
+- Announcement channels are read-only for non-moderators (permission notice shown in composer).
+- Per-channel slowmode is supported (channel settings, context-menu presets, and `/slowmode` slash command).
+- Header now includes a direct `Mark Read` action and live pinned-message count on the `Pins` button.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).

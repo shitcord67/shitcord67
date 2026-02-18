@@ -25,6 +25,7 @@ const SLASH_COMMANDS = [
   { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
   { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
+  { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
@@ -208,6 +209,8 @@ function buildInitialState() {
             type: "text",
             topic: "General discussion",
             readState: {},
+            slowmodeSec: 0,
+            slowmodeState: {},
             messages: [
               {
                 id: createId(),
@@ -337,6 +340,8 @@ function migrateState(raw) {
               type: ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text",
               topic: typeof channel.topic === "string" ? channel.topic : "",
               readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
+              slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
+              slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
               messages: Array.isArray(channel.messages)
                 ? channel.messages.map((message) => ({
                     ...message,
@@ -431,6 +436,8 @@ function migrateState(raw) {
               type: ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text",
               topic: "",
               readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
+              slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
+              slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
               messages
             };
           })
@@ -440,6 +447,8 @@ function migrateState(raw) {
               name: "general",
               topic: "",
               readState: {},
+              slowmodeSec: 0,
+              slowmodeState: {},
               messages: []
             }
           ];
@@ -553,6 +562,7 @@ let toastHideTimer = null;
 let composerPendingAttachment = null;
 let composerDraftConversationId = null;
 let composerDraftSaveTimer = null;
+let composerMetaRefreshTimer = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -574,6 +584,7 @@ const ui = {
   activeServerName: document.getElementById("activeServerName"),
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
+  markChannelReadBtn: document.getElementById("markChannelReadBtn"),
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
   openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
@@ -591,6 +602,8 @@ const ui = {
   clearSwfShelfBtn: document.getElementById("clearSwfShelfBtn"),
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
+  composerSystemNotice: document.getElementById("composerSystemNotice"),
+  composerCharCount: document.getElementById("composerCharCount"),
   slashCommandPopup: document.getElementById("slashCommandPopup"),
   suggestionHint: document.getElementById("suggestionHint"),
   slashCommandList: document.getElementById("slashCommandList"),
@@ -727,6 +740,7 @@ const ui = {
   channelSettingsDialog: document.getElementById("channelSettingsDialog"),
   channelSettingsForm: document.getElementById("channelSettingsForm"),
   channelRenameInput: document.getElementById("channelRenameInput"),
+  channelSlowmodeInput: document.getElementById("channelSlowmodeInput"),
   channelSettingsCancel: document.getElementById("channelSettingsCancel"),
   deleteChannelBtn: document.getElementById("deleteChannelBtn"),
   rolesDialog: document.getElementById("rolesDialog"),
@@ -1131,6 +1145,67 @@ function getChannelUnreadStats(channel, account) {
   return { unread, mentions };
 }
 
+function findFirstUnreadMessageId(channel, account) {
+  if (!channel || !account) return null;
+  ensureChannelReadState(channel);
+  const lastReadMs = toTimestampMs(channel.readState[account.id]);
+  const unreadMessage = (Array.isArray(channel.messages) ? channel.messages : []).find((message) => (
+    toTimestampMs(message.ts) > lastReadMs && message.userId !== account.id
+  ));
+  return unreadMessage?.id || null;
+}
+
+function ensureChannelSlowmodeState(channel) {
+  if (!channel || (channel.slowmodeState && typeof channel.slowmodeState === "object")) return false;
+  channel.slowmodeState = {};
+  return true;
+}
+
+function normalizeSlowmodeSeconds(value) {
+  const next = Math.round(Number(value) || 0);
+  return Math.max(0, Math.min(3600, next));
+}
+
+function getChannelSlowmodeSeconds(channel) {
+  return normalizeSlowmodeSeconds(channel?.slowmodeSec || 0);
+}
+
+function canCurrentUserPostInChannel(channel, account) {
+  if (!channel || !account) return false;
+  if (channel.type === "announcement") {
+    return canCurrentUser("manageMessages") || canCurrentUser("administrator");
+  }
+  return true;
+}
+
+function getChannelSlowmodeRemainingMs(channel, accountId) {
+  const seconds = getChannelSlowmodeSeconds(channel);
+  if (!channel || !accountId || seconds <= 0) return 0;
+  ensureChannelSlowmodeState(channel);
+  const lastIso = channel.slowmodeState?.[accountId];
+  const lastMs = toTimestampMs(lastIso);
+  if (!lastMs) return 0;
+  const elapsed = Date.now() - lastMs;
+  const remaining = seconds * 1000 - elapsed;
+  return remaining > 0 ? remaining : 0;
+}
+
+function recordChannelSlowmodeSend(channel, accountId) {
+  if (!channel || !accountId) return;
+  if (getChannelSlowmodeSeconds(channel) <= 0) return;
+  ensureChannelSlowmodeState(channel);
+  channel.slowmodeState[accountId] = new Date().toISOString();
+}
+
+function formatSlowmodeLabel(seconds) {
+  const sec = normalizeSlowmodeSeconds(seconds);
+  if (sec <= 0) return "Slowmode off";
+  if (sec < 60) return `Slowmode ${sec}s`;
+  const mins = Math.floor(sec / 60);
+  const rest = sec % 60;
+  return rest === 0 ? `Slowmode ${mins}m` : `Slowmode ${mins}m ${rest}s`;
+}
+
 function getGuildUnreadStats(guild, account) {
   if (!guild || !account) return { unread: 0, mentions: 0 };
   if (!Array.isArray(guild.memberIds) || !guild.memberIds.includes(account.id)) {
@@ -1403,6 +1478,12 @@ function ensureCurrentUserInActiveServer() {
   }
   server.channels.forEach((channel) => {
     ensureChannelReadState(channel);
+    const normalizedSlowmode = getChannelSlowmodeSeconds(channel);
+    if (channel.slowmodeSec !== normalizedSlowmode) {
+      channel.slowmodeSec = normalizedSlowmode;
+      changed = true;
+    }
+    if (ensureChannelSlowmodeState(channel)) changed = true;
     if (!channel.readState[account.id]) {
       channel.readState[account.id] = new Date().toISOString();
       changed = true;
@@ -1972,6 +2053,7 @@ function clearComposerPendingAttachment() {
   if (ui.composerAttachmentText) ui.composerAttachmentText.textContent = "";
   if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
   if (ui.quickAttachInput) ui.quickAttachInput.value = "";
+  renderComposerMeta();
 }
 
 function setComposerPendingAttachment(entry) {
@@ -1990,6 +2072,7 @@ function setComposerPendingAttachment(entry) {
   }
   if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.remove("composer-reply--hidden");
   if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = false;
+  renderComposerMeta();
 }
 
 async function attachFileToComposer(file) {
@@ -2969,6 +3052,27 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "slowmode") {
+    if (!canCurrentUser("manageChannels")) {
+      addSystemMessage(channel, "You need Manage Channels permission to change slowmode.");
+      return true;
+    }
+    const raw = arg.trim().toLowerCase();
+    if (!raw) {
+      addSystemMessage(channel, `Current ${formatSlowmodeLabel(getChannelSlowmodeSeconds(channel)).toLowerCase()}.`);
+      return true;
+    }
+    const parsed = raw === "off" ? 0 : normalizeSlowmodeSeconds(raw);
+    if (!Number.isFinite(parsed) || (raw !== "off" && !/^\d+$/.test(raw))) {
+      addSystemMessage(channel, "Usage: /slowmode <seconds|off>");
+      return true;
+    }
+    channel.slowmodeSec = parsed;
+    ensureChannelSlowmodeState(channel);
+    addSystemMessage(channel, parsed > 0 ? `Slowmode set to ${parsed}s.` : "Slowmode disabled.");
+    return true;
+  }
+
   if (command === "nick") {
     if (arg) {
       const guild = getActiveGuild();
@@ -3271,6 +3375,64 @@ function renderSlashSuggestions() {
     });
     ui.slashCommandList.appendChild(item);
   });
+}
+
+function renderComposerMeta() {
+  if (composerMetaRefreshTimer) {
+    clearTimeout(composerMetaRefreshTimer);
+    composerMetaRefreshTimer = null;
+  }
+  const rawValue = (ui.messageInput.value || "").toString();
+  const used = rawValue.length;
+  if (ui.composerCharCount) {
+    ui.composerCharCount.textContent = `${used}/400`;
+    ui.composerCharCount.classList.toggle("is-near-limit", used >= 320);
+    ui.composerCharCount.classList.toggle("is-at-limit", used >= 390);
+  }
+
+  const submitBtn = ui.messageForm?.querySelector?.("button[type=\"submit\"]");
+  if (!(submitBtn instanceof HTMLButtonElement)) return;
+  const conversation = getActiveConversation();
+  const account = getCurrentAccount();
+  if (!conversation || !account) {
+    submitBtn.disabled = true;
+    if (ui.composerSystemNotice) ui.composerSystemNotice.hidden = true;
+    return;
+  }
+
+  if (conversation.type === "dm") {
+    submitBtn.disabled = false;
+    if (ui.composerSystemNotice) ui.composerSystemNotice.hidden = true;
+    return;
+  }
+
+  const channel = conversation.channel;
+  const canPost = canCurrentUserPostInChannel(channel, account);
+  const remainingMs = getChannelSlowmodeRemainingMs(channel, account.id);
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+
+  if (ui.composerSystemNotice) {
+    let notice = "";
+    if (!canPost) {
+      notice = "You do not have permission to send messages in this channel.";
+    } else if (remainingSeconds > 0) {
+      notice = `Slowmode active. Wait ${remainingSeconds}s before sending again.`;
+    } else {
+      const slow = getChannelSlowmodeSeconds(channel);
+      if (slow > 0) notice = `${formatSlowmodeLabel(slow)} is enabled.`;
+    }
+    ui.composerSystemNotice.textContent = notice;
+    ui.composerSystemNotice.hidden = !notice;
+  }
+
+  const hasPayload = rawValue.trim().length > 0 || Boolean(composerPendingAttachment);
+  submitBtn.disabled = !canPost || remainingSeconds > 0 || !hasPayload;
+  if (remainingSeconds > 0) {
+    composerMetaRefreshTimer = setTimeout(() => {
+      composerMetaRefreshTimer = null;
+      renderComposerMeta();
+    }, 400);
+  }
 }
 
 function renderReplyComposer() {
@@ -6165,11 +6327,25 @@ function renderChannels() {
           }
         },
         {
+          label: "Slowmode",
+          disabled: !canCurrentUser("manageChannels"),
+          submenu: [
+            { label: "Off", action: () => { channel.slowmodeSec = 0; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+            { label: "5s", action: () => { channel.slowmodeSec = 5; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+            { label: "15s", action: () => { channel.slowmodeSec = 15; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+            { label: "30s", action: () => { channel.slowmodeSec = 30; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+            { label: "60s", action: () => { channel.slowmodeSec = 60; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } }
+          ]
+        },
+        {
           label: "Rename Channel",
           disabled: !canCurrentUser("manageChannels"),
           action: () => {
             state.activeChannelId = channel.id;
             ui.channelRenameInput.value = channel.name || "";
+            if (ui.channelSlowmodeInput) {
+              ui.channelSlowmodeInput.value = String(getChannelSlowmodeSeconds(channel));
+            }
             ui.channelSettingsDialog.showModal();
           }
         },
@@ -6687,6 +6863,8 @@ function renderMessages() {
     ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
     if (channel?.type === "forum") {
       ui.messageInput.placeholder = channel ? `New post in ${channelTypePrefix(channel)} ${channel.name} (title on first line)` : "No channel selected";
+    } else if (channel?.type === "announcement") {
+      ui.messageInput.placeholder = channel ? `Announcement ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
     } else {
       ui.messageInput.placeholder = channel ? `Message ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
     }
@@ -6707,6 +6885,22 @@ function renderMessages() {
   }
 
   const currentAccount = getCurrentAccount();
+  const unreadStats = !isDm ? getChannelUnreadStats(channel, currentAccount) : { unread: 0, mentions: 0 };
+  const firstUnreadMessageId = !isDm ? findFirstUnreadMessageId(channel, currentAccount) : null;
+  const channelPinnedCount = !isDm ? messageBucket.filter((message) => message.pinned).length : 0;
+  if (ui.openPinsBtn) {
+    ui.openPinsBtn.textContent = channelPinnedCount > 0 ? `Pins (${channelPinnedCount})` : "Pins";
+  }
+  if (ui.markChannelReadBtn) {
+    ui.markChannelReadBtn.hidden = isDm;
+    ui.markChannelReadBtn.disabled = isDm || !currentAccount || unreadStats.unread === 0;
+    ui.markChannelReadBtn.classList.toggle("chat-topic-edit--active", !isDm && unreadStats.unread > 0);
+  }
+  const channelSlowmode = !isDm ? getChannelSlowmodeSeconds(channel) : 0;
+  if (!isDm && channelSlowmode > 0) {
+    const baseTopic = channel?.topic?.trim() || "No topic";
+    ui.activeChannelTopic.textContent = `${baseTopic} · ${formatSlowmodeLabel(channelSlowmode)}`;
+  }
   let unreadDividerMessageId = null;
   if (currentAccount && isDm && dmThread) {
     const lastReadMs = toTimestampMs(dmThread.readState?.[currentAccount.id]);
@@ -6727,6 +6921,30 @@ function renderMessages() {
     });
     tools.appendChild(jumpNewestBtn);
     ui.messageList.appendChild(tools);
+  } else if (currentAccount && unreadStats.unread > 0 && firstUnreadMessageId) {
+    const divider = document.createElement("div");
+    divider.className = "channel-unread-banner";
+    const mentionPart = unreadStats.mentions > 0 ? `, ${unreadStats.mentions} mention${unreadStats.mentions === 1 ? "" : "s"}` : "";
+    divider.textContent = `${unreadStats.unread} new message${unreadStats.unread === 1 ? "" : "s"}${mentionPart}`;
+    const markBtn = document.createElement("button");
+    markBtn.type = "button";
+    markBtn.textContent = "Mark read";
+    markBtn.addEventListener("click", () => {
+      if (!markChannelRead(channel, currentAccount.id)) return;
+      saveState();
+      renderServers();
+      renderChannels();
+      renderMessages();
+    });
+    const jumpBtn = document.createElement("button");
+    jumpBtn.type = "button";
+    jumpBtn.textContent = "Jump";
+    jumpBtn.addEventListener("click", () => {
+      focusMessageById(firstUnreadMessageId);
+    });
+    divider.appendChild(markBtn);
+    divider.appendChild(jumpBtn);
+    ui.messageList.appendChild(divider);
   }
 
   let lastDayKey = "";
@@ -7306,6 +7524,7 @@ function appendMessageRowLite(channel, message) {
   ui.messageList.appendChild(messageRow);
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
   updateJumpToBottomButton();
+  renderComposerMeta();
 }
 
 function renderMemberList() {
@@ -7633,6 +7852,7 @@ function render() {
   renderSettingsScreen();
   renderReplyComposer();
   renderSlashSuggestions();
+  renderComposerMeta();
   if (mediaPickerOpen) renderMediaPicker();
 }
 
@@ -7685,6 +7905,9 @@ function openChannelSettings() {
     return;
   }
   ui.channelRenameInput.value = channel.name || "";
+  if (ui.channelSlowmodeInput) {
+    ui.channelSlowmodeInput.value = String(getChannelSlowmodeSeconds(channel));
+  }
   ui.channelSettingsDialog.showModal();
 }
 
@@ -7744,6 +7967,20 @@ ui.messageForm.addEventListener("submit", (event) => {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
   if (!conversation || !account || (!text && !composerPendingAttachment)) return;
+  if (conversation.type === "channel" && !canCurrentUserPostInChannel(conversation.channel, account)) {
+    showToast("You do not have permission to send messages in this channel.", { tone: "error" });
+    renderComposerMeta();
+    return;
+  }
+  if (conversation.type === "channel") {
+    const remainingMs = getChannelSlowmodeRemainingMs(conversation.channel, account.id);
+    if (remainingMs > 0) {
+      const waitSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+      showToast(`Slowmode active: wait ${waitSeconds}s`, { tone: "error" });
+      renderComposerMeta();
+      return;
+    }
+  }
 
   if (conversation.type === "channel" && text) ensureCurrentUserInActiveServer();
   if (!(conversation.type === "channel" && text && handleSlashCommand(text, conversation.channel, account))) {
@@ -7784,6 +8021,7 @@ ui.messageForm.addEventListener("submit", (event) => {
       conversation.thread.messages.push(nextMessage);
     } else {
       conversation.channel.messages.push(nextMessage);
+      recordChannelSlowmodeSend(conversation.channel, account.id);
     }
     replyTarget = null;
     clearComposerPendingAttachment();
@@ -7808,6 +8046,7 @@ ui.messageForm.addEventListener("submit", (event) => {
   saveState();
   renderMessages();
   renderMemberList();
+  renderComposerMeta();
 });
 
 ui.messageInput.addEventListener("input", () => {
@@ -7816,6 +8055,7 @@ ui.messageInput.addEventListener("input", () => {
   slashSelectionIndex = 0;
   mentionSelectionIndex = 0;
   renderSlashSuggestions();
+  renderComposerMeta();
 });
 
 ui.openMediaPickerBtn.addEventListener("click", () => {
@@ -8084,6 +8324,7 @@ ui.messageInput.addEventListener("keydown", (event) => {
       }
       setComposerDraft(composerDraftConversationId, ui.messageInput.value);
       queueComposerDraftSave();
+      renderComposerMeta();
       return;
     }
     if (event.key.toLowerCase() === "g") {
@@ -8237,6 +8478,8 @@ ui.createServerForm.addEventListener("submit", (event) => {
         type: "text",
         topic: "General discussion",
         readState: account ? { [account.id]: new Date().toISOString() } : {},
+        slowmodeSec: 0,
+        slowmodeState: {},
         messages: []
       }
     ]
@@ -8285,6 +8528,8 @@ ui.createChannelForm.addEventListener("submit", (event) => {
     type: ["text", "announcement", "forum", "media"].includes(ui.channelTypeInput.value) ? ui.channelTypeInput.value : "text",
     topic: "",
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
+    slowmodeSec: 0,
+    slowmodeState: {},
     messages: []
   };
 
@@ -8408,6 +8653,17 @@ ui.openPinsBtn.addEventListener("click", () => {
   ui.pinsDialog.showModal();
 });
 
+ui.markChannelReadBtn?.addEventListener("click", () => {
+  const channel = getActiveChannel();
+  const account = getCurrentAccount();
+  if (!channel || !account) return;
+  if (!markChannelRead(channel, account.id)) return;
+  saveState();
+  renderServers();
+  renderChannels();
+  renderMessages();
+});
+
 ui.topicCancel.addEventListener("click", () => ui.topicDialog.close());
 
 ui.topicForm.addEventListener("submit", (event) => {
@@ -8427,6 +8683,10 @@ ui.channelSettingsForm.addEventListener("submit", (event) => {
   const channel = getActiveChannel();
   if (!channel) return;
   channel.name = sanitizeChannelName(ui.channelRenameInput.value, channel.name || "general");
+  if (ui.channelSlowmodeInput) {
+    channel.slowmodeSec = normalizeSlowmodeSeconds(ui.channelSlowmodeInput.value);
+    ensureChannelSlowmodeState(channel);
+  }
   saveState();
   ui.channelSettingsDialog.close();
   render();
