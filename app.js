@@ -214,6 +214,8 @@ function buildInitialState() {
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],
       mediaLastTab: "gif",
+      hideChannelPanel: "off",
+      hideMemberPanel: "off",
       swfPipPosition: null
     }
   };
@@ -525,10 +527,14 @@ const ui = {
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
   openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
+  toggleChannelPanelBtn: document.getElementById("toggleChannelPanelBtn"),
+  toggleMemberPanelBtn: document.getElementById("toggleMemberPanelBtn"),
   toggleSwfShelfBtn: document.getElementById("toggleSwfShelfBtn"),
   editTopicBtn: document.getElementById("editTopicBtn"),
   messageList: document.getElementById("messageList"),
   jumpToBottomBtn: document.getElementById("jumpToBottomBtn"),
+  channelPanel: document.getElementById("channelPanel"),
+  memberPanel: document.getElementById("memberPanel"),
   swfShelf: document.getElementById("swfShelf"),
   swfShelfList: document.getElementById("swfShelfList"),
   clearSwfShelfBtn: document.getElementById("clearSwfShelfBtn"),
@@ -1444,6 +1450,8 @@ function getPreferences() {
     mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
     mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
     mediaLastTab: normalizeMediaTab(current.mediaLastTab),
+    hideChannelPanel: normalizeToggle(current.hideChannelPanel),
+    hideMemberPanel: normalizeToggle(current.hideMemberPanel),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -2448,6 +2456,26 @@ function openMessageEditor(conversationId, messageId, messageText) {
   ui.messageEditDialog.showModal();
 }
 
+function findLastEditableMessageInActiveConversation() {
+  const conversation = getActiveConversation();
+  const currentUser = getCurrentAccount();
+  if (!conversation || !currentUser) return null;
+  const isDm = conversation.type === "dm";
+  const canManageMessages = !isDm && canCurrentUser("manageMessages");
+  const bucket = isDm ? (conversation.thread?.messages || []) : (conversation.channel?.messages || []);
+  for (let i = bucket.length - 1; i >= 0; i -= 1) {
+    const candidate = bucket[i];
+    if (canEditMessageEntry(candidate, { isDm, canManageMessages, currentUser })) {
+      return {
+        conversationId: conversation.id,
+        messageId: candidate.id,
+        text: candidate.text || ""
+      };
+    }
+  }
+  return null;
+}
+
 function getSlashMatches(inputValue) {
   if (!inputValue.startsWith("/")) return [];
   const term = inputValue.slice(1).split(" ")[0].toLowerCase();
@@ -2617,8 +2645,20 @@ function applyPreferencesToUI() {
   document.body.dataset.compactMembers = prefs.compactMembers;
   document.body.dataset.developerMode = prefs.developerMode;
   document.body.dataset.debugOverlay = prefs.debugOverlay;
+  document.body.dataset.hideChannelPanel = prefs.hideChannelPanel;
+  document.body.dataset.hideMemberPanel = prefs.hideMemberPanel;
   ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
   ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
+  if (ui.toggleChannelPanelBtn) {
+    const hidden = prefs.hideChannelPanel === "on";
+    ui.toggleChannelPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
+    ui.toggleChannelPanelBtn.textContent = hidden ? "Channels Off" : "Channels";
+  }
+  if (ui.toggleMemberPanelBtn) {
+    const hidden = prefs.hideMemberPanel === "on";
+    ui.toggleMemberPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
+    ui.toggleMemberPanelBtn.textContent = hidden ? "Members Off" : "Members";
+  }
   if (ui.toggleSwfAudioBtn) {
     const mode = prefs.swfQuickAudioMode;
     const icon = mode === "on" ? "🔊" : mode === "click" ? "🔉" : "🔇";
@@ -2638,6 +2678,20 @@ function applyPreferencesToUI() {
     if (prefs.swfQuickAudioMode === "on") runtime.audioClickAllowed = true;
   });
   applySwfAudioToAllRuntimes();
+}
+
+function toggleChannelPanelVisibility() {
+  state.preferences = getPreferences();
+  state.preferences.hideChannelPanel = state.preferences.hideChannelPanel === "on" ? "off" : "on";
+  saveState();
+  applyPreferencesToUI();
+}
+
+function toggleMemberPanelVisibility() {
+  state.preferences = getPreferences();
+  state.preferences.hideMemberPanel = state.preferences.hideMemberPanel === "on" ? "off" : "on";
+  saveState();
+  applyPreferencesToUI();
 }
 
 function setSwfQuickAudioMode(mode) {
@@ -5197,6 +5251,11 @@ function renderDmList() {
       const nick = resolveAccountGuildNickname(peer, getActiveGuild()?.id || "").toLowerCase();
       return username.includes(filter) || display.includes(filter) || nick.includes(filter);
     })
+    .sort((a, b) => {
+      const aTs = toTimestampMs(a.messages?.[a.messages.length - 1]?.ts || 0);
+      const bTs = toTimestampMs(b.messages?.[b.messages.length - 1]?.ts || 0);
+      return bTs - aTs;
+    })
     .slice(0, 80);
   if (threads.length === 0) {
     const empty = document.createElement("div");
@@ -5224,7 +5283,21 @@ function renderDmList() {
     const label = document.createElement("span");
     label.className = "channel-item__name";
     label.textContent = peer ? `@${peer.username}` : "Unknown DM";
-    button.appendChild(label);
+    const content = document.createElement("span");
+    content.className = "channel-item__meta";
+    content.appendChild(label);
+    const lastMessage = thread.messages?.[thread.messages.length - 1] || null;
+    const preview = document.createElement("span");
+    preview.className = "channel-item__preview";
+    if (!lastMessage) {
+      preview.textContent = "No messages yet.";
+    } else {
+      const sender = lastMessage.userId === currentAccount.id ? "You" : (peer ? peer.username : "Unknown");
+      const text = (lastMessage.text || "").replace(/\s+/g, " ").trim();
+      preview.textContent = `${sender}: ${text || "(attachment)"}`.slice(0, 66);
+    }
+    content.appendChild(preview);
+    button.appendChild(content);
     const unread = getDmUnreadStats(thread, currentAccount);
     if (unread.unread > 0) {
       const badge = document.createElement("span");
@@ -6410,6 +6483,10 @@ function renderMemberList() {
     }
   });
 
+  const sortByName = (a, b) => displayNameForAccount(a, server.id).localeCompare(displayNameForAccount(b, server.id));
+  online.sort(sortByName);
+  offline.sort(sortByName);
+
   const groups = [
     { title: `Online — ${online.length}`, items: online },
     { title: `Offline — ${offline.length}`, items: offline }
@@ -7026,12 +7103,28 @@ ui.channelFilterInput.addEventListener("input", () => {
   renderChannels();
 });
 
+ui.channelFilterInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!channelFilterTerm) return;
+  event.preventDefault();
+  channelFilterTerm = "";
+  ui.channelFilterInput.value = "";
+  renderChannels();
+});
+
 ui.dmSearchInput.addEventListener("input", () => {
   dmSearchTerm = ui.dmSearchInput.value.trim().slice(0, 40);
   renderDmList();
 });
 
 ui.dmSearchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && dmSearchTerm) {
+    event.preventDefault();
+    dmSearchTerm = "";
+    ui.dmSearchInput.value = "";
+    renderDmList();
+    return;
+  }
   if (event.key !== "Enter") return;
   event.preventDefault();
   const current = getCurrentAccount();
@@ -7049,6 +7142,15 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
 });
 
 ui.messageInput.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowUp" && !ui.messageInput.value.trim()) {
+    const last = findLastEditableMessageInActiveConversation();
+    if (last) {
+      event.preventDefault();
+      openMessageEditor(last.conversationId, last.messageId, last.text);
+      return;
+    }
+  }
+
   if (event.key === "Escape" && !ui.messageInput.value.trim() && composerPendingAttachment) {
     event.preventDefault();
     clearComposerPendingAttachment();
@@ -7078,6 +7180,12 @@ ui.messageInput.addEventListener("keydown", (event) => {
   const popupVisible = suggestion.type !== "none";
 
   if (event.key === "Escape") {
+    if (!ui.messageInput.value.trim() && replyTarget) {
+      replyTarget = null;
+      renderReplyComposer();
+      showToast("Reply canceled.");
+      return;
+    }
     if (mediaPickerOpen) closeMediaPicker();
     slashSelectionIndex = 0;
     mentionSelectionIndex = 0;
@@ -7257,6 +7365,8 @@ ui.createChannelForm.addEventListener("submit", (event) => {
 
 ui.editTopicBtn.addEventListener("click", openTopicEditor);
 ui.openChannelSettingsBtn.addEventListener("click", openChannelSettings);
+ui.toggleChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
+ui.toggleMemberPanelBtn?.addEventListener("click", toggleMemberPanelVisibility);
 ui.toggleSwfShelfBtn.addEventListener("click", () => {
   swfShelfOpen = !swfShelfOpen;
   renderSwfShelf();
@@ -8094,6 +8204,27 @@ document.addEventListener("keydown", (event) => {
     const target = getViewMode() === "dm" ? ui.dmSearchInput : ui.channelFilterInput;
     target?.focus();
     target?.select?.();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "b") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    toggleChannelPanelVisibility();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "m") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    toggleMemberPanelVisibility();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "l") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    ui.messageInput.focus();
     return;
   }
   if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === "u") {

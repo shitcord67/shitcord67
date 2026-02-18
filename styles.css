@@ -129,6 +129,26 @@ button {
   display: grid;
 }
 
+body[data-hide-channel-panel="on"] #channelPanel {
+  display: none;
+}
+
+body[data-hide-member-panel="on"] #memberPanel {
+  display: none;
+}
+
+body[data-hide-channel-panel="on"][data-hide-member-panel="on"] #chatScreen.screen--active {
+  grid-template-columns: var(--rail-w) 1fr;
+}
+
+body[data-hide-channel-panel="on"][data-hide-member-panel="off"] #chatScreen.screen--active {
+  grid-template-columns: var(--rail-w) 1fr 260px;
+}
+
+body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.screen--active {
+  grid-template-columns: var(--rail-w) var(--channel-w) 1fr;
+}
+
 .server-rail {
   background: var(--bg-dark);
   border-right: 1px solid var(--line);
@@ -379,6 +399,20 @@ button {
   white-space: nowrap;
 }
 
+.channel-item__meta {
+  min-width: 0;
+  display: grid;
+  gap: 0.08rem;
+}
+
+.channel-item__preview {
+  color: #9ca5b2;
+  font-size: 0.68rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .channel-dm-avatar {
   width: 20px;
   height: 20px;
@@ -578,6 +612,11 @@ button {
   padding: 0.35rem 0.5rem;
   border-radius: 6px;
   font-size: 0.75rem;
+}
+
+.chat-topic-edit--active {
+  background: #4a5b85;
+  color: #f3f6ff;
 }
 
 .message-list {

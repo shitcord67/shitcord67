@@ -72,6 +72,15 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Member panel title now shows live member count for the active guild/DM.
 - Chat message list includes day separators and full timestamp tooltips on hover.
 - Added floating `Jump to present` button when scrolled up, including count of messages below viewport.
+- Collapsible sidebars: header buttons toggle channel/member panels, with persisted visibility state.
+- Sidebar layout shortcuts: `Ctrl+Shift+B` toggles channels, `Ctrl+Shift+M` toggles members.
+- Quick composer focus shortcut: `Ctrl+Shift+L`.
+- Composer ergonomics: `ArrowUp` in empty composer opens editor for your latest editable message.
+- Composer `Escape` now cancels active reply target when input is empty.
+- Channel/DM search ergonomics: `Escape` clears active filter/search quickly.
+- DM list is now sorted by latest message activity.
+- DM rows include one-line last-message previews.
+- Guild member lists are sorted alphabetically inside Online/Offline groups.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
