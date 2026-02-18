@@ -1,5 +1,5 @@
 :root {
-  --rail-w: 72px;
+  --rail-w: 80px;
   --channel-w: 260px;
   --bg-main: #313338;
   --bg-dark: #1e1f22;
@@ -112,20 +112,31 @@ button {
 .server-rail {
   background: var(--bg-dark);
   border-right: 1px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 0.45rem;
   grid-column: 1;
   grid-row: 1;
   min-height: 0;
+  overflow: hidden;
+}
+
+.server-rail-scroll {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.35rem 0.6rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-y: overlay;
+  overscroll-behavior: contain;
 }
 
 .server-brand,
 .server-item,
 .icon-btn {
   width: 48px;
+  min-width: 48px;
   height: 48px;
   border-radius: 16px;
   display: grid;
@@ -144,9 +155,6 @@ button {
   gap: 0.6rem;
   width: 100%;
   align-items: center;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
 }
 
 .server-item {
@@ -163,8 +171,6 @@ button {
   background: #2b2d31;
   color: #44d16f;
   font-size: 1.6rem;
-  position: relative;
-  z-index: 4;
 }
 
 .channel-panel {
@@ -408,6 +414,19 @@ button {
   margin-top: 0.2rem;
   color: #dbdee1;
   white-space: pre-wrap;
+}
+
+.message-edited {
+  color: #8f96a1;
+  font-size: 0.72rem;
+}
+
+.message-image-preview {
+  margin-top: 0.45rem;
+  max-width: min(420px, 100%);
+  border-radius: 10px;
+  border: 1px solid #41454f;
+  display: block;
 }
 
 .pin-indicator {
@@ -925,6 +944,50 @@ body[data-compact-members="on"] .member-item {
 
 .settings-panel--active {
   display: block;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 190px;
+  background: #111214;
+  border: 1px solid #30333a;
+  border-radius: 8px;
+  padding: 0.3rem;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+}
+
+.context-menu--hidden {
+  display: none;
+}
+
+.context-menu button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #e7e9ec;
+  border-radius: 6px;
+  padding: 0.42rem 0.52rem;
+  font-size: 0.84rem;
+}
+
+.context-menu button:hover {
+  background: #5865f2;
+  color: #fff;
+}
+
+.context-menu button.danger {
+  color: #ff8e8f;
+}
+
+.context-menu button.danger:hover {
+  background: #d83c3f;
+  color: #fff;
+}
+
+.context-menu button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .settings-card {

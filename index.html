@@ -25,9 +25,11 @@
 
     <div id="chatScreen" class="screen">
       <aside class="server-rail">
-        <div class="server-brand">S67</div>
-        <div id="serverList" class="server-list"></div>
-        <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Guild">+</button>
+        <div class="server-rail-scroll">
+          <div class="server-brand">S67</div>
+          <div id="serverList" class="server-list"></div>
+          <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Guild">+</button>
+        </div>
       </aside>
 
       <aside class="channel-panel">
@@ -353,6 +355,8 @@
       </div>
     </form>
   </dialog>
+
+  <div id="contextMenu" class="context-menu context-menu--hidden"></div>
 
   <script src="app.js"></script>
 </body>
