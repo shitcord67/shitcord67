@@ -71,6 +71,8 @@ This file is intended as persistent context for future LLM runs.
 6. Channel list sections now support collapsible headers with persisted state and chevron affordances.
 7. Header title now uses dedicated glyph + label slots with cleaner topic separator behavior.
 8. Composer switched to textarea rhythm (`Enter` send, `Shift+Enter` newline), closer to desktop Discord typing.
+9. Draft visibility improved: draft badges in channel/DM lists and lightweight draft counts in section headers.
+10. Keyboard/search flow improved with `Ctrl/Cmd+K` quick filter focus and `Ctrl/Cmd+Enter` send.
 
 ## Operational Guidance
 
