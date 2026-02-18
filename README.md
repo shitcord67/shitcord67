@@ -66,6 +66,12 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Binary (`.bin`) attachments render a compact HEX preview in chat.
 - PDF attachments now always include open/download controls plus a fallback note for browsers with inline PDF viewing disabled.
 - Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Ctrl+Shift+P` opens PDF tab, `Ctrl+U` opens file attach.
+- Additional quick nav shortcuts: `Alt+1/2/3` open GIF/Sticker/Emoji tabs and `Ctrl+Shift+F` focuses channel/DM filter.
+- Guild channel rows now render dedicated channel-type icons with stronger active/hover states.
+- DM sidebar rows now render peer avatars + presence dots.
+- Member panel title now shows live member count for the active guild/DM.
+- Chat message list includes day separators and full timestamp tooltips on hover.
+- Added floating `Jump to present` button when scrolled up, including count of messages below viewport.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
