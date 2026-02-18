@@ -774,6 +774,10 @@ button {
   padding: 0;
 }
 
+.media-card--swf {
+  cursor: pointer;
+}
+
 .media-card:hover {
   border-color: #5865f2;
 }
@@ -854,6 +858,11 @@ button {
   background: #3f4248;
   color: #d2d8e0;
   font-size: 1.2rem;
+}
+
+.message-form__media-btn--active {
+  background: #4a5198;
+  color: #f4f7ff;
 }
 
 .message-attachment {
