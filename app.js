@@ -953,13 +953,30 @@ function loadScriptTag(src, type = "text/javascript") {
   });
 }
 
+async function localRuntimeExists(src) {
+  try {
+    const response = await fetch(src, { method: "HEAD", cache: "no-store" });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function deployMediaRuntimes() {
   let shouldRerender = false;
   try {
-    await loadScriptTag("ruffle/ruffle.js");
-    shouldRerender = true;
-    addDebugLog("info", "Loaded local Ruffle runtime", { src: "ruffle/ruffle.js" });
+    const hasLocalRuffle = await localRuntimeExists("ruffle/ruffle.js");
+    if (hasLocalRuffle) {
+      await loadScriptTag("ruffle/ruffle.js");
+      shouldRerender = true;
+      addDebugLog("info", "Loaded local Ruffle runtime", { src: "ruffle/ruffle.js" });
+    } else {
+      addDebugLog("info", "Local Ruffle runtime not found, using CDN fallback");
+    }
   } catch {
+    addDebugLog("warn", "Local Ruffle runtime probe failed, using CDN fallback");
+  }
+  if (!window.RufflePlayer?.newest) {
     try {
       await loadScriptTag("https://unpkg.com/@ruffle-rs/ruffle");
       shouldRerender = true;
@@ -970,10 +987,18 @@ async function deployMediaRuntimes() {
     }
   }
   try {
-    await loadScriptTag("dotlottie/dotlottie-player.mjs", "module");
-    shouldRerender = true;
-    addDebugLog("info", "Loaded local dotLottie runtime", { src: "dotlottie/dotlottie-player.mjs" });
+    const hasLocalDotLottie = await localRuntimeExists("dotlottie/dotlottie-player.mjs");
+    if (hasLocalDotLottie) {
+      await loadScriptTag("dotlottie/dotlottie-player.mjs", "module");
+      shouldRerender = true;
+      addDebugLog("info", "Loaded local dotLottie runtime", { src: "dotlottie/dotlottie-player.mjs" });
+    } else {
+      addDebugLog("info", "Local dotLottie runtime not found, using CDN fallback");
+    }
   } catch {
+    addDebugLog("warn", "Local dotLottie runtime probe failed, using CDN fallback");
+  }
+  if (!(typeof customElements !== "undefined" && customElements.get("dotlottie-player"))) {
     try {
       await loadScriptTag("https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs", "module");
       shouldRerender = true;
@@ -1752,6 +1777,7 @@ function renderMessageAttachment(container, attachment) {
         const player = ruffle.createPlayer();
         player.style.width = "100%";
         player.style.height = "180px";
+        playerWrap.appendChild(player);
         const urlCandidates = [mediaUrl];
         try {
           const decoded = decodeURI(mediaUrl);
@@ -1760,8 +1786,16 @@ function renderMessageAttachment(container, attachment) {
           // ignore
         }
         const loadWithFallback = async () => {
+          if (!player.isConnected || !playerWrap.isConnected) {
+            addDebugLog("info", "Skipped SWF load because player was detached before start", { url: mediaUrl });
+            return;
+          }
           let loaded = false;
           for (const candidate of urlCandidates) {
+            if (!player.isConnected || !playerWrap.isConnected) {
+              addDebugLog("info", "Aborted SWF load because player became detached", { url: candidate });
+              return;
+            }
             try {
               await Promise.resolve(player.load({ url: candidate, autoplay: "on", unmuteOverlay: "hidden" }));
               addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
@@ -1780,6 +1814,7 @@ function renderMessageAttachment(container, attachment) {
             }
           }
           if (!loaded) {
+            if (!playerWrap.isConnected) return;
             playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
             return;
           }
