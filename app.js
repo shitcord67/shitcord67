@@ -164,6 +164,7 @@ function buildInitialState() {
     ],
     activeGuildId: guildId,
     activeChannelId: channelId,
+    savedSwfs: [],
     preferences: {
       uiScale: 100,
       compactMembers: "off",
@@ -195,6 +196,7 @@ function migrateState(raw) {
     if (!raw.preferences || typeof raw.preferences !== "object") {
       raw.preferences = buildInitialState().preferences;
     }
+    raw.savedSwfs = normalizeSavedSwfs(raw.savedSwfs);
     raw.guilds = sourceGuilds.map((guild) => {
       const baseRole = createRole("@everyone", "#b5bac1", "member");
       const roles = Array.isArray(guild.roles) && guild.roles.length > 0
@@ -253,6 +255,7 @@ function migrateState(raw) {
 
   const migrated = buildInitialState();
   if (!raw || typeof raw !== "object") return migrated;
+  migrated.savedSwfs = normalizeSavedSwfs(raw.savedSwfs);
 
   const maybeUser = typeof raw.currentUser === "string" ? normalizeUsername(raw.currentUser) : "";
   let account = null;
@@ -367,6 +370,8 @@ let mediaPickerTab = "gif";
 let mediaPickerQuery = "";
 let swfLibrary = [];
 const debugLogs = [];
+let swfShelfOpen = false;
+let currentViewerSwf = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -383,8 +388,12 @@ const ui = {
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
   openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
+  toggleSwfShelfBtn: document.getElementById("toggleSwfShelfBtn"),
   editTopicBtn: document.getElementById("editTopicBtn"),
   messageList: document.getElementById("messageList"),
+  swfShelf: document.getElementById("swfShelf"),
+  swfShelfList: document.getElementById("swfShelfList"),
+  clearSwfShelfBtn: document.getElementById("clearSwfShelfBtn"),
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
   slashCommandPopup: document.getElementById("slashCommandPopup"),
@@ -506,6 +515,12 @@ const ui = {
   refreshDebugBtn: document.getElementById("refreshDebugBtn"),
   clearDebugBtn: document.getElementById("clearDebugBtn"),
   debugCloseBtn: document.getElementById("debugCloseBtn"),
+  swfViewerDialog: document.getElementById("swfViewerDialog"),
+  swfViewerHost: document.getElementById("swfViewerHost"),
+  swfViewerTitle: document.getElementById("swfViewerTitle"),
+  swfViewerZoomInput: document.getElementById("swfViewerZoomInput"),
+  swfViewerSaveBtn: document.getElementById("swfViewerSaveBtn"),
+  swfViewerCloseBtn: document.getElementById("swfViewerCloseBtn"),
   contextMenu: document.getElementById("contextMenu"),
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
@@ -878,6 +893,17 @@ function normalizeAttachments(attachments) {
       format: allowedFormats.has(item.format) ? item.format : "image"
     }))
     .slice(0, 6);
+}
+
+function normalizeSavedSwfs(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((entry) => entry && typeof entry.url === "string")
+    .map((entry) => ({
+      name: (entry.name || "swf").toString().slice(0, 120),
+      url: entry.url
+    }))
+    .slice(0, 24);
 }
 
 function sanitizeMediaName(value, fallback = "resource") {
@@ -1767,6 +1793,152 @@ function renderMediaPicker() {
   });
 }
 
+function saveSwfToShelf(entry) {
+  if (!entry?.url) return false;
+  const exists = state.savedSwfs.find((item) => item.url === entry.url);
+  if (exists) return false;
+  state.savedSwfs.unshift({
+    name: (entry.name || "swf").toString().slice(0, 120),
+    url: entry.url
+  });
+  state.savedSwfs = normalizeSavedSwfs(state.savedSwfs);
+  saveState();
+  renderSwfShelf();
+  return true;
+}
+
+function renderSwfShelf() {
+  ui.swfShelf.classList.toggle("swf-shelf--hidden", !swfShelfOpen);
+  ui.swfShelfList.innerHTML = "";
+  if (!swfShelfOpen) return;
+  if (!Array.isArray(state.savedSwfs) || state.savedSwfs.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = "No saved SWFs yet.";
+    ui.swfShelfList.appendChild(empty);
+    return;
+  }
+  state.savedSwfs.forEach((entry) => {
+    const item = document.createElement("div");
+    item.className = "swf-shelf-item";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.textContent = entry.name;
+    openBtn.addEventListener("click", () => openSwfViewer(entry));
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "✕";
+    removeBtn.title = "Remove from shelf";
+    removeBtn.addEventListener("click", () => {
+      state.savedSwfs = state.savedSwfs.filter((itemEntry) => itemEntry.url !== entry.url);
+      saveState();
+      renderSwfShelf();
+    });
+    item.appendChild(openBtn);
+    item.appendChild(removeBtn);
+    ui.swfShelfList.appendChild(item);
+  });
+}
+
+function attachRufflePlayer(playerWrap, attachment, { autoplay = "on" } = {}) {
+  const mediaUrl = resolveMediaUrl(attachment.url);
+  const hasRuffle = Boolean(window.RufflePlayer?.newest);
+  if (!hasRuffle) {
+    playerWrap.style.display = "grid";
+    playerWrap.style.placeItems = "center";
+    playerWrap.style.color = "#a6aeb9";
+    playerWrap.style.fontSize = "0.78rem";
+    playerWrap.textContent = "Ruffle loading or unavailable. Falling back to file link.";
+    addDebugLog("warn", "Ruffle runtime unavailable for SWF message", { url: mediaUrl, name: attachment.name || "" });
+    return;
+  }
+  try {
+    const ruffle = window.RufflePlayer.newest();
+    const player = ruffle.createPlayer();
+    player.style.width = "100%";
+    player.style.height = "100%";
+    playerWrap.innerHTML = "";
+    playerWrap.appendChild(player);
+    const urlCandidates = [mediaUrl];
+    try {
+      const decoded = decodeURI(mediaUrl);
+      if (!urlCandidates.includes(decoded)) urlCandidates.push(decoded);
+    } catch {
+      // ignore
+    }
+    const loadWithFallback = async () => {
+      let mounted = playerWrap.isConnected && ui.messageList.isConnected;
+      if (!mounted) {
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          await nextFrame();
+          mounted = playerWrap.isConnected && (ui.messageList.isConnected || ui.swfViewerDialog.open);
+          if (mounted) break;
+        }
+      }
+      if (!mounted) {
+        addDebugLog("info", "Skipped SWF load because player never mounted", { url: mediaUrl });
+        return;
+      }
+      let loaded = false;
+      for (const candidate of urlCandidates) {
+        if (!playerWrap.isConnected) {
+          addDebugLog("info", "Aborted SWF load because player became detached", { url: candidate });
+          return;
+        }
+        try {
+          await Promise.resolve(player.load({ url: candidate, autoplay, unmuteOverlay: "visible" }));
+          addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
+          loaded = true;
+          break;
+        } catch (errorObjectMode) {
+          addDebugLog("warn", "Ruffle object payload load failed", { url: candidate, error: String(errorObjectMode) });
+          try {
+            await Promise.resolve(player.load(candidate));
+            addDebugLog("info", "Ruffle loaded SWF via string payload", { url: candidate, name: attachment.name || "" });
+            loaded = true;
+            break;
+          } catch (errorStringMode) {
+            addDebugLog("warn", "Ruffle string payload load failed", { url: candidate, error: String(errorStringMode) });
+          }
+        }
+      }
+      if (!loaded && playerWrap.isConnected) {
+        playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+      }
+    };
+    void loadWithFallback();
+  } catch {
+    addDebugLog("error", "Ruffle player creation failed", { url: mediaUrl, name: attachment.name || "" });
+    playerWrap.textContent = "Ruffle failed to load this SWF.";
+  }
+}
+
+function openSwfViewer(attachment) {
+  currentViewerSwf = { name: attachment.name || "SWF file", url: attachment.url };
+  ui.swfViewerTitle.textContent = currentViewerSwf.name;
+  ui.swfViewerZoomInput.value = "100";
+  ui.swfViewerDialog.showModal();
+  ui.swfViewerHost.innerHTML = "";
+  ui.swfViewerHost.style.display = "block";
+  const host = document.createElement("div");
+  host.className = "message-swf-player";
+  host.style.width = "960px";
+  host.style.height = "70vh";
+  host.style.transformOrigin = "top left";
+  ui.swfViewerHost.appendChild(host);
+  attachRufflePlayer(host, currentViewerSwf, { autoplay: "on" });
+  host.style.transform = "scale(1)";
+}
+
+function applySwfViewerZoom() {
+  const host = ui.swfViewerHost.firstElementChild;
+  if (!(host instanceof HTMLElement)) return;
+  const zoomPercent = Math.max(50, Math.min(200, Number(ui.swfViewerZoomInput.value) || 100));
+  const factor = zoomPercent / 100;
+  host.style.transform = `scale(${factor})`;
+  host.style.transformOrigin = "top left";
+}
+
 function renderMessageAttachment(container, attachment) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
@@ -1783,81 +1955,31 @@ function renderMessageAttachment(container, attachment) {
 
     const playerWrap = document.createElement("div");
     playerWrap.className = "message-swf-player";
-    const hasRuffle = Boolean(window.RufflePlayer?.newest);
-    if (hasRuffle) {
-      try {
-        const ruffle = window.RufflePlayer.newest();
-        const player = ruffle.createPlayer();
-        player.style.width = "100%";
-        player.style.height = "180px";
-        playerWrap.appendChild(player);
-        const urlCandidates = [mediaUrl];
-        try {
-          const decoded = decodeURI(mediaUrl);
-          if (!urlCandidates.includes(decoded)) urlCandidates.push(decoded);
-        } catch {
-          // ignore
-        }
-        const loadWithFallback = async () => {
-          let mounted = playerWrap.isConnected && ui.messageList.isConnected;
-          if (!mounted) {
-            for (let attempt = 0; attempt < 6; attempt += 1) {
-              await nextFrame();
-              mounted = playerWrap.isConnected && ui.messageList.isConnected;
-              if (mounted) break;
-            }
-          }
-          if (!mounted) {
-            addDebugLog("info", "Skipped SWF load because player never mounted", { url: mediaUrl });
-            return;
-          }
-          let loaded = false;
-          for (const candidate of urlCandidates) {
-            if (!playerWrap.isConnected) {
-              addDebugLog("info", "Aborted SWF load because player became detached", { url: candidate });
-              return;
-            }
-            try {
-              await Promise.resolve(player.load({ url: candidate, autoplay: "on", unmuteOverlay: "hidden" }));
-              addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
-              loaded = true;
-              break;
-            } catch (errorObjectMode) {
-              addDebugLog("warn", "Ruffle object payload load failed", { url: candidate, error: String(errorObjectMode) });
-              try {
-                await Promise.resolve(player.load(candidate));
-                addDebugLog("info", "Ruffle loaded SWF via string payload", { url: candidate, name: attachment.name || "" });
-                loaded = true;
-                break;
-              } catch (errorStringMode) {
-                addDebugLog("warn", "Ruffle string payload load failed", { url: candidate, error: String(errorStringMode) });
-              }
-            }
-          }
-          if (!loaded) {
-            if (!playerWrap.isConnected) return;
-            playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
-            return;
-          }
-          if (!playerWrap.contains(player)) {
-            playerWrap.innerHTML = "";
-            playerWrap.appendChild(player);
-          }
-        };
-        void loadWithFallback();
-      } catch {
-        addDebugLog("error", "Ruffle player creation failed", { url: mediaUrl, name: attachment.name || "" });
-        playerWrap.textContent = "Ruffle failed to load this SWF.";
-      }
-    } else {
-      playerWrap.style.display = "grid";
-      playerWrap.style.placeItems = "center";
-      playerWrap.style.color = "#a6aeb9";
-      playerWrap.style.fontSize = "0.78rem";
-      playerWrap.textContent = "Ruffle loading or unavailable. Falling back to file link.";
-      addDebugLog("warn", "Ruffle runtime unavailable for SWF message", { url: mediaUrl, name: attachment.name || "" });
-    }
+    playerWrap.style.display = "grid";
+    playerWrap.style.placeItems = "center";
+    playerWrap.style.color = "#a6aeb9";
+    playerWrap.style.fontSize = "0.78rem";
+    playerWrap.textContent = "Click Play to start SWF (audio requires user interaction).";
     card.appendChild(playerWrap);
+
+    const controls = document.createElement("div");
+    controls.className = "message-swf-controls";
+    const playBtn = document.createElement("button");
+    playBtn.type = "button";
+    playBtn.textContent = "Play";
+    playBtn.addEventListener("click", () => attachRufflePlayer(playerWrap, attachment, { autoplay: "on" }));
+    const viewerBtn = document.createElement("button");
+    viewerBtn.type = "button";
+    viewerBtn.textContent = "Open Viewer";
+    viewerBtn.addEventListener("click", () => openSwfViewer(attachment));
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.textContent = "Save to Shelf";
+    saveBtn.addEventListener("click", () => saveSwfToShelf(attachment));
+    controls.appendChild(playBtn);
+    controls.appendChild(viewerBtn);
+    controls.appendChild(saveBtn);
+    card.appendChild(controls);
 
     const link = document.createElement("a");
     link.className = "message-swf-link";
@@ -2344,6 +2466,7 @@ function renderMessages() {
     messageRow.addEventListener("contextmenu", (event) => {
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       const isOwnMessage = currentUser && message.userId === currentUser.id;
+      const firstSwfAttachment = attachments.find((attachment) => attachment.type === "swf");
       openContextMenu(event, [
         {
           label: "Reply",
@@ -2369,6 +2492,22 @@ function renderMessages() {
         {
           label: "Copy XML",
           action: () => copyText(serializeMessageAsXml(message))
+        },
+        {
+          label: "Open SWF Viewer",
+          disabled: !firstSwfAttachment,
+          action: () => {
+            if (!firstSwfAttachment) return;
+            openSwfViewer(firstSwfAttachment);
+          }
+        },
+        {
+          label: "Save SWF to Shelf",
+          disabled: !firstSwfAttachment,
+          action: () => {
+            if (!firstSwfAttachment) return;
+            saveSwfToShelf(firstSwfAttachment);
+          }
         },
         {
           label: message.pinned ? "Unpin Message" : "Pin Message",
@@ -2638,6 +2777,7 @@ function render() {
   renderServers();
   renderChannels();
   renderMessages();
+  renderSwfShelf();
   renderMemberList();
   renderDock();
   renderSettingsScreen();
@@ -2921,6 +3061,21 @@ ui.createChannelForm.addEventListener("submit", (event) => {
 
 ui.editTopicBtn.addEventListener("click", openTopicEditor);
 ui.openChannelSettingsBtn.addEventListener("click", openChannelSettings);
+ui.toggleSwfShelfBtn.addEventListener("click", () => {
+  swfShelfOpen = !swfShelfOpen;
+  renderSwfShelf();
+});
+ui.clearSwfShelfBtn.addEventListener("click", () => {
+  state.savedSwfs = [];
+  saveState();
+  renderSwfShelf();
+});
+ui.swfViewerZoomInput.addEventListener("input", applySwfViewerZoom);
+ui.swfViewerSaveBtn.addEventListener("click", () => {
+  if (!currentViewerSwf) return;
+  saveSwfToShelf(currentViewerSwf);
+});
+ui.swfViewerCloseBtn.addEventListener("click", () => ui.swfViewerDialog.close());
 
 ui.openRolesBtn.addEventListener("click", () => {
   if (!canCurrentUser("manageRoles")) {
@@ -3238,7 +3393,8 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.accountSwitchDialog,
-  ui.debugDialog
+  ui.debugDialog,
+  ui.swfViewerDialog
 ].forEach(wireDialogBackdropClose);
 
 document.addEventListener("click", (event) => {

@@ -887,6 +887,21 @@ button {
   background: #121317;
   border-radius: 6px;
   border: 1px solid #2f3239;
+  overflow: auto;
+}
+
+.message-swf-controls {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.38rem;
+}
+
+.message-swf-controls button {
+  background: #343840;
+  color: #d5dbe4;
+  font-size: 0.72rem;
+  padding: 0.22rem 0.45rem;
+  border-radius: 6px;
 }
 
 .message-swf-link {
@@ -907,6 +922,98 @@ button {
   overflow: auto;
   padding: 0.6rem;
   white-space: pre-wrap;
+}
+
+.swf-shelf {
+  border-top: 1px solid #24262c;
+  border-bottom: 1px solid #24262c;
+  background: #22242a;
+  padding: 0.5rem 0.8rem;
+}
+
+.swf-shelf--hidden {
+  display: none;
+}
+
+.swf-shelf__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.swf-shelf__header button {
+  background: #3a3f47;
+  color: #dce1e8;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.swf-shelf__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.swf-shelf-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #2f333b;
+  border: 1px solid #434852;
+  border-radius: 7px;
+  padding: 0.18rem 0.32rem;
+}
+
+.swf-shelf-item button {
+  background: transparent;
+  color: #d0d6de;
+  font-size: 0.72rem;
+  padding: 0.12rem 0.2rem;
+}
+
+.swf-viewer::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.swf-viewer__card {
+  width: min(1000px, 95vw);
+  background: #1d1f24;
+  border: 1px solid #363b45;
+  border-radius: 12px;
+  padding: 0.6rem;
+}
+
+.swf-viewer__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.swf-viewer__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.swf-viewer__actions button {
+  background: #3c4049;
+  color: #e3e7ed;
+  font-size: 0.76rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.swf-viewer__host {
+  min-height: 65vh;
+  max-height: 75vh;
+  overflow: auto;
+  border: 1px solid #2f333b;
+  border-radius: 8px;
+  background: #0f1115;
+  display: grid;
+  place-items: center;
 }
 
 .member-panel {
