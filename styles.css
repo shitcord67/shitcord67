@@ -762,8 +762,8 @@ button {
   min-height: 0;
   column-count: 2;
   column-gap: 0.45rem;
-  max-height: 560px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.5rem;
 }
 
@@ -1135,7 +1135,7 @@ button {
 .swf-pip {
   position: fixed;
   right: 14px;
-  bottom: 18px;
+  bottom: 74px;
   width: min(420px, 42vw);
   background: #1e2026;
   border: 1px solid #3a3e47;
@@ -1212,6 +1212,12 @@ button {
   position: fixed !important;
   z-index: 125;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+}
+
+.message-swf-pip-placeholder {
+  border: 1px dashed #333845;
+  border-radius: 8px;
+  background: #16181d;
 }
 
 .debug-output {

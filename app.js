@@ -1975,7 +1975,8 @@ function renderMediaPicker() {
     return;
   }
 
-  entries.slice(0, 140).forEach((entry, index) => {
+  const visibleEntries = mediaPickerTab === "swf" ? entries : entries.slice(0, 140);
+  visibleEntries.forEach((entry, index) => {
     const useSwfCard = mediaPickerTab === "swf";
     const card = document.createElement(useSwfCard ? "div" : "button");
     if (card instanceof HTMLButtonElement) card.type = "button";
@@ -2191,6 +2192,15 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     }
     runtime.pipTransitioning = true;
     runtime.inPip = true;
+    if (runtime.host.parentElement !== document.body) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "message-swf-pip-placeholder";
+      placeholder.style.width = "100%";
+      placeholder.style.minHeight = `${Math.max(120, Math.round(runtime.host.getBoundingClientRect().height || 220))}px`;
+      runtime.host.parentElement?.insertBefore(placeholder, runtime.host);
+      runtime.pipPlaceholder = placeholder;
+      document.body.appendChild(runtime.host);
+    }
     runtime.pipHost = runtime.host;
     runtime.pipHost.classList.add("swf-pip-player", "message-swf-player--pip-floating");
     runtime.pipTransitioning = false;
@@ -2200,6 +2210,12 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   }
   runtime.pipTransitioning = true;
   runtime.inPip = false;
+  if (runtime.pipPlaceholder instanceof HTMLElement && runtime.pipPlaceholder.isConnected) {
+    runtime.pipPlaceholder.replaceWith(runtime.host);
+  } else if (runtime.host.parentElement === document.body) {
+    runtime.host.remove();
+  }
+  runtime.pipPlaceholder = null;
   runtime.host.classList.remove("swf-pip-player", "message-swf-player--pip-floating");
   runtime.host.style.left = "";
   runtime.host.style.top = "";
