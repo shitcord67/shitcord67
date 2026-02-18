@@ -271,6 +271,18 @@
       <textarea id="profileBioInput" maxlength="180"></textarea>
       <label for="profileStatusInput">Custom status</label>
       <input id="profileStatusInput" type="text" maxlength="80" placeholder="Grinding channels..." />
+      <label for="profileStatusEmojiInput">Status emoji</label>
+      <input id="profileStatusEmojiInput" type="text" maxlength="4" placeholder="😀" />
+      <label for="profileStatusExpiryInput">Clear status after</label>
+      <select id="profileStatusExpiryInput">
+        <option value="never">Don't clear</option>
+        <option value="30m">30 minutes</option>
+        <option value="1h">1 hour</option>
+        <option value="4h">4 hours</option>
+        <option value="today">Today</option>
+      </select>
+      <label for="profileGuildNicknameInput">Nickname (active guild)</label>
+      <input id="profileGuildNicknameInput" type="text" maxlength="32" placeholder="Server nickname" />
       <label for="presenceInput">Presence</label>
       <select id="presenceInput">
         <option value="online">Online</option>
@@ -317,6 +329,13 @@
       <h3>Create channel</h3>
       <label for="channelNameInput">Channel name</label>
       <input id="channelNameInput" type="text" maxlength="40" required />
+      <label for="channelTypeInput">Channel type</label>
+      <select id="channelTypeInput">
+        <option value="text">Text</option>
+        <option value="announcement">Announcement</option>
+        <option value="forum">Forum</option>
+        <option value="media">Media</option>
+      </select>
       <div class="modal-actions">
         <button type="button" id="channelCancel">Cancel</button>
         <button type="submit">Create</button>

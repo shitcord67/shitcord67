@@ -4,7 +4,7 @@ const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "me", args: "<text>", description: "Send an action-style message." },
   { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
-  { name: "nick", args: "<display name>", description: "Set your display name for this account." },
+  { name: "nick", args: "<nickname>", description: "Set your nickname in the active guild." },
   { name: "status", args: "<text>", description: "Set your custom status message." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -145,6 +145,7 @@ function buildInitialState() {
           {
             id: channelId,
             name: "general",
+            type: "text",
             topic: "General discussion",
             readState: {},
             messages: [
@@ -201,8 +202,11 @@ function createAccount(username, displayName = "") {
     banner: "",
     avatarColor: "#57f287",
     avatarUrl: "",
+    guildProfiles: {},
     presence: "online",
-    customStatus: ""
+    customStatus: "",
+    customStatusEmoji: "",
+    customStatusExpiresAt: null
   };
 }
 
@@ -212,6 +216,12 @@ function migrateState(raw) {
     if (!raw.preferences || typeof raw.preferences !== "object") {
       raw.preferences = buildInitialState().preferences;
     }
+    raw.accounts = raw.accounts.map((account) => ({
+      ...account,
+      guildProfiles: account && typeof account.guildProfiles === "object" ? { ...account.guildProfiles } : {},
+      customStatusEmoji: (account?.customStatusEmoji || "").toString().slice(0, 4),
+      customStatusExpiresAt: account?.customStatusExpiresAt || null
+    }));
     raw.savedSwfs = normalizeSavedSwfs(raw.savedSwfs);
     raw.guilds = sourceGuilds.map((guild) => {
       const baseRole = createRole("@everyone", "#b5bac1", "member");
@@ -250,6 +260,7 @@ function migrateState(raw) {
         channels: Array.isArray(guild.channels)
           ? guild.channels.map((channel) => ({
               ...channel,
+              type: ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text",
               topic: typeof channel.topic === "string" ? channel.topic : "",
               readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
               messages: Array.isArray(channel.messages)
@@ -337,6 +348,7 @@ function migrateState(raw) {
             return {
               id: channel.id || createId(),
               name: channel.name || "general",
+              type: ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text",
               topic: "",
               readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
               messages
@@ -491,6 +503,9 @@ const ui = {
   displayNameInput: document.getElementById("displayNameInput"),
   profileBioInput: document.getElementById("profileBioInput"),
   profileStatusInput: document.getElementById("profileStatusInput"),
+  profileStatusEmojiInput: document.getElementById("profileStatusEmojiInput"),
+  profileStatusExpiryInput: document.getElementById("profileStatusExpiryInput"),
+  profileGuildNicknameInput: document.getElementById("profileGuildNicknameInput"),
   presenceInput: document.getElementById("presenceInput"),
   profileBannerInput: document.getElementById("profileBannerInput"),
   profileAvatarInput: document.getElementById("profileAvatarInput"),
@@ -508,6 +523,7 @@ const ui = {
   createChannelDialog: document.getElementById("createChannelDialog"),
   createChannelForm: document.getElementById("createChannelForm"),
   channelNameInput: document.getElementById("channelNameInput"),
+  channelTypeInput: document.getElementById("channelTypeInput"),
   channelCancel: document.getElementById("channelCancel"),
   topicDialog: document.getElementById("topicDialog"),
   topicForm: document.getElementById("topicForm"),
@@ -1129,9 +1145,75 @@ function swfAutoplayFromPreferences() {
   return getPreferences().swfAutoplay === "off" ? "off" : "on";
 }
 
+function resolveAccountGuildNickname(account, guildId) {
+  if (!account || !guildId) return "";
+  if (!account.guildProfiles || typeof account.guildProfiles !== "object") return "";
+  const profile = account.guildProfiles[guildId];
+  return (profile?.nickname || "").toString().trim().slice(0, 32);
+}
+
+function displayNameForAccount(account, guildId = null) {
+  if (!account) return "Unknown";
+  const nick = resolveAccountGuildNickname(account, guildId);
+  if (nick) return nick;
+  return account.displayName || account.username;
+}
+
+function parseStatusExpiryAt(value) {
+  const now = new Date();
+  if (value === "30m") return new Date(now.getTime() + 30 * 60 * 1000).toISOString();
+  if (value === "1h") return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  if (value === "4h") return new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString();
+  if (value === "today") {
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    return end.toISOString();
+  }
+  return null;
+}
+
+function statusExpiryPreset(account) {
+  if (!account?.customStatusExpiresAt) return "never";
+  const expiry = new Date(account.customStatusExpiresAt).getTime();
+  const now = Date.now();
+  const delta = Math.max(0, expiry - now);
+  if (delta <= 35 * 60 * 1000) return "30m";
+  if (delta <= 65 * 60 * 1000) return "1h";
+  if (delta <= 4.5 * 60 * 60 * 1000) return "4h";
+  return "today";
+}
+
+function pruneExpiredStatuses() {
+  let changed = false;
+  const now = Date.now();
+  state.accounts.forEach((account) => {
+    if (!account?.customStatusExpiresAt) return;
+    const expiry = Date.parse(account.customStatusExpiresAt);
+    if (!Number.isFinite(expiry) || expiry > now) return;
+    account.customStatus = "";
+    account.customStatusEmoji = "";
+    account.customStatusExpiresAt = null;
+    changed = true;
+  });
+  return changed;
+}
+
 function displayStatus(account) {
   if (!account) return "Offline";
-  return account.customStatus.trim() || presenceLabel(account.presence);
+  const statusText = (account.customStatus || "").trim();
+  if (statusText) {
+    const emoji = (account.customStatusEmoji || "").trim();
+    return emoji ? `${emoji} ${statusText}` : statusText;
+  }
+  return presenceLabel(account.presence);
+}
+
+function channelTypePrefix(channel) {
+  if (!channel || channel.type === "text") return "#";
+  if (channel.type === "announcement") return "📣";
+  if (channel.type === "forum") return "🗂";
+  if (channel.type === "media") return "🖼";
+  return "#";
 }
 
 function isLikelyUrl(value) {
@@ -1582,8 +1664,16 @@ function handleSlashCommand(rawText, channel, account) {
 
   if (command === "nick") {
     if (arg) {
-      account.displayName = arg.slice(0, 32);
-      addSystemMessage(channel, `Display name changed to ${account.displayName}.`);
+      const guild = getActiveGuild();
+      const nextNick = arg.slice(0, 32);
+      if (guild) {
+        if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+        account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), nickname: nextNick };
+        addSystemMessage(channel, `Guild nickname changed to ${nextNick}.`);
+      } else {
+        account.displayName = nextNick;
+        addSystemMessage(channel, `Display name changed to ${account.displayName}.`);
+      }
     }
     return true;
   }
@@ -1659,7 +1749,8 @@ function getMentionMatches(query) {
     .filter((account) => {
       const username = account.username.toLowerCase();
       const displayName = (account.displayName || "").toLowerCase();
-      return !query || username.startsWith(query) || displayName.startsWith(query);
+      const nickname = resolveAccountGuildNickname(account, server.id).toLowerCase();
+      return !query || username.startsWith(query) || displayName.startsWith(query) || nickname.startsWith(query);
     })
     .slice(0, 8);
 }
@@ -1732,7 +1823,8 @@ function renderSlashSuggestions() {
     const item = document.createElement("button");
     item.type = "button";
     item.className = `slash-item ${index === mentionSelectionIndex ? "active" : ""}`;
-    item.innerHTML = `<strong>@${account.username}</strong><small>${account.displayName || account.username} · ${displayStatus(account)}</small>`;
+    const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
+    item.innerHTML = `<strong>@${account.username}</strong><small>${displayNameForAccount(account, guildId)} · ${displayStatus(account)}</small>`;
     item.addEventListener("mouseenter", () => {
       mentionSelectionIndex = index;
       renderSlashSuggestions();
@@ -1913,7 +2005,11 @@ function refreshSwfAudioFocus(preferredKey = null) {
 function displayNameForMessage(message) {
   if (message.userId) {
     const account = getAccountById(message.userId);
-    if (account) return account.displayName || account.username;
+    if (account) {
+      const conversation = getActiveConversation();
+      const guildId = conversation?.type === "channel" ? getActiveGuild()?.id || null : null;
+      return displayNameForAccount(account, guildId);
+    }
   }
   return message.authorName || "Unknown";
 }
@@ -3836,6 +3932,7 @@ function renderServers() {
             state.activeGuildId = server.id;
             state.activeChannelId = server.channels[0]?.id || null;
             ui.channelNameInput.value = "";
+            ui.channelTypeInput.value = "text";
             ui.createChannelDialog.showModal();
           }
         },
@@ -4014,7 +4111,7 @@ function renderChannels() {
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
     const label = document.createElement("span");
     label.className = "channel-item__name";
-    label.textContent = `# ${channel.name}`;
+    label.textContent = `${channelTypePrefix(channel)} ${channel.name}`;
     button.appendChild(label);
     const unreadStats = applyGuildNotificationModeToStats(
       getChannelUnreadStats(channel, currentAccount),
@@ -4102,7 +4199,8 @@ function renderChannels() {
 }
 
 function openUserPopout(account, fallbackName = "Unknown") {
-  const displayName = account?.displayName || account?.username || fallbackName;
+  const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
+  const displayName = account ? displayNameForAccount(account, guildId) : fallbackName;
   const bio = account?.bio?.trim() || "No bio yet.";
   const current = getCurrentAccount();
   selectedUserPopoutId = account?.id || null;
@@ -4155,9 +4253,9 @@ function renderMessages() {
     ui.activeChannelTopic.textContent = "Direct Message";
     ui.messageInput.placeholder = peer ? `Message @${peer.username}` : "Message DM";
   } else {
-    ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
+    ui.activeChannelName.textContent = channel ? `${channelTypePrefix(channel)} ${channel.name}` : "#none";
     ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
-    ui.messageInput.placeholder = channel ? `Message #${channel.name}` : "No channel selected";
+    ui.messageInput.placeholder = channel ? `Message ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
   }
   if (!conversationId || (replyTarget && replyTarget.channelId !== conversationId)) {
     replyTarget = null;
@@ -4564,7 +4662,7 @@ function renderMemberList() {
         dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
         avatar.appendChild(dot);
         const label = document.createElement("span");
-        label.textContent = account.displayName || account.username;
+        label.textContent = displayNameForAccount(account, null);
         row.appendChild(avatar);
         row.appendChild(label);
         row.addEventListener("click", () => openUserPopout(account));
@@ -4621,7 +4719,7 @@ function renderMemberList() {
       avatar.appendChild(dot);
 
       const label = document.createElement("span");
-      label.textContent = account.displayName || account.username;
+      label.textContent = displayNameForAccount(account, server.id);
 
       row.appendChild(avatar);
       row.appendChild(label);
@@ -4659,7 +4757,9 @@ function renderMemberList() {
 function renderDock() {
   const account = getCurrentAccount();
   if (!account) return;
-  ui.dockName.textContent = account.displayName || account.username;
+  const conversation = getActiveConversation();
+  const guildId = conversation?.type === "channel" ? getActiveGuild()?.id || null : null;
+  ui.dockName.textContent = displayNameForAccount(account, guildId);
   ui.dockStatus.textContent = displayStatus(account);
   applyAvatarStyle(ui.dockAvatar, account);
   ui.dockPresenceDot.className = `dock-presence-dot presence-${normalizePresence(account.presence)}`;
@@ -4668,7 +4768,7 @@ function renderDock() {
 function renderSelfPopout() {
   const account = getCurrentAccount();
   if (!account) return;
-  ui.selfPopoutName.textContent = account.displayName || account.username;
+  ui.selfPopoutName.textContent = displayNameForAccount(account, getActiveGuild()?.id || null);
   ui.selfPopoutStatus.textContent = displayStatus(account);
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account);
@@ -4770,7 +4870,7 @@ function renderSettingsScreen() {
   const guild = getActiveGuild();
   const prefs = getPreferences();
   if (!account) return;
-  ui.settingsDisplayName.textContent = account.displayName || account.username;
+  ui.settingsDisplayName.textContent = displayNameForAccount(account, guild?.id || null);
   ui.settingsUsername.textContent = `@${account.username}`;
   ui.settingsCurrentStatus.textContent = displayStatus(account);
   ui.uiScaleInput.value = String(prefs.uiScale);
@@ -4817,6 +4917,7 @@ function wireDialogBackdropClose(dialog) {
 
 function render() {
   closeContextMenu();
+  if (pruneExpiredStatuses()) saveState();
   renderScreens();
   applyPreferencesToUI();
   if (!state.currentAccountId) {
@@ -4842,10 +4943,15 @@ function render() {
 
 function openProfileEditor() {
   const account = getCurrentAccount();
+  const guild = getActiveGuild();
   if (!account) return;
   ui.displayNameInput.value = account.displayName || account.username;
   ui.profileBioInput.value = account.bio || "";
   ui.profileStatusInput.value = account.customStatus || "";
+  ui.profileStatusEmojiInput.value = account.customStatusEmoji || "";
+  ui.profileStatusExpiryInput.value = statusExpiryPreset(account);
+  ui.profileGuildNicknameInput.value = guild ? resolveAccountGuildNickname(account, guild.id) : "";
+  ui.profileGuildNicknameInput.disabled = !guild;
   ui.presenceInput.value = account.presence || "online";
   ui.profileBannerInput.value = account.banner || "";
   ui.profileAvatarInput.value = account.avatarColor || "#57f287";
@@ -4885,6 +4991,10 @@ function createOrSwitchAccount(usernameInput) {
   if (!account) {
     account = createAccount(normalized, usernameInput.trim().slice(0, 32));
     state.accounts.push(account);
+  } else {
+    if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+    if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
+    if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
   }
 
   state.currentAccountId = account.id;
@@ -5110,6 +5220,7 @@ ui.createServerForm.addEventListener("submit", (event) => {
       {
         id: generalId,
         name: "general",
+        type: "text",
         topic: "General discussion",
         readState: account ? { [account.id]: new Date().toISOString() } : {},
         messages: []
@@ -5131,6 +5242,7 @@ ui.createChannelBtn.addEventListener("click", () => {
     return;
   }
   ui.channelNameInput.value = "";
+  ui.channelTypeInput.value = "text";
   ui.createChannelDialog.showModal();
 });
 
@@ -5156,6 +5268,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
   const channel = {
     id: createId(),
     name: sanitizeChannelName(ui.channelNameInput.value, "new-channel"),
+    type: ["text", "announcement", "forum", "media"].includes(ui.channelTypeInput.value) ? ui.channelTypeInput.value : "text",
     topic: "",
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     messages: []
@@ -5646,16 +5759,32 @@ ui.profileAvatarFileInput.addEventListener("change", async () => {
 ui.profileForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const account = getCurrentAccount();
+  const guild = getActiveGuild();
   if (!account) return;
 
   account.displayName = ui.displayNameInput.value.trim().slice(0, 32) || account.username;
   account.bio = ui.profileBioInput.value.trim().slice(0, 180);
   account.customStatus = ui.profileStatusInput.value.trim().slice(0, 80);
+  account.customStatusEmoji = ui.profileStatusEmojiInput.value.trim().slice(0, 4);
+  account.customStatusExpiresAt = account.customStatus
+    ? parseStatusExpiryAt(ui.profileStatusExpiryInput.value)
+    : null;
+  if (!account.customStatus) account.customStatusEmoji = "";
   account.presence = normalizePresence(ui.presenceInput.value);
   account.banner = ui.profileBannerInput.value.trim();
   account.avatarColor = ui.profileAvatarInput.value.trim() || "#57f287";
   const avatarUrl = ui.profileAvatarUrlInput.value.trim();
   account.avatarUrl = isRenderableAvatarUrl(avatarUrl) ? avatarUrl : "";
+  if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+  if (guild) {
+    const guildNickname = ui.profileGuildNicknameInput.value.trim().slice(0, 32);
+    if (guildNickname) {
+      account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), nickname: guildNickname };
+    } else if (account.guildProfiles[guild.id]) {
+      delete account.guildProfiles[guild.id].nickname;
+      if (Object.keys(account.guildProfiles[guild.id]).length === 0) delete account.guildProfiles[guild.id];
+    }
+  }
 
   saveState();
   ui.profileDialog.close();
