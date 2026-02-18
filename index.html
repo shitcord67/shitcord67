@@ -27,12 +27,12 @@
       <aside class="server-rail">
         <div class="server-brand">S67</div>
         <div id="serverList" class="server-list"></div>
-        <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Server">+</button>
+        <button id="createServerBtn" class="icon-btn icon-btn--add" title="Create Guild">+</button>
       </aside>
 
       <aside class="channel-panel">
         <div class="channel-panel__header">
-          <span id="activeServerName">Server</span>
+          <span id="activeServerName">Guild</span>
         </div>
 
         <div class="channel-scroll">
@@ -200,8 +200,8 @@
 
   <dialog id="createServerDialog" class="modal">
     <form id="createServerForm" class="modal-form" method="dialog">
-      <h3>Create server</h3>
-      <label for="serverNameInput">Server name</label>
+      <h3>Create guild</h3>
+      <label for="serverNameInput">Guild name</label>
       <input id="serverNameInput" type="text" maxlength="40" required />
       <div class="modal-actions">
         <button type="button" id="serverCancel">Cancel</button>
@@ -279,7 +279,7 @@
 
   <dialog id="rolesDialog" class="modal">
     <form id="rolesForm" class="modal-form" method="dialog">
-      <h3>Server Roles</h3>
+      <h3>Guild Roles</h3>
 
       <label for="roleNameInput">Create role name</label>
       <input id="roleNameInput" type="text" maxlength="28" placeholder="Moderator" />

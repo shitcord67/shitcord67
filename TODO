@@ -58,3 +58,4 @@
 - Direct messages to users. In the lower-left of the client or by clicking on username or user list when profile pops open there is a chat input field
 - Save notes about users on profiles of other users
 - OLED theme by default
+- Right click on guilds, channels, messages and users should provide custom context-menus that fit to the context

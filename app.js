@@ -80,16 +80,16 @@ function createRole(name, color, preset = "member") {
 }
 
 function buildInitialState() {
-  const serverId = createId();
+  const guildId = createId();
   const channelId = createId();
   const everyoneRole = createRole("@everyone", "#b5bac1", "member");
   return {
     accounts: [],
     currentAccountId: null,
-    servers: [
+    guilds: [
       {
-        id: serverId,
-        name: "My First Server",
+        id: guildId,
+        name: "My First Guild",
         memberIds: [],
         roles: [everyoneRole],
         memberRoles: {},
@@ -113,7 +113,7 @@ function buildInitialState() {
         ]
       }
     ],
-    activeServerId: serverId,
+    activeGuildId: guildId,
     activeChannelId: channelId,
     preferences: {
       uiScale: 100,
@@ -141,14 +141,15 @@ function createAccount(username, displayName = "") {
 }
 
 function migrateState(raw) {
-  if (raw && Array.isArray(raw.accounts) && Array.isArray(raw.servers)) {
+  const sourceGuilds = Array.isArray(raw?.guilds) ? raw.guilds : raw?.servers;
+  if (raw && Array.isArray(raw.accounts) && Array.isArray(sourceGuilds)) {
     if (!raw.preferences || typeof raw.preferences !== "object") {
       raw.preferences = buildInitialState().preferences;
     }
-    raw.servers = raw.servers.map((server) => {
+    raw.guilds = sourceGuilds.map((guild) => {
       const baseRole = createRole("@everyone", "#b5bac1", "member");
-      const roles = Array.isArray(server.roles) && server.roles.length > 0
-        ? server.roles.map((role) => ({
+      const roles = Array.isArray(guild.roles) && guild.roles.length > 0
+        ? guild.roles.map((role) => ({
             id: role.id || createId(),
             name: role.name || "Role",
             color: role.color || "#b5bac1",
@@ -161,20 +162,20 @@ function migrateState(raw) {
           }))
         : [baseRole];
       const everyoneId = roles[0].id;
-      const memberRoles = typeof server.memberRoles === "object" && server.memberRoles
-        ? { ...server.memberRoles }
+      const memberRoles = typeof guild.memberRoles === "object" && guild.memberRoles
+        ? { ...guild.memberRoles }
         : {};
-      (Array.isArray(server.memberIds) ? server.memberIds : []).forEach((memberId) => {
+      (Array.isArray(guild.memberIds) ? guild.memberIds : []).forEach((memberId) => {
         if (!Array.isArray(memberRoles[memberId])) memberRoles[memberId] = [];
         if (!memberRoles[memberId].includes(everyoneId)) memberRoles[memberId].push(everyoneId);
       });
       return {
-        ...server,
-        memberIds: Array.isArray(server.memberIds) ? server.memberIds : [],
+        ...guild,
+        memberIds: Array.isArray(guild.memberIds) ? guild.memberIds : [],
         roles,
         memberRoles,
-        channels: Array.isArray(server.channels)
-          ? server.channels.map((channel) => ({
+        channels: Array.isArray(guild.channels)
+          ? guild.channels.map((channel) => ({
               ...channel,
               topic: typeof channel.topic === "string" ? channel.topic : "",
               messages: Array.isArray(channel.messages)
@@ -188,6 +189,9 @@ function migrateState(raw) {
           : []
       };
     });
+    raw.activeGuildId = raw.activeGuildId || raw.activeServerId || raw.guilds[0]?.id || null;
+    delete raw.servers;
+    delete raw.activeServerId;
     return raw;
   }
 
@@ -207,16 +211,16 @@ function migrateState(raw) {
     migrated.currentAccountId = account.id;
   }
 
-  if (Array.isArray(raw.servers) && raw.servers.length > 0) {
-    migrated.servers = raw.servers.map((server) => {
-      const serverId = server.id || createId();
+  if (Array.isArray(sourceGuilds) && sourceGuilds.length > 0) {
+    migrated.guilds = sourceGuilds.map((guild) => {
+      const guildId = guild.id || createId();
       const everyoneRole = createRole("@everyone", "#b5bac1", "member");
       const memberIds = [];
       if (account) memberIds.push(account.id);
       const memberRoles = {};
       if (account) memberRoles[account.id] = [everyoneRole.id];
-      const channels = Array.isArray(server.channels) && server.channels.length > 0
-        ? server.channels.map((channel) => {
+      const channels = Array.isArray(guild.channels) && guild.channels.length > 0
+        ? guild.channels.map((channel) => {
             const messages = Array.isArray(channel.messages)
               ? channel.messages.map((msg) => ({
                   id: msg.id || createId(),
@@ -244,8 +248,8 @@ function migrateState(raw) {
             }
           ];
       return {
-        id: serverId,
-        name: server.name || "Untitled Server",
+        id: guildId,
+        name: guild.name || "Untitled Guild",
         memberIds,
         roles: [everyoneRole],
         memberRoles,
@@ -253,9 +257,9 @@ function migrateState(raw) {
       };
     });
 
-    migrated.activeServerId = raw.activeServerId || migrated.servers[0].id;
-    const activeServer = migrated.servers.find((s) => s.id === migrated.activeServerId) || migrated.servers[0];
-    migrated.activeChannelId = raw.activeChannelId || activeServer.channels[0].id;
+    migrated.activeGuildId = raw.activeGuildId || raw.activeServerId || migrated.guilds[0].id;
+    const activeGuild = migrated.guilds.find((g) => g.id === migrated.activeGuildId) || migrated.guilds[0];
+    migrated.activeChannelId = raw.activeChannelId || activeGuild.channels[0].id;
   }
 
   return migrated;
@@ -425,14 +429,18 @@ function getAccountByUsername(username) {
   return state.accounts.find((account) => account.username === username) || null;
 }
 
+function getActiveGuild() {
+  return state.guilds.find((guild) => guild.id === state.activeGuildId) || null;
+}
+
 function getActiveServer() {
-  return state.servers.find((server) => server.id === state.activeServerId) || null;
+  return getActiveGuild();
 }
 
 function getActiveChannel() {
-  const server = getActiveServer();
-  if (!server) return null;
-  return server.channels.find((channel) => channel.id === state.activeChannelId) || null;
+  const guild = getActiveGuild();
+  if (!guild) return null;
+  return guild.channels.find((channel) => channel.id === state.activeChannelId) || null;
 }
 
 function getServerRoles(server) {
@@ -476,7 +484,7 @@ function notifyPermissionDenied(permissionLabel) {
 }
 
 function findChannelById(channelId) {
-  for (const server of state.servers) {
+  for (const server of state.guilds) {
     const found = server.channels.find((channel) => channel.id === channelId);
     if (found) return found;
   }
@@ -892,13 +900,13 @@ function renderScreens() {
 
 function renderServers() {
   ui.serverList.innerHTML = "";
-  state.servers.forEach((server) => {
+  state.guilds.forEach((server) => {
     const button = document.createElement("button");
-    button.className = `server-item ${server.id === state.activeServerId ? "active" : ""}`;
+    button.className = `server-item ${server.id === state.activeGuildId ? "active" : ""}`;
     button.textContent = server.name.slice(0, 2).toUpperCase();
     button.title = server.name;
     button.addEventListener("click", () => {
-      state.activeServerId = server.id;
+      state.activeGuildId = server.id;
       state.activeChannelId = server.channels[0]?.id || null;
       ensureCurrentUserInActiveServer();
       saveState();
@@ -912,7 +920,7 @@ function renderChannels() {
   const server = getActiveServer();
   ui.channelList.innerHTML = "";
   if (!server) {
-    ui.activeServerName.textContent = "No server";
+    ui.activeServerName.textContent = "No guild";
     return;
   }
 
@@ -1375,11 +1383,11 @@ function createOrSwitchAccount(usernameInput) {
   }
 
   state.currentAccountId = account.id;
-  if (!state.activeServerId && state.servers[0]) {
-    state.activeServerId = state.servers[0].id;
+  if (!state.activeGuildId && state.guilds[0]) {
+    state.activeGuildId = state.guilds[0].id;
   }
-  if (!state.activeChannelId && state.servers[0]?.channels[0]) {
-    state.activeChannelId = state.servers[0].channels[0].id;
+  if (!state.activeChannelId && state.guilds[0]?.channels[0]) {
+    state.activeChannelId = state.guilds[0].channels[0].id;
   }
   ensureCurrentUserInActiveServer();
   return true;
@@ -1515,8 +1523,8 @@ ui.createServerForm.addEventListener("submit", (event) => {
     ]
   };
 
-  state.servers.push(server);
-  state.activeServerId = server.id;
+  state.guilds.push(server);
+  state.activeGuildId = server.id;
   state.activeChannelId = generalId;
   saveState();
   ui.createServerDialog.close();
