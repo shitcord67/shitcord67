@@ -433,6 +433,7 @@ let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
 let pipDragState = null;
+let pipSuppressHeaderToggle = false;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -2728,6 +2729,8 @@ function positionSwfPipRuntimeHosts() {
       && !swfPipCollapsed
     );
     runtime.pipHost.style.display = "block";
+    runtime.pipHost.style.pointerEvents = visible ? "auto" : "none";
+    runtime.pipHost.style.opacity = visible ? "1" : "0";
     if (visible) {
       runtime.pipHost.style.left = `${Math.max(8, pipRect.left)}px`;
       runtime.pipHost.style.top = `${Math.max(8, pipRect.top)}px`;
@@ -5177,13 +5180,20 @@ if (swfPipHeader) {
     const dockRect = ui.swfPipDock.getBoundingClientRect();
     pipDragState = {
       dragging: true,
+      startX: event.clientX,
+      startY: event.clientY,
       offsetX: event.clientX - dockRect.left,
-      offsetY: event.clientY - dockRect.top
+      offsetY: event.clientY - dockRect.top,
+      moved: false
     };
     event.preventDefault();
   });
   swfPipHeader.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+    if (pipSuppressHeaderToggle) {
+      pipSuppressHeaderToggle = false;
+      return;
+    }
     swfPipCollapsed = !swfPipCollapsed;
     renderSwfPipDock();
   });
@@ -5191,6 +5201,8 @@ if (swfPipHeader) {
 
 document.addEventListener("mousemove", (event) => {
   if (!pipDragState?.dragging) return;
+  const moveDistance = Math.hypot(event.clientX - pipDragState.startX, event.clientY - pipDragState.startY);
+  if (moveDistance > 10) pipDragState.moved = true;
   const dockRect = ui.swfPipDock.getBoundingClientRect();
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
   const maxTop = composerRect
@@ -5207,6 +5219,7 @@ document.addEventListener("mousemove", (event) => {
 
 document.addEventListener("mouseup", () => {
   if (!pipDragState?.dragging) return;
+  if (pipDragState.moved) pipSuppressHeaderToggle = true;
   pipDragState.dragging = false;
   const rect = ui.swfPipDock.getBoundingClientRect();
   state.preferences = getPreferences();
