@@ -172,13 +172,14 @@ function buildInitialState() {
       debugOverlay: "off",
       mute: "off",
       deafen: "off",
-      swfAudio: "off",
+      swfAudio: "on",
       swfVolume: 20,
       swfAudioPolicy: "single",
       swfAudioScope: "global",
       swfAutoplay: "on",
       swfPauseOnMute: "off",
-      swfVuMeter: "off"
+      swfVuMeter: "off",
+      swfQuickAudioMode: "click"
     }
   };
 }
@@ -864,6 +865,11 @@ function normalizeSwfAutoplay(value) {
   return value === "off" ? "off" : "on";
 }
 
+function normalizeSwfQuickAudioMode(value) {
+  if (value === "on" || value === "off" || value === "click") return value;
+  return "click";
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -880,7 +886,8 @@ function getPreferences() {
     swfAudioScope: normalizeSwfAudioScope(current.swfAudioScope),
     swfAutoplay: normalizeSwfAutoplay(current.swfAutoplay),
     swfPauseOnMute: normalizeToggle(current.swfPauseOnMute),
-    swfVuMeter: normalizeToggle(current.swfVuMeter)
+    swfVuMeter: normalizeToggle(current.swfVuMeter),
+    swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode)
   };
 }
 
@@ -1466,13 +1473,133 @@ function applyPreferencesToUI() {
   ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
   ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
   if (ui.toggleSwfAudioBtn) {
-    const enabled = prefs.swfAudio === "on";
-    ui.toggleSwfAudioBtn.textContent = enabled ? "🔊" : "🔇";
-    ui.toggleSwfAudioBtn.title = enabled ? "SWF audio enabled (click to mute)" : "SWF audio muted (click to enable)";
-    ui.toggleSwfAudioBtn.setAttribute("aria-label", ui.toggleSwfAudioBtn.title);
-    ui.toggleSwfAudioBtn.classList.toggle("message-form__media-btn--active", enabled);
+    const mode = prefs.swfQuickAudioMode;
+    const icon = mode === "on" ? "🔊" : mode === "click" ? "🔉" : "🔇";
+    const title = mode === "on"
+      ? "SWF audio auto on. Click: switch to click-to-hear. Right-click: force mute."
+      : mode === "click"
+        ? "SWF click-to-hear mode. Click a SWF to hear it. Click: switch to auto on. Right-click: force mute."
+        : "SWF forced mute. Click: switch to click-to-hear.";
+    ui.toggleSwfAudioBtn.textContent = icon;
+    ui.toggleSwfAudioBtn.title = title;
+    ui.toggleSwfAudioBtn.setAttribute("aria-label", title);
+    ui.toggleSwfAudioBtn.classList.toggle("message-form__media-btn--active", mode === "on");
+    ui.toggleSwfAudioBtn.classList.toggle("message-form__media-btn--force-muted", mode === "off");
   }
+  swfRuntimes.forEach((runtime) => {
+    runtime.audioEnabled = prefs.swfQuickAudioMode !== "off";
+    if (prefs.swfQuickAudioMode === "on") runtime.audioClickAllowed = true;
+  });
   applySwfAudioToAllRuntimes();
+}
+
+function setSwfQuickAudioMode(mode) {
+  state.preferences = getPreferences();
+  state.preferences.swfQuickAudioMode = normalizeSwfQuickAudioMode(mode);
+  state.preferences.swfAudio = state.preferences.swfQuickAudioMode === "off" ? "off" : "on";
+  if (state.preferences.swfQuickAudioMode === "on") {
+    swfRuntimes.forEach((runtime) => {
+      runtime.audioClickAllowed = true;
+      runtime.audioEnabled = true;
+    });
+  } else if (state.preferences.swfQuickAudioMode === "click") {
+    swfRuntimes.forEach((runtime) => {
+      runtime.audioEnabled = true;
+    });
+  } else {
+    swfRuntimes.forEach((runtime) => {
+      runtime.audioEnabled = false;
+    });
+  }
+  saveState();
+  applyPreferencesToUI();
+}
+
+function refreshSwfAudioFocus(preferredKey = null) {
+  const prefs = getPreferences();
+  const mode = prefs.swfQuickAudioMode;
+  if (mode === "off") {
+    swfAudioFocusRuntimeKey = null;
+    swfRuntimes.forEach((runtime, key) => {
+      runtime.audioSuppressed = true;
+      applySwfAudioToRuntime(key);
+      updateSwfAudioUi(key);
+    });
+    return;
+  }
+  const canUse = (key, runtime) => {
+    if (!key || !runtime?.playing || !runtime.audioEnabled || runtime.audioPinned) return false;
+    if (mode === "click" && !runtime.audioClickAllowed) return false;
+    return true;
+  };
+  if (swfSoloRuntimeKey) {
+    const soloRuntime = swfRuntimes.get(swfSoloRuntimeKey);
+    const allowSolo = canUse(swfSoloRuntimeKey, soloRuntime);
+    swfAudioFocusRuntimeKey = allowSolo ? swfSoloRuntimeKey : null;
+    swfRuntimes.forEach((runtime, key) => {
+      runtime.audioSuppressed = Boolean(
+        !runtime.audioPinned
+        && allowSolo
+        && key !== swfSoloRuntimeKey
+        && runtime.playing
+        && runtime.audioEnabled
+      );
+      applySwfAudioToRuntime(key);
+      updateSwfAudioUi(key);
+    });
+    return;
+  }
+  if (prefs.swfAudioPolicy === "multi") {
+    swfAudioFocusRuntimeKey = null;
+    swfRuntimes.forEach((runtime, key) => {
+      runtime.audioSuppressed = mode === "click" ? !runtime.audioClickAllowed : false;
+      applySwfAudioToRuntime(key);
+      updateSwfAudioUi(key);
+    });
+    return;
+  }
+  if (prefs.swfAudioScope === "guild") {
+    const focusByGuild = new Map();
+    swfRuntimes.forEach((runtime) => {
+      const guildKey = runtime?.guildId || "__ungrouped__";
+      if (focusByGuild.has(guildKey)) return;
+      const centered = pickCenteredRuntimeKey(canUse, {
+        guildId: guildKey,
+        preferredKey: preferredKey
+      });
+      if (centered) focusByGuild.set(guildKey, centered);
+    });
+    swfAudioFocusRuntimeKey = null;
+    swfRuntimes.forEach((runtime, key) => {
+      const guildKey = runtime.guildId || "__ungrouped__";
+      runtime.audioSuppressed = Boolean(
+        !runtime.audioPinned
+        && runtime.playing
+        && runtime.audioEnabled
+        && (mode !== "click" || runtime.audioClickAllowed)
+        && focusByGuild.get(guildKey)
+        && focusByGuild.get(guildKey) !== key
+      );
+      if (mode === "click" && !runtime.audioClickAllowed) runtime.audioSuppressed = true;
+      applySwfAudioToRuntime(key);
+      updateSwfAudioUi(key);
+    });
+    return;
+  }
+  const centeredGlobal = pickCenteredRuntimeKey(canUse, { preferredKey });
+  swfAudioFocusRuntimeKey = centeredGlobal;
+  swfRuntimes.forEach((runtime, key) => {
+    runtime.audioSuppressed = Boolean(
+      !runtime.audioPinned
+      && swfAudioFocusRuntimeKey
+      && key !== swfAudioFocusRuntimeKey
+      && runtime.playing
+      && runtime.audioEnabled
+    );
+    if (mode === "click" && !runtime.audioClickAllowed) runtime.audioSuppressed = true;
+    applySwfAudioToRuntime(key);
+    updateSwfAudioUi(key);
+  });
 }
 
 function displayNameForMessage(message) {
@@ -2166,16 +2293,16 @@ function updateSwfAudioUi(runtimeKey) {
   if (runtime.audioIndicatorEl instanceof HTMLElement) {
     const audible = runtime.playing && runtime.audioEnabled && !runtime.audioSuppressed;
     if (!runtime.audioEnabled) {
-      runtime.audioIndicatorEl.textContent = "MUT";
+      runtime.audioIndicatorEl.textContent = "Muted";
       runtime.audioIndicatorEl.title = "Muted";
     } else if (runtime.audioSuppressed) {
-      runtime.audioIndicatorEl.textContent = "SUP";
+      runtime.audioIndicatorEl.textContent = "Suppressed";
       runtime.audioIndicatorEl.title = "Suppressed by audio focus";
     } else if (audible) {
-      runtime.audioIndicatorEl.textContent = "ON";
+      runtime.audioIndicatorEl.textContent = "Audio Active";
       runtime.audioIndicatorEl.title = "Audio active";
     } else {
-      runtime.audioIndicatorEl.textContent = "IDL";
+      runtime.audioIndicatorEl.textContent = "Audio Idle";
       runtime.audioIndicatorEl.title = "Audio idle";
     }
     runtime.audioIndicatorEl.classList.toggle("is-active", audible);
@@ -2188,77 +2315,6 @@ function updateSwfAudioUi(runtimeKey) {
   }
 }
 
-function refreshSwfAudioFocus(preferredKey = null) {
-  const prefs = getPreferences();
-  const canUse = (key, runtime) => key && runtime?.playing && runtime.audioEnabled && !runtime.audioPinned;
-  if (swfSoloRuntimeKey) {
-    const soloRuntime = swfRuntimes.get(swfSoloRuntimeKey);
-    const allowSolo = canUse(swfSoloRuntimeKey, soloRuntime);
-    swfAudioFocusRuntimeKey = allowSolo ? swfSoloRuntimeKey : null;
-    swfRuntimes.forEach((runtime, key) => {
-      runtime.audioSuppressed = Boolean(
-        !runtime.audioPinned
-        && allowSolo
-        && key !== swfSoloRuntimeKey
-        && runtime.playing
-        && runtime.audioEnabled
-      );
-      applySwfAudioToRuntime(key);
-      updateSwfAudioUi(key);
-    });
-    return;
-  }
-  if (prefs.swfAudioPolicy === "multi") {
-    swfAudioFocusRuntimeKey = null;
-    swfRuntimes.forEach((runtime, key) => {
-      runtime.audioSuppressed = false;
-      applySwfAudioToRuntime(key);
-      updateSwfAudioUi(key);
-    });
-    return;
-  }
-
-  if (prefs.swfAudioScope === "guild") {
-    const focusByGuild = new Map();
-    swfRuntimes.forEach((runtime) => {
-      const guildKey = runtime?.guildId || "__ungrouped__";
-      if (focusByGuild.has(guildKey)) return;
-      const centered = pickCenteredRuntimeKey(canUse, {
-        guildId: guildKey,
-        preferredKey: preferredKey
-      });
-      if (centered) focusByGuild.set(guildKey, centered);
-    });
-    swfAudioFocusRuntimeKey = null;
-    swfRuntimes.forEach((runtime, key) => {
-      const guildKey = runtime.guildId || "__ungrouped__";
-      runtime.audioSuppressed = Boolean(
-        !runtime.audioPinned
-        && runtime.playing
-        && runtime.audioEnabled
-        && focusByGuild.get(guildKey)
-        && focusByGuild.get(guildKey) !== key
-      );
-      applySwfAudioToRuntime(key);
-      updateSwfAudioUi(key);
-    });
-    return;
-  }
-
-  const centeredGlobal = pickCenteredRuntimeKey(canUse, { preferredKey });
-  swfAudioFocusRuntimeKey = centeredGlobal;
-  swfRuntimes.forEach((runtime, key) => {
-    runtime.audioSuppressed = Boolean(
-      !runtime.audioPinned
-      && swfAudioFocusRuntimeKey
-      && key !== swfAudioFocusRuntimeKey
-      && runtime.playing
-      && runtime.audioEnabled
-    );
-    applySwfAudioToRuntime(key);
-    updateSwfAudioUi(key);
-  });
-}
 
 function applySwfAudioToRuntime(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
@@ -2598,6 +2654,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           audioVolume: getPreferences().swfVolume,
           audioSuppressed: false,
           audioPinned: false,
+          audioClickAllowed: getPreferences().swfQuickAudioMode === "on",
           audioToggleEl: null,
           audioIndicatorEl: null,
           vuMeterFillEl: null
@@ -2742,7 +2799,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     saveIconBtn.addEventListener("click", () => saveSwfToShelf(attachment));
     const audioIndicator = document.createElement("span");
     audioIndicator.className = "message-swf-audio-indicator";
-    audioIndicator.textContent = "IDL";
+    audioIndicator.textContent = "Audio Idle";
     audioIndicator.title = "Audio idle";
     const playBtn = document.createElement("button");
     playBtn.type = "button";
@@ -2794,6 +2851,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controlRow.appendChild(optimalBtn);
     controlRow.appendChild(soloBtn);
     controlRow.appendChild(pipBtn);
+    controlRow.appendChild(audioIndicator);
     meta.appendChild(controlRow);
     header.appendChild(meta);
     card.appendChild(header);
@@ -2814,6 +2872,13 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       const runtime = swfRuntimes.get(swfKey);
       if (!runtime) return;
       setSwfPlayback(swfKey, true, "user");
+      const prefs = getPreferences();
+      if (prefs.swfQuickAudioMode === "click") {
+        swfRuntimes.forEach((entry) => {
+          entry.audioClickAllowed = false;
+        });
+        runtime.audioClickAllowed = true;
+      }
       if (runtime.audioEnabled) refreshSwfAudioFocus(swfKey);
     });
     const audioToggleBtn = document.createElement("button");
@@ -2863,7 +2928,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       ui.messageList.scrollTo({ top: 0, behavior: "smooth" });
     });
     audioRail.appendChild(audioToggleBtn);
-    audioRail.insertBefore(audioIndicator, audioToggleBtn);
     audioRail.appendChild(audioSlider);
     body.appendChild(audioRail);
     body.appendChild(playerWrap);
@@ -3905,17 +3969,26 @@ ui.openMediaPickerBtn.addEventListener("click", () => {
 });
 
 ui.toggleSwfAudioBtn.addEventListener("click", () => {
-  state.preferences = getPreferences();
-  const next = state.preferences.swfAudio === "on" ? "off" : "on";
-  state.preferences.swfAudio = next;
-  swfRuntimes.forEach((runtime) => {
-    runtime.audioEnabled = next === "on";
-  });
-  swfPendingAudio.forEach((pending) => {
-    pending.enabled = next === "on";
-  });
-  saveState();
-  applyPreferencesToUI();
+  const mode = getPreferences().swfQuickAudioMode;
+  if (mode === "off") {
+    setSwfQuickAudioMode("click");
+    return;
+  }
+  if (mode === "click") {
+    setSwfQuickAudioMode("on");
+    return;
+  }
+  setSwfQuickAudioMode("click");
+});
+
+ui.toggleSwfAudioBtn.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  const mode = getPreferences().swfQuickAudioMode;
+  if (mode === "off") {
+    setSwfQuickAudioMode("click");
+    return;
+  }
+  setSwfQuickAudioMode("off");
 });
 
 ui.mediaTabs.forEach((tabBtn) => {
