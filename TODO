@@ -113,3 +113,9 @@
 - [done] A person creating a guild should by default have owner permissions over it, allowed to do everything regarding it.
 - [done] Do not show SWF options in context menu when no SWF is in message
 - [done] Do not overlay custom context menu when right-clicking over Ruffle
+- [done] Implement two click data-privacy preserving media loading (with option to remember choice or allow all, with whitelist for domains; wildcard/regex support)
+- [done] Allow message types that multiple people can edit (showing name and small profile icon)
+- [done] Show message editing history
+- [done] Allow moderators on guild to edit member messages; show (edited by staff) instead of just (edited)
+- Option to build a local client (electron for now or alternative to that?)
+- Implement drag & drop on window to attach files to chat (into the preview; user needs to still press enter once to send)

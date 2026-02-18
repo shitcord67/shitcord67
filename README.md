@@ -19,7 +19,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`, `/nick`, `/status`, `/markread`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
@@ -36,6 +36,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Debug Console in Advanced settings (runtime status + recent media/ruffle logs).
 - Message context menu can copy payload as JSON or Matrix-style XML.
 - Message context menu copy actions now include author/timestamp/attachment URL helpers.
+- Message context menu includes edit-history actions (`View Edit History`, copy history JSON).
 - Message context menu shows SWF actions only when that message has SWF attachments.
 - SWF message actions are grouped under a dedicated `SWF` submenu (open viewer/fullscreen/reset/save/copy URL/download).
 - SWFs auto-start in chat muted and are paused/resumed based on viewport visibility.
@@ -79,6 +80,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF context actions show inline toast feedback for copy/download/save outcomes.
 - Forum thread toolbar includes a `Mark all threads read` bulk action.
 - Keyboard shortcuts: `Ctrl+K` focus current search, `Ctrl+,` open settings, `Alt+D` toggle DM/guild mode.
+- External HTTP(S) media uses a privacy gate (safe mode) with two-click load options and trust rules (exact domain, `*.wildcard`, `/regex/`).
+- Collaborative `shared` messages can be created with `/note` and edited by members.
+- Message edits keep a history trail; moderator edits are labeled as `edited by staff`.
 - Popouts/dialogs close by clicking outside the card content.
 - Guild member list on the right, with presence dots.
 - Member list grouped into Online/Offline sections.

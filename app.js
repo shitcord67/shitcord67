@@ -5,14 +5,19 @@ const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "me", args: "<text>", description: "Send an action-style message." },
   { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
+  { name: "note", args: "<text>", description: "Send a collaborative message editable by anyone in the channel." },
   { name: "nick", args: "<nickname>", description: "Set your nickname in the active guild." },
   { name: "status", args: "<text>", description: "Set your custom status message." },
+  { name: "mediaprivacy", args: "[status|safe|off]", description: "Control two-click external media loading privacy mode." },
+  { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
+  { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
 const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "html"];
 const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const mediaAllowOnceUrls = new Set();
 const EMOJI_LIBRARY = [
   { name: "grinning", value: "😀" },
   { name: "joy", value: "😂" },
@@ -203,6 +208,8 @@ function buildInitialState() {
       forumCollapsedThreads: {},
       forumThreadReadState: {},
       forumThreadSort: {},
+      mediaPrivacyMode: "safe",
+      mediaTrustRules: [],
       swfPipPosition: null
     }
   };
@@ -1324,6 +1331,18 @@ function normalizeForumThreadSortMap(value) {
   }, {});
 }
 
+function normalizeMediaPrivacyMode(value) {
+  return value === "off" ? "off" : "safe";
+}
+
+function normalizeMediaTrustRules(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => (entry || "").toString().trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 120);
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -1347,6 +1366,8 @@ function getPreferences() {
     forumCollapsedThreads: normalizeForumCollapsedThreadsMap(current.forumCollapsedThreads),
     forumThreadReadState: normalizeForumThreadReadStateMap(current.forumThreadReadState),
     forumThreadSort: normalizeForumThreadSortMap(current.forumThreadSort),
+    mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
+    mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -1838,6 +1859,75 @@ function resolveMediaUrl(url) {
   }
 }
 
+function mediaUrlHost(url) {
+  try {
+    return new URL(url, window.location.href).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isExternalMediaUrl(url) {
+  try {
+    const resolved = new URL(url, window.location.href);
+    if (!/^https?:$/i.test(resolved.protocol)) return false;
+    return resolved.origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function doesMediaRuleMatchHost(rule, host) {
+  if (!rule || !host) return false;
+  if (rule.startsWith("/") && rule.endsWith("/") && rule.length > 2) {
+    try {
+      return new RegExp(rule.slice(1, -1), "i").test(host);
+    } catch {
+      return false;
+    }
+  }
+  if (rule.startsWith("*.")) {
+    const suffix = rule.slice(2);
+    return host === suffix || host.endsWith(`.${suffix}`);
+  }
+  return host === rule;
+}
+
+function isTrustedMediaUrl(url) {
+  if (mediaAllowOnceUrls.has(url)) return true;
+  const host = mediaUrlHost(url);
+  if (!host) return false;
+  const prefs = getPreferences();
+  return prefs.mediaTrustRules.some((rule) => doesMediaRuleMatchHost(rule, host));
+}
+
+function shouldGateMediaUrl(url) {
+  const prefs = getPreferences();
+  if (prefs.mediaPrivacyMode === "off") return false;
+  if (!isExternalMediaUrl(url)) return false;
+  return !isTrustedMediaUrl(url);
+}
+
+function addMediaTrustRule(rule) {
+  const cleaned = (rule || "").toString().trim().toLowerCase();
+  if (!cleaned) return false;
+  state.preferences = getPreferences();
+  const current = normalizeMediaTrustRules(state.preferences.mediaTrustRules);
+  if (current.includes(cleaned)) return false;
+  state.preferences.mediaTrustRules = [cleaned, ...current].slice(0, 120);
+  return true;
+}
+
+function removeMediaTrustRule(rule) {
+  const cleaned = (rule || "").toString().trim().toLowerCase();
+  if (!cleaned) return false;
+  state.preferences = getPreferences();
+  const current = normalizeMediaTrustRules(state.preferences.mediaTrustRules);
+  if (!current.includes(cleaned)) return false;
+  state.preferences.mediaTrustRules = current.filter((entry) => entry !== cleaned);
+  return true;
+}
+
 function addDebugLog(level, message, data = null) {
   const entry = {
     ts: new Date().toISOString(),
@@ -1877,6 +1967,11 @@ function serializeMessageAsJson(message) {
     text: message.text || "",
     ts: message.ts,
     editedAt: message.editedAt || null,
+    editedByUserId: message.editedByUserId || null,
+    editedByName: message.editedByName || "",
+    editedByStaff: Boolean(message.editedByStaff),
+    collaborative: Boolean(message.collaborative),
+    editHistory: messageEditHistory(message),
     replyTo: message.replyTo || null,
     pinned: Boolean(message.pinned),
     reactions: normalizeReactions(message.reactions),
@@ -1906,7 +2001,7 @@ function serializeMessageAsXml(message) {
     .map((attachment) => `    <attachment type="${xmlEscape(attachment.type)}" format="${xmlEscape(attachment.format || "image")}" name="${xmlEscape(attachment.name || "")}" url="${xmlEscape(attachment.url)}" />`)
     .join("\n");
   return [
-    `<message id="${xmlEscape(message.id)}" ts="${xmlEscape(message.ts)}"${message.editedAt ? ` editedAt="${xmlEscape(message.editedAt)}"` : ""}>`,
+    `<message id="${xmlEscape(message.id)}" ts="${xmlEscape(message.ts)}"${message.editedAt ? ` editedAt="${xmlEscape(message.editedAt)}"` : ""}${message.editedByStaff ? " editedByStaff=\"true\"" : ""}>`,
     `  <author userId="${xmlEscape(message.userId || "")}">${xmlEscape(displayNameForMessage(message))}</author>`,
     `  <text>${xmlEscape(message.text || "")}</text>`,
     `  <pinned>${message.pinned ? "true" : "false"}</pinned>`,
@@ -1978,6 +2073,21 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "note") {
+    if (!arg) return true;
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: arg,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: [],
+      collaborative: true
+    });
+    return true;
+  }
+
   if (command === "clear") {
     channel.messages = [];
     addSystemMessage(channel, "Channel history cleared.");
@@ -2044,6 +2154,58 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "mediaprivacy") {
+    const mode = arg.toLowerCase();
+    state.preferences = getPreferences();
+    if (!mode || mode === "status") {
+      addSystemMessage(channel, `Media privacy mode: ${state.preferences.mediaPrivacyMode === "off" ? "off" : "safe"}`);
+      return true;
+    }
+    if (mode === "safe" || mode === "off") {
+      state.preferences.mediaPrivacyMode = mode;
+      saveState();
+      addSystemMessage(channel, `Media privacy mode set to: ${mode}`);
+      renderMessages();
+      return true;
+    }
+    addSystemMessage(channel, "Usage: /mediaprivacy [status|safe|off]");
+    return true;
+  }
+
+  if (command === "trustdomain") {
+    const lowered = arg.toLowerCase();
+    if (!arg || lowered === "list") {
+      const rules = getPreferences().mediaTrustRules;
+      addSystemMessage(channel, rules.length > 0 ? `Trusted media rules: ${rules.join(", ")}` : "No trusted media rules.");
+      return true;
+    }
+    const added = addMediaTrustRule(arg);
+    if (added) {
+      saveState();
+      addSystemMessage(channel, `Added media trust rule: ${arg}`);
+      renderMessages();
+    } else {
+      addSystemMessage(channel, `Media trust rule already exists or invalid: ${arg}`);
+    }
+    return true;
+  }
+
+  if (command === "untrustdomain") {
+    if (!arg) {
+      addSystemMessage(channel, "Usage: /untrustdomain <domain|*.domain|/regex/>");
+      return true;
+    }
+    const removed = removeMediaTrustRule(arg);
+    if (!removed) {
+      addSystemMessage(channel, `Media trust rule not found: ${arg}`);
+      return true;
+    }
+    saveState();
+    addSystemMessage(channel, `Removed media trust rule: ${arg}`);
+    renderMessages();
+    return true;
+  }
+
   if (command === "help") {
     const summary = SLASH_COMMANDS
       .map((entry) => `/${entry.name}${entry.args ? ` ${entry.args}` : ""}`)
@@ -2054,6 +2216,31 @@ function handleSlashCommand(rawText, channel, account) {
 
   addSystemMessage(channel, `Unknown command: /${command}`);
   return true;
+}
+
+function canEditMessageEntry(message, { isDm = false, canManageMessages = false, currentUser = null } = {}) {
+  if (!message || !currentUser) return false;
+  if (message.collaborative) return true;
+  if (message.userId && message.userId === currentUser.id) return true;
+  if (!isDm && canManageMessages) return true;
+  return false;
+}
+
+function messageEditHistory(message) {
+  return Array.isArray(message?.editHistory) ? message.editHistory : [];
+}
+
+function formatMessageEditHistory(message) {
+  const history = messageEditHistory(message);
+  if (history.length === 0) return "No edit history.";
+  return history
+    .map((entry, index) => {
+      const editor = entry?.editorName || "Unknown";
+      const when = entry?.editedAt || "";
+      const text = (entry?.previousText || "").toString();
+      return `${index + 1}. ${when} by ${editor}\n${text}`;
+    })
+    .join("\n\n");
 }
 
 function openMessageEditor(conversationId, messageId, messageText) {
@@ -3855,6 +4042,84 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   const wrap = document.createElement("div");
   wrap.className = `message-attachment message-attachment--${type}`;
 
+  if (type !== "swf" && shouldGateMediaUrl(mediaUrl)) {
+    const host = mediaUrlHost(mediaUrl) || "external host";
+    const gate = document.createElement("div");
+    gate.className = "message-swf";
+    const title = document.createElement("strong");
+    title.textContent = `External ${type.toUpperCase()} hidden`;
+    const info = document.createElement("div");
+    info.className = "message-swf-meta";
+    info.textContent = `Host: ${host}`;
+    const armBtn = document.createElement("button");
+    armBtn.type = "button";
+    armBtn.className = "message-swf-top-btn";
+    armBtn.textContent = "Show load options";
+    const controls = document.createElement("div");
+    controls.className = "settings-inline-actions";
+    controls.hidden = true;
+    const onceBtn = document.createElement("button");
+    onceBtn.type = "button";
+    onceBtn.textContent = "Load once";
+    onceBtn.addEventListener("click", () => {
+      mediaAllowOnceUrls.add(mediaUrl);
+      renderMessages();
+    });
+    const trustBtn = document.createElement("button");
+    trustBtn.type = "button";
+    trustBtn.textContent = "Always trust host";
+    trustBtn.addEventListener("click", () => {
+      const added = addMediaTrustRule(host);
+      if (added) {
+        saveState();
+        showToast(`Added trusted host: ${host}`);
+      } else {
+        showToast(`Host already trusted: ${host}`);
+      }
+      renderMessages();
+    });
+    const customRuleBtn = document.createElement("button");
+    customRuleBtn.type = "button";
+    customRuleBtn.textContent = "Add custom rule";
+    customRuleBtn.addEventListener("click", () => {
+      const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
+      if (typeof nextRule !== "string") return;
+      const added = addMediaTrustRule(nextRule);
+      if (!added) {
+        showToast("Rule already exists or invalid.");
+        return;
+      }
+      saveState();
+      showToast(`Added trust rule: ${nextRule}`);
+      renderMessages();
+    });
+    const allowAllBtn = document.createElement("button");
+    allowAllBtn.type = "button";
+    allowAllBtn.textContent = "Disable privacy gate";
+    allowAllBtn.addEventListener("click", () => {
+      state.preferences = getPreferences();
+      state.preferences.mediaPrivacyMode = "off";
+      saveState();
+      renderMessages();
+      showToast("Media privacy gate disabled.");
+    });
+    controls.appendChild(onceBtn);
+    controls.appendChild(trustBtn);
+    controls.appendChild(customRuleBtn);
+    controls.appendChild(allowAllBtn);
+    armBtn.addEventListener("click", () => {
+      controls.hidden = !controls.hidden;
+      armBtn.textContent = controls.hidden ? "Show load options" : "Hide load options";
+    });
+    gate.appendChild(title);
+    gate.appendChild(info);
+    gate.appendChild(armBtn);
+    gate.appendChild(controls);
+    wrap.appendChild(gate);
+    container.appendChild(wrap);
+    return;
+  }
+
   if (type === "swf") {
     const card = document.createElement("div");
     card.className = "message-swf";
@@ -5194,7 +5459,17 @@ function renderMessages() {
     if (message.editedAt) {
       editedBadge = document.createElement("span");
       editedBadge.className = "message-edited";
-      editedBadge.textContent = "(edited)";
+      editedBadge.textContent = message.editedByStaff ? "(edited by staff)" : "(edited)";
+      if (message.editedByName || message.editedByUserId) {
+        editedBadge.title = `Last edited by ${message.editedByName || message.editedByUserId} at ${message.editedAt}`;
+      }
+    }
+    let collaborativeBadge = null;
+    if (message.collaborative) {
+      collaborativeBadge = document.createElement("span");
+      collaborativeBadge.className = "message-edited";
+      collaborativeBadge.textContent = "✍ shared";
+      collaborativeBadge.title = "Collaborative message: members can edit this message";
     }
 
     let forumTitle = null;
@@ -5286,11 +5561,12 @@ function renderMessages() {
 
     const canManageMessages = isDm ? false : (currentUser ? canCurrentUser("manageMessages") : false);
     const isOwnMessage = currentUser && message.userId === currentUser.id;
-    if (isOwnMessage) {
+    const canEditMessage = canEditMessageEntry(message, { isDm, canManageMessages, currentUser });
+    if (canEditMessage) {
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "message-action-btn";
-      editBtn.textContent = "Edit";
+      editBtn.textContent = message.collaborative ? "Edit Shared" : "Edit";
       editBtn.addEventListener("click", () => openMessageEditor(conversationId, message.id, message.text));
       actionBar.appendChild(editBtn);
 
@@ -5352,6 +5628,7 @@ function renderMessages() {
 
     head.appendChild(userButton);
     head.appendChild(time);
+    if (collaborativeBadge) head.appendChild(collaborativeBadge);
     if (editedBadge) head.appendChild(editedBadge);
     messageRow.appendChild(head);
     if (replyLine) messageRow.appendChild(replyLine);
@@ -5369,6 +5646,7 @@ function renderMessages() {
     const openMessageContextMenuAt = (event) => {
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       const isOwnMessage = currentUser && message.userId === currentUser.id;
+      const canEditMessage = canEditMessageEntry(message, { isDm, canManageMessages, currentUser });
       const firstSwfAttachment = attachments.find((attachment) => attachment.type === "swf");
       const firstSwfIndex = attachments.findIndex((attachment) => attachment.type === "swf");
       const menuItems = [
@@ -5389,6 +5667,7 @@ function renderMessages() {
             { label: "Timestamp", action: () => copyText(message.ts || "") },
             { label: "Message ID", action: () => copyText(message.id || "") },
             { label: "First Attachment URL", action: () => copyText(attachments[0]?.url ? resolveMediaUrl(attachments[0].url) : "") },
+            { label: "Edit History JSON", action: () => copyText(JSON.stringify(messageEditHistory(message), null, 2)) },
             { label: "JSON", action: () => copyText(serializeMessageAsJson(message)) },
             { label: "XML", action: () => copyText(serializeMessageAsXml(message)) }
           ]
@@ -5406,9 +5685,16 @@ function renderMessages() {
           }
         },
         {
-          label: "Edit Message",
-          disabled: !isOwnMessage,
+          label: message.collaborative ? "Edit Shared Message" : "Edit Message",
+          disabled: !canEditMessage,
           action: () => openMessageEditor(conversationId, message.id, message.text)
+        },
+        {
+          label: "View Edit History",
+          disabled: messageEditHistory(message).length === 0,
+          action: () => {
+            alert(formatMessageEditHistory(message));
+          }
         },
         {
           label: "Delete Message",
@@ -6479,17 +6765,47 @@ ui.messageEditCancel.addEventListener("click", () => {
 ui.messageEditForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!messageEditTarget) return;
+  const editor = getCurrentAccount();
+  if (!editor) return;
+  const nextText = ui.messageEditInput.value.trim().slice(0, 400);
   let scopedMessage = null;
+  let scopedChannel = null;
+  let isDmConversation = false;
   const scopedThread = state.dmThreads.find((thread) => thread.id === messageEditTarget.conversationId) || null;
   if (scopedThread) {
     scopedMessage = findMessageInChannel(scopedThread, messageEditTarget.messageId);
+    isDmConversation = true;
   } else {
-    const scopedChannel = findChannelById(messageEditTarget.conversationId);
+    scopedChannel = findChannelById(messageEditTarget.conversationId);
     scopedMessage = findMessageInChannel(scopedChannel, messageEditTarget.messageId);
   }
   if (!scopedMessage) return;
-  scopedMessage.text = ui.messageEditInput.value.trim().slice(0, 400);
+  const canManage = !isDmConversation && scopedChannel && hasServerPermission(getActiveServer(), editor.id, "manageMessages");
+  const canEdit = canEditMessageEntry(scopedMessage, {
+    isDm: isDmConversation,
+    canManageMessages: Boolean(canManage),
+    currentUser: editor
+  });
+  if (!canEdit) {
+    showToast("You cannot edit this message.", { tone: "error" });
+    return;
+  }
+  const previousText = (scopedMessage.text || "").toString();
+  if (previousText !== nextText) {
+    if (!Array.isArray(scopedMessage.editHistory)) scopedMessage.editHistory = [];
+    scopedMessage.editHistory.unshift({
+      editedAt: new Date().toISOString(),
+      editorUserId: editor.id,
+      editorName: editor.username,
+      previousText
+    });
+    if (scopedMessage.editHistory.length > 25) scopedMessage.editHistory = scopedMessage.editHistory.slice(0, 25);
+  }
+  scopedMessage.text = nextText;
   scopedMessage.editedAt = new Date().toISOString();
+  scopedMessage.editedByUserId = editor.id;
+  scopedMessage.editedByName = editor.username;
+  scopedMessage.editedByStaff = Boolean(!isDmConversation && canManage && scopedMessage.userId && scopedMessage.userId !== editor.id);
   saveState();
   messageEditTarget = null;
   ui.messageEditDialog.close();
