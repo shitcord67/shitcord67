@@ -7,7 +7,8 @@ const SLASH_COMMANDS = [
   { name: "nick", args: "<display name>", description: "Set your display name for this account." },
   { name: "status", args: "<text>", description: "Set your custom status message." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
-  { name: "clear", args: "", description: "Clear all messages in this channel." }
+  { name: "clear", args: "", description: "Clear all messages in this channel." },
+  { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
 
 function createId() {
@@ -43,6 +44,15 @@ function sanitizeChannelName(value, fallback) {
     .replace(/[^a-z0-9-_]/g, "")
     .slice(0, 40);
   return cleaned || fallback;
+}
+
+function escapeRegExp(value) {
+  return (value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function toTimestampMs(value) {
+  const parsed = Date.parse(value || "");
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function rolePresetPermissions(preset) {
@@ -98,6 +108,7 @@ function buildInitialState() {
             id: channelId,
             name: "general",
             topic: "General discussion",
+            readState: {},
             messages: [
               {
                 id: createId(),
@@ -178,6 +189,7 @@ function migrateState(raw) {
           ? guild.channels.map((channel) => ({
               ...channel,
               topic: typeof channel.topic === "string" ? channel.topic : "",
+              readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
               messages: Array.isArray(channel.messages)
                 ? channel.messages.map((message) => ({
                     ...message,
@@ -236,6 +248,7 @@ function migrateState(raw) {
               id: channel.id || createId(),
               name: channel.name || "general",
               topic: "",
+              readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
               messages
             };
           })
@@ -244,6 +257,7 @@ function migrateState(raw) {
               id: createId(),
               name: "general",
               topic: "",
+              readState: {},
               messages: []
             }
           ];
@@ -297,6 +311,7 @@ let replyTarget = null;
 let slashSelectionIndex = 0;
 let mentionSelectionIndex = 0;
 let contextMenuOpen = false;
+let channelFilterTerm = "";
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -305,6 +320,7 @@ const ui = {
   loginUsername: document.getElementById("loginUsername"),
   serverList: document.getElementById("serverList"),
   channelList: document.getElementById("channelList"),
+  channelFilterInput: document.getElementById("channelFilterInput"),
   memberList: document.getElementById("memberList"),
   activeServerName: document.getElementById("activeServerName"),
   activeChannelName: document.getElementById("activeChannelName"),
@@ -507,6 +523,67 @@ function findMessageInChannel(channel, messageId) {
   return channel.messages.find((message) => message.id === messageId) || null;
 }
 
+function ensureChannelReadState(channel) {
+  if (!channel || (channel.readState && typeof channel.readState === "object")) return false;
+  channel.readState = {};
+  return true;
+}
+
+function markChannelRead(channel, accountId) {
+  if (!channel || !accountId) return false;
+  ensureChannelReadState(channel);
+  const newestTs = channel.messages[channel.messages.length - 1]?.ts || new Date().toISOString();
+  const currentMs = toTimestampMs(channel.readState[accountId]);
+  const nextMs = toTimestampMs(newestTs);
+  if (nextMs <= currentMs) return false;
+  channel.readState[accountId] = newestTs;
+  return true;
+}
+
+function markGuildRead(guild, accountId) {
+  if (!guild || !accountId) return false;
+  let changed = false;
+  guild.channels.forEach((channel) => {
+    if (markChannelRead(channel, accountId)) changed = true;
+  });
+  return changed;
+}
+
+function messageMentionsAccount(messageText, account) {
+  if (!account || !messageText) return false;
+  const mentionPattern = new RegExp(`(^|\\s)@${escapeRegExp(account.username)}(?=\\b|\\s|$)`, "i");
+  return mentionPattern.test(messageText);
+}
+
+function getChannelUnreadStats(channel, account) {
+  if (!channel || !account) return { unread: 0, mentions: 0 };
+  ensureChannelReadState(channel);
+  const lastReadMs = toTimestampMs(channel.readState[account.id]);
+  let unread = 0;
+  let mentions = 0;
+  channel.messages.forEach((message) => {
+    if (toTimestampMs(message.ts) <= lastReadMs) return;
+    if (message.userId && message.userId === account.id) return;
+    unread += 1;
+    if (messageMentionsAccount(message.text, account)) mentions += 1;
+  });
+  return { unread, mentions };
+}
+
+function getGuildUnreadStats(guild, account) {
+  if (!guild || !account) return { unread: 0, mentions: 0 };
+  if (!Array.isArray(guild.memberIds) || !guild.memberIds.includes(account.id)) {
+    return { unread: 0, mentions: 0 };
+  }
+  return guild.channels.reduce((acc, channel) => {
+    const stats = getChannelUnreadStats(channel, account);
+    return {
+      unread: acc.unread + stats.unread,
+      mentions: acc.mentions + stats.mentions
+    };
+  }, { unread: 0, mentions: 0 });
+}
+
 async function copyText(value) {
   const text = (value || "").toString();
   if (!text) return;
@@ -604,24 +681,36 @@ function ensureCurrentUserInActiveServer() {
   const account = getCurrentAccount();
   const server = getActiveServer();
   if (!account || !server) return false;
+  let changed = false;
   if (!Array.isArray(server.roles) || server.roles.length === 0) {
     server.roles = [createRole("@everyone", "#b5bac1", "member")];
+    changed = true;
   }
   if (!server.memberRoles || typeof server.memberRoles !== "object") {
     server.memberRoles = {};
+    changed = true;
   }
   const everyoneRoleId = server.roles[0].id;
   if (!Array.isArray(server.memberRoles[account.id])) {
     server.memberRoles[account.id] = [];
+    changed = true;
   }
   if (!server.memberRoles[account.id].includes(everyoneRoleId)) {
     server.memberRoles[account.id].push(everyoneRoleId);
+    changed = true;
   }
   if (!server.memberIds.includes(account.id)) {
     server.memberIds.push(account.id);
-    return true;
+    changed = true;
   }
-  return false;
+  server.channels.forEach((channel) => {
+    ensureChannelReadState(channel);
+    if (!channel.readState[account.id]) {
+      channel.readState[account.id] = new Date().toISOString();
+      changed = true;
+    }
+  });
+  return changed;
 }
 
 function formatTime(iso) {
@@ -767,6 +856,19 @@ function handleSlashCommand(rawText, channel, account) {
   if (command === "clear") {
     channel.messages = [];
     addSystemMessage(channel, "Channel history cleared.");
+    return true;
+  }
+
+  if (command === "markread") {
+    const guild = getActiveGuild();
+    if (!guild) return true;
+    if (arg.toLowerCase() === "all") {
+      const changed = markGuildRead(guild, account.id);
+      if (changed) addSystemMessage(channel, "Marked all channels in this guild as read.");
+    } else {
+      const changed = markChannelRead(channel, account.id);
+      if (changed) addSystemMessage(channel, "Marked this channel as read.");
+    }
     return true;
   }
 
@@ -1012,11 +1114,23 @@ function renderScreens() {
 
 function renderServers() {
   ui.serverList.innerHTML = "";
+  const currentAccount = getCurrentAccount();
   state.guilds.forEach((server) => {
     const button = document.createElement("button");
     button.className = `server-item ${server.id === state.activeGuildId ? "active" : ""}`;
     button.textContent = server.name.slice(0, 2).toUpperCase();
-    button.title = server.name;
+    const guildStats = getGuildUnreadStats(server, currentAccount);
+    button.title = guildStats.unread > 0
+      ? `${server.name} (${guildStats.unread} unread${guildStats.mentions ? `, ${guildStats.mentions} mentions` : ""})`
+      : server.name;
+    if (guildStats.unread > 0) {
+      const dot = document.createElement("span");
+      dot.className = `server-unread-pill ${guildStats.mentions > 0 ? "server-unread-pill--mention" : ""}`;
+      if (guildStats.mentions > 0) {
+        dot.textContent = guildStats.mentions > 9 ? "9+" : String(guildStats.mentions);
+      }
+      button.appendChild(dot);
+    }
     button.addEventListener("click", () => {
       state.activeGuildId = server.id;
       state.activeChannelId = server.channels[0]?.id || null;
@@ -1053,6 +1167,17 @@ function renderServers() {
           }
         },
         {
+          label: "Mark Guild Read",
+          disabled: !currentUser || getGuildUnreadStats(server, currentUser).unread === 0,
+          action: () => {
+            if (!currentUser) return;
+            if (!markGuildRead(server, currentUser.id)) return;
+            saveState();
+            renderServers();
+            renderChannels();
+          }
+        },
+        {
           label: "Delete Guild",
           danger: true,
           disabled: state.guilds.length <= 1 || !currentUser || !hasServerPermission(server, currentUser.id, "administrator"),
@@ -1072,11 +1197,34 @@ function renderChannels() {
     return;
   }
 
+  const currentAccount = getCurrentAccount();
+  const filter = channelFilterTerm.trim().toLowerCase();
+  if (ui.channelFilterInput && ui.channelFilterInput.value !== channelFilterTerm) {
+    ui.channelFilterInput.value = channelFilterTerm;
+  }
   ui.activeServerName.textContent = server.name;
-  server.channels.forEach((channel) => {
+  const channelsToRender = server.channels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
+  channelsToRender.forEach((channel) => {
     const button = document.createElement("button");
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
-    button.textContent = `# ${channel.name}`;
+    const label = document.createElement("span");
+    label.className = "channel-item__name";
+    label.textContent = `# ${channel.name}`;
+    button.appendChild(label);
+    const unreadStats = getChannelUnreadStats(channel, currentAccount);
+    if (unreadStats.mentions > 0) {
+      const mentionBadge = document.createElement("span");
+      mentionBadge.className = "channel-badge channel-badge--mention";
+      mentionBadge.textContent = unreadStats.mentions > 99 ? "99+" : String(unreadStats.mentions);
+      button.appendChild(mentionBadge);
+      button.classList.add("channel-item--unread");
+    } else if (unreadStats.unread > 0) {
+      const unreadBadge = document.createElement("span");
+      unreadBadge.className = "channel-badge";
+      unreadBadge.textContent = unreadStats.unread > 99 ? "99+" : String(unreadStats.unread);
+      button.appendChild(unreadBadge);
+      button.classList.add("channel-item--unread");
+    }
     button.addEventListener("click", () => {
       state.activeChannelId = channel.id;
       saveState();
@@ -1097,6 +1245,17 @@ function renderChannels() {
         {
           label: "Copy Channel Name",
           action: () => copyText(`#${channel.name}`)
+        },
+        {
+          label: "Mark Channel Read",
+          disabled: !currentAccount || unreadStats.unread === 0,
+          action: () => {
+            if (!currentAccount) return;
+            if (!markChannelRead(channel, currentAccount.id)) return;
+            saveState();
+            renderServers();
+            renderChannels();
+          }
         },
         {
           label: "Rename Channel",
@@ -1120,6 +1279,12 @@ function renderChannels() {
     });
     ui.channelList.appendChild(button);
   });
+  if (channelsToRender.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = "No channels match your filter.";
+    ui.channelList.appendChild(empty);
+  }
 }
 
 function openUserPopout(account, fallbackName = "Unknown") {
@@ -1405,6 +1570,12 @@ function renderMessages() {
   });
 
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  const currentAccount = getCurrentAccount();
+  if (currentAccount && markChannelRead(channel, currentAccount.id)) {
+    saveState();
+    renderServers();
+    renderChannels();
+  }
 }
 
 function renderMemberList() {
@@ -1739,6 +1910,11 @@ ui.messageInput.addEventListener("input", () => {
   renderSlashSuggestions();
 });
 
+ui.channelFilterInput.addEventListener("input", () => {
+  channelFilterTerm = ui.channelFilterInput.value.trim().slice(0, 40);
+  renderChannels();
+});
+
 ui.messageInput.addEventListener("keydown", (event) => {
   const suggestion = getComposerSuggestionState();
   const popupVisible = suggestion.type !== "none";
@@ -1818,6 +1994,7 @@ ui.createServerForm.addEventListener("submit", (event) => {
         id: generalId,
         name: "general",
         topic: "General discussion",
+        readState: account ? { [account.id]: new Date().toISOString() } : {},
         messages: []
       }
     ]
@@ -1851,6 +2028,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
     id: createId(),
     name: sanitizeChannelName(ui.channelNameInput.value, "new-channel"),
     topic: "",
+    readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     messages: []
   };
 

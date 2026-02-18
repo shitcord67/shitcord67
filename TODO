@@ -11,14 +11,15 @@
 - Reply threading and basic message reactions.
 - Per-guild member list with presence groups.
 - Channel topic + channel settings.
-- Slash commands (`/me`, `/shrug`, `/clear`, `/topic`, `/nick`, `/status`) with live popup.
+- Slash commands (`/me`, `/shrug`, `/clear`, `/topic`, `/nick`, `/status`, `/markread`) with live popup.
 - Import/export JSON snapshot for backup/testing.
 - Right-click context menus for guilds/channels/messages/users.
+- Unread + mention badges for channels and guild rail with mark-as-read actions.
+- Channel list filter/search input.
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
 - Add profile image upload and validation.
-- Channel-level unread counters and mention badges.
 - DM sidebar and 1:1 direct-message threads.
 - Per-guild notification settings (mute/mentions only/all).
 
@@ -63,3 +64,6 @@
 - Save notes about users on profiles of other users
 - OLED theme by default
 - Add full nested context menu variants (invite/copy-id/submenus) and keyboard navigation.
+- Markdown support (preferably Discord-compatible, maybe even more like GitHub-flavoured?)
+- Discord embeds
+- Discord RPC

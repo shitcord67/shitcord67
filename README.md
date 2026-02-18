@@ -17,12 +17,14 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Send messages as current user.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`, `/nick`, `/status`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`, `/nick`, `/status`, `/markread`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
 - Pin/unpin messages per channel, with a pinned-messages panel.
 - Guild rail now scrolls as one native-feeling column (brand, guild icons, and `+` create button).
+- Unread + mention badges for channels and guilds, with per-account read tracking.
+- Quick channel filter input in the sidebar.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
