@@ -1352,6 +1352,34 @@ button {
   background: #fff;
 }
 
+.message-pdf-frame {
+  width: min(620px, 94vw);
+  height: 420px;
+  border: 1px solid #3b3f48;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.message-audio {
+  width: min(440px, 92vw);
+  display: block;
+}
+
+.message-text-file {
+  width: min(620px, 94vw);
+  max-height: 300px;
+  overflow: auto;
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #3b3f48;
+  background: #11131a;
+  color: #dce1eb;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  font-family: "Fira Code", "Consolas", monospace;
+}
+
 .swf-pip {
   position: fixed;
   right: 14px;

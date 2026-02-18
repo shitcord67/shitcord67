@@ -35,6 +35,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.
 - Debug Console in Advanced settings (runtime status + recent media/ruffle logs).
 - Message context menu can copy payload as JSON or Matrix-style XML.
+- Message context menu copy actions now include author/timestamp/attachment URL helpers.
 - Message context menu shows SWF actions only when that message has SWF attachments.
 - SWF message actions are grouped under a dedicated `SWF` submenu (open viewer/fullscreen/reset/save/copy URL/download).
 - SWFs auto-start in chat muted and are paused/resumed based on viewport visibility.
@@ -51,6 +52,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF link opens are configured with confirmation prompts (`openUrlMode: "confirm"`).
 - Advanced settings now include dedicated `Export SWF Saves` / `Import SWF Saves` (browser local-storage based).
 - SVG attachments in chat include a direct `Download SVG` action.
+- PDF links/attachments render inline in chat with open-in-tab fallback.
+- Audio links/attachments render with native playback controls.
+- Plain-text/code links (`.txt/.md/.json/.js/.css/...`) render inline preview snippets.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
 - Composer SWF audio button is now 3-state: `click-to-hear` (default), `auto-on`, and `force-muted` (right-click).
@@ -73,6 +77,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Context menu keyboard controls include arrow navigation, `Enter`, `Escape`, plus `Home`/`End` and `ArrowRight`/`ArrowLeft` submenu control.
 - Message rows now support keyboard context menus (`Shift+F10` or `ContextMenu` key).
 - SWF context actions show inline toast feedback for copy/download/save outcomes.
+- Forum thread toolbar includes a `Mark all threads read` bulk action.
+- Keyboard shortcuts: `Ctrl+K` focus current search, `Ctrl+,` open settings, `Alt+D` toggle DM/guild mode.
 - Popouts/dialogs close by clicking outside the card content.
 - Guild member list on the right, with presence dots.
 - Member list grouped into Online/Offline sections.
