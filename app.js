@@ -1096,7 +1096,8 @@ function getPreferences() {
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
-          top: Number.isFinite(Number(current.swfPipPosition.top)) ? Math.max(0, Number(current.swfPipPosition.top)) : null
+          top: Number.isFinite(Number(current.swfPipPosition.top)) ? Math.max(0, Number(current.swfPipPosition.top)) : null,
+          manual: Boolean(current.swfPipPosition.manual)
         }
       : null
   };
@@ -2678,33 +2679,7 @@ function renderSwfPipDock() {
   if (!hasTabs) return;
   updateSwfPipDockLayout();
   if (!swfPipActiveKey || !swfPipTabs.includes(swfPipActiveKey)) swfPipActiveKey = swfPipTabs[0];
-  // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
-  const pipRect = ui.swfPipHost.getBoundingClientRect();
-  const dockRect = ui.swfPipDock.getBoundingClientRect();
-  const collapsedAnchorLeft = Math.max(8, dockRect.right - 2);
-  const collapsedAnchorTop = Math.max(8, dockRect.bottom - 2);
-  swfPipTabs.forEach((runtimeKey) => {
-    const runtime = swfRuntimes.get(runtimeKey);
-    if (!runtime?.pipHost) return;
-    const visible = (
-      runtimeKey === swfPipActiveKey
-      && !ui.swfPipDock.classList.contains("swf-pip--hidden")
-      && !swfPipCollapsed
-    );
-    runtime.pipHost.style.display = "block";
-    if (visible) {
-      runtime.pipHost.style.left = `${Math.max(8, pipRect.left)}px`;
-      runtime.pipHost.style.top = `${Math.max(8, pipRect.top)}px`;
-      runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
-      runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
-    } else {
-      // Keep the same live element mounted, but collapse it to a tiny footprint.
-      runtime.pipHost.style.left = `${collapsedAnchorLeft}px`;
-      runtime.pipHost.style.top = `${collapsedAnchorTop}px`;
-      runtime.pipHost.style.width = "1px";
-      runtime.pipHost.style.height = "1px";
-    }
-  });
+  // Render tabs first so host geometry is accurate before placing floating players.
   swfPipTabs.forEach((runtimeKey) => {
     const runtime = swfRuntimes.get(runtimeKey);
     if (!runtime) return;
@@ -2732,6 +2707,33 @@ function renderSwfPipDock() {
     tabBtn.appendChild(closeBtn);
     ui.swfPipTabs.appendChild(tabBtn);
   });
+  // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
+  const pipRect = ui.swfPipHost.getBoundingClientRect();
+  const dockRect = ui.swfPipDock.getBoundingClientRect();
+  const collapsedAnchorLeft = Math.max(8, dockRect.right - 2);
+  const collapsedAnchorTop = Math.max(8, dockRect.bottom - 2);
+  swfPipTabs.forEach((runtimeKey) => {
+    const runtime = swfRuntimes.get(runtimeKey);
+    if (!runtime?.pipHost) return;
+    const visible = (
+      runtimeKey === swfPipActiveKey
+      && !ui.swfPipDock.classList.contains("swf-pip--hidden")
+      && !swfPipCollapsed
+    );
+    runtime.pipHost.style.display = "block";
+    if (visible) {
+      runtime.pipHost.style.left = `${Math.max(8, pipRect.left)}px`;
+      runtime.pipHost.style.top = `${Math.max(8, pipRect.top)}px`;
+      runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
+      runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
+    } else {
+      // Keep the same live element mounted, but collapse it to a tiny footprint.
+      runtime.pipHost.style.left = `${collapsedAnchorLeft}px`;
+      runtime.pipHost.style.top = `${collapsedAnchorTop}px`;
+      runtime.pipHost.style.width = "1px";
+      runtime.pipHost.style.height = "1px";
+    }
+  });
   const activeRuntime = swfRuntimes.get(swfPipActiveKey);
   if (!activeRuntime?.pipHost) return;
   setSwfPlayback(swfPipActiveKey, true, "user");
@@ -2741,7 +2743,11 @@ function updateSwfPipDockLayout() {
   if (!(ui.swfPipDock instanceof HTMLElement)) return;
   if (pipDragState?.dragging) return;
   const prefs = getPreferences();
-  if (prefs.swfPipPosition && Number.isFinite(prefs.swfPipPosition.left) && Number.isFinite(prefs.swfPipPosition.top)) {
+  if (
+    prefs.swfPipPosition?.manual
+    && Number.isFinite(prefs.swfPipPosition.left)
+    && Number.isFinite(prefs.swfPipPosition.top)
+  ) {
     const rect = ui.swfPipDock.getBoundingClientRect();
     const width = rect.width || 420;
     const height = rect.height || 320;
@@ -5192,7 +5198,7 @@ document.addEventListener("mouseup", () => {
   pipDragState.dragging = false;
   const rect = ui.swfPipDock.getBoundingClientRect();
   state.preferences = getPreferences();
-  state.preferences.swfPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top) };
+  state.preferences.swfPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top), manual: true };
   saveState();
 });
 ui.clearSwfShelfBtn.addEventListener("click", () => {
