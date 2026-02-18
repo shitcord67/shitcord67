@@ -21,6 +21,7 @@
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
 - Add per-message debug inspector pane with decoded attachment/network info.
+- Add true detachable SWF mini-player (PiP-like floating window) independent of channel view.
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term

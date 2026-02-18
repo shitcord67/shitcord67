@@ -53,11 +53,19 @@
             <button id="openChannelSettingsBtn" class="chat-topic-edit" title="Channel settings">Channel</button>
             <button id="openPinsBtn" class="chat-topic-edit" title="Pinned messages">Pins</button>
             <button id="openRolesBtn" class="chat-topic-edit" title="Manage roles">Roles</button>
+            <button id="toggleSwfShelfBtn" class="chat-topic-edit" title="Toggle SWF shelf">SWF Shelf</button>
             <button id="editTopicBtn" class="chat-topic-edit" title="Edit channel topic">Edit Topic</button>
           </div>
         </header>
 
         <section id="messageList" class="message-list"></section>
+        <section id="swfShelf" class="swf-shelf swf-shelf--hidden">
+          <div class="swf-shelf__header">
+            <strong>Saved SWFs</strong>
+            <button id="clearSwfShelfBtn" type="button">Clear</button>
+          </div>
+          <div id="swfShelfList" class="swf-shelf__list"></div>
+        </section>
 
         <div class="composer-stack">
           <div id="composerReplyBar" class="composer-reply composer-reply--hidden">
@@ -389,6 +397,21 @@
         <button id="debugCloseBtn" type="button">Close</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="swfViewerDialog" class="modal swf-viewer">
+    <div class="swf-viewer__card">
+      <div class="swf-viewer__top">
+        <strong id="swfViewerTitle">SWF Viewer</strong>
+        <div class="swf-viewer__actions">
+          <label for="swfViewerZoomInput">Zoom</label>
+          <input id="swfViewerZoomInput" type="range" min="50" max="200" step="5" value="100" />
+          <button id="swfViewerSaveBtn" type="button">Save</button>
+          <button id="swfViewerCloseBtn" type="button">Close</button>
+        </div>
+      </div>
+      <div id="swfViewerHost" class="swf-viewer__host"></div>
+    </div>
   </dialog>
 
   <div id="contextMenu" class="context-menu context-menu--hidden"></div>
