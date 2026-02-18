@@ -2731,12 +2731,19 @@ function positionSwfPipRuntimeHosts() {
     runtime.pipHost.style.display = "block";
     runtime.pipHost.style.pointerEvents = visible ? "auto" : "none";
     runtime.pipHost.style.opacity = visible ? "1" : "0";
+    runtime.pipHost.style.visibility = visible ? "visible" : "hidden";
     if (visible) {
+      runtime.pipHost.style.borderColor = "";
+      runtime.pipHost.style.background = "";
+      runtime.pipHost.style.boxShadow = "";
       runtime.pipHost.style.left = `${Math.max(8, pipRect.left)}px`;
       runtime.pipHost.style.top = `${Math.max(8, pipRect.top)}px`;
       runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
       runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
     } else {
+      runtime.pipHost.style.borderColor = "transparent";
+      runtime.pipHost.style.background = "transparent";
+      runtime.pipHost.style.boxShadow = "none";
       runtime.pipHost.style.left = `${collapsedAnchorLeft}px`;
       runtime.pipHost.style.top = `${collapsedAnchorTop}px`;
       runtime.pipHost.style.width = "1px";
