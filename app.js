@@ -65,7 +65,7 @@ function normalizeUsername(value) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9._-]/g, "")
+    .replace(/[^\p{L}\p{N}._-]/gu, "")
     .slice(0, 24);
 }
 
@@ -5916,9 +5916,16 @@ ui.loginForm.addEventListener("submit", (event) => {
     showToast("Username must include at least one letter or number.", { tone: "error" });
     return;
   }
+  ui.loginScreen.classList.remove("screen--active");
+  ui.chatScreen.classList.add("screen--active");
   ui.loginUsername.value = "";
   saveState();
-  render();
+  try {
+    render();
+  } catch (error) {
+    console.error("Render failed after login", error);
+    showToast("Logged in, but render failed. Open DevTools for details.", { tone: "error", duration: 3000 });
+  }
   closeSettingsScreen();
   requestAnimationFrame(() => {
     ui.messageInput.focus();
