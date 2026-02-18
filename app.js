@@ -213,6 +213,7 @@ function buildInitialState() {
       forumThreadSort: {},
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],
+      mediaLastTab: "gif",
       swfPipPosition: null
     }
   };
@@ -553,6 +554,7 @@ const ui = {
   cancelReplyBtn: document.getElementById("cancelReplyBtn"),
   composerAttachmentBar: document.getElementById("composerAttachmentBar"),
   composerAttachmentText: document.getElementById("composerAttachmentText"),
+  saveComposerAttachmentBtn: document.getElementById("saveComposerAttachmentBtn"),
   clearComposerAttachmentBtn: document.getElementById("clearComposerAttachmentBtn"),
   settingsScreen: document.getElementById("settingsScreen"),
   dockAvatar: document.getElementById("dockAvatar"),
@@ -705,6 +707,8 @@ const ui = {
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
+
+if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1353,6 +1357,11 @@ function normalizeMediaPrivacyMode(value) {
   return value === "off" ? "off" : "safe";
 }
 
+function normalizeMediaTab(value) {
+  const tab = (value || "").toString().toLowerCase();
+  return MEDIA_TABS.includes(tab) ? tab : "gif";
+}
+
 function normalizeMediaTrustRules(value) {
   if (!Array.isArray(value)) return [];
   return value
@@ -1386,6 +1395,7 @@ function getPreferences() {
     forumThreadSort: normalizeForumThreadSortMap(current.forumThreadSort),
     mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
     mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
+    mediaLastTab: normalizeMediaTab(current.mediaLastTab),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -1693,6 +1703,7 @@ function clearComposerPendingAttachment() {
   composerPendingAttachment = null;
   if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.add("composer-reply--hidden");
   if (ui.composerAttachmentText) ui.composerAttachmentText.textContent = "";
+  if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
   if (ui.quickAttachInput) ui.quickAttachInput.value = "";
 }
 
@@ -1711,6 +1722,7 @@ function setComposerPendingAttachment(entry) {
       : `Attached ${type}: ${label}`;
   }
   if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.remove("composer-reply--hidden");
+  if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = false;
 }
 
 async function attachFileToComposer(file) {
@@ -1725,6 +1737,47 @@ async function attachFileToComposer(file) {
     name: file.name || `${type}-${Date.now()}`,
     sizeBytes: Number(file.size) || 0
   });
+  return true;
+}
+
+function pickerTabForAttachmentType(type) {
+  if (type === "pdf") return "pdf";
+  if (type === "text") return "text";
+  if (type === "rtf" || type === "odf" || type === "bin") return "docs";
+  if (type === "html") return "html";
+  if (type === "swf") return "swf";
+  if (type === "svg") return "svg";
+  return "gif";
+}
+
+function saveComposerAttachmentToPicker() {
+  if (!composerPendingAttachment) return false;
+  const guild = getActiveGuild();
+  if (!guild) return false;
+  const type = composerPendingAttachment.type || "pdf";
+  const tab = pickerTabForAttachmentType(type);
+  const baseName = (composerPendingAttachment.name || `${type}-${Date.now()}`).toString().trim().slice(0, 64);
+  const extension = type === "pdf"
+    ? ".pdf"
+    : type === "text"
+      ? ".txt"
+      : type === "rtf"
+        ? ".rtf"
+        : type === "odf"
+          ? ".odt"
+          : type === "bin"
+            ? ".bin"
+            : "";
+  const resolvedName = baseName.includes(".") || !extension ? baseName : `${baseName}${extension}`;
+  const entry = {
+    name: sanitizeMediaName(resolvedName, `${tab}-${Date.now().toString().slice(-4)}`),
+    url: composerPendingAttachment.url,
+    format: "image",
+    type
+  };
+  const saved = upsertGuildResource(tab, entry);
+  if (!saved) return false;
+  saveState();
   return true;
 }
 
@@ -2919,21 +2972,38 @@ function filteredMediaEntries() {
   return mediaEntriesForActiveTab().filter((entry) => (entry.name || "").toLowerCase().includes(term));
 }
 
+function rememberMediaPickerTab(tab) {
+  if (!MEDIA_TABS.includes(tab)) return;
+  state.preferences = getPreferences();
+  state.preferences.mediaLastTab = tab;
+}
+
+function renderComposerMediaButtons() {
+  ui.openMediaPickerBtn?.classList.toggle("message-form__media-btn--active", mediaPickerOpen);
+  ui.openGifPickerBtn?.classList.toggle("message-form__media-btn--active", mediaPickerOpen && mediaPickerTab === "gif");
+  ui.openStickerPickerBtn?.classList.toggle("message-form__media-btn--active", mediaPickerOpen && mediaPickerTab === "sticker");
+  ui.openEmojiPickerBtn?.classList.toggle("message-form__media-btn--active", mediaPickerOpen && mediaPickerTab === "emoji");
+}
+
 function closeMediaPicker() {
   mediaPickerOpen = false;
   ui.mediaPicker.classList.add("media-picker--hidden");
+  renderComposerMediaButtons();
 }
 
 function openMediaPicker() {
   mediaPickerOpen = true;
   ui.mediaPicker.classList.remove("media-picker--hidden");
+  rememberMediaPickerTab(mediaPickerTab);
   renderMediaPicker();
+  renderComposerMediaButtons();
   ui.mediaSearchInput.focus();
 }
 
 function openMediaPickerWithTab(tab, { resetQuery = false } = {}) {
   if (MEDIA_TABS.includes(tab)) {
     mediaPickerTab = tab;
+    rememberMediaPickerTab(tab);
   }
   if (resetQuery) mediaPickerQuery = "";
   openMediaPicker();
@@ -3176,6 +3246,7 @@ function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPicke
 
 function renderMediaPicker() {
   const renderToken = ++mediaPickerRenderToken;
+  renderComposerMediaButtons();
   ui.mediaTabs.forEach((tabBtn) => {
     tabBtn.classList.toggle("active", tabBtn.dataset.mediaTab === mediaPickerTab);
   });
@@ -4694,6 +4765,10 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   }
 
   if (type === "pdf") {
+    const note = document.createElement("div");
+    note.className = "message-embed-note";
+    note.textContent = "If the PDF preview is blank, your browser PDF viewer may be disabled. Use open/download.";
+    wrap.appendChild(note);
     const frame = document.createElement("iframe");
     frame.className = "message-pdf-frame";
     frame.loading = "lazy";
@@ -4707,6 +4782,12 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     openBtn.rel = "noopener noreferrer";
     openBtn.textContent = "Open PDF in new tab";
     wrap.appendChild(openBtn);
+    const downloadBtn = document.createElement("a");
+    downloadBtn.className = "message-swf-link";
+    downloadBtn.href = mediaUrl;
+    downloadBtn.download = attachment.name || "document.pdf";
+    downloadBtn.textContent = "Download PDF";
+    wrap.appendChild(downloadBtn);
     container.appendChild(wrap);
     return;
   }
@@ -6637,11 +6718,11 @@ ui.messageInput.addEventListener("input", () => {
 });
 
 ui.openMediaPickerBtn.addEventListener("click", () => {
-  ui.quickAttachInput.click();
+  toggleMediaPicker();
 });
 ui.openMediaPickerBtn.addEventListener("contextmenu", (event) => {
   event.preventDefault();
-  toggleMediaPicker();
+  ui.quickAttachInput.click();
 });
 ui.openMediaPickerBtn.addEventListener("mouseenter", warmMediaPickerRuntimes);
 ui.openMediaPickerBtn.addEventListener("focus", warmMediaPickerRuntimes);
@@ -6658,6 +6739,11 @@ ui.openEmojiPickerBtn?.addEventListener("click", () => {
 
 ui.quickFileAttachBtn.addEventListener("click", () => {
   ui.quickAttachInput.click();
+});
+
+ui.quickFileAttachBtn.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  openMediaPickerWithTab("pdf");
 });
 
 ui.quickAttachInput.addEventListener("change", async () => {
@@ -6679,6 +6765,18 @@ ui.quickAttachInput.addEventListener("change", async () => {
 
 ui.clearComposerAttachmentBtn.addEventListener("click", () => {
   clearComposerPendingAttachment();
+});
+
+ui.saveComposerAttachmentBtn?.addEventListener("click", () => {
+  if (!composerPendingAttachment) return;
+  const ok = saveComposerAttachmentToPicker();
+  if (!ok) {
+    showToast("Could not save attachment to picker.", { tone: "error" });
+    return;
+  }
+  const tab = pickerTabForAttachmentType(composerPendingAttachment.type || "pdf");
+  showToast("Attachment saved to picker.");
+  openMediaPickerWithTab(tab);
 });
 
 ui.toggleSwfAudioBtn.addEventListener("click", () => {
@@ -6718,6 +6816,67 @@ ui.mediaTabs.forEach((tabBtn) => {
 ui.mediaSearchInput.addEventListener("input", () => {
   mediaPickerQuery = ui.mediaSearchInput.value.slice(0, 80);
   renderMediaPicker();
+});
+
+ui.mediaSearchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    if (mediaPickerQuery) {
+      event.preventDefault();
+      mediaPickerQuery = "";
+      renderMediaPicker();
+      return;
+    }
+    closeMediaPicker();
+    return;
+  }
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  const [first] = filteredMediaEntries();
+  if (!first) return;
+  if (mediaPickerTab === "emoji") {
+    insertTextAtCursor(first.value || "");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "docs") {
+    sendMediaAttachment(first, first.type === "rtf" ? "rtf" : "odf");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "html") {
+    sendMediaAttachment(first, "html");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "pdf") {
+    sendMediaAttachment(first, "pdf");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "text") {
+    sendMediaAttachment(first, "text");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "swf") {
+    sendMediaAttachment(first, "swf");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "sticker") {
+    sendMediaAttachment(first, "sticker");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "gif") {
+    sendMediaAttachment(first, "gif");
+    closeMediaPicker();
+    return;
+  }
+  if (mediaPickerTab === "svg") {
+    sendMediaAttachment(first, "svg");
+    closeMediaPicker();
+  }
 });
 
 ui.addMediaUrlBtn.addEventListener("click", () => {
@@ -6762,6 +6921,13 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
 });
 
 ui.messageInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !ui.messageInput.value.trim() && composerPendingAttachment) {
+    event.preventDefault();
+    clearComposerPendingAttachment();
+    showToast("Attachment cleared.");
+    return;
+  }
+
   if (event.ctrlKey && event.shiftKey) {
     if (event.key.toLowerCase() === "g") {
       event.preventDefault();
@@ -7767,6 +7933,19 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.ctrlKey && !event.shiftKey && event.key.toLowerCase() === "u") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    ui.quickAttachInput.click();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "p") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    openMediaPickerWithTab("pdf");
+    return;
+  }
   if (event.ctrlKey && event.key.toLowerCase() === "k") {
     if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
@@ -7816,6 +7995,8 @@ document.addEventListener("focusin", (event) => {
   addDebugLog("info", "Blurred hidden virtual-keyboard input to avoid aria-hidden focus warning");
 });
 
+mediaPickerTab = getPreferences().mediaLastTab;
+renderComposerMediaButtons();
 render();
 loadSwfLibrary();
 deployMediaRuntimes();
