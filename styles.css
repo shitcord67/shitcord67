@@ -1784,6 +1784,19 @@ body[data-compact-members="on"] .member-item {
   pointer-events: none;
 }
 
+.context-submenu {
+  position: fixed;
+  z-index: 82;
+}
+
+.context-menu__has-submenu {
+  font-weight: 700;
+}
+
+.context-submenu .context-menu__has-submenu {
+  font-weight: 600;
+}
+
 .settings-card {
   background: #232428;
   border: 1px solid #17181b;

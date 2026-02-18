@@ -25,8 +25,11 @@
 - Guild folder grouping in server rail.
 - OLED theme mode with Appearance toggle.
 - Per-guild nicknames via profile editor and `/nick`.
+- Per-guild avatar variants via profile editor.
 - Custom status emoji + timed expiry presets (30m/1h/4h/today).
 - Channel type variants (text/announcement/forum/media) with distinct labels.
+- DM search/quick switch via sidebar filter and Enter-to-open.
+- Nested context-menu submenus for grouped actions.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
@@ -81,7 +84,7 @@
 - in-line chat slash commands like Telegram (featuring images poppin up fitting to context e.g. cards for a uno game run by an application bot)
 - Direct messages to users. In the lower-left of the client or by clicking on username or user list when profile pops open there is a chat input field
 - Save notes about users on profiles of other users
-- OLED theme by default
+- OLED theme by default (with considerations for blue light filter users. Mentions in white, green or red?)
 - Add full nested context menu variants (invite/copy-id/submenus) and keyboard navigation.
 - Markdown support (preferably Discord-compatible, maybe even more like GitHub-flavoured?)
 - Discord embeds
