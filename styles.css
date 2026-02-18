@@ -905,7 +905,7 @@ button {
 .message-swf-body {
   display: flex;
   gap: 0.42rem;
-  align-items: stretch;
+  align-items: flex-start;
 }
 
 .message-swf-audio-rail {
@@ -944,8 +944,9 @@ button {
 }
 
 .message-swf-player {
-  width: min(100%, 760px);
-  flex: 1;
+  width: 420px;
+  max-width: calc(100% - 42px);
+  flex: 0 1 auto;
   min-height: 180px;
   background: #121317;
   border-radius: 6px;

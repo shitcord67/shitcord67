@@ -1954,6 +1954,57 @@ function getSwfRuntimeMetadata(runtimeKey) {
   }
 }
 
+function computeFittedSwfSize(width, height, {
+  minWidth = 240,
+  minHeight = 160,
+  maxWidth = 1200,
+  maxHeight = 900
+} = {}) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  const aspect = width / height;
+  let targetWidth = width;
+  let targetHeight = height;
+  if (targetWidth > maxWidth) {
+    targetWidth = maxWidth;
+    targetHeight = targetWidth / aspect;
+  }
+  if (targetHeight > maxHeight) {
+    targetHeight = maxHeight;
+    targetWidth = targetHeight * aspect;
+  }
+  if (targetWidth < minWidth) {
+    targetWidth = minWidth;
+    targetHeight = targetWidth / aspect;
+  }
+  if (targetHeight < minHeight) {
+    targetHeight = minHeight;
+    targetWidth = targetHeight * aspect;
+  }
+  return {
+    width: Math.round(targetWidth),
+    height: Math.round(targetHeight)
+  };
+}
+
+function applySwfMetadataSize(runtimeKey, hostElement) {
+  if (!runtimeKey || !hostElement) return false;
+  const metadata = getSwfRuntimeMetadata(runtimeKey);
+  if (!metadata) return false;
+  const width = Number(metadata.width);
+  const height = Number(metadata.height);
+  const fitted = computeFittedSwfSize(width, height, {
+    minWidth: 260,
+    minHeight: 180,
+    maxWidth: 760,
+    maxHeight: 520
+  });
+  if (!fitted) return false;
+  hostElement.style.width = `${fitted.width}px`;
+  hostElement.style.height = `${fitted.height}px`;
+  hostElement.style.aspectRatio = `${Math.round(width)} / ${Math.round(height)}`;
+  return true;
+}
+
 function applySwfOptimalSize(runtimeKey, hostElement) {
   if (!hostElement) return false;
   const metadata = runtimeKey ? getSwfRuntimeMetadata(runtimeKey) : null;
@@ -1967,12 +2018,13 @@ function applySwfOptimalSize(runtimeKey, hostElement) {
     addDebugLog("info", "SWF metadata missing dimensions for optimal size", { key: runtimeKey || null, metadata });
     return false;
   }
-  const targetWidth = Math.max(240, Math.min(1200, Math.round(width)));
-  const targetHeight = Math.max(160, Math.min(900, Math.round(height)));
-  hostElement.style.width = `${targetWidth}px`;
-  hostElement.style.height = `${targetHeight}px`;
+  const fitted = computeFittedSwfSize(width, height);
+  if (!fitted) return false;
+  hostElement.style.width = `${fitted.width}px`;
+  hostElement.style.height = `${fitted.height}px`;
+  hostElement.style.aspectRatio = `${Math.round(width)} / ${Math.round(height)}`;
   hostElement.classList.add("message-swf-player--resizable");
-  addDebugLog("info", "Applied SWF optimal size", { key: runtimeKey || null, width: targetWidth, height: targetHeight });
+  addDebugLog("info", "Applied SWF optimal size", { key: runtimeKey || null, width: fitted.width, height: fitted.height });
   return true;
 }
 
@@ -2044,10 +2096,25 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
     const player = ruffle.createPlayer();
     player.style.width = "100%";
     player.style.height = "100%";
+    if (typeof player.ruffle === "function") {
+      try {
+        player.ruffle().config = {
+          ...(player.ruffle().config || {}),
+          scale: "showAll",
+          forceScale: true,
+          letterbox: "on"
+        };
+      } catch {
+        // Ignore config API failures and fall back to load options.
+      }
+    }
     if (runtimeKey) {
       player.addEventListener("loadedmetadata", () => {
         const metadata = getSwfRuntimeMetadata(runtimeKey);
-        if (metadata) addDebugLog("info", "SWF metadata loaded", { key: runtimeKey, metadata });
+        if (metadata) {
+          applySwfMetadataSize(runtimeKey, playerWrap);
+          addDebugLog("info", "SWF metadata loaded", { key: runtimeKey, metadata });
+        }
       });
     }
     playerWrap.innerHTML = "";
@@ -2079,7 +2146,14 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           return;
         }
         try {
-          await Promise.resolve(player.load({ url: candidate, autoplay, unmuteOverlay: "hidden" }));
+          await Promise.resolve(player.load({
+            url: candidate,
+            autoplay,
+            unmuteOverlay: "hidden",
+            scale: "showAll",
+            forceScale: true,
+            letterbox: "on"
+          }));
           addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
           loaded = true;
           break;
