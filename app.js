@@ -372,6 +372,8 @@ let swfLibrary = [];
 const debugLogs = [];
 let swfShelfOpen = false;
 let currentViewerSwf = null;
+let currentViewerRuntimeKey = null;
+const swfRuntimes = new Map();
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -519,6 +521,8 @@ const ui = {
   swfViewerHost: document.getElementById("swfViewerHost"),
   swfViewerTitle: document.getElementById("swfViewerTitle"),
   swfViewerZoomInput: document.getElementById("swfViewerZoomInput"),
+  swfViewerPauseBtn: document.getElementById("swfViewerPauseBtn"),
+  swfViewerResumeBtn: document.getElementById("swfViewerResumeBtn"),
   swfViewerSaveBtn: document.getElementById("swfViewerSaveBtn"),
   swfViewerCloseBtn: document.getElementById("swfViewerCloseBtn"),
   contextMenu: document.getElementById("contextMenu"),
@@ -1840,7 +1844,42 @@ function renderSwfShelf() {
   });
 }
 
-function attachRufflePlayer(playerWrap, attachment, { autoplay = "on" } = {}) {
+function setSwfPlayback(runtimeKey, shouldPlay) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.player) return false;
+  try {
+    if (shouldPlay) {
+      if (typeof runtime.player.play === "function") runtime.player.play();
+      runtime.playing = true;
+    } else {
+      if (typeof runtime.player.pause === "function") runtime.player.pause();
+      runtime.playing = false;
+    }
+    return true;
+  } catch (error) {
+    addDebugLog("warn", "SWF playback toggle failed", { key: runtimeKey, shouldPlay, error: String(error) });
+    return false;
+  }
+}
+
+function bindSwfVisibilityObserver(runtimeKey) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.host || !runtime.player) return;
+  if (runtime.observer) {
+    runtime.observer.disconnect();
+    runtime.observer = null;
+  }
+  runtime.observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.target !== runtime.host) return;
+      if (currentViewerRuntimeKey === runtimeKey) return;
+      setSwfPlayback(runtimeKey, entry.isIntersecting);
+    });
+  }, { threshold: 0.22 });
+  runtime.observer.observe(runtime.host);
+}
+
+function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKey = null } = {}) {
   const mediaUrl = resolveMediaUrl(attachment.url);
   const hasRuffle = Boolean(window.RufflePlayer?.newest);
   if (!hasRuffle) {
@@ -1904,6 +1943,20 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on" } = {}) {
       }
       if (!loaded && playerWrap.isConnected) {
         playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+        if (runtimeKey) swfRuntimes.delete(runtimeKey);
+        return;
+      }
+      if (runtimeKey) {
+        swfRuntimes.set(runtimeKey, {
+          key: runtimeKey,
+          attachment: { ...attachment },
+          player,
+          host: playerWrap,
+          originHost: playerWrap,
+          playing: autoplay !== "off",
+          observer: null
+        });
+        bindSwfVisibilityObserver(runtimeKey);
       }
     };
     void loadWithFallback();
@@ -1913,8 +1966,9 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on" } = {}) {
   }
 }
 
-function openSwfViewer(attachment) {
+function openSwfViewer(attachment, runtimeKey = null) {
   currentViewerSwf = { name: attachment.name || "SWF file", url: attachment.url };
+  currentViewerRuntimeKey = runtimeKey;
   ui.swfViewerTitle.textContent = currentViewerSwf.name;
   ui.swfViewerZoomInput.value = "100";
   ui.swfViewerDialog.showModal();
@@ -1926,7 +1980,15 @@ function openSwfViewer(attachment) {
   host.style.height = "70vh";
   host.style.transformOrigin = "top left";
   ui.swfViewerHost.appendChild(host);
-  attachRufflePlayer(host, currentViewerSwf, { autoplay: "on" });
+  const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+  if (runtime?.player instanceof HTMLElement) {
+    runtime.host = host;
+    host.innerHTML = "";
+    host.appendChild(runtime.player);
+    setSwfPlayback(runtimeKey, true);
+  } else {
+    attachRufflePlayer(host, currentViewerSwf, { autoplay: "on", runtimeKey });
+  }
   host.style.transform = "scale(1)";
 }
 
@@ -1939,7 +2001,20 @@ function applySwfViewerZoom() {
   host.style.transformOrigin = "top left";
 }
 
-function renderMessageAttachment(container, attachment) {
+function closeSwfViewerAndRestore() {
+  const runtimeKey = currentViewerRuntimeKey;
+  const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+  if (runtime?.player instanceof HTMLElement && runtime.originHost?.isConnected) {
+    runtime.originHost.innerHTML = "";
+    runtime.originHost.appendChild(runtime.player);
+    runtime.host = runtime.originHost;
+    bindSwfVisibilityObserver(runtimeKey);
+  }
+  if (ui.swfViewerDialog.open) ui.swfViewerDialog.close();
+  currentViewerRuntimeKey = null;
+}
+
+function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
   const mediaUrl = resolveMediaUrl(attachment.url);
@@ -1967,16 +2042,31 @@ function renderMessageAttachment(container, attachment) {
     const playBtn = document.createElement("button");
     playBtn.type = "button";
     playBtn.textContent = "Play";
-    playBtn.addEventListener("click", () => attachRufflePlayer(playerWrap, attachment, { autoplay: "on" }));
+    playBtn.addEventListener("click", () => {
+      const runtime = swfKey ? swfRuntimes.get(swfKey) : null;
+      if (runtime) {
+        setSwfPlayback(swfKey, true);
+      } else {
+        attachRufflePlayer(playerWrap, attachment, { autoplay: "on", runtimeKey: swfKey });
+      }
+    });
+    const pauseBtn = document.createElement("button");
+    pauseBtn.type = "button";
+    pauseBtn.textContent = "Pause";
+    pauseBtn.addEventListener("click", () => {
+      if (!swfKey) return;
+      setSwfPlayback(swfKey, false);
+    });
     const viewerBtn = document.createElement("button");
     viewerBtn.type = "button";
     viewerBtn.textContent = "Open Viewer";
-    viewerBtn.addEventListener("click", () => openSwfViewer(attachment));
+    viewerBtn.addEventListener("click", () => openSwfViewer(attachment, swfKey));
     const saveBtn = document.createElement("button");
     saveBtn.type = "button";
     saveBtn.textContent = "Save to Shelf";
     saveBtn.addEventListener("click", () => saveSwfToShelf(attachment));
     controls.appendChild(playBtn);
+    controls.appendChild(pauseBtn);
     controls.appendChild(viewerBtn);
     controls.appendChild(saveBtn);
     card.appendChild(controls);
@@ -2245,6 +2335,12 @@ function openUserPopout(account, fallbackName = "Unknown") {
 
 function renderMessages() {
   const channel = getActiveChannel();
+  swfRuntimes.forEach((runtime, key) => {
+    if (key === currentViewerRuntimeKey) return;
+    if (runtime.host?.isConnected) return;
+    if (runtime.observer) runtime.observer.disconnect();
+    swfRuntimes.delete(key);
+  });
   ui.messageList.innerHTML = "";
   ui.activeChannelName.textContent = channel ? `#${channel.name}` : "#none";
   ui.activeChannelTopic.textContent = channel?.topic?.trim() || "No topic";
@@ -2460,7 +2556,9 @@ function renderMessages() {
     messageRow.appendChild(text);
     ui.messageList.appendChild(messageRow);
     if (imagePreview) messageRow.appendChild(imagePreview);
-    attachments.forEach((attachment) => renderMessageAttachment(messageRow, attachment));
+    attachments.forEach((attachment, index) => {
+      renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
+    });
     messageRow.appendChild(reactions);
     messageRow.appendChild(reactionPicker);
     messageRow.addEventListener("contextmenu", (event) => {
@@ -3071,11 +3169,24 @@ ui.clearSwfShelfBtn.addEventListener("click", () => {
   renderSwfShelf();
 });
 ui.swfViewerZoomInput.addEventListener("input", applySwfViewerZoom);
+ui.swfViewerPauseBtn.addEventListener("click", () => {
+  if (!currentViewerRuntimeKey) return;
+  setSwfPlayback(currentViewerRuntimeKey, false);
+});
+ui.swfViewerResumeBtn.addEventListener("click", () => {
+  if (!currentViewerRuntimeKey) return;
+  setSwfPlayback(currentViewerRuntimeKey, true);
+});
 ui.swfViewerSaveBtn.addEventListener("click", () => {
   if (!currentViewerSwf) return;
   saveSwfToShelf(currentViewerSwf);
 });
-ui.swfViewerCloseBtn.addEventListener("click", () => ui.swfViewerDialog.close());
+ui.swfViewerCloseBtn.addEventListener("click", closeSwfViewerAndRestore);
+ui.swfViewerDialog.addEventListener("close", () => {
+  if (currentViewerRuntimeKey) {
+    closeSwfViewerAndRestore();
+  }
+});
 
 ui.openRolesBtn.addEventListener("click", () => {
   if (!canCurrentUser("manageRoles")) {
