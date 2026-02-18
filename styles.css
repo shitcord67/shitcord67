@@ -696,11 +696,13 @@ button {
 }
 
 .media-picker {
+  display: flex;
+  flex-direction: column;
   background: #111214;
   border: 1px solid #343841;
   border-radius: 12px;
   margin-bottom: 0.35rem;
-  max-height: 340px;
+  max-height: min(70vh, 640px);
   overflow: hidden;
 }
 
@@ -756,6 +758,8 @@ button {
 }
 
 .media-picker__grid {
+  flex: 1;
+  min-height: 0;
   column-count: 2;
   column-gap: 0.45rem;
   max-height: 560px;
@@ -1201,8 +1205,13 @@ button {
 }
 
 .swf-pip-player {
-  width: 100%;
   min-height: 220px;
+}
+
+.message-swf-player--pip-floating {
+  position: fixed !important;
+  z-index: 125;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
 }
 
 .debug-output {

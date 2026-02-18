@@ -2168,10 +2168,6 @@ function activateSwfPipTab(runtimeKey) {
 }
 
 function removeSwfPipTab(runtimeKey) {
-  const runtime = swfRuntimes.get(runtimeKey);
-  if (runtime?.pipHost?.parentElement === ui.swfPipHost) {
-    ui.swfPipHost.removeChild(runtime.pipHost);
-  }
   const index = swfPipTabs.indexOf(runtimeKey);
   if (index >= 0) swfPipTabs.splice(index, 1);
   if (swfPipActiveKey === runtimeKey) {
@@ -2195,18 +2191,8 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     }
     runtime.pipTransitioning = true;
     runtime.inPip = true;
-    if (runtime.host.parentElement && runtime.host.parentElement !== ui.swfPipHost) {
-      const placeholder = document.createElement("div");
-      placeholder.className = "channel-empty";
-      placeholder.textContent = "Running in PiP tab.";
-      runtime.host.before(placeholder);
-      runtime.pipPlaceholder = placeholder;
-    }
-    if (runtime.host.parentElement !== ui.swfPipHost) {
-      ui.swfPipHost.appendChild(runtime.host);
-    }
     runtime.pipHost = runtime.host;
-    runtime.pipHost.classList.add("swf-pip-player");
+    runtime.pipHost.classList.add("swf-pip-player", "message-swf-player--pip-floating");
     runtime.pipTransitioning = false;
     activateSwfPipTab(runtimeKey);
     setSwfPlayback(runtimeKey, true, "user");
@@ -2214,16 +2200,12 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   }
   runtime.pipTransitioning = true;
   runtime.inPip = false;
-  if (runtime.pipPlaceholder?.isConnected) {
-    runtime.pipPlaceholder.replaceWith(runtime.host);
-    runtime.originHost = runtime.host;
-  } else if (runtime.originHost?.isConnected) {
-    runtime.originHost.innerHTML = "";
-    runtime.originHost.appendChild(runtime.host);
-  }
-  runtime.host.classList.remove("swf-pip-player");
+  runtime.host.classList.remove("swf-pip-player", "message-swf-player--pip-floating");
+  runtime.host.style.left = "";
+  runtime.host.style.top = "";
+  runtime.host.style.width = "";
+  runtime.host.style.height = "";
   runtime.pipHost = null;
-  runtime.pipPlaceholder = null;
   runtime.pipTransitioning = false;
   bindSwfVisibilityObserver(runtimeKey);
   removeSwfPipTab(runtimeKey);
@@ -2237,12 +2219,17 @@ function renderSwfPipDock() {
   ui.swfPipTabs.innerHTML = "";
   if (!hasTabs) return;
   if (!swfPipActiveKey || !swfPipTabs.includes(swfPipActiveKey)) swfPipActiveKey = swfPipTabs[0];
-  // Keep live Ruffle nodes attached; only toggle visibility to avoid destroying instances.
+  // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
+  const pipRect = ui.swfPipHost.getBoundingClientRect();
   swfPipTabs.forEach((runtimeKey) => {
     const runtime = swfRuntimes.get(runtimeKey);
     if (!runtime?.pipHost) return;
-    if (runtime.pipHost.parentElement !== ui.swfPipHost) ui.swfPipHost.appendChild(runtime.pipHost);
-    runtime.pipHost.style.display = runtimeKey === swfPipActiveKey ? "block" : "none";
+    const visible = runtimeKey === swfPipActiveKey && !ui.swfPipDock.classList.contains("swf-pip--hidden");
+    runtime.pipHost.style.display = "block";
+    runtime.pipHost.style.left = `${visible ? Math.max(8, pipRect.left) : -20000}px`;
+    runtime.pipHost.style.top = `${visible ? Math.max(8, pipRect.top) : -20000}px`;
+    runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
+    runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
   });
   swfPipTabs.forEach((runtimeKey) => {
     const runtime = swfRuntimes.get(runtimeKey);
@@ -2273,7 +2260,6 @@ function renderSwfPipDock() {
   });
   const activeRuntime = swfRuntimes.get(swfPipActiveKey);
   if (!activeRuntime?.pipHost) return;
-  activeRuntime.pipHost.style.display = "block";
   setSwfPlayback(swfPipActiveKey, true, "user");
 }
 
