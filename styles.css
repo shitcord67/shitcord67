@@ -56,7 +56,7 @@ select {
   display: block;
 }
 
-#loginScreen {
+#loginScreen.screen--active {
   min-height: 100%;
   display: grid;
   place-items: center;
