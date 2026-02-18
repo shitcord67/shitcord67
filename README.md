@@ -19,12 +19,14 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/topic`, `/clear`, `/nick`, `/status`).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
+- Basic per-server role and permission system (create/assign roles, channel/topic/role management gates).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
 - Popouts/dialogs close by clicking outside the card content.
 - Server member list on the right, with presence dots.
 - Member list grouped into Online/Offline sections.
+- Role badges are shown on user profile popouts for the active server.
 - Account switching popup and logout.
 - Persisted state in `localStorage` (`flashcord-state-v2`, with migration from `flashcord-state-v1`).
 
