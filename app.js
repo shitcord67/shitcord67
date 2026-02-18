@@ -1917,7 +1917,7 @@ function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPicke
     const mediaUrl = resolveMediaUrl(entry.url);
     Promise.resolve(player.load({
       url: mediaUrl,
-      autoplay: "on",
+      autoplay: "off",
       unmuteOverlay: "hidden",
       scale: "showAll",
       forceScale: true,
@@ -1935,6 +1935,9 @@ function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPicke
             clearInterval(pulse);
             return;
           }
+          if ("volume" in player) player.volume = 0;
+          if ("muted" in player) player.muted = true;
+          if (typeof player.set_volume === "function") player.set_volume(0);
           if (typeof player.play === "function") player.play();
         }, 650);
       } catch {
@@ -2196,7 +2199,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
       const placeholder = document.createElement("div");
       placeholder.className = "channel-empty";
       placeholder.textContent = "Running in PiP tab.";
-      runtime.host.replaceWith(placeholder);
+      runtime.host.before(placeholder);
       runtime.pipPlaceholder = placeholder;
     }
     if (runtime.host.parentElement !== ui.swfPipHost) {
@@ -2891,13 +2894,13 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const exportSavesBtn = document.createElement("button");
     exportSavesBtn.type = "button";
     exportSavesBtn.className = "message-swf-top-btn";
-    exportSavesBtn.textContent = "⇩";
+    exportSavesBtn.textContent = "Save↓";
     exportSavesBtn.title = "Export SWF saves";
     exportSavesBtn.addEventListener("click", () => exportSwfSavesNow());
     const importSavesBtn = document.createElement("button");
     importSavesBtn.type = "button";
     importSavesBtn.className = "message-swf-top-btn";
-    importSavesBtn.textContent = "⇧";
+    importSavesBtn.textContent = "Save↑";
     importSavesBtn.title = "Import SWF saves";
     importSavesBtn.addEventListener("click", () => triggerImportSwfSaves());
     const audioIndicator = document.createElement("span");
