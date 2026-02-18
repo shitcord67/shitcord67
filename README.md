@@ -35,6 +35,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Message context menu can copy payload as JSON or Matrix-style XML.
 - SWFs auto-start in chat muted and are paused/resumed based on viewport visibility.
 - SWF controls include `Play`, `Pause`, `FullScreen`, `Reset` (with confirmation), `Resize`, and `Save to Shelf`.
+- Global SWF audio controls in Settings -> Advanced (`On/Off` + volume slider).
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).

@@ -171,7 +171,9 @@ function buildInitialState() {
       developerMode: "off",
       debugOverlay: "off",
       mute: "off",
-      deafen: "off"
+      deafen: "off",
+      swfAudio: "off",
+      swfVolume: 20
     }
   };
 }
@@ -487,6 +489,9 @@ const ui = {
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
+  swfAudioEnabledInput: document.getElementById("swfAudioEnabledInput"),
+  swfVolumeInput: document.getElementById("swfVolumeInput"),
+  swfVolumeValue: document.getElementById("swfVolumeValue"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -833,7 +838,9 @@ function getPreferences() {
     developerMode: normalizeToggle(current.developerMode),
     debugOverlay: normalizeToggle(current.debugOverlay),
     mute: normalizeToggle(current.mute),
-    deafen: normalizeToggle(current.deafen)
+    deafen: normalizeToggle(current.deafen),
+    swfAudio: normalizeToggle(current.swfAudio),
+    swfVolume: Number.isFinite(Number(current.swfVolume)) ? Math.min(100, Math.max(0, Number(current.swfVolume))) : defaults.swfVolume
   };
 }
 
@@ -1413,6 +1420,8 @@ function applyPreferencesToUI() {
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
   ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
+  if (ui.swfVolumeValue) ui.swfVolumeValue.textContent = `${Math.round(prefs.swfVolume)}%`;
+  applySwfAudioToAllRuntimes();
 }
 
 function displayNameForMessage(message) {
@@ -1890,6 +1899,30 @@ function setSwfPlayback(runtimeKey, shouldPlay) {
   }
 }
 
+function applySwfAudioToRuntime(runtimeKey) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.player) return;
+  const prefs = getPreferences();
+  const volume = prefs.swfAudio === "on" ? prefs.swfVolume / 100 : 0;
+  try {
+    if ("volume" in runtime.player) runtime.player.volume = volume;
+    if (typeof runtime.player.set_volume === "function") runtime.player.set_volume(volume);
+    if ("muted" in runtime.player) runtime.player.muted = prefs.swfAudio !== "on";
+    if (prefs.swfAudio !== "on" && typeof runtime.player.pause === "function") {
+      runtime.player.pause();
+    }
+    if (prefs.swfAudio === "on" && runtime.playing && typeof runtime.player.play === "function") {
+      runtime.player.play();
+    }
+  } catch (error) {
+    addDebugLog("warn", "Failed to apply SWF audio settings", { key: runtimeKey, error: String(error) });
+  }
+}
+
+function applySwfAudioToAllRuntimes() {
+  swfRuntimes.forEach((_, key) => applySwfAudioToRuntime(key));
+}
+
 async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
   let runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
   if (!runtime && hostElement && attachment) {
@@ -2020,6 +2053,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           floating: false,
           restoreStyle: ""
         });
+        applySwfAudioToRuntime(runtimeKey);
         bindSwfVisibilityObserver(runtimeKey);
       }
     };
@@ -2975,6 +3009,9 @@ function renderSettingsScreen() {
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;
+  ui.swfAudioEnabledInput.value = prefs.swfAudio;
+  ui.swfVolumeInput.value = String(Math.round(prefs.swfVolume));
+  ui.swfVolumeValue.textContent = `${Math.round(prefs.swfVolume)}%`;
 }
 
 function openSettingsScreen() {
@@ -3498,8 +3535,26 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences = getPreferences();
   state.preferences.developerMode = normalizeToggle(ui.developerModeInput.value);
   state.preferences.debugOverlay = normalizeToggle(ui.debugOverlayInput.value);
+  state.preferences.swfAudio = normalizeToggle(ui.swfAudioEnabledInput.value);
+  state.preferences.swfVolume = Math.min(100, Math.max(0, Number(ui.swfVolumeInput.value) || 0));
   saveState();
   render();
+});
+
+ui.swfAudioEnabledInput.addEventListener("change", () => {
+  state.preferences = getPreferences();
+  state.preferences.swfAudio = normalizeToggle(ui.swfAudioEnabledInput.value);
+  saveState();
+  applyPreferencesToUI();
+});
+
+ui.swfVolumeInput.addEventListener("input", () => {
+  const value = Math.min(100, Math.max(0, Number(ui.swfVolumeInput.value) || 0));
+  ui.swfVolumeValue.textContent = `${Math.round(value)}%`;
+  state.preferences = getPreferences();
+  state.preferences.swfVolume = value;
+  saveState();
+  applyPreferencesToUI();
 });
 
 ui.exportDataBtn.addEventListener("click", () => {
