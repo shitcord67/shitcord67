@@ -258,6 +258,15 @@
       <input id="profileAvatarInput" type="text" placeholder="#57f287" />
       <label for="profileAvatarUrlInput">Avatar image URL</label>
       <input id="profileAvatarUrlInput" type="text" placeholder="https://..." />
+      <div class="profile-avatar-upload">
+        <div id="profileAvatarPreview" class="profile-avatar-upload__preview" aria-hidden="true"></div>
+        <div class="profile-avatar-upload__actions">
+          <button id="profileAvatarUploadBtn" type="button">Upload Avatar</button>
+          <button id="profileAvatarClearBtn" type="button">Clear Avatar Image</button>
+          <small id="profileAvatarUploadHint">Accepts image files up to 2 MB.</small>
+        </div>
+      </div>
+      <input id="profileAvatarFileInput" type="file" accept="image/*" hidden />
       <div class="modal-actions">
         <button type="button" id="profileCancel">Cancel</button>
         <button type="submit">Save</button>

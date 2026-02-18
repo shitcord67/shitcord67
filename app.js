@@ -11,6 +11,7 @@ const SLASH_COMMANDS = [
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
 const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg"];
+const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const EMOJI_LIBRARY = [
   { name: "grinning", value: "😀" },
   { name: "joy", value: "😂" },
@@ -454,6 +455,11 @@ const ui = {
   profileBannerInput: document.getElementById("profileBannerInput"),
   profileAvatarInput: document.getElementById("profileAvatarInput"),
   profileAvatarUrlInput: document.getElementById("profileAvatarUrlInput"),
+  profileAvatarPreview: document.getElementById("profileAvatarPreview"),
+  profileAvatarUploadBtn: document.getElementById("profileAvatarUploadBtn"),
+  profileAvatarClearBtn: document.getElementById("profileAvatarClearBtn"),
+  profileAvatarUploadHint: document.getElementById("profileAvatarUploadHint"),
+  profileAvatarFileInput: document.getElementById("profileAvatarFileInput"),
   profileCancel: document.getElementById("profileCancel"),
   createServerDialog: document.getElementById("createServerDialog"),
   createServerForm: document.getElementById("createServerForm"),
@@ -908,6 +914,14 @@ function isLikelyUrl(value) {
   return /^https?:\/\//i.test((value || "").trim());
 }
 
+function isLikelyImageDataUrl(value) {
+  return /^data:image\/[a-z0-9.+-]+;base64,/i.test((value || "").trim());
+}
+
+function isRenderableAvatarUrl(value) {
+  return isLikelyUrl(value) || isLikelyImageDataUrl(value);
+}
+
 function applyBannerStyle(element, bannerValue) {
   const value = (bannerValue || "").trim();
   if (!value) {
@@ -929,10 +943,61 @@ function applyBannerStyle(element, bannerValue) {
 function applyAvatarStyle(element, account) {
   element.style.backgroundImage = "";
   element.style.backgroundColor = account?.avatarColor || "#57f287";
-  if (account && isLikelyUrl(account.avatarUrl || "")) {
+  if (account && isRenderableAvatarUrl(account.avatarUrl || "")) {
     element.style.backgroundImage = `url(${account.avatarUrl})`;
     element.style.backgroundSize = "cover";
     element.style.backgroundPosition = "center";
+  }
+}
+
+function renderProfileAvatarPreview() {
+  if (!ui.profileAvatarPreview) return;
+  ui.profileAvatarPreview.style.backgroundImage = "";
+  ui.profileAvatarPreview.style.backgroundColor = ui.profileAvatarInput.value.trim() || "#57f287";
+  const avatarUrl = ui.profileAvatarUrlInput.value.trim();
+  if (isRenderableAvatarUrl(avatarUrl)) {
+    ui.profileAvatarPreview.style.backgroundImage = `url(${avatarUrl})`;
+    ui.profileAvatarPreview.style.backgroundSize = "cover";
+    ui.profileAvatarPreview.style.backgroundPosition = "center";
+  }
+}
+
+function setProfileAvatarUploadHint(text, isError = false) {
+  if (!ui.profileAvatarUploadHint) return;
+  ui.profileAvatarUploadHint.textContent = text;
+  ui.profileAvatarUploadHint.style.color = isError ? "#f28b82" : "#aeb4bf";
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(new Error("file_read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function applyProfileAvatarFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    setProfileAvatarUploadHint("Invalid file type. Please choose an image.", true);
+    return;
+  }
+  if (file.size > PROFILE_AVATAR_MAX_BYTES) {
+    setProfileAvatarUploadHint("Image is too large. Max size is 2 MB.", true);
+    return;
+  }
+  try {
+    const dataUrl = await readFileAsDataUrl(file);
+    if (!isLikelyImageDataUrl(dataUrl)) {
+      setProfileAvatarUploadHint("Unsupported image format.", true);
+      return;
+    }
+    ui.profileAvatarUrlInput.value = dataUrl;
+    renderProfileAvatarPreview();
+    setProfileAvatarUploadHint(`Loaded ${file.name} (${Math.ceil(file.size / 1024)} KB).`);
+  } catch {
+    setProfileAvatarUploadHint("Failed to load image file.", true);
   }
 }
 
@@ -4081,6 +4146,8 @@ function openProfileEditor() {
   ui.profileBannerInput.value = account.banner || "";
   ui.profileAvatarInput.value = account.avatarColor || "#57f287";
   ui.profileAvatarUrlInput.value = account.avatarUrl || "";
+  setProfileAvatarUploadHint("Accepts image files up to 2 MB.");
+  renderProfileAvatarPreview();
   ui.profileDialog.showModal();
 }
 
@@ -4754,6 +4821,26 @@ ui.selfLogout.addEventListener("click", () => {
 
 ui.profileCancel.addEventListener("click", () => ui.profileDialog.close());
 
+ui.profileAvatarUploadBtn.addEventListener("click", () => {
+  ui.profileAvatarFileInput.click();
+});
+
+ui.profileAvatarClearBtn.addEventListener("click", () => {
+  ui.profileAvatarUrlInput.value = "";
+  ui.profileAvatarFileInput.value = "";
+  setProfileAvatarUploadHint("Avatar image cleared.");
+  renderProfileAvatarPreview();
+});
+
+ui.profileAvatarInput.addEventListener("input", renderProfileAvatarPreview);
+ui.profileAvatarUrlInput.addEventListener("input", renderProfileAvatarPreview);
+
+ui.profileAvatarFileInput.addEventListener("change", async () => {
+  const file = ui.profileAvatarFileInput.files?.[0];
+  await applyProfileAvatarFile(file);
+  ui.profileAvatarFileInput.value = "";
+});
+
 ui.profileForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const account = getCurrentAccount();
@@ -4765,7 +4852,8 @@ ui.profileForm.addEventListener("submit", (event) => {
   account.presence = normalizePresence(ui.presenceInput.value);
   account.banner = ui.profileBannerInput.value.trim();
   account.avatarColor = ui.profileAvatarInput.value.trim() || "#57f287";
-  account.avatarUrl = ui.profileAvatarUrlInput.value.trim();
+  const avatarUrl = ui.profileAvatarUrlInput.value.trim();
+  account.avatarUrl = isRenderableAvatarUrl(avatarUrl) ? avatarUrl : "";
 
   saveState();
   ui.profileDialog.close();
