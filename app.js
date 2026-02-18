@@ -33,6 +33,9 @@ const SLASH_COMMANDS = [
   { name: "nextunread", args: "", description: "Switch to next unread channel in this guild." },
   { name: "prevunread", args: "", description: "Switch to previous unread channel in this guild." },
   { name: "unreadcount", args: "", description: "Show unread/mention totals for this guild." },
+  { name: "drafts", args: "", description: "List current channel/DM drafts." },
+  { name: "cleardrafts", args: "[all]", description: "Clear draft for this conversation or all drafts." },
+  { name: "focus", args: "[search|composer]", description: "Focus channel/DM search or composer." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -926,6 +929,23 @@ function getComposerDraft(conversationId) {
   if (!conversationId) return "";
   const drafts = ensureComposerDraftsStore();
   return (drafts[conversationId] || "").toString().slice(0, 400);
+}
+
+function hasDraftForConversation(conversationId) {
+  return Boolean(getComposerDraft(conversationId).trim());
+}
+
+function countDraftsForGuildChannels(guild) {
+  if (!guild || !Array.isArray(guild.channels)) return 0;
+  return guild.channels.reduce((acc, channel) => acc + (hasDraftForConversation(channel.id) ? 1 : 0), 0);
+}
+
+function countDraftsForCurrentAccountDms(account) {
+  if (!account) return 0;
+  return state.dmThreads.reduce((acc, thread) => {
+    if (!Array.isArray(thread.participantIds) || !thread.participantIds.includes(account.id)) return acc;
+    return acc + (hasDraftForConversation(thread.id) ? 1 : 0);
+  }, 0);
 }
 
 function queueComposerDraftSave() {
@@ -2108,6 +2128,19 @@ function setActiveChannelTopic(text) {
   }
 }
 
+function activeConversationReferenceText() {
+  const conversation = getActiveConversation();
+  if (!conversation) return "";
+  if (conversation.type === "dm") {
+    const current = getCurrentAccount();
+    const peerId = conversation.thread?.participantIds?.find((id) => id !== current?.id);
+    const peer = peerId ? getAccountById(peerId) : null;
+    return peer ? `@${peer.username}` : "@dm";
+  }
+  const channel = conversation.channel;
+  return channel ? `#${channel.name}` : "";
+}
+
 function resizeComposerInput() {
   if (!(ui.messageInput instanceof HTMLTextAreaElement)) return;
   ui.messageInput.style.height = "0px";
@@ -2937,6 +2970,7 @@ function handleSlashCommand(rawText, channel, account) {
   if (!rawText.startsWith("/")) return false;
   const [command, ...rest] = rawText.slice(1).split(" ");
   const arg = rest.join(" ").trim();
+  const conversationId = channel?.id || null;
 
   if (command === "me") {
     if (!arg) return true;
@@ -3331,6 +3365,59 @@ function handleSlashCommand(rawText, channel, account) {
       channel,
       `Unread in ${guild.name}: ${totals.unread} message${totals.unread === 1 ? "" : "s"}, ${totals.mentions} mention${totals.mentions === 1 ? "" : "s"}.`
     );
+    return true;
+  }
+
+  if (command === "drafts") {
+    const guild = getActiveGuild();
+    const channelDrafts = guild?.channels
+      ?.filter((entry) => hasDraftForConversation(entry.id))
+      ?.map((entry) => `#${entry.name}`) || [];
+    const dmDrafts = state.dmThreads
+      .filter((thread) => hasDraftForConversation(thread.id))
+      .map((thread) => {
+        const peerId = thread.participantIds.find((id) => id !== account.id);
+        const peer = peerId ? getAccountById(peerId) : null;
+        return peer ? `@${peer.username}` : "(unknown DM)";
+      });
+    const parts = [];
+    if (channelDrafts.length > 0) parts.push(`Channels: ${channelDrafts.join(", ")}`);
+    if (dmDrafts.length > 0) parts.push(`DMs: ${dmDrafts.join(", ")}`);
+    addSystemMessage(channel, parts.length > 0 ? parts.join("\n") : "No saved drafts.");
+    return true;
+  }
+
+  if (command === "cleardrafts") {
+    const scope = arg.toLowerCase();
+    if (scope === "all") {
+      state.composerDrafts = {};
+      if (conversationId) setComposerDraft(conversationId, "");
+      addSystemMessage(channel, "Cleared all saved drafts.");
+      renderChannels();
+      return true;
+    }
+    if (conversationId) setComposerDraft(conversationId, "");
+    ui.messageInput.value = "";
+    resizeComposerInput();
+    addSystemMessage(channel, "Cleared draft for this conversation.");
+    renderChannels();
+    renderComposerMeta();
+    return true;
+  }
+
+  if (command === "focus") {
+    const target = arg.toLowerCase();
+    if (!target || target === "search") {
+      const input = getViewMode() === "dm" ? ui.dmSearchInput : ui.channelFilterInput;
+      input?.focus();
+      input?.select?.();
+      return true;
+    }
+    if (target === "composer") {
+      ui.messageInput.focus();
+      return true;
+    }
+    addSystemMessage(channel, "Usage: /focus [search|composer]");
     return true;
   }
 
@@ -6444,6 +6531,15 @@ function renderDmList() {
   ui.dmList.innerHTML = "";
   const currentAccount = getCurrentAccount();
   if (!currentAccount) return;
+  if (ui.toggleDmSectionBtn) {
+    const heading = ui.toggleDmSectionBtn.querySelector("span");
+    const unreadTotals = getTotalDmUnreadStats(currentAccount);
+    const draftCount = countDraftsForCurrentAccountDms(currentAccount);
+    const chunks = ["Direct Messages"];
+    if (unreadTotals.unread > 0) chunks.push(unreadTotals.unread > 99 ? "99+" : String(unreadTotals.unread));
+    if (draftCount > 0) chunks.push(`${draftCount} drafts`);
+    if (heading) heading.textContent = chunks.join(" • ");
+  }
   const filter = dmSearchTerm.trim().toLowerCase();
   if (ui.dmSearchInput && ui.dmSearchInput.value !== dmSearchTerm) ui.dmSearchInput.value = dmSearchTerm;
   const threads = state.dmThreads
@@ -6505,11 +6601,21 @@ function renderDmList() {
     content.appendChild(preview);
     button.appendChild(content);
     const unread = getDmUnreadStats(thread, currentAccount);
+    const hasDraft = hasDraftForConversation(thread.id);
     if (unread.unread > 0) {
       const badge = document.createElement("span");
       badge.className = `channel-badge ${unread.mentions > 0 ? "channel-badge--mention" : ""}`;
       badge.textContent = unread.unread > 99 ? "99+" : String(unread.unread);
       button.appendChild(badge);
+    } else if (hasDraft) {
+      const draftBadge = document.createElement("span");
+      draftBadge.className = "channel-badge channel-badge--draft";
+      draftBadge.textContent = "Draft";
+      button.appendChild(draftBadge);
+      button.classList.add("channel-item--draft");
+    }
+    if (hasDraft) {
+      button.title = `${button.title ? `${button.title} • ` : ""}Has unsent draft`;
     }
     button.addEventListener("click", () => {
       state.viewMode = "dm";
@@ -6584,8 +6690,17 @@ function renderChannels() {
     ui.activeServerName.textContent = "No guild";
     return;
   }
-
   const currentAccount = getCurrentAccount();
+  if (ui.toggleGuildSectionBtn) {
+    const heading = ui.toggleGuildSectionBtn.querySelector("span");
+    const guildStats = getGuildUnreadStats(server, currentAccount);
+    const draftCount = countDraftsForGuildChannels(server);
+    const chunks = ["Channels"];
+    if (guildStats.unread > 0) chunks.push(guildStats.unread > 99 ? "99+" : String(guildStats.unread));
+    if (draftCount > 0) chunks.push(`${draftCount} drafts`);
+    if (heading) heading.textContent = chunks.join(" • ");
+  }
+
   const notificationMode = getGuildNotificationMode(server.id);
   const filter = channelFilterTerm.trim().toLowerCase();
   if (ui.channelFilterInput && ui.channelFilterInput.value !== channelFilterTerm) {
@@ -6611,6 +6726,7 @@ function renderChannels() {
     label.className = "channel-item__name";
     label.textContent = channel.name;
     button.appendChild(label);
+    const hasDraft = hasDraftForConversation(channel.id);
     const unreadStats = applyGuildNotificationModeToStats(
       getChannelUnreadStats(channel, currentAccount),
       notificationMode
@@ -6627,6 +6743,15 @@ function renderChannels() {
       unreadBadge.textContent = "";
       button.appendChild(unreadBadge);
       button.classList.add("channel-item--unread");
+    } else if (hasDraft) {
+      const draftBadge = document.createElement("span");
+      draftBadge.className = "channel-badge channel-badge--draft";
+      draftBadge.textContent = "Draft";
+      button.appendChild(draftBadge);
+      button.classList.add("channel-item--draft");
+    }
+    if (hasDraft) {
+      button.title = `${button.title ? `${button.title} • ` : ""}Has unsent draft`;
     }
     button.addEventListener("click", () => {
       state.viewMode = "guild";
@@ -8528,6 +8653,7 @@ ui.messageInput.addEventListener("input", () => {
   setComposerDraft(composerDraftConversationId, ui.messageInput.value);
   queueComposerDraftSave();
   resizeComposerInput();
+  renderChannels();
   slashSelectionIndex = 0;
   mentionSelectionIndex = 0;
   renderSlashSuggestions();
@@ -8722,11 +8848,14 @@ ui.channelFilterInput.addEventListener("input", () => {
 
 ui.channelFilterInput.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  if (!channelFilterTerm) return;
   event.preventDefault();
-  channelFilterTerm = "";
-  ui.channelFilterInput.value = "";
-  renderChannels();
+  if (channelFilterTerm) {
+    channelFilterTerm = "";
+    ui.channelFilterInput.value = "";
+    renderChannels();
+    return;
+  }
+  ui.channelFilterInput.blur();
 });
 
 ui.dmSearchInput.addEventListener("input", () => {
@@ -8740,6 +8869,11 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
     dmSearchTerm = "";
     ui.dmSearchInput.value = "";
     renderDmList();
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    ui.dmSearchInput.blur();
     return;
   }
   if (event.key !== "Enter") return;
@@ -8846,6 +8980,16 @@ ui.messageInput.addEventListener("keydown", (event) => {
   }
   if (
     event.key === "Enter"
+    && (event.ctrlKey || event.metaKey)
+    && !event.shiftKey
+    && !event.altKey
+  ) {
+    event.preventDefault();
+    ui.messageForm.requestSubmit();
+    return;
+  }
+  if (
+    event.key === "Enter"
     && !event.shiftKey
     && !event.ctrlKey
     && !event.metaKey
@@ -8940,6 +9084,45 @@ ui.serverBrand.addEventListener("click", () => {
   state.activeDmId = null;
   saveState();
   render();
+});
+
+ui.serverBrand.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  const current = getCurrentAccount();
+  const dmStats = getTotalDmUnreadStats(current);
+  openContextMenu(event, [
+    {
+      label: "Open DM Home",
+      action: () => {
+        state.viewMode = "dm";
+        state.activeDmId = null;
+        saveState();
+        render();
+      }
+    },
+    {
+      label: "Mark All DMs Read",
+      disabled: !current || dmStats.unread === 0,
+      action: () => {
+        if (!current) return;
+        let changed = false;
+        state.dmThreads.forEach((thread) => {
+          if (!Array.isArray(thread.participantIds) || !thread.participantIds.includes(current.id)) return;
+          if (markDmRead(thread, current.id)) changed = true;
+        });
+        if (!changed) return;
+        saveState();
+        render();
+      }
+    }
+  ]);
+});
+
+ui.activeChannelName?.addEventListener("click", () => {
+  const ref = activeConversationReferenceText();
+  if (!ref) return;
+  copyText(ref);
+  showToast(`Copied ${ref}`);
 });
 
 ui.activeServerName.addEventListener("dblclick", () => {
@@ -10011,6 +10194,14 @@ document.addEventListener("keydown", (event) => {
     }
   }
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "f") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    const target = getViewMode() === "dm" ? ui.dmSearchInput : ui.channelFilterInput;
+    target?.focus();
+    target?.select?.();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {
     if (!state.currentAccountId) return;
     event.preventDefault();
     const target = getViewMode() === "dm" ? ui.dmSearchInput : ui.channelFilterInput;

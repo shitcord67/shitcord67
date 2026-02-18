@@ -70,6 +70,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Alt+O` opens PDF tab, `Alt+U` opens file attach.
 - Extra channel shortcuts: `Alt+I` opens pins, `Alt+R` marks current channel read, `Alt+N/P` jumps unread channels, `Alt+ArrowUp/Down` navigates channels.
 - Section visibility shortcuts: `Alt+Shift+D` collapses/expands DM section, `Alt+Shift+C` collapses/expands guild channel section.
+- Quick-search shortcut: `Ctrl+K` (or `Cmd+K`) focuses active DM/channel search input.
 - Additional quick nav shortcuts: `Alt+1/2/3` open GIF/Sticker/Emoji tabs and `Ctrl+Shift+F` focuses channel/DM filter.
 - Guild channel rows now render dedicated channel-type icons with stronger active/hover states.
 - DM sidebar rows now render peer avatars + presence dots.
@@ -84,6 +85,10 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Quick composer focus shortcut: `Ctrl+Shift+L`.
 - Composer ergonomics: `ArrowUp` in empty composer opens editor for your latest editable message.
 - Composer newline/send behavior: `Enter` sends, `Shift+Enter` inserts newline.
+- Composer also supports `Ctrl+Enter` (or `Cmd+Enter`) to send.
+- New draft utility commands: `/drafts`, `/cleardrafts [all]`, `/focus [search|composer]`.
+- Channel/DM rows now show `Draft` badges for unsent composer drafts.
+- Right-click DM home icon allows `Mark All DMs Read`.
 - Composer `Escape` now cancels active reply target when input is empty.
 - Channel/DM search ergonomics: `Escape` clears active filter/search quickly.
 - DM list is now sorted by latest message activity.

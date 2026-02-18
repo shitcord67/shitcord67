@@ -458,6 +458,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   color: #d9dde5;
 }
 
+.channel-item--draft .channel-item__name {
+  color: #d9a648;
+}
+
 .channel-item__name {
   min-width: 0;
   overflow: hidden;
@@ -525,6 +529,17 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   padding: 0;
   border-radius: 50%;
   background: #cfd3da;
+}
+
+.channel-badge--draft {
+  min-width: 2rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(217, 166, 72, 0.2);
+  color: #e6be72;
+  font-size: 0.62rem;
+  font-weight: 800;
 }
 
 .channel-empty {
@@ -668,6 +683,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   display: flex;
   align-items: center;
   gap: 0.38rem;
+}
+
+#activeChannelName {
+  cursor: pointer;
 }
 
 .chat-channel-glyph {
