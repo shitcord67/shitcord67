@@ -24,6 +24,9 @@
 - User profile notes (private notes per account/user pair).
 - Guild folder grouping in server rail.
 - OLED theme mode with Appearance toggle.
+- Per-guild nicknames via profile editor and `/nick`.
+- Custom status emoji + timed expiry presets (30m/1h/4h/today).
+- Channel type variants (text/announcement/forum/media) with distinct labels.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
 - Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
@@ -33,7 +36,6 @@
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
-- DM sidebar and 1:1 direct-message threads.
 - Per-guild notification settings (mute/mentions only/all).
 - WebXDC packaging path: `.xdc` zip, `manifest.toml`, and realtime sync via `joinRealtimeChannel().send`.
 - Bundle Ruffle locally (self-hosted script) and support richer SWF controls/fallback.
@@ -95,3 +97,4 @@
 - Support openraster
 - Option to send mails? shitcord67 as a mail client with option to save mail files?
 - Get inspiration from chinese WeChat which is the everything app, lol
+- The guild channel sidebar and the DM sidebar should be seperate. The DM sidebar should only be visible when clicking at the top icon (S67 for now, maybe replace with SVG version of 🫪  emoi)
