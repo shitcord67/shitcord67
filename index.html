@@ -204,6 +204,21 @@
               <option value="global">Global (all guilds/chats)</option>
               <option value="guild">Per guild/chat</option>
             </select>
+            <label for="swfAutoplayInput">SWF autoplay default</label>
+            <select id="swfAutoplayInput">
+              <option value="on">Autoplay when visible</option>
+              <option value="off">Start paused</option>
+            </select>
+            <label for="swfPauseOnMuteInput">Pause SWF when auto-muted</label>
+            <select id="swfPauseOnMuteInput">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+            <label for="swfVuMeterInput">SWF VU meter (details)</label>
+            <select id="swfVuMeterInput">
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export JSON</button>
               <button id="importDataBtn" type="button">Import JSON</button>
@@ -408,6 +423,15 @@
       </div>
     </form>
   </dialog>
+
+  <section id="swfPipDock" class="swf-pip swf-pip--hidden">
+    <header class="swf-pip__header">
+      <strong>SWF PiP</strong>
+      <button id="swfPipCloseBtn" type="button">Hide</button>
+    </header>
+    <div id="swfPipTabs" class="swf-pip__tabs"></div>
+    <div id="swfPipHost" class="swf-pip__host"></div>
+  </section>
 
   <dialog id="swfViewerDialog" class="modal swf-viewer">
     <div class="swf-viewer__card">

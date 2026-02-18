@@ -175,7 +175,10 @@ function buildInitialState() {
       swfAudio: "off",
       swfVolume: 20,
       swfAudioPolicy: "single",
-      swfAudioScope: "global"
+      swfAudioScope: "global",
+      swfAutoplay: "on",
+      swfPauseOnMute: "off",
+      swfVuMeter: "off"
     }
   };
 }
@@ -379,9 +382,13 @@ let currentViewerSwf = null;
 let currentViewerRuntimeKey = null;
 let fullscreenRuntimeKey = null;
 let swfAudioFocusRuntimeKey = null;
+let swfSoloRuntimeKey = null;
 const swfRuntimes = new Map();
 const swfPendingAudio = new Map();
 const swfPendingUi = new Map();
+const swfPipTabs = [];
+let swfPipActiveKey = null;
+let swfPipManuallyHidden = false;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -496,6 +503,9 @@ const ui = {
   debugOverlayInput: document.getElementById("debugOverlayInput"),
   swfAudioPolicyInput: document.getElementById("swfAudioPolicyInput"),
   swfAudioScopeInput: document.getElementById("swfAudioScopeInput"),
+  swfAutoplayInput: document.getElementById("swfAutoplayInput"),
+  swfPauseOnMuteInput: document.getElementById("swfPauseOnMuteInput"),
+  swfVuMeterInput: document.getElementById("swfVuMeterInput"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -527,6 +537,10 @@ const ui = {
   refreshDebugBtn: document.getElementById("refreshDebugBtn"),
   clearDebugBtn: document.getElementById("clearDebugBtn"),
   debugCloseBtn: document.getElementById("debugCloseBtn"),
+  swfPipDock: document.getElementById("swfPipDock"),
+  swfPipTabs: document.getElementById("swfPipTabs"),
+  swfPipHost: document.getElementById("swfPipHost"),
+  swfPipCloseBtn: document.getElementById("swfPipCloseBtn"),
   swfViewerDialog: document.getElementById("swfViewerDialog"),
   swfViewerHost: document.getElementById("swfViewerHost"),
   swfViewerTitle: document.getElementById("swfViewerTitle"),
@@ -841,6 +855,10 @@ function normalizeSwfAudioScope(value) {
   return value === "guild" ? "guild" : "global";
 }
 
+function normalizeSwfAutoplay(value) {
+  return value === "off" ? "off" : "on";
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
@@ -854,8 +872,15 @@ function getPreferences() {
     swfAudio: normalizeToggle(current.swfAudio),
     swfVolume: Number.isFinite(Number(current.swfVolume)) ? Math.min(100, Math.max(0, Number(current.swfVolume))) : defaults.swfVolume,
     swfAudioPolicy: normalizeSwfAudioPolicy(current.swfAudioPolicy),
-    swfAudioScope: normalizeSwfAudioScope(current.swfAudioScope)
+    swfAudioScope: normalizeSwfAudioScope(current.swfAudioScope),
+    swfAutoplay: normalizeSwfAutoplay(current.swfAutoplay),
+    swfPauseOnMute: normalizeToggle(current.swfPauseOnMute),
+    swfVuMeter: normalizeToggle(current.swfVuMeter)
   };
+}
+
+function swfAutoplayFromPreferences() {
+  return getPreferences().swfAutoplay === "off" ? "off" : "on";
 }
 
 function displayStatus(account) {
@@ -1712,6 +1737,62 @@ async function addMediaFromFileFlow(file) {
   }
 }
 
+function renderSwfPickerPreview(host, entry, index = 0) {
+  host.innerHTML = "";
+  host.style.display = "grid";
+  host.style.placeItems = "center";
+  host.style.color = "#c4ccd8";
+  host.style.fontSize = "0.76rem";
+  host.textContent = "SWF";
+  if (!window.RufflePlayer?.newest) return;
+  if (index > 10) return;
+  try {
+    const player = window.RufflePlayer.newest().createPlayer();
+    player.style.width = "100%";
+    player.style.height = "100%";
+    host.innerHTML = "";
+    host.appendChild(player);
+    const mediaUrl = resolveMediaUrl(entry.url);
+    Promise.resolve(player.load({
+      url: mediaUrl,
+      autoplay: "on",
+      unmuteOverlay: "hidden",
+      scale: "showAll",
+      forceScale: true,
+      letterbox: "on",
+      openUrlMode: "deny"
+    })).then(() => {
+      try {
+        if ("volume" in player) player.volume = 0;
+        if ("muted" in player) player.muted = true;
+        if (typeof player.set_volume === "function") player.set_volume(0);
+        if (typeof player.play === "function") player.play();
+        setTimeout(() => {
+          if (typeof player.pause === "function" && host.isConnected) player.pause();
+        }, 500 + (index % 3) * 120);
+        const interval = window.setInterval(() => {
+          if (!host.isConnected) {
+            clearInterval(interval);
+            return;
+          }
+          if (typeof player.play === "function") player.play();
+          window.setTimeout(() => {
+            if (host.isConnected && typeof player.pause === "function") player.pause();
+          }, 280);
+        }, 1800 + (index % 4) * 180);
+      } catch {
+        // Ignore preview sampling failures.
+      }
+    }).catch(() => {
+      host.innerHTML = "";
+      host.textContent = "SWF";
+    });
+  } catch {
+    host.innerHTML = "";
+    host.textContent = "SWF";
+  }
+}
+
 function renderMediaPicker() {
   ui.mediaTabs.forEach((tabBtn) => {
     tabBtn.classList.toggle("active", tabBtn.dataset.mediaTab === mediaPickerTab);
@@ -1732,7 +1813,7 @@ function renderMediaPicker() {
     return;
   }
 
-  entries.slice(0, 140).forEach((entry) => {
+  entries.slice(0, 140).forEach((entry, index) => {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "media-card";
@@ -1773,11 +1854,7 @@ function renderMediaPicker() {
     if (mediaPickerTab === "swf") {
       const preview = document.createElement("div");
       preview.className = "media-card__preview";
-      preview.style.display = "grid";
-      preview.style.placeItems = "center";
-      preview.style.color = "#c4ccd8";
-      preview.style.fontSize = "0.76rem";
-      preview.textContent = "SWF";
+      renderSwfPickerPreview(preview, entry, index);
       card.appendChild(preview);
       card.appendChild(label);
       card.addEventListener("click", () => sendMediaAttachment(entry, "swf"));
@@ -1870,6 +1947,96 @@ function renderSwfShelf() {
   });
 }
 
+function activateSwfPipTab(runtimeKey) {
+  if (!runtimeKey) return;
+  if (!swfPipTabs.includes(runtimeKey)) swfPipTabs.push(runtimeKey);
+  swfPipActiveKey = runtimeKey;
+  swfPipManuallyHidden = false;
+  renderSwfPipDock();
+}
+
+function removeSwfPipTab(runtimeKey) {
+  const index = swfPipTabs.indexOf(runtimeKey);
+  if (index >= 0) swfPipTabs.splice(index, 1);
+  if (swfPipActiveKey === runtimeKey) {
+    swfPipActiveKey = swfPipTabs[swfPipTabs.length - 1] || null;
+  }
+  renderSwfPipDock();
+}
+
+function setSwfRuntimePip(runtimeKey, enabled) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.player) return false;
+  if (enabled) {
+    if (runtime.observer) {
+      runtime.observer.disconnect();
+      runtime.observer = null;
+    }
+    runtime.inPip = true;
+    if (!(runtime.pipHost instanceof HTMLElement)) {
+      const pipHost = document.createElement("div");
+      pipHost.className = "message-swf-player swf-pip-player";
+      runtime.pipHost = pipHost;
+    }
+    runtime.pipHost.innerHTML = "";
+    runtime.pipHost.appendChild(runtime.player);
+    runtime.host = runtime.pipHost;
+    if (runtime.originHost?.isConnected) {
+      runtime.originHost.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
+    }
+    activateSwfPipTab(runtimeKey);
+    return true;
+  }
+  runtime.inPip = false;
+  if (runtime.originHost?.isConnected) {
+    runtime.originHost.innerHTML = "";
+    runtime.originHost.appendChild(runtime.player);
+    runtime.host = runtime.originHost;
+    bindSwfVisibilityObserver(runtimeKey);
+  }
+  removeSwfPipTab(runtimeKey);
+  return true;
+}
+
+function renderSwfPipDock() {
+  const hasTabs = swfPipTabs.length > 0;
+  ui.swfPipDock.classList.toggle("swf-pip--hidden", !hasTabs || swfPipManuallyHidden);
+  ui.swfPipTabs.innerHTML = "";
+  ui.swfPipHost.innerHTML = "";
+  if (!hasTabs) return;
+  if (!swfPipActiveKey || !swfPipTabs.includes(swfPipActiveKey)) swfPipActiveKey = swfPipTabs[0];
+  swfPipTabs.forEach((runtimeKey) => {
+    const runtime = swfRuntimes.get(runtimeKey);
+    if (!runtime) return;
+    const tabBtn = document.createElement("button");
+    tabBtn.type = "button";
+    tabBtn.className = "swf-pip__tab";
+    tabBtn.classList.toggle("active", runtimeKey === swfPipActiveKey);
+    tabBtn.textContent = runtime.attachment?.name || "SWF";
+    tabBtn.title = runtime.attachment?.name || "SWF";
+    tabBtn.addEventListener("click", () => {
+      swfPipActiveKey = runtimeKey;
+      renderSwfPipDock();
+      refreshSwfAudioFocus(runtimeKey);
+    });
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "swf-pip__tab-close";
+    closeBtn.textContent = "✕";
+    closeBtn.title = "Remove from PiP";
+    closeBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setSwfRuntimePip(runtimeKey, false);
+      refreshSwfAudioFocus();
+    });
+    tabBtn.appendChild(closeBtn);
+    ui.swfPipTabs.appendChild(tabBtn);
+  });
+  const activeRuntime = swfRuntimes.get(swfPipActiveKey);
+  if (!activeRuntime?.pipHost) return;
+  ui.swfPipHost.appendChild(activeRuntime.pipHost);
+}
+
 async function openSavedSwfFromShelf(entry) {
   const key = `shelf:${entry.url}`;
   let runtime = swfRuntimes.get(key);
@@ -1894,16 +2061,19 @@ async function openSavedSwfFromShelf(entry) {
   await openSwfFullscreen(key, host, entry);
 }
 
-function setSwfPlayback(runtimeKey, shouldPlay) {
+function setSwfPlayback(runtimeKey, shouldPlay, reason = "system") {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player) return false;
+  if (shouldPlay && reason === "system" && !runtime.allowAutoPlay && !runtime.manualPlay) return false;
   try {
     if (shouldPlay) {
       if (typeof runtime.player.play === "function") runtime.player.play();
       runtime.playing = true;
+      if (reason !== "system") runtime.manualPlay = true;
     } else {
       if (typeof runtime.player.pause === "function") runtime.player.pause();
       runtime.playing = false;
+      runtime.autoPausedByMute = false;
     }
     refreshSwfAudioFocus(shouldPlay ? runtimeKey : null);
     return true;
@@ -1911,6 +2081,42 @@ function setSwfPlayback(runtimeKey, shouldPlay) {
     addDebugLog("warn", "SWF playback toggle failed", { key: runtimeKey, shouldPlay, error: String(error) });
     return false;
   }
+}
+
+function runtimeIsVisible(runtime) {
+  if (!runtime?.host || !runtime.host.isConnected) return false;
+  const rect = runtime.host.getBoundingClientRect();
+  if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return false;
+  if (rect.width <= 2 || rect.height <= 2) return false;
+  return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
+}
+
+function runtimeDistanceToViewportCenter(runtime) {
+  if (!runtimeIsVisible(runtime)) return Number.POSITIVE_INFINITY;
+  const rect = runtime.host.getBoundingClientRect();
+  const centerX = window.innerWidth / 2;
+  const centerY = window.innerHeight / 2;
+  const runtimeX = rect.left + rect.width / 2;
+  const runtimeY = rect.top + rect.height / 2;
+  return Math.hypot(centerX - runtimeX, centerY - runtimeY);
+}
+
+function pickCenteredRuntimeKey(canUse, { guildId = null, preferredKey = null } = {}) {
+  const candidates = [];
+  swfRuntimes.forEach((runtime, key) => {
+    if (!canUse(key, runtime)) return;
+    if (guildId !== null && (runtime.guildId || "__ungrouped__") !== guildId) return;
+    candidates.push({ key, runtime, dist: runtimeDistanceToViewportCenter(runtime) });
+  });
+  if (candidates.length === 0) return null;
+  const fullscreenEntry = candidates.find(({ runtime }) => document.fullscreenElement && runtime.host === document.fullscreenElement);
+  if (fullscreenEntry) return fullscreenEntry.key;
+  const preferred = preferredKey ? candidates.find((entry) => entry.key === preferredKey) : null;
+  if (preferred && Number.isFinite(preferred.dist)) return preferred.key;
+  const visible = candidates.filter((entry) => Number.isFinite(entry.dist));
+  if (visible.length === 0) return candidates[0].key;
+  visible.sort((a, b) => a.dist - b.dist);
+  return visible[0].key;
 }
 
 function updateSwfAudioUi(runtimeKey) {
@@ -1940,11 +2146,33 @@ function updateSwfAudioUi(runtimeKey) {
     runtime.audioIndicatorEl.classList.toggle("is-active", audible);
     runtime.audioIndicatorEl.classList.toggle("is-pinned", Boolean(runtime.audioPinned));
   }
+  if (runtime.vuMeterFillEl instanceof HTMLElement) {
+    const audible = runtime.playing && runtime.audioEnabled && !runtime.audioSuppressed;
+    runtime.vuMeterFillEl.classList.toggle("is-active", audible);
+    runtime.vuMeterFillEl.style.width = audible ? `${42 + Math.round(Math.random() * 54)}%` : "0%";
+  }
 }
 
 function refreshSwfAudioFocus(preferredKey = null) {
   const prefs = getPreferences();
   const canUse = (key, runtime) => key && runtime?.playing && runtime.audioEnabled && !runtime.audioPinned;
+  if (swfSoloRuntimeKey) {
+    const soloRuntime = swfRuntimes.get(swfSoloRuntimeKey);
+    const allowSolo = canUse(swfSoloRuntimeKey, soloRuntime);
+    swfAudioFocusRuntimeKey = allowSolo ? swfSoloRuntimeKey : null;
+    swfRuntimes.forEach((runtime, key) => {
+      runtime.audioSuppressed = Boolean(
+        !runtime.audioPinned
+        && allowSolo
+        && key !== swfSoloRuntimeKey
+        && runtime.playing
+        && runtime.audioEnabled
+      );
+      applySwfAudioToRuntime(key);
+      updateSwfAudioUi(key);
+    });
+    return;
+  }
   if (prefs.swfAudioPolicy === "multi") {
     swfAudioFocusRuntimeKey = null;
     swfRuntimes.forEach((runtime, key) => {
@@ -1957,16 +2185,14 @@ function refreshSwfAudioFocus(preferredKey = null) {
 
   if (prefs.swfAudioScope === "guild") {
     const focusByGuild = new Map();
-    if (preferredKey) {
-      const preferred = swfRuntimes.get(preferredKey);
-      if (canUse(preferredKey, preferred)) {
-        focusByGuild.set(preferred.guildId || "__ungrouped__", preferredKey);
-      }
-    }
-    swfRuntimes.forEach((runtime, key) => {
-      if (!canUse(key, runtime)) return;
-      const guildKey = runtime.guildId || "__ungrouped__";
-      if (!focusByGuild.has(guildKey)) focusByGuild.set(guildKey, key);
+    swfRuntimes.forEach((runtime) => {
+      const guildKey = runtime?.guildId || "__ungrouped__";
+      if (focusByGuild.has(guildKey)) return;
+      const centered = pickCenteredRuntimeKey(canUse, {
+        guildId: guildKey,
+        preferredKey: preferredKey
+      });
+      if (centered) focusByGuild.set(guildKey, centered);
     });
     swfAudioFocusRuntimeKey = null;
     swfRuntimes.forEach((runtime, key) => {
@@ -1984,17 +2210,8 @@ function refreshSwfAudioFocus(preferredKey = null) {
     return;
   }
 
-  if (preferredKey) {
-    const preferred = swfRuntimes.get(preferredKey);
-    if (canUse(preferredKey, preferred)) swfAudioFocusRuntimeKey = preferredKey;
-  }
-  if (!canUse(swfAudioFocusRuntimeKey, swfRuntimes.get(swfAudioFocusRuntimeKey))) {
-    let fallbackKey = null;
-    swfRuntimes.forEach((runtime, key) => {
-      if (!fallbackKey && canUse(key, runtime)) fallbackKey = key;
-    });
-    swfAudioFocusRuntimeKey = fallbackKey;
-  }
+  const centeredGlobal = pickCenteredRuntimeKey(canUse, { preferredKey });
+  swfAudioFocusRuntimeKey = centeredGlobal;
   swfRuntimes.forEach((runtime, key) => {
     runtime.audioSuppressed = Boolean(
       !runtime.audioPinned
@@ -2020,11 +2237,20 @@ function applySwfAudioToRuntime(runtimeKey) {
     : prefs.swfVolume;
   const effectiveAudioEnabled = audioEnabled && !runtime.audioSuppressed;
   const volume = effectiveAudioEnabled ? Math.min(100, Math.max(0, volumePercent)) / 100 : 0;
+  const shouldPauseOnSuppressed = prefs.swfPauseOnMute === "on" && runtime.audioSuppressed;
   try {
     if ("volume" in runtime.player) runtime.player.volume = volume;
     if (typeof runtime.player.set_volume === "function") runtime.player.set_volume(volume);
     if ("muted" in runtime.player) runtime.player.muted = !effectiveAudioEnabled;
-    if (runtime.playing && typeof runtime.player.play === "function") {
+    if (shouldPauseOnSuppressed && runtime.playing && typeof runtime.player.pause === "function") {
+      runtime.player.pause();
+      runtime.autoPausedByMute = true;
+    }
+    if (!shouldPauseOnSuppressed && runtime.autoPausedByMute && runtime.playing && typeof runtime.player.play === "function") {
+      runtime.player.play();
+      runtime.autoPausedByMute = false;
+    }
+    if (!shouldPauseOnSuppressed && runtime.playing && typeof runtime.player.play === "function") {
       runtime.player.play();
     }
   } catch (error) {
@@ -2166,7 +2392,7 @@ async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
   try {
     await target.requestFullscreen();
     fullscreenRuntimeKey = runtimeKey;
-    if (runtimeKey) setSwfPlayback(runtimeKey, true);
+    if (runtimeKey) setSwfPlayback(runtimeKey, true, "user");
   } catch (error) {
     addDebugLog("warn", "SWF fullscreen request failed", { key: runtimeKey, error: String(error) });
   }
@@ -2178,19 +2404,22 @@ function resetSwfRuntime(runtimeKey, hostElement, attachment) {
   if (runtimeKey && runtime) {
     swfPendingUi.set(runtimeKey, {
       audioToggleEl: runtime.audioToggleEl || null,
-      audioIndicatorEl: runtime.audioIndicatorEl || null
+      audioIndicatorEl: runtime.audioIndicatorEl || null,
+      vuMeterFillEl: runtime.vuMeterFillEl || null
     });
   }
   if (runtime?.observer) runtime.observer.disconnect();
   if (runtimeKey) {
     swfRuntimes.delete(runtimeKey);
+    removeSwfPipTab(runtimeKey);
+    if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
     refreshSwfAudioFocus();
   }
   if (hostElement) {
     hostElement.innerHTML = "";
     hostElement.textContent = "Resetting SWF...";
   }
-  attachRufflePlayer(hostElement, attachment, { autoplay: "on", runtimeKey });
+  attachRufflePlayer(hostElement, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey });
 }
 
 function bindSwfVisibilityObserver(runtimeKey) {
@@ -2205,7 +2434,7 @@ function bindSwfVisibilityObserver(runtimeKey) {
       if (entry.target !== runtime.host) return;
       if (currentViewerRuntimeKey === runtimeKey) return;
       if (document.fullscreenElement && runtime.host === document.fullscreenElement) return;
-      setSwfPlayback(runtimeKey, entry.isIntersecting);
+      setSwfPlayback(runtimeKey, entry.isIntersecting, "system");
     });
   }, { threshold: 0.22 });
   runtime.observer.observe(runtime.host);
@@ -2234,7 +2463,8 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           ...(player.ruffle().config || {}),
           scale: "showAll",
           forceScale: true,
-          letterbox: "on"
+          letterbox: "on",
+          openUrlMode: "confirm"
         };
       } catch {
         // Ignore config API failures and fall back to load options.
@@ -2284,7 +2514,8 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             unmuteOverlay: "hidden",
             scale: "showAll",
             forceScale: true,
-            letterbox: "on"
+            letterbox: "on",
+            openUrlMode: "confirm"
           }));
           addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
           loaded = true;
@@ -2305,6 +2536,8 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
         if (runtimeKey) {
           swfRuntimes.delete(runtimeKey);
+          removeSwfPipTab(runtimeKey);
+          if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
           swfPendingUi.delete(runtimeKey);
           refreshSwfAudioFocus();
         }
@@ -2320,6 +2553,9 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           originHost: playerWrap,
           guildId: activeGuildId,
           playing: autoplay !== "off",
+          allowAutoPlay: autoplay !== "off",
+          manualPlay: false,
+          autoPausedByMute: false,
           observer: null,
           floating: false,
           restoreStyle: "",
@@ -2328,7 +2564,8 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           audioSuppressed: false,
           audioPinned: false,
           audioToggleEl: null,
-          audioIndicatorEl: null
+          audioIndicatorEl: null,
+          vuMeterFillEl: null
         });
         const pendingUi = swfPendingUi.get(runtimeKey);
         if (pendingUi) {
@@ -2336,6 +2573,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           if (runtime) {
             runtime.audioToggleEl = pendingUi.audioToggleEl || null;
             runtime.audioIndicatorEl = pendingUi.audioIndicatorEl || null;
+            runtime.vuMeterFillEl = pendingUi.vuMeterFillEl || null;
           }
           swfPendingUi.delete(runtimeKey);
         }
@@ -2381,7 +2619,7 @@ function openSwfViewer(attachment, runtimeKey = null) {
     runtime.host.classList.add("message-swf-player--floating");
     positionFloatingSwfHost(runtime);
     ui.swfViewerHost.innerHTML = "<div class=\"channel-empty\">Using the live running SWF instance.</div>";
-    setSwfPlayback(runtimeKey, true);
+    setSwfPlayback(runtimeKey, true, "user");
   } else {
     attachRufflePlayer(host, currentViewerSwf, { autoplay: "on", runtimeKey });
   }
@@ -2458,9 +2696,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     title.textContent = attachment.name || "SWF file";
     const meta = document.createElement("div");
     meta.className = "message-swf-meta";
-    const audioIndicator = document.createElement("span");
-    audioIndicator.className = "message-swf-audio-indicator";
-    audioIndicator.textContent = "Audio Idle";
+    const controlRow = document.createElement("div");
+    controlRow.className = "message-swf-top-controls";
     const saveIconBtn = document.createElement("button");
     saveIconBtn.type = "button";
     saveIconBtn.className = "message-swf-save-icon";
@@ -2468,9 +2705,61 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     saveIconBtn.setAttribute("aria-label", "Save SWF to shelf");
     saveIconBtn.textContent = "💾";
     saveIconBtn.addEventListener("click", () => saveSwfToShelf(attachment));
+    const audioIndicator = document.createElement("span");
+    audioIndicator.className = "message-swf-audio-indicator";
+    audioIndicator.textContent = "Audio Idle";
+    const playBtn = document.createElement("button");
+    playBtn.type = "button";
+    playBtn.className = "message-swf-top-btn";
+    playBtn.textContent = "▶";
+    playBtn.title = "Play";
+    const pauseBtn = document.createElement("button");
+    pauseBtn.type = "button";
+    pauseBtn.className = "message-swf-top-btn";
+    pauseBtn.textContent = "⏸";
+    pauseBtn.title = "Pause";
+    const fullscreenBtn = document.createElement("button");
+    fullscreenBtn.type = "button";
+    fullscreenBtn.className = "message-swf-top-btn";
+    fullscreenBtn.textContent = "⛶";
+    fullscreenBtn.title = "Fullscreen";
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "message-swf-top-btn";
+    resetBtn.textContent = "↺";
+    resetBtn.title = "Reset SWF";
+    const resizeBtn = document.createElement("button");
+    resizeBtn.type = "button";
+    resizeBtn.className = "message-swf-top-btn";
+    resizeBtn.textContent = "⇲";
+    resizeBtn.title = "Resize player";
+    const optimalBtn = document.createElement("button");
+    optimalBtn.type = "button";
+    optimalBtn.className = "message-swf-top-btn";
+    optimalBtn.textContent = "◎";
+    optimalBtn.title = "Optimal size";
+    const soloBtn = document.createElement("button");
+    soloBtn.type = "button";
+    soloBtn.className = "message-swf-top-btn";
+    soloBtn.textContent = "🎯";
+    soloBtn.title = "Solo audio focus";
+    const pipBtn = document.createElement("button");
+    pipBtn.type = "button";
+    pipBtn.className = "message-swf-top-btn";
+    pipBtn.textContent = "📺";
+    pipBtn.title = "Pin to PiP";
     header.appendChild(title);
-    meta.appendChild(audioIndicator);
-    meta.appendChild(saveIconBtn);
+    controlRow.appendChild(saveIconBtn);
+    controlRow.appendChild(audioIndicator);
+    controlRow.appendChild(playBtn);
+    controlRow.appendChild(pauseBtn);
+    controlRow.appendChild(fullscreenBtn);
+    controlRow.appendChild(resetBtn);
+    controlRow.appendChild(resizeBtn);
+    controlRow.appendChild(optimalBtn);
+    controlRow.appendChild(soloBtn);
+    controlRow.appendChild(pipBtn);
+    meta.appendChild(controlRow);
     header.appendChild(meta);
     card.appendChild(header);
 
@@ -2523,80 +2812,95 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     audioSlider.addEventListener("input", () => {
       updateSwfRuntimeAudio(swfKey, { volume: Number(audioSlider.value) });
     });
+    const jumpBtn = document.createElement("button");
+    jumpBtn.type = "button";
+    jumpBtn.className = "message-swf-jump";
+    jumpBtn.textContent = "↑";
+    jumpBtn.title = "Jump to top";
+    jumpBtn.addEventListener("click", () => {
+      ui.messageList.scrollTo({ top: 0, behavior: "smooth" });
+    });
     audioRail.appendChild(audioToggleBtn);
     audioRail.appendChild(audioSlider);
+    audioRail.appendChild(jumpBtn);
     body.appendChild(audioRail);
     body.appendChild(playerWrap);
     card.appendChild(body);
+    let vuMeterFill = null;
+    if (prefs.swfVuMeter === "on") {
+      const details = document.createElement("details");
+      details.className = "message-swf-vu";
+      const summary = document.createElement("summary");
+      summary.textContent = "Audio details";
+      const meter = document.createElement("div");
+      meter.className = "message-swf-vu__meter";
+      vuMeterFill = document.createElement("div");
+      vuMeterFill.className = "message-swf-vu__fill";
+      meter.appendChild(vuMeterFill);
+      details.appendChild(summary);
+      details.appendChild(meter);
+      card.appendChild(details);
+    }
     if (swfKey) {
       swfPendingUi.set(swfKey, {
         audioToggleEl: audioToggleBtn,
-        audioIndicatorEl: audioIndicator
+        audioIndicatorEl: audioIndicator,
+        vuMeterFillEl: vuMeterFill
       });
     }
-    if (swfKey) {
-      attachRufflePlayer(playerWrap, attachment, { autoplay: "on", runtimeKey: swfKey });
+    const runtimeInMap = swfKey ? swfRuntimes.get(swfKey) : null;
+    soloBtn.classList.toggle("is-active", swfKey && swfSoloRuntimeKey === swfKey);
+    pipBtn.classList.toggle("is-active", Boolean(runtimeInMap?.inPip));
+    if (runtimeInMap?.inPip) {
+      runtimeInMap.originHost = playerWrap;
+      playerWrap.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
+    } else if (swfKey) {
+      attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
     }
 
-    const controls = document.createElement("div");
-    controls.className = "message-swf-controls";
-    const playBtn = document.createElement("button");
-    playBtn.type = "button";
-    playBtn.textContent = "Play";
     playBtn.addEventListener("click", () => {
       const runtime = swfKey ? swfRuntimes.get(swfKey) : null;
       if (runtime) {
-        setSwfPlayback(swfKey, true);
+        setSwfPlayback(swfKey, true, "user");
       } else {
         attachRufflePlayer(playerWrap, attachment, { autoplay: "on", runtimeKey: swfKey });
       }
     });
-    const pauseBtn = document.createElement("button");
-    pauseBtn.type = "button";
-    pauseBtn.textContent = "Pause";
     pauseBtn.addEventListener("click", () => {
       if (!swfKey) return;
-      setSwfPlayback(swfKey, false);
+      setSwfPlayback(swfKey, false, "user");
     });
-    const fullscreenBtn = document.createElement("button");
-    fullscreenBtn.type = "button";
-    fullscreenBtn.textContent = "FullScreen";
     fullscreenBtn.addEventListener("click", () => {
       void openSwfFullscreen(swfKey, playerWrap, attachment);
     });
-    const resizeBtn = document.createElement("button");
-    resizeBtn.type = "button";
-    resizeBtn.textContent = "Resize";
     resizeBtn.addEventListener("click", () => {
       playerWrap.classList.toggle("message-swf-player--resizable");
-      if (playerWrap.classList.contains("message-swf-player--resizable")) {
-        resizeBtn.textContent = "Lock Size";
-      } else {
-        resizeBtn.textContent = "Resize";
-      }
+      resizeBtn.classList.toggle("is-active", playerWrap.classList.contains("message-swf-player--resizable"));
     });
-    const optimalBtn = document.createElement("button");
-    optimalBtn.type = "button";
-    optimalBtn.textContent = "Optimal Size";
     optimalBtn.addEventListener("click", () => {
       const ok = applySwfOptimalSize(swfKey, playerWrap);
       if (!ok) {
         addDebugLog("info", "Optimal size not available yet; SWF metadata pending", { key: swfKey || null });
       }
     });
-    const resetBtn = document.createElement("button");
-    resetBtn.type = "button";
-    resetBtn.textContent = "Reset";
     resetBtn.addEventListener("click", () => {
       resetSwfRuntime(swfKey, playerWrap, attachment);
     });
-    controls.appendChild(playBtn);
-    controls.appendChild(pauseBtn);
-    controls.appendChild(fullscreenBtn);
-    controls.appendChild(resetBtn);
-    controls.appendChild(resizeBtn);
-    controls.appendChild(optimalBtn);
-    card.appendChild(controls);
+    soloBtn.addEventListener("click", () => {
+      if (!swfKey) return;
+      swfSoloRuntimeKey = swfSoloRuntimeKey === swfKey ? null : swfKey;
+      soloBtn.classList.toggle("is-active", swfSoloRuntimeKey === swfKey);
+      refreshSwfAudioFocus(swfKey);
+    });
+    pipBtn.addEventListener("click", () => {
+      if (!swfKey) return;
+      const runtime = swfRuntimes.get(swfKey);
+      if (!runtime) return;
+      const nextEnabled = !runtime.inPip;
+      setSwfRuntimePip(swfKey, nextEnabled);
+      pipBtn.classList.toggle("is-active", nextEnabled);
+      refreshSwfAudioFocus(swfKey);
+    });
     wrap.appendChild(card);
     container.appendChild(wrap);
     return;
@@ -2860,6 +3164,8 @@ function renderMessages() {
     if (runtime.host?.isConnected) return;
     if (runtime.observer) runtime.observer.disconnect();
     swfRuntimes.delete(key);
+    removeSwfPipTab(key);
+    if (swfSoloRuntimeKey === key) swfSoloRuntimeKey = null;
     swfPendingUi.delete(key);
     removedRuntime = true;
   });
@@ -3378,6 +3684,9 @@ function renderSettingsScreen() {
   ui.debugOverlayInput.value = prefs.debugOverlay;
   ui.swfAudioPolicyInput.value = prefs.swfAudioPolicy;
   ui.swfAudioScopeInput.value = prefs.swfAudioScope;
+  ui.swfAutoplayInput.value = prefs.swfAutoplay;
+  ui.swfPauseOnMuteInput.value = prefs.swfPauseOnMute;
+  ui.swfVuMeterInput.value = prefs.swfVuMeter;
 }
 
 function openSettingsScreen() {
@@ -3418,6 +3727,7 @@ function render() {
   renderChannels();
   renderMessages();
   renderSwfShelf();
+  renderSwfPipDock();
   renderMemberList();
   renderDock();
   renderSettingsScreen();
@@ -3705,6 +4015,10 @@ ui.toggleSwfShelfBtn.addEventListener("click", () => {
   swfShelfOpen = !swfShelfOpen;
   renderSwfShelf();
 });
+ui.swfPipCloseBtn.addEventListener("click", () => {
+  swfPipManuallyHidden = true;
+  renderSwfPipDock();
+});
 ui.clearSwfShelfBtn.addEventListener("click", () => {
   state.savedSwfs = [];
   saveState();
@@ -3713,11 +4027,11 @@ ui.clearSwfShelfBtn.addEventListener("click", () => {
 ui.swfViewerZoomInput.addEventListener("input", applySwfViewerZoom);
 ui.swfViewerPauseBtn.addEventListener("click", () => {
   if (!currentViewerRuntimeKey) return;
-  setSwfPlayback(currentViewerRuntimeKey, false);
+  setSwfPlayback(currentViewerRuntimeKey, false, "user");
 });
 ui.swfViewerResumeBtn.addEventListener("click", () => {
   if (!currentViewerRuntimeKey) return;
-  setSwfPlayback(currentViewerRuntimeKey, true);
+  setSwfPlayback(currentViewerRuntimeKey, true, "user");
 });
 ui.swfViewerSaveBtn.addEventListener("click", () => {
   if (!currentViewerSwf) return;
@@ -3903,6 +4217,9 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.debugOverlay = normalizeToggle(ui.debugOverlayInput.value);
   state.preferences.swfAudioPolicy = normalizeSwfAudioPolicy(ui.swfAudioPolicyInput.value);
   state.preferences.swfAudioScope = normalizeSwfAudioScope(ui.swfAudioScopeInput.value);
+  state.preferences.swfAutoplay = normalizeSwfAutoplay(ui.swfAutoplayInput.value);
+  state.preferences.swfPauseOnMute = normalizeToggle(ui.swfPauseOnMuteInput.value);
+  state.preferences.swfVuMeter = normalizeToggle(ui.swfVuMeterInput.value);
   saveState();
   refreshSwfAudioFocus();
   render();
@@ -4087,11 +4404,11 @@ document.addEventListener("fullscreenchange", () => {
       if (runtime.host === document.fullscreenElement) foundKey = key;
     });
     fullscreenRuntimeKey = foundKey;
-    if (foundKey) setSwfPlayback(foundKey, true);
+    if (foundKey) setSwfPlayback(foundKey, true, "user");
     return;
   }
   if (!fullscreenRuntimeKey) return;
-  setSwfPlayback(fullscreenRuntimeKey, false);
+  setSwfPlayback(fullscreenRuntimeKey, false, "system");
   fullscreenRuntimeKey = null;
 });
 

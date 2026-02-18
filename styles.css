@@ -786,6 +786,11 @@ button {
   object-fit: cover;
 }
 
+.media-card__preview > * {
+  width: 100%;
+  height: 100%;
+}
+
 .media-card__label {
   display: block;
   font-size: 0.72rem;
@@ -891,9 +896,17 @@ button {
 .message-swf-meta {
   width: 100%;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: 0.4rem;
+}
+
+.message-swf-top-controls {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.28rem;
 }
 
 .message-swf-audio-indicator {
@@ -928,6 +941,25 @@ button {
   font-size: 0.9rem;
   line-height: 1;
   padding: 0;
+}
+
+.message-swf-top-btn {
+  background: #343840;
+  color: #d5dbe4;
+  min-width: 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.message-swf-top-btn.is-active {
+  background: #4d5396;
+  color: #eef2ff;
 }
 
 .message-swf-body {
@@ -976,6 +1008,48 @@ button {
   -webkit-appearance: slider-vertical;
 }
 
+.message-swf-jump {
+  background: #2f3340;
+  color: #d5dbe4;
+  font-size: 0.72rem;
+  width: 24px;
+  min-width: 24px;
+  height: 22px;
+  border-radius: 6px;
+  line-height: 1;
+  padding: 0;
+}
+
+.message-swf-vu {
+  margin-top: 0.32rem;
+  font-size: 0.68rem;
+  color: #b4bac4;
+}
+
+.message-swf-vu summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.message-swf-vu__meter {
+  margin-top: 0.24rem;
+  height: 6px;
+  background: #2f333c;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.message-swf-vu__fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #57f287, #f0b232);
+  transition: width 180ms ease;
+}
+
+.message-swf-vu__fill.is-active {
+  box-shadow: 0 0 10px rgba(87, 242, 135, 0.4);
+}
+
 .message-swf-player {
   width: 420px;
   max-width: calc(100% - 42px);
@@ -1001,26 +1075,88 @@ button {
   max-height: 70vh;
 }
 
-.message-swf-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.38rem;
-}
-
-.message-swf-controls button {
-  background: #343840;
-  color: #d5dbe4;
-  font-size: 0.72rem;
-  padding: 0.22rem 0.45rem;
-  border-radius: 6px;
-}
-
 .message-swf-link {
   margin-top: 0.35rem;
   font-size: 0.74rem;
   color: #9fb8ff;
   display: inline-block;
+}
+
+.swf-pip {
+  position: fixed;
+  right: 14px;
+  bottom: 18px;
+  width: min(420px, 42vw);
+  background: #1e2026;
+  border: 1px solid #3a3e47;
+  border-radius: 10px;
+  z-index: 120;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+}
+
+.swf-pip--hidden {
+  display: none;
+}
+
+.swf-pip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid #2d3038;
+}
+
+.swf-pip__header button {
+  background: #363a45;
+  color: #d9dde6;
+  font-size: 0.7rem;
+  border-radius: 6px;
+  padding: 0.2rem 0.44rem;
+}
+
+.swf-pip__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.35rem 0.4rem;
+}
+
+.swf-pip__tab {
+  background: #2f3340;
+  color: #d5dae4;
+  font-size: 0.68rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.26rem;
+}
+
+.swf-pip__tab.active {
+  background: #4a5198;
+  color: #fff;
+}
+
+.swf-pip__tab-close {
+  background: rgba(0, 0, 0, 0.24);
+  color: inherit;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+
+.swf-pip__host {
+  padding: 0.4rem;
+}
+
+.swf-pip-player {
+  width: 100%;
+  min-height: 220px;
 }
 
 .debug-output {
