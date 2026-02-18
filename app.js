@@ -10,6 +10,38 @@ const SLASH_COMMANDS = [
   { name: "clear", args: "", description: "Clear all messages in this channel." },
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
 ];
+const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg"];
+const EMOJI_LIBRARY = [
+  { name: "grinning", value: "😀" },
+  { name: "joy", value: "😂" },
+  { name: "smile", value: "😄" },
+  { name: "thinking", value: "🤔" },
+  { name: "sob", value: "😭" },
+  { name: "fire", value: "🔥" },
+  { name: "thumbsup", value: "👍" },
+  { name: "heart", value: "❤️" },
+  { name: "party", value: "🥳" },
+  { name: "eyes", value: "👀" },
+  { name: "skull", value: "💀" },
+  { name: "sparkles", value: "✨" }
+];
+const STICKER_LIBRARY = [
+  { name: "blob wave", url: "https://media.tenor.com/LrSL7XDKVbgAAAAC/pepe-wave.gif" },
+  { name: "cat vibing", url: "https://media.tenor.com/zr6rUP8r7K8AAAAC/cat-vibe.gif" },
+  { name: "ok hand", url: "https://media.tenor.com/x4hN6Q8xB0QAAAAC/okay-ok.gif" },
+  { name: "sad blob", url: "https://media.tenor.com/K7V8MDFMvxQAAAAC/blob-sad.gif" }
+];
+const GIF_LIBRARY = [
+  { name: "good morning", url: "https://media.tenor.com/6IicLfOaw1AAAAPo/tora-dora-good-morning.mp4", preview: "video" },
+  { name: "k pop", url: "https://media1.giphy.com/media/v1.Y2lkPTczYjhmN2IxamQ2eHU5cmJkOXZudTVzaW92cXZleDdpbTFqZ2U1aDJ2dXA1ZTYzNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l1Ku4uzAQLocVQtUc/100w.gif" },
+  { name: "jurassic park", url: "https://media0.giphy.com/media/v1.Y2lkPTczYjhmN2Ixaml2dmUzdjVoODVwOWVqZGM1enFocGMwb2ZnZzJudWw5bWlkenhzZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/37Fsl1eFxbhtu/100w.gif" },
+  { name: "super bowl", url: "https://media2.giphy.com/media/v1.Y2lkPTczYjhmN2IxMjRjbDEzMDdhbGdwYzhlYnlqYmZwa2dlZzVuMG5rYjhmbXVoNHphNSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/FB7yASVBqPiFy/100w.gif" }
+];
+const SVG_LIBRARY = [
+  { name: "pulse ring", url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120'%3E%3Crect width='200' height='120' fill='%231a1d25'/%3E%3Ccircle cx='100' cy='60' r='12' fill='%235865f2'%3E%3Canimate attributeName='r' values='8;42;8' dur='2.2s' repeatCount='indefinite'/%3E%3Canimate attributeName='opacity' values='1;0;1' dur='2.2s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E" },
+  { name: "scan lines", url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120'%3E%3Crect width='200' height='120' fill='%230f1116'/%3E%3Crect x='0' y='0' width='200' height='2' fill='%2357f287'%3E%3Canimate attributeName='y' values='0;118;0' dur='1.8s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/svg%3E" },
+  { name: "spinning cube", url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120'%3E%3Crect width='200' height='120' fill='%2311161f'/%3E%3Cg transform='translate(100 60)'%3E%3Crect x='-18' y='-18' width='36' height='36' fill='none' stroke='%23f0b232' stroke-width='4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0' to='360' dur='2s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/g%3E%3C/svg%3E" }
+];
 
 function createId() {
   const cryptoApi = globalThis.crypto;
@@ -117,7 +149,8 @@ function buildInitialState() {
                 text: "Welcome to shitcord67. Create channels and start chatting.",
                 ts: new Date().toISOString(),
                 reactions: [],
-                pinned: false
+                pinned: false,
+                attachments: []
               }
             ]
           }
@@ -194,7 +227,8 @@ function migrateState(raw) {
                 ? channel.messages.map((message) => ({
                     ...message,
                     reactions: Array.isArray(message.reactions) ? message.reactions : [],
-                    pinned: Boolean(message.pinned)
+                    pinned: Boolean(message.pinned),
+                    attachments: normalizeAttachments(message.attachments)
                   }))
                 : []
             }))
@@ -241,7 +275,8 @@ function migrateState(raw) {
                   text: (msg.text || "").toString(),
                   ts: msg.ts || new Date().toISOString(),
                   reactions: [],
-                  pinned: false
+                  pinned: false,
+                  attachments: normalizeAttachments(msg.attachments)
                 }))
               : [];
             return {
@@ -312,6 +347,10 @@ let slashSelectionIndex = 0;
 let mentionSelectionIndex = 0;
 let contextMenuOpen = false;
 let channelFilterTerm = "";
+let mediaPickerOpen = false;
+let mediaPickerTab = "gif";
+let mediaPickerQuery = "";
+let swfLibrary = [];
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -335,6 +374,11 @@ const ui = {
   slashCommandPopup: document.getElementById("slashCommandPopup"),
   suggestionHint: document.getElementById("suggestionHint"),
   slashCommandList: document.getElementById("slashCommandList"),
+  mediaPicker: document.getElementById("mediaPicker"),
+  mediaSearchInput: document.getElementById("mediaSearchInput"),
+  mediaGrid: document.getElementById("mediaGrid"),
+  mediaTabs: [...document.querySelectorAll(".media-picker__tab")],
+  openMediaPickerBtn: document.getElementById("openMediaPickerBtn"),
   composerReplyBar: document.getElementById("composerReplyBar"),
   replyPreviewText: document.getElementById("replyPreviewText"),
   cancelReplyBtn: document.getElementById("cancelReplyBtn"),
@@ -794,6 +838,19 @@ function normalizeReactions(reactions) {
     .filter((item) => item.userIds.length > 0);
 }
 
+function normalizeAttachments(attachments) {
+  if (!Array.isArray(attachments)) return [];
+  const allowedTypes = new Set(["gif", "sticker", "svg", "swf"]);
+  return attachments
+    .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
+    .map((item) => ({
+      type: allowedTypes.has(item.type) ? item.type : "gif",
+      url: item.url,
+      name: (item.name || "").toString().slice(0, 120)
+    }))
+    .slice(0, 6);
+}
+
 function toggleReaction(message, emoji, userId) {
   message.reactions = normalizeReactions(message.reactions);
   let reaction = message.reactions.find((item) => item.emoji === emoji);
@@ -818,7 +875,8 @@ function addSystemMessage(channel, text) {
     authorName: "system",
     text,
     ts: new Date().toISOString(),
-    reactions: []
+    reactions: [],
+    attachments: []
   });
 }
 
@@ -835,7 +893,8 @@ function handleSlashCommand(rawText, channel, account) {
       authorName: "",
       text: `*${account.displayName || account.username} ${arg}*`,
       ts: new Date().toISOString(),
-      reactions: []
+      reactions: [],
+      attachments: []
     });
     return true;
   }
@@ -848,7 +907,8 @@ function handleSlashCommand(rawText, channel, account) {
       authorName: "",
       text: `${suffix}¯\\_(ツ)_/¯`,
       ts: new Date().toISOString(),
-      reactions: []
+      reactions: [],
+      attachments: []
     });
     return true;
   }
@@ -1104,6 +1164,249 @@ function extractImageUrl(text) {
   if (!matches) return null;
   const imageUrl = matches.find((url) => /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url));
   return imageUrl || null;
+}
+
+async function loadSwfLibrary() {
+  try {
+    const response = await fetch("swf-index.json", { cache: "no-cache" });
+    if (!response.ok) return;
+    const parsed = await response.json();
+    if (!Array.isArray(parsed)) return;
+    swfLibrary = parsed
+      .filter((entry) => entry && typeof entry.url === "string" && typeof entry.name === "string")
+      .map((entry) => ({ name: entry.name, url: entry.url }))
+      .slice(0, 600);
+    if (mediaPickerOpen && mediaPickerTab === "swf") {
+      renderMediaPicker();
+    }
+  } catch {
+    // SWF picker still works with fallback list only.
+  }
+}
+
+function mediaEntriesForActiveTab() {
+  if (mediaPickerTab === "emoji") return EMOJI_LIBRARY;
+  if (mediaPickerTab === "gif") return GIF_LIBRARY;
+  if (mediaPickerTab === "sticker") return STICKER_LIBRARY;
+  if (mediaPickerTab === "svg") return SVG_LIBRARY;
+  if (mediaPickerTab === "swf") return swfLibrary;
+  return [];
+}
+
+function filteredMediaEntries() {
+  const term = mediaPickerQuery.trim().toLowerCase();
+  if (!term) return mediaEntriesForActiveTab();
+  return mediaEntriesForActiveTab().filter((entry) => (entry.name || "").toLowerCase().includes(term));
+}
+
+function closeMediaPicker() {
+  mediaPickerOpen = false;
+  ui.mediaPicker.classList.add("media-picker--hidden");
+}
+
+function openMediaPicker() {
+  mediaPickerOpen = true;
+  ui.mediaPicker.classList.remove("media-picker--hidden");
+  renderMediaPicker();
+  ui.mediaSearchInput.focus();
+}
+
+function toggleMediaPicker() {
+  if (mediaPickerOpen) {
+    closeMediaPicker();
+  } else {
+    openMediaPicker();
+  }
+}
+
+function mediaPlaceholderForTab(tab) {
+  if (tab === "gif") return "Search GIFs";
+  if (tab === "sticker") return "Search stickers";
+  if (tab === "emoji") return "Search emojis";
+  if (tab === "swf") return "Search SWFs";
+  if (tab === "svg") return "Search SVGs";
+  return "Search media";
+}
+
+function sendMediaAttachment(entry, type) {
+  const channel = getActiveChannel();
+  const account = getCurrentAccount();
+  if (!channel || !account || !entry || !entry.url) return;
+  const text = ui.messageInput.value.trim().slice(0, 400);
+  const nextReply = replyTarget && replyTarget.channelId === channel.id
+    ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
+    : null;
+  channel.messages.push({
+    id: createId(),
+    userId: account.id,
+    authorName: "",
+    text,
+    ts: new Date().toISOString(),
+    reactions: [],
+    attachments: [{ type, url: entry.url, name: entry.name || type }],
+    replyTo: nextReply
+  });
+  replyTarget = null;
+  ui.messageInput.value = "";
+  saveState();
+  closeMediaPicker();
+  render();
+}
+
+function renderMediaPicker() {
+  ui.mediaTabs.forEach((tabBtn) => {
+    tabBtn.classList.toggle("active", tabBtn.dataset.mediaTab === mediaPickerTab);
+  });
+  ui.mediaSearchInput.placeholder = mediaPlaceholderForTab(mediaPickerTab);
+  if (ui.mediaSearchInput.value !== mediaPickerQuery) {
+    ui.mediaSearchInput.value = mediaPickerQuery;
+  }
+  ui.mediaGrid.innerHTML = "";
+  const entries = filteredMediaEntries();
+  if (entries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "media-card--empty";
+    empty.textContent = mediaPickerTab === "swf"
+      ? "No SWFs found. Run a local server and keep swf-index.json available."
+      : "No media found for this query.";
+    ui.mediaGrid.appendChild(empty);
+    return;
+  }
+
+  entries.slice(0, 140).forEach((entry) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "media-card";
+    if (mediaPickerTab === "emoji") {
+      card.classList.add("media-card--emoji");
+      card.textContent = entry.value;
+      card.title = `:${entry.name}:`;
+      card.addEventListener("click", () => {
+        ui.messageInput.value = `${ui.messageInput.value}${entry.value}`;
+        ui.messageInput.focus();
+      });
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    const label = document.createElement("span");
+    label.className = "media-card__label";
+    label.textContent = entry.name || "media";
+
+    if (mediaPickerTab === "swf") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.color = "#c4ccd8";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = "SWF";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, "swf"));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    if (mediaPickerTab === "gif" && entry.preview === "video") {
+      const video = document.createElement("video");
+      video.className = "media-card__preview";
+      video.src = entry.url;
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      card.appendChild(video);
+    } else {
+      const img = document.createElement("img");
+      img.className = "media-card__preview";
+      img.loading = "lazy";
+      img.src = entry.url;
+      img.alt = entry.name || "media";
+      card.appendChild(img);
+    }
+    card.appendChild(label);
+    card.addEventListener("click", () => {
+      const type = mediaPickerTab === "gif" ? "gif" : mediaPickerTab === "sticker" ? "sticker" : "svg";
+      sendMediaAttachment(entry, type);
+    });
+    ui.mediaGrid.appendChild(card);
+  });
+}
+
+function renderMessageAttachment(container, attachment) {
+  if (!attachment || !attachment.url) return;
+  const type = attachment.type || "gif";
+  const wrap = document.createElement("div");
+  wrap.className = `message-attachment message-attachment--${type}`;
+
+  if (type === "swf") {
+    const card = document.createElement("div");
+    card.className = "message-swf";
+    const title = document.createElement("strong");
+    title.textContent = attachment.name || "SWF file";
+    card.appendChild(title);
+
+    const playerWrap = document.createElement("div");
+    playerWrap.className = "message-swf-player";
+    const hasRuffle = Boolean(window.RufflePlayer?.newest);
+    if (hasRuffle) {
+      try {
+        const ruffle = window.RufflePlayer.newest();
+        const player = ruffle.createPlayer();
+        player.style.width = "100%";
+        player.style.height = "180px";
+        player.load({ url: attachment.url, autoplay: "on", unmuteOverlay: "hidden" });
+        playerWrap.appendChild(player);
+      } catch {
+        playerWrap.textContent = "Ruffle failed to load this SWF.";
+      }
+    } else {
+      playerWrap.style.display = "grid";
+      playerWrap.style.placeItems = "center";
+      playerWrap.style.color = "#a6aeb9";
+      playerWrap.style.fontSize = "0.78rem";
+      playerWrap.textContent = "Ruffle not detected. Install Ruffle to preview SWFs inline.";
+    }
+    card.appendChild(playerWrap);
+
+    const link = document.createElement("a");
+    link.className = "message-swf-link";
+    link.href = attachment.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open SWF file";
+    card.appendChild(link);
+    wrap.appendChild(card);
+    container.appendChild(wrap);
+    return;
+  }
+
+  if (type === "gif") {
+    const videoLike = /\.(mp4|webm)(\?.*)?$/i.test(attachment.url);
+    if (videoLike) {
+      const video = document.createElement("video");
+      video.src = attachment.url;
+      video.controls = true;
+      video.loop = true;
+      wrap.appendChild(video);
+    } else {
+      const img = document.createElement("img");
+      img.src = attachment.url;
+      img.loading = "lazy";
+      img.alt = attachment.name || "GIF";
+      wrap.appendChild(img);
+    }
+    container.appendChild(wrap);
+    return;
+  }
+
+  const img = document.createElement("img");
+  img.src = attachment.url;
+  img.loading = "lazy";
+  img.alt = attachment.name || type.toUpperCase();
+  wrap.appendChild(img);
+  container.appendChild(wrap);
 }
 
 function renderScreens() {
@@ -1374,6 +1677,7 @@ function renderMessages() {
       imagePreview.alt = "shared image";
       imagePreview.loading = "lazy";
     }
+    const attachments = normalizeAttachments(message.attachments);
 
     let pinIndicator = null;
     if (message.pinned) {
@@ -1512,6 +1816,7 @@ function renderMessages() {
     messageRow.appendChild(actionBar);
     messageRow.appendChild(text);
     if (imagePreview) messageRow.appendChild(imagePreview);
+    attachments.forEach((attachment) => renderMessageAttachment(messageRow, attachment));
     messageRow.appendChild(reactions);
     messageRow.appendChild(reactionPicker);
     messageRow.addEventListener("contextmenu", (event) => {
@@ -1794,7 +2099,10 @@ function render() {
   closeContextMenu();
   renderScreens();
   applyPreferencesToUI();
-  if (!state.currentAccountId) return;
+  if (!state.currentAccountId) {
+    closeMediaPicker();
+    return;
+  }
   if (ensureCurrentUserInActiveServer()) {
     saveState();
   }
@@ -1806,6 +2114,7 @@ function render() {
   renderSettingsScreen();
   renderReplyComposer();
   renderSlashSuggestions();
+  if (mediaPickerOpen) renderMediaPicker();
 }
 
 function openProfileEditor() {
@@ -1892,6 +2201,7 @@ ui.messageForm.addEventListener("submit", (event) => {
       text,
       ts: new Date().toISOString(),
       reactions: [],
+      attachments: [],
       replyTo: nextReply
     });
     replyTarget = null;
@@ -1899,6 +2209,7 @@ ui.messageForm.addEventListener("submit", (event) => {
 
   ui.messageInput.value = "";
   slashSelectionIndex = 0;
+  closeMediaPicker();
   saveState();
   renderMessages();
   renderMemberList();
@@ -1908,6 +2219,26 @@ ui.messageInput.addEventListener("input", () => {
   slashSelectionIndex = 0;
   mentionSelectionIndex = 0;
   renderSlashSuggestions();
+});
+
+ui.openMediaPickerBtn.addEventListener("click", () => {
+  toggleMediaPicker();
+});
+
+ui.mediaTabs.forEach((tabBtn) => {
+  tabBtn.addEventListener("click", () => {
+    const nextTab = tabBtn.dataset.mediaTab;
+    if (!MEDIA_TABS.includes(nextTab)) return;
+    mediaPickerTab = nextTab;
+    mediaPickerQuery = "";
+    renderMediaPicker();
+    ui.mediaSearchInput.focus();
+  });
+});
+
+ui.mediaSearchInput.addEventListener("input", () => {
+  mediaPickerQuery = ui.mediaSearchInput.value.slice(0, 80);
+  renderMediaPicker();
 });
 
 ui.channelFilterInput.addEventListener("input", () => {
@@ -1920,6 +2251,7 @@ ui.messageInput.addEventListener("keydown", (event) => {
   const popupVisible = suggestion.type !== "none";
 
   if (event.key === "Escape") {
+    if (mediaPickerOpen) closeMediaPicker();
     slashSelectionIndex = 0;
     mentionSelectionIndex = 0;
     ui.slashCommandPopup.classList.add("slash-popup--hidden");
@@ -2339,9 +2671,14 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
 ].forEach(wireDialogBackdropClose);
 
 document.addEventListener("click", (event) => {
-  if (!contextMenuOpen) return;
-  if (ui.contextMenu.contains(event.target)) return;
-  closeContextMenu();
+  if (contextMenuOpen) {
+    if (!ui.contextMenu.contains(event.target)) closeContextMenu();
+  }
+  if (mediaPickerOpen) {
+    const inPicker = ui.mediaPicker.contains(event.target);
+    const onToggle = ui.openMediaPickerBtn.contains(event.target);
+    if (!inPicker && !onToggle) closeMediaPicker();
+  }
 });
 
 document.addEventListener("contextmenu", (event) => {
@@ -2350,12 +2687,19 @@ document.addEventListener("contextmenu", (event) => {
   closeContextMenu();
 });
 
-window.addEventListener("resize", closeContextMenu);
+window.addEventListener("resize", () => {
+  closeContextMenu();
+  closeMediaPicker();
+});
 document.addEventListener("scroll", closeContextMenu, true);
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && contextMenuOpen) {
     closeContextMenu();
+    return;
+  }
+  if (event.key === "Escape" && mediaPickerOpen) {
+    closeMediaPicker();
     return;
   }
   if (event.key === "Escape" && ui.settingsScreen.classList.contains("settings-screen--active")) {
@@ -2364,3 +2708,4 @@ document.addEventListener("keydown", (event) => {
 });
 
 render();
+loadSwfLibrary();

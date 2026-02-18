@@ -16,12 +16,17 @@
 - Right-click context menus for guilds/channels/messages/users.
 - Unread + mention badges for channels and guild rail with mark-as-read actions.
 - Channel list filter/search input.
+- Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
+- Local SWF catalog generated in `swf-index.json`.
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
 - Add profile image upload and validation.
 - DM sidebar and 1:1 direct-message threads.
 - Per-guild notification settings (mute/mentions only/all).
+- WebXDC packaging path: `.xdc` zip, `manifest.toml`, and realtime sync via `joinRealtimeChannel().send`.
+- Bundle Ruffle locally (self-hosted script) and support richer SWF controls/fallback.
+- Add provider-backed GIF/sticker search adapter (GIPHY/Tenor) with local fallback.
 
 ## Protocol/transport path
 - Define transport adapter interface (`send`, `subscribe`, `fetchHistory`, `presence`).
