@@ -39,6 +39,12 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF cards include a top-right `💾` save icon in the filename row for quick save-to-shelf.
 - SWF cards show a live audio status badge (`Audio Active`, `Suppressed`, `Muted`), and right-clicking the speaker pins audio to skip auto-mute.
 - Advanced settings include SWF audio policy options: single-audio or multi-audio, with global or per-guild focus scope.
+- SWF audio focus prefers the SWF nearest the center of the viewport, with fullscreen SWFs prioritized.
+- Advanced SWF options include default autoplay/paused mode, pause-on-auto-mute behavior, and optional collapsible VU details.
+- SWF top controls are in the header row (save, play/pause, fullscreen, reset, resize, optimal size, solo focus, PiP).
+- Tabbed SWF PiP dock lets you keep selected SWFs open while switching guilds/channels.
+- SWF picker now supports muted Ruffle previews with lightweight sampled frame playback.
+- SWF link opens are configured with confirmation prompts (`openUrlMode: "confirm"`).
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
