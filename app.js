@@ -377,6 +377,7 @@ let currentViewerSwf = null;
 let currentViewerRuntimeKey = null;
 let fullscreenRuntimeKey = null;
 const swfRuntimes = new Map();
+const swfPendingAudio = new Map();
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -489,9 +490,6 @@ const ui = {
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
-  swfAudioEnabledInput: document.getElementById("swfAudioEnabledInput"),
-  swfVolumeInput: document.getElementById("swfVolumeInput"),
-  swfVolumeValue: document.getElementById("swfVolumeValue"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -1420,7 +1418,6 @@ function applyPreferencesToUI() {
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
   ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
-  if (ui.swfVolumeValue) ui.swfVolumeValue.textContent = `${Math.round(prefs.swfVolume)}%`;
   applySwfAudioToAllRuntimes();
 }
 
@@ -1903,15 +1900,21 @@ function applySwfAudioToRuntime(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player) return;
   const prefs = getPreferences();
-  const volume = prefs.swfAudio === "on" ? prefs.swfVolume / 100 : 0;
+  const audioEnabled = typeof runtime.audioEnabled === "boolean"
+    ? runtime.audioEnabled
+    : prefs.swfAudio === "on";
+  const volumePercent = Number.isFinite(runtime.audioVolume)
+    ? runtime.audioVolume
+    : prefs.swfVolume;
+  const volume = audioEnabled ? Math.min(100, Math.max(0, volumePercent)) / 100 : 0;
   try {
     if ("volume" in runtime.player) runtime.player.volume = volume;
     if (typeof runtime.player.set_volume === "function") runtime.player.set_volume(volume);
-    if ("muted" in runtime.player) runtime.player.muted = prefs.swfAudio !== "on";
-    if (prefs.swfAudio !== "on" && typeof runtime.player.pause === "function") {
+    if ("muted" in runtime.player) runtime.player.muted = !audioEnabled;
+    if (!audioEnabled && typeof runtime.player.pause === "function") {
       runtime.player.pause();
     }
-    if (prefs.swfAudio === "on" && runtime.playing && typeof runtime.player.play === "function") {
+    if (audioEnabled && runtime.playing && typeof runtime.player.play === "function") {
       runtime.player.play();
     }
   } catch (error) {
@@ -1921,6 +1924,21 @@ function applySwfAudioToRuntime(runtimeKey) {
 
 function applySwfAudioToAllRuntimes() {
   swfRuntimes.forEach((_, key) => applySwfAudioToRuntime(key));
+}
+
+function updateSwfRuntimeAudio(runtimeKey, { enabled, volume } = {}) {
+  if (!runtimeKey) return;
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime) {
+    const nextPending = swfPendingAudio.get(runtimeKey) || {};
+    if (typeof enabled === "boolean") nextPending.enabled = enabled;
+    if (Number.isFinite(volume)) nextPending.volume = Math.min(100, Math.max(0, volume));
+    swfPendingAudio.set(runtimeKey, nextPending);
+    return;
+  }
+  if (typeof enabled === "boolean") runtime.audioEnabled = enabled;
+  if (Number.isFinite(volume)) runtime.audioVolume = Math.min(100, Math.max(0, volume));
+  applySwfAudioToRuntime(runtimeKey);
 }
 
 async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
@@ -2051,8 +2069,19 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           playing: autoplay !== "off",
           observer: null,
           floating: false,
-          restoreStyle: ""
+          restoreStyle: "",
+          audioEnabled: getPreferences().swfAudio === "on",
+          audioVolume: getPreferences().swfVolume
         });
+        const pendingAudio = swfPendingAudio.get(runtimeKey);
+        if (pendingAudio) {
+          const runtime = swfRuntimes.get(runtimeKey);
+          if (runtime) {
+            if (typeof pendingAudio.enabled === "boolean") runtime.audioEnabled = pendingAudio.enabled;
+            if (Number.isFinite(pendingAudio.volume)) runtime.audioVolume = pendingAudio.volume;
+          }
+          swfPendingAudio.delete(runtimeKey);
+        }
         applySwfAudioToRuntime(runtimeKey);
         bindSwfVisibilityObserver(runtimeKey);
       }
@@ -2226,6 +2255,32 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controls.appendChild(resizeBtn);
     controls.appendChild(saveBtn);
     card.appendChild(controls);
+
+    const audioRow = document.createElement("div");
+    audioRow.className = "message-swf-audio";
+    const audioToggleBtn = document.createElement("button");
+    audioToggleBtn.type = "button";
+    const prefs = getPreferences();
+    const initialEnabled = prefs.swfAudio === "on";
+    let audioEnabled = initialEnabled;
+    audioToggleBtn.textContent = audioEnabled ? "Audio On" : "Audio Off";
+    audioToggleBtn.addEventListener("click", () => {
+      audioEnabled = !audioEnabled;
+      audioToggleBtn.textContent = audioEnabled ? "Audio On" : "Audio Off";
+      updateSwfRuntimeAudio(swfKey, { enabled: audioEnabled });
+    });
+    const audioSlider = document.createElement("input");
+    audioSlider.type = "range";
+    audioSlider.min = "0";
+    audioSlider.max = "100";
+    audioSlider.step = "1";
+    audioSlider.value = String(Math.round(prefs.swfVolume));
+    audioSlider.addEventListener("input", () => {
+      updateSwfRuntimeAudio(swfKey, { volume: Number(audioSlider.value) });
+    });
+    audioRow.appendChild(audioToggleBtn);
+    audioRow.appendChild(audioSlider);
+    card.appendChild(audioRow);
 
     const link = document.createElement("a");
     link.className = "message-swf-link";
@@ -3009,9 +3064,6 @@ function renderSettingsScreen() {
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;
-  ui.swfAudioEnabledInput.value = prefs.swfAudio;
-  ui.swfVolumeInput.value = String(Math.round(prefs.swfVolume));
-  ui.swfVolumeValue.textContent = `${Math.round(prefs.swfVolume)}%`;
 }
 
 function openSettingsScreen() {
@@ -3535,26 +3587,8 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences = getPreferences();
   state.preferences.developerMode = normalizeToggle(ui.developerModeInput.value);
   state.preferences.debugOverlay = normalizeToggle(ui.debugOverlayInput.value);
-  state.preferences.swfAudio = normalizeToggle(ui.swfAudioEnabledInput.value);
-  state.preferences.swfVolume = Math.min(100, Math.max(0, Number(ui.swfVolumeInput.value) || 0));
   saveState();
   render();
-});
-
-ui.swfAudioEnabledInput.addEventListener("change", () => {
-  state.preferences = getPreferences();
-  state.preferences.swfAudio = normalizeToggle(ui.swfAudioEnabledInput.value);
-  saveState();
-  applyPreferencesToUI();
-});
-
-ui.swfVolumeInput.addEventListener("input", () => {
-  const value = Math.min(100, Math.max(0, Number(ui.swfVolumeInput.value) || 0));
-  ui.swfVolumeValue.textContent = `${Math.round(value)}%`;
-  state.preferences = getPreferences();
-  state.preferences.swfVolume = value;
-  saveState();
-  applyPreferencesToUI();
 });
 
 ui.exportDataBtn.addEventListener("click", () => {
