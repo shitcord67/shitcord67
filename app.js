@@ -373,6 +373,7 @@ const debugLogs = [];
 let swfShelfOpen = false;
 let currentViewerSwf = null;
 let currentViewerRuntimeKey = null;
+let fullscreenRuntimeKey = null;
 const swfRuntimes = new Map();
 
 const ui = {
@@ -1827,8 +1828,11 @@ function renderSwfShelf() {
     item.className = "swf-shelf-item";
     const openBtn = document.createElement("button");
     openBtn.type = "button";
-    openBtn.textContent = entry.name;
-    openBtn.addEventListener("click", () => openSwfViewer(entry));
+    openBtn.textContent = "FullScreen";
+    openBtn.title = entry.name;
+    openBtn.addEventListener("click", () => {
+      void openSavedSwfFromShelf(entry);
+    });
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.textContent = "✕";
@@ -1842,6 +1846,30 @@ function renderSwfShelf() {
     item.appendChild(removeBtn);
     ui.swfShelfList.appendChild(item);
   });
+}
+
+async function openSavedSwfFromShelf(entry) {
+  const key = `shelf:${entry.url}`;
+  let runtime = swfRuntimes.get(key);
+  if (!runtime?.host) {
+    const host = document.createElement("div");
+    host.className = "message-swf-player";
+    host.style.position = "fixed";
+    host.style.left = "-2000px";
+    host.style.top = "-2000px";
+    host.style.width = "640px";
+    host.style.height = "480px";
+    document.body.appendChild(host);
+    attachRufflePlayer(host, entry, { autoplay: "on", runtimeKey: key });
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await nextFrame();
+      runtime = swfRuntimes.get(key);
+      if (runtime?.host) break;
+    }
+  }
+  const host = runtime?.host || null;
+  if (!host) return;
+  await openSwfFullscreen(key, host, entry);
 }
 
 function setSwfPlayback(runtimeKey, shouldPlay) {
@@ -1862,6 +1890,39 @@ function setSwfPlayback(runtimeKey, shouldPlay) {
   }
 }
 
+async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
+  let runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+  if (!runtime && hostElement && attachment) {
+    attachRufflePlayer(hostElement, attachment, { autoplay: "on", runtimeKey });
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      await nextFrame();
+      runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+      if (runtime?.host) break;
+    }
+  }
+  const target = runtime?.host || hostElement;
+  if (!target || typeof target.requestFullscreen !== "function") return;
+  try {
+    await target.requestFullscreen();
+    fullscreenRuntimeKey = runtimeKey;
+    if (runtimeKey) setSwfPlayback(runtimeKey, true);
+  } catch (error) {
+    addDebugLog("warn", "SWF fullscreen request failed", { key: runtimeKey, error: String(error) });
+  }
+}
+
+function resetSwfRuntime(runtimeKey, hostElement, attachment) {
+  if (!confirm("Reset this SWF to the beginning?")) return;
+  const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+  if (runtime?.observer) runtime.observer.disconnect();
+  if (runtimeKey) swfRuntimes.delete(runtimeKey);
+  if (hostElement) {
+    hostElement.innerHTML = "";
+    hostElement.textContent = "Resetting SWF...";
+  }
+  attachRufflePlayer(hostElement, attachment, { autoplay: "on", runtimeKey });
+}
+
 function bindSwfVisibilityObserver(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.host || !runtime.player) return;
@@ -1873,6 +1934,7 @@ function bindSwfVisibilityObserver(runtimeKey) {
     entries.forEach((entry) => {
       if (entry.target !== runtime.host) return;
       if (currentViewerRuntimeKey === runtimeKey) return;
+      if (document.fullscreenElement && runtime.host === document.fullscreenElement) return;
       setSwfPlayback(runtimeKey, entry.isIntersecting);
     });
   }, { threshold: 0.22 });
@@ -1925,7 +1987,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           return;
         }
         try {
-          await Promise.resolve(player.load({ url: candidate, autoplay, unmuteOverlay: "visible" }));
+          await Promise.resolve(player.load({ url: candidate, autoplay, unmuteOverlay: "hidden" }));
           addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
           loaded = true;
           break;
@@ -2070,8 +2132,11 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     playerWrap.style.placeItems = "center";
     playerWrap.style.color = "#a6aeb9";
     playerWrap.style.fontSize = "0.78rem";
-    playerWrap.textContent = "Click Play to start SWF (audio requires user interaction).";
+    playerWrap.textContent = "Loading SWF...";
     card.appendChild(playerWrap);
+    if (swfKey) {
+      attachRufflePlayer(playerWrap, attachment, { autoplay: "on", runtimeKey: swfKey });
+    }
 
     const controls = document.createElement("div");
     controls.className = "message-swf-controls";
@@ -2093,10 +2158,12 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       if (!swfKey) return;
       setSwfPlayback(swfKey, false);
     });
-    const viewerBtn = document.createElement("button");
-    viewerBtn.type = "button";
-    viewerBtn.textContent = "Open Viewer";
-    viewerBtn.addEventListener("click", () => openSwfViewer(attachment, swfKey));
+    const fullscreenBtn = document.createElement("button");
+    fullscreenBtn.type = "button";
+    fullscreenBtn.textContent = "FullScreen";
+    fullscreenBtn.addEventListener("click", () => {
+      void openSwfFullscreen(swfKey, playerWrap, attachment);
+    });
     const resizeBtn = document.createElement("button");
     resizeBtn.type = "button";
     resizeBtn.textContent = "Resize";
@@ -2112,9 +2179,16 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     saveBtn.type = "button";
     saveBtn.textContent = "Save to Shelf";
     saveBtn.addEventListener("click", () => saveSwfToShelf(attachment));
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.textContent = "Reset";
+    resetBtn.addEventListener("click", () => {
+      resetSwfRuntime(swfKey, playerWrap, attachment);
+    });
     controls.appendChild(playBtn);
     controls.appendChild(pauseBtn);
-    controls.appendChild(viewerBtn);
+    controls.appendChild(fullscreenBtn);
+    controls.appendChild(resetBtn);
     controls.appendChild(resizeBtn);
     controls.appendChild(saveBtn);
     card.appendChild(controls);
@@ -2641,11 +2715,27 @@ function renderMessages() {
           action: () => copyText(serializeMessageAsXml(message))
         },
         {
-          label: "Open SWF Viewer",
+          label: "FullScreen SWF",
+          disabled: !firstSwfAttachment,
+          action: async () => {
+            if (!firstSwfAttachment) return;
+            const runtimeKey = firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null;
+            const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+            const host = runtime?.host || messageRow.querySelector(".message-attachment--swf .message-swf-player");
+            if (!host) return;
+            await openSwfFullscreen(runtimeKey, host, firstSwfAttachment);
+          }
+        },
+        {
+          label: "Reset SWF",
           disabled: !firstSwfAttachment,
           action: () => {
             if (!firstSwfAttachment) return;
-            openSwfViewer(firstSwfAttachment, firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null);
+            const runtimeKey = firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null;
+            const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+            const host = runtime?.host || messageRow.querySelector(".message-attachment--swf .message-swf-player");
+            if (!host) return;
+            resetSwfRuntime(runtimeKey, host, firstSwfAttachment);
           }
         },
         {
@@ -3583,6 +3673,21 @@ window.addEventListener("resize", () => {
   }
 });
 document.addEventListener("scroll", closeContextMenu, true);
+
+document.addEventListener("fullscreenchange", () => {
+  if (document.fullscreenElement) {
+    let foundKey = null;
+    swfRuntimes.forEach((runtime, key) => {
+      if (runtime.host === document.fullscreenElement) foundKey = key;
+    });
+    fullscreenRuntimeKey = foundKey;
+    if (foundKey) setSwfPlayback(foundKey, true);
+    return;
+  }
+  if (!fullscreenRuntimeKey) return;
+  setSwfPlayback(fullscreenRuntimeKey, false);
+  fullscreenRuntimeKey = null;
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && contextMenuOpen) {
