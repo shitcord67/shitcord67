@@ -425,6 +425,7 @@ let slashSelectionIndex = 0;
 let mentionSelectionIndex = 0;
 let contextMenuOpen = false;
 let contextMenuFocusIndex = 0;
+let contextMenuSubmenuAnchor = null;
 let channelFilterTerm = "";
 let dmSearchTerm = "";
 let selectedUserPopoutId = null;
@@ -1021,19 +1022,27 @@ function closeContextMenu() {
   if (!contextMenuOpen) return;
   contextMenuOpen = false;
   contextMenuFocusIndex = 0;
+  contextMenuSubmenuAnchor = null;
   ui.contextMenu.classList.add("context-menu--hidden");
   ui.contextMenu.innerHTML = "";
   document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
+}
+
+function shouldUseNativeContextMenu(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(".message-swf-player, ruffle-player, .ruffle-player"));
 }
 
 function openContextMenu(event, items) {
   event.preventDefault();
   event.stopPropagation();
   if (!Array.isArray(items) || items.length === 0) return;
+  contextMenuSubmenuAnchor = null;
   document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
   ui.contextMenu.innerHTML = "";
   const openSubmenu = (anchor, submenuItems) => {
     document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
+    contextMenuSubmenuAnchor = anchor;
     const submenu = document.createElement("div");
     submenu.className = "context-menu context-submenu";
     submenuItems.forEach((entry) => {
@@ -5175,11 +5184,12 @@ function renderMessages() {
     messageRow.appendChild(reactions);
     messageRow.appendChild(reactionPicker);
     messageRow.addEventListener("contextmenu", (event) => {
+      if (shouldUseNativeContextMenu(event.target)) return;
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       const isOwnMessage = currentUser && message.userId === currentUser.id;
       const firstSwfAttachment = attachments.find((attachment) => attachment.type === "swf");
       const firstSwfIndex = attachments.findIndex((attachment) => attachment.type === "swf");
-      openContextMenu(event, [
+      const menuItems = [
         {
           label: "Reply",
           action: () => {
@@ -5194,38 +5204,6 @@ function renderMessages() {
             { label: "JSON", action: () => copyText(serializeMessageAsJson(message)) },
             { label: "XML", action: () => copyText(serializeMessageAsXml(message)) }
           ]
-        },
-        {
-          label: "FullScreen SWF",
-          disabled: !firstSwfAttachment,
-          action: async () => {
-            if (!firstSwfAttachment) return;
-            const runtimeKey = firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null;
-            const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
-            const host = runtime?.host || messageRow.querySelector(".message-attachment--swf .message-swf-player");
-            if (!host) return;
-            await openSwfFullscreen(runtimeKey, host, firstSwfAttachment);
-          }
-        },
-        {
-          label: "Reset SWF",
-          disabled: !firstSwfAttachment,
-          action: () => {
-            if (!firstSwfAttachment) return;
-            const runtimeKey = firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null;
-            const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
-            const host = runtime?.host || messageRow.querySelector(".message-attachment--swf .message-swf-player");
-            if (!host) return;
-            resetSwfRuntime(runtimeKey, host, firstSwfAttachment);
-          }
-        },
-        {
-          label: "Save SWF to Shelf",
-          disabled: !firstSwfAttachment,
-          action: () => {
-            if (!firstSwfAttachment) return;
-            saveSwfToShelf(firstSwfAttachment);
-          }
         },
         {
           label: message.pinned ? "Unpin Message" : "Pin Message",
@@ -5260,7 +5238,60 @@ function renderMessages() {
             renderMessages();
           }
         }
-      ]);
+      ];
+      if (firstSwfAttachment) {
+        menuItems.splice(2, 0, {
+          label: "SWF",
+          submenu: [
+            {
+              label: "Open in Viewer",
+              action: () => {
+                const runtimeKey = firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null;
+                openSwfViewer(firstSwfAttachment, runtimeKey);
+              }
+            },
+            {
+              label: "FullScreen",
+              action: async () => {
+                const runtimeKey = firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null;
+                const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+                const host = runtime?.host || messageRow.querySelector(".message-attachment--swf .message-swf-player");
+                if (!host) return;
+                await openSwfFullscreen(runtimeKey, host, firstSwfAttachment);
+              }
+            },
+            {
+              label: "Reset",
+              action: () => {
+                const runtimeKey = firstSwfIndex >= 0 ? `${message.id}:${firstSwfIndex}` : null;
+                const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+                const host = runtime?.host || messageRow.querySelector(".message-attachment--swf .message-swf-player");
+                if (!host) return;
+                resetSwfRuntime(runtimeKey, host, firstSwfAttachment);
+              }
+            },
+            {
+              label: "Save to Shelf",
+              action: () => {
+                saveSwfToShelf(firstSwfAttachment);
+              }
+            },
+            {
+              label: "Copy URL",
+              action: () => {
+                copyText(resolveMediaUrl(firstSwfAttachment.url));
+              }
+            },
+            {
+              label: "Download",
+              action: () => {
+                void downloadAttachmentFile(firstSwfAttachment, "swf");
+              }
+            }
+          ]
+        });
+      }
+      openContextMenu(event, menuItems);
     });
   });
 
@@ -6622,10 +6653,15 @@ document.addEventListener("contextmenu", (event) => {
   if (target instanceof HTMLElement) {
     const isEditable = target.closest("input, textarea, [contenteditable='true']");
     const insideApp = Boolean(target.closest("#app"));
-    if (insideApp && !isEditable) {
+    const allowNativeMenu = shouldUseNativeContextMenu(target);
+    if (insideApp && !isEditable && !allowNativeMenu) {
       event.preventDefault();
       if (!contextMenuOpen) return;
       if (ui.contextMenu.contains(target)) return;
+      closeContextMenu();
+      return;
+    }
+    if (allowNativeMenu && contextMenuOpen && !ui.contextMenu.contains(target)) {
       closeContextMenu();
       return;
     }
@@ -6651,6 +6687,34 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "ArrowUp") {
     event.preventDefault();
     contextMenuFocusIndex = (contextMenuFocusIndex - 1 + buttons.length) % buttons.length;
+    buttons[contextMenuFocusIndex].focus();
+    return;
+  }
+  if (event.key === "ArrowRight") {
+    const focused = document.activeElement instanceof HTMLButtonElement ? document.activeElement : buttons[contextMenuFocusIndex];
+    if (!focused?.classList.contains("context-menu__has-submenu")) return;
+    event.preventDefault();
+    focused.click();
+    const submenuButtons = [...document.querySelectorAll(".context-submenu button:not(:disabled)")];
+    if (submenuButtons.length > 0) submenuButtons[0].focus();
+    return;
+  }
+  if (event.key === "ArrowLeft") {
+    if (!contextMenuSubmenuAnchor) return;
+    event.preventDefault();
+    document.querySelectorAll(".context-submenu").forEach((node) => node.remove());
+    contextMenuSubmenuAnchor.focus();
+    return;
+  }
+  if (event.key === "Home") {
+    event.preventDefault();
+    contextMenuFocusIndex = 0;
+    buttons[contextMenuFocusIndex].focus();
+    return;
+  }
+  if (event.key === "End") {
+    event.preventDefault();
+    contextMenuFocusIndex = buttons.length - 1;
     buttons[contextMenuFocusIndex].focus();
     return;
   }
