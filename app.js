@@ -9982,6 +9982,7 @@ function renderVoiceStageSurface(channel) {
   const isMuted = channel.voiceState.mutedIds.includes(current.id);
   const hasRaised = channel.voiceState.raisedHandIds.includes(current.id);
   const isSpeaker = channel.voiceState.speakerIds.includes(current.id);
+  const canModerateStage = channel.type === "stage" && canCurrentUser("manageMessages");
 
   const shell = document.createElement("section");
   shell.className = "voice-stage";
@@ -10036,17 +10037,19 @@ function renderVoiceStageSurface(channel) {
     });
     controls.appendChild(handBtn);
 
-    const speakerBtn = document.createElement("button");
-    speakerBtn.type = "button";
-    speakerBtn.textContent = isSpeaker ? "Leave Speaker" : "Become Speaker";
-    speakerBtn.disabled = !isConnected;
-    speakerBtn.addEventListener("click", () => {
-      if (!toggleStageSpeaker(channel, current.id)) return;
-      saveState();
-      renderMessages();
-      renderMemberList();
-    });
-    controls.appendChild(speakerBtn);
+    if (canModerateStage) {
+      const speakerBtn = document.createElement("button");
+      speakerBtn.type = "button";
+      speakerBtn.textContent = isSpeaker ? "Leave Speaker" : "Become Speaker";
+      speakerBtn.disabled = !isConnected;
+      speakerBtn.addEventListener("click", () => {
+        if (!toggleStageSpeaker(channel, current.id)) return;
+        saveState();
+        renderMessages();
+        renderMemberList();
+      });
+      controls.appendChild(speakerBtn);
+    }
   }
   shell.appendChild(controls);
 
@@ -10078,6 +10081,123 @@ function renderVoiceStageSurface(channel) {
     });
   }
   shell.appendChild(list);
+
+  if (channel.type === "stage" && canModerateStage) {
+    const mod = document.createElement("section");
+    mod.className = "voice-stage__moderation";
+    const modTitle = document.createElement("h4");
+    modTitle.textContent = "Stage Moderation";
+    mod.appendChild(modTitle);
+
+    const raised = channel.voiceState.raisedHandIds
+      .map((id) => getAccountById(id))
+      .filter(Boolean);
+    const queue = document.createElement("div");
+    queue.className = "voice-stage__queue";
+    if (raised.length === 0) {
+      const empty = document.createElement("small");
+      empty.textContent = "No raised hands.";
+      queue.appendChild(empty);
+    } else {
+      raised.forEach((account) => {
+        const row = document.createElement("div");
+        row.className = "voice-stage__queue-row";
+        const label = document.createElement("strong");
+        label.textContent = displayNameForAccount(account, guild.id);
+        row.appendChild(label);
+
+        const approve = document.createElement("button");
+        approve.type = "button";
+        approve.textContent = "Approve";
+        approve.addEventListener("click", () => {
+          ensureVoiceStateForChannel(channel);
+          if (!channel.voiceState.speakerIds.includes(account.id)) channel.voiceState.speakerIds.push(account.id);
+          channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== account.id);
+          saveState();
+          renderMessages();
+          renderMemberList();
+        });
+        row.appendChild(approve);
+
+        const deny = document.createElement("button");
+        deny.type = "button";
+        deny.textContent = "Dismiss";
+        deny.addEventListener("click", () => {
+          ensureVoiceStateForChannel(channel);
+          channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== account.id);
+          saveState();
+          renderMessages();
+          renderMemberList();
+        });
+        row.appendChild(deny);
+        queue.appendChild(row);
+      });
+    }
+    mod.appendChild(queue);
+
+    const participants = connected.filter((account) => account.id !== current.id);
+    const people = document.createElement("div");
+    people.className = "voice-stage__queue";
+    if (participants.length > 0) {
+      participants.forEach((account) => {
+        const row = document.createElement("div");
+        row.className = "voice-stage__queue-row";
+        const label = document.createElement("strong");
+        label.textContent = displayNameForAccount(account, guild.id);
+        row.appendChild(label);
+
+        const memberMuted = channel.voiceState.mutedIds.includes(account.id);
+        const memberSpeaker = channel.voiceState.speakerIds.includes(account.id);
+
+        const muteBtnMember = document.createElement("button");
+        muteBtnMember.type = "button";
+        muteBtnMember.textContent = memberMuted ? "Unmute" : "Mute";
+        muteBtnMember.addEventListener("click", () => {
+          ensureVoiceStateForChannel(channel);
+          if (channel.voiceState.mutedIds.includes(account.id)) {
+            channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== account.id);
+          } else {
+            channel.voiceState.mutedIds.push(account.id);
+          }
+          saveState();
+          renderMessages();
+          renderMemberList();
+        });
+        row.appendChild(muteBtnMember);
+
+        const speakerBtnMember = document.createElement("button");
+        speakerBtnMember.type = "button";
+        speakerBtnMember.textContent = memberSpeaker ? "Demote" : "Promote";
+        speakerBtnMember.addEventListener("click", () => {
+          ensureVoiceStateForChannel(channel);
+          if (channel.voiceState.speakerIds.includes(account.id)) {
+            channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== account.id);
+          } else {
+            channel.voiceState.speakerIds.push(account.id);
+            channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== account.id);
+          }
+          saveState();
+          renderMessages();
+          renderMemberList();
+        });
+        row.appendChild(speakerBtnMember);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.textContent = "Disconnect";
+        removeBtn.addEventListener("click", () => {
+          if (!leaveVoiceLikeChannel(channel, account.id)) return;
+          saveState();
+          renderMessages();
+          renderMemberList();
+        });
+        row.appendChild(removeBtn);
+        people.appendChild(row);
+      });
+    }
+    mod.appendChild(people);
+    shell.appendChild(mod);
+  }
   ui.messageList.appendChild(shell);
   updateJumpToBottomButton();
   renderComposerMeta();

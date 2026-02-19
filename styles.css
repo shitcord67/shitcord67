@@ -808,6 +808,43 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   color: #aeb8c8;
 }
 
+.voice-stage__moderation {
+  border-top: 1px solid #3a4050;
+  padding-top: 0.6rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.voice-stage__moderation h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #cfd7e8;
+}
+
+.voice-stage__queue {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.voice-stage__queue-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.3rem;
+  align-items: center;
+  border: 1px solid #3a4050;
+  border-radius: 8px;
+  padding: 0.35rem 0.4rem;
+  background: #252a35;
+}
+
+.voice-stage__queue-row button {
+  background: #4a578d;
+  color: #f3f6ff;
+  border-radius: 7px;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.69rem;
+}
+
 .message {
   margin: 0;
   position: relative;
