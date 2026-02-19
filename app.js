@@ -54,7 +54,7 @@ const SLASH_COMMANDS = [
   { name: "newdm", args: "<username>", description: "Open or create a DM with a user." },
   { name: "closedm", args: "", description: "Close current DM thread." },
   { name: "leaveguild", args: "", description: "Leave the active guild (if more than one)." },
-  { name: "newchannel", args: "<name> [type]", description: "Create a channel in the active guild (manage channels)." },
+  { name: "newchannel", args: "<name> [type]", description: "Create a channel in the active guild (manage channels). Types: text/announcement/forum/media/voice/stage." },
   { name: "dupchannel", args: "", description: "Duplicate active channel (manage channels)." },
   { name: "movechannel", args: "<up|down|top|bottom>", description: "Reorder active channel (manage channels)." },
   { name: "markdmread", args: "", description: "Mark current DM as read." },
@@ -145,6 +145,15 @@ const SVG_LIBRARY = [
   { name: "scan lines", url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120'%3E%3Crect width='200' height='120' fill='%230f1116'/%3E%3Crect x='0' y='0' width='200' height='2' fill='%2357f287'%3E%3Canimate attributeName='y' values='0;118;0' dur='1.8s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/svg%3E" },
   { name: "spinning cube", url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120'%3E%3Crect width='200' height='120' fill='%2311161f'/%3E%3Cg transform='translate(100 60)'%3E%3Crect x='-18' y='-18' width='36' height='36' fill='none' stroke='%23f0b232' stroke-width='4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0' to='360' dur='2s' repeatCount='indefinite'/%3E%3C/rect%3E%3C/g%3E%3C/svg%3E" }
 ];
+
+function createVoiceState() {
+  return {
+    connectedIds: [],
+    mutedIds: [],
+    raisedHandIds: [],
+    speakerIds: []
+  };
+}
 
 function createId() {
   const cryptoApi = globalThis.crypto;
@@ -265,6 +274,7 @@ function buildStarterChannels(template, accountId) {
     topic,
     forumTags: type === "forum" ? defaultForumTags.map((entry) => ({ ...entry })) : [],
     permissionOverrides: {},
+    voiceState: createVoiceState(),
     readState: { ...readState },
     slowmodeSec: 0,
     slowmodeState: {},
@@ -317,6 +327,7 @@ function buildInitialState() {
             topic: "General discussion",
             forumTags: [],
             permissionOverrides: {},
+            voiceState: createVoiceState(),
             readState: {},
             slowmodeSec: 0,
             slowmodeState: {},
@@ -522,7 +533,7 @@ function migrateState(raw) {
         memberRoles,
         channels: Array.isArray(guild.channels)
           ? guild.channels.map((channel) => {
-              const type = ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text";
+              const type = ["text", "announcement", "forum", "media", "voice", "stage"].includes(channel.type) ? channel.type : "text";
               const forumTags = type === "forum" ? normalizeForumTags(channel.forumTags) : [];
               return {
                 ...channel,
@@ -530,6 +541,7 @@ function migrateState(raw) {
                 topic: typeof channel.topic === "string" ? channel.topic : "",
                 forumTags,
                 permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, roles.map((role) => role.id)),
+                voiceState: normalizeVoiceState(channel.voiceState),
                 readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
                 slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
                 slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
@@ -630,7 +642,7 @@ function migrateState(raw) {
                   poll: normalizePoll(msg.poll)
                 }))
               : [];
-            const type = ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text";
+            const type = ["text", "announcement", "forum", "media", "voice", "stage"].includes(channel.type) ? channel.type : "text";
             const forumTags = type === "forum" ? normalizeForumTags(channel.forumTags) : [];
             return {
               id: channel.id || createId(),
@@ -639,6 +651,7 @@ function migrateState(raw) {
               topic: "",
               forumTags,
               permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, [everyoneRole.id]),
+              voiceState: normalizeVoiceState(channel.voiceState),
               readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
               slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
               slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
@@ -652,6 +665,7 @@ function migrateState(raw) {
               topic: "",
               forumTags: [],
               permissionOverrides: {},
+              voiceState: createVoiceState(),
               readState: {},
               slowmodeSec: 0,
               slowmodeState: {},
@@ -1852,8 +1866,87 @@ function canCurrentUserPostInChannel(channel, account) {
   const server = getActiveServer();
   if (!canAccountViewChannel(server, channel, account.id)) return false;
   if (!hasChannelPermission(server, channel, account.id, "sendMessages")) return false;
+  if (channel.type === "voice" || channel.type === "stage") return false;
   if (channel.type === "announcement") {
     return canCurrentUser("manageMessages") || canCurrentUser("administrator");
+  }
+  return true;
+}
+
+function ensureVoiceStateForChannel(channel) {
+  if (!channel) return;
+  channel.voiceState = normalizeVoiceState(channel.voiceState);
+}
+
+function leaveAllVoiceChannelsForAccount(guild, accountId) {
+  if (!guild || !accountId) return false;
+  let changed = false;
+  guild.channels.forEach((channel) => {
+    if (channel.type !== "voice" && channel.type !== "stage") return;
+    ensureVoiceStateForChannel(channel);
+    const before = JSON.stringify(channel.voiceState);
+    channel.voiceState.connectedIds = channel.voiceState.connectedIds.filter((id) => id !== accountId);
+    channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== accountId);
+    channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
+    channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== accountId);
+    if (JSON.stringify(channel.voiceState) !== before) changed = true;
+  });
+  return changed;
+}
+
+function joinVoiceLikeChannel(channel, accountId) {
+  const guild = getActiveGuild();
+  if (!guild || !channel || !accountId) return false;
+  leaveAllVoiceChannelsForAccount(guild, accountId);
+  ensureVoiceStateForChannel(channel);
+  if (!channel.voiceState.connectedIds.includes(accountId)) channel.voiceState.connectedIds.push(accountId);
+  return true;
+}
+
+function leaveVoiceLikeChannel(channel, accountId) {
+  if (!channel || !accountId) return false;
+  ensureVoiceStateForChannel(channel);
+  const before = JSON.stringify(channel.voiceState);
+  channel.voiceState.connectedIds = channel.voiceState.connectedIds.filter((id) => id !== accountId);
+  channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== accountId);
+  channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
+  channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== accountId);
+  return JSON.stringify(channel.voiceState) !== before;
+}
+
+function toggleVoiceMuteForSelf(channel, accountId) {
+  if (!channel || !accountId) return false;
+  ensureVoiceStateForChannel(channel);
+  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
+  if (channel.voiceState.mutedIds.includes(accountId)) {
+    channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== accountId);
+  } else {
+    channel.voiceState.mutedIds.push(accountId);
+  }
+  return true;
+}
+
+function toggleRaisedHandForSelf(channel, accountId) {
+  if (!channel || !accountId || channel.type !== "stage") return false;
+  ensureVoiceStateForChannel(channel);
+  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
+  if (channel.voiceState.raisedHandIds.includes(accountId)) {
+    channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
+  } else {
+    channel.voiceState.raisedHandIds.push(accountId);
+  }
+  return true;
+}
+
+function toggleStageSpeaker(channel, accountId) {
+  if (!channel || !accountId || channel.type !== "stage") return false;
+  ensureVoiceStateForChannel(channel);
+  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
+  if (channel.voiceState.speakerIds.includes(accountId)) {
+    channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== accountId);
+  } else {
+    channel.voiceState.speakerIds.push(accountId);
+    channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
   }
   return true;
 }
@@ -2011,6 +2104,7 @@ function duplicateChannelInGuild(guild, channel) {
     topic: (channel.topic || "").toString(),
     forumTags,
     permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, getServerRoles(guild).map((role) => role.id)),
+    voiceState: createVoiceState(),
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     slowmodeSec: normalizeSlowmodeSeconds(channel.slowmodeSec || 0),
     slowmodeState: {},
@@ -2360,6 +2454,13 @@ function ensureCurrentUserInActiveServer() {
     const beforeOverrides = JSON.stringify(channel.permissionOverrides || {});
     ensureChannelPermissionOverrides(channel, server);
     if (JSON.stringify(channel.permissionOverrides || {}) !== beforeOverrides) changed = true;
+    const beforeVoice = JSON.stringify(channel.voiceState || {});
+    channel.voiceState = normalizeVoiceState(channel.voiceState);
+    channel.voiceState.connectedIds = channel.voiceState.connectedIds.filter((id) => server.memberIds.includes(id));
+    channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => channel.voiceState.connectedIds.includes(id));
+    channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => channel.voiceState.connectedIds.includes(id));
+    channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => channel.voiceState.connectedIds.includes(id));
+    if (JSON.stringify(channel.voiceState || {}) !== beforeVoice) changed = true;
     channel.forumTags = channel.type === "forum" ? forumTagsForChannel(channel) : [];
     ensureChannelReadState(channel);
     const normalizedSlowmode = getChannelSlowmodeSeconds(channel);
@@ -2613,6 +2714,17 @@ function normalizeMediaTrustRules(value) {
 function normalizeProfileEffect(value) {
   const effect = (value || "").toString().toLowerCase();
   return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
+}
+
+function normalizeVoiceState(value) {
+  const safe = value && typeof value === "object" ? value : {};
+  const normalizeIds = (arr) => [...new Set((Array.isArray(arr) ? arr : []).map((id) => (id || "").toString()).filter(Boolean))];
+  return {
+    connectedIds: normalizeIds(safe.connectedIds),
+    mutedIds: normalizeIds(safe.mutedIds),
+    raisedHandIds: normalizeIds(safe.raisedHandIds),
+    speakerIds: normalizeIds(safe.speakerIds)
+  };
 }
 
 function normalizeChannelPermissionValue(value) {
@@ -2969,6 +3081,8 @@ function channelTypePrefix(channel) {
   if (channel.type === "announcement") return "📣";
   if (channel.type === "forum") return "🗂";
   if (channel.type === "media") return "🖼";
+  if (channel.type === "voice") return "🔊";
+  if (channel.type === "stage") return "🎙";
   return "#";
 }
 
@@ -2977,6 +3091,8 @@ function channelTypeSymbol(channel) {
   if (channel.type === "announcement") return "📣";
   if (channel.type === "forum") return "🧵";
   if (channel.type === "media") return "🖼";
+  if (channel.type === "voice") return "🔊";
+  if (channel.type === "stage") return "🎙";
   return "#";
 }
 
@@ -2986,6 +3102,8 @@ function channelHeaderGlyph(channel, mode = "channel") {
   if (channel.type === "announcement") return "!";
   if (channel.type === "forum") return "≡";
   if (channel.type === "media") return "▦";
+  if (channel.type === "voice") return "◉";
+  if (channel.type === "stage") return "◎";
   return "#";
 }
 
@@ -4768,11 +4886,11 @@ function handleSlashCommand(rawText, channel, account) {
     if (!guild) return true;
     const parts = arg.split(/\s+/).filter(Boolean);
     if (parts.length === 0) {
-      addSystemMessage(channel, "Usage: /newchannel <name> [text|announcement|forum|media]");
+      addSystemMessage(channel, "Usage: /newchannel <name> [text|announcement|forum|media|voice|stage]");
       return true;
     }
     const maybeType = (parts[parts.length - 1] || "").toLowerCase();
-    const allowedTypes = new Set(["text", "announcement", "forum", "media"]);
+    const allowedTypes = new Set(["text", "announcement", "forum", "media", "voice", "stage"]);
     const type = allowedTypes.has(maybeType) ? maybeType : "text";
     const namePart = allowedTypes.has(maybeType) ? parts.slice(0, -1).join("-") : parts.join("-");
     const next = {
@@ -4782,6 +4900,7 @@ function handleSlashCommand(rawText, channel, account) {
       topic: "",
       forumTags: [],
       permissionOverrides: {},
+      voiceState: createVoiceState(),
       readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
       slowmodeSec: 0,
       slowmodeState: {},
@@ -5667,7 +5786,11 @@ function renderComposerMeta() {
 
   if (ui.composerSystemNotice) {
     let notice = "";
-    if (!canPost) {
+    if (channel.type === "voice") {
+      notice = "Voice channels use live call controls. Join voice to participate.";
+    } else if (channel.type === "stage") {
+      notice = "Stage channels are listen-first. Join stage and request speaking access.";
+    } else if (!canPost) {
       notice = "You do not have permission to send messages in this channel.";
     } else if (remainingSeconds > 0) {
       notice = `Slowmode active. Wait ${remainingSeconds}s before sending again.`;
@@ -5680,7 +5803,7 @@ function renderComposerMeta() {
   }
 
   const hasPayload = rawValue.trim().length > 0 || composerPendingAttachments.length > 0;
-  submitBtn.disabled = !canPost || remainingSeconds > 0 || !hasPayload;
+  submitBtn.disabled = channel.type === "voice" || channel.type === "stage" || !canPost || remainingSeconds > 0 || !hasPayload;
   if (remainingSeconds > 0) {
     composerMetaRefreshTimer = setTimeout(() => {
       composerMetaRefreshTimer = null;
@@ -8969,6 +9092,30 @@ function renderChannels() {
             renderChannels();
           }
         },
+        ...(channel.type === "voice" || channel.type === "stage"
+          ? [{
+              label: (() => {
+                const current = getCurrentAccount();
+                ensureVoiceStateForChannel(channel);
+                const joined = Boolean(current && channel.voiceState.connectedIds.includes(current.id));
+                return joined ? "Leave Call" : "Join Call";
+              })(),
+              disabled: !getCurrentAccount(),
+              action: () => {
+                const current = getCurrentAccount();
+                if (!current) return;
+                ensureVoiceStateForChannel(channel);
+                const joined = channel.voiceState.connectedIds.includes(current.id);
+                const changed = joined
+                  ? leaveVoiceLikeChannel(channel, current.id)
+                  : joinVoiceLikeChannel(channel, current.id);
+                if (!changed) return;
+                state.activeChannelId = channel.id;
+                saveState();
+                render();
+              }
+            }]
+          : []),
         {
           label: "Copy",
           submenu: [
@@ -9825,6 +9972,117 @@ function renderDmHome() {
   renderComposerMeta();
 }
 
+function renderVoiceStageSurface(channel) {
+  if (!channel) return;
+  const guild = getActiveGuild();
+  const current = getCurrentAccount();
+  if (!guild || !current) return;
+  ensureVoiceStateForChannel(channel);
+  const isConnected = channel.voiceState.connectedIds.includes(current.id);
+  const isMuted = channel.voiceState.mutedIds.includes(current.id);
+  const hasRaised = channel.voiceState.raisedHandIds.includes(current.id);
+  const isSpeaker = channel.voiceState.speakerIds.includes(current.id);
+
+  const shell = document.createElement("section");
+  shell.className = "voice-stage";
+  const title = document.createElement("h3");
+  title.textContent = channel.type === "stage" ? "Stage Channel" : "Voice Channel";
+  const subtitle = document.createElement("p");
+  subtitle.textContent = channel.type === "stage"
+    ? "Join the stage to listen. Raise your hand to request speaking."
+    : "Join voice and use mute controls for this channel.";
+  shell.appendChild(title);
+  shell.appendChild(subtitle);
+
+  const controls = document.createElement("div");
+  controls.className = "voice-stage__controls";
+
+  const joinBtn = document.createElement("button");
+  joinBtn.type = "button";
+  joinBtn.textContent = isConnected ? "Leave Channel" : "Join Channel";
+  joinBtn.addEventListener("click", () => {
+    const changed = isConnected
+      ? leaveVoiceLikeChannel(channel, current.id)
+      : joinVoiceLikeChannel(channel, current.id);
+    if (!changed) return;
+    saveState();
+    renderMessages();
+    renderMemberList();
+  });
+  controls.appendChild(joinBtn);
+
+  const muteBtn = document.createElement("button");
+  muteBtn.type = "button";
+  muteBtn.textContent = isMuted ? "Unmute" : "Mute";
+  muteBtn.disabled = !isConnected;
+  muteBtn.addEventListener("click", () => {
+    if (!toggleVoiceMuteForSelf(channel, current.id)) return;
+    saveState();
+    renderMessages();
+    renderMemberList();
+  });
+  controls.appendChild(muteBtn);
+
+  if (channel.type === "stage") {
+    const handBtn = document.createElement("button");
+    handBtn.type = "button";
+    handBtn.textContent = hasRaised ? "Lower Hand" : "Raise Hand";
+    handBtn.disabled = !isConnected;
+    handBtn.addEventListener("click", () => {
+      if (!toggleRaisedHandForSelf(channel, current.id)) return;
+      saveState();
+      renderMessages();
+      renderMemberList();
+    });
+    controls.appendChild(handBtn);
+
+    const speakerBtn = document.createElement("button");
+    speakerBtn.type = "button";
+    speakerBtn.textContent = isSpeaker ? "Leave Speaker" : "Become Speaker";
+    speakerBtn.disabled = !isConnected;
+    speakerBtn.addEventListener("click", () => {
+      if (!toggleStageSpeaker(channel, current.id)) return;
+      saveState();
+      renderMessages();
+      renderMemberList();
+    });
+    controls.appendChild(speakerBtn);
+  }
+  shell.appendChild(controls);
+
+  const list = document.createElement("div");
+  list.className = "voice-stage__list";
+  const connected = channel.voiceState.connectedIds
+    .map((id) => getAccountById(id))
+    .filter(Boolean);
+  if (connected.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = "Nobody is connected yet.";
+    list.appendChild(empty);
+  } else {
+    connected.forEach((account) => {
+      const row = document.createElement("div");
+      row.className = "voice-stage__member";
+      const name = document.createElement("strong");
+      name.textContent = displayNameForAccount(account, guild.id);
+      const flags = [];
+      if (channel.voiceState.mutedIds.includes(account.id)) flags.push("Muted");
+      if (channel.type === "stage" && channel.voiceState.speakerIds.includes(account.id)) flags.push("Speaker");
+      if (channel.type === "stage" && channel.voiceState.raisedHandIds.includes(account.id)) flags.push("Hand Raised");
+      const meta = document.createElement("small");
+      meta.textContent = flags.length > 0 ? flags.join(" · ") : "Listening";
+      row.appendChild(name);
+      row.appendChild(meta);
+      list.appendChild(row);
+    });
+  }
+  shell.appendChild(list);
+  ui.messageList.appendChild(shell);
+  updateJumpToBottomButton();
+  renderComposerMeta();
+}
+
 function renderMessages() {
   const conversation = getActiveConversation();
   const isDm = conversation?.type === "dm";
@@ -9893,6 +10151,10 @@ function renderMessages() {
       ui.messageInput.placeholder = channel ? `New post in ${channelTypePrefix(channel)} ${channel.name} (title on first line)` : "No channel selected";
     } else if (channel?.type === "announcement") {
       ui.messageInput.placeholder = channel ? `Announcement ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
+    } else if (channel?.type === "voice") {
+      ui.messageInput.placeholder = channel ? `Voice controls in ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
+    } else if (channel?.type === "stage") {
+      ui.messageInput.placeholder = channel ? `Stage controls in ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
     } else {
       ui.messageInput.placeholder = channel ? `Message ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
     }
@@ -9905,6 +10167,10 @@ function renderMessages() {
 
   if (!conversationId) {
     updateJumpToBottomButton();
+    return;
+  }
+  if (!isDm && (channel?.type === "voice" || channel?.type === "stage")) {
+    renderVoiceStageSurface(channel);
     return;
   }
   if (!isDm && channel?.type === "forum") {
@@ -10808,6 +11074,56 @@ function renderMemberList() {
     if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = "Members";
     return;
   }
+  const activeChannel = getActiveChannel();
+  if (activeChannel && (activeChannel.type === "voice" || activeChannel.type === "stage")) {
+    ensureVoiceStateForChannel(activeChannel);
+    const connectedIds = activeChannel.voiceState.connectedIds.filter((id) => server.memberIds.includes(id));
+    const connectedAccounts = connectedIds
+      .map((id) => getAccountById(id))
+      .filter((account) => account && matchesMemberFilter(account, server.id));
+    if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `In Channel — ${connectedAccounts.length}`;
+    const title = document.createElement("div");
+    title.className = "member-group-title";
+    title.textContent = activeChannel.type === "stage" ? "Audience / Speakers" : "Connected";
+    ui.memberList.appendChild(title);
+    if (connectedAccounts.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "channel-empty";
+      empty.textContent = "No one connected.";
+      ui.memberList.appendChild(empty);
+      return;
+    }
+    connectedAccounts.forEach((account) => {
+      const row = document.createElement("button");
+      row.className = "member-item";
+      const avatar = document.createElement("div");
+      avatar.className = "member-avatar";
+      applyAvatarStyle(avatar, account, server.id);
+      applyAvatarDecoration(avatar, account);
+      const dot = document.createElement("span");
+      dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
+      avatar.appendChild(dot);
+      const meta = document.createElement("span");
+      meta.className = "member-meta";
+      const label = document.createElement("span");
+      label.className = "member-meta__name";
+      label.textContent = displayNameForAccount(account, server.id);
+      const status = document.createElement("small");
+      status.className = "member-meta__status";
+      const flags = [];
+      if (activeChannel.voiceState.mutedIds.includes(account.id)) flags.push("Muted");
+      if (activeChannel.type === "stage" && activeChannel.voiceState.speakerIds.includes(account.id)) flags.push("Speaker");
+      if (activeChannel.type === "stage" && activeChannel.voiceState.raisedHandIds.includes(account.id)) flags.push("Hand Raised");
+      status.textContent = flags.length > 0 ? flags.join(" · ") : "Connected";
+      meta.appendChild(label);
+      meta.appendChild(status);
+      row.appendChild(avatar);
+      row.appendChild(meta);
+      row.addEventListener("click", () => openUserPopout(account));
+      ui.memberList.appendChild(row);
+    });
+    return;
+  }
 
   const online = [];
   const offline = [];
@@ -11656,7 +11972,11 @@ ui.messageForm.addEventListener("submit", (event) => {
     }
   }
   if (conversation.type === "channel" && !canCurrentUserPostInChannel(conversation.channel, account)) {
-    showToast("You do not have permission to send messages in this channel.", { tone: "error" });
+    if (conversation.channel.type === "voice" || conversation.channel.type === "stage") {
+      showToast("This channel uses voice controls instead of text messages.", { tone: "error" });
+    } else {
+      showToast("You do not have permission to send messages in this channel.", { tone: "error" });
+    }
     renderComposerMeta();
     return;
   }
@@ -12415,7 +12735,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const server = getActiveServer();
   if (!server) return;
-  const nextType = ["text", "announcement", "forum", "media"].includes(ui.channelTypeInput.value) ? ui.channelTypeInput.value : "text";
+  const nextType = ["text", "announcement", "forum", "media", "voice", "stage"].includes(ui.channelTypeInput.value) ? ui.channelTypeInput.value : "text";
 
   const channel = {
     id: createId(),
@@ -12424,6 +12744,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
     topic: "",
     forumTags: nextType === "forum" ? [] : [],
     permissionOverrides: {},
+    voiceState: createVoiceState(),
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     slowmodeSec: 0,
     slowmodeState: {},

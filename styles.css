@@ -752,6 +752,62 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   padding: 0.9rem 0 1.1rem;
 }
 
+.voice-stage {
+  margin: 0.7rem 1rem;
+  border: 1px solid #3a3f4e;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #222630, #1c1f27);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.voice-stage h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.voice-stage p {
+  margin: 0;
+  color: #aeb6c4;
+  font-size: 0.78rem;
+}
+
+.voice-stage__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.voice-stage__controls button {
+  background: #445089;
+  color: #f4f7ff;
+  padding: 0.38rem 0.6rem;
+  border-radius: 8px;
+}
+
+.voice-stage__controls button:disabled {
+  opacity: 0.45;
+}
+
+.voice-stage__list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.voice-stage__member {
+  border: 1px solid #3b4151;
+  background: #2a2f3a;
+  border-radius: 8px;
+  padding: 0.45rem 0.55rem;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.voice-stage__member small {
+  color: #aeb8c8;
+}
+
 .message {
   margin: 0;
   position: relative;
