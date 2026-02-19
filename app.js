@@ -22,7 +22,12 @@ const SLASH_COMMANDS = [
   { name: "nick", args: "<nickname>", description: "Set your nickname in the active guild." },
   { name: "status", args: "<text>", description: "Set your custom status message." },
   { name: "quests", args: "", description: "Show your earned quest badges and activity stats." },
+  { name: "questprogress", args: "", description: "Show quest milestone progress and next goals." },
+  { name: "questbadges", args: "", description: "List your unlocked quest badges." },
   { name: "profilefx", args: "<none|aurora|flame|ocean>", description: "Set your profile effect quickly." },
+  { name: "guildtag", args: "[TAG|clear]", description: "Set or clear your guild tag." },
+  { name: "decor", args: "[emoji|clear]", description: "Set or clear avatar decoration emoji." },
+  { name: "nameplate", args: "[url|data:image/svg+xml|clear]", description: "Set or clear nameplate image for your name." },
   { name: "mediaprivacy", args: "[status|safe|off]", description: "Control two-click external media loading privacy mode." },
   { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
   { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
@@ -849,6 +854,7 @@ const ui = {
   selfPopoutBio: document.getElementById("selfPopoutBio"),
   selfPopoutRoles: document.getElementById("selfPopoutRoles"),
   selfEditProfile: document.getElementById("selfEditProfile"),
+  selfQuestStats: document.getElementById("selfQuestStats"),
   selfSwitchAccount: document.getElementById("selfSwitchAccount"),
   selfLogout: document.getElementById("selfLogout"),
   userPopoutDialog: document.getElementById("userPopoutDialog"),
@@ -4718,14 +4724,18 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "quests") {
-    const stats = collectAccountActivityStats(account.id);
+    addSystemMessage(channel, formatQuestSummaryText(account.id));
+    return true;
+  }
+
+  if (command === "questprogress") {
+    addSystemMessage(channel, formatQuestSummaryText(account.id));
+    return true;
+  }
+
+  if (command === "questbadges") {
     const badges = resolveQuestBadgesForAccount(account.id);
-    addSystemMessage(channel, [
-      `Badges: ${badges.length > 0 ? badges.join(", ") : "none yet"}`,
-      `Messages sent: ${stats.sentMessages}`,
-      `Reactions given: ${stats.reactionsGiven}`,
-      `Polls created: ${stats.pollsCreated}`
-    ].join(" · "));
+    addSystemMessage(channel, badges.length > 0 ? `Badges: ${badges.join(", ")}` : "No badges unlocked yet.");
     return true;
   }
 
@@ -4741,6 +4751,58 @@ function handleSlashCommand(rawText, channel, account) {
     }
     account.profileEffect = nextEffect;
     addSystemMessage(channel, `Profile effect set to: ${nextEffect}`);
+    return true;
+  }
+
+  if (command === "guildtag") {
+    const rawTag = arg.trim();
+    if (!rawTag) {
+      addSystemMessage(channel, `Current guild tag: ${accountGuildTag(account) || "(none)"}`);
+      return true;
+    }
+    if (rawTag.toLowerCase() === "clear") {
+      account.guildTag = "";
+      addSystemMessage(channel, "Guild tag cleared.");
+      return true;
+    }
+    account.guildTag = rawTag.slice(0, 8).toUpperCase();
+    addSystemMessage(channel, `Guild tag set to: ${account.guildTag}`);
+    return true;
+  }
+
+  if (command === "decor") {
+    const rawDecor = arg.trim();
+    if (!rawDecor) {
+      addSystemMessage(channel, `Current avatar decoration: ${accountDecorationEmoji(account) || "(none)"}`);
+      return true;
+    }
+    if (rawDecor.toLowerCase() === "clear") {
+      account.avatarDecoration = "";
+      addSystemMessage(channel, "Avatar decoration cleared.");
+      return true;
+    }
+    account.avatarDecoration = rawDecor.slice(0, 4);
+    addSystemMessage(channel, `Avatar decoration set to: ${account.avatarDecoration}`);
+    return true;
+  }
+
+  if (command === "nameplate") {
+    const rawNameplate = arg.trim();
+    if (!rawNameplate) {
+      addSystemMessage(channel, `Current nameplate: ${accountNameplateSvg(account) || "(none)"}`);
+      return true;
+    }
+    if (rawNameplate.toLowerCase() === "clear") {
+      account.profileNameplateSvg = "";
+      addSystemMessage(channel, "Nameplate cleared.");
+      return true;
+    }
+    if (!/^https?:\/\//i.test(rawNameplate) && !/^data:image\/svg\+xml/i.test(rawNameplate)) {
+      addSystemMessage(channel, "Usage: /nameplate <https://...|data:image/svg+xml...|clear>");
+      return true;
+    }
+    account.profileNameplateSvg = rawNameplate.slice(0, 280);
+    addSystemMessage(channel, "Nameplate updated.");
     return true;
   }
 
@@ -5279,6 +5341,38 @@ function resolveQuestBadgesForAccount(accountId) {
   if (stats.reactionsGiven >= 10) badges.push("Reactor");
   if (stats.pollsCreated >= 1) badges.push("Poll Starter");
   return badges.slice(0, 4);
+}
+
+function questMilestoneProgress(accountId) {
+  const stats = collectAccountActivityStats(accountId);
+  const nextMessageGoal = [1, 25, 100, 250].find((value) => stats.sentMessages < value) || null;
+  const nextReactionGoal = [10, 50, 200].find((value) => stats.reactionsGiven < value) || null;
+  const nextPollGoal = [1, 5, 20].find((value) => stats.pollsCreated < value) || null;
+  return {
+    stats,
+    badges: resolveQuestBadgesForAccount(accountId),
+    nextGoals: {
+      messages: nextMessageGoal,
+      reactions: nextReactionGoal,
+      polls: nextPollGoal
+    }
+  };
+}
+
+function formatQuestSummaryText(accountId) {
+  const progress = questMilestoneProgress(accountId);
+  const { stats, badges, nextGoals } = progress;
+  const nextParts = [];
+  if (nextGoals.messages) nextParts.push(`next messages: ${stats.sentMessages}/${nextGoals.messages}`);
+  if (nextGoals.reactions) nextParts.push(`next reactions: ${stats.reactionsGiven}/${nextGoals.reactions}`);
+  if (nextGoals.polls) nextParts.push(`next polls: ${stats.pollsCreated}/${nextGoals.polls}`);
+  return [
+    `Badges: ${badges.length > 0 ? badges.join(", ") : "none yet"}`,
+    `Messages: ${stats.sentMessages}`,
+    `Reactions: ${stats.reactionsGiven}`,
+    `Polls: ${stats.pollsCreated}`,
+    nextParts.length > 0 ? `Progress: ${nextParts.join(" · ")}` : "Progress: all tracked milestones reached"
+  ].join(" · ");
 }
 
 function renderQuestBadges(container, accountId) {
@@ -9373,6 +9467,11 @@ function renderMessages() {
               label: "User ID",
               disabled: !author,
               action: () => copyText(author ? author.id : "")
+            },
+            {
+              label: "Guild Tag",
+              disabled: !author || !accountGuildTag(author),
+              action: () => copyText(author ? accountGuildTag(author) : "")
             }
           ]
         }
@@ -10026,7 +10125,8 @@ function renderMemberList() {
               label: "Copy",
               submenu: [
                 { label: "Username", action: () => copyText(`@${account.username}`) },
-                { label: "User ID", action: () => copyText(account.id) }
+                { label: "User ID", action: () => copyText(account.id) },
+                { label: "Guild Tag", disabled: !accountGuildTag(account), action: () => copyText(accountGuildTag(account)) }
               ]
             }
           ]);
@@ -10148,7 +10248,8 @@ function renderMemberList() {
             label: "Copy",
             submenu: [
               { label: "Username", action: () => copyText(`@${account.username}`) },
-              { label: "User ID", action: () => copyText(account.id) }
+              { label: "User ID", action: () => copyText(account.id) },
+              { label: "Guild Tag", disabled: !accountGuildTag(account), action: () => copyText(accountGuildTag(account)) }
             ]
           }
         ]);
@@ -10637,11 +10738,16 @@ ui.messageForm.addEventListener("submit", (event) => {
       return;
     }
     if (dmCommand === "quests") {
-      const stats = collectAccountActivityStats(account.id);
+      showToast(formatQuestSummaryText(account.id));
+      return;
+    }
+    if (dmCommand === "questprogress") {
+      showToast(formatQuestSummaryText(account.id));
+      return;
+    }
+    if (dmCommand === "questbadges") {
       const badges = resolveQuestBadgesForAccount(account.id);
-      showToast(
-        `Badges: ${badges.length > 0 ? badges.join(", ") : "none"} · Msg: ${stats.sentMessages} · React: ${stats.reactionsGiven} · Polls: ${stats.pollsCreated}`
-      );
+      showToast(badges.length > 0 ? `Badges: ${badges.join(", ")}` : "No badges unlocked yet.");
       return;
     }
     if (dmCommand === "profilefx") {
@@ -10657,6 +10763,67 @@ ui.messageForm.addEventListener("submit", (event) => {
       saveState();
       render();
       showToast(`Profile effect set to: ${account.profileEffect}`);
+      return;
+    }
+    if (dmCommand === "guildtag") {
+      const rawTag = dmArg.trim();
+      if (!rawTag) {
+        showToast(`Current guild tag: ${accountGuildTag(account) || "(none)"}`);
+        return;
+      }
+      if (rawTag.toLowerCase() === "clear") {
+        account.guildTag = "";
+        saveState();
+        render();
+        showToast("Guild tag cleared.");
+        return;
+      }
+      account.guildTag = rawTag.slice(0, 8).toUpperCase();
+      saveState();
+      render();
+      showToast(`Guild tag set to: ${account.guildTag}`);
+      return;
+    }
+    if (dmCommand === "decor") {
+      const rawDecor = dmArg.trim();
+      if (!rawDecor) {
+        showToast(`Current avatar decoration: ${accountDecorationEmoji(account) || "(none)"}`);
+        return;
+      }
+      if (rawDecor.toLowerCase() === "clear") {
+        account.avatarDecoration = "";
+        saveState();
+        render();
+        showToast("Avatar decoration cleared.");
+        return;
+      }
+      account.avatarDecoration = rawDecor.slice(0, 4);
+      saveState();
+      render();
+      showToast(`Avatar decoration set to: ${account.avatarDecoration}`);
+      return;
+    }
+    if (dmCommand === "nameplate") {
+      const rawNameplate = dmArg.trim();
+      if (!rawNameplate) {
+        showToast(`Current nameplate: ${accountNameplateSvg(account) || "(none)"}`);
+        return;
+      }
+      if (rawNameplate.toLowerCase() === "clear") {
+        account.profileNameplateSvg = "";
+        saveState();
+        render();
+        showToast("Nameplate cleared.");
+        return;
+      }
+      if (!/^https?:\/\//i.test(rawNameplate) && !/^data:image\/svg\+xml/i.test(rawNameplate)) {
+        showToast("Usage: /nameplate <https://...|data:image/svg+xml...|clear>", { tone: "error" });
+        return;
+      }
+      account.profileNameplateSvg = rawNameplate.slice(0, 280);
+      saveState();
+      render();
+      showToast("Nameplate updated.");
       return;
     }
     if (dmCommand === "find") {
@@ -12193,6 +12360,12 @@ ui.selfEditProfile.addEventListener("click", () => {
   openProfileEditor();
 });
 
+ui.selfQuestStats?.addEventListener("click", () => {
+  const account = getCurrentAccount();
+  if (!account) return;
+  showToast(formatQuestSummaryText(account.id));
+});
+
 ui.selfSwitchAccount.addEventListener("click", () => {
   ui.selfMenuDialog.close();
   selectedSwitchAccountId = state.currentAccountId;
@@ -12849,6 +13022,15 @@ document.addEventListener("keydown", (event) => {
     if (!markChannelRead(channel, account.id)) return;
     saveState();
     render();
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "q") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    const account = getCurrentAccount();
+    if (!account) return;
+    showToast(formatQuestSummaryText(account.id));
     return;
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "n") {

@@ -219,6 +219,13 @@
 - [done] Animated profile effects (`aurora`, `flame`, `ocean`) now apply on profile popouts
 - [done] Added lightweight quest badges based on account activity (messages/reactions/polls)
 - [done] Added `/quests` and `/profilefx` slash commands (plus DM parity for both)
+- [done] Added `/questprogress` and `/questbadges` commands (with DM parity)
+- [done] Added `/guildtag [TAG|clear]` command (with DM parity)
+- [done] Added `/decor [emoji|clear]` command (with DM parity)
+- [done] Added `/nameplate [url|data:image/svg+xml|clear]` command (with DM parity)
+- [done] Added `Alt+Q` shortcut to show quest progress quickly
+- [done] Added `Quest Stats` action in self profile menu
+- [done] Added `Copy -> Guild Tag` option in message/member user context menus
 - Make in-line chat commands clickable in the pop-up. Also e.g. when bots display rich media visual things like playing cards, then those can also be defined as individually click able even when displayed in the same line
 - Create a bot which provides a shedding-type card game that users can start in chat and play together (each user gets displayed their own deck by leveraging advanced in-line commands
 - Learn a lot about Discord from resources like:
