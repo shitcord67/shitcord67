@@ -166,8 +166,11 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Profile identity extras: avatar decoration emoji, guild tag, profile effect, and optional nameplate SVG/URL.
+- Cosmetics system: collectible avatar decorations, nameplates, and profile effects with a shard wallet, activity-based earning, inventory, and equip flow.
+- Cosmetics shop dialog with category tabs (`Decorations`, `Nameplates`, `Profile Effects`) and purchase/equip controls.
 - Guild tag is now copyable from user/member context menus and visible in more name surfaces.
 - Profile editor now includes a live identity preview card and one-click "Clear Identity Extras".
+- Slash cosmetics commands: `/shop [decor|nameplate|effect]` and `/inventory`.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
 - Right-click context menus for guilds, channels, messages, and members (quick actions).
