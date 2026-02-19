@@ -15787,16 +15787,49 @@ function fetchXmppBookmarksLegacy(connection) {
   });
 }
 
+function mergeXmppBookmarks(...lists) {
+  const merged = new Map();
+  lists.forEach((list) => {
+    if (!Array.isArray(list)) return;
+    list.forEach((entry) => {
+      const jid = normalizeXmppJid(entry?.jid || "").toLowerCase();
+      if (!jid) return;
+      const existing = merged.get(jid) || {
+        jid,
+        name: "",
+        autojoin: false,
+        nick: ""
+      };
+      const nextName = (entry?.name || "").toString().trim();
+      const nextNick = (entry?.nick || "").toString().trim();
+      const nextAutojoin = entry?.autojoin === true;
+      if (nextName && (!existing.name || existing.name === jid.split("@")[0])) existing.name = nextName;
+      if (nextNick && !existing.nick) existing.nick = nextNick;
+      if (nextAutojoin) existing.autojoin = true;
+      merged.set(jid, existing);
+    });
+  });
+  return [...merged.values()];
+}
+
 async function fetchXmppBookmarks(connection) {
   if (!connection || !globalThis.$iq) {
     addXmppDebugEvent("iq", "Bookmarks request skipped (missing connection/runtime)");
     return [];
   }
-  const modern = await fetchXmppBookmarksPubsub(connection);
-  if (modern.length > 0) return modern;
-  const legacy = await fetchXmppBookmarksLegacy(connection);
-  if (legacy.length > 0) return legacy;
-  return [];
+  const [modernResult, legacyResult] = await Promise.allSettled([
+    fetchXmppBookmarksPubsub(connection),
+    fetchXmppBookmarksLegacy(connection)
+  ]);
+  const modern = modernResult.status === "fulfilled" ? modernResult.value : [];
+  const legacy = legacyResult.status === "fulfilled" ? legacyResult.value : [];
+  const merged = mergeXmppBookmarks(modern, legacy);
+  addXmppDebugEvent("iq", "Merged bookmarks list", {
+    modernCount: modern.length,
+    legacyCount: legacy.length,
+    mergedCount: merged.length
+  });
+  return merged;
 }
 
 function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000, onProgress = null }) {
