@@ -19,6 +19,7 @@
 - [done] Added in-client XMPP registration dialog backed by local gateway `/register` endpoint.
 - [done] Added live XMPP roster-push handling and auto-mapped joined/seen MUC rooms into `XMPP Spaces`.
 - [done] Added bookmarks sync fallback chain: XEP-0402 pubsub (`urn:xmpp:bookmarks:1`) then legacy private XML (`storage:bookmarks`).
+- [done] Added `Add Friend` DM modal (username/JID) and direct XMPP one-to-one DM stanza send/receive path.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
 - Profile image upload with validation and preview.
@@ -188,7 +189,7 @@
 - [done] Search `Escape` on empty now blurs filter/search fields
 - [done] DM home icon context menu now supports "Mark All DMs Read"
 - [done] Clicking active channel header copies conversation reference (`#channel` / `@dm`)
-- [done] Slash command `/newdm <username>` to open/create DM directly
+- [done] Slash command `/newdm <username-or-jid>` to open/create DM directly
 - [done] Slash command `/closedm` to close active DM quickly
 - [done] Slash command `/leaveguild` to leave active guild without deleting global state
 - [done] Channel context menu: duplicate channel

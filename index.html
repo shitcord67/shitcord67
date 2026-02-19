@@ -68,7 +68,7 @@
             </button>
             <input id="dmSearchInput" class="channel-filter" type="text" maxlength="40" placeholder="Find or start DM" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <div id="dmList" class="channel-list channel-list--dm"></div>
-            <button id="newDmBtn" class="channel-create">+ New DM</button>
+            <button id="newDmBtn" class="channel-create">+ Add Friend</button>
           </section>
           <section id="guildSection">
             <button id="toggleGuildSectionBtn" class="channel-section-title channel-section-toggle" type="button">
@@ -789,6 +789,25 @@
       <div class="modal-actions">
         <button type="button" id="accountCancel">Cancel</button>
         <button type="submit">Use account</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="addFriendDialog" class="modal">
+    <form id="addFriendForm" class="modal-form" method="dialog">
+      <h3>Add Friend</h3>
+      <p>Start a DM by username or XMPP JID. If connected over XMPP, you can also send a contact request.</p>
+      <label for="addFriendIdentityInput">Username or XMPP JID</label>
+      <input id="addFriendIdentityInput" type="text" maxlength="120" placeholder="username or user@example.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <label for="addFriendDisplayInput">Display Name (optional)</label>
+      <input id="addFriendDisplayInput" type="text" maxlength="64" placeholder="Contact nickname" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <label class="login-check">
+        <input id="addFriendXmppRequestInput" type="checkbox" checked />
+        <span>Send XMPP contact request</span>
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="addFriendCancelBtn">Cancel</button>
+        <button type="submit" id="addFriendSubmitBtn">Add Friend</button>
       </div>
     </form>
   </dialog>

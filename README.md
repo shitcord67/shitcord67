@@ -103,7 +103,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - File attach/paste/drag-drop now supports richer media types (images/video/audio/SWF/SVG/HTML + docs/text/PDF/bin).
 - New draft utility commands: `/drafts`, `/cleardrafts [all]`, `/focus [search|composer]`.
 - Find commands: `/find [query]`, `/findnext`, `/findprev`.
-- New conversation admin commands: `/newdm <username>`, `/closedm`, `/leaveguild`.
+- New conversation admin commands: `/newdm <username-or-jid>`, `/closedm`, `/leaveguild`.
 - Additional channel/reading commands: `/newchannel <name> [type]`, `/dupchannel`, `/movechannel <up|down|top|bottom>`, `/markdmread`, `/markallread`.
 - Unread command: `/markunread [message-id-prefix|last]` marks current conversation unread from a specific message.
 - Identity/engagement commands: `/quests`, `/questprogress`, `/questbadges`, `/profilefx <none|aurora|flame|ocean>`, `/guildtag [TAG|clear]`, `/decor [emoji|clear]`, `/nameplate [url|data:image/svg+xml|clear]`.
@@ -217,9 +217,11 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Login now supports optional XMPP credentials (JID/password/WebSocket URL), JID-based server auto-detection, and a remember-login toggle.
 - Added login-time XMPP provider/registration directory modal with quick server prefill actions.
 - Added in-client XMPP registration dialog on login (uses local gateway `/register` for XEP-0077 attempt).
+- DM sidebar now supports a Discord-like `Add Friend` modal that accepts username or full XMPP JID and can send an XMPP subscription request.
 - If `.xmpp.local.json` is accessible to the web app, login shows a local profile dropdown to prefill JID/password/server.
 - When XMPP login credentials are provided, login now validates auth/connection before entering the app and keeps user on login on failure.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
+- XMPP DM threads now use direct `chat` stanzas to peer JIDs (not only MUC mapping), so one-to-one messaging works for JID-backed DM contacts.
 - XMPP roster push updates (`iq type='set'` roster) now apply live and update mapped DM contacts without reconnecting.
 - Joined/seen XMPP MUC rooms now auto-materialize as channels under `XMPP Spaces`, so room traffic does not fall back into the wrong active channel.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
