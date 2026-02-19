@@ -73,6 +73,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Section visibility shortcuts: `Alt+Shift+D` collapses/expands DM section, `Alt+Shift+C` collapses/expands guild channel section.
 - Quick switcher shortcut: `Ctrl+K` (or `Cmd+K`) opens channel/DM/guild quick jump modal.
 - Find shortcut: `Ctrl+F` (or `Cmd+F`) opens "Find in conversation" with hit highlighting and jump.
+- Find navigation shortcuts: `F3` / `Shift+F3` and `Ctrl+G` / `Shift+Ctrl+G` jump between matches.
 - Channel reorder shortcut: `Ctrl+Alt+ArrowUp/Down` moves active channel (manage channels permission).
 - Channel quick-jump shortcuts: `Alt+Home`/`Alt+End` jump to first/last channel.
 - Quick creation shortcuts: `Ctrl+Shift+N` opens create-channel, `Ctrl+Shift+D` opens new-DM prompt.
@@ -97,13 +98,16 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Composer now supports multi-attachment queues (up to 6 files), with chip-based remove and bulk save-to-picker.
 - File attach/paste/drag-drop now supports richer media types (images/video/audio/SWF/SVG/HTML + docs/text/PDF/bin).
 - New draft utility commands: `/drafts`, `/cleardrafts [all]`, `/focus [search|composer]`.
+- Find commands: `/find [query]`, `/findnext`, `/findprev`.
 - New conversation admin commands: `/newdm <username>`, `/closedm`, `/leaveguild`.
 - Additional channel/reading commands: `/newchannel <name> [type]`, `/dupchannel`, `/movechannel <up|down|top|bottom>`, `/markdmread`, `/markallread`.
+- Unread command: `/markunread [message-id-prefix|last]` marks current conversation unread from a specific message.
 - Copy/notification commands: `/copylink`, `/copyid`, `/copytopic`, `/notify [status|all|mentions|mute]`.
 - Channel/DM rows now show `Draft` badges for unsent composer drafts.
 - Right-click DM home icon allows `Mark All DMs Read`.
 - Right-click DM/Channel section headers now opens quick actions (`New DM`, `Create Channel`, `Mark Read`).
 - Browser autocomplete hints for login/search/composer inputs are disabled to avoid slash-command suggestion overlap.
+- Runtime anti-autocomplete hardening now also applies to find/quick-switch/media-search fields.
 - Browser tab title now shows unread/mention badges for quick background awareness.
 - Reload/close warns if the composer has unsent text, reply state, or pending attachment.
 - Composer `Escape` now cancels active reply target when input is empty.
@@ -138,6 +142,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Announcement channels are read-only for non-moderators (permission notice shown in composer).
 - Per-channel slowmode is supported (channel settings, context-menu presets, and `/slowmode` slash command).
 - Header now includes a direct `Mark Read` action and live pinned-message count on the `Pins` button.
+- Header now includes a direct `Find` action button for conversation search.
 - Discord-like visual tuning pass applied (font stack, channel row states, header controls, message spacing, member-list hover treatment).
 - Composer input bar now uses compact Discord-style action sizing with arrow send button treatment.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.

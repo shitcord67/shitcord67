@@ -36,6 +36,10 @@ const SLASH_COMMANDS = [
   { name: "drafts", args: "", description: "List current channel/DM drafts." },
   { name: "cleardrafts", args: "[all]", description: "Clear draft for this conversation or all drafts." },
   { name: "focus", args: "[search|composer]", description: "Focus channel/DM search or composer." },
+  { name: "find", args: "[query]", description: "Open find-in-conversation and optionally search immediately." },
+  { name: "findnext", args: "", description: "Jump to next find match in current conversation." },
+  { name: "findprev", args: "", description: "Jump to previous find match in current conversation." },
+  { name: "markunread", args: "[message-id-prefix|last]", description: "Mark conversation unread from selected message." },
   { name: "newdm", args: "<username>", description: "Open or create a DM with a user." },
   { name: "closedm", args: "", description: "Close current DM thread." },
   { name: "leaveguild", args: "", description: "Leave the active guild (if more than one)." },
@@ -701,6 +705,7 @@ const ui = {
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
   openPinsBtn: document.getElementById("openPinsBtn"),
   openRolesBtn: document.getElementById("openRolesBtn"),
+  openFindBtn: document.getElementById("openFindBtn"),
   openShortcutsBtn: document.getElementById("openShortcutsBtn"),
   toggleChannelPanelBtn: document.getElementById("toggleChannelPanelBtn"),
   toggleMemberPanelBtn: document.getElementById("toggleMemberPanelBtn"),
@@ -1427,6 +1432,18 @@ function openFindDialog() {
   requestAnimationFrame(() => ui.findInput?.focus());
 }
 
+function openFindDialogWithQuery(query) {
+  const safeQuery = (query || "").toString().trim().slice(0, 120);
+  findQuery = safeQuery;
+  findSelectionIndex = 0;
+  if (ui.findInput) ui.findInput.value = safeQuery;
+  renderFindList();
+  ui.findDialog?.showModal();
+  renderMessages();
+  if (safeQuery) moveFindSelection(0);
+  requestAnimationFrame(() => ui.findInput?.focus());
+}
+
 function moveFindSelection(delta) {
   const conversation = getActiveConversation();
   const matches = getFindMatchesForConversation(conversation, findQuery);
@@ -1876,6 +1893,10 @@ function openContextMenu(event, items) {
     contextMenuSubmenuAnchor = anchor;
     const submenu = document.createElement("div");
     submenu.className = "context-menu context-submenu";
+    submenu.addEventListener("contextmenu", (subEvent) => {
+      subEvent.preventDefault();
+      subEvent.stopPropagation();
+    });
     submenuItems.forEach((entry) => {
       const subButton = document.createElement("button");
       subButton.type = "button";
@@ -4153,6 +4174,61 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "find") {
+    openFindDialogWithQuery(arg);
+    return true;
+  }
+
+  if (command === "findnext") {
+    if (!findQuery.trim()) {
+      openFindDialog();
+      return true;
+    }
+    moveFindSelection(1);
+    return true;
+  }
+
+  if (command === "findprev") {
+    if (!findQuery.trim()) {
+      openFindDialog();
+      return true;
+    }
+    moveFindSelection(-1);
+    return true;
+  }
+
+  if (command === "markunread") {
+    const conversation = getActiveConversation();
+    if (!conversation || !account?.id) return true;
+    const bucket = conversation.type === "dm"
+      ? (conversation.thread?.messages || [])
+      : (conversation.channel?.messages || []);
+    if (bucket.length === 0) {
+      addSystemMessage(channel, "No messages available to mark unread from.");
+      return true;
+    }
+    const needle = arg.trim().toLowerCase();
+    const targetMessage = !needle || needle === "last"
+      ? bucket[bucket.length - 1]
+      : bucket.find((entry) => (entry.id || "").toLowerCase().startsWith(needle));
+    if (!targetMessage) {
+      addSystemMessage(channel, "Usage: /markunread [message-id-prefix|last]");
+      return true;
+    }
+    const changed = markConversationUnreadFromMessage(conversation, targetMessage.id, account.id);
+    if (!changed) {
+      addSystemMessage(channel, "Could not mark unread from that message.");
+      return true;
+    }
+    saveState();
+    renderServers();
+    renderDmList();
+    renderChannels();
+    renderMessages();
+    showToast(`Marked unread from ${targetMessage.id.slice(0, 8)}.`);
+    return true;
+  }
+
   if (command === "newdm") {
     const targetName = normalizeUsername(arg);
     if (!targetName) {
@@ -4613,10 +4689,14 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "help") {
-    const summary = SLASH_COMMANDS
+    const filter = arg.toLowerCase();
+    const entries = filter
+      ? SLASH_COMMANDS.filter((entry) => entry.name.includes(filter) || entry.description.toLowerCase().includes(filter))
+      : SLASH_COMMANDS;
+    const summary = entries
       .map((entry) => `/${entry.name}${entry.args ? ` ${entry.args}` : ""}`)
       .join(", ");
-    addSystemMessage(channel, `Commands: ${summary}`);
+    addSystemMessage(channel, entries.length > 0 ? `Commands: ${summary}` : `No commands match "${arg}".`);
     return true;
   }
 
@@ -10004,6 +10084,25 @@ function isTypingInputTarget(target) {
   return false;
 }
 
+function hardenInputAutocompleteNoise() {
+  const targets = [
+    ui.loginUsername,
+    ui.dmSearchInput,
+    ui.channelFilterInput,
+    ui.memberSearchInput,
+    ui.mediaSearchInput,
+    ui.findInput,
+    ui.quickSwitchInput,
+    ui.messageInput
+  ].filter(Boolean);
+  targets.forEach((field) => {
+    field.setAttribute("autocomplete", "off");
+    field.setAttribute("autocapitalize", "off");
+    field.setAttribute("autocorrect", "off");
+    field.setAttribute("spellcheck", "false");
+  });
+}
+
 function render() {
   closeContextMenu();
   if (pruneExpiredStatuses()) saveState();
@@ -10246,6 +10345,46 @@ ui.messageForm.addEventListener("submit", (event) => {
       } else {
         ui.messageInput.focus();
       }
+      return;
+    }
+    if (dmCommand === "find") {
+      openFindDialogWithQuery(dmArg);
+      return;
+    }
+    if (dmCommand === "findnext") {
+      if (!findQuery.trim()) {
+        openFindDialog();
+        return;
+      }
+      moveFindSelection(1);
+      return;
+    }
+    if (dmCommand === "findprev") {
+      if (!findQuery.trim()) {
+        openFindDialog();
+        return;
+      }
+      moveFindSelection(-1);
+      return;
+    }
+    if (dmCommand === "markunread") {
+      const bucket = conversation.thread?.messages || [];
+      if (bucket.length === 0) {
+        showToast("No messages to mark unread from.", { tone: "error" });
+        return;
+      }
+      const needle = dmArg.trim().toLowerCase();
+      const targetMessage = !needle || needle === "last"
+        ? bucket[bucket.length - 1]
+        : bucket.find((entry) => (entry.id || "").toLowerCase().startsWith(needle));
+      if (!targetMessage) {
+        showToast("Usage: /markunread [message-id-prefix|last]", { tone: "error" });
+        return;
+      }
+      if (!markConversationUnreadFromMessage(conversation, targetMessage.id, account.id)) return;
+      saveState();
+      render();
+      showToast(`Marked unread from ${targetMessage.id.slice(0, 8)}.`);
       return;
     }
     if (dmCommand === "schedule") {
@@ -11075,6 +11214,10 @@ ui.openGuildSettingsBtn?.addEventListener("click", () => {
 });
 ui.openChannelSettingsBtn.addEventListener("click", openChannelSettings);
 ui.openShortcutsBtn?.addEventListener("click", openShortcutsDialog);
+ui.openFindBtn?.addEventListener("click", () => {
+  if (!state.currentAccountId) return;
+  openFindDialog();
+});
 ui.quickSwitchCancel?.addEventListener("click", () => ui.quickSwitchDialog?.close());
 ui.quickSwitchInput?.addEventListener("input", () => {
   quickSwitchQuery = ui.quickSwitchInput.value.slice(0, 80);
@@ -11110,6 +11253,10 @@ ui.quickSwitchForm?.addEventListener("submit", (event) => {
   }
 });
 ui.findCancel?.addEventListener("click", () => ui.findDialog?.close());
+ui.contextMenu?.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+});
 ui.findInput?.addEventListener("input", () => {
   findQuery = ui.findInput.value.slice(0, 120);
   findSelectionIndex = 0;
@@ -11987,6 +12134,7 @@ document.addEventListener("contextmenu", (event) => {
   const target = event.target;
   if (target instanceof HTMLElement && target.closest("#contextMenu, .context-submenu")) {
     event.preventDefault();
+    event.stopPropagation();
     return;
   }
   if (target instanceof HTMLElement) {
@@ -12267,6 +12415,28 @@ document.addEventListener("keydown", (event) => {
     openFindDialog();
     return;
   }
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key === "F3") {
+    if (!state.currentAccountId) return;
+    if (!findQuery.trim()) {
+      event.preventDefault();
+      openFindDialog();
+      return;
+    }
+    event.preventDefault();
+    moveFindSelection(event.shiftKey ? -1 : 1);
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "g") {
+    if (!state.currentAccountId) return;
+    if (!findQuery.trim()) {
+      event.preventDefault();
+      openFindDialog();
+      return;
+    }
+    event.preventDefault();
+    moveFindSelection(event.shiftKey ? -1 : 1);
+    return;
+  }
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "n") {
     if (!state.currentAccountId) return;
     if (!canCurrentUser("manageChannels")) {
@@ -12443,6 +12613,7 @@ document.addEventListener("focusin", (event) => {
 });
 
 mediaPickerTab = getPreferences().mediaLastTab;
+hardenInputAutocompleteNoise();
 renderComposerMediaButtons();
 runScheduledDispatch();
 ensureScheduledDispatchTimer();
