@@ -216,6 +216,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Login/settings/chat views are now viewport-isolated (no page-level scroll between app sections).
 - Login now supports optional XMPP credentials (JID/password/WebSocket URL), JID-based server auto-detection, and a remember-login toggle.
 - Added login-time XMPP provider/registration directory modal with quick server prefill actions.
+- Added in-client XMPP registration dialog on login (uses local gateway `/register` for XEP-0077 attempt).
 - If `.xmpp.local.json` is accessible to the web app, login shows a local profile dropdown to prefill JID/password/server.
 - When XMPP login credentials are provided, login now validates auth/connection before entering the app and keeps user on login on failure.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
@@ -276,7 +277,8 @@ XMPP mode (experimental):
 - Keep browser/devtools network policy open for script loading if you rely on CDN fallback.
 - If browser login shows `AUTHFAIL` but Node-based auth works, run local fallback gateway:
   - `npm run xmpp:auth-gateway`
-  - The login validator will auto-try `http://localhost:8790/auth-check` after browser Strophe failure.
+  - Login validator can auto-try `http://localhost:8790/auth-check` (or gateway-first for known provider quirks).
+  - In-client registration uses `http://localhost:8790/register`.
   - This is intended for local web + Electron compatibility where browser auth stacks can differ.
 - For `xmpp.jp`, relay auth now uses a PLAIN-only SASL workaround in Strophe due SCRAM challenge incompatibility (`Response decoding failed`) seen with this runtime build.
 

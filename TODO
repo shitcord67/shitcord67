@@ -16,6 +16,7 @@
 - [done] Added XEP-0156 host-meta WebSocket discovery for smarter XMPP endpoint selection on login.
 - [done] Added local Node XMPP auth gateway fallback (`scripts/xmpp-auth-gateway.mjs`) for browser/Electron compatibility.
 - [done] Added xmpp.jp Strophe PLAIN-only SASL workaround and disabled auth-fail reconnect loops.
+- [done] Added in-client XMPP registration dialog backed by local gateway `/register` endpoint.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
 - Profile image upload with validation and preview.

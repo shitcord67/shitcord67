@@ -804,6 +804,26 @@
     </form>
   </dialog>
 
+  <dialog id="xmppRegisterDialog" class="modal">
+    <form id="xmppRegisterForm" class="modal-form" method="dialog">
+      <h3>Register XMPP Account</h3>
+      <p>Attempts in-band registration (XEP-0077) through the local gateway. Provider must allow registration over WebSocket.</p>
+      <label for="registerJidInput">JID</label>
+      <input id="registerJidInput" type="text" maxlength="120" placeholder="newuser@example.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <label for="registerPasswordInput">Password</label>
+      <input id="registerPasswordInput" type="password" maxlength="120" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <label for="registerXmppServerInput">XMPP WebSocket URL (optional)</label>
+      <input id="registerXmppServerInput" type="text" maxlength="180" placeholder="wss://api.example.com/ws" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <div class="settings-inline-actions">
+        <button id="registerOpenProviderBtn" type="button">Provider Directory</button>
+      </div>
+      <div class="modal-actions">
+        <button id="registerCancelBtn" type="button">Cancel</button>
+        <button id="registerSubmitBtn" type="submit">Create Account</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="debugDialog" class="modal">
     <form id="debugForm" class="modal-form" method="dialog">
       <h3>Debug Console</h3>
