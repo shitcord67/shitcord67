@@ -1047,6 +1047,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   border-radius: 10px;
   border: 1px solid #41454f;
   display: block;
+  cursor: zoom-in;
 }
 
 .pin-indicator {
@@ -1785,6 +1786,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   display: block;
 }
 
+.message-attachment img {
+  cursor: zoom-in;
+}
+
 .message-attachment--sticker img {
   max-width: 180px;
 }
@@ -2262,6 +2267,40 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   padding: 0 0.35rem;
 }
 
+.member-toolbar {
+  display: grid;
+  gap: 0.38rem;
+  margin: 0 0.55rem 0.55rem;
+}
+
+.member-toolbar input {
+  margin: 0;
+  padding: 0.42rem 0.5rem;
+  border-radius: 6px;
+  background: #1f2125;
+  border: 1px solid #23262c;
+  font-size: 0.72rem;
+}
+
+.member-presence-filter {
+  display: inline-flex;
+  gap: 0.24rem;
+}
+
+.member-filter-btn {
+  background: #272a30;
+  color: #bcc3cf;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.member-filter-btn.active {
+  background: #4654a4;
+  color: #f6f8ff;
+}
+
 .member-list {
   display: grid;
   gap: 0.25rem;
@@ -2311,6 +2350,18 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   text-overflow: ellipsis;
 }
 
+.member-meta__role {
+  display: inline-flex;
+  width: fit-content;
+  background: rgba(88, 101, 242, 0.25);
+  border: 1px solid rgba(88, 101, 242, 0.55);
+  color: #dfe5ff;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.08rem 0.38rem;
+}
+
 body[data-compact-members="on"] .member-item {
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
@@ -2342,6 +2393,45 @@ body[data-compact-members="on"] .member-item {
 
 .presence-online {
   background: #23a55a;
+}
+
+.media-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(0, 0, 0, 0.82);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 0.9rem;
+}
+
+.media-lightbox__close {
+  justify-self: end;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1rem;
+}
+
+.media-lightbox__stage {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.media-lightbox__stage img,
+.media-lightbox__stage video {
+  max-width: min(92vw, 1200px);
+  max-height: 80vh;
+  border-radius: 10px;
+}
+
+.media-lightbox__caption {
+  color: #d2d7e0;
+  font-size: 0.78rem;
+  text-align: center;
 }
 
 .presence-idle {

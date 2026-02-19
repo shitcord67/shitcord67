@@ -140,7 +140,7 @@
             <button id="openGifPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open GIF picker">GIF</button>
             <button id="openStickerPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Sticker picker">STK</button>
             <button id="openEmojiPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Emoji picker">🙂</button>
-            <button id="quickFileAttachBtn" type="button" class="message-form__media-btn" title="Attach file from computer (PDF/Text/Docs)">📎</button>
+            <button id="quickFileAttachBtn" type="button" class="message-form__media-btn" title="Attach file from computer">📎</button>
             <button id="toggleSwfAudioBtn" type="button" class="message-form__media-btn" title="Toggle SWF audio">🔇</button>
             <textarea id="messageInput" rows="1" maxlength="400" placeholder="Message #general" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
             <button type="submit">Send</button>
@@ -149,12 +149,20 @@
             <span id="composerSystemNotice" class="composer-system-note" hidden></span>
             <span id="composerCharCount" class="composer-char-count">0/400</span>
           </div>
-          <input id="quickAttachInput" type="file" accept=".pdf,.txt,.md,.log,.json,.js,.ts,.css,.xml,.yml,.yaml,.ini,.toml,.odt,.ods,.odp,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.bin,application/pdf,text/plain,application/json,application/rtf,text/rtf,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+          <input id="quickAttachInput" type="file" accept="image/*,video/*,audio/*,.gif,.webp,.mp4,.webm,.png,.jpg,.jpeg,.svg,.swf,.html,.htm,.pdf,.txt,.md,.log,.json,.js,.ts,.css,.xml,.yml,.yaml,.ini,.toml,.odt,.ods,.odp,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.bin,application/pdf,text/plain,application/json,application/rtf,text/rtf,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
         </div>
       </main>
 
       <aside id="memberPanel" class="member-panel">
         <h3 id="memberPanelTitle">Members</h3>
+        <div class="member-toolbar">
+          <input id="memberSearchInput" type="text" maxlength="40" placeholder="Filter members" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <div class="member-presence-filter" role="group" aria-label="Member filter">
+            <button type="button" class="member-filter-btn active" data-member-filter="all">All</button>
+            <button type="button" class="member-filter-btn" data-member-filter="online">Online</button>
+            <button type="button" class="member-filter-btn" data-member-filter="offline">Offline</button>
+          </div>
+        </div>
         <div id="memberList" class="member-list"></div>
       </aside>
 
