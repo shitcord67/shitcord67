@@ -14,11 +14,25 @@
     <div id="loginScreen" class="screen screen--active">
       <div class="login-card">
         <h1>Welcome back</h1>
-        <p>Sign in with a username to continue to shitcord67</p>
+        <p>Sign in with a username or XMPP credentials to continue to shitcord67</p>
         <form id="loginForm" autocomplete="off">
           <label for="loginUsername">Username</label>
-          <input id="loginUsername" type="text" maxlength="24" placeholder="Type a username" required autocomplete="off" autocapitalize="off" spellcheck="false" />
-          <button type="submit">Enter</button>
+          <input id="loginUsername" type="text" maxlength="120" placeholder="username or user@example.com" required autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <label for="loginXmppJid">XMPP JID (optional)</label>
+          <input id="loginXmppJid" type="text" maxlength="120" placeholder="user@example.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <label for="loginPassword">Password (optional)</label>
+          <input id="loginPassword" type="password" maxlength="120" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <label for="loginXmppServer">XMPP WebSocket server (optional)</label>
+          <input id="loginXmppServer" type="text" maxlength="180" placeholder="wss://api.example.com/ws" autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <label class="login-check">
+            <input id="loginRememberInput" type="checkbox" checked />
+            <span>Remember login</span>
+          </label>
+          <div class="settings-inline-actions">
+            <button id="loginProvidersBtn" type="button">Provider Directory</button>
+            <button id="loginRegisterBtn" type="button">Register XMPP Account</button>
+          </div>
+          <button type="submit">Log In</button>
         </form>
       </div>
     </div>
@@ -769,6 +783,17 @@
       <div class="modal-actions">
         <button type="button" id="accountCancel">Cancel</button>
         <button type="submit">Use account</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="xmppProviderDialog" class="modal">
+    <form method="dialog" class="modal-form">
+      <h3>XMPP Providers & Registration</h3>
+      <p>Pick a provider, open its registration page, and optionally prefill server settings for login.</p>
+      <div id="xmppProviderList" class="quick-switch-list"></div>
+      <div class="modal-actions">
+        <button id="xmppProviderCloseBtn" type="submit">Close</button>
       </div>
     </form>
   </dialog>

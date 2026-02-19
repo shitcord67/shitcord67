@@ -141,6 +141,32 @@ button {
   padding: 0.7rem;
 }
 
+#loginForm .settings-inline-actions {
+  margin: 0.2rem 0 0.6rem;
+}
+
+#loginForm .settings-inline-actions button {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  background: #3b3f48;
+  color: #eff3fb;
+  font-size: 0.74rem;
+}
+
+.login-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.75rem;
+  color: #d3d8e1;
+  font-size: 0.82rem;
+}
+
+.login-check input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
 #chatScreen {
   display: none;
   height: 100vh;
