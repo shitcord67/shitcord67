@@ -72,6 +72,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Section visibility shortcuts: `Alt+Shift+D` collapses/expands DM section, `Alt+Shift+C` collapses/expands guild channel section.
 - Quick-search shortcut: `Ctrl+K` (or `Cmd+K`) focuses active DM/channel search input.
 - Channel reorder shortcut: `Ctrl+Alt+ArrowUp/Down` moves active channel (manage channels permission).
+- Channel quick-jump shortcuts: `Alt+Home`/`Alt+End` jump to first/last channel.
+- Quick creation shortcuts: `Ctrl+Shift+N` opens create-channel, `Ctrl+Shift+D` opens new-DM prompt.
 - Additional quick nav shortcuts: `Alt+1/2/3` open GIF/Sticker/Emoji tabs and `Ctrl+Shift+F` focuses channel/DM filter.
 - Guild channel rows now render dedicated channel-type icons with stronger active/hover states.
 - DM sidebar rows now render peer avatars + presence dots.
@@ -90,10 +92,13 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Composer clear shortcut: `Ctrl+Shift+Backspace` clears text + reply target + pending attachment.
 - New draft utility commands: `/drafts`, `/cleardrafts [all]`, `/focus [search|composer]`.
 - New conversation admin commands: `/newdm <username>`, `/closedm`, `/leaveguild`.
+- Additional channel/reading commands: `/newchannel <name> [type]`, `/dupchannel`, `/movechannel <up|down|top|bottom>`, `/markdmread`, `/markallread`.
 - Channel/DM rows now show `Draft` badges for unsent composer drafts.
 - Right-click DM home icon allows `Mark All DMs Read`.
 - Right-click DM/Channel section headers now opens quick actions (`New DM`, `Create Channel`, `Mark Read`).
 - Browser autocomplete hints for login/search/composer inputs are disabled to avoid slash-command suggestion overlap.
+- Browser tab title now shows unread/mention badges for quick background awareness.
+- Reload/close warns if the composer has unsent text, reply state, or pending attachment.
 - Composer `Escape` now cancels active reply target when input is empty.
 - Channel/DM search ergonomics: `Escape` clears active filter/search quickly.
 - DM list is now sorted by latest message activity.

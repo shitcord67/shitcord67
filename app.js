@@ -39,6 +39,11 @@ const SLASH_COMMANDS = [
   { name: "newdm", args: "<username>", description: "Open or create a DM with a user." },
   { name: "closedm", args: "", description: "Close current DM thread." },
   { name: "leaveguild", args: "", description: "Leave the active guild (if more than one)." },
+  { name: "newchannel", args: "<name> [type]", description: "Create a channel in the active guild (manage channels)." },
+  { name: "dupchannel", args: "", description: "Duplicate active channel (manage channels)." },
+  { name: "movechannel", args: "<up|down|top|bottom>", description: "Reorder active channel (manage channels)." },
+  { name: "markdmread", args: "", description: "Mark current DM as read." },
+  { name: "markallread", args: "", description: "Mark all channels and DMs as read." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -3521,6 +3526,115 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "newchannel") {
+    if (!canCurrentUser("manageChannels")) {
+      notifyPermissionDenied("Manage Channels");
+      return true;
+    }
+    const guild = getActiveGuild();
+    if (!guild) return true;
+    const parts = arg.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      addSystemMessage(channel, "Usage: /newchannel <name> [text|announcement|forum|media]");
+      return true;
+    }
+    const maybeType = (parts[parts.length - 1] || "").toLowerCase();
+    const allowedTypes = new Set(["text", "announcement", "forum", "media"]);
+    const type = allowedTypes.has(maybeType) ? maybeType : "text";
+    const namePart = allowedTypes.has(maybeType) ? parts.slice(0, -1).join("-") : parts.join("-");
+    const next = {
+      id: createId(),
+      name: sanitizeChannelName(namePart, "new-channel"),
+      type,
+      topic: "",
+      readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
+      slowmodeSec: 0,
+      slowmodeState: {},
+      messages: []
+    };
+    guild.channels.push(next);
+    state.activeChannelId = next.id;
+    saveState();
+    render();
+    return true;
+  }
+
+  if (command === "dupchannel") {
+    if (!canCurrentUser("manageChannels")) {
+      notifyPermissionDenied("Manage Channels");
+      return true;
+    }
+    const guild = getActiveGuild();
+    if (!guild) return true;
+    const clone = duplicateChannelInGuild(guild, channel);
+    if (!clone) return true;
+    state.activeChannelId = clone.id;
+    saveState();
+    render();
+    return true;
+  }
+
+  if (command === "movechannel") {
+    if (!canCurrentUser("manageChannels")) {
+      notifyPermissionDenied("Manage Channels");
+      return true;
+    }
+    const guild = getActiveGuild();
+    if (!guild) return true;
+    const direction = arg.toLowerCase();
+    let moved = false;
+    if (direction === "up") moved = moveChannelByOffset(guild, channel.id, -1);
+    else if (direction === "down") moved = moveChannelByOffset(guild, channel.id, 1);
+    else if (direction === "top") {
+      while (moveChannelByOffset(guild, channel.id, -1)) moved = true;
+    } else if (direction === "bottom") {
+      while (moveChannelByOffset(guild, channel.id, 1)) moved = true;
+    } else {
+      addSystemMessage(channel, "Usage: /movechannel <up|down|top|bottom>");
+      return true;
+    }
+    if (!moved) {
+      addSystemMessage(channel, "Channel already at requested position.");
+      return true;
+    }
+    saveState();
+    renderChannels();
+    return true;
+  }
+
+  if (command === "markdmread") {
+    const dm = getActiveDmThread();
+    if (!dm) {
+      addSystemMessage(channel, "No active DM thread.");
+      return true;
+    }
+    const changed = markDmRead(dm, account.id);
+    if (!changed) {
+      addSystemMessage(channel, "DM already read.");
+      return true;
+    }
+    saveState();
+    render();
+    return true;
+  }
+
+  if (command === "markallread") {
+    let changed = false;
+    state.guilds.forEach((guild) => {
+      if (markGuildRead(guild, account.id)) changed = true;
+    });
+    state.dmThreads.forEach((thread) => {
+      if (markDmRead(thread, account.id)) changed = true;
+    });
+    if (!changed) {
+      addSystemMessage(channel, "Everything is already read.");
+      return true;
+    }
+    saveState();
+    render();
+    return true;
+  }
+
   if (command === "nick") {
     if (arg) {
       const guild = getActiveGuild();
@@ -6769,6 +6883,7 @@ function renderDmList() {
     });
     ui.dmList.appendChild(button);
   });
+  updateDocumentTitle();
 }
 
 function renderChannels() {
@@ -6965,6 +7080,7 @@ function renderChannels() {
     empty.textContent = "No channels match your filter.";
     ui.channelList.appendChild(empty);
   }
+  updateDocumentTitle();
 }
 
 function hiddenMessagesBelowCount() {
@@ -8586,7 +8702,35 @@ function render() {
   renderReplyComposer();
   renderSlashSuggestions();
   renderComposerMeta();
+  updateDocumentTitle();
   if (mediaPickerOpen) renderMediaPicker();
+}
+
+function updateDocumentTitle() {
+  const base = "shitcord67";
+  const current = getCurrentAccount();
+  if (!current) {
+    document.title = base;
+    return;
+  }
+  const dmStats = getTotalDmUnreadStats(current);
+  const guildStats = state.guilds.reduce((acc, guild) => {
+    const stats = getGuildUnreadStats(guild, current);
+    return { unread: acc.unread + stats.unread, mentions: acc.mentions + stats.mentions };
+  }, { unread: 0, mentions: 0 });
+  const mentions = dmStats.mentions + guildStats.mentions;
+  const unread = dmStats.unread + guildStats.unread;
+  const badge = mentions > 0 ? `@${mentions > 99 ? "99+" : mentions}` : (unread > 0 ? `${unread > 99 ? "99+" : unread}` : "");
+  document.title = badge ? `(${badge}) ${base}` : base;
+}
+
+function hasPendingComposerChanges() {
+  if (!state.currentAccountId) return false;
+  const text = (ui.messageInput?.value || "").trim();
+  if (text.length > 0) return true;
+  if (composerPendingAttachment) return true;
+  if (replyTarget) return true;
+  return false;
 }
 
 function openProfileEditor() {
@@ -10329,6 +10473,11 @@ window.addEventListener("hashchange", () => {
   if (!state.currentAccountId) return;
   safeRender("hashchange");
 });
+window.addEventListener("beforeunload", (event) => {
+  if (!hasPendingComposerChanges()) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
 document.addEventListener("scroll", closeContextMenu, true);
 
 if (window.visualViewport) {
@@ -10452,6 +10601,26 @@ document.addEventListener("keydown", (event) => {
     target?.select?.();
     return;
   }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "n") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    if (!canCurrentUser("manageChannels")) {
+      showToast("Manage Channels required.", { tone: "error" });
+      return;
+    }
+    event.preventDefault();
+    ui.channelNameInput.value = "";
+    ui.channelTypeInput.value = "text";
+    ui.createChannelDialog.showModal();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    ui.newDmBtn.click();
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {
     if (!state.currentAccountId) return;
     event.preventDefault();
@@ -10487,6 +10656,22 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     const delta = event.key === "ArrowUp" ? -1 : 1;
     navigateGuildChannelByOffset(delta);
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "Home" || event.key === "End")) {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    if (getViewMode() !== "guild") return;
+    event.preventDefault();
+    const channels = getGuildChannelsForNavigation();
+    if (channels.length === 0) return;
+    const target = event.key === "Home" ? channels[0] : channels[channels.length - 1];
+    if (!target || target.id === state.activeChannelId) return;
+    state.viewMode = "guild";
+    state.activeDmId = null;
+    state.activeChannelId = target.id;
+    saveState();
+    render();
     return;
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "i") {
