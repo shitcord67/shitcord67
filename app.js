@@ -15,6 +15,8 @@ const XMPP_HOST_META_TIMEOUT_MS = 3600;
 const XMPP_LOCAL_AUTH_GATEWAY_URL = "http://localhost:8790";
 const XMPP_ENABLE_BROWSER_HOST_META_FALLBACK = false;
 const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
+const XMPP_MAM_NAMESPACE = "urn:xmpp:mam:2";
+const XMPP_MAM_PAGE_SIZE = 80;
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -903,6 +905,10 @@ const xmppWsDiscoveryCache = new Map();
 const xmppRoomByJid = new Map();
 const xmppRosterByJid = new Map();
 const xmppOccupantsByRoomJid = new Map();
+const xmppMamRequestedRooms = new Set();
+const xmppRoomMessageIndexByJid = new Map();
+const xmppAvatarFetchInFlight = new Set();
+const xmppAvatarHashByJid = new Map();
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -2599,8 +2605,9 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
   const media = document.createElement(video ? "video" : "img");
   if (video) {
     media.controls = true;
-    media.autoplay = true;
+    media.autoplay = false;
     media.playsInline = true;
+    media.preload = "metadata";
   }
   media.src = url;
   media.alt = label || "media preview";
@@ -3650,6 +3657,219 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
   return `${node}@${mucService}`;
 }
 
+function xmppNodeHasXmlns(node, xmlns) {
+  if (!node || typeof node.getAttribute !== "function") return false;
+  return (node.getAttribute("xmlns") || "").toLowerCase() === (xmlns || "").toLowerCase();
+}
+
+function xmppNodeText(node) {
+  if (!node) return "";
+  if (typeof globalThis.Strophe?.getText === "function") {
+    return (globalThis.Strophe.getText(node) || "").toString();
+  }
+  return (node.textContent || "").toString();
+}
+
+function xmppStanzaDelayTimestamp(stanza, fallbackTs = "") {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return fallbackTs || new Date().toISOString();
+  const delayNode = [...stanza.getElementsByTagName("delay")]
+    .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:delay")) || null;
+  const stamp = (delayNode?.getAttribute("stamp") || "").toString().trim();
+  if (!stamp) return fallbackTs || new Date().toISOString();
+  const parsed = new Date(stamp);
+  if (Number.isNaN(parsed.getTime())) return fallbackTs || new Date().toISOString();
+  return parsed.toISOString();
+}
+
+function xmppExtractOobUrls(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+  const urls = [];
+  const seen = new Set();
+  [...stanza.getElementsByTagName("x")]
+    .filter((node) => xmppNodeHasXmlns(node, "jabber:x:oob"))
+    .forEach((node) => {
+      const urlNode = node.getElementsByTagName("url")[0] || null;
+      const value = xmppNodeText(urlNode).trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      urls.push(value);
+    });
+  [...stanza.getElementsByTagName("reference")]
+    .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
+    .forEach((node) => {
+      const uri = (node.getAttribute("uri") || "").toString().trim();
+      if (!uri || !/^https?:\/\//i.test(uri) || seen.has(uri)) return;
+      seen.add(uri);
+      urls.push(uri);
+    });
+  return urls.slice(0, 6);
+}
+
+function xmppAttachmentsFromUrls(urls) {
+  if (!Array.isArray(urls) || urls.length === 0) return [];
+  const out = [];
+  urls.forEach((url) => {
+    const clean = (url || "").toString().trim();
+    if (!clean) return;
+    const type = inferAttachmentTypeFromUrl(clean);
+    if (!type) return;
+    out.push({
+      type,
+      url: clean,
+      name: clean.split("/").pop() || clean,
+      format: inferAttachmentFormat(type, clean)
+    });
+  });
+  return normalizeAttachments(out);
+}
+
+function xmppRoomMessageIndex(roomJid) {
+  const key = xmppBareJid(roomJid);
+  if (!key) return null;
+  if (!xmppRoomMessageIndexByJid.has(key)) {
+    xmppRoomMessageIndexByJid.set(key, new Map());
+  }
+  return xmppRoomMessageIndexByJid.get(key) || null;
+}
+
+function rememberXmppRoomMessage(roomJid, stanzaId, message) {
+  const key = (stanzaId || "").toString().trim();
+  if (!roomJid || !key || !message) return;
+  const index = xmppRoomMessageIndex(roomJid);
+  if (!index) return;
+  index.set(key, {
+    messageId: (message.id || "").toString(),
+    authorName: displayNameForMessage(message) || "",
+    text: (message.text || "").toString().slice(0, 180)
+  });
+  if (index.size > 600) {
+    const first = index.keys().next().value;
+    if (first) index.delete(first);
+  }
+}
+
+function findXmppRoomMessageByStanzaId(roomJid, stanzaId) {
+  const key = (stanzaId || "").toString().trim();
+  if (!roomJid || !key) return null;
+  const index = xmppRoomMessageIndex(roomJid);
+  if (!index) return null;
+  return index.get(key) || null;
+}
+
+function xmppReplyMetaFromStanza(stanza, roomJid = "") {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const replyNode = [...stanza.getElementsByTagName("reply")]
+    .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:reply:0")) || null;
+  const repliedId = (replyNode?.getAttribute("id") || "").toString().trim();
+  if (!repliedId) return null;
+  const known = roomJid ? findXmppRoomMessageByStanzaId(roomJid, repliedId) : null;
+  return {
+    messageId: (known?.messageId || "").toString(),
+    authorName: (known?.authorName || "message").toString().slice(0, 60),
+    text: (known?.text || "XMPP reply").toString().slice(0, 180)
+  };
+}
+
+function xmppPresenceShowToPresence(node) {
+  const show = (xmppNodeText(node) || "").toString().trim().toLowerCase();
+  if (show === "xa" || show === "away") return "idle";
+  if (show === "dnd") return "dnd";
+  return "online";
+}
+
+function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
+  const bare = xmppBareJid(jid);
+  if (!bare || !xmppConnection || !globalThis.$iq) return;
+  const account = ensureAccountByXmppJid(bare, bare.split("@")[0] || "");
+  if (!account) return;
+  const currentHash = (xmppAvatarHashByJid.get(bare) || "").toString();
+  const requestedHash = (photoHash || "").toString().trim();
+  if (!requestedHash && account.avatarUrl) return;
+  if (!requestedHash && currentHash) return;
+  if (requestedHash && currentHash && requestedHash === currentHash && account.avatarUrl) return;
+  if (xmppAvatarFetchInFlight.has(bare)) return;
+  xmppAvatarFetchInFlight.add(bare);
+  const iq = globalThis.$iq({ type: "get", to: bare }).c("vCard", { xmlns: "vcard-temp" });
+  xmppConnection.sendIQ(
+    iq,
+    (stanza) => {
+      try {
+        const photoNode = [...stanza.getElementsByTagName("PHOTO")][0] || null;
+        const binNode = photoNode ? [...photoNode.getElementsByTagName("BINVAL")][0] : null;
+        const typeNode = photoNode ? [...photoNode.getElementsByTagName("TYPE")][0] : null;
+        const bin = xmppNodeText(binNode).trim().replace(/\s+/g, "");
+        const mime = xmppNodeText(typeNode).trim().toLowerCase();
+        if (bin) {
+          const safeMime = /^image\/[a-z0-9.+-]+$/i.test(mime) ? mime : "image/jpeg";
+          account.avatarUrl = `data:${safeMime};base64,${bin}`;
+          if (requestedHash) {
+            xmppAvatarHashByJid.set(bare, requestedHash);
+          } else if (!currentHash) {
+            xmppAvatarHashByJid.set(bare, "vcard");
+          }
+          saveState();
+          renderDmList();
+          renderMemberList();
+          renderMessages();
+        }
+      } catch {
+        // Ignore malformed vCard payloads.
+      } finally {
+        xmppAvatarFetchInFlight.delete(bare);
+      }
+    },
+    () => {
+      xmppAvatarFetchInFlight.delete(bare);
+    },
+    7000
+  );
+}
+
+function xmppPresencePhotoHash(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const node = [...stanza.getElementsByTagName("x")]
+    .find((entry) => xmppNodeHasXmlns(entry, "vcard-temp:x:update")) || null;
+  const photoNode = node ? node.getElementsByTagName("photo")[0] : null;
+  return xmppNodeText(photoNode).trim();
+}
+
+function xmppMucMessageAuthorJid(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const mucUserNode = [...stanza.getElementsByTagName("x")]
+    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/muc#user")) || null;
+  const itemNode = mucUserNode ? mucUserNode.getElementsByTagName("item")[0] : null;
+  return xmppBareJid(itemNode?.getAttribute("jid") || "");
+}
+
+function requestXmppRoomHistory(roomJid, { limit = XMPP_MAM_PAGE_SIZE, force = false } = {}) {
+  const bareRoom = xmppBareJid(roomJid);
+  if (!bareRoom || !xmppConnection || !globalThis.$iq) return false;
+  if (!force && xmppMamRequestedRooms.has(bareRoom)) return true;
+  xmppMamRequestedRooms.add(bareRoom);
+  const maxRows = Math.max(10, Math.min(200, Number(limit) || XMPP_MAM_PAGE_SIZE));
+  const queryId = `mam-${createId().slice(0, 8)}`;
+  const iq = globalThis.$iq({ type: "set", to: bareRoom })
+    .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
+    .c("x", { xmlns: "jabber:x:data", type: "submit" })
+    .c("field", { var: "FORM_TYPE" })
+    .c("value").t(XMPP_MAM_NAMESPACE).up().up()
+    .up()
+    .c("set", { xmlns: "http://jabber.org/protocol/rsm" })
+    .c("max").t(String(maxRows));
+  addXmppDebugEvent("iq", "Requesting MUC history", { roomJid: bareRoom, max: maxRows });
+  xmppConnection.sendIQ(
+    iq,
+    () => {
+      addXmppDebugEvent("iq", "MUC history query completed", { roomJid: bareRoom, queryId });
+    },
+    () => {
+      addXmppDebugEvent("iq", "MUC history query unavailable", { roomJid: bareRoom, queryId });
+    },
+    9000
+  );
+  return true;
+}
+
 function isXmppBackedChannel(channel) {
   if (!channel || typeof channel !== "object") return false;
   const roomJid = normalizeXmppJid(channel.xmppRoomJid || "").toLowerCase();
@@ -3774,7 +3994,10 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
   const prefs = getPreferences();
   const roomJid = xmppRoomJidForToken(roomToken, prefs);
   if (!roomJid) return false;
-  if (xmppRoomByJid.has(roomJid)) return true;
+  if (xmppRoomByJid.has(roomJid)) {
+    requestXmppRoomHistory(roomJid);
+    return true;
+  }
   const nick = sanitizeChannelName(account.username || "user", "user");
   const presence = globalThis.$pres({ to: `${roomJid}/${nick}` })
     .c("x", { xmlns: "http://jabber.org/protocol/muc" });
@@ -3790,6 +4013,7 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     renderServers();
     renderChannels();
   }
+  requestXmppRoomHistory(roomJid);
   addXmppDebugEvent("presence", "Joined MUC room", { roomToken, roomJid, nick });
   return true;
 }
@@ -3806,6 +4030,10 @@ function teardownXmppConnection() {
   xmppConnection = null;
   xmppRoomByJid.clear();
   xmppOccupantsByRoomJid.clear();
+  xmppMamRequestedRooms.clear();
+  xmppRoomMessageIndexByJid.clear();
+  xmppAvatarFetchInFlight.clear();
+  xmppAvatarHashByJid.clear();
 }
 
 function sendRelayPacket(packet) {
@@ -3893,27 +4121,30 @@ function resolveRelayTargetChannel() {
 
 function applyRelayIncomingMessage(packet) {
   const current = getCurrentAccount();
-  if (!current) return;
+  if (!current) return null;
   const remoteClientId = (packet.clientId || "").toString();
-  if (!remoteClientId || remoteClientId === relayClientId()) return;
+  if (!remoteClientId || remoteClientId === relayClientId()) return null;
   const room = (packet.room || "").toString();
   clearRelayTypingForClient(room, remoteClientId);
   const remoteMessage = packet.message;
-  if (!remoteMessage || typeof remoteMessage !== "object") return;
-  if (remoteClientId.startsWith("xmpp:")) {
+  if (!remoteMessage || typeof remoteMessage !== "object") return null;
+  if (remoteClientId.startsWith("xmpp:") && remoteMessage.allowSelf !== true) {
     const mine = normalizeUsername(getCurrentAccount()?.username || "");
     const theirs = normalizeUsername(remoteMessage.authorUsername || "");
-    if (mine && theirs && mine === theirs) return;
+    if (mine && theirs && mine === theirs) return null;
   }
   const relayId = `${remoteClientId}:${(remoteMessage.id || createId()).toString()}`;
-  if (relaySeenMessageIds.has(relayId)) return;
+  if (relaySeenMessageIds.has(relayId)) return null;
   relaySeenMessageIds.add(relayId);
   if (relaySeenMessageIds.size > 280) {
     const first = relaySeenMessageIds.values().next().value;
     relaySeenMessageIds.delete(first);
   }
   const username = normalizeUsername(remoteMessage.authorUsername || `relay_${remoteClientId.slice(0, 6)}`) || `relay_${remoteClientId.slice(0, 6)}`;
-  let remoteAccount = getAccountByUsername(username);
+  const remoteAuthorJid = xmppBareJid(remoteMessage.authorJid || "");
+  let remoteAccount = remoteAuthorJid
+    ? ensureAccountByXmppJid(remoteAuthorJid, remoteMessage.authorDisplay || remoteMessage.authorUsername || remoteAuthorJid.split("@")[0] || "")
+    : getAccountByUsername(username);
   if (!remoteAccount) {
     remoteAccount = createAccount(username, remoteMessage.authorDisplay || username);
     state.accounts.push(remoteAccount);
@@ -3921,34 +4152,45 @@ function applyRelayIncomingMessage(packet) {
   if (remoteMessage.authorDisplay) {
     remoteAccount.displayName = remoteMessage.authorDisplay.toString().slice(0, 32) || remoteAccount.displayName;
   }
+  if (remoteAuthorJid) remoteAccount.xmppJid = remoteAuthorJid;
+  const replyMeta = remoteMessage.replyTo && typeof remoteMessage.replyTo === "object"
+    ? {
+        messageId: (remoteMessage.replyTo.messageId || "").toString().slice(0, 64),
+        authorName: (remoteMessage.replyTo.authorName || "").toString().slice(0, 60),
+        text: (remoteMessage.replyTo.text || "").toString().slice(0, 180),
+        threadId: (remoteMessage.replyTo.threadId || "").toString().slice(0, 64) || null
+      }
+    : null;
   const entry = {
     id: createId(),
     relayId,
     userId: remoteAccount.id,
     authorName: "",
     text: (remoteMessage.text || "").toString().slice(0, 400),
-    ts: remoteMessage.ts || new Date().toISOString(),
+    ts: Number.isFinite(Date.parse(remoteMessage.ts || "")) ? new Date(remoteMessage.ts).toISOString() : new Date().toISOString(),
     reactions: [],
-    attachments: Array.isArray(remoteMessage.attachments) ? remoteMessage.attachments.slice(0, 4) : []
+    attachments: normalizeAttachments(Array.isArray(remoteMessage.attachments) ? remoteMessage.attachments.slice(0, 6) : []),
+    replyTo: replyMeta
   };
   if (room.startsWith("dm:")) {
     const thread = getOrCreateDmThread(current, remoteAccount);
-    if (!thread) return;
+    if (!thread) return null;
     thread.messages.push(entry);
     ensureDmReadState(thread);
     saveState();
     renderDmList();
     if (state.viewMode === "dm" && state.activeDmId === thread.id) renderMessages();
-    return;
+    return entry;
   }
   const targetChannel = findRelayTargetChannelByRoom(room) || resolveRelayTargetChannel();
-  if (!targetChannel || targetChannel.type === "voice" || targetChannel.type === "stage") return;
+  if (!targetChannel || targetChannel.type === "voice" || targetChannel.type === "stage") return null;
   ensureChannelReadState(targetChannel);
   targetChannel.messages.push(entry);
   saveState();
   renderChannels();
   renderServers();
   if (state.activeChannelId === targetChannel.id) renderMessages();
+  return entry;
 }
 
 function connectRelaySocket({ force = false } = {}) {
@@ -4011,105 +4253,151 @@ function connectRelaySocket({ force = false } = {}) {
         addXmppDebugEvent("iq", "sendIQ()", trimXmppRaw(xmppSerializePayload(stanza)));
         return originalSendIQ(stanza, success, error, timeout);
       };
-      xmppConnection.addHandler((stanza) => {
-        try {
-          addXmppDebugEvent("message", "Incoming stanza", trimXmppRaw(xmppSerializePayload(stanza)));
-          const from = stanza.getAttribute("from") || "";
-          const type = (stanza.getAttribute("type") || "").toLowerCase();
-          if (type && !["groupchat", "chat", "normal", ""].includes(type)) return true;
-          const bareFrom = normalizeXmppJid(from.split("/")[0] || "").toLowerCase();
-          const nick = from.split("/")[1] || "";
-          const ownBare = normalizeXmppJid(getPreferences().xmppJid || "").toLowerCase();
-          const hasComposing = stanza.getElementsByTagName("composing").length > 0;
-          const hasPaused = stanza.getElementsByTagName("paused").length > 0;
-          const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
-          const hasGone = stanza.getElementsByTagName("gone").length > 0;
-          const hasActive = stanza.getElementsByTagName("active").length > 0;
-          if ((type === "chat" || type === "normal") && !/@conference\./i.test(bareFrom)) {
-            if (!bareFrom || (ownBare && bareFrom === ownBare)) return true;
-            const peer = ensureAccountByXmppJid(bareFrom, nick || bareFrom.split("@")[0] || "");
-            if (!peer || peer.id === current.id) return true;
-            const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
-            if (!dmRoom) return true;
-            if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
-              applyRelayIncomingTyping({
-                type: "typing",
-                room: dmRoom,
-                clientId: `xmpp:${from}`,
-                username: peer.username,
-                typing: {
-                  state: hasComposing ? "composing" : "paused",
-                  active: hasComposing,
-                  authorUsername: peer.username,
-                  authorDisplay: peer.displayName || peer.username
-                }
-              });
-            }
-            const bodyNode = stanza.getElementsByTagName("body")[0];
-            if (!bodyNode) return true;
-            const text = globalThis.Strophe.getText(bodyNode) || "";
-            if (!text.trim()) return true;
-            applyRelayIncomingMessage({
-              type: "chat",
+      const xmppMamForwardedMessages = (stanza) => {
+        if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+        return [...stanza.getElementsByTagName("result")]
+          .filter((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE))
+          .map((resultNode) => {
+            const forwardedNode = [...resultNode.getElementsByTagName("forwarded")]
+              .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:forward:0")) || null;
+            if (!forwardedNode) return null;
+            const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
+            if (!messageNode) return null;
+            return {
+              message: messageNode,
+              ts: xmppStanzaDelayTimestamp(forwardedNode, xmppStanzaDelayTimestamp(resultNode, ""))
+            };
+          })
+          .filter(Boolean);
+      };
+      const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false } = {}) => {
+        const from = stanza.getAttribute("from") || "";
+        const type = (stanza.getAttribute("type") || "").toLowerCase();
+        if (type && !["groupchat", "chat", "normal", ""].includes(type)) return;
+        const bareFrom = xmppBareJid(from);
+        const nick = (from.split("/")[1] || "").toString();
+        const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+        const hasComposing = stanza.getElementsByTagName("composing").length > 0;
+        const hasPaused = stanza.getElementsByTagName("paused").length > 0;
+        const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
+        const hasGone = stanza.getElementsByTagName("gone").length > 0;
+        const hasActive = stanza.getElementsByTagName("active").length > 0;
+        const bodyNode = stanza.getElementsByTagName("body")[0] || null;
+        const text = xmppNodeText(bodyNode);
+        const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
+        const attachments = xmppAttachmentsFromUrls(xmppExtractOobUrls(stanza));
+        if ((type === "chat" || type === "normal") && !/@conference\./i.test(bareFrom)) {
+          if (!bareFrom || (ownBare && bareFrom === ownBare)) return;
+          const peer = ensureAccountByXmppJid(bareFrom, nick || bareFrom.split("@")[0] || "");
+          if (!peer || peer.id === current.id) return;
+          const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
+          if (!dmRoom) return;
+          if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
+            applyRelayIncomingTyping({
+              type: "typing",
               room: dmRoom,
               clientId: `xmpp:${from}`,
-              message: {
-                id: xmppStanzaStableId(stanza) || createId(),
-                text,
-                ts: new Date().toISOString(),
+              username: peer.username,
+              typing: {
+                state: hasComposing ? "composing" : "paused",
+                active: hasComposing,
                 authorUsername: peer.username,
                 authorDisplay: peer.displayName || peer.username
               }
             });
-            return true;
           }
-          const roomJid = bareFrom;
-          const fallbackRoomToken = roomJid ? `xmpp:${roomJid}` : "";
-          const roomToken = xmppRoomByJid.get(roomJid) || fallbackRoomToken || `xmpp:${roomJid}`;
-          if (roomJid) {
-            xmppRoomByJid.set(roomJid, roomToken);
-            const synced = upsertXmppRoomChannel(roomJid, {
-              roomToken,
-              roomName: roomJid.split("@")[0] || "",
-              account: current,
-              persist: false
-            });
-            if (synced.created) {
-              saveState();
-              renderServers();
-              renderChannels();
-            }
-          }
-          if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
-            applyRelayIncomingTyping({
-              type: "typing",
-              room: roomToken,
-              clientId: `xmpp:${from}`,
-              username: nick || roomJid.split("@")[0] || "xmpp",
-              typing: {
-                state: hasComposing ? "composing" : "paused",
-                active: hasComposing,
-                authorUsername: nick || roomJid.split("@")[0] || "xmpp",
-                authorDisplay: nick || ""
-              }
-            });
-          }
-          const bodyNode = stanza.getElementsByTagName("body")[0];
-          if (!bodyNode) return true;
-          const text = globalThis.Strophe.getText(bodyNode) || "";
-          if (!text.trim()) return true;
+          const replyMeta = xmppReplyMetaFromStanza(stanza, "");
+          if (!text.trim() && attachments.length === 0 && !replyMeta) return;
           applyRelayIncomingMessage({
             type: "chat",
-            room: roomToken,
+            room: dmRoom,
             clientId: `xmpp:${from}`,
             message: {
               id: xmppStanzaStableId(stanza) || createId(),
               text,
-              ts: new Date().toISOString(),
+              ts: timestamp,
+              authorUsername: peer.username,
+              authorDisplay: peer.displayName || peer.username,
+              authorJid: bareFrom,
+              attachments,
+              replyTo: replyMeta,
+              allowSelf
+            }
+          });
+          maybeFetchXmppAvatarForJid(bareFrom, { photoHash: xmppPresencePhotoHash(stanza) });
+          return;
+        }
+        const roomJid = bareFrom;
+        const fallbackRoomToken = roomJid ? `xmpp:${roomJid}` : "";
+        const roomToken = xmppRoomByJid.get(roomJid) || fallbackRoomToken || `xmpp:${roomJid}`;
+        if (roomJid) {
+          xmppRoomByJid.set(roomJid, roomToken);
+          const synced = upsertXmppRoomChannel(roomJid, {
+            roomToken,
+            roomName: roomJid.split("@")[0] || "",
+            account: current,
+            persist: false
+          });
+          if (synced.created) {
+            saveState();
+            renderServers();
+            renderChannels();
+          }
+        }
+        if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
+          applyRelayIncomingTyping({
+            type: "typing",
+            room: roomToken,
+            clientId: `xmpp:${from}`,
+            username: nick || roomJid.split("@")[0] || "xmpp",
+            typing: {
+              state: hasComposing ? "composing" : "paused",
+              active: hasComposing,
               authorUsername: nick || roomJid.split("@")[0] || "xmpp",
               authorDisplay: nick || ""
             }
           });
+        }
+        const replyMeta = xmppReplyMetaFromStanza(stanza, roomJid);
+        if (!text.trim() && attachments.length === 0 && !replyMeta) return;
+        const authorJid = xmppMucMessageAuthorJid(stanza);
+        const inserted = applyRelayIncomingMessage({
+          type: "chat",
+          room: roomToken,
+          clientId: `xmpp:${from}`,
+          message: {
+            id: xmppStanzaStableId(stanza) || createId(),
+            text,
+            ts: timestamp,
+            authorUsername: nick || roomJid.split("@")[0] || "xmpp",
+            authorDisplay: nick || "",
+            authorJid,
+            attachments,
+            replyTo: replyMeta,
+            allowSelf
+          }
+        });
+        if (inserted && roomJid) {
+          const stableId = xmppStanzaStableId(stanza);
+          if (stableId) rememberXmppRoomMessage(roomJid, stableId, inserted);
+        }
+        if (authorJid) {
+          const photoHash = xmppPresencePhotoHash(stanza);
+          if (photoHash) xmppAvatarHashByJid.set(authorJid, photoHash);
+          maybeFetchXmppAvatarForJid(authorJid, { photoHash });
+        }
+      };
+      xmppConnection.addHandler((stanza) => {
+        try {
+          addXmppDebugEvent("message", "Incoming stanza", trimXmppRaw(xmppSerializePayload(stanza)));
+          const forwarded = xmppMamForwardedMessages(stanza);
+          if (forwarded.length > 0) {
+            forwarded.forEach((entry) => {
+              handleXmppIncomingMessage(entry.message, { fallbackTs: entry.ts, allowSelf: true });
+            });
+            return true;
+          }
+          handleXmppIncomingMessage(stanza, { fallbackTs: "", allowSelf: false });
         } catch {
           addXmppDebugEvent("error", "Malformed incoming XMPP stanza");
           // Ignore malformed XMPP messages.
@@ -4148,8 +4436,38 @@ function connectRelaySocket({ force = false } = {}) {
           const type = (stanza?.getAttribute("type") || "").toLowerCase();
           const roomJid = xmppBareJid(from);
           const nick = (from.split("/")[1] || "").toString().trim();
+          const prefsSnapshot = getPreferences();
+          if (!isXmppMucRoomJid(roomJid, prefsSnapshot)) {
+            const ownBare = xmppBareJid(prefsSnapshot.xmppJid || "");
+            if (!roomJid || (ownBare && roomJid === ownBare)) return true;
+            if (["subscribe", "subscribed", "unsubscribe", "unsubscribed", "probe", "error"].includes(type)) return true;
+            const nickNode = [...stanza.getElementsByTagName("nick")]
+              .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/nick")) || null;
+            const account = ensureAccountByXmppJid(
+              roomJid,
+              xmppNodeText(nickNode).trim() || nick || roomJid.split("@")[0] || ""
+            );
+            if (!account) return true;
+            const showNode = stanza.getElementsByTagName("show")[0] || null;
+            const nextPresence = type === "unavailable" ? "invisible" : xmppPresenceShowToPresence(showNode);
+            const previousPresence = normalizePresence(account.presence || "online");
+            if (nextPresence !== previousPresence) {
+              account.presence = nextPresence;
+              renderDmList();
+              renderMemberList();
+              renderMessages();
+            }
+            const photoHash = xmppPresencePhotoHash(stanza);
+            if (photoHash) xmppAvatarHashByJid.set(roomJid, photoHash);
+            if (photoHash || !account.avatarUrl) maybeFetchXmppAvatarForJid(roomJid, { photoHash });
+            addXmppDebugEvent("presence", "Peer presence updated", {
+              jid: roomJid,
+              type: type || "available",
+              presence: nextPresence
+            });
+            return true;
+          }
           if (!roomJid || !nick) return true;
-          if (!isXmppMucRoomJid(roomJid, getPreferences())) return true;
           const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
           xmppRoomByJid.set(roomJid, roomToken);
           const synced = upsertXmppRoomChannel(roomJid, {
@@ -4169,6 +4487,7 @@ function connectRelaySocket({ force = false } = {}) {
           const occupantJid = xmppBareJid(itemNode?.getAttribute("jid") || "");
           const role = (itemNode?.getAttribute("role") || "").toString().trim().toLowerCase();
           const affiliation = (itemNode?.getAttribute("affiliation") || "").toString().trim().toLowerCase();
+          const photoHash = xmppPresencePhotoHash(stanza);
           const occupants = xmppOccupantsByRoomJid.get(roomJid) || new Map();
           if (type === "unavailable") {
             if (occupantJid) occupants.delete(occupantJid);
@@ -4193,6 +4512,9 @@ function connectRelaySocket({ force = false } = {}) {
             const account = occupantJid
               ? ensureAccountByXmppJid(occupantJid, nick || occupantJid.split("@")[0] || "")
               : null;
+            if (account && normalizePresence(account.presence || "online") !== "online") {
+              account.presence = "online";
+            }
             if (occupantJid) {
               for (const [key, value] of [...occupants.entries()]) {
                 if (key === occupantJid) continue;
@@ -4217,13 +4539,18 @@ function connectRelaySocket({ force = false } = {}) {
               role,
               affiliation
             });
+            if (occupantJid) {
+              if (photoHash) xmppAvatarHashByJid.set(occupantJid, photoHash);
+              maybeFetchXmppAvatarForJid(occupantJid, { photoHash });
+            }
           }
           const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
           if (activeRoomJid && activeRoomJid === roomJid) {
             renderMemberList();
+            renderMessages();
           }
         } catch {
-          addXmppDebugEvent("error", "MUC presence handling failed");
+          addXmppDebugEvent("error", "XMPP presence handling failed");
         }
         return true;
       }, null, "presence", null, null, null);
@@ -5083,17 +5410,18 @@ function inferAttachmentTypeFromFile(file) {
     || mime.includes("vnd.oasis.opendocument")) return "odf";
   if (/\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(name) || mime.includes("officedocument") || mime === "application/msword") return "odf";
   if (/\.(mp3|ogg|wav|m4a|flac)$/i.test(name) || /^audio\//i.test(mime)) return "audio";
+  if (/\.(mp4|webm|mov|m4v|ogv|m3u8)$/i.test(name) || /^video\//i.test(mime)) return "video";
   if (/\.(txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml)$/i.test(name) || /^text\//i.test(mime)) return "text";
   if (name.endsWith(".swf")) return "swf";
   if (name.endsWith(".svg") || mime === "image/svg+xml") return "svg";
   if (name.endsWith(".html") || name.endsWith(".htm") || mime === "text/html") return "html";
   if (name.endsWith(".bin")) return "bin";
-  if (name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".mp4") || name.endsWith(".webm") || /^image\//i.test(mime) || /^video\//i.test(mime)) return "gif";
+  if (name.endsWith(".gif") || name.endsWith(".webp") || /^image\//i.test(mime)) return "gif";
   return "gif";
 }
 
 function getComposerAttachAllowedTypes() {
-  return new Set(["pdf", "text", "odf", "rtf", "bin", "gif", "audio", "swf", "svg", "html"]);
+  return new Set(["pdf", "text", "odf", "rtf", "bin", "gif", "video", "audio", "swf", "svg", "html"]);
 }
 
 function syncPrimaryComposerAttachment() {
@@ -5266,8 +5594,9 @@ function normalizeReactions(reactions) {
 
 function normalizeAttachments(attachments) {
   if (!Array.isArray(attachments)) return [];
-  const allowedTypes = new Set(["gif", "sticker", "svg", "swf", "html", "pdf", "audio", "text", "odf", "rtf", "bin"]);
+  const allowedTypes = new Set(["gif", "video", "sticker", "svg", "swf", "html", "pdf", "audio", "text", "odf", "rtf", "bin"]);
   const allowedFormats = new Set(["image", "dotlottie", "apng"]);
+  const seen = new Set();
   return attachments
     .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
     .map((item) => ({
@@ -5276,6 +5605,12 @@ function normalizeAttachments(attachments) {
       name: (item.name || "").toString().slice(0, 120),
       format: allowedFormats.has(item.format) ? item.format : "image"
     }))
+    .filter((item) => {
+      const key = `${item.type}|${item.url}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .slice(0, 6);
 }
 
@@ -8838,19 +9173,31 @@ function extractImageUrl(text) {
 }
 
 function inferAttachmentTypeFromUrl(url) {
-  const clean = (url || "").toLowerCase();
-  if (clean.endsWith(".swf") || clean.includes(".swf?")) return "swf";
-  if (clean.endsWith(".svg") || clean.includes(".svg?")) return "svg";
-  if (clean.endsWith(".html") || clean.includes(".html?") || clean.endsWith(".htm") || clean.includes(".htm?")) return "html";
-  if (clean.endsWith(".pdf") || clean.includes(".pdf?")) return "pdf";
-  if (clean.endsWith(".rtf") || clean.includes(".rtf?")) return "rtf";
-  if (/\.(odt|ods|odp|doc|docx|xls|xlsx|ppt|pptx)(\?|$)/i.test(clean)) return "odf";
-  if (/\.(mp3|ogg|wav|m4a|flac)(\?|$)/i.test(clean)) return "audio";
-  if (/\.(txt|md|log|json|js|ts|css|html|xml|yml|yaml|ini|toml)(\?|$)/i.test(clean)) return "text";
-  if (clean.endsWith(".bin") || clean.includes(".bin?")) return "bin";
-  if (clean.endsWith(".apng") || clean.includes(".apng?")) return "sticker";
-  if (clean.endsWith(".lottie") || clean.includes(".lottie?")) return "sticker";
-  if (/\.(gif|webp|mp4|webm)(\?|$)/i.test(clean)) return "gif";
+  const raw = (url || "").toString().trim();
+  if (!raw) return null;
+  const clean = raw.toLowerCase();
+  let pathAndQuery = clean;
+  try {
+    const parsed = new URL(raw, globalThis.location?.href || "http://localhost/");
+    pathAndQuery = `${(parsed.pathname || "").toLowerCase()}${(parsed.search || "").toLowerCase()}`;
+  } catch {
+    // Ignore malformed URLs and fallback to the raw value.
+  }
+  const haystacks = [clean, pathAndQuery];
+  const has = (pattern) => haystacks.some((value) => pattern.test(value));
+  if (has(/\.swf(\?|$|&|#)/i)) return "swf";
+  if (has(/\.svg(\?|$|&|#)/i)) return "svg";
+  if (has(/\.html?(\?|$|&|#)/i)) return "html";
+  if (has(/\.pdf(\?|$|&|#)/i)) return "pdf";
+  if (has(/\.rtf(\?|$|&|#)/i)) return "rtf";
+  if (has(/\.(odt|ods|odp|doc|docx|xls|xlsx|ppt|pptx)(\?|$|&|#)/i)) return "odf";
+  if (has(/\.(mp3|ogg|wav|m4a|flac)(\?|$|&|#)/i)) return "audio";
+  if (has(/\.(txt|md|log|json|js|ts|css|html|xml|yml|yaml|ini|toml)(\?|$|&|#)/i)) return "text";
+  if (has(/\.bin(\?|$|&|#)/i)) return "bin";
+  if (has(/\.apng(\?|$|&|#)/i)) return "sticker";
+  if (has(/\.lottie(\?|$|&|#)/i)) return "sticker";
+  if (has(/\.(mp4|webm|mov|m4v|ogv|m3u8)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(mp4|webm|mov|m4v|ogv|m3u8)(?:[&#]|$)/i)) return "video";
+  if (has(/\.(png|jpe?g|gif|webp|bmp|avif|heic|heif|jfif)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(png|jpe?g|gif|webp|bmp|avif|heic|heif)(?:[&#]|$)/i)) return "gif";
   return null;
 }
 
@@ -8862,7 +9209,7 @@ function inferAttachmentFormat(type, url) {
 function extractInlineAttachmentsFromText(text) {
   if (!text) return [];
   const results = [];
-  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|gif|webp|mp4|webm|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
+  const matches = text.match(/(?:https?:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|png|jpe?g|gif|webp|bmp|avif|heic|heif|mp4|webm|mov|m4v|ogv|m3u8|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
   const seen = new Set();
   matches.forEach((raw) => {
     const cleaned = raw.replace(/[),.!?]+$/, "");
@@ -10735,20 +11082,34 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     return;
   }
 
-  if (type === "gif") {
-    const videoLike = /\.(mp4|webm)(\?.*)?$/i.test(mediaUrl);
+  if (type === "gif" || type === "video") {
+    const videoLike = type === "video" || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
     if (videoLike) {
       const video = document.createElement("video");
       video.src = mediaUrl;
-      video.autoplay = true;
-      video.loop = true;
-      video.muted = true;
+      video.autoplay = false;
+      video.loop = false;
+      video.muted = false;
       video.controls = true;
       video.playsInline = true;
+      video.preload = "metadata";
       video.addEventListener("dblclick", () => {
         openMediaLightbox({ url: mediaUrl, label: attachment.name || "Video", video: true });
       });
+      video.addEventListener("error", () => {
+        const note = document.createElement("div");
+        note.className = "message-embed-note";
+        note.textContent = "Video preview unavailable. Use open in new tab.";
+        wrap.appendChild(note);
+      });
       wrap.appendChild(video);
+      const openBtn = document.createElement("a");
+      openBtn.className = "message-swf-link";
+      openBtn.href = mediaUrl;
+      openBtn.target = "_blank";
+      openBtn.rel = "noopener noreferrer";
+      openBtn.textContent = "Open video in new tab";
+      wrap.appendChild(openBtn);
     } else {
       const img = document.createElement("img");
       img.src = mediaUrl;
