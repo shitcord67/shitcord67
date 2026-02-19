@@ -1,0 +1,33 @@
+# Project Agent Instructions (Persistent)
+
+These instructions are project-local continuity notes for future LLM instances.
+
+## Delivery Mode
+- Default to execution over discussion: implement requested features directly unless blocked.
+- Minimize back-and-forth questions; ask only when a decision is truly ambiguous or high-risk.
+- Keep running with follow-up improvements after tests pass.
+
+## Git and Change Flow
+- It is explicitly allowed to add/update local `TODO` entries during implementation.
+- It is explicitly allowed to commit incremental local changes without extra confirmation.
+- Use small, coherent commits with clear messages.
+- Do not revert unrelated user changes.
+
+## Product Direction
+- Primary goal: Discord-like UX with strong realtime behavior.
+- Prioritize transport/realtime robustness (WebSocket, HTTP/SSE, XMPP).
+- Prefer feature completeness and UX polish over placeholder scaffolding.
+
+## XMPP Direction
+- Continue implementing practical XEPs where useful for UX parity.
+- Favor broad compatibility and cross-platform behavior.
+- Keep credentials in local ignored files when needed for testing.
+
+## Content and Naming Constraints
+- Keep naming independent from external reference projects.
+- Do not add references to Plutonium, Sweden, or Humpus in product-facing copy.
+
+## Validation
+- Run syntax/tests after changes whenever feasible.
+- Perform end-to-end checks for transport-related features.
+- Record meaningful outcomes in commit messages and README when behavior changes.
