@@ -3848,6 +3848,37 @@ function xmppMucMessageAuthorJid(stanza) {
   return xmppBareJid(itemNode?.getAttribute("jid") || "");
 }
 
+function findXmppRoomChannelByJid(roomJid) {
+  const bare = xmppBareJid(roomJid);
+  if (!bare) return null;
+  for (const guild of state.guilds || []) {
+    if (!guild || !Array.isArray(guild.channels)) continue;
+    const match = guild.channels.find((channel) => xmppBareJid(channel?.xmppRoomJid || "") === bare) || null;
+    if (match) return match;
+  }
+  return null;
+}
+
+function isKnownXmppRoomJid(roomJid) {
+  const bare = xmppBareJid(roomJid);
+  if (!bare) return false;
+  if (xmppRoomByJid.has(bare)) return true;
+  return Boolean(findXmppRoomChannelByJid(bare));
+}
+
+function xmppHasEncryptedPayload(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return false;
+  const hasLegacyOmemo = [...stanza.getElementsByTagName("encrypted")]
+    .some((node) => xmppNodeHasXmlns(node, "eu.siacs.conversations.axolotl"));
+  if (hasLegacyOmemo) return true;
+  const hasOmemo2 = [...stanza.getElementsByTagName("encrypted")]
+    .some((node) => xmppNodeHasXmlns(node, "urn:xmpp:omemo:2"));
+  if (hasOmemo2) return true;
+  const hasPgp = [...stanza.getElementsByTagName("x")]
+    .some((node) => xmppNodeHasXmlns(node, "jabber:x:encrypted"));
+  return hasPgp;
+}
+
 function requestXmppRoomHistory(roomJid, {
   limit = XMPP_MAM_PAGE_SIZE,
   force = false,
@@ -4331,23 +4362,59 @@ function connectRelaySocket({ force = false } = {}) {
           })
           .filter(Boolean);
       };
+      const xmppCarbonForwardedMessages = (stanza) => {
+        if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+        const out = [];
+        const carbonNodes = [
+          ...[...stanza.getElementsByTagName("received")]
+            .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:carbons:2")),
+          ...[...stanza.getElementsByTagName("sent")]
+            .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:carbons:2"))
+        ];
+        carbonNodes.forEach((carbonNode) => {
+          const isSent = (carbonNode.nodeName || "").toLowerCase() === "sent";
+          const forwardedNode = [...carbonNode.getElementsByTagName("forwarded")]
+            .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:forward:0")) || null;
+          if (!forwardedNode) return;
+          const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
+          if (!messageNode) return;
+          out.push({
+            message: messageNode,
+            ts: xmppStanzaDelayTimestamp(forwardedNode, xmppStanzaDelayTimestamp(messageNode, "")),
+            allowSelf: isSent
+          });
+        });
+        return out;
+      };
       const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false, history = false } = {}) => {
         const from = stanza.getAttribute("from") || "";
         const type = (stanza.getAttribute("type") || "").toLowerCase();
-        if (type && !["groupchat", "chat", "normal", ""].includes(type)) return;
+        if (type && !["groupchat", "chat", "normal", "headline", ""].includes(type)) return;
         const bareFrom = xmppBareJid(from);
         const nick = (from.split("/")[1] || "").toString();
         const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+        const knownRoom = isKnownXmppRoomJid(bareFrom);
+        const isDirectLike = (type === "chat" || type === "normal" || type === "headline") && !knownRoom;
         const hasComposing = stanza.getElementsByTagName("composing").length > 0;
         const hasPaused = stanza.getElementsByTagName("paused").length > 0;
         const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
         const hasGone = stanza.getElementsByTagName("gone").length > 0;
         const hasActive = stanza.getElementsByTagName("active").length > 0;
         const bodyNode = stanza.getElementsByTagName("body")[0] || null;
-        const text = xmppNodeText(bodyNode);
+        const subjectNode = stanza.getElementsByTagName("subject")[0] || null;
+        const bodyText = xmppNodeText(bodyNode).trim();
+        const subjectText = xmppNodeText(subjectNode).trim();
+        const encrypted = xmppHasEncryptedPayload(stanza);
+        let text = bodyText;
+        if (!text && subjectText) {
+          text = type === "groupchat" ? `[Room subject] ${subjectText}` : subjectText;
+        }
+        if (!text && encrypted) {
+          text = "[Encrypted XMPP message not supported in this client yet]";
+        }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         const attachments = xmppAttachmentsFromUrls(xmppExtractOobUrls(stanza));
-        if ((type === "chat" || type === "normal") && !/@conference\./i.test(bareFrom)) {
+        if (isDirectLike) {
           if (!bareFrom || (ownBare && bareFrom === ownBare)) return;
           const peer = ensureAccountByXmppJid(bareFrom, nick || bareFrom.split("@")[0] || "");
           if (!peer || peer.id === current.id) return;
@@ -4457,6 +4524,17 @@ function connectRelaySocket({ force = false } = {}) {
           if (forwarded.length > 0) {
             forwarded.forEach((entry) => {
               handleXmppIncomingMessage(entry.message, { fallbackTs: entry.ts, allowSelf: true, history: true });
+            });
+            return true;
+          }
+          const carbonForwarded = xmppCarbonForwardedMessages(stanza);
+          if (carbonForwarded.length > 0) {
+            carbonForwarded.forEach((entry) => {
+              handleXmppIncomingMessage(entry.message, {
+                fallbackTs: entry.ts,
+                allowSelf: entry.allowSelf === true,
+                history: false
+              });
             });
             return true;
           }
