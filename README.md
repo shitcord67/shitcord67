@@ -22,6 +22,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
 - Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`, `/nextunread`, `/prevunread`, `/unreadcount`, `/pins`, `/unpinall`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
+- Send-later workflow: `/schedule <when> | <text>`, `/scheduled`, `/unschedule <id|last|all>` (channels and DMs).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
@@ -158,6 +159,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Message rows now support keyboard context menus (`Shift+F10` or `ContextMenu` key).
 - SWF context actions show inline toast feedback for copy/download/save outcomes.
 - Forum thread toolbar includes a `Mark all threads read` bulk action.
+- Forum channels support native tag sets and filtering (`/forumtag`, `/tagthread`) with clickable tag chips in the forum toolbar.
+- Messages that mention you (or reply to your message) now get Discord-like highlighted row styling.
 - Keyboard shortcuts: `Alt+K` focus current search, `Ctrl+,` open settings, `Alt+D` toggle DM/guild mode.
 - External HTTP(S) media uses a privacy gate (safe mode) with two-click load options and trust rules (exact domain, `*.wildcard`, `/regex/`).
 - Collaborative `shared` messages can be created with `/note` and edited by members.
