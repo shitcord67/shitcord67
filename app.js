@@ -14454,68 +14454,101 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         }
       });
     });
-    loadXmppLibrary().then(async (ready) => {
-      if (!ready || !globalThis.Strophe) {
-        addXmppDebugEvent("error", "Login validation could not load runtime", { error: xmppRuntimeLastError || "" });
-        resolve({ ok: false, error: `Failed to load XMPP runtime. ${xmppRuntimeLastError || ""}`.trim(), wsUrl: candidates[0] || "" });
-        return;
-      }
-      try {
-        const discovered = await discoverXmppWsViaHostMeta(cleanJid);
-        if (discovered.length > 0) {
-          const merged = [];
-          const push = (value) => {
-            const normalized = normalizeXmppWsUrl(value);
-            if (!normalized) return;
-            if (!merged.includes(normalized)) merged.push(normalized);
-          };
-          push(explicitWs);
-          discovered.forEach((entry) => push(entry));
-          candidates.forEach((entry) => push(entry));
-          candidates = merged;
-          addXmppDebugEvent("connect", "Merged host-meta endpoints into candidate list", { candidates });
-        }
-      } catch (error) {
-        addXmppDebugEvent("runtime", "Host-meta discovery failed during login validation", { error: String(error?.message || error) });
-      }
-      let sawAuthFail = false;
-      for (const candidateWs of candidates) {
-        // eslint-disable-next-line no-await-in-loop
-        const attempt = await tryCandidate(candidateWs);
-        if (attempt.ok) {
-          addXmppDebugEvent("connect", "Login validation succeeded", { wsUrl: candidateWs });
-          resolve({ ok: true, wsUrl: candidateWs });
+    const runBrowserValidation = () => {
+      loadXmppLibrary().then(async (ready) => {
+        if (!ready || !globalThis.Strophe) {
+          addXmppDebugEvent("error", "Login validation could not load runtime", { error: xmppRuntimeLastError || "" });
+          resolve({ ok: false, error: `Failed to load XMPP runtime. ${xmppRuntimeLastError || ""}`.trim(), wsUrl: candidates[0] || "" });
           return;
         }
-        if (attempt.reason === "auth") {
-          sawAuthFail = true;
-          break;
+        try {
+          const discovered = await discoverXmppWsViaHostMeta(cleanJid);
+          if (discovered.length > 0) {
+            const merged = [];
+            const push = (value) => {
+              const normalized = normalizeXmppWsUrl(value);
+              if (!normalized) return;
+              if (!merged.includes(normalized)) merged.push(normalized);
+            };
+            push(explicitWs);
+            discovered.forEach((entry) => push(entry));
+            candidates.forEach((entry) => push(entry));
+            candidates = merged;
+            addXmppDebugEvent("connect", "Merged host-meta endpoints into candidate list", { candidates });
+          }
+        } catch (error) {
+          addXmppDebugEvent("runtime", "Host-meta discovery failed during login validation", { error: String(error?.message || error) });
         }
-      }
-      const localGateway = await validateXmppViaLocalGateway({
+        let sawAuthFail = false;
+        for (const candidateWs of candidates) {
+          // eslint-disable-next-line no-await-in-loop
+          const attempt = await tryCandidate(candidateWs);
+          if (attempt.ok) {
+            addXmppDebugEvent("connect", "Login validation succeeded", { wsUrl: candidateWs });
+            resolve({ ok: true, wsUrl: candidateWs });
+            return;
+          }
+          if (attempt.reason === "auth") {
+            sawAuthFail = true;
+            break;
+          }
+        }
+        const localGateway = await validateXmppViaLocalGateway({
+          jid: cleanJid,
+          password: cleanPass,
+          candidates,
+          timeoutMs
+        });
+        if (localGateway?.ok) {
+          resolve({ ok: true, wsUrl: localGateway.wsUrl || candidates[0] || "", via: "local-gateway" });
+          return;
+        }
+        const gatewayHint = localGateway && localGateway.ok === false
+          ? ` Local gateway check also failed: ${localGateway.error || "unknown error"}`
+          : ` Local gateway unavailable at ${XMPP_LOCAL_AUTH_GATEWAY_URL}; start it with: node scripts/xmpp-auth-gateway.mjs`;
+        resolve({
+          ok: false,
+          error: sawAuthFail
+            ? `XMPP authentication failed. Tried: ${candidates.join(", ")}.${gatewayHint}`
+            : `XMPP connection failed for WebSocket endpoints. Tried: ${candidates.join(", ")}.${gatewayHint}`,
+          wsUrl: candidates[0] || ""
+        });
+      }).catch((error) => {
+        addXmppDebugEvent("error", "Login validation crashed", { error: String(error) });
+        resolve({ ok: false, error: String(error), wsUrl: candidates[0] || "" });
+      });
+    };
+
+    if (shouldUsePlainOnlySasl(cleanJid, explicitWs || candidates[0] || "")) {
+      addXmppDebugEvent("connect", "Using local gateway-first login validation strategy", {
+        jid: cleanJid,
+        gatewayUrl: XMPP_LOCAL_AUTH_GATEWAY_URL
+      });
+      validateXmppViaLocalGateway({
         jid: cleanJid,
         password: cleanPass,
         candidates,
         timeoutMs
+      }).then((gatewayFirst) => {
+        if (gatewayFirst?.ok) {
+          resolve({ ok: true, wsUrl: gatewayFirst.wsUrl || candidates[0] || "", via: "local-gateway-first" });
+          return;
+        }
+        addXmppDebugEvent("runtime", "Gateway-first path unavailable; falling back to browser validation", {
+          hasGatewayResult: gatewayFirst !== null,
+          gatewayError: gatewayFirst?.error || ""
+        });
+        runBrowserValidation();
+      }).catch((error) => {
+        addXmppDebugEvent("runtime", "Gateway-first check crashed; falling back to browser validation", {
+          error: String(error?.message || error)
+        });
+        runBrowserValidation();
       });
-      if (localGateway?.ok) {
-        resolve({ ok: true, wsUrl: localGateway.wsUrl || candidates[0] || "", via: "local-gateway" });
-        return;
-      }
-      const gatewayHint = localGateway && localGateway.ok === false
-        ? ` Local gateway check also failed: ${localGateway.error || "unknown error"}`
-        : ` Local gateway unavailable at ${XMPP_LOCAL_AUTH_GATEWAY_URL}; start it with: node scripts/xmpp-auth-gateway.mjs`;
-      resolve({
-        ok: false,
-        error: sawAuthFail
-          ? `XMPP authentication failed. Tried: ${candidates.join(", ")}.${gatewayHint}`
-          : `XMPP connection failed for WebSocket endpoints. Tried: ${candidates.join(", ")}.${gatewayHint}`,
-        wsUrl: candidates[0] || ""
-      });
-    }).catch((error) => {
-      addXmppDebugEvent("error", "Login validation crashed", { error: String(error) });
-      resolve({ ok: false, error: String(error), wsUrl: candidates[0] || "" });
-    });
+      return;
+    }
+
+    runBrowserValidation();
   });
 }
 
