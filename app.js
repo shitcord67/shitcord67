@@ -3593,6 +3593,16 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     .c("x", { xmlns: "http://jabber.org/protocol/muc" });
   xmppConnection.send(presence);
   xmppRoomByJid.set(roomJid, roomToken);
+  const mapped = upsertXmppRoomChannel(roomJid, {
+    roomToken,
+    account,
+    prefs,
+    persist: true
+  });
+  if (mapped.created) {
+    renderServers();
+    renderChannels();
+  }
   addXmppDebugEvent("presence", "Joined MUC room", { roomToken, roomJid, nick });
   return true;
 }
@@ -3821,7 +3831,22 @@ function connectRelaySocket({ force = false } = {}) {
           if (type && !["groupchat", "chat", "normal", ""].includes(type)) return true;
           const roomJid = from.split("/")[0] || "";
           const nick = from.split("/")[1] || "";
-          const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
+          const fallbackRoomToken = roomJid ? `xmpp:${normalizeXmppJid(roomJid).toLowerCase()}` : "";
+          const roomToken = xmppRoomByJid.get(roomJid) || fallbackRoomToken || `xmpp:${roomJid}`;
+          if (roomJid) {
+            xmppRoomByJid.set(roomJid, roomToken);
+            const synced = upsertXmppRoomChannel(roomJid, {
+              roomToken,
+              roomName: roomJid.split("@")[0] || "",
+              account: current,
+              persist: false
+            });
+            if (synced.created) {
+              saveState();
+              renderServers();
+              renderChannels();
+            }
+          }
           const hasComposing = stanza.getElementsByTagName("composing").length > 0;
           const hasPaused = stanza.getElementsByTagName("paused").length > 0;
           const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
@@ -3863,6 +3888,32 @@ function connectRelaySocket({ force = false } = {}) {
         }
         return true;
       }, null, "message", null, null, null);
+      xmppConnection.addHandler((stanza) => {
+        try {
+          const type = (stanza?.getAttribute("type") || "").toLowerCase();
+          if (type !== "set") return true;
+          const query = [...stanza.getElementsByTagName("query")]
+            .find((node) => (node.getAttribute("xmlns") || "").toLowerCase() === "jabber:iq:roster") || null;
+          if (!query) return true;
+          const id = stanza.getAttribute("id") || "";
+          const from = stanza.getAttribute("from") || "";
+          if (id && globalThis.$iq) {
+            const resultAttrs = { type: "result", id };
+            if (from) resultAttrs.to = from;
+            xmppConnection.send(globalThis.$iq(resultAttrs));
+          }
+          const pushItems = parseXmppRosterItems(stanza);
+          addXmppDebugEvent("iq", "Roster push received", { count: pushItems.length });
+          syncXmppRosterIntoState(pushItems, getPreferences(), current);
+          saveState();
+          renderDmList();
+          renderServers();
+          renderChannels();
+        } catch {
+          addXmppDebugEvent("error", "Roster push handling failed");
+        }
+        return true;
+      }, null, "iq", "set", null, null);
       xmppConnection.connect(jid, prefs.xmppPassword || "", (status) => {
         const S = globalThis.Strophe.Status;
         const statusName = Object.entries(S || {}).find(([, value]) => value === status)?.[0] || String(status);
@@ -14333,12 +14384,43 @@ function ensureAccountByXmppJid(jid, displayName = "") {
   return account;
 }
 
+function ensureGuildMembership(guild, account) {
+  if (!guild || !account) return false;
+  let changed = false;
+  if (!Array.isArray(guild.memberIds)) {
+    guild.memberIds = [];
+    changed = true;
+  }
+  if (!guild.memberIds.includes(account.id)) {
+    guild.memberIds.push(account.id);
+    changed = true;
+  }
+  if (!Array.isArray(guild.roles) || guild.roles.length === 0) {
+    guild.roles = [createRole("@everyone", "#b5bac1", "member")];
+    changed = true;
+  }
+  const everyoneRole = guild.roles.find((role) => role?.name === "@everyone") || guild.roles[0] || null;
+  if (!guild.memberRoles || typeof guild.memberRoles !== "object") {
+    guild.memberRoles = {};
+    changed = true;
+  }
+  if (!Array.isArray(guild.memberRoles[account.id])) {
+    guild.memberRoles[account.id] = [];
+    changed = true;
+  }
+  if (everyoneRole?.id && !guild.memberRoles[account.id].includes(everyoneRole.id)) {
+    guild.memberRoles[account.id].push(everyoneRole.id);
+    changed = true;
+  }
+  return changed;
+}
+
 function ensureXmppSpacesGuild(prefs = getPreferences(), account = getCurrentAccount()) {
   const domain = xmppDomainFromJid(prefs.xmppJid) || "xmpp";
   const guildId = `xmpp-spaces:${domain}`;
   let guild = state.guilds.find((entry) => entry.id === guildId) || null;
   if (guild) {
-    if (account && !guild.memberIds.includes(account.id)) guild.memberIds.push(account.id);
+    ensureGuildMembership(guild, account);
     return guild;
   }
   const everyoneRole = createRole("@everyone", "#b5bac1", "member");
@@ -14375,44 +14457,86 @@ function ensureXmppSpacesGuild(prefs = getPreferences(), account = getCurrentAcc
       }
     ]
   };
+  ensureGuildMembership(guild, account);
   state.guilds.push(guild);
   return guild;
 }
 
+function upsertXmppRoomChannel(roomJid, {
+  roomName = "",
+  roomToken = "",
+  prefs = getPreferences(),
+  account = getCurrentAccount(),
+  persist = false
+} = {}) {
+  const normalizedRoomJid = normalizeXmppJid(roomJid).toLowerCase();
+  if (!normalizedRoomJid) return { channel: null, created: false, changed: false };
+  const guild = ensureXmppSpacesGuild(prefs, account);
+  if (!guild) return { channel: null, created: false, changed: false };
+  let changed = false;
+  let created = false;
+  const roomNode = normalizedRoomJid.split("@")[0] || "space";
+  const desiredName = sanitizeChannelName((roomName || roomNode).toString(), "space");
+  const desiredToken = (roomToken || `xmpp:${normalizedRoomJid}`).toString().trim() || `xmpp:${normalizedRoomJid}`;
+  let channel = guild.channels.find((entry) => normalizeXmppJid(entry?.xmppRoomJid || "").toLowerCase() === normalizedRoomJid) || null;
+  if (!channel) {
+    channel = {
+      id: createId(),
+      name: desiredName,
+      type: "text",
+      topic: `XMPP MUC ${normalizedRoomJid}`,
+      forumTags: [],
+      permissionOverrides: {},
+      voiceState: createVoiceState(),
+      readState: account ? { [account.id]: new Date().toISOString() } : {},
+      slowmodeSec: 0,
+      slowmodeState: {},
+      messages: [],
+      xmppRoomJid: normalizedRoomJid,
+      relayRoomToken: desiredToken
+    };
+    guild.channels.push(channel);
+    changed = true;
+    created = true;
+  } else {
+    if (desiredName && channel.name !== desiredName) {
+      channel.name = desiredName;
+      changed = true;
+    }
+    if (channel.xmppRoomJid !== normalizedRoomJid) {
+      channel.xmppRoomJid = normalizedRoomJid;
+      changed = true;
+    }
+    if (channel.relayRoomToken !== desiredToken) {
+      channel.relayRoomToken = desiredToken;
+      changed = true;
+    }
+  }
+  if (account) {
+    ensureChannelReadState(channel);
+    if (!channel.readState[account.id]) {
+      channel.readState[account.id] = new Date().toISOString();
+      changed = true;
+    }
+  }
+  if (changed && persist) saveState();
+  return { channel, created, changed };
+}
+
 function upsertXmppSpaceChannels(bookmarks, prefs = getPreferences(), account = getCurrentAccount()) {
   if (!Array.isArray(bookmarks) || bookmarks.length === 0) return;
-  const guild = ensureXmppSpacesGuild(prefs, account);
-  if (!guild) return;
   let changed = false;
   bookmarks.forEach((entry) => {
     const roomJid = normalizeXmppJid(entry?.jid || "").toLowerCase();
     if (!roomJid) return;
-    const roomNameSeed = (entry?.name || roomJid.split("@")[0] || "space").toString();
-    const roomName = sanitizeChannelName(roomNameSeed, "space");
-    let channel = guild.channels.find((item) => item?.xmppRoomJid === roomJid) || null;
-    if (!channel) {
-      channel = {
-        id: createId(),
-        name: roomName,
-        type: "text",
-        topic: `XMPP MUC ${roomJid}`,
-        forumTags: [],
-        permissionOverrides: {},
-        voiceState: createVoiceState(),
-        readState: account ? { [account.id]: new Date().toISOString() } : {},
-        slowmodeSec: 0,
-        slowmodeState: {},
-        messages: [],
-        xmppRoomJid: roomJid,
-        relayRoomToken: `xmpp:${roomJid}`
-      };
-      guild.channels.push(channel);
-      changed = true;
-      return;
-    }
-    channel.name = roomName || channel.name;
-    channel.xmppRoomJid = roomJid;
-    channel.relayRoomToken = `xmpp:${roomJid}`;
+    const upserted = upsertXmppRoomChannel(roomJid, {
+      roomName: (entry?.name || "").toString(),
+      roomToken: `xmpp:${roomJid}`,
+      prefs,
+      account,
+      persist: false
+    });
+    if (upserted.changed) changed = true;
   });
   if (changed) saveState();
 }
@@ -14463,6 +14587,21 @@ function syncXmppRosterIntoState(items, prefs = getPreferences(), account = getC
   }
 }
 
+function parseXmppRosterItems(stanza) {
+  if (!stanza) return [];
+  const getText = typeof globalThis.Strophe?.getText === "function"
+    ? globalThis.Strophe.getText
+    : (node) => node?.textContent || "";
+  return [...stanza.getElementsByTagName("item")]
+    .map((node) => ({
+      jid: node.getAttribute("jid") || "",
+      name: node.getAttribute("name") || "",
+      subscription: node.getAttribute("subscription") || "",
+      groups: [...node.getElementsByTagName("group")].map((group) => getText(group) || "")
+    }))
+    .filter((entry) => entry.jid && entry.subscription !== "remove");
+}
+
 function fetchXmppRoster(connection) {
   return new Promise((resolve) => {
     if (!connection || !globalThis.$iq) {
@@ -14476,12 +14615,7 @@ function fetchXmppRoster(connection) {
       iq,
       (stanza) => {
         try {
-          const items = [...stanza.getElementsByTagName("item")].map((node) => ({
-            jid: node.getAttribute("jid") || "",
-            name: node.getAttribute("name") || "",
-            subscription: node.getAttribute("subscription") || "",
-            groups: [...node.getElementsByTagName("group")].map((group) => globalThis.Strophe.getText(group) || "")
-          })).filter((entry) => entry.jid && entry.subscription !== "remove");
+          const items = parseXmppRosterItems(stanza);
           addXmppDebugEvent("iq", "Roster response received", { count: items.length });
           resolve(items);
         } catch {
@@ -14498,7 +14632,55 @@ function fetchXmppRoster(connection) {
   });
 }
 
-function fetchXmppBookmarks(connection) {
+function parseXmppBookmarks(stanza) {
+  if (!stanza) return [];
+  const seen = new Set();
+  const list = [];
+  [...stanza.getElementsByTagName("conference")]
+    .forEach((node) => {
+      const jid = normalizeXmppJid(node.getAttribute("jid") || "").toLowerCase();
+      if (!jid || seen.has(jid)) return;
+      seen.add(jid);
+      list.push({
+        jid,
+        name: (node.getAttribute("name") || "").toString().trim()
+      });
+    });
+  return list;
+}
+
+function fetchXmppBookmarksPubsub(connection) {
+  return new Promise((resolve) => {
+    if (!connection || !globalThis.$iq) {
+      resolve([]);
+      return;
+    }
+    const iq = globalThis.$iq({ type: "get" })
+      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+      .c("items", { node: "urn:xmpp:bookmarks:1" });
+    addXmppDebugEvent("iq", "Requesting bookmarks (XEP-0402 pubsub)");
+    connection.sendIQ(
+      iq,
+      (stanza) => {
+        try {
+          const list = parseXmppBookmarks(stanza);
+          addXmppDebugEvent("iq", "Bookmarks pubsub response received", { count: list.length });
+          resolve(list);
+        } catch {
+          addXmppDebugEvent("error", "Bookmarks pubsub parse failed");
+          resolve([]);
+        }
+      },
+      () => {
+        addXmppDebugEvent("iq", "Bookmarks pubsub request unavailable");
+        resolve([]);
+      },
+      6000
+    );
+  });
+}
+
+function fetchXmppBookmarksLegacy(connection) {
   return new Promise((resolve) => {
     if (!connection || !globalThis.$iq) {
       addXmppDebugEvent("iq", "Bookmarks request skipped (missing connection/runtime)");
@@ -14513,13 +14695,8 @@ function fetchXmppBookmarks(connection) {
       iq,
       (stanza) => {
         try {
-          const list = [...stanza.getElementsByTagName("conference")]
-            .map((node) => ({
-              jid: node.getAttribute("jid") || "",
-              name: node.getAttribute("name") || ""
-            }))
-            .filter((entry) => entry.jid);
-          addXmppDebugEvent("iq", "Bookmarks response received", { count: list.length });
+          const list = parseXmppBookmarks(stanza);
+          addXmppDebugEvent("iq", "Bookmarks legacy response received", { count: list.length });
           resolve(list);
         } catch {
           addXmppDebugEvent("error", "Bookmarks parse failed");
@@ -14533,6 +14710,18 @@ function fetchXmppBookmarks(connection) {
       7000
     );
   });
+}
+
+async function fetchXmppBookmarks(connection) {
+  if (!connection || !globalThis.$iq) {
+    addXmppDebugEvent("iq", "Bookmarks request skipped (missing connection/runtime)");
+    return [];
+  }
+  const modern = await fetchXmppBookmarksPubsub(connection);
+  if (modern.length > 0) return modern;
+  const legacy = await fetchXmppBookmarksLegacy(connection);
+  if (legacy.length > 0) return legacy;
+  return [];
 }
 
 function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 }) {
