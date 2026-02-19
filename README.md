@@ -72,6 +72,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Extra channel shortcuts: `Alt+I` opens pins, `Alt+R` marks current channel read, `Alt+N/P` jumps unread channels, `Alt+ArrowUp/Down` navigates channels.
 - Section visibility shortcuts: `Alt+Shift+D` collapses/expands DM section, `Alt+Shift+C` collapses/expands guild channel section.
 - Quick switcher shortcut: `Ctrl+K` (or `Cmd+K`) opens channel/DM/guild quick jump modal.
+- Find shortcut: `Ctrl+F` (or `Cmd+F`) opens "Find in conversation" with hit highlighting and jump.
 - Channel reorder shortcut: `Ctrl+Alt+ArrowUp/Down` moves active channel (manage channels permission).
 - Channel quick-jump shortcuts: `Alt+Home`/`Alt+End` jump to first/last channel.
 - Quick creation shortcuts: `Ctrl+Shift+N` opens create-channel, `Ctrl+Shift+D` opens new-DM prompt.

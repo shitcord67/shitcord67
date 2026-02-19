@@ -664,6 +664,8 @@ let memberSearchTerm = "";
 let memberPresenceFilter = "all";
 let quickSwitchQuery = "";
 let quickSwitchSelectionIndex = 0;
+let findQuery = "";
+let findSelectionIndex = 0;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -740,6 +742,14 @@ const ui = {
   composerAttachmentList: document.getElementById("composerAttachmentList"),
   saveComposerAttachmentBtn: document.getElementById("saveComposerAttachmentBtn"),
   clearComposerAttachmentBtn: document.getElementById("clearComposerAttachmentBtn"),
+  findDialog: document.getElementById("findDialog"),
+  findForm: document.getElementById("findForm"),
+  findInput: document.getElementById("findInput"),
+  findMeta: document.getElementById("findMeta"),
+  findList: document.getElementById("findList"),
+  findPrevBtn: document.getElementById("findPrevBtn"),
+  findNextBtn: document.getElementById("findNextBtn"),
+  findCancel: document.getElementById("findCancel"),
   quickSwitchDialog: document.getElementById("quickSwitchDialog"),
   quickSwitchForm: document.getElementById("quickSwitchForm"),
   quickSwitchInput: document.getElementById("quickSwitchInput"),
@@ -765,12 +775,14 @@ const ui = {
   profileStatusExpiryInput: document.getElementById("profileStatusExpiryInput"),
   profileGuildNicknameInput: document.getElementById("profileGuildNicknameInput"),
   profileGuildAvatarInput: document.getElementById("profileGuildAvatarInput"),
+  profileGuildAvatarColorPicker: document.getElementById("profileGuildAvatarColorPicker"),
   profileGuildAvatarUrlInput: document.getElementById("profileGuildAvatarUrlInput"),
   profileGuildBannerInput: document.getElementById("profileGuildBannerInput"),
   profileGuildStatusInput: document.getElementById("profileGuildStatusInput"),
   presenceInput: document.getElementById("presenceInput"),
   profileBannerInput: document.getElementById("profileBannerInput"),
   profileAvatarInput: document.getElementById("profileAvatarInput"),
+  profileAvatarColorPicker: document.getElementById("profileAvatarColorPicker"),
   profileAvatarUrlInput: document.getElementById("profileAvatarUrlInput"),
   profileAvatarPreview: document.getElementById("profileAvatarPreview"),
   profileAvatarUploadBtn: document.getElementById("profileAvatarUploadBtn"),
@@ -789,6 +801,7 @@ const ui = {
   guildSettingsNameInput: document.getElementById("guildSettingsNameInput"),
   guildSettingsDescriptionInput: document.getElementById("guildSettingsDescriptionInput"),
   guildSettingsAccentInput: document.getElementById("guildSettingsAccentInput"),
+  guildSettingsAccentPicker: document.getElementById("guildSettingsAccentPicker"),
   guildSettingsCancel: document.getElementById("guildSettingsCancel"),
   deleteGuildBtn: document.getElementById("deleteGuildBtn"),
   createChannelDialog: document.getElementById("createChannelDialog"),
@@ -873,6 +886,7 @@ const ui = {
   rolesForm: document.getElementById("rolesForm"),
   roleNameInput: document.getElementById("roleNameInput"),
   roleColorInput: document.getElementById("roleColorInput"),
+  roleColorPicker: document.getElementById("roleColorPicker"),
   rolePermPresetInput: document.getElementById("rolePermPresetInput"),
   createRoleNowBtn: document.getElementById("createRoleNowBtn"),
   assignRoleMemberInput: document.getElementById("assignRoleMemberInput"),
@@ -1320,6 +1334,127 @@ function isMessageHighlightedForAccount(message, account) {
   return messageMentionsAccount(message.text, account) || messageRepliesToAccount(message, account);
 }
 
+function searchableMessageText(message, channelType = "text") {
+  if (!message) return "";
+  const raw = (message.text || "").toString();
+  if (channelType === "forum" && !message.forumThreadId) {
+    const parts = forumMessageParts(message);
+    return `${parts.title}\n${parts.body || ""}`.trim();
+  }
+  return raw;
+}
+
+function messageMatchesFindQuery(message, query, channelType = "text") {
+  const term = (query || "").trim().toLowerCase();
+  if (!term || !message) return false;
+  const haystack = searchableMessageText(message, channelType).toLowerCase();
+  return haystack.includes(term);
+}
+
+function getFindMatchesForConversation(conversation, query) {
+  const term = (query || "").trim();
+  if (!conversation || !term) return [];
+  const isDm = conversation.type === "dm";
+  const channelType = isDm ? "text" : (conversation.channel?.type || "text");
+  const bucket = isDm ? (conversation.thread?.messages || []) : (conversation.channel?.messages || []);
+  return bucket
+    .filter((message) => messageMatchesFindQuery(message, term, channelType))
+    .map((message) => ({
+      id: message.id,
+      ts: message.ts,
+      author: displayNameForMessage(message),
+      preview: searchableMessageText(message, channelType).replace(/\s+/g, " ").trim().slice(0, 120)
+    }));
+}
+
+function getFindActiveMessageId() {
+  const conversation = getActiveConversation();
+  const matches = getFindMatchesForConversation(conversation, findQuery);
+  const selected = matches[findSelectionIndex] || matches[0];
+  return selected?.id || null;
+}
+
+function renderFindList() {
+  if (!ui.findList || !ui.findMeta) return;
+  const conversation = getActiveConversation();
+  const matches = getFindMatchesForConversation(conversation, findQuery);
+  findSelectionIndex = Math.max(0, Math.min(findSelectionIndex, Math.max(0, matches.length - 1)));
+  ui.findList.innerHTML = "";
+  if (!findQuery.trim()) {
+    ui.findMeta.textContent = "Type to search messages in this conversation.";
+    return;
+  }
+  if (matches.length === 0) {
+    ui.findMeta.textContent = "No results.";
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = "No matching messages found.";
+    ui.findList.appendChild(empty);
+    return;
+  }
+  ui.findMeta.textContent = `${findSelectionIndex + 1} of ${matches.length} results`;
+  matches.forEach((entry, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `quick-switch-item ${index === findSelectionIndex ? "active" : ""}`;
+    const title = document.createElement("strong");
+    title.textContent = entry.preview || "(empty message)";
+    const meta = document.createElement("small");
+    meta.textContent = `${entry.author} · ${formatFullTimestamp(entry.ts || "")}`;
+    row.appendChild(title);
+    row.appendChild(meta);
+    row.addEventListener("mouseenter", () => {
+      findSelectionIndex = index;
+      renderFindList();
+      renderMessages();
+    });
+    row.addEventListener("click", () => {
+      findSelectionIndex = index;
+      renderFindList();
+      renderMessages();
+      focusMessageById(entry.id);
+    });
+    ui.findList.appendChild(row);
+  });
+}
+
+function openFindDialog() {
+  findQuery = "";
+  findSelectionIndex = 0;
+  if (ui.findInput) ui.findInput.value = "";
+  renderFindList();
+  ui.findDialog?.showModal();
+  requestAnimationFrame(() => ui.findInput?.focus());
+}
+
+function moveFindSelection(delta) {
+  const conversation = getActiveConversation();
+  const matches = getFindMatchesForConversation(conversation, findQuery);
+  if (matches.length === 0) return;
+  findSelectionIndex = (findSelectionIndex + delta + matches.length) % matches.length;
+  renderFindList();
+  renderMessages();
+  focusMessageById(matches[findSelectionIndex].id);
+}
+
+function markConversationUnreadFromMessage(conversation, messageId, accountId) {
+  if (!conversation || !messageId || !accountId) return false;
+  const bucket = conversation.type === "dm"
+    ? (conversation.thread?.messages || [])
+    : (conversation.channel?.messages || []);
+  const index = bucket.findIndex((entry) => entry.id === messageId);
+  if (index < 0) return false;
+  const previousTs = bucket[index - 1]?.ts || "";
+  if (conversation.type === "dm") {
+    ensureDmReadState(conversation.thread);
+    conversation.thread.readState[accountId] = previousTs;
+    return true;
+  }
+  ensureChannelReadState(conversation.channel);
+  conversation.channel.readState[accountId] = previousTs;
+  return true;
+}
+
 function getChannelUnreadStats(channel, account) {
   if (!channel || !account) return { unread: 0, mentions: 0 };
   ensureChannelReadState(channel);
@@ -1630,6 +1765,17 @@ function mentionInComposer(account) {
   renderSlashSuggestions();
 }
 
+function normalizeColorForPicker(value, fallback = "#5865f2") {
+  const raw = (value || "").toString().trim().toLowerCase();
+  if (/^#[0-9a-f]{3}$/i.test(raw)) {
+    return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`;
+  }
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+  if (/^#[0-9a-f]{8}$/i.test(raw)) return `#${raw.slice(1, 7)}`;
+  if (fallback && fallback !== value) return normalizeColorForPicker(fallback, "#5865f2");
+  return "#5865f2";
+}
+
 function openGuildSettingsDialog(guild = null) {
   const target = guild || getActiveGuild();
   const current = getCurrentAccount();
@@ -1637,6 +1783,9 @@ function openGuildSettingsDialog(guild = null) {
   ui.guildSettingsNameInput.value = target.name || "";
   ui.guildSettingsDescriptionInput.value = (target.description || "").toString().slice(0, 180);
   ui.guildSettingsAccentInput.value = (target.accentColor || "#5865f2").toString().slice(0, 24);
+  if (ui.guildSettingsAccentPicker) {
+    ui.guildSettingsAccentPicker.value = normalizeColorForPicker(ui.guildSettingsAccentInput.value, "#5865f2");
+  }
   if (ui.deleteGuildBtn) {
     const canDelete = Boolean(current && hasServerPermission(target, current.id, "administrator") && state.guilds.length > 1);
     ui.deleteGuildBtn.disabled = !canDelete;
@@ -8075,6 +8224,9 @@ function setReplyTarget(conversationId, message, threadId = null) {
 }
 
 function renderForumThreads(conversationId, channel, messages, currentAccount) {
+  const currentUser = currentAccount;
+  const activeFindId = getFindActiveMessageId();
+  const activeConversation = getActiveConversation();
   channel.forumTags = forumTagsForChannel(channel);
   const forumTags = channel.forumTags;
   const activeTagFilter = getForumThreadTagFilter(channel?.id).filter((id) => forumTags.some((tag) => tag.id === id));
@@ -8206,6 +8358,12 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
   threadModels.forEach(({ post, replies, postTagIds }) => {
     const postRow = document.createElement("article");
     postRow.className = "message message--forum message--forum-root";
+    if (messageMatchesFindQuery(post, findQuery, "forum")) {
+      postRow.classList.add("message--find-hit");
+    }
+    if (activeFindId && post.id === activeFindId) {
+      postRow.classList.add("message--find-active");
+    }
     if (isMessageHighlightedForAccount(post, currentAccount)) {
       postRow.classList.add("message--mentioned");
     }
@@ -8309,6 +8467,20 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     quoteBtn.textContent = "Quote";
     quoteBtn.addEventListener("click", () => quoteMessageInComposer(post));
     postActions.appendChild(quoteBtn);
+    const markUnreadBtn = document.createElement("button");
+    markUnreadBtn.type = "button";
+    markUnreadBtn.className = "message-action-btn";
+    markUnreadBtn.textContent = "Mark Unread";
+    markUnreadBtn.disabled = !currentAccount?.id;
+    markUnreadBtn.addEventListener("click", () => {
+      if (!currentAccount?.id) return;
+      if (!markConversationUnreadFromMessage(activeConversation, post.id, currentAccount.id)) return;
+      saveState();
+      renderDmList();
+      renderChannels();
+      renderMessages();
+    });
+    postActions.appendChild(markUnreadBtn);
     const markReadBtn = document.createElement("button");
     markReadBtn.type = "button";
     markReadBtn.className = "message-action-btn";
@@ -8344,6 +8516,12 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       replies.forEach((replyMessage) => {
         const replyRow = document.createElement("article");
         replyRow.className = "message message--forum-reply";
+        if (messageMatchesFindQuery(replyMessage, findQuery, "forum")) {
+          replyRow.classList.add("message--find-hit");
+        }
+        if (activeFindId && replyMessage.id === activeFindId) {
+          replyRow.classList.add("message--find-active");
+        }
         if (isMessageHighlightedForAccount(replyMessage, currentAccount)) {
           replyRow.classList.add("message--mentioned");
         }
@@ -8437,7 +8615,49 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         replyQuoteBtn.textContent = "Quote";
         replyQuoteBtn.addEventListener("click", () => quoteMessageInComposer(replyMessage));
         replyActions.appendChild(replyQuoteBtn);
+        const replyUnreadBtn = document.createElement("button");
+        replyUnreadBtn.type = "button";
+        replyUnreadBtn.className = "message-action-btn";
+        replyUnreadBtn.textContent = "Mark Unread";
+        replyUnreadBtn.disabled = !currentAccount?.id;
+        replyUnreadBtn.addEventListener("click", () => {
+          if (!currentAccount?.id) return;
+          if (!markConversationUnreadFromMessage(activeConversation, replyMessage.id, currentAccount.id)) return;
+          saveState();
+          renderDmList();
+          renderChannels();
+          renderMessages();
+        });
+        replyActions.appendChild(replyUnreadBtn);
         replyRow.appendChild(replyActions);
+        replyRow.addEventListener("contextmenu", (event) => {
+          openContextMenu(event, [
+            {
+              label: "Reply in Thread",
+              action: () => setReplyTarget(conversationId, replyMessage, post.id)
+            },
+            {
+              label: "Quote in Composer",
+              action: () => quoteMessageInComposer(replyMessage)
+            },
+            {
+              label: "Mark Unread From Here",
+              disabled: !currentAccount?.id,
+              action: () => {
+                if (!currentAccount?.id) return;
+                if (!markConversationUnreadFromMessage(activeConversation, replyMessage.id, currentAccount.id)) return;
+                saveState();
+                renderDmList();
+                renderChannels();
+                renderMessages();
+              }
+            },
+            {
+              label: "Copy Reply ID",
+              action: () => copyText(replyMessage.id || "")
+            }
+          ]);
+        });
 
         repliesWrap.appendChild(replyRow);
       });
@@ -8473,6 +8693,18 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
             saveState();
             renderMessages();
             renderChannels();
+          }
+        },
+        {
+          label: "Mark Unread From Here",
+          disabled: !currentAccount?.id,
+          action: () => {
+            if (!currentAccount?.id) return;
+            if (!markConversationUnreadFromMessage(activeConversation, post.id, currentAccount.id)) return;
+            saveState();
+            renderDmList();
+            renderChannels();
+            renderMessages();
           }
         },
         {
@@ -8634,6 +8866,7 @@ function renderMessages() {
   const conversationId = conversation?.id || null;
   syncComposerDraftConversation(conversationId);
   const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
+  const activeFindId = getFindActiveMessageId();
   const liveSwfKeys = collectLiveSwfRuntimeKeys();
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
@@ -8791,6 +9024,12 @@ function renderMessages() {
     }
     const messageRow = document.createElement("article");
     messageRow.className = `message ${!isDm && channel?.type === "forum" ? "message--forum" : ""}`;
+    if (messageMatchesFindQuery(message, findQuery, isDm ? "dm" : "channel")) {
+      messageRow.classList.add("message--find-hit");
+    }
+    if (activeFindId && message.id === activeFindId) {
+      messageRow.classList.add("message--find-active");
+    }
     if (isMessageHighlightedForAccount(message, currentAccount)) {
       messageRow.classList.add("message--mentioned");
     }
@@ -8990,6 +9229,20 @@ function renderMessages() {
       quoteMessageInComposer(message);
     });
     actionBar.appendChild(quoteBtn);
+    const markUnreadBtn = document.createElement("button");
+    markUnreadBtn.type = "button";
+    markUnreadBtn.className = "message-action-btn";
+    markUnreadBtn.textContent = "Mark Unread";
+    markUnreadBtn.disabled = !currentAccount?.id;
+    markUnreadBtn.addEventListener("click", () => {
+      if (!currentAccount?.id) return;
+      if (!markConversationUnreadFromMessage(conversation, message.id, currentAccount.id)) return;
+      saveState();
+      renderDmList();
+      renderChannels();
+      renderMessages();
+    });
+    actionBar.appendChild(markUnreadBtn);
 
     const canPin = !isDm && currentUser && (message.userId === currentUser.id || canCurrentUser("manageMessages"));
     if (canPin) {
@@ -9182,6 +9435,18 @@ function renderMessages() {
             if (!scopedChannel || !scopedMessage) return;
             scopedMessage.pinned = !scopedMessage.pinned;
             saveState();
+            renderMessages();
+          }
+        },
+        {
+          label: "Mark Unread From Here",
+          disabled: !currentAccount?.id,
+          action: () => {
+            if (!currentAccount?.id) return;
+            if (!markConversationUnreadFromMessage(conversation, message.id, currentAccount.id)) return;
+            saveState();
+            renderDmList();
+            renderChannels();
             renderMessages();
           }
         },
@@ -9633,6 +9898,9 @@ function renderRolesDialog() {
     option.textContent = role.name;
     ui.assignRoleRoleInput.appendChild(option);
   });
+  if (ui.roleColorPicker) {
+    ui.roleColorPicker.value = normalizeColorForPicker(ui.roleColorInput.value || "#b5bac1", "#b5bac1");
+  }
 }
 
 function renderPinsDialog() {
@@ -9811,6 +10079,10 @@ function openProfileEditor() {
   const guildAvatar = guild ? resolveAccountAvatar(account, guild.id) : { color: "", url: "" };
   const guildBanner = guild ? resolveAccountBanner(account, guild.id) : "";
   ui.profileGuildAvatarInput.value = guild ? (guildAvatar.color || "") : "";
+  if (ui.profileGuildAvatarColorPicker) {
+    ui.profileGuildAvatarColorPicker.value = normalizeColorForPicker(ui.profileGuildAvatarInput.value || "#57f287", "#57f287");
+    ui.profileGuildAvatarColorPicker.disabled = !guild;
+  }
   ui.profileGuildAvatarUrlInput.value = guild ? (guildAvatar.url || "") : "";
   ui.profileGuildBannerInput.value = guild ? guildBanner : "";
   ui.profileGuildStatusInput.value = guild ? ((account.guildProfiles?.[guild.id]?.status || "").toString()) : "";
@@ -9822,6 +10094,9 @@ function openProfileEditor() {
   ui.presenceInput.value = account.presence || "online";
   ui.profileBannerInput.value = account.banner || "";
   ui.profileAvatarInput.value = account.avatarColor || "#57f287";
+  if (ui.profileAvatarColorPicker) {
+    ui.profileAvatarColorPicker.value = normalizeColorForPicker(ui.profileAvatarInput.value || "#57f287", "#57f287");
+  }
   ui.profileAvatarUrlInput.value = account.avatarUrl || "";
   setProfileAvatarUploadHint("Accepts image files up to 2 MB.");
   renderProfileAvatarPreview();
@@ -10834,6 +11109,46 @@ ui.quickSwitchForm?.addEventListener("submit", (event) => {
     ui.quickSwitchDialog?.close();
   }
 });
+ui.findCancel?.addEventListener("click", () => ui.findDialog?.close());
+ui.findInput?.addEventListener("input", () => {
+  findQuery = ui.findInput.value.slice(0, 120);
+  findSelectionIndex = 0;
+  renderFindList();
+  renderMessages();
+});
+ui.findInput?.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveFindSelection(1);
+    return;
+  }
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveFindSelection(-1);
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    ui.findDialog?.close();
+  }
+});
+ui.findPrevBtn?.addEventListener("click", () => moveFindSelection(-1));
+ui.findNextBtn?.addEventListener("click", () => moveFindSelection(1));
+ui.findForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const conversation = getActiveConversation();
+  const matches = getFindMatchesForConversation(conversation, findQuery);
+  const selected = matches[findSelectionIndex] || matches[0];
+  if (!selected) return;
+  focusMessageById(selected.id);
+});
+ui.findDialog?.addEventListener("close", () => {
+  findQuery = "";
+  findSelectionIndex = 0;
+  if (ui.findInput) ui.findInput.value = "";
+  renderFindList();
+  renderMessages();
+});
 ui.toggleChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
 ui.toggleMemberPanelBtn?.addEventListener("click", toggleMemberPanelVisibility);
 ui.toggleSwfShelfBtn.addEventListener("click", () => {
@@ -10935,6 +11250,7 @@ ui.openRolesBtn.addEventListener("click", () => {
   renderRolesDialog();
   ui.roleNameInput.value = "";
   ui.roleColorInput.value = "";
+  if (ui.roleColorPicker) ui.roleColorPicker.value = normalizeColorForPicker("#b5bac1", "#b5bac1");
   ui.rolePermPresetInput.value = "member";
   ui.rolesDialog.showModal();
 });
@@ -11027,6 +11343,14 @@ ui.topicForm.addEventListener("submit", (event) => {
 ui.channelSettingsCancel.addEventListener("click", () => ui.channelSettingsDialog.close());
 
 ui.guildSettingsCancel?.addEventListener("click", () => ui.guildSettingsDialog.close());
+ui.guildSettingsAccentInput?.addEventListener("input", () => {
+  if (ui.guildSettingsAccentPicker) {
+    ui.guildSettingsAccentPicker.value = normalizeColorForPicker(ui.guildSettingsAccentInput.value || "#5865f2", "#5865f2");
+  }
+});
+ui.guildSettingsAccentPicker?.addEventListener("input", () => {
+  ui.guildSettingsAccentInput.value = ui.guildSettingsAccentPicker.value;
+});
 ui.guildSettingsForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   const guild = getActiveGuild();
@@ -11097,6 +11421,15 @@ ui.createRoleNowBtn.addEventListener("click", () => {
   renderRolesDialog();
   ui.roleNameInput.value = "";
   ui.roleColorInput.value = "";
+  if (ui.roleColorPicker) ui.roleColorPicker.value = normalizeColorForPicker("#b5bac1", "#b5bac1");
+});
+ui.roleColorInput?.addEventListener("input", () => {
+  if (ui.roleColorPicker) {
+    ui.roleColorPicker.value = normalizeColorForPicker(ui.roleColorInput.value || "#b5bac1", "#b5bac1");
+  }
+});
+ui.roleColorPicker?.addEventListener("input", () => {
+  ui.roleColorInput.value = ui.roleColorPicker.value;
 });
 
 ui.assignRoleBtn.addEventListener("click", () => {
@@ -11460,6 +11793,23 @@ ui.profileAvatarClearBtn.addEventListener("click", () => {
 });
 
 ui.profileAvatarInput.addEventListener("input", renderProfileAvatarPreview);
+ui.profileAvatarInput.addEventListener("input", () => {
+  if (ui.profileAvatarColorPicker) {
+    ui.profileAvatarColorPicker.value = normalizeColorForPicker(ui.profileAvatarInput.value || "#57f287", "#57f287");
+  }
+});
+ui.profileAvatarColorPicker?.addEventListener("input", () => {
+  ui.profileAvatarInput.value = ui.profileAvatarColorPicker.value;
+  renderProfileAvatarPreview();
+});
+ui.profileGuildAvatarInput?.addEventListener("input", () => {
+  if (ui.profileGuildAvatarColorPicker) {
+    ui.profileGuildAvatarColorPicker.value = normalizeColorForPicker(ui.profileGuildAvatarInput.value || "#57f287", "#57f287");
+  }
+});
+ui.profileGuildAvatarColorPicker?.addEventListener("input", () => {
+  ui.profileGuildAvatarInput.value = ui.profileGuildAvatarColorPicker.value;
+});
 ui.profileAvatarUrlInput.addEventListener("input", renderProfileAvatarPreview);
 
 ui.profileAvatarFileInput.addEventListener("change", async () => {
@@ -11561,6 +11911,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.pinsDialog,
   ui.channelSettingsDialog,
   ui.messageEditDialog,
+  ui.findDialog,
   ui.shortcutsDialog,
   ui.quickSwitchDialog,
   ui.selfMenuDialog,
@@ -11908,6 +12259,12 @@ document.addEventListener("keydown", (event) => {
     const target = getViewMode() === "dm" ? ui.dmSearchInput : ui.channelFilterInput;
     target?.focus();
     target?.select?.();
+    return;
+  }
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "f") {
+    if (!state.currentAccountId) return;
+    event.preventDefault();
+    openFindDialog();
     return;
   }
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "n") {

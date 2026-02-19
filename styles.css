@@ -775,6 +775,20 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   background: linear-gradient(90deg, rgba(250, 166, 26, 0.22), rgba(250, 166, 26, 0.1) 45%, rgba(4, 4, 5, 0.07) 100%);
 }
 
+.message--find-hit {
+  box-shadow: inset 2px 0 0 rgba(88, 101, 242, 0.55);
+  background: linear-gradient(90deg, rgba(88, 101, 242, 0.1), rgba(88, 101, 242, 0.04) 44%, transparent 100%);
+}
+
+.message--find-hit:hover {
+  background: linear-gradient(90deg, rgba(88, 101, 242, 0.16), rgba(88, 101, 242, 0.08) 48%, rgba(4, 4, 5, 0.07) 100%);
+}
+
+.message--find-active {
+  box-shadow: inset 3px 0 0 rgba(88, 101, 242, 0.95), 0 0 0 1px rgba(88, 101, 242, 0.25);
+  background: linear-gradient(90deg, rgba(88, 101, 242, 0.2), rgba(88, 101, 242, 0.12) 52%, rgba(4, 4, 5, 0.06) 100%);
+}
+
 .message > :not(.message-avatar) {
   grid-column: 2;
 }
@@ -2552,6 +2566,12 @@ body[data-compact-members="on"] .member-item {
 .quick-switch-item:hover {
   background: #374059;
   border-color: #5b6ea0;
+}
+
+.find-meta {
+  margin: 0.35rem 0 0.55rem;
+  color: #aab3c3;
+  font-size: 0.78rem;
 }
 
 .modal-actions button:first-child {
