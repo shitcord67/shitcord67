@@ -226,14 +226,21 @@
 - [done] Added `Alt+Q` shortcut to show quest progress quickly
 - [done] Added `Quest Stats` action in self profile menu
 - [done] Added `Copy -> Guild Tag` option in message/member user context menus
+- [done] Added profile editor live identity preview card (banner/avatar/nameplate/tag/effect)
+- [done] Added one-click `Clear Identity Extras` profile action
+- [done] Added `/whoami` identity summary command (channel + DM)
+- [done] Added `/profilecard` command to post profile card text (channel + DM)
+- [done] Added `Copy -> Display Name`, `Avatar Decoration`, and `Nameplate URL` context actions
+- [done] Added `Show Quest Summary` action in message/member context menus
+- [done] Added `Alt+Y` shortcut to open profile editor
 - Make in-line chat commands clickable in the pop-up. Also e.g. when bots display rich media visual things like playing cards, then those can also be defined as individually click able even when displayed in the same line
 - Create a bot which provides a shedding-type card game that users can start in chat and play together (each user gets displayed their own deck by leveraging advanced in-line commands
 - Learn a lot about Discord from resources like:
 https://docs.discord.com/developers/intro    
 https://discord.com/blog
 https://discord.js.org/docs/packages/discord.js/main
-- Users can have custom SVG SMIL animations displaying in their nameplate that is visible in the guild online lists.
-- Users can have custom profile effect visible when somebody opens their profile
-- Users can have custom avatar decorations
+- [done] Users can have custom SVG SMIL animations displaying in their nameplate that is visible in the guild online lists.
+- [done] Users can have custom profile effect visible when somebody opens their profile
+- [done] Users can have custom avatar decorations
 - User can show a guild tag next to their name which opens up a small pop-up with a info profile of that guild
 - Implement some quests which give virtual currency or small icons on the profile. Maybe also some useful ones like "create an issue on the shirtcord67 repo" (with auto-validation)?
