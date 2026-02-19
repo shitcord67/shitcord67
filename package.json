@@ -1,0 +1,26 @@
+{
+  "name": "discord-lookalike-flash",
+  "version": "1.0.0",
+  "description": "A lightweight Discord-style chat client prototype with local persistence.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shitcord67/shitcord67.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/shitcord67/shitcord67/issues"
+  },
+  "homepage": "https://github.com/shitcord67/shitcord67#readme",
+  "dependencies": {
+    "@xmpp/client": "^0.14.0",
+    "@xmpp/debug": "^0.14.0",
+    "ws": "^8.19.0"
+  }
+}
