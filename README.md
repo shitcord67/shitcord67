@@ -164,6 +164,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - SWF Shelf lets you keep selected SWFs saved for quick reopen across channels.
 - In-chat SWF cards now have a `Resize` mode for drag-resizing the player area.
 - Basic per-guild role and permission system (create/assign roles, channel/topic/role management gates).
+- Channel-level permission overrides per role for `View`, `Send`, `Reactions`, and `Create Threads/Posts` (configured in channel settings).
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.

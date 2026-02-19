@@ -264,6 +264,7 @@ function buildStarterChannels(template, accountId) {
     type,
     topic,
     forumTags: type === "forum" ? defaultForumTags.map((entry) => ({ ...entry })) : [],
+    permissionOverrides: {},
     readState: { ...readState },
     slowmodeSec: 0,
     slowmodeState: {},
@@ -315,6 +316,7 @@ function buildInitialState() {
             type: "text",
             topic: "General discussion",
             forumTags: [],
+            permissionOverrides: {},
             readState: {},
             slowmodeSec: 0,
             slowmodeState: {},
@@ -527,6 +529,7 @@ function migrateState(raw) {
                 type,
                 topic: typeof channel.topic === "string" ? channel.topic : "",
                 forumTags,
+                permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, roles.map((role) => role.id)),
                 readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
                 slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
                 slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
@@ -635,6 +638,7 @@ function migrateState(raw) {
               type,
               topic: "",
               forumTags,
+              permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, [everyoneRole.id]),
               readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
               slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
               slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
@@ -647,6 +651,7 @@ function migrateState(raw) {
               name: "general",
               topic: "",
               forumTags: [],
+              permissionOverrides: {},
               readState: {},
               slowmodeSec: 0,
               slowmodeState: {},
@@ -1013,6 +1018,11 @@ const ui = {
   channelSettingsForm: document.getElementById("channelSettingsForm"),
   channelRenameInput: document.getElementById("channelRenameInput"),
   channelSlowmodeInput: document.getElementById("channelSlowmodeInput"),
+  channelPermRoleInput: document.getElementById("channelPermRoleInput"),
+  channelPermViewInput: document.getElementById("channelPermViewInput"),
+  channelPermSendInput: document.getElementById("channelPermSendInput"),
+  channelPermReactInput: document.getElementById("channelPermReactInput"),
+  channelPermThreadInput: document.getElementById("channelPermThreadInput"),
   channelSettingsCancel: document.getElementById("channelSettingsCancel"),
   deleteChannelBtn: document.getElementById("deleteChannelBtn"),
   rolesDialog: document.getElementById("rolesDialog"),
@@ -1336,6 +1346,77 @@ function hasServerPermission(server, accountId, permissionKey) {
   const roles = getMemberRoles(server, accountId);
   if (roles.some((role) => role.permissions?.administrator)) return true;
   return roles.some((role) => Boolean(role.permissions?.[permissionKey]));
+}
+
+function ensureChannelPermissionOverrides(channel, server = null) {
+  if (!channel || typeof channel !== "object") return;
+  const roleIds = Array.isArray(server?.roles) ? server.roles.map((role) => role.id) : [];
+  channel.permissionOverrides = normalizeChannelPermissionOverrides(channel.permissionOverrides, roleIds);
+}
+
+function getChannelPermissionOverride(channel, roleId, permissionKey) {
+  if (!channel || !roleId || !permissionKey) return "inherit";
+  const value = channel.permissionOverrides?.[roleId]?.[permissionKey];
+  return normalizeChannelPermissionValue(value);
+}
+
+function setChannelPermissionOverride(channel, roleId, permissionKey, value) {
+  if (!channel || !roleId || !permissionKey) return;
+  ensureChannelPermissionOverrides(channel, getActiveServer());
+  if (!channel.permissionOverrides || typeof channel.permissionOverrides !== "object") {
+    channel.permissionOverrides = {};
+  }
+  const nextValue = normalizeChannelPermissionValue(value);
+  if (!channel.permissionOverrides[roleId]) channel.permissionOverrides[roleId] = {};
+  if (nextValue === "inherit") {
+    delete channel.permissionOverrides[roleId][permissionKey];
+  } else {
+    channel.permissionOverrides[roleId][permissionKey] = nextValue;
+  }
+  if (Object.keys(channel.permissionOverrides[roleId]).length === 0) {
+    delete channel.permissionOverrides[roleId];
+  }
+}
+
+function hasChannelPermission(server, channel, accountId, permissionKey) {
+  if (!channel || !permissionKey) return false;
+  if (!server || !accountId) return true;
+  if (hasServerPermission(server, accountId, "administrator")) return true;
+  ensureChannelPermissionOverrides(channel, server);
+  const roleIds = getMemberRoleIds(server, accountId);
+  if (roleIds.length === 0) return false;
+  let allow = false;
+  for (const roleId of roleIds) {
+    const value = getChannelPermissionOverride(channel, roleId, permissionKey);
+    if (value === "deny") return false;
+    if (value === "allow") allow = true;
+  }
+  if (allow) return true;
+  return true;
+}
+
+function canAccountViewChannel(server, channel, accountId) {
+  return hasChannelPermission(server, channel, accountId, "viewChannel");
+}
+
+function canCurrentUserViewChannel(channel, server = getActiveServer()) {
+  const account = getCurrentAccount();
+  if (!account) return false;
+  return canAccountViewChannel(server, channel, account.id);
+}
+
+function canCurrentUserReactInChannel(channel, server = getActiveServer()) {
+  const account = getCurrentAccount();
+  if (!account) return false;
+  if (!canAccountViewChannel(server, channel, account.id)) return false;
+  return hasChannelPermission(server, channel, account.id, "addReactions");
+}
+
+function canCurrentUserCreateThreadsInChannel(channel, server = getActiveServer()) {
+  const account = getCurrentAccount();
+  if (!account) return false;
+  if (!canAccountViewChannel(server, channel, account.id)) return false;
+  return hasChannelPermission(server, channel, account.id, "createThreads");
 }
 
 function canCurrentUser(permissionKey) {
@@ -1768,6 +1849,9 @@ function getChannelSlowmodeSeconds(channel) {
 
 function canCurrentUserPostInChannel(channel, account) {
   if (!channel || !account) return false;
+  const server = getActiveServer();
+  if (!canAccountViewChannel(server, channel, account.id)) return false;
+  if (!hasChannelPermission(server, channel, account.id, "sendMessages")) return false;
   if (channel.type === "announcement") {
     return canCurrentUser("manageMessages") || canCurrentUser("administrator");
   }
@@ -1808,6 +1892,7 @@ function getGuildUnreadStats(guild, account) {
     return { unread: 0, mentions: 0 };
   }
   const totals = guild.channels.reduce((acc, channel) => {
+    if (!canAccountViewChannel(guild, channel, account.id)) return acc;
     const stats = getChannelUnreadStats(channel, account);
     return {
       unread: acc.unread + stats.unread,
@@ -1819,15 +1904,21 @@ function getGuildUnreadStats(guild, account) {
 
 function getGuildChannelsForNavigation() {
   const guild = getActiveGuild();
-  if (!guild || !Array.isArray(guild.channels)) return [];
-  return guild.channels;
+  const account = getCurrentAccount();
+  if (!guild || !Array.isArray(guild.channels) || !account) return [];
+  return guild.channels.filter((channel) => canAccountViewChannel(guild, channel, account.id));
 }
 
 function getFirstOpenableChannelIdForGuild(guild) {
   if (!guild || !Array.isArray(guild.channels) || guild.channels.length === 0) return null;
+  const account = getCurrentAccount();
+  const visible = account
+    ? guild.channels.filter((channel) => canAccountViewChannel(guild, channel, account.id))
+    : guild.channels;
+  if (visible.length === 0) return null;
   const preferred = getPreferredGuildChannelId(guild.id);
-  if (preferred && guild.channels.some((channel) => channel.id === preferred)) return preferred;
-  return guild.channels[0]?.id || null;
+  if (preferred && visible.some((channel) => channel.id === preferred)) return preferred;
+  return visible[0]?.id || null;
 }
 
 function openGuildById(guildId) {
@@ -1873,6 +1964,7 @@ function moveActiveChannelByOffset(delta) {
 function listUnreadGuildChannels(guild, account) {
   if (!guild || !account) return [];
   return guild.channels
+    .filter((channel) => canAccountViewChannel(guild, channel, account.id))
     .map((channel) => ({ channel, stats: getChannelUnreadStats(channel, account) }))
     .filter((entry) => entry.stats.unread > 0);
 }
@@ -1918,6 +2010,7 @@ function duplicateChannelInGuild(guild, channel) {
     type: channel.type || "text",
     topic: (channel.topic || "").toString(),
     forumTags,
+    permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, getServerRoles(guild).map((role) => role.id)),
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     slowmodeSec: normalizeSlowmodeSeconds(channel.slowmodeSec || 0),
     slowmodeState: {},
@@ -2264,6 +2357,9 @@ function ensureCurrentUserInActiveServer() {
     changed = true;
   }
   server.channels.forEach((channel) => {
+    const beforeOverrides = JSON.stringify(channel.permissionOverrides || {});
+    ensureChannelPermissionOverrides(channel, server);
+    if (JSON.stringify(channel.permissionOverrides || {}) !== beforeOverrides) changed = true;
     channel.forumTags = channel.type === "forum" ? forumTagsForChannel(channel) : [];
     ensureChannelReadState(channel);
     const normalizedSlowmode = getChannelSlowmodeSeconds(channel);
@@ -2517,6 +2613,29 @@ function normalizeMediaTrustRules(value) {
 function normalizeProfileEffect(value) {
   const effect = (value || "").toString().toLowerCase();
   return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
+}
+
+function normalizeChannelPermissionValue(value) {
+  const token = (value || "").toString().toLowerCase();
+  if (token === "allow" || token === "deny") return token;
+  return "inherit";
+}
+
+function normalizeChannelPermissionOverrides(value, roleIds = []) {
+  if (!value || typeof value !== "object") return {};
+  const validRoleIds = new Set(Array.isArray(roleIds) ? roleIds.filter(Boolean) : []);
+  const validKeys = ["viewChannel", "sendMessages", "addReactions", "createThreads"];
+  return Object.entries(value).reduce((acc, [roleId, config]) => {
+    if (!roleId || (validRoleIds.size > 0 && !validRoleIds.has(roleId))) return acc;
+    if (!config || typeof config !== "object") return acc;
+    const next = {};
+    validKeys.forEach((key) => {
+      const normalized = normalizeChannelPermissionValue(config[key]);
+      if (normalized !== "inherit") next[key] = normalized;
+    });
+    if (Object.keys(next).length > 0) acc[roleId] = next;
+    return acc;
+  }, {});
 }
 
 function normalizeRecentEmojis(value) {
@@ -4662,6 +4781,7 @@ function handleSlashCommand(rawText, channel, account) {
       type,
       topic: "",
       forumTags: [],
+      permissionOverrides: {},
       readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
       slowmodeSec: 0,
       slowmodeState: {},
@@ -5238,6 +5358,7 @@ function getQuickSwitchItems(rawQuery = "") {
       guildName: guild.name
     });
     (guild.channels || []).forEach((channel) => {
+      if (current && !canAccountViewChannel(guild, channel, current.id)) return;
       items.push({
         id: `channel:${guild.id}:${channel.id}`,
         type: "channel",
@@ -5295,7 +5416,9 @@ function activateQuickSwitchItem(item) {
   }
   if (item.type === "channel" && item.guildId && item.channelId) {
     const guild = state.guilds.find((entry) => entry.id === item.guildId);
-    if (!guild) return false;
+    const current = getCurrentAccount();
+    const channel = guild?.channels?.find((entry) => entry.id === item.channelId);
+    if (!guild || !channel || (current && !canAccountViewChannel(guild, channel, current.id))) return false;
     state.viewMode = "guild";
     state.activeGuildId = guild.id;
     state.activeChannelId = item.channelId;
@@ -8773,7 +8896,18 @@ function renderChannels() {
     ui.openGuildSettingsBtn.disabled = !canManage;
     ui.openGuildSettingsBtn.title = canManage ? "Guild settings" : "Manage Channels permission required";
   }
-  const channelsToRender = server.channels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
+  if (!currentAccount) return;
+  const visibleChannels = server.channels.filter((channel) => canAccountViewChannel(server, channel, currentAccount.id));
+  if (!visibleChannels.some((entry) => entry.id === state.activeChannelId)) {
+    state.activeChannelId = visibleChannels[0]?.id || null;
+  }
+  const channelsToRender = visibleChannels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
+  if (channelsToRender.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = filter ? "No channels match your filter." : "No accessible channels in this guild.";
+    ui.channelList.appendChild(empty);
+  }
   channelsToRender.forEach((channel) => {
     const button = document.createElement("button");
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
@@ -8871,11 +9005,7 @@ function renderChannels() {
           disabled: !canCurrentUser("manageChannels"),
           action: () => {
             state.activeChannelId = channel.id;
-            ui.channelRenameInput.value = channel.name || "";
-            if (ui.channelSlowmodeInput) {
-              ui.channelSlowmodeInput.value = String(getChannelSlowmodeSeconds(channel));
-            }
-            ui.channelSettingsDialog.showModal();
+            openChannelSettings();
           }
         },
         {
@@ -9734,6 +9864,29 @@ function renderMessages() {
     setActiveChannelTopic("Direct Message");
     ui.messageInput.placeholder = peer ? `Message @${peer.username}` : "Message DM";
   } else {
+    const guild = getActiveGuild();
+    const current = getCurrentAccount();
+    if (channel && guild && current && !canAccountViewChannel(guild, channel, current.id)) {
+      const fallbackId = getFirstOpenableChannelIdForGuild(guild);
+      state.activeChannelId = fallbackId;
+      if (fallbackId && fallbackId !== channel.id) {
+        saveState();
+        renderMessages();
+        renderChannels();
+        return;
+      }
+      setActiveChannelHeader("no-access", "#", "No accessible channels");
+      setActiveChannelTopic("You do not have access to view channels in this guild.");
+      ui.messageList.innerHTML = "";
+      const empty = document.createElement("div");
+      empty.className = "channel-empty";
+      empty.textContent = "No accessible channels. Ask an admin to allow View Channel.";
+      ui.messageList.appendChild(empty);
+      ui.messageInput.placeholder = "No channel access";
+      updateJumpToBottomButton();
+      renderComposerMeta();
+      return;
+    }
     setActiveChannelHeader(channel ? channel.name : "none", channelHeaderGlyph(channel, "channel"), channel ? `#${channel.name}` : "#none");
     setActiveChannelTopic(channel?.topic?.trim() || "");
     if (channel?.type === "forum") {
@@ -10084,12 +10237,15 @@ function renderMessages() {
 
     const actionBar = document.createElement("div");
     actionBar.className = "message-actions";
+    const canReact = isDm || canCurrentUserReactInChannel(channel, getActiveGuild());
 
     const reactBtn = document.createElement("button");
     reactBtn.type = "button";
     reactBtn.className = "message-action-btn";
     reactBtn.textContent = "React";
+    reactBtn.disabled = !canReact;
     reactBtn.addEventListener("click", () => {
+      if (!canReact) return;
       const pickerBtn = reactionPicker.querySelector("button");
       if (pickerBtn) pickerBtn.click();
     });
@@ -10184,7 +10340,8 @@ function renderMessages() {
       chip.type = "button";
       chip.className = `reaction-chip ${currentUser && item.userIds.includes(currentUser.id) ? "active" : ""}`;
       chip.textContent = `${item.emoji} ${item.userIds.length}`;
-      if (currentUser) {
+      chip.disabled = !canReact;
+      if (currentUser && canReact) {
         chip.addEventListener("click", () => {
           toggleReaction(message, item.emoji, currentUser.id);
           saveState();
@@ -10196,7 +10353,7 @@ function renderMessages() {
 
     const reactionPicker = document.createElement("div");
     reactionPicker.className = "reaction-picker";
-    if (currentUser) {
+    if (currentUser && canReact) {
       DEFAULT_REACTIONS.forEach((emoji) => {
         const pickerBtn = document.createElement("button");
         pickerBtn.type = "button";
@@ -11142,6 +11299,7 @@ function openTopicEditor() {
 
 function openChannelSettings() {
   const channel = getActiveChannel();
+  const server = getActiveServer();
   if (!channel) return;
   if (!canCurrentUser("manageChannels")) {
     notifyPermissionDenied("Manage Channels");
@@ -11151,7 +11309,34 @@ function openChannelSettings() {
   if (ui.channelSlowmodeInput) {
     ui.channelSlowmodeInput.value = String(getChannelSlowmodeSeconds(channel));
   }
+  if (server && ui.channelPermRoleInput) {
+    ensureChannelPermissionOverrides(channel, server);
+    ui.channelPermRoleInput.innerHTML = "";
+    getServerRoles(server).forEach((role) => {
+      const option = document.createElement("option");
+      option.value = role.id;
+      option.textContent = role.name;
+      ui.channelPermRoleInput.appendChild(option);
+    });
+    if (!ui.channelPermRoleInput.value) {
+      ui.channelPermRoleInput.value = getServerRoles(server)[0]?.id || "";
+    }
+    renderChannelPermissionEditor();
+  }
   ui.channelSettingsDialog.showModal();
+}
+
+function renderChannelPermissionEditor() {
+  const channel = getActiveChannel();
+  const server = getActiveServer();
+  if (!channel || !server) return;
+  const roleId = ui.channelPermRoleInput?.value || "";
+  if (!roleId) return;
+  ensureChannelPermissionOverrides(channel, server);
+  if (ui.channelPermViewInput) ui.channelPermViewInput.value = getChannelPermissionOverride(channel, roleId, "viewChannel");
+  if (ui.channelPermSendInput) ui.channelPermSendInput.value = getChannelPermissionOverride(channel, roleId, "sendMessages");
+  if (ui.channelPermReactInput) ui.channelPermReactInput.value = getChannelPermissionOverride(channel, roleId, "addReactions");
+  if (ui.channelPermThreadInput) ui.channelPermThreadInput.value = getChannelPermissionOverride(channel, roleId, "createThreads");
 }
 
 function createOrSwitchAccount(usernameInput) {
@@ -11515,6 +11700,11 @@ ui.messageForm.addEventListener("submit", (event) => {
         nextMessage.forumThreadId = nextReply.threadId;
         nextMessage.forumParentId = nextReply.messageId || nextReply.threadId;
       } else {
+        if (!canCurrentUserCreateThreadsInChannel(conversation.channel, getActiveGuild())) {
+          showToast("You do not have permission to create forum posts in this channel.", { tone: "error" });
+          renderComposerMeta();
+          return;
+        }
         const [firstLine, ...rest] = text.split("\n");
         nextMessage.forumTitle = (firstLine || "Untitled Post").trim().slice(0, 100) || "Untitled Post";
         nextMessage.text = rest.join("\n").trim();
@@ -12233,6 +12423,7 @@ ui.createChannelForm.addEventListener("submit", (event) => {
     type: nextType,
     topic: "",
     forumTags: nextType === "forum" ? [] : [],
+    permissionOverrides: {},
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     slowmodeSec: 0,
     slowmodeState: {},
@@ -12587,6 +12778,9 @@ ui.guildSettingsAccentInput?.addEventListener("input", () => {
 ui.guildSettingsAccentPicker?.addEventListener("input", () => {
   ui.guildSettingsAccentInput.value = ui.guildSettingsAccentPicker.value;
 });
+ui.channelPermRoleInput?.addEventListener("change", () => {
+  renderChannelPermissionEditor();
+});
 ui.guildSettingsForm?.addEventListener("submit", (event) => {
   event.preventDefault();
   const guild = getActiveGuild();
@@ -12615,12 +12809,20 @@ ui.deleteGuildBtn?.addEventListener("click", () => {
 
 ui.channelSettingsForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  const server = getActiveServer();
   const channel = getActiveChannel();
-  if (!channel) return;
+  if (!channel || !server) return;
   channel.name = sanitizeChannelName(ui.channelRenameInput.value, channel.name || "general");
   if (ui.channelSlowmodeInput) {
     channel.slowmodeSec = normalizeSlowmodeSeconds(ui.channelSlowmodeInput.value);
     ensureChannelSlowmodeState(channel);
+  }
+  const roleId = (ui.channelPermRoleInput?.value || "").toString();
+  if (roleId) {
+    setChannelPermissionOverride(channel, roleId, "viewChannel", ui.channelPermViewInput?.value || "inherit");
+    setChannelPermissionOverride(channel, roleId, "sendMessages", ui.channelPermSendInput?.value || "inherit");
+    setChannelPermissionOverride(channel, roleId, "addReactions", ui.channelPermReactInput?.value || "inherit");
+    setChannelPermissionOverride(channel, roleId, "createThreads", ui.channelPermThreadInput?.value || "inherit");
   }
   saveState();
   ui.channelSettingsDialog.close();

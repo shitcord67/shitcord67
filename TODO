@@ -86,7 +86,7 @@
 - Clients should build a P2P network and attachments should be stored there to make expensive server storage unnecessary
 - Group servers/guild together
 - Vencord-like plugins
-- Widgets like Element Matrix messenger
+- Widgets like Element Matrix protocol messenger
 - More XMPP spec extensions
 - Read more on Discord blogpost about features, investigate screenshots
 - in-line chat slash commands like Telegram (featuring images poppin up fitting to context e.g. cards for a uno game run by an application bot)
@@ -214,6 +214,7 @@
 - [done] DM slash command parity expanded for `/find`, `/findnext`, `/findprev`, `/markunread`
 - [done] Find dialog upgraded with scoped filters (`from`, `before/after`, `has link`) and inline `/find` token parsing.
 - [done] Pins dialog upgraded with quick filter and sort modes (newest/oldest/author).
+- [done] Channel permission overrides per role (`view`, `send`, `reactions`, `create threads/posts`) with enforcement in channel rendering/composer/reactions.
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior
@@ -249,3 +250,7 @@ https://discord.js.org/docs/packages/discord.js/main
 - Implement some quests which give virtual currency or small icons on the profile. Maybe also some useful ones like "create an issue on the shirtcord67 repo" (with auto-validation)?
 - Seasonal cosmetics rotation and limited-time bundles (shop featured row + countdown).
 - Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
+- Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
+- Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.
+- Ideally also same for Matrix
+- IRC?
