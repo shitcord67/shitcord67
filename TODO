@@ -213,3 +213,4 @@ https://discord.js.org/docs/packages/discord.js/main
 - Users can have custom avatar decorations
 - User can show a guild tag next to their name which opens up a small pop-up with a info profile of that guild
 - Implement some quests which give virtual currency or small icons on the profile. Maybe also some useful ones like "create an issue on the shirtcord67 repo" (with auto-validation)?
+- For colors there should be an actual working color picker...
