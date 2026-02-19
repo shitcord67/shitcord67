@@ -220,6 +220,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - When XMPP login credentials are provided, login now validates auth/connection before entering the app and keeps user on login on failure.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
 - XMPP WebSocket discovery uses known provider overrides plus common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.), because endpoints are not universally on one hostname pattern.
+- Added a dedicated `XMPP Console` (Advanced settings) with runtime load tracing, endpoint/auth attempt timeline, raw XML RX/TX, stanza/iq logs, filter/search, pause, and copy.
 
 ## Files
 - `index.html`: app shell and dialogs.
@@ -251,6 +252,7 @@ XMPP mode (experimental):
 4. Messages in active channels/DMs are mapped to MUC rooms and sent/received via XMPP groupchat
 - Includes XEP-0085 chat states (`composing`/`paused`) mapped to typing indicators in composer meta.
 - Verified working provider example: `xmpp.jp` with endpoint `wss://api.xmpp.jp/ws` and MUC service `conference.xmpp.jp`
+- Use `XMPP Console` to diagnose failed runtime loads, auth failures, or endpoint mismatches before/after login.
 
 ## Local XMPP Secrets + Direct Send Script
 - Local secret file: `.xmpp.local.json` (git-ignored).

@@ -355,6 +355,7 @@
               <button id="importDataBtn" type="button">Import App JSON</button>
               <button id="exportSwfSavesBtn" type="button">Export SWF Saves</button>
               <button id="importSwfSavesBtn" type="button">Import SWF Saves</button>
+              <button id="openXmppConsoleBtn" type="button">XMPP Console</button>
               <button id="openDebugConsoleBtn" type="button">Debug Console</button>
             </div>
             <input id="importDataInput" type="file" accept="application/json" hidden />
@@ -811,6 +812,33 @@
         <button id="refreshDebugBtn" type="button">Refresh</button>
         <button id="clearDebugBtn" type="button">Clear</button>
         <button id="debugCloseBtn" type="button">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="xmppConsoleDialog" class="modal">
+    <form id="xmppConsoleForm" class="modal-form" method="dialog">
+      <h3>XMPP Console</h3>
+      <div class="pins-toolbar">
+        <select id="xmppConsoleFilterInput">
+          <option value="all">All events</option>
+          <option value="runtime">Runtime</option>
+          <option value="connect">Connect/Auth</option>
+          <option value="iq">IQ</option>
+          <option value="presence">Presence</option>
+          <option value="message">Message/Stanza</option>
+          <option value="raw">Raw XML</option>
+          <option value="error">Errors</option>
+        </select>
+        <input id="xmppConsoleSearchInput" type="text" maxlength="80" placeholder="Search event text" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </div>
+      <pre id="xmppConsoleOutput" class="debug-output"></pre>
+      <div class="modal-actions">
+        <button id="copyXmppConsoleBtn" type="button">Copy Logs</button>
+        <button id="refreshXmppConsoleBtn" type="button">Refresh</button>
+        <button id="pauseXmppConsoleBtn" type="button">Pause</button>
+        <button id="clearXmppConsoleBtn" type="button">Clear</button>
+        <button id="xmppConsoleCloseBtn" type="button">Close</button>
       </div>
     </form>
   </dialog>

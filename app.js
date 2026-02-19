@@ -9,6 +9,8 @@ const RELAY_STATUS_LABELS = {
 };
 const RELAY_TYPING_TTL_MS = 6500;
 const RELAY_TYPING_THROTTLE_MS = 2200;
+const XMPP_DEBUG_EVENT_LIMIT = 600;
+const XMPP_DEBUG_RAW_TRUNCATE = 1800;
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -840,6 +842,10 @@ let mediaPickerTab = "gif";
 let mediaPickerQuery = "";
 let swfLibrary = [];
 const debugLogs = [];
+const xmppDebugEvents = [];
+let xmppDebugPaused = false;
+let xmppDebugFilter = "all";
+let xmppDebugSearch = "";
 let swfShelfOpen = false;
 let currentViewerSwf = null;
 let currentViewerRuntimeKey = null;
@@ -1152,6 +1158,7 @@ const ui = {
   exportSwfSavesBtn: document.getElementById("exportSwfSavesBtn"),
   importSwfSavesBtn: document.getElementById("importSwfSavesBtn"),
   importSwfSavesInput: document.getElementById("importSwfSavesInput"),
+  openXmppConsoleBtn: document.getElementById("openXmppConsoleBtn"),
   openDebugConsoleBtn: document.getElementById("openDebugConsoleBtn"),
   channelSettingsDialog: document.getElementById("channelSettingsDialog"),
   channelSettingsForm: document.getElementById("channelSettingsForm"),
@@ -1189,6 +1196,16 @@ const ui = {
   refreshDebugBtn: document.getElementById("refreshDebugBtn"),
   clearDebugBtn: document.getElementById("clearDebugBtn"),
   debugCloseBtn: document.getElementById("debugCloseBtn"),
+  xmppConsoleDialog: document.getElementById("xmppConsoleDialog"),
+  xmppConsoleForm: document.getElementById("xmppConsoleForm"),
+  xmppConsoleFilterInput: document.getElementById("xmppConsoleFilterInput"),
+  xmppConsoleSearchInput: document.getElementById("xmppConsoleSearchInput"),
+  xmppConsoleOutput: document.getElementById("xmppConsoleOutput"),
+  copyXmppConsoleBtn: document.getElementById("copyXmppConsoleBtn"),
+  refreshXmppConsoleBtn: document.getElementById("refreshXmppConsoleBtn"),
+  pauseXmppConsoleBtn: document.getElementById("pauseXmppConsoleBtn"),
+  clearXmppConsoleBtn: document.getElementById("clearXmppConsoleBtn"),
+  xmppConsoleCloseBtn: document.getElementById("xmppConsoleCloseBtn"),
   cosmeticsDialog: document.getElementById("cosmeticsDialog"),
   cosmeticsForm: document.getElementById("cosmeticsForm"),
   cosmeticsBalance: document.getElementById("cosmeticsBalance"),
@@ -3171,6 +3188,12 @@ function renderRelayStatusOutput() {
 function setRelayStatus(status, errorText = "") {
   relayStatus = status;
   relayLastError = errorText || "";
+  if (getPreferences().relayMode === "xmpp") {
+    addXmppDebugEvent(status === "error" ? "error" : "connect", "Relay status updated", {
+      status,
+      error: relayLastError || ""
+    });
+  }
   renderRelayStatusOutput();
 }
 
@@ -3445,6 +3468,9 @@ async function loadXmppLibrary() {
   if (xmppRuntimeReady && globalThis.Strophe && globalThis.$msg && globalThis.$pres) return true;
   if (xmppLoadingPromise) return xmppLoadingPromise;
   xmppRuntimeLastError = "";
+  addXmppDebugEvent("runtime", "Loading XMPP runtime", {
+    sources: ["./vendor/strophe.umd.min.js", "./node_modules/strophe.js/dist/strophe.umd.min.js", "cdn fallbacks"]
+  });
   xmppLoadingPromise = (async () => {
     const errors = [];
     const urls = [
@@ -3456,6 +3482,7 @@ async function loadXmppLibrary() {
       "https://unpkg.com/strophe.js@1.6.2/dist/strophe.min.js"
     ];
     for (const url of urls) {
+      addXmppDebugEvent("runtime", "Trying runtime source", { url });
       try {
         await new Promise((resolve, reject) => {
           const script = document.createElement("script");
@@ -3469,14 +3496,17 @@ async function loadXmppLibrary() {
           xmppRuntimeReady = true;
           xmppRuntimeLastError = "";
           xmppLoadingPromise = null;
+          addXmppDebugEvent("runtime", "XMPP runtime loaded", { url });
           return true;
         }
       } catch (error) {
+        addXmppDebugEvent("runtime", "Runtime source failed", { url, error: String(error?.message || error) });
         errors.push(error?.message || String(error) || `failed: ${url}`);
       }
     }
     xmppRuntimeLastError = errors.length > 0 ? errors.join(" | ") : "Unknown XMPP runtime load failure.";
     xmppLoadingPromise = null;
+    addXmppDebugEvent("error", "XMPP runtime load failed", { error: xmppRuntimeLastError });
     return false;
   })();
   return xmppLoadingPromise;
@@ -3493,10 +3523,12 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     .c("x", { xmlns: "http://jabber.org/protocol/muc" });
   xmppConnection.send(presence);
   xmppRoomByJid.set(roomJid, roomToken);
+  addXmppDebugEvent("presence", "Joined MUC room", { roomToken, roomJid, nick });
   return true;
 }
 
 function teardownXmppConnection() {
+  addXmppDebugEvent("connect", "Tearing down XMPP connection");
   if (xmppConnection) {
     try {
       xmppConnection.disconnect();
@@ -3662,7 +3694,13 @@ function connectRelaySocket({ force = false } = {}) {
     const jid = normalizeXmppJid(prefs.xmppJid);
     const wsUrl = resolveXmppServiceUrl(prefs);
     const mucService = resolveXmppMucService(prefs);
+    addXmppDebugEvent("connect", "Relay connect requested (XMPP)", { jid, wsUrl, mucService, force });
     if (!jid || !wsUrl || !mucService) {
+      addXmppDebugEvent("error", "XMPP connect blocked: missing required fields", {
+        jid: Boolean(jid),
+        wsUrl: Boolean(wsUrl),
+        mucService: Boolean(mucService)
+      });
       setRelayStatus("error", "XMPP requires JID, WebSocket URL, and MUC service.");
       return false;
     }
@@ -3672,19 +3710,39 @@ function connectRelaySocket({ force = false } = {}) {
     setRelayStatus("connecting");
     loadXmppLibrary().then((ok) => {
       if (!ok) {
+        addXmppDebugEvent("error", "Failed to load runtime during XMPP relay connect", { error: xmppRuntimeLastError || "" });
         setRelayStatus("error", `Failed to load Strophe runtime. ${xmppRuntimeLastError || ""}`.trim());
         scheduleRelayReconnect();
         return;
       }
       try {
         xmppConnection = new globalThis.Strophe.Connection(wsUrl, { keepalive: true });
+        addXmppDebugEvent("connect", "Created Strophe connection", { wsUrl });
       } catch (error) {
+        addXmppDebugEvent("error", "Failed to construct Strophe connection", { wsUrl, error: String(error) });
         setRelayStatus("error", String(error));
         scheduleRelayReconnect();
         return;
       }
+      xmppConnection.rawInput = (raw) => {
+        addXmppDebugEvent("raw", "RX", trimXmppRaw(raw));
+      };
+      xmppConnection.rawOutput = (raw) => {
+        addXmppDebugEvent("raw", "TX", trimXmppRaw(raw));
+      };
+      const originalSend = xmppConnection.send.bind(xmppConnection);
+      xmppConnection.send = (stanza) => {
+        addXmppDebugEvent("stanza", "send()", trimXmppRaw(xmppSerializePayload(stanza)));
+        return originalSend(stanza);
+      };
+      const originalSendIQ = xmppConnection.sendIQ.bind(xmppConnection);
+      xmppConnection.sendIQ = (stanza, success, error, timeout) => {
+        addXmppDebugEvent("iq", "sendIQ()", trimXmppRaw(xmppSerializePayload(stanza)));
+        return originalSendIQ(stanza, success, error, timeout);
+      };
       xmppConnection.addHandler((stanza) => {
         try {
+          addXmppDebugEvent("message", "Incoming stanza", trimXmppRaw(xmppSerializePayload(stanza)));
           const from = stanza.getAttribute("from") || "";
           const type = stanza.getAttribute("type") || "";
           if (type && !["groupchat", "chat", "normal", ""].includes(type)) return true;
@@ -3727,12 +3785,15 @@ function connectRelaySocket({ force = false } = {}) {
             }
           });
         } catch {
+          addXmppDebugEvent("error", "Malformed incoming XMPP stanza");
           // Ignore malformed XMPP messages.
         }
         return true;
       }, null, "message", null, null, null);
       xmppConnection.connect(jid, prefs.xmppPassword || "", (status) => {
         const S = globalThis.Strophe.Status;
+        const statusName = Object.entries(S || {}).find(([, value]) => value === status)?.[0] || String(status);
+        addXmppDebugEvent("connect", "Relay status callback", { status: statusName, wsUrl, jid });
         if (status === S.CONNECTING) {
           setRelayStatus("connecting");
           return;
@@ -3750,6 +3811,10 @@ function connectRelaySocket({ force = false } = {}) {
           ]).then((results) => {
             const rosterItems = results[0]?.status === "fulfilled" ? results[0].value : [];
             const bookmarkItems = results[1]?.status === "fulfilled" ? results[1].value : [];
+            addXmppDebugEvent("connect", "XMPP sync complete", {
+              rosterCount: rosterItems.length,
+              bookmarkCount: bookmarkItems.length
+            });
             syncXmppRosterIntoState(rosterItems, getPreferences(), current);
             upsertXmppSpaceChannels(bookmarkItems, getPreferences(), current);
             saveState();
@@ -3762,6 +3827,7 @@ function connectRelaySocket({ force = false } = {}) {
           const room = relayRoomForActiveConversation();
           joinXmppRoom(room, current);
           relayJoinedRoom = room;
+          addXmppDebugEvent("presence", "Joined initial relay room", { room });
           return;
         }
         if (status === S.DISCONNECTED) {
@@ -3775,11 +3841,17 @@ function connectRelaySocket({ force = false } = {}) {
           return;
         }
         if (status === S.CONNFAIL || status === S.AUTHFAIL || status === S.ERROR) {
+          addXmppDebugEvent("error", "Relay connect/auth failed", {
+            status: statusName,
+            wsUrl,
+            jid
+          });
           setRelayStatus("error", status === S.AUTHFAIL ? "XMPP authentication failed" : "XMPP connection failed");
           scheduleRelayReconnect();
         }
       });
     }).catch((error) => {
+      addXmppDebugEvent("error", "Relay connect promise rejected", { error: String(error) });
       setRelayStatus("error", String(error));
       scheduleRelayReconnect();
     });
@@ -5077,6 +5149,101 @@ function addDebugLog(level, message, data = null) {
   };
   debugLogs.push(entry);
   if (debugLogs.length > 220) debugLogs.shift();
+}
+
+function xmppSerializePayload(payload) {
+  if (!payload) return "";
+  try {
+    if (typeof payload === "string") return payload;
+    if (typeof payload.tree === "function") {
+      const node = payload.tree();
+      if (node) return new XMLSerializer().serializeToString(node);
+    }
+    if (payload.nodeType) return new XMLSerializer().serializeToString(payload);
+    if (typeof payload.toString === "function") return payload.toString();
+    return JSON.stringify(payload);
+  } catch {
+    return String(payload);
+  }
+}
+
+function trimXmppRaw(value, limit = XMPP_DEBUG_RAW_TRUNCATE) {
+  const text = (value || "").toString();
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit)} ... [truncated ${text.length - limit} chars]`;
+}
+
+function addXmppDebugEvent(category, message, data = null) {
+  const entry = {
+    ts: new Date().toISOString(),
+    category: (category || "misc").toString(),
+    message: (message || "").toString(),
+    data
+  };
+  xmppDebugEvents.push(entry);
+  if (xmppDebugEvents.length > XMPP_DEBUG_EVENT_LIMIT) xmppDebugEvents.shift();
+  if (ui.xmppConsoleDialog?.open && !xmppDebugPaused) renderXmppConsoleDialog();
+}
+
+function formatXmppConsoleLogs() {
+  const normalizedFilter = (xmppDebugFilter || "all").toString();
+  const searchToken = (xmppDebugSearch || "").toString().trim().toLowerCase();
+  const filtered = xmppDebugEvents.filter((entry) => {
+    const category = (entry.category || "").toLowerCase();
+    const message = (entry.message || "").toLowerCase();
+    let dataText = "";
+    if (entry.data != null) {
+      try {
+        dataText = JSON.stringify(entry.data).toLowerCase();
+      } catch {
+        dataText = String(entry.data).toLowerCase();
+      }
+    }
+    if (normalizedFilter !== "all") {
+      if (normalizedFilter === "message" && !["message", "stanza"].includes(category)) return false;
+      else if (normalizedFilter === "raw" && category !== "raw") return false;
+      else if (normalizedFilter !== "message" && normalizedFilter !== "raw" && category !== normalizedFilter) return false;
+    }
+    if (!searchToken) return true;
+    return message.includes(searchToken) || dataText.includes(searchToken) || category.includes(searchToken);
+  });
+  const runtime = {
+    relayMode: getPreferences().relayMode,
+    relayStatus,
+    xmppConnected: Boolean(xmppConnection),
+    xmppRuntimeReady,
+    xmppRuntimeLastError: xmppRuntimeLastError || "",
+    filter: normalizedFilter,
+    search: searchToken || "",
+    paused: xmppDebugPaused,
+    eventsTotal: xmppDebugEvents.length,
+    eventsShown: filtered.length
+  };
+  const lines = filtered.map((entry) => {
+    const head = `[${entry.ts}] [${entry.category}] ${entry.message}`;
+    if (entry.data == null) return head;
+    let body = "";
+    try {
+      body = typeof entry.data === "string" ? entry.data : JSON.stringify(entry.data, null, 2);
+    } catch {
+      body = String(entry.data);
+    }
+    return `${head}\n${trimXmppRaw(body)}`;
+  });
+  return `${JSON.stringify(runtime, null, 2)}\n\n${lines.join("\n\n") || "(no XMPP events yet)"}`;
+}
+
+function renderXmppConsoleDialog() {
+  if (!ui.xmppConsoleOutput) return;
+  if (ui.xmppConsoleFilterInput) ui.xmppConsoleFilterInput.value = xmppDebugFilter;
+  if (ui.xmppConsoleSearchInput && ui.xmppConsoleSearchInput.value !== xmppDebugSearch) ui.xmppConsoleSearchInput.value = xmppDebugSearch;
+  if (ui.pauseXmppConsoleBtn) ui.pauseXmppConsoleBtn.textContent = xmppDebugPaused ? "Resume" : "Pause";
+  ui.xmppConsoleOutput.textContent = formatXmppConsoleLogs();
+}
+
+function openXmppConsoleDialog() {
+  renderXmppConsoleDialog();
+  ui.xmppConsoleDialog?.showModal();
 }
 
 function formatDebugLogs() {
@@ -13648,10 +13815,14 @@ function looksLikeCompleteJid(jid) {
   if (at <= 0 || at >= raw.length - 1) return false;
   const local = raw.slice(0, at);
   const domain = raw.slice(at + 1).toLowerCase();
-  if (!local || !domain.includes(".") || domain.startsWith(".") || domain.endsWith(".")) return false;
-  const labels = domain.split(".").filter(Boolean);
-  if (labels.length < 2) return false;
-  return labels.every((label) => /^[a-z0-9-]+$/i.test(label) && label.length > 0);
+  if (!local || domain.startsWith(".") || domain.endsWith(".")) return false;
+  const labels = domain.split(".");
+  if (labels.length === 0 || labels.some((label) => !label)) return false;
+  try {
+    return labels.every((label) => /^[\p{L}\p{N}-]{1,63}$/u.test(label) && !label.startsWith("-") && !label.endsWith("-"));
+  } catch {
+    return labels.every((label) => /^[a-z0-9-]{1,63}$/i.test(label) && !label.startsWith("-") && !label.endsWith("-"));
+  }
 }
 
 function knownXmppWsForDomain(domain) {
@@ -13669,16 +13840,14 @@ function resolveXmppWsCandidates(jid, explicitWs = "") {
     if (!normalized) return;
     if (!candidates.includes(normalized)) candidates.push(normalized);
   };
+  push(explicitWs);
   const domain = xmppDomainFromJid(jid);
   if (!domain || !looksLikeCompleteJid(jid)) return candidates;
   const knownWs = knownXmppWsForDomain(domain);
-  const explicitNormalized = normalizeXmppWsUrl(explicitWs);
   if (knownWs) {
-    push(explicitNormalized);
     push(knownWs);
     return candidates;
   }
-  push(explicitNormalized);
   push(`wss://api.${domain}/ws`);
   push(`wss://${domain}/ws`);
   push(`wss://${domain}/xmpp-websocket`);
@@ -13882,10 +14051,12 @@ function syncXmppRosterIntoState(items, prefs = getPreferences(), account = getC
 function fetchXmppRoster(connection) {
   return new Promise((resolve) => {
     if (!connection || !globalThis.$iq) {
+      addXmppDebugEvent("iq", "Roster request skipped (missing connection/runtime)");
       resolve([]);
       return;
     }
     const iq = globalThis.$iq({ type: "get" }).c("query", { xmlns: "jabber:iq:roster" });
+    addXmppDebugEvent("iq", "Requesting roster");
     connection.sendIQ(
       iq,
       (stanza) => {
@@ -13896,12 +14067,17 @@ function fetchXmppRoster(connection) {
             subscription: node.getAttribute("subscription") || "",
             groups: [...node.getElementsByTagName("group")].map((group) => globalThis.Strophe.getText(group) || "")
           })).filter((entry) => entry.jid && entry.subscription !== "remove");
+          addXmppDebugEvent("iq", "Roster response received", { count: items.length });
           resolve(items);
         } catch {
+          addXmppDebugEvent("error", "Roster parse failed");
           resolve([]);
         }
       },
-      () => resolve([]),
+      () => {
+        addXmppDebugEvent("error", "Roster request failed or timed out");
+        resolve([]);
+      },
       7000
     );
   });
@@ -13910,12 +14086,14 @@ function fetchXmppRoster(connection) {
 function fetchXmppBookmarks(connection) {
   return new Promise((resolve) => {
     if (!connection || !globalThis.$iq) {
+      addXmppDebugEvent("iq", "Bookmarks request skipped (missing connection/runtime)");
       resolve([]);
       return;
     }
     const iq = globalThis.$iq({ type: "get" })
       .c("query", { xmlns: "jabber:iq:private" })
       .c("storage", { xmlns: "storage:bookmarks" });
+    addXmppDebugEvent("iq", "Requesting bookmarks");
     connection.sendIQ(
       iq,
       (stanza) => {
@@ -13926,12 +14104,17 @@ function fetchXmppBookmarks(connection) {
               name: node.getAttribute("name") || ""
             }))
             .filter((entry) => entry.jid);
+          addXmppDebugEvent("iq", "Bookmarks response received", { count: list.length });
           resolve(list);
         } catch {
+          addXmppDebugEvent("error", "Bookmarks parse failed");
           resolve([]);
         }
       },
-      () => resolve([]),
+      () => {
+        addXmppDebugEvent("error", "Bookmarks request failed or timed out");
+        resolve([]);
+      },
       7000
     );
   });
@@ -13942,13 +14125,24 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
     const cleanJid = normalizeXmppJid(jid);
     const cleanPass = normalizeXmppPassword(password);
     const candidates = resolveXmppWsCandidates(cleanJid, wsUrl);
+    addXmppDebugEvent("connect", "Login validation started", {
+      jid: cleanJid,
+      explicitWs: normalizeXmppWsUrl(wsUrl),
+      candidates
+    });
     if (!cleanJid || !cleanPass || candidates.length === 0) {
+      addXmppDebugEvent("error", "Login validation rejected before connect", {
+        jidValid: Boolean(cleanJid),
+        passwordProvided: Boolean(cleanPass),
+        candidates
+      });
       resolve({ ok: false, error: "XMPP login requires JID, password, and a valid WebSocket URL.", wsUrl: normalizeXmppWsUrl(wsUrl) || "" });
       return;
     }
     const tryCandidate = (candidateWs) => new Promise((doneAttempt) => {
       let connection = null;
       let finished = false;
+      addXmppDebugEvent("connect", "Trying login endpoint", { wsUrl: candidateWs });
       const done = (result) => {
         if (finished) return;
         finished = true;
@@ -13961,17 +14155,24 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
       };
       let timeoutHandle = setTimeout(() => {
         timeoutHandle = null;
+        addXmppDebugEvent("error", "Login endpoint timed out", { wsUrl: candidateWs });
         done({ ok: false, reason: "timeout", wsUrl: candidateWs });
       }, Math.max(2500, Math.min(10000, timeoutMs)));
       try {
         connection = new globalThis.Strophe.Connection(candidateWs, { keepalive: true });
       } catch (error) {
         if (timeoutHandle) clearTimeout(timeoutHandle);
+        addXmppDebugEvent("error", "Failed to create Strophe connection for endpoint", {
+          wsUrl: candidateWs,
+          error: String(error)
+        });
         done({ ok: false, reason: String(error), wsUrl: candidateWs });
         return;
       }
       connection.connect(cleanJid, cleanPass, (status) => {
         const S = globalThis.Strophe.Status;
+        const statusName = Object.entries(S || {}).find(([, value]) => value === status)?.[0] || String(status);
+        addXmppDebugEvent("connect", "Login endpoint status", { wsUrl: candidateWs, status: statusName });
         if (status === S.CONNECTED) {
           if (timeoutHandle) clearTimeout(timeoutHandle);
           done({ ok: true, wsUrl: candidateWs });
@@ -13990,6 +14191,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
     });
     loadXmppLibrary().then(async (ready) => {
       if (!ready || !globalThis.Strophe) {
+        addXmppDebugEvent("error", "Login validation could not load runtime", { error: xmppRuntimeLastError || "" });
         resolve({ ok: false, error: `Failed to load XMPP runtime. ${xmppRuntimeLastError || ""}`.trim(), wsUrl: candidates[0] || "" });
         return;
       }
@@ -13998,6 +14200,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         // eslint-disable-next-line no-await-in-loop
         const attempt = await tryCandidate(candidateWs);
         if (attempt.ok) {
+          addXmppDebugEvent("connect", "Login validation succeeded", { wsUrl: candidateWs });
           resolve({ ok: true, wsUrl: candidateWs });
           return;
         }
@@ -14014,6 +14217,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         wsUrl: candidates[0] || ""
       });
     }).catch((error) => {
+      addXmppDebugEvent("error", "Login validation crashed", { error: String(error) });
       resolve({ ok: false, error: String(error), wsUrl: candidates[0] || "" });
     });
   });
@@ -16124,6 +16328,10 @@ ui.openDebugConsoleBtn.addEventListener("click", () => {
   openDebugDialog();
 });
 
+ui.openXmppConsoleBtn?.addEventListener("click", () => {
+  openXmppConsoleDialog();
+});
+
 ui.refreshDebugBtn.addEventListener("click", () => {
   renderDebugDialog();
 });
@@ -16140,6 +16348,39 @@ ui.clearDebugBtn.addEventListener("click", () => {
 
 ui.debugCloseBtn.addEventListener("click", () => {
   ui.debugDialog.close();
+});
+
+ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
+  renderXmppConsoleDialog();
+});
+
+ui.copyXmppConsoleBtn?.addEventListener("click", () => {
+  copyText(formatXmppConsoleLogs());
+});
+
+ui.clearXmppConsoleBtn?.addEventListener("click", () => {
+  xmppDebugEvents.length = 0;
+  addXmppDebugEvent("runtime", "XMPP console log cleared");
+  renderXmppConsoleDialog();
+});
+
+ui.pauseXmppConsoleBtn?.addEventListener("click", () => {
+  xmppDebugPaused = !xmppDebugPaused;
+  renderXmppConsoleDialog();
+});
+
+ui.xmppConsoleFilterInput?.addEventListener("change", () => {
+  xmppDebugFilter = (ui.xmppConsoleFilterInput?.value || "all").toString();
+  renderXmppConsoleDialog();
+});
+
+ui.xmppConsoleSearchInput?.addEventListener("input", () => {
+  xmppDebugSearch = (ui.xmppConsoleSearchInput?.value || "").toString();
+  renderXmppConsoleDialog();
+});
+
+ui.xmppConsoleCloseBtn?.addEventListener("click", () => {
+  ui.xmppConsoleDialog?.close();
 });
 
 ui.importDataInput.addEventListener("change", async () => {
@@ -16440,6 +16681,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.accountSwitchDialog,
   ui.xmppProviderDialog,
   ui.debugDialog,
+  ui.xmppConsoleDialog,
   ui.cosmeticsDialog,
   ui.swfViewerDialog
 ].forEach(wireDialogBackdropClose);
