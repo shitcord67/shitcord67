@@ -14192,7 +14192,7 @@ function classifyNoWebsocketEndpointHint(failures = []) {
   const hasDns = signals.some((text) => text.includes("enotfound"));
   const hasTimeout = signals.some((text) => text.includes("timeout"));
   if (hasRedirect || hasNotFound || hasDns || hasTimeout) {
-    return " Provider likely does not expose a usable XMPP WebSocket endpoint for browser clients.";
+    return " Provider likely does not expose a usable XMPP WebSocket endpoint for this client path.";
   }
   return "";
 }
@@ -14240,10 +14240,19 @@ function resolveXmppWsCandidates(jid, explicitWs = "") {
   push(`wss://api.${domain}/ws`);
   push(`wss://${domain}/ws`);
   push(`wss://${domain}/xmpp-websocket`);
+  push(`wss://${domain}/xmpp-websocket/`);
+  push(`wss://ws.${domain}/ws`);
   push(`wss://ws.${domain}/xmpp-websocket`);
+  push(`wss://ws.${domain}/xmpp-websocket/`);
+  push(`wss://xmpp.${domain}/ws`);
   push(`wss://xmpp.${domain}/xmpp-websocket`);
+  push(`wss://xmpp.${domain}/xmpp-websocket/`);
+  push(`wss://chat.${domain}/ws`);
   push(`wss://chat.${domain}/xmpp-websocket`);
-  return candidates.slice(0, 8);
+  push(`wss://chat.${domain}/xmpp-websocket/`);
+  push(`wss://${domain}:5281/ws`);
+  push(`wss://${domain}:5281/xmpp-websocket`);
+  return candidates.slice(0, 14);
 }
 
 function inferXmppWsUrlFromJid(jid) {
