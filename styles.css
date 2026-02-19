@@ -785,6 +785,22 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   font-size: 0.78rem;
 }
 
+.voice-stage__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.voice-stage__stats span {
+  border: 1px solid #3a4356;
+  background: #293042;
+  color: #cfd8ea;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
 .voice-stage__controls {
   display: flex;
   flex-wrap: wrap;

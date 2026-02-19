@@ -171,8 +171,11 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Added dedicated `stageModeration` role permission with migration compatibility for older role data.
 - Voice/stage surfaces now include a rolling live-activity feed (join/leave/mute/hand/speaker/moderation events).
 - Added voice/stage control slash commands: `/vc`, `/voicewho`, `/hand`, `/speaker`, and `/stage`.
+- Added extended voice/stage commands: `/voiceactivity`, `/vcmove`, `/voicekick`, `/stagequeue`, `/stageclearqueue`.
 - Channel sidebar now shows live occupancy badges for voice/stage channels (stage includes speaker/queue summary).
 - Added `Alt+V` hotkey to quickly join/leave the active voice or stage channel.
+- Added `Alt+M` hotkey for self mute/unmute in active voice/stage channel.
+- Voice/stage channel context menu now includes quick self mute and status actions.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).

@@ -221,6 +221,8 @@
 - [done] Added voice/stage slash command suite (`/vc`, `/voicewho`, `/hand`, `/speaker`, `/stage`) for quick moderation and self controls.
 - [done] Added live voice/stage activity feed and channel-list occupancy badges.
 - [done] Added `Alt+V` shortcut for fast join/leave in active voice/stage channel.
+- [done] Added advanced voice/stage moderation commands (`/voiceactivity`, `/vcmove`, `/voicekick`, `/stagequeue`, `/stageclearqueue`).
+- [done] Added self mute hotkey (`Alt+M`) and voice/stage context-menu quick actions.
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior
