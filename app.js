@@ -16,7 +16,8 @@ const XMPP_LOCAL_AUTH_GATEWAY_URL = "http://localhost:8790";
 const XMPP_ENABLE_BROWSER_HOST_META_FALLBACK = false;
 const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_MAM_NAMESPACE = "urn:xmpp:mam:2";
-const XMPP_MAM_PAGE_SIZE = 80;
+const XMPP_MAM_PAGE_SIZE = 120;
+const XMPP_MAM_MAX_PAGES = 3;
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -922,6 +923,8 @@ const relayLocalTypingState = {
   active: false,
   lastSentAt: 0
 };
+let loginXmppProgressStartedAt = 0;
+let loginXmppProgressTimerId = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -936,6 +939,10 @@ const ui = {
   loginProvidersBtn: document.getElementById("loginProvidersBtn"),
   loginRegisterBtn: document.getElementById("loginRegisterBtn"),
   loginXmppConsoleBtn: document.getElementById("loginXmppConsoleBtn"),
+  loginXmppProgress: document.getElementById("loginXmppProgress"),
+  loginXmppProgressStatus: document.getElementById("loginXmppProgressStatus"),
+  loginXmppProgressTimer: document.getElementById("loginXmppProgressTimer"),
+  loginXmppProgressDetail: document.getElementById("loginXmppProgressDetail"),
   serverBrand: document.getElementById("serverBrand"),
   serverBrandBadge: document.getElementById("serverBrandBadge"),
   serverList: document.getElementById("serverList"),
@@ -3841,32 +3848,64 @@ function xmppMucMessageAuthorJid(stanza) {
   return xmppBareJid(itemNode?.getAttribute("jid") || "");
 }
 
-function requestXmppRoomHistory(roomJid, { limit = XMPP_MAM_PAGE_SIZE, force = false } = {}) {
+function requestXmppRoomHistory(roomJid, {
+  limit = XMPP_MAM_PAGE_SIZE,
+  force = false,
+  maxPages = XMPP_MAM_MAX_PAGES
+} = {}) {
   const bareRoom = xmppBareJid(roomJid);
   if (!bareRoom || !xmppConnection || !globalThis.$iq) return false;
   if (!force && xmppMamRequestedRooms.has(bareRoom)) return true;
   xmppMamRequestedRooms.add(bareRoom);
   const maxRows = Math.max(10, Math.min(200, Number(limit) || XMPP_MAM_PAGE_SIZE));
-  const queryId = `mam-${createId().slice(0, 8)}`;
-  const iq = globalThis.$iq({ type: "set", to: bareRoom })
-    .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
-    .c("x", { xmlns: "jabber:x:data", type: "submit" })
-    .c("field", { var: "FORM_TYPE" })
-    .c("value").t(XMPP_MAM_NAMESPACE).up().up()
-    .up()
-    .c("set", { xmlns: "http://jabber.org/protocol/rsm" })
-    .c("max").t(String(maxRows));
-  addXmppDebugEvent("iq", "Requesting MUC history", { roomJid: bareRoom, max: maxRows });
-  xmppConnection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "MUC history query completed", { roomJid: bareRoom, queryId });
-    },
-    () => {
-      addXmppDebugEvent("iq", "MUC history query unavailable", { roomJid: bareRoom, queryId });
-    },
-    9000
-  );
+  const maxFetchPages = Math.max(1, Math.min(5, Number(maxPages) || XMPP_MAM_MAX_PAGES));
+  const requestPage = (before = "", page = 1) => {
+    const queryId = `mam-${createId().slice(0, 8)}-${page}`;
+    const iqBuilder = globalThis.$iq({ type: "set", to: bareRoom })
+      .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
+      .c("x", { xmlns: "jabber:x:data", type: "submit" })
+      .c("field", { var: "FORM_TYPE" })
+      .c("value").t(XMPP_MAM_NAMESPACE).up().up()
+      .up()
+      .c("set", { xmlns: "http://jabber.org/protocol/rsm" })
+      .c("max").t(String(maxRows)).up();
+    if (before === "") {
+      iqBuilder.c("before");
+    } else if (before) {
+      iqBuilder.c("before").t(before);
+    }
+    addXmppDebugEvent("iq", "Requesting MUC history", {
+      roomJid: bareRoom,
+      max: maxRows,
+      before: before || "(latest)",
+      page
+    });
+    xmppConnection.sendIQ(
+      iqBuilder,
+      (stanza) => {
+        const finNode = [...stanza.getElementsByTagName("fin")]
+          .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
+        const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
+        const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
+        const firstId = xmppNodeText(firstNode).trim();
+        addXmppDebugEvent("iq", "MUC history query completed", {
+          roomJid: bareRoom,
+          queryId,
+          page,
+          complete,
+          first: firstId || ""
+        });
+        if (!complete && firstId && page < maxFetchPages) {
+          requestPage(firstId, page + 1);
+        }
+      },
+      () => {
+        addXmppDebugEvent("iq", "MUC history query unavailable", { roomJid: bareRoom, queryId, page });
+      },
+      9000
+    );
+  };
+  requestPage("", 1);
   return true;
 }
 
@@ -4119,6 +4158,25 @@ function resolveRelayTargetChannel() {
   return guild.channels.find((entry) => ["text", "announcement", "forum", "media"].includes(entry.type)) || guild.channels[0] || null;
 }
 
+function insertMessageByTimestamp(bucket, message) {
+  if (!Array.isArray(bucket) || !message) return;
+  const nextTs = toTimestampMs(message.ts);
+  if (!Number.isFinite(nextTs) || bucket.length === 0) {
+    bucket.push(message);
+    return;
+  }
+  let insertAt = bucket.length;
+  for (let i = bucket.length - 1; i >= 0; i -= 1) {
+    const existingTs = toTimestampMs(bucket[i]?.ts);
+    if (!Number.isFinite(existingTs) || existingTs <= nextTs) {
+      insertAt = i + 1;
+      break;
+    }
+    insertAt = i;
+  }
+  bucket.splice(insertAt, 0, message);
+}
+
 function applyRelayIncomingMessage(packet) {
   const current = getCurrentAccount();
   if (!current) return null;
@@ -4153,6 +4211,7 @@ function applyRelayIncomingMessage(packet) {
     remoteAccount.displayName = remoteMessage.authorDisplay.toString().slice(0, 32) || remoteAccount.displayName;
   }
   if (remoteAuthorJid) remoteAccount.xmppJid = remoteAuthorJid;
+  const historyMessage = remoteMessage.history === true;
   const replyMeta = remoteMessage.replyTo && typeof remoteMessage.replyTo === "object"
     ? {
         messageId: (remoteMessage.replyTo.messageId || "").toString().slice(0, 64),
@@ -4175,7 +4234,8 @@ function applyRelayIncomingMessage(packet) {
   if (room.startsWith("dm:")) {
     const thread = getOrCreateDmThread(current, remoteAccount);
     if (!thread) return null;
-    thread.messages.push(entry);
+    if (historyMessage) insertMessageByTimestamp(thread.messages, entry);
+    else thread.messages.push(entry);
     ensureDmReadState(thread);
     saveState();
     renderDmList();
@@ -4185,7 +4245,8 @@ function applyRelayIncomingMessage(packet) {
   const targetChannel = findRelayTargetChannelByRoom(room) || resolveRelayTargetChannel();
   if (!targetChannel || targetChannel.type === "voice" || targetChannel.type === "stage") return null;
   ensureChannelReadState(targetChannel);
-  targetChannel.messages.push(entry);
+  if (historyMessage) insertMessageByTimestamp(targetChannel.messages, entry);
+  else targetChannel.messages.push(entry);
   saveState();
   renderChannels();
   renderServers();
@@ -4270,7 +4331,7 @@ function connectRelaySocket({ force = false } = {}) {
           })
           .filter(Boolean);
       };
-      const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false } = {}) => {
+      const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false, history = false } = {}) => {
         const from = stanza.getAttribute("from") || "";
         const type = (stanza.getAttribute("type") || "").toLowerCase();
         if (type && !["groupchat", "chat", "normal", ""].includes(type)) return;
@@ -4321,6 +4382,7 @@ function connectRelaySocket({ force = false } = {}) {
               authorJid: bareFrom,
               attachments,
               replyTo: replyMeta,
+              history,
               allowSelf
             }
           });
@@ -4374,6 +4436,7 @@ function connectRelaySocket({ force = false } = {}) {
             authorJid,
             attachments,
             replyTo: replyMeta,
+            history,
             allowSelf
           }
         });
@@ -4393,7 +4456,7 @@ function connectRelaySocket({ force = false } = {}) {
           const forwarded = xmppMamForwardedMessages(stanza);
           if (forwarded.length > 0) {
             forwarded.forEach((entry) => {
-              handleXmppIncomingMessage(entry.message, { fallbackTs: entry.ts, allowSelf: true });
+              handleXmppIncomingMessage(entry.message, { fallbackTs: entry.ts, allowSelf: true, history: true });
             });
             return true;
           }
@@ -4468,6 +4531,7 @@ function connectRelaySocket({ force = false } = {}) {
             return true;
           }
           if (!roomJid || !nick) return true;
+          if (type === "error") return true;
           const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
           xmppRoomByJid.set(roomJid, roomToken);
           const synced = upsertXmppRoomChannel(roomJid, {
@@ -4569,6 +4633,15 @@ function connectRelaySocket({ force = false } = {}) {
         if (status === S.CONNECTED) {
           setRelayStatus("connected");
           xmppConnection.send(globalThis.$pres());
+          const initialRoom = relayRoomForActiveConversation();
+          const directPeerJid = xmppPeerJidForRelayRoom(initialRoom, current);
+          if (directPeerJid) {
+            relayJoinedRoom = initialRoom;
+            addXmppDebugEvent("presence", "Using direct XMPP DM route for initial conversation", {
+              room: initialRoom,
+              peerJid: directPeerJid
+            });
+          }
           Promise.allSettled([
             fetchXmppRoster(xmppConnection),
             fetchXmppBookmarks(xmppConnection)
@@ -4585,14 +4658,37 @@ function connectRelaySocket({ force = false } = {}) {
             renderServers();
             renderDmList();
             renderChannels();
+            if (directPeerJid) return;
+            let targetRoom = initialRoom || "";
+            const hasExplicitXmppRoom = /^xmpp:/i.test(targetRoom);
+            if (!hasExplicitXmppRoom) {
+              const preferredBookmark = bookmarkItems.find((entry) => entry?.autojoin && normalizeXmppJid(entry?.jid || ""))
+                || bookmarkItems.find((entry) => normalizeXmppJid(entry?.jid || "")) || null;
+              if (preferredBookmark?.jid) {
+                const bookmarkJid = normalizeXmppJid(preferredBookmark.jid).toLowerCase();
+                if (bookmarkJid) targetRoom = `xmpp:${bookmarkJid}`;
+              }
+            }
+            if (!targetRoom) targetRoom = "lobby:general";
+            const joined = joinXmppRoom(targetRoom, current);
+            relayJoinedRoom = targetRoom;
+            addXmppDebugEvent(
+              "presence",
+              joined ? "Joined initial relay room" : "Failed to join initial relay room",
+              { room: targetRoom, peerJid: "" }
+            );
           }).catch(() => {
+            if (!directPeerJid) {
+              const fallbackRoom = initialRoom || "lobby:general";
+              joinXmppRoom(fallbackRoom, current);
+              relayJoinedRoom = fallbackRoom;
+              addXmppDebugEvent("presence", "Joined initial relay room (sync fallback)", {
+                room: fallbackRoom,
+                peerJid: ""
+              });
+            }
             // Keep transport connected even if roster/bookmark sync fails.
           });
-          const room = relayRoomForActiveConversation();
-          const directPeerJid = xmppPeerJidForRelayRoom(room, current);
-          if (!directPeerJid) joinXmppRoom(room, current);
-          relayJoinedRoom = room;
-          addXmppDebugEvent("presence", directPeerJid ? "Using direct XMPP DM route for initial conversation" : "Joined initial relay room", { room, peerJid: directPeerJid || "" });
           return;
         }
         if (status === S.DISCONNECTED) {
@@ -13073,6 +13169,7 @@ function renderMessages() {
   const channel = !isDm ? conversation?.channel : null;
   const dmThread = isDm ? conversation?.thread : null;
   syncRelayRoomForActiveConversation();
+  renderMemberList();
   const conversationId = conversation?.id || null;
   syncComposerDraftConversation(conversationId);
   const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
@@ -15073,12 +15170,26 @@ function resolveXmppWsCandidates(jid, explicitWs = "") {
     if (!normalized) return;
     if (!candidates.includes(normalized)) candidates.push(normalized);
   };
-  push(explicitWs);
   const domain = xmppDomainFromJid(jid);
-  if (!domain || !looksLikeCompleteJid(jid)) return candidates;
+  const explicit = normalizeXmppWsUrl(explicitWs);
+  const explicitMatchesDomain = (() => {
+    if (!explicit || !domain) return true;
+    try {
+      const host = new URL(explicit).hostname.toLowerCase();
+      return host === domain || host.endsWith(`.${domain}`);
+    } catch {
+      return false;
+    }
+  })();
+  if (explicit && explicitMatchesDomain) push(explicit);
+  if (!domain || !looksLikeCompleteJid(jid)) {
+    if (explicit && !explicitMatchesDomain) push(explicit);
+    return candidates;
+  }
   const knownWs = knownXmppWsForDomain(domain);
   if (knownWs) {
     push(knownWs);
+    if (explicit && !explicitMatchesDomain) push(explicit);
     return candidates;
   }
   push(`wss://api.${domain}/ws`);
@@ -15096,6 +15207,7 @@ function resolveXmppWsCandidates(jid, explicitWs = "") {
   push(`wss://chat.${domain}/xmpp-websocket/`);
   push(`wss://${domain}:5281/ws`);
   push(`wss://${domain}:5281/xmpp-websocket`);
+  if (explicit && !explicitMatchesDomain) push(explicit);
   return candidates.slice(0, 14);
 }
 
@@ -15118,6 +15230,162 @@ async function maybeDiscoverLoginXmppWsUrl(jid) {
     ui.loginXmppServer.value = first;
     ui.loginXmppServer.dataset.autofill = "1";
     addXmppDebugEvent("connect", "Applied discovered login WebSocket endpoint", { jid: cleanJid, wsUrl: first });
+  }
+}
+
+function clearLoginXmppProgressTimer() {
+  if (loginXmppProgressTimerId) {
+    window.clearInterval(loginXmppProgressTimerId);
+    loginXmppProgressTimerId = null;
+  }
+}
+
+function formatElapsedTimer(ms) {
+  const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = String(total % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function updateLoginXmppProgressTimer() {
+  if (!ui.loginXmppProgressTimer || !loginXmppProgressStartedAt) return;
+  ui.loginXmppProgressTimer.textContent = formatElapsedTimer(Date.now() - loginXmppProgressStartedAt);
+}
+
+function setLoginXmppProgress({
+  visible = true,
+  state = "",
+  status = "",
+  detail = ""
+} = {}) {
+  if (!ui.loginXmppProgress) return;
+  ui.loginXmppProgress.hidden = !visible;
+  if (!visible) {
+    clearLoginXmppProgressTimer();
+    return;
+  }
+  if (state) {
+    ui.loginXmppProgress.dataset.state = state;
+  } else {
+    ui.loginXmppProgress.removeAttribute("data-state");
+  }
+  if (status && ui.loginXmppProgressStatus) ui.loginXmppProgressStatus.textContent = status;
+  if (detail && ui.loginXmppProgressDetail) ui.loginXmppProgressDetail.textContent = detail;
+  updateLoginXmppProgressTimer();
+}
+
+function resetLoginXmppProgress() {
+  loginXmppProgressStartedAt = 0;
+  clearLoginXmppProgressTimer();
+  setLoginXmppProgress({ visible: false });
+}
+
+function beginLoginXmppProgress() {
+  loginXmppProgressStartedAt = Date.now();
+  setLoginXmppProgress({
+    visible: true,
+    state: "",
+    status: "Signing in...",
+    detail: "First we find the right chat server, then we check your password."
+  });
+  clearLoginXmppProgressTimer();
+  updateLoginXmppProgressTimer();
+  loginXmppProgressTimerId = window.setInterval(() => {
+    updateLoginXmppProgressTimer();
+  }, 500);
+}
+
+function applyLoginXmppProgressEvent(event) {
+  if (!event || typeof event !== "object") return;
+  const mode = (event.mode || "").toString();
+  if (event.event === "start") {
+    const count = Math.max(1, Number(event.candidateCount) || 1);
+    setLoginXmppProgress({
+      visible: true,
+      state: "",
+      status: "Looking for the best door...",
+      detail: `I will try up to ${count} server doors until one opens.`
+    });
+    return;
+  }
+  if (event.event === "runtime-loading") {
+    setLoginXmppProgress({
+      status: "Waking up chat tools...",
+      detail: "Loading the XMPP engine."
+    });
+    return;
+  }
+  if (event.event === "gateway-start") {
+    const count = Math.max(1, Number(event.candidateCount) || 1);
+    setLoginXmppProgress({
+      status: "Checking with helper service...",
+      detail: mode === "first"
+        ? `Trying local helper first (${count} server doors).`
+        : "Trying local helper as backup."
+    });
+    return;
+  }
+  if (event.event === "candidate-start") {
+    const index = Number(event.index) || 1;
+    const total = Math.max(index, Number(event.total) || index);
+    const hostLabel = (() => {
+      try {
+        return new URL(event.wsUrl || "").host || event.wsUrl || "server";
+      } catch {
+        return (event.wsUrl || "server").toString();
+      }
+    })();
+    setLoginXmppProgress({
+      status: `Trying door ${index} of ${total}...`,
+      detail: `Checking ${hostLabel}`
+    });
+    return;
+  }
+  if (event.event === "candidate-timeout") {
+    setLoginXmppProgress({
+      status: "That door did not answer...",
+      detail: "Trying the next one."
+    });
+    return;
+  }
+  if (event.event === "candidate-authfail") {
+    setLoginXmppProgress({
+      state: "error",
+      status: "Password check failed.",
+      detail: "Please check your JID and password."
+    });
+    return;
+  }
+  if (event.event === "gateway-fallback") {
+    setLoginXmppProgress({
+      status: "Trying another path...",
+      detail: "The helper path did not work, trying browser path now."
+    });
+    return;
+  }
+  if (event.event === "success") {
+    const hostLabel = (() => {
+      try {
+        return new URL(event.wsUrl || "").host || event.wsUrl || "";
+      } catch {
+        return (event.wsUrl || "").toString();
+      }
+    })();
+    setLoginXmppProgress({
+      state: "ok",
+      status: "Connected!",
+      detail: hostLabel ? `Signed in through ${hostLabel}.` : "Signed in successfully."
+    });
+    clearLoginXmppProgressTimer();
+    return;
+  }
+  if (event.event === "failure") {
+    setLoginXmppProgress({
+      state: "error",
+      status: "Could not sign in.",
+      detail: "Please check your server and password, then try again."
+    });
+    clearLoginXmppProgressTimer();
   }
 }
 
@@ -15432,16 +15700,27 @@ function parseXmppBookmarks(stanza) {
   if (!stanza) return [];
   const seen = new Set();
   const list = [];
-  [...stanza.getElementsByTagName("conference")]
-    .forEach((node) => {
-      const jid = normalizeXmppJid(node.getAttribute("jid") || "").toLowerCase();
-      if (!jid || seen.has(jid)) return;
-      seen.add(jid);
-      list.push({
-        jid,
-        name: (node.getAttribute("name") || "").toString().trim()
-      });
+  [...stanza.getElementsByTagName("conference")].forEach((node) => {
+    const modernBookmark = xmppNodeHasXmlns(node, "urn:xmpp:bookmarks:1");
+    let jid = normalizeXmppJid(node.getAttribute("jid") || "").toLowerCase();
+    if (!jid && modernBookmark) {
+      const parentItem = node.parentNode && node.parentNode.nodeType === 1
+        ? node.parentNode
+        : null;
+      if (parentItem && parentItem.nodeName?.toLowerCase().endsWith("item")) {
+        jid = normalizeXmppJid(parentItem.getAttribute("id") || parentItem.getAttribute("jid") || "").toLowerCase();
+      }
+    }
+    if (!jid || seen.has(jid)) return;
+    seen.add(jid);
+    const nickNode = node.getElementsByTagName("nick")[0] || null;
+    list.push({
+      jid,
+      name: (node.getAttribute("name") || "").toString().trim(),
+      autojoin: (node.getAttribute("autojoin") || "").toString().toLowerCase() === "true",
+      nick: xmppNodeText(nickNode).trim()
     });
+  });
   return list;
 }
 
@@ -15520,12 +15799,21 @@ async function fetchXmppBookmarks(connection) {
   return [];
 }
 
-function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 }) {
+function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000, onProgress = null }) {
   return new Promise((resolve) => {
+    const notify = (event, payload = {}) => {
+      if (typeof onProgress !== "function") return;
+      try {
+        onProgress({ event, ...payload });
+      } catch {
+        // Ignore progress callback errors.
+      }
+    };
     const cleanJid = normalizeXmppJid(jid);
     const cleanPass = normalizeXmppPassword(password);
     const explicitWs = normalizeXmppWsUrl(wsUrl);
     let candidates = resolveXmppWsCandidates(cleanJid, explicitWs);
+    notify("start", { candidateCount: candidates.length, jid: cleanJid });
     addXmppDebugEvent("connect", "Login validation started", {
       jid: cleanJid,
       explicitWs,
@@ -15537,13 +15825,15 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         passwordProvided: Boolean(cleanPass),
         candidates
       });
+      notify("failure", { reason: "invalid-input" });
       resolve({ ok: false, error: "XMPP login requires JID, password, and a valid WebSocket URL.", wsUrl: normalizeXmppWsUrl(wsUrl) || "" });
       return;
     }
-    const tryCandidate = (candidateWs) => new Promise((doneAttempt) => {
+    const tryCandidate = (candidateWs, index = 0, total = 0) => new Promise((doneAttempt) => {
       let connection = null;
       let finished = false;
       addXmppDebugEvent("connect", "Trying login endpoint", { wsUrl: candidateWs });
+      notify("candidate-start", { wsUrl: candidateWs, index, total });
       const done = (result) => {
         if (finished) return;
         finished = true;
@@ -15557,6 +15847,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
       let timeoutHandle = setTimeout(() => {
         timeoutHandle = null;
         addXmppDebugEvent("error", "Login endpoint timed out", { wsUrl: candidateWs });
+        notify("candidate-timeout", { wsUrl: candidateWs, index, total });
         done({ ok: false, reason: "timeout", wsUrl: candidateWs });
       }, Math.max(2500, Math.min(10000, timeoutMs)));
       try {
@@ -15577,13 +15868,16 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         const S = globalThis.Strophe.Status;
         const statusName = Object.entries(S || {}).find(([, value]) => value === status)?.[0] || String(status);
         addXmppDebugEvent("connect", "Login endpoint status", { wsUrl: candidateWs, status: statusName });
+        notify("candidate-status", { wsUrl: candidateWs, index, total, status: statusName });
         if (status === S.CONNECTED) {
           if (timeoutHandle) clearTimeout(timeoutHandle);
+          notify("candidate-success", { wsUrl: candidateWs, index, total });
           done({ ok: true, wsUrl: candidateWs });
           return;
         }
         if (status === S.AUTHFAIL) {
           if (timeoutHandle) clearTimeout(timeoutHandle);
+          notify("candidate-authfail", { wsUrl: candidateWs, index, total });
           done({ ok: false, reason: "auth", wsUrl: candidateWs });
           return;
         }
@@ -15594,9 +15888,11 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
       });
     });
     const runBrowserValidation = () => {
+      notify("runtime-loading");
       loadXmppLibrary().then(async (ready) => {
         if (!ready || !globalThis.Strophe) {
           addXmppDebugEvent("error", "Login validation could not load runtime", { error: xmppRuntimeLastError || "" });
+          notify("failure", { reason: "runtime" });
           resolve({ ok: false, error: `Failed to load XMPP runtime. ${xmppRuntimeLastError || ""}`.trim(), wsUrl: candidates[0] || "" });
           return;
         }
@@ -15614,16 +15910,19 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
             candidates.forEach((entry) => push(entry));
             candidates = merged;
             addXmppDebugEvent("connect", "Merged host-meta endpoints into candidate list", { candidates });
+            notify("candidates", { candidateCount: candidates.length });
           }
         } catch (error) {
           addXmppDebugEvent("runtime", "Host-meta discovery failed during login validation", { error: String(error?.message || error) });
         }
         let sawAuthFail = false;
-        for (const candidateWs of candidates) {
+        for (let i = 0; i < candidates.length; i += 1) {
+          const candidateWs = candidates[i];
           // eslint-disable-next-line no-await-in-loop
-          const attempt = await tryCandidate(candidateWs);
+          const attempt = await tryCandidate(candidateWs, i + 1, candidates.length);
           if (attempt.ok) {
             addXmppDebugEvent("connect", "Login validation succeeded", { wsUrl: candidateWs });
+            notify("success", { wsUrl: candidateWs, via: "browser" });
             resolve({ ok: true, wsUrl: candidateWs });
             return;
           }
@@ -15632,6 +15931,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
             break;
           }
         }
+        notify("gateway-start", { mode: "fallback", candidateCount: candidates.length });
         const localGateway = await validateXmppViaLocalGateway({
           jid: cleanJid,
           password: cleanPass,
@@ -15639,12 +15939,14 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
           timeoutMs
         });
         if (localGateway?.ok) {
+          notify("success", { wsUrl: localGateway.wsUrl || candidates[0] || "", via: "local-gateway" });
           resolve({ ok: true, wsUrl: localGateway.wsUrl || candidates[0] || "", via: "local-gateway" });
           return;
         }
         const gatewayHint = localGateway && localGateway.ok === false
           ? ` Local gateway check also failed: ${localGateway.error || "unknown error"}`
           : ` Local gateway unavailable at ${XMPP_LOCAL_AUTH_GATEWAY_URL}; start it with: node scripts/xmpp-auth-gateway.mjs`;
+        notify("failure", { reason: sawAuthFail ? "auth" : "connect" });
         resolve({
           ok: false,
           error: sawAuthFail
@@ -15654,6 +15956,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         });
       }).catch((error) => {
         addXmppDebugEvent("error", "Login validation crashed", { error: String(error) });
+        notify("failure", { reason: "crash" });
         resolve({ ok: false, error: String(error), wsUrl: candidates[0] || "" });
       });
     };
@@ -15663,6 +15966,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         jid: cleanJid,
         gatewayUrl: XMPP_LOCAL_AUTH_GATEWAY_URL
       });
+      notify("gateway-start", { mode: "first", candidateCount: candidates.length });
       validateXmppViaLocalGateway({
         jid: cleanJid,
         password: cleanPass,
@@ -15670,6 +15974,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         timeoutMs
       }).then((gatewayFirst) => {
         if (gatewayFirst?.ok) {
+          notify("success", { wsUrl: gatewayFirst.wsUrl || candidates[0] || "", via: "local-gateway-first" });
           resolve({ ok: true, wsUrl: gatewayFirst.wsUrl || candidates[0] || "", via: "local-gateway-first" });
           return;
         }
@@ -15677,11 +15982,13 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
           hasGatewayResult: gatewayFirst !== null,
           gatewayError: gatewayFirst?.error || ""
         });
+        notify("gateway-fallback", { reason: gatewayFirst?.error || "" });
         runBrowserValidation();
       }).catch((error) => {
         addXmppDebugEvent("runtime", "Gateway-first check crashed; falling back to browser validation", {
           error: String(error?.message || error)
         });
+        notify("gateway-fallback", { reason: String(error?.message || error) });
         runBrowserValidation();
       });
       return;
@@ -15923,19 +16230,25 @@ ui.loginForm.addEventListener("submit", async (event) => {
   }
   const submitBtn = ui.loginForm.querySelector("button[type=\"submit\"]");
   if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
+  let loginSucceeded = false;
   try {
     let validatedWsUrl = normalizeXmppWsUrl(wsServer);
     if (wantsXmpp) {
+      beginLoginXmppProgress();
       const check = await validateXmppLoginCredentials({
         jid: parsed.xmppJid,
         password,
-        wsUrl: wsServer
+        wsUrl: wsServer,
+        onProgress: applyLoginXmppProgressEvent
       });
       validatedWsUrl = check.wsUrl || validatedWsUrl;
       if (!check.ok) {
+        applyLoginXmppProgressEvent({ event: "failure", reason: "validation" });
         showToast(check.error || "XMPP login failed.", { tone: "error" });
         return;
       }
+    } else {
+      resetLoginXmppProgress();
     }
     const xmppConfig = parsed.xmppJid || password || wsServer
       ? {
@@ -15952,6 +16265,7 @@ ui.loginForm.addEventListener("submit", async (event) => {
       showToast("Could not create or switch account.", { tone: "error" });
       return;
     }
+    loginSucceeded = true;
     renderScreens();
     ui.loginUsername.value = "";
     if (ui.loginPassword) ui.loginPassword.value = "";
@@ -15962,11 +16276,13 @@ ui.loginForm.addEventListener("submit", async (event) => {
       ui.messageInput.focus();
     });
   } finally {
+    if (loginSucceeded) resetLoginXmppProgress();
     if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
   }
 });
 
 ui.loginUsername?.addEventListener("input", () => {
+  resetLoginXmppProgress();
   const raw = (ui.loginUsername.value || "").trim();
   if (!looksLikeCompleteJid(raw)) {
     loginXmppDiscoveryToken += 1;
@@ -15991,10 +16307,15 @@ ui.loginLocalProfileSelect?.addEventListener("change", () => {
 });
 
 ui.loginXmppServer?.addEventListener("input", () => {
+  resetLoginXmppProgress();
   if (!ui.loginXmppServer) return;
   const normalized = normalizeXmppWsUrl(ui.loginXmppServer.value || "");
   const inferred = inferXmppWsUrlFromJid(ui.loginUsername?.value || "");
   ui.loginXmppServer.dataset.autofill = normalized && inferred && normalized === inferred ? "1" : "0";
+});
+
+ui.loginPassword?.addEventListener("input", () => {
+  resetLoginXmppProgress();
 });
 
 ui.loginProvidersBtn?.addEventListener("click", () => {
