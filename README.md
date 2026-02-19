@@ -265,9 +265,11 @@ XMPP mode (experimental):
 
 ## XMPP Runtime Troubleshooting
 - If login shows `Failed to load XMPP runtime`, the Strophe runtime script could not be loaded.
-- The app now tries local first (`./node_modules/strophe.js/dist/strophe.min.js`) and then CDN fallbacks.
-- Install local runtime dependency in project root:
+- The app now tries local first (`./vendor/strophe.umd.min.js`), then node_modules path fallback, then CDN fallbacks.
+- Install local runtime dependency in project root and sync vendor copy:
   - `npm install strophe.js`
+- Manual re-sync if needed:
+  - `npm run sync:xmpp-runtime`
 - Keep browser/devtools network policy open for script loading if you rely on CDN fallback.
 
 ## Design Research Notes
