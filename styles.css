@@ -320,6 +320,11 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   font-size: 0.8rem;
 }
 
+.server-item--non-xmpp {
+  border: 1px solid #d8485f;
+  box-shadow: inset 0 0 0 1px rgba(216, 72, 95, 0.34);
+}
+
 .server-brand:hover,
 .server-item:hover {
   border-radius: 14px;
@@ -477,6 +482,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   margin-bottom: 0.25rem;
   position: relative;
   transition: background-color 120ms ease, color 120ms ease;
+}
+
+.channel-item--non-xmpp {
+  border: 1px solid rgba(216, 72, 95, 0.72);
 }
 
 .channel-item:hover {

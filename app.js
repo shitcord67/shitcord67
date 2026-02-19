@@ -465,7 +465,8 @@ function buildInitialState() {
       xmppJid: "",
       xmppPassword: "",
       xmppWsUrl: "",
-      xmppMucService: ""
+      xmppMucService: "",
+      xmppHideNonXmpp: "on"
     }
   };
 }
@@ -1174,6 +1175,7 @@ const ui = {
   xmppPasswordInput: document.getElementById("xmppPasswordInput"),
   xmppWsUrlInput: document.getElementById("xmppWsUrlInput"),
   xmppMucServiceInput: document.getElementById("xmppMucServiceInput"),
+  xmppHideNonXmppInput: document.getElementById("xmppHideNonXmppInput"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -3250,6 +3252,7 @@ function getPreferences() {
     xmppPassword: normalizeXmppPassword(current.xmppPassword),
     xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),
     xmppMucService: normalizeXmppMucService(current.xmppMucService),
+    xmppHideNonXmpp: normalizeToggle(current.xmppHideNonXmpp ?? "on"),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -3618,6 +3621,24 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
   if (!mucService) return "";
   const node = sanitizeChannelName((roomToken || "lobby-general").replace(/[:]/g, "-"), "lobby-general");
   return `${node}@${mucService}`;
+}
+
+function isXmppBackedChannel(channel) {
+  if (!channel || typeof channel !== "object") return false;
+  const roomJid = normalizeXmppJid(channel.xmppRoomJid || "").toLowerCase();
+  if (roomJid) return true;
+  const relayRoomToken = (channel.relayRoomToken || "").toString().trim().toLowerCase();
+  if (relayRoomToken.startsWith("xmpp:")) return true;
+  const groupName = (channel.xmppGroupName || "").toString().trim();
+  return Boolean(groupName);
+}
+
+function isXmppBackedGuild(guild) {
+  if (!guild || typeof guild !== "object") return false;
+  const guildId = (guild.id || "").toString().toLowerCase();
+  if (guildId.startsWith("xmpp-spaces:")) return true;
+  if (!Array.isArray(guild.channels)) return false;
+  return guild.channels.some((channel) => isXmppBackedChannel(channel));
 }
 
 function xmppDomainFromJid(jid) {
@@ -10875,6 +10896,18 @@ function renderServers() {
   ui.serverList.innerHTML = "";
   ui.serverBrand.classList.toggle("active", getViewMode() === "dm");
   const currentAccount = getCurrentAccount();
+  const prefs = getPreferences();
+  const hideNonXmpp = prefs.relayMode === "xmpp" && prefs.xmppHideNonXmpp === "on";
+  const showXmppWarning = prefs.relayMode === "xmpp" && !hideNonXmpp;
+  const isGuildVisible = (guild) => !hideNonXmpp || isXmppBackedGuild(guild);
+  if (hideNonXmpp) {
+    const activeGuild = state.guilds.find((guild) => guild.id === state.activeGuildId) || null;
+    if (!activeGuild || !isGuildVisible(activeGuild)) {
+      const fallbackGuild = state.guilds.find((guild) => isGuildVisible(guild)) || null;
+      state.activeGuildId = fallbackGuild?.id || null;
+      if (!fallbackGuild) state.activeChannelId = null;
+    }
+  }
   const dmStats = getTotalDmUnreadStats(currentAccount);
   if (ui.serverBrandBadge) {
     const count = dmStats.mentions > 0 ? dmStats.mentions : dmStats.unread;
@@ -10892,8 +10925,10 @@ function renderServers() {
   }
   ensureFolderState();
   const renderGuildButton = (server) => {
+    const xmppBackedGuild = isXmppBackedGuild(server);
     const button = document.createElement("button");
     button.className = `server-item ${server.id === state.activeGuildId ? "active" : ""}`;
+    if (showXmppWarning && !xmppBackedGuild) button.classList.add("server-item--non-xmpp");
     button.textContent = server.name.slice(0, 2).toUpperCase();
     const accent = (server.accentColor || "").trim();
     if (/^#[0-9a-f]{3,8}$/i.test(accent)) {
@@ -10903,6 +10938,9 @@ function renderServers() {
     button.title = guildStats.unread > 0
       ? `${server.name} (${guildStats.unread} unread${guildStats.mentions ? `, ${guildStats.mentions} mentions` : ""})`
       : [server.name, (server.description || "").trim()].filter(Boolean).join(" • ");
+    if (showXmppWarning && !xmppBackedGuild) {
+      button.title = [button.title, "Not mapped from XMPP"].filter(Boolean).join(" • ");
+    }
     if (guildStats.unread > 0) {
       const dot = document.createElement("span");
       dot.className = `server-unread-pill ${guildStats.mentions > 0 ? "server-unread-pill--mention" : ""}`;
@@ -11049,6 +11087,10 @@ function renderServers() {
   };
 
   state.guildFolders.forEach((folder) => {
+    const folderGuilds = folder.guildIds
+      .map((guildId) => state.guilds.find((guild) => guild.id === guildId))
+      .filter((guild) => guild && isGuildVisible(guild));
+    if (folderGuilds.length === 0) return;
     const label = document.createElement("button");
     label.type = "button";
     label.className = "server-folder-label";
@@ -11061,15 +11103,12 @@ function renderServers() {
     });
     ui.serverList.appendChild(label);
     if (folder.collapsed) return;
-    folder.guildIds
-      .map((guildId) => state.guilds.find((guild) => guild.id === guildId))
-      .filter(Boolean)
-      .forEach((guild) => renderGuildButton(guild));
+    folderGuilds.forEach((guild) => renderGuildButton(guild));
   });
 
   const folderGuildIds = new Set(state.guildFolders.flatMap((folder) => folder.guildIds));
   state.guilds
-    .filter((guild) => !folderGuildIds.has(guild.id))
+    .filter((guild) => !folderGuildIds.has(guild.id) && isGuildVisible(guild))
     .forEach((guild) => renderGuildButton(guild));
 }
 
@@ -11223,6 +11262,8 @@ function renderChannels() {
   renderDmList();
   const dmMode = getViewMode() === "dm";
   const prefs = getPreferences();
+  const hideNonXmpp = prefs.relayMode === "xmpp" && prefs.xmppHideNonXmpp === "on";
+  const showXmppWarning = prefs.relayMode === "xmpp" && !hideNonXmpp;
   ui.dmSection.classList.toggle("panel-section--hidden", !dmMode);
   ui.guildSection.classList.toggle("panel-section--hidden", dmMode);
   ui.dmSection.classList.toggle("panel-section--collapsed", prefs.collapseDmSection === "on");
@@ -11263,7 +11304,9 @@ function renderChannels() {
     ui.openGuildSettingsBtn.title = canManage ? "Guild settings" : "Manage Channels permission required";
   }
   if (!currentAccount) return;
-  const visibleChannels = server.channels.filter((channel) => canAccountViewChannel(server, channel, currentAccount.id));
+  const visibleChannels = server.channels
+    .filter((channel) => canAccountViewChannel(server, channel, currentAccount.id))
+    .filter((channel) => !hideNonXmpp || isXmppBackedChannel(channel));
   if (!visibleChannels.some((entry) => entry.id === state.activeChannelId)) {
     state.activeChannelId = visibleChannels[0]?.id || null;
   }
@@ -11271,12 +11314,18 @@ function renderChannels() {
   if (channelsToRender.length === 0) {
     const empty = document.createElement("div");
     empty.className = "channel-empty";
-    empty.textContent = filter ? "No channels match your filter." : "No accessible channels in this guild.";
+    empty.textContent = filter
+      ? "No channels match your filter."
+      : hideNonXmpp
+        ? "No XMPP-backed channels found in this guild."
+        : "No accessible channels in this guild.";
     ui.channelList.appendChild(empty);
   }
   channelsToRender.forEach((channel) => {
+    const xmppBackedChannel = isXmppBackedChannel(channel);
     const button = document.createElement("button");
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
+    if (showXmppWarning && !xmppBackedChannel) button.classList.add("channel-item--non-xmpp");
     const icon = document.createElement("span");
     icon.className = "channel-item__icon";
     icon.textContent = channelTypeSymbol(channel);
@@ -11327,6 +11376,9 @@ function renderChannels() {
     }
     if (hasDraft) {
       button.title = `${button.title ? `${button.title} • ` : ""}Has unsent draft`;
+    }
+    if (showXmppWarning && !xmppBackedChannel) {
+      button.title = `${button.title ? `${button.title} • ` : ""}Not mapped from XMPP`;
     }
     button.addEventListener("click", () => {
       state.viewMode = "guild";
@@ -11526,12 +11578,6 @@ function renderChannels() {
     });
     ui.channelList.appendChild(button);
   });
-  if (channelsToRender.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "channel-empty";
-    empty.textContent = "No channels match your filter.";
-    ui.channelList.appendChild(empty);
-  }
   updateDocumentTitle();
 }
 
@@ -13910,6 +13956,7 @@ function renderSettingsScreen() {
   if (ui.xmppPasswordInput) ui.xmppPasswordInput.value = prefs.xmppPassword;
   if (ui.xmppWsUrlInput) ui.xmppWsUrlInput.value = prefs.xmppWsUrl;
   if (ui.xmppMucServiceInput) ui.xmppMucServiceInput.value = prefs.xmppMucService;
+  if (ui.xmppHideNonXmppInput) ui.xmppHideNonXmppInput.value = prefs.xmppHideNonXmpp;
   renderRelayStatusOutput();
   if (ui.guildNotifGuildName) {
     ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
@@ -17237,6 +17284,7 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.xmppPassword = normalizeXmppPassword(ui.xmppPasswordInput?.value || "");
   state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
   state.preferences.xmppMucService = normalizeXmppMucService(ui.xmppMucServiceInput?.value || "");
+  state.preferences.xmppHideNonXmpp = normalizeToggle(ui.xmppHideNonXmppInput?.value || "on");
   saveState();
   if (["ws", "http", "xmpp"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
     connectRelaySocket({ force: true });
@@ -17259,6 +17307,7 @@ ui.relayConnectBtn?.addEventListener("click", () => {
   state.preferences.xmppPassword = normalizeXmppPassword(ui.xmppPasswordInput?.value || "");
   state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
   state.preferences.xmppMucService = normalizeXmppMucService(ui.xmppMucServiceInput?.value || "");
+  state.preferences.xmppHideNonXmpp = normalizeToggle(ui.xmppHideNonXmppInput?.value || "on");
   saveState();
   connectRelaySocket({ force: true });
 });
