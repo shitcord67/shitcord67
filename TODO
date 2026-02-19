@@ -227,7 +227,7 @@
 - [done] Added `Alt+J` quick-join/leave hotkey and voice surface quick-copy link action.
 - [done] Added experimental WebSocket relay transport mode (settings + `/relay` command + `scripts/ws-relay-server.mjs`) for real multi-user chat across clients.
 - [done] Added dependency-free HTTP/SSE relay mode (`scripts/http-relay-server.mjs`) for multi-user chat without npm packages.
-- [done] Added transport adapter mode scaffold with XMPP settings persistence + status plumbing (runtime connector still pending).
+- [done] Added transport adapter modes with experimental XMPP connector (Strophe load + connect/auth + MUC room join/send/receive).
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior
@@ -267,3 +267,4 @@ https://discord.js.org/docs/packages/discord.js/main
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.
 - Ideally also same for Matrix
 - IRC?
+- chesspark used XMPP for chess... investigate about that and maybe we can offer something like it too, lol
