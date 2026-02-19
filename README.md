@@ -5,17 +5,19 @@ A lightweight Discord-style chat client prototype with local persistence.
 ![shitcord67 UI screenshot](Screenshot.png)
 
 ## Run (Linux)
-1. Open `index.html` in a browser.
-2. Optional local server:
-   - `python3 -m http.server 8080`
-   - open `http://localhost:8080`
-3. One-command launcher (auto-cleans child processes on exit/termination):
+1. Install dependencies once:
+   - `npm install`
+2. Start client + optional XMPP auth gateway with lifecycle cleanup:
    - `npm run dev:stack`
-   - starts `http://127.0.0.1:8080`
-   - in `auto` mode, also starts XMPP gateway when `.xmpp.local.json` exists
-   - force gateway on/off:
-     - `npm run dev:stack -- --with-gateway`
-     - `npm run dev:stack -- --no-gateway`
+   - runs `scripts/run-client-stack.sh`
+   - starts client at `http://127.0.0.1:8080`
+   - in `auto` mode, starts gateway at `http://127.0.0.1:8790` when `.xmpp.local.json` exists
+   - child processes started by the script are terminated on `Ctrl+C`/`TERM`/script exit
+3. Override gateway mode when needed:
+   - `npm run dev:stack -- --with-gateway`
+   - `npm run dev:stack -- --no-gateway`
+4. Direct script usage (same behavior):
+   - `scripts/run-client-stack.sh --help`
 
 ## Implemented
 - Login by username (creates/switches local accounts).
@@ -40,7 +42,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Quick channel filter input in the sidebar.
 - Discord-like media picker panel in the composer (tabs: GIFs, Stickers, Emojis, SWFs, SVGs, PDFs, Text, Docs, HTML).
 - Click-to-send media attachments from picker (GIF/sticker/SVG/SWF), including local SWF index support via `swf-index.json`.
-- GIF video attachments autoplay/loop in chat.
+- Video attachments render inline with native controls and open-in-tab fallback.
 - Sticker picker supports image stickers plus `.apng` and `.lottie` resources.
 - Ruffle and dotLottie runtimes are auto-loaded by the app (no manual user install flow).
 - Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.
@@ -231,6 +233,10 @@ A lightweight Discord-style chat client prototype with local persistence.
 - XMPP DM threads now use direct `chat` stanzas to peer JIDs (not only MUC mapping), so one-to-one messaging works for JID-backed DM contacts.
 - XMPP roster push updates (`iq type='set'` roster) now apply live and update mapped DM contacts without reconnecting.
 - Joined/seen XMPP MUC rooms now auto-materialize as channels under `XMPP Spaces`, so room traffic does not fall back into the wrong active channel.
+- XMPP room joins now request room history via MAM (`urn:xmpp:mam:2`) so recent backlog appears after connect/join.
+- XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
+- XMPP presence updates now refresh mapped account status/avatar (vCard fetch) for DMs and visible MUC occupants.
+- XMPP OOB/reference URLs and inline media links now map into richer inline embeds (including images and video).
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
 - Candidate probing now also includes common `/ws` + trailing-slash variants and `:5281` defaults, and gateway auth/register attempts can follow HTTP redirect hops before opening the WebSocket.
 - Bookmarks sync now tries modern pubsub bookmarks (`urn:xmpp:bookmarks:1`, XEP-0402) before legacy private XML storage (`storage:bookmarks`).
