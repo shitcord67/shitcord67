@@ -1,5 +1,10 @@
 # shitcord67 TODO
 
+## Maintainer directives (persistent)
+- Future LLM instances are allowed to add/update this TODO as they implement features.
+- Future LLM instances are allowed to commit local changes in coherent batches without extra confirmation.
+- Prefer continuing implementation momentum with minimal user interaction unless blocked.
+
 ## Done (basic MVP)
 - Username login.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
@@ -268,3 +273,5 @@ https://discord.js.org/docs/packages/discord.js/main
 - Ideally also same for Matrix
 - IRC?
 - chesspark used XMPP for chess... investigate about that and maybe we can offer something like it too, lol
+- Make shitcord67 functionality use more XMPP XEPs (https://xmpp.org/extensions/)
+- Custom (hopefully not spammy) XMPP events/messages/extension in case existing XEPs don't cover stuff other users should see (e.g. maybe the user-defined nametags that use SVG and SMIL?)
