@@ -13632,6 +13632,8 @@ function looksLikeCompleteJid(jid) {
   if (!local || !domain.includes(".") || domain.startsWith(".") || domain.endsWith(".")) return false;
   const labels = domain.split(".").filter(Boolean);
   if (labels.length < 2) return false;
+  const tld = labels[labels.length - 1] || "";
+  if (tld.length < 2) return false;
   return labels.every((label) => /^[a-z0-9-]+$/i.test(label) && label.length > 0);
 }
 
@@ -14166,10 +14168,20 @@ ui.loginForm.addEventListener("submit", async (event) => {
 ui.loginUsername?.addEventListener("input", () => {
   const raw = (ui.loginUsername.value || "").trim();
   if (!looksLikeCompleteJid(raw)) return;
-  if (ui.loginXmppServer && !ui.loginXmppServer.value.trim()) {
+  if (ui.loginXmppServer && (!ui.loginXmppServer.value.trim() || ui.loginXmppServer.dataset.autofill === "1")) {
     const inferred = inferXmppWsUrlFromJid(raw);
-    if (inferred) ui.loginXmppServer.value = inferred;
+    if (inferred) {
+      ui.loginXmppServer.value = inferred;
+      ui.loginXmppServer.dataset.autofill = "1";
+    }
   }
+});
+
+ui.loginXmppServer?.addEventListener("input", () => {
+  if (!ui.loginXmppServer) return;
+  const normalized = normalizeXmppWsUrl(ui.loginXmppServer.value || "");
+  const inferred = inferXmppWsUrlFromJid(ui.loginUsername?.value || "");
+  ui.loginXmppServer.dataset.autofill = normalized && inferred && normalized === inferred ? "1" : "0";
 });
 
 ui.loginProvidersBtn?.addEventListener("click", () => {
