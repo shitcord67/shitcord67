@@ -11,6 +11,7 @@
 - [done] Login-time XMPP auth validation gate (fails closed: stays on login page when auth/connect fails).
 - [done] XMPP roster sync now auto-creates DM contacts/threads from account contact list.
 - [done] XMPP bookmarks/groups now map into an `XMPP Spaces` guild/channel surface.
+- [done] Login can optionally prefill from `.xmpp.local.json` via a local profile dropdown when the file is web-accessible.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
 - Profile image upload with validation and preview.
@@ -279,3 +280,4 @@ https://discord.js.org/docs/packages/discord.js/main
 - chesspark used XMPP for chess... investigate about that and maybe we can offer something like it too, lol
 - Make shitcord67 functionality use more XMPP XEPs (https://xmpp.org/extensions/)
 - Custom (hopefully not spammy) XMPP events/messages/extension in case existing XEPs don't cover stuff other users should see (e.g. maybe the user-defined nametags that use SVG and SMIL?)
+(https://stackoverflow.com/questions/15622109/xmpp-jabber-for-custom-messages-i-need-to-modify-the-client-or-the-server)

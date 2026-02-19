@@ -879,6 +879,8 @@ let findSelectionIndex = 0;
 let cosmeticsTab = "decor";
 let pinsSearchTerm = "";
 let pinsSortMode = "latest";
+let loginLocalXmppProfiles = [];
+let loginLocalXmppProfilesLoadedOnce = false;
 let relaySocket = null;
 let relayEventSource = null;
 let xmppConnection = null;
@@ -905,6 +907,8 @@ const ui = {
   loginScreen: document.getElementById("loginScreen"),
   chatScreen: document.getElementById("chatScreen"),
   loginForm: document.getElementById("loginForm"),
+  loginLocalProfileWrap: document.getElementById("loginLocalProfileWrap"),
+  loginLocalProfileSelect: document.getElementById("loginLocalProfileSelect"),
   loginUsername: document.getElementById("loginUsername"),
   loginPassword: document.getElementById("loginPassword"),
   loginXmppServer: document.getElementById("loginXmppServer"),
@@ -10356,7 +10360,13 @@ function renderScreens() {
   const loggedIn = Boolean(state.currentAccountId);
   ui.loginScreen.classList.toggle("screen--active", !loggedIn);
   ui.chatScreen.classList.toggle("screen--active", loggedIn);
-  if (!loggedIn) syncLoginFieldsFromSessionPrefs();
+  if (!loggedIn) {
+    syncLoginFieldsFromSessionPrefs();
+    if (!loginLocalXmppProfilesLoadedOnce) {
+      loginLocalXmppProfilesLoadedOnce = true;
+      void loadLocalXmppProfiles();
+    }
+  }
   if (!loggedIn && ui.settingsScreen.classList.contains("settings-screen--active")) {
     closeSettingsScreen();
   }
@@ -14063,6 +14073,94 @@ function syncLoginFieldsFromSessionPrefs() {
   }
 }
 
+function normalizeLocalXmppProfiles(raw) {
+  const entries = [];
+  if (raw?.account && typeof raw.account === "object") entries.push(raw.account);
+  if (Array.isArray(raw?.accounts)) entries.push(...raw.accounts);
+  const out = [];
+  entries.forEach((entry, index) => {
+    if (!entry || typeof entry !== "object") return;
+    const jid = normalizeXmppJid(entry.jid || entry.username || "");
+    if (!jid) return;
+    const ws = normalizeXmppWsUrl(entry.service || entry.ws || entry.xmppWsUrl || "");
+    const password = normalizeXmppPassword(entry.password || "");
+    const label = (entry.label || entry.name || jid).toString().slice(0, 80);
+    out.push({
+      id: `${index}:${jid}`,
+      label,
+      jid,
+      password,
+      ws
+    });
+  });
+  const seen = new Set();
+  return out.filter((entry) => {
+    const key = entry.jid.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function renderLocalXmppProfileSelect() {
+  if (!ui.loginLocalProfileWrap || !ui.loginLocalProfileSelect) return;
+  ui.loginLocalProfileSelect.innerHTML = "";
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select profile from .xmpp.local.json";
+  ui.loginLocalProfileSelect.appendChild(defaultOption);
+  if (!Array.isArray(loginLocalXmppProfiles) || loginLocalXmppProfiles.length === 0) {
+    ui.loginLocalProfileWrap.hidden = true;
+    return;
+  }
+  loginLocalXmppProfiles.forEach((profile) => {
+    const option = document.createElement("option");
+    option.value = profile.id;
+    option.textContent = profile.label;
+    ui.loginLocalProfileSelect.appendChild(option);
+  });
+  ui.loginLocalProfileWrap.hidden = false;
+}
+
+function applyLocalXmppProfileById(profileId) {
+  if (!profileId) return false;
+  const profile = loginLocalXmppProfiles.find((entry) => entry.id === profileId);
+  if (!profile) return false;
+  if (ui.loginUsername) ui.loginUsername.value = profile.jid;
+  if (ui.loginPassword) ui.loginPassword.value = profile.password || "";
+  if (ui.loginXmppServer && profile.ws) {
+    ui.loginXmppServer.value = profile.ws;
+    ui.loginXmppServer.dataset.autofill = "0";
+  }
+  return true;
+}
+
+async function loadLocalXmppProfiles() {
+  const candidates = [".xmpp.local.json", "./.xmpp.local.json"];
+  for (const path of candidates) {
+    try {
+      // Try to load local secret profiles if static server exposes dotfiles.
+      // Hidden when unavailable.
+      // eslint-disable-next-line no-await-in-loop
+      const response = await fetch(path, { cache: "no-store" });
+      if (!response.ok) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const json = await response.json();
+      const parsed = normalizeLocalXmppProfiles(json);
+      if (parsed.length > 0) {
+        loginLocalXmppProfiles = parsed;
+        renderLocalXmppProfileSelect();
+        return true;
+      }
+    } catch {
+      // Try next fetch path variant.
+    }
+  }
+  loginLocalXmppProfiles = [];
+  renderLocalXmppProfileSelect();
+  return false;
+}
+
 function createOrSwitchAccount(usernameInput, options = {}) {
   const normalized = normalizeUsername(usernameInput);
   if (!normalized) return false;
@@ -14190,6 +14288,14 @@ ui.loginUsername?.addEventListener("input", () => {
       ui.loginXmppServer.dataset.autofill = "1";
     }
   }
+});
+
+ui.loginLocalProfileSelect?.addEventListener("change", () => {
+  const selectedId = (ui.loginLocalProfileSelect?.value || "").toString();
+  if (!selectedId) return;
+  const applied = applyLocalXmppProfileById(selectedId);
+  if (!applied) return;
+  ui.loginUsername?.focus();
 });
 
 ui.loginXmppServer?.addEventListener("input", () => {
