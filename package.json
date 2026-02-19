@@ -5,6 +5,7 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:stack": "bash scripts/run-client-stack.sh",
     "sync:xmpp-runtime": "node scripts/sync-strophe-runtime.mjs",
     "xmpp:auth-gateway": "node scripts/xmpp-auth-gateway.mjs",
     "postinstall": "node scripts/sync-strophe-runtime.mjs"
