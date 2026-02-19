@@ -217,6 +217,10 @@
 - [done] Channel permission overrides per role (`view`, `send`, `reactions`, `create threads/posts`) with enforcement in channel rendering/composer/reactions.
 - [done] Added voice/stage channel shells with join/leave controls, stage raise-hand/speaker states, and connected-member sidebar behavior.
 - [done] Added stage moderation controls (approve/dismiss raised hands, promote/demote speakers, mute/unmute, disconnect participant).
+- [done] Added dedicated `stageModeration` role permission with backward-compatible migration.
+- [done] Added voice/stage slash command suite (`/vc`, `/voicewho`, `/hand`, `/speaker`, `/stage`) for quick moderation and self controls.
+- [done] Added live voice/stage activity feed and channel-list occupancy badges.
+- [done] Added `Alt+V` shortcut for fast join/leave in active voice/stage channel.
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior

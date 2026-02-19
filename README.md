@@ -168,6 +168,11 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Channel type expansion includes `voice` and `stage` channels with dedicated control surfaces.
 - Voice/stage channels support join/leave state, self mute/unmute, stage hand-raise, and stage speaker toggles.
 - Stage channels now include moderator controls for raised-hand queue, speaker promotion/demotion, mute toggles, and participant disconnect.
+- Added dedicated `stageModeration` role permission with migration compatibility for older role data.
+- Voice/stage surfaces now include a rolling live-activity feed (join/leave/mute/hand/speaker/moderation events).
+- Added voice/stage control slash commands: `/vc`, `/voicewho`, `/hand`, `/speaker`, and `/stage`.
+- Channel sidebar now shows live occupancy badges for voice/stage channels (stage includes speaker/queue summary).
+- Added `Alt+V` hotkey to quickly join/leave the active voice or stage channel.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).
@@ -206,6 +211,12 @@ A lightweight Discord-style chat client prototype with local persistence.
 - `app.js`: state, rendering, actions, persistence.
 - `TODO`: roadmap for XMPP/Matrix and advanced features.
 - `swf-index.json`: searchable local SWF catalog for the picker.
+
+## Design Research Notes
+- Investigated Discord-adjacent client repositories for interaction and layout references:
+  - `https://github.com/Vencord/Vesktop`
+  - `https://github.com/fluxerapp/fluxer`
+- This project keeps naming and feature phrasing independent from those repositories.
 
 ## Debugging
 - Open browser DevTools and inspect `localStorage` key `shitcord67-state-v1`.
