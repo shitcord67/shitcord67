@@ -278,6 +278,8 @@ XMPP mode (experimental):
 - If browser login shows `AUTHFAIL` but Node-based auth works, run local fallback gateway:
   - `npm run xmpp:auth-gateway`
   - Login validator can auto-try `http://localhost:8790/auth-check` (or gateway-first for known provider quirks).
+  - Host-meta discovery now also calls `http://localhost:8790/discover` first, which avoids browser CORS blocks on providers that do not expose `Access-Control-Allow-Origin` for `/.well-known/host-meta*`.
+  - If you pulled new code while an old gateway process was still running, restart it so `/discover` is available.
   - In-client registration uses `http://localhost:8790/register`.
   - This is intended for local web + Electron compatibility where browser auth stacks can differ.
 - For `xmpp.jp`, relay auth now uses a PLAIN-only SASL workaround in Strophe due SCRAM challenge incompatibility (`Response decoding failed`) seen with this runtime build.

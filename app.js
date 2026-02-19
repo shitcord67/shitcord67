@@ -13,6 +13,7 @@ const XMPP_DEBUG_EVENT_LIMIT = 600;
 const XMPP_DEBUG_RAW_TRUNCATE = 1800;
 const XMPP_HOST_META_TIMEOUT_MS = 3600;
 const XMPP_LOCAL_AUTH_GATEWAY_URL = "http://localhost:8790";
+const XMPP_ENABLE_BROWSER_HOST_META_FALLBACK = false;
 const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_PROVIDER_CATALOG = [
   {
@@ -13948,6 +13949,49 @@ async function discoverXmppWsViaHostMeta(jid, { force = false, timeoutMs = XMPP_
   const cacheEntry = xmppWsDiscoveryCache.get(cacheKey);
   const now = Date.now();
   if (!force && cacheEntry && (now - cacheEntry.ts) < (15 * 60 * 1000)) return cacheEntry.urls.slice();
+  try {
+    const gatewayResponse = await fetch(`${XMPP_LOCAL_AUTH_GATEWAY_URL}/discover`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jid: cleanJid,
+        timeoutMs: Math.max(2000, Math.min(9000, Number(timeoutMs) || XMPP_HOST_META_TIMEOUT_MS))
+      })
+    });
+    if (gatewayResponse.ok) {
+      const payload = await gatewayResponse.json().catch(() => ({}));
+      const urls = Array.isArray(payload?.urls)
+        ? payload.urls.map((entry) => normalizeXmppWsUrl(entry)).filter(Boolean)
+        : [];
+      xmppWsDiscoveryCache.set(cacheKey, { ts: now, urls: urls.slice(0, 8) });
+      addXmppDebugEvent("runtime", "Host-meta discovery via local gateway", {
+        domain,
+        found: urls.length,
+        source: `${XMPP_LOCAL_AUTH_GATEWAY_URL}/discover`
+      });
+      if (urls.length === 0) {
+        addXmppDebugEvent("runtime", "No WebSocket endpoints found in host-meta (gateway)", { domain });
+      }
+      return urls.slice(0, 8);
+    }
+    addXmppDebugEvent("runtime", "Local gateway discovery returned non-OK status", {
+      domain,
+      status: gatewayResponse.status
+    });
+    if (!XMPP_ENABLE_BROWSER_HOST_META_FALLBACK) {
+      addXmppDebugEvent("runtime", "Skipping browser host-meta fetch to avoid CORS noise", { domain });
+      return [];
+    }
+  } catch (error) {
+    addXmppDebugEvent("runtime", "Local gateway discovery unavailable; falling back to browser fetch", {
+      domain,
+      error: String(error?.message || error)
+    });
+    if (!XMPP_ENABLE_BROWSER_HOST_META_FALLBACK) {
+      addXmppDebugEvent("runtime", "Browser host-meta fallback disabled", { domain });
+      return [];
+    }
+  }
   const endpoints = [];
   const sources = [
     `https://${domain}/.well-known/host-meta.json`,
@@ -14042,10 +14086,13 @@ async function validateXmppViaLocalGateway({ jid, password, candidates, timeoutM
       error: (payload?.error || "").toString().slice(0, 160),
       failures: Array.isArray(payload?.failures) ? payload.failures.slice(0, 4) : []
     });
+    const failures = Array.isArray(payload?.failures) ? payload.failures.slice(0, 6) : [];
+    const noWsHint = classifyNoWebsocketEndpointHint(failures);
     return {
       ok: false,
       error: [
         (payload?.error || "Local gateway rejected login.").toString(),
+        noWsHint.trim(),
         Array.isArray(payload?.failures) && payload.failures.length > 0
           ? `Details: ${payload.failures.map((entry) => `${entry.wsUrl || "?"} ${entry.reason || "connect"}${entry.error ? ` (${entry.error})` : ""}`).join("; ")}`
           : ""
@@ -14119,7 +14166,10 @@ async function registerXmppViaLocalGateway({ jid, password, wsUrl = "", timeoutM
     return {
       ok: Boolean(payload?.ok),
       wsUrl: normalizeXmppWsUrl(payload?.wsUrl || "") || candidates[0] || "",
-      error: (payload?.error || "").toString().slice(0, 420),
+      error: [
+        (payload?.error || "").toString(),
+        classifyNoWebsocketEndpointHint(Array.isArray(payload?.failures) ? payload.failures : []).trim()
+      ].filter(Boolean).join(" ").slice(0, 420),
       failures: Array.isArray(payload?.failures) ? payload.failures.slice(0, 5) : []
     };
   } catch (error) {
@@ -14129,6 +14179,22 @@ async function registerXmppViaLocalGateway({ jid, password, wsUrl = "", timeoutM
       error: `Registration gateway unavailable at ${XMPP_LOCAL_AUTH_GATEWAY_URL}: ${String(error?.message || error)}`
     };
   }
+}
+
+function classifyNoWebsocketEndpointHint(failures = []) {
+  const list = Array.isArray(failures) ? failures : [];
+  if (list.length === 0) return "";
+  const connectOnly = list.every((entry) => (entry?.reason || "connect") === "connect");
+  if (!connectOnly) return "";
+  const signals = list.map((entry) => (entry?.error || "").toString().toLowerCase());
+  const hasRedirect = signals.some((text) => text.includes("unexpected server response: 301") || text.includes("unexpected server response: 302"));
+  const hasNotFound = signals.some((text) => text.includes("unexpected server response: 404"));
+  const hasDns = signals.some((text) => text.includes("enotfound"));
+  const hasTimeout = signals.some((text) => text.includes("timeout"));
+  if (hasRedirect || hasNotFound || hasDns || hasTimeout) {
+    return " Provider likely does not expose a usable XMPP WebSocket endpoint for browser clients.";
+  }
+  return "";
 }
 
 function looksLikeCompleteJid(jid) {
