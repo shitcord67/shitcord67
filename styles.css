@@ -1948,6 +1948,14 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   font-size: 0.72rem;
 }
 
+.composer-typing-note {
+  color: #9fb0ff;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .composer-char-count {
   margin-left: auto;
   color: #939ba7;

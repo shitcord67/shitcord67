@@ -6,6 +6,8 @@ const RELAY_STATUS_LABELS = {
   connected: "Connected",
   error: "Error"
 };
+const RELAY_TYPING_TTL_MS = 6500;
+const RELAY_TYPING_THROTTLE_MS = 2200;
 const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
@@ -847,6 +849,13 @@ let relayJoinedRoom = "";
 let relayManualDisconnect = false;
 let relayReconnectTimer = null;
 const relaySeenMessageIds = new Set();
+const relayTypingByRoom = new Map();
+let relayTypingSweepTimer = null;
+const relayLocalTypingState = {
+  room: "",
+  active: false,
+  lastSentAt: 0
+};
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -899,6 +908,7 @@ const ui = {
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
   composerSystemNotice: document.getElementById("composerSystemNotice"),
+  composerTypingNote: document.getElementById("composerTypingNote"),
   composerCharCount: document.getElementById("composerCharCount"),
   slashCommandPopup: document.getElementById("slashCommandPopup"),
   suggestionHint: document.getElementById("suggestionHint"),
@@ -3125,6 +3135,193 @@ function relayRoomForActiveConversation() {
   return "lobby:general";
 }
 
+function clearRelayTypingState() {
+  relayTypingByRoom.clear();
+  if (relayTypingSweepTimer) {
+    clearTimeout(relayTypingSweepTimer);
+    relayTypingSweepTimer = null;
+  }
+  if (relayLocalTypingState.active || relayLocalTypingState.room) {
+    relayLocalTypingState.active = false;
+    relayLocalTypingState.room = "";
+    relayLocalTypingState.lastSentAt = 0;
+  }
+}
+
+function scheduleRelayTypingSweep() {
+  if (relayTypingSweepTimer) {
+    clearTimeout(relayTypingSweepTimer);
+    relayTypingSweepTimer = null;
+  }
+  const now = Date.now();
+  let nextExpiry = Infinity;
+  relayTypingByRoom.forEach((entries, room) => {
+    entries.forEach((meta, clientId) => {
+      if (!meta || !Number.isFinite(meta.expiresAt) || meta.expiresAt <= now) {
+        entries.delete(clientId);
+        return;
+      }
+      if (meta.expiresAt < nextExpiry) nextExpiry = meta.expiresAt;
+    });
+    if (entries.size === 0) relayTypingByRoom.delete(room);
+  });
+  if (nextExpiry !== Infinity) {
+    relayTypingSweepTimer = setTimeout(() => {
+      relayTypingSweepTimer = null;
+      scheduleRelayTypingSweep();
+      renderComposerMeta();
+    }, Math.max(100, nextExpiry - now + 20));
+  }
+}
+
+function clearRelayTypingForClient(room, clientId) {
+  if (!room || !clientId) return;
+  const entries = relayTypingByRoom.get(room);
+  if (!entries) return;
+  entries.delete(clientId);
+  if (entries.size === 0) relayTypingByRoom.delete(room);
+  scheduleRelayTypingSweep();
+}
+
+function applyRelayIncomingTyping(packet) {
+  const current = getCurrentAccount();
+  if (!current || !packet || typeof packet !== "object") return;
+  const remoteClientId = (packet.clientId || "").toString();
+  if (!remoteClientId || remoteClientId === relayClientId()) return;
+  const room = (packet.room || "").toString();
+  if (!room) return;
+  const typing = packet.typing && typeof packet.typing === "object" ? packet.typing : {};
+  const stateText = (typing.state || "").toString().toLowerCase();
+  const isTyping = !["paused", "inactive", "gone", "stopped", "false", "0"].includes(stateText) && typing.active !== false;
+  if (!isTyping) {
+    clearRelayTypingForClient(room, remoteClientId);
+    renderComposerMeta();
+    return;
+  }
+  const mine = normalizeUsername(current.username || "");
+  const authorUsername = normalizeUsername(typing.authorUsername || packet.username || `relay_${remoteClientId.slice(0, 6)}`) || `relay_${remoteClientId.slice(0, 6)}`;
+  if (mine && mine === authorUsername) return;
+  const authorDisplay = (typing.authorDisplay || typing.authorUsername || packet.username || authorUsername).toString().slice(0, 32);
+  let entries = relayTypingByRoom.get(room);
+  if (!entries) {
+    entries = new Map();
+    relayTypingByRoom.set(room, entries);
+  }
+  entries.set(remoteClientId, {
+    username: authorUsername,
+    display: authorDisplay,
+    expiresAt: Date.now() + RELAY_TYPING_TTL_MS
+  });
+  scheduleRelayTypingSweep();
+  renderComposerMeta();
+}
+
+function typingNamesForRoom(room) {
+  if (!room) return [];
+  const entries = relayTypingByRoom.get(room);
+  if (!entries) return [];
+  const now = Date.now();
+  const names = [];
+  entries.forEach((meta, clientId) => {
+    if (!meta || !Number.isFinite(meta.expiresAt) || meta.expiresAt <= now) {
+      entries.delete(clientId);
+      return;
+    }
+    const label = (meta.display || meta.username || "").toString().trim().slice(0, 32);
+    if (label) names.push(label);
+  });
+  if (entries.size === 0) relayTypingByRoom.delete(room);
+  return [...new Set(names)].slice(0, 4);
+}
+
+function formatTypingSummary(names) {
+  if (!Array.isArray(names) || names.length === 0) return "";
+  if (names.length === 1) return `${names[0]} is typing...`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing...`;
+  if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]} are typing...`;
+  return `${names[0]}, ${names[1]}, and ${names.length - 2} others are typing...`;
+}
+
+function publishRelayTypingState(active, { force = false, room: roomOverride = "" } = {}) {
+  const prefs = getPreferences();
+  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
+  const current = getCurrentAccount();
+  if (!current) return false;
+  const room = roomOverride || relayRoomForActiveConversation();
+  if (!room) return false;
+  const now = Date.now();
+  if (!force && active && relayLocalTypingState.active && relayLocalTypingState.room === room && (now - relayLocalTypingState.lastSentAt) < RELAY_TYPING_THROTTLE_MS) {
+    return true;
+  }
+  if (!force && !active && !relayLocalTypingState.active && relayLocalTypingState.room === room) return true;
+  const typingPayload = {
+    state: active ? "composing" : "paused",
+    active: Boolean(active),
+    ts: new Date().toISOString(),
+    authorUsername: current.username,
+    authorDisplay: current.displayName || current.username
+  };
+  if (prefs.relayMode === "xmpp") {
+    if (!xmppConnection) return false;
+    const roomJid = xmppRoomJidForToken(room, prefs);
+    if (!roomJid) return false;
+    joinXmppRoom(room, current);
+    const stateNode = active ? "composing" : "paused";
+    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c(stateNode, { xmlns: "http://jabber.org/protocol/chatstates" });
+    xmppConnection.send(stanza);
+    relayLocalTypingState.active = Boolean(active);
+    relayLocalTypingState.room = room;
+    relayLocalTypingState.lastSentAt = now;
+    return true;
+  }
+  if (prefs.relayMode === "http") {
+    const endpoint = new URL(normalizeRelayUrl(prefs.relayUrl).replace(/^ws:/i, "http:").replace(/^wss:/i, "https:"));
+    endpoint.pathname = "/chat";
+    fetch(endpoint.toString(), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "typing",
+        room,
+        clientId: relayClientId(),
+        username: current.username,
+        typing: typingPayload
+      })
+    }).catch(() => {
+      setRelayStatus("error", "HTTP relay typing failed");
+    });
+    relayLocalTypingState.active = Boolean(active);
+    relayLocalTypingState.room = room;
+    relayLocalTypingState.lastSentAt = now;
+    return true;
+  }
+  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
+  if (relayJoinedRoom !== room) joinRelayRoom(room);
+  const ok = sendRelayPacket({
+    type: "typing",
+    room,
+    clientId: relayClientId(),
+    username: current.username,
+    typing: typingPayload
+  });
+  if (ok) {
+    relayLocalTypingState.active = Boolean(active);
+    relayLocalTypingState.room = room;
+    relayLocalTypingState.lastSentAt = now;
+  }
+  return ok;
+}
+
+function updateComposerTypingPublish() {
+  const text = (ui.messageInput?.value || "").toString();
+  const hasContent = text.trim().length > 0;
+  if (!hasContent) {
+    publishRelayTypingState(false);
+    return;
+  }
+  publishRelayTypingState(true);
+}
+
 function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
   const mucService = resolveXmppMucService(prefs);
   if (!mucService) return "";
@@ -3261,6 +3458,9 @@ function scheduleRelayReconnect() {
 }
 
 function disconnectRelaySocket({ manual = true } = {}) {
+  if (relayLocalTypingState.active && relayLocalTypingState.room) {
+    publishRelayTypingState(false, { force: true, room: relayLocalTypingState.room });
+  }
   relayManualDisconnect = manual;
   clearRelayReconnectTimer();
   relayJoinedRoom = "";
@@ -3281,6 +3481,7 @@ function disconnectRelaySocket({ manual = true } = {}) {
   }
   relaySocket = null;
   teardownXmppConnection();
+  clearRelayTypingState();
   setRelayStatus("disconnected");
 }
 
@@ -3298,6 +3499,7 @@ function applyRelayIncomingMessage(packet) {
   const remoteClientId = (packet.clientId || "").toString();
   if (!remoteClientId || remoteClientId === relayClientId()) return;
   const room = (packet.room || "").toString();
+  clearRelayTypingForClient(room, remoteClientId);
   const remoteMessage = packet.message;
   if (!remoteMessage || typeof remoteMessage !== "object") return;
   if (remoteClientId.startsWith("xmpp:")) {
@@ -3388,13 +3590,32 @@ function connectRelaySocket({ force = false } = {}) {
           const from = stanza.getAttribute("from") || "";
           const type = stanza.getAttribute("type") || "";
           if (type && !["groupchat", "chat", "normal", ""].includes(type)) return true;
+          const roomJid = from.split("/")[0] || "";
+          const nick = from.split("/")[1] || "";
+          const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
+          const hasComposing = stanza.getElementsByTagName("composing").length > 0;
+          const hasPaused = stanza.getElementsByTagName("paused").length > 0;
+          const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
+          const hasGone = stanza.getElementsByTagName("gone").length > 0;
+          const hasActive = stanza.getElementsByTagName("active").length > 0;
+          if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
+            applyRelayIncomingTyping({
+              type: "typing",
+              room: roomToken,
+              clientId: `xmpp:${from}`,
+              username: nick || roomJid.split("@")[0] || "xmpp",
+              typing: {
+                state: hasComposing ? "composing" : "paused",
+                active: hasComposing,
+                authorUsername: nick || roomJid.split("@")[0] || "xmpp",
+                authorDisplay: nick || ""
+              }
+            });
+          }
           const bodyNode = stanza.getElementsByTagName("body")[0];
           if (!bodyNode) return true;
           const text = globalThis.Strophe.getText(bodyNode) || "";
           if (!text.trim()) return true;
-          const roomJid = from.split("/")[0] || "";
-          const nick = from.split("/")[1] || "";
-          const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
           applyRelayIncomingMessage({
             type: "chat",
             room: roomToken,
@@ -3483,6 +3704,7 @@ function connectRelaySocket({ force = false } = {}) {
       }
       if (!data || typeof data !== "object") return;
       if (data.type === "chat") applyRelayIncomingMessage(data);
+      if (data.type === "typing") applyRelayIncomingTyping(data);
     });
     relayEventSource.addEventListener("error", () => {
       if (relayManualDisconnect) return;
@@ -3523,6 +3745,7 @@ function connectRelaySocket({ force = false } = {}) {
     }
     if (!data || typeof data !== "object") return;
     if (data.type === "chat") applyRelayIncomingMessage(data);
+    if (data.type === "typing") applyRelayIncomingTyping(data);
     if (data.type === "joined" && data.room) relayJoinedRoom = data.room.toString();
   });
   relaySocket.addEventListener("error", () => {
@@ -3543,9 +3766,12 @@ function connectRelaySocket({ force = false } = {}) {
 function syncRelayRoomForActiveConversation() {
   const prefs = getPreferences();
   if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return;
+  const nextRoom = relayRoomForActiveConversation();
+  if (relayLocalTypingState.active && relayLocalTypingState.room && relayLocalTypingState.room !== nextRoom) {
+    publishRelayTypingState(false, { force: true, room: relayLocalTypingState.room });
+  }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return;
-    const nextRoom = relayRoomForActiveConversation();
     if (!nextRoom || nextRoom === relayJoinedRoom) return;
     const ok = joinXmppRoom(nextRoom, getCurrentAccount());
     if (!ok) return;
@@ -3553,13 +3779,11 @@ function syncRelayRoomForActiveConversation() {
     return;
   }
   if (prefs.relayMode === "http") {
-    const nextRoom = relayRoomForActiveConversation();
     if (!nextRoom || nextRoom === relayJoinedRoom) return;
     joinRelayRoom(nextRoom);
     return;
   }
   if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return;
-  const nextRoom = relayRoomForActiveConversation();
   if (!nextRoom || nextRoom === relayJoinedRoom) return;
   joinRelayRoom(nextRoom);
 }
@@ -7170,6 +7394,12 @@ function renderComposerMeta() {
   if (!(submitBtn instanceof HTMLButtonElement)) return;
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
+  const room = relayRoomForActiveConversation();
+  const typingSummary = formatTypingSummary(typingNamesForRoom(room));
+  if (ui.composerTypingNote) {
+    ui.composerTypingNote.textContent = typingSummary;
+    ui.composerTypingNote.hidden = !typingSummary;
+  }
   if (!conversation || !account) {
     submitBtn.disabled = true;
     if (ui.composerSystemNotice) ui.composerSystemNotice.hidden = true;
@@ -13339,6 +13569,7 @@ ui.loginForm.addEventListener("submit", (event) => {
 
 ui.messageForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  publishRelayTypingState(false, { force: true });
   const text = ui.messageInput.value.trim();
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
@@ -13763,7 +13994,12 @@ ui.messageInput.addEventListener("input", () => {
   slashSelectionIndex = 0;
   mentionSelectionIndex = 0;
   renderSlashSuggestions();
+  updateComposerTypingPublish();
   renderComposerMeta();
+});
+
+ui.messageInput.addEventListener("blur", () => {
+  publishRelayTypingState(false, { force: true });
 });
 
 ui.openMediaPickerBtn.addEventListener("click", () => {
