@@ -13632,8 +13632,6 @@ function looksLikeCompleteJid(jid) {
   if (!local || !domain.includes(".") || domain.startsWith(".") || domain.endsWith(".")) return false;
   const labels = domain.split(".").filter(Boolean);
   if (labels.length < 2) return false;
-  const tld = labels[labels.length - 1] || "";
-  if (tld.length < 2) return false;
   return labels.every((label) => /^[a-z0-9-]+$/i.test(label) && label.length > 0);
 }
 
