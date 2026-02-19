@@ -48,6 +48,11 @@ const SLASH_COMMANDS = [
   { name: "copyid", args: "", description: "Copy current channel/DM ID." },
   { name: "copytopic", args: "", description: "Copy current channel topic." },
   { name: "notify", args: "[status|all|mentions|mute]", description: "View or set current guild notification mode." },
+  { name: "schedule", args: "<when> | <text>", description: "Schedule a message for later (e.g. 10m, 2h, date)." },
+  { name: "scheduled", args: "", description: "List pending scheduled messages for this conversation." },
+  { name: "unschedule", args: "<id|last|all>", description: "Cancel scheduled message(s) for this conversation." },
+  { name: "forumtag", args: "<add|remove|list> ...", description: "Manage forum tags in this channel (manage channels)." },
+  { name: "tagthread", args: "<tag1,tag2...|clear>", description: "Assign tags to a forum thread root post." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -153,6 +158,16 @@ function sanitizeChannelName(value, fallback) {
   return cleaned || fallback;
 }
 
+function sanitizeForumTagName(value) {
+  return (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "")
+    .slice(0, 24);
+}
+
 function normalizeComposerDrafts(value) {
   if (!value || typeof value !== "object") return {};
   const entries = Object.entries(value)
@@ -206,11 +221,16 @@ function createRole(name, color, preset = "member") {
 
 function buildStarterChannels(template, accountId) {
   const readState = accountId ? { [accountId]: new Date().toISOString() } : {};
+  const defaultForumTags = [
+    { id: createId(), name: "question", color: "#5865f2" },
+    { id: createId(), name: "discussion", color: "#57f287" }
+  ];
   const mk = (name, type = "text", topic = "") => ({
     id: createId(),
     name,
     type,
     topic,
+    forumTags: type === "forum" ? defaultForumTags.map((entry) => ({ ...entry })) : [],
     readState: { ...readState },
     slowmodeSec: 0,
     slowmodeState: {},
@@ -261,6 +281,7 @@ function buildInitialState() {
             name: "general",
             type: "text",
             topic: "General discussion",
+            forumTags: [],
             readState: {},
             slowmodeSec: 0,
             slowmodeState: {},
@@ -288,6 +309,7 @@ function buildInitialState() {
     guildFolders: [],
     userNotes: {},
     composerDrafts: {},
+    scheduledMessages: [],
     savedSwfs: [],
     preferences: {
       uiScale: 100,
@@ -309,6 +331,7 @@ function buildInitialState() {
       forumCollapsedThreads: {},
       forumThreadReadState: {},
       forumThreadSort: {},
+      forumThreadTagFilter: {},
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],
       mediaLastTab: "gif",
@@ -392,23 +415,29 @@ function migrateState(raw) {
         roles,
         memberRoles,
         channels: Array.isArray(guild.channels)
-          ? guild.channels.map((channel) => ({
-              ...channel,
-              type: ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text",
-              topic: typeof channel.topic === "string" ? channel.topic : "",
-              readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
-              slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
-              slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
-              messages: Array.isArray(channel.messages)
-                ? channel.messages.map((message) => ({
-                    ...message,
-                    reactions: Array.isArray(message.reactions) ? message.reactions : [],
-                    pinned: Boolean(message.pinned),
-                    attachments: normalizeAttachments(message.attachments),
-                    poll: normalizePoll(message.poll)
-                  }))
-                : []
-            }))
+          ? guild.channels.map((channel) => {
+              const type = ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text";
+              const forumTags = type === "forum" ? normalizeForumTags(channel.forumTags) : [];
+              return {
+                ...channel,
+                type,
+                topic: typeof channel.topic === "string" ? channel.topic : "",
+                forumTags,
+                readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
+                slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
+                slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
+                messages: Array.isArray(channel.messages)
+                  ? channel.messages.map((message) => ({
+                      ...message,
+                      reactions: Array.isArray(message.reactions) ? message.reactions : [],
+                      pinned: Boolean(message.pinned),
+                      attachments: normalizeAttachments(message.attachments),
+                      poll: normalizePoll(message.poll),
+                      forumTagIds: normalizeThreadTagIds(message.forumTagIds, forumTags)
+                    }))
+                  : []
+              };
+            })
           : []
       };
     });
@@ -441,6 +470,7 @@ function migrateState(raw) {
       : [];
     raw.userNotes = raw.userNotes && typeof raw.userNotes === "object" ? { ...raw.userNotes } : {};
     raw.composerDrafts = normalizeComposerDrafts(raw.composerDrafts);
+    raw.scheduledMessages = normalizeScheduledMessages(raw.scheduledMessages);
     delete raw.servers;
     delete raw.activeServerId;
     return raw;
@@ -450,6 +480,7 @@ function migrateState(raw) {
   if (!raw || typeof raw !== "object") return migrated;
   migrated.savedSwfs = normalizeSavedSwfs(raw.savedSwfs);
   migrated.composerDrafts = normalizeComposerDrafts(raw.composerDrafts);
+  migrated.scheduledMessages = normalizeScheduledMessages(raw.scheduledMessages);
 
   const maybeUser = typeof raw.currentUser === "string" ? normalizeUsername(raw.currentUser) : "";
   let account = null;
@@ -487,11 +518,14 @@ function migrateState(raw) {
                   poll: normalizePoll(msg.poll)
                 }))
               : [];
+            const type = ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text";
+            const forumTags = type === "forum" ? normalizeForumTags(channel.forumTags) : [];
             return {
               id: channel.id || createId(),
               name: channel.name || "general",
-              type: ["text", "announcement", "forum", "media"].includes(channel.type) ? channel.type : "text",
+              type,
               topic: "",
+              forumTags,
               readState: typeof channel.readState === "object" && channel.readState ? { ...channel.readState } : {},
               slowmodeSec: Math.max(0, Number(channel.slowmodeSec || 0)) || 0,
               slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
@@ -503,6 +537,7 @@ function migrateState(raw) {
               id: createId(),
               name: "general",
               topic: "",
+              forumTags: [],
               readState: {},
               slowmodeSec: 0,
               slowmodeState: {},
@@ -622,6 +657,7 @@ let composerPendingAttachment = null;
 let composerDraftConversationId = null;
 let composerDraftSaveTimer = null;
 let composerMetaRefreshTimer = null;
+let scheduledDispatchTimer = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -1236,6 +1272,25 @@ function messageMentionsAccount(messageText, account) {
   return mentionPattern.test(messageText);
 }
 
+function messageRepliesToAccount(message, account) {
+  if (!message || !account || !message.replyTo) return false;
+  const replyText = (message.replyTo.authorName || "").toString().trim().toLowerCase();
+  if (replyText && replyText === account.username.toLowerCase()) return true;
+  if (!message.replyTo.messageId) return false;
+  const conversation = getActiveConversation();
+  const bucket = conversation?.type === "dm"
+    ? (conversation.thread?.messages || [])
+    : (conversation?.channel?.messages || []);
+  const target = bucket.find((entry) => entry.id === message.replyTo.messageId);
+  return Boolean(target?.userId && target.userId === account.id);
+}
+
+function isMessageHighlightedForAccount(message, account) {
+  if (!message || !account) return false;
+  if (message.userId && message.userId === account.id) return false;
+  return messageMentionsAccount(message.text, account) || messageRepliesToAccount(message, account);
+}
+
 function getChannelUnreadStats(channel, account) {
   if (!channel || !account) return { unread: 0, mentions: 0 };
   ensureChannelReadState(channel);
@@ -1401,11 +1456,13 @@ function moveChannelByOffset(guild, channelId, delta) {
 
 function duplicateChannelInGuild(guild, channel) {
   if (!guild || !channel) return null;
+  const forumTags = channel.type === "forum" ? forumTagsForChannel(channel).map((tag) => ({ ...tag })) : [];
   const clone = {
     id: createId(),
     name: sanitizeChannelName(`${channel.name || "channel"}-copy`, "channel-copy"),
     type: channel.type || "text",
     topic: (channel.topic || "").toString(),
+    forumTags,
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     slowmodeSec: normalizeSlowmodeSeconds(channel.slowmodeSec || 0),
     slowmodeState: {},
@@ -1679,6 +1736,7 @@ function ensureCurrentUserInActiveServer() {
     changed = true;
   }
   server.channels.forEach((channel) => {
+    channel.forumTags = channel.type === "forum" ? forumTagsForChannel(channel) : [];
     ensureChannelReadState(channel);
     const normalizedSlowmode = getChannelSlowmodeSeconds(channel);
     if (channel.slowmodeSec !== normalizedSlowmode) {
@@ -1887,6 +1945,16 @@ function normalizeForumThreadSortMap(value) {
   }, {});
 }
 
+function normalizeForumThreadTagFilterMap(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.entries(value).reduce((acc, [channelId, tagIds]) => {
+    if (!channelId || !Array.isArray(tagIds)) return acc;
+    const cleaned = [...new Set(tagIds.map((entry) => (entry || "").toString()).filter(Boolean))].slice(0, 8);
+    if (cleaned.length > 0) acc[channelId] = cleaned;
+    return acc;
+  }, {});
+}
+
 function normalizeMediaPrivacyMode(value) {
   return value === "off" ? "off" : "safe";
 }
@@ -1940,6 +2008,7 @@ function getPreferences() {
     forumCollapsedThreads: normalizeForumCollapsedThreadsMap(current.forumCollapsedThreads),
     forumThreadReadState: normalizeForumThreadReadStateMap(current.forumThreadReadState),
     forumThreadSort: normalizeForumThreadSortMap(current.forumThreadSort),
+    forumThreadTagFilter: normalizeForumThreadTagFilterMap(current.forumThreadTagFilter),
     mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
     mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
     mediaLastTab: normalizeMediaTab(current.mediaLastTab),
@@ -2030,6 +2099,48 @@ function setForumThreadSortMode(channelId, mode) {
     ...(state.preferences.forumThreadSort || {}),
     [channelId]: mode === "created" ? "created" : "latest"
   };
+}
+
+function getForumThreadTagFilter(channelId) {
+  if (!channelId) return [];
+  const prefs = getPreferences();
+  return Array.isArray(prefs.forumThreadTagFilter?.[channelId]) ? prefs.forumThreadTagFilter[channelId] : [];
+}
+
+function setForumThreadTagFilter(channelId, tagIds) {
+  if (!channelId) return;
+  state.preferences = getPreferences();
+  const current = state.preferences.forumThreadTagFilter || {};
+  const normalized = [...new Set((Array.isArray(tagIds) ? tagIds : []).map((id) => (id || "").toString()).filter(Boolean))].slice(0, 8);
+  if (normalized.length === 0) {
+    const next = { ...current };
+    delete next[channelId];
+    state.preferences.forumThreadTagFilter = next;
+    return;
+  }
+  state.preferences.forumThreadTagFilter = {
+    ...current,
+    [channelId]: normalized
+  };
+}
+
+function toggleForumThreadTagFilter(channelId, tagId) {
+  if (!channelId || !tagId) return;
+  const current = getForumThreadTagFilter(channelId);
+  const has = current.includes(tagId);
+  const next = has ? current.filter((entry) => entry !== tagId) : [...current, tagId];
+  setForumThreadTagFilter(channelId, next);
+}
+
+function forumTagsForChannel(channel) {
+  return normalizeForumTags(channel?.forumTags || []);
+}
+
+function resolveForumTagByName(channel, name) {
+  const normalizedName = sanitizeForumTagName(name);
+  if (!normalizedName) return null;
+  const tags = forumTagsForChannel(channel);
+  return tags.find((tag) => tag.name === normalizedName) || null;
 }
 
 function swfAutoplayFromPreferences() {
@@ -2459,6 +2570,65 @@ function normalizePoll(poll) {
     closed: Boolean(poll.closed),
     createdBy: (poll.createdBy || "").toString().slice(0, 64)
   };
+}
+
+function normalizeForumTags(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value
+    .map((tag) => {
+      const name = sanitizeForumTagName(tag?.name || "");
+      if (!name || seen.has(name)) return null;
+      seen.add(name);
+      const color = /^#[0-9a-f]{3,8}$/i.test((tag?.color || "").toString()) ? tag.color : "#5865f2";
+      return {
+        id: (tag?.id || createId()).toString().slice(0, 64),
+        name,
+        color
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 24);
+}
+
+function normalizeThreadTagIds(value, forumTags) {
+  if (!Array.isArray(value) || !Array.isArray(forumTags) || forumTags.length === 0) return [];
+  const valid = new Set(forumTags.map((tag) => tag.id));
+  return [...new Set(value.map((entry) => (entry || "").toString()).filter((id) => valid.has(id)))].slice(0, 8);
+}
+
+function normalizeScheduledMessages(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      const conversationType = entry?.conversationType === "dm" ? "dm" : "channel";
+      const conversationId = (entry?.conversationId || "").toString();
+      const authorId = (entry?.authorId || "").toString();
+      const text = (entry?.text || "").toString().slice(0, 400);
+      const sendAt = typeof entry?.sendAt === "string" ? entry.sendAt : "";
+      if (!conversationId || !authorId || !text.trim()) return null;
+      if (!toTimestampMs(sendAt)) return null;
+      return {
+        id: (entry?.id || createId()).toString().slice(0, 64),
+        conversationType,
+        conversationId,
+        guildId: (entry?.guildId || "").toString().slice(0, 64),
+        authorId,
+        text,
+        createdAt: typeof entry?.createdAt === "string" ? entry.createdAt : new Date().toISOString(),
+        sendAt,
+        replyTo: entry?.replyTo && typeof entry.replyTo === "object"
+          ? {
+              messageId: (entry.replyTo.messageId || "").toString().slice(0, 64),
+              authorName: (entry.replyTo.authorName || "").toString().slice(0, 60),
+              text: (entry.replyTo.text || "").toString().slice(0, 180),
+              threadId: (entry.replyTo.threadId || "").toString().slice(0, 64)
+            }
+          : null
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 300);
 }
 
 function normalizeSavedSwfs(list) {
@@ -2995,6 +3165,179 @@ function addSystemMessage(channel, text) {
     reactions: [],
     attachments: []
   });
+}
+
+function ensureScheduledMessagesStore() {
+  if (!Array.isArray(state.scheduledMessages)) {
+    state.scheduledMessages = [];
+  }
+  state.scheduledMessages = normalizeScheduledMessages(state.scheduledMessages);
+  return state.scheduledMessages;
+}
+
+function parseScheduleWhen(rawWhen) {
+  const cleaned = (rawWhen || "").trim().toLowerCase();
+  if (!cleaned) return 0;
+  const rel = cleaned.match(/^(\d{1,5})\s*([smhd])$/i);
+  if (rel) {
+    const amount = Number(rel[1]);
+    const unit = rel[2].toLowerCase();
+    const factor = unit === "s" ? 1000 : unit === "m" ? 60000 : unit === "h" ? 3600000 : 86400000;
+    return Date.now() + (amount * factor);
+  }
+  const parsed = Date.parse(rawWhen);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatRelativeMs(targetMs) {
+  const delta = targetMs - Date.now();
+  if (delta <= 0) return "due now";
+  const sec = Math.ceil(delta / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.ceil(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hour = Math.ceil(min / 60);
+  if (hour < 48) return `${hour}h`;
+  const day = Math.ceil(hour / 24);
+  return `${day}d`;
+}
+
+function queueScheduledMessage(conversation, account, whenRaw, textBody) {
+  const whenMs = parseScheduleWhen(whenRaw);
+  if (!whenMs || whenMs < Date.now() + 2000) return { ok: false, error: "Choose a time at least 2s in the future." };
+  const messageText = (textBody || "").toString().trim().slice(0, 400);
+  if (!messageText) return { ok: false, error: "Scheduled message cannot be empty." };
+  const queue = ensureScheduledMessagesStore();
+  const entry = {
+    id: createId(),
+    conversationType: conversation.type === "dm" ? "dm" : "channel",
+    conversationId: conversation.id,
+    guildId: conversation.type === "channel" ? (getActiveGuild()?.id || "") : "",
+    authorId: account.id,
+    text: messageText,
+    createdAt: new Date().toISOString(),
+    sendAt: new Date(whenMs).toISOString(),
+    replyTo: replyTarget && replyTarget.channelId === conversation.id
+      ? {
+          messageId: replyTarget.messageId,
+          authorName: replyTarget.authorName,
+          text: replyTarget.text,
+          threadId: replyTarget.threadId || null
+        }
+      : null
+  };
+  queue.push(entry);
+  queue.sort((a, b) => toTimestampMs(a.sendAt) - toTimestampMs(b.sendAt));
+  return { ok: true, entry };
+}
+
+function listScheduledMessagesForConversation(conversationId) {
+  const queue = ensureScheduledMessagesStore();
+  return queue
+    .filter((entry) => entry.conversationId === conversationId)
+    .sort((a, b) => toTimestampMs(a.sendAt) - toTimestampMs(b.sendAt));
+}
+
+function removeScheduledMessageByToken(conversationId, token) {
+  const queue = ensureScheduledMessagesStore();
+  if (!token) return 0;
+  const cleaned = token.toLowerCase();
+  if (cleaned === "all") {
+    const keep = queue.filter((entry) => entry.conversationId !== conversationId);
+    const removed = queue.length - keep.length;
+    state.scheduledMessages = keep;
+    return removed;
+  }
+  if (cleaned === "last") {
+    for (let i = queue.length - 1; i >= 0; i -= 1) {
+      if (queue[i].conversationId !== conversationId) continue;
+      queue.splice(i, 1);
+      return 1;
+    }
+    return 0;
+  }
+  const index = queue.findIndex((entry) => (
+    entry.conversationId === conversationId
+    && (entry.id === token || entry.id.startsWith(token))
+  ));
+  if (index < 0) return 0;
+  queue.splice(index, 1);
+  return 1;
+}
+
+function runScheduledDispatch() {
+  const queue = ensureScheduledMessagesStore();
+  if (queue.length === 0) return false;
+  const now = Date.now();
+  const due = queue.filter((entry) => toTimestampMs(entry.sendAt) <= now);
+  if (due.length === 0) return false;
+  let changed = false;
+  due.forEach((entry) => {
+    const author = getAccountById(entry.authorId);
+    if (!author) {
+      changed = true;
+      return;
+    }
+    if (entry.conversationType === "dm") {
+      const thread = state.dmThreads.find((candidate) => candidate.id === entry.conversationId);
+      if (!thread) {
+        changed = true;
+        return;
+      }
+      thread.messages.push({
+        id: createId(),
+        userId: author.id,
+        authorName: "",
+        text: entry.text,
+        ts: new Date().toISOString(),
+        reactions: [],
+        attachments: [],
+        replyTo: entry.replyTo || null
+      });
+      changed = true;
+      return;
+    }
+    const channel = findChannelById(entry.conversationId);
+    if (!channel) {
+      changed = true;
+      return;
+    }
+    const nextMessage = {
+      id: createId(),
+      userId: author.id,
+      authorName: "",
+      text: entry.text,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: [],
+      replyTo: entry.replyTo || null
+    };
+    if (channel.type === "forum") {
+      if (entry.replyTo?.threadId) {
+        nextMessage.forumThreadId = entry.replyTo.threadId;
+        nextMessage.forumParentId = entry.replyTo.messageId || entry.replyTo.threadId;
+      } else {
+        const [firstLine, ...rest] = entry.text.split("\n");
+        nextMessage.forumTitle = (firstLine || "Untitled Post").trim().slice(0, 100) || "Untitled Post";
+        nextMessage.text = rest.join("\n").trim();
+      }
+    }
+    channel.messages.push(nextMessage);
+    changed = true;
+  });
+  state.scheduledMessages = queue.filter((entry) => toTimestampMs(entry.sendAt) > now);
+  if (changed) {
+    saveState();
+    safeRender("scheduled-dispatch");
+  }
+  return changed;
+}
+
+function ensureScheduledDispatchTimer() {
+  if (scheduledDispatchTimer) return;
+  scheduledDispatchTimer = window.setInterval(() => {
+    runScheduledDispatch();
+  }, 1000);
 }
 
 function parseRollExpression(arg) {
@@ -3563,6 +3906,7 @@ function handleSlashCommand(rawText, channel, account) {
       name: sanitizeChannelName(namePart, "new-channel"),
       type,
       topic: "",
+      forumTags: [],
       readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
       slowmodeSec: 0,
       slowmodeState: {},
@@ -3694,6 +4038,157 @@ function handleSlashCommand(rawText, channel, account) {
     addSystemMessage(channel, `Guild notifications set to: ${raw}`);
     renderServers();
     renderChannels();
+    return true;
+  }
+
+  if (command === "schedule") {
+    const splitAt = arg.indexOf("|");
+    if (splitAt < 0) {
+      addSystemMessage(channel, "Usage: /schedule <when> | <text>");
+      return true;
+    }
+    const whenRaw = arg.slice(0, splitAt).trim();
+    const textRaw = arg.slice(splitAt + 1).trim();
+    const conversation = getActiveConversation();
+    if (!conversation) return true;
+    const queued = queueScheduledMessage(conversation, account, whenRaw, textRaw);
+    if (!queued.ok) {
+      addSystemMessage(channel, queued.error || "Could not schedule message.");
+      return true;
+    }
+    const eta = formatRelativeMs(toTimestampMs(queued.entry.sendAt));
+    addSystemMessage(channel, `Scheduled ${queued.entry.id.slice(0, 8)} for ${new Date(queued.entry.sendAt).toLocaleString()} (${eta}).`);
+    return true;
+  }
+
+  if (command === "scheduled") {
+    const conversation = getActiveConversation();
+    if (!conversation) return true;
+    const rows = listScheduledMessagesForConversation(conversation.id);
+    if (rows.length === 0) {
+      addSystemMessage(channel, "No scheduled messages in this conversation.");
+      return true;
+    }
+    addSystemMessage(channel, rows.slice(0, 12).map((entry) => (
+      `${entry.id.slice(0, 8)} · ${new Date(entry.sendAt).toLocaleString()} · ${entry.text.slice(0, 80)}`
+    )).join("\n"));
+    return true;
+  }
+
+  if (command === "unschedule") {
+    if (!arg) {
+      addSystemMessage(channel, "Usage: /unschedule <id|last|all>");
+      return true;
+    }
+    const conversation = getActiveConversation();
+    if (!conversation) return true;
+    const removed = removeScheduledMessageByToken(conversation.id, arg.trim());
+    addSystemMessage(channel, removed > 0 ? `Removed ${removed} scheduled message${removed === 1 ? "" : "s"}.` : "No scheduled message matched.");
+    return true;
+  }
+
+  if (command === "forumtag") {
+    if (channel.type !== "forum") {
+      addSystemMessage(channel, "This command only works in forum channels.");
+      return true;
+    }
+    const [sub, ...restTag] = arg.split(" ");
+    const action = (sub || "").toLowerCase();
+    const payload = restTag.join(" ").trim();
+    channel.forumTags = forumTagsForChannel(channel);
+    if (!action || action === "list") {
+      if (channel.forumTags.length === 0) {
+        addSystemMessage(channel, "No forum tags configured.");
+      } else {
+        addSystemMessage(channel, `Forum tags: ${channel.forumTags.map((tag) => tag.name).join(", ")}`);
+      }
+      return true;
+    }
+    if (!canCurrentUser("manageChannels")) {
+      addSystemMessage(channel, "Manage Channels permission required.");
+      return true;
+    }
+    if (action === "add") {
+      const colorMatch = payload.match(/\s+(#[0-9a-f]{3,8})$/i);
+      const color = colorMatch ? colorMatch[1] : "#5865f2";
+      const nameRaw = colorMatch ? payload.slice(0, -colorMatch[0].length) : payload;
+      const name = sanitizeForumTagName(nameRaw);
+      if (!name) {
+        addSystemMessage(channel, "Usage: /forumtag add <name> [#color]");
+        return true;
+      }
+      if (resolveForumTagByName(channel, name)) {
+        addSystemMessage(channel, `Forum tag already exists: ${name}`);
+        return true;
+      }
+      channel.forumTags.push({ id: createId(), name, color });
+      addSystemMessage(channel, `Added forum tag: ${name}`);
+      return true;
+    }
+    if (action === "remove") {
+      const name = sanitizeForumTagName(payload);
+      if (!name) {
+        addSystemMessage(channel, "Usage: /forumtag remove <name>");
+        return true;
+      }
+      const tag = resolveForumTagByName(channel, name);
+      if (!tag) {
+        addSystemMessage(channel, `Forum tag not found: ${name}`);
+        return true;
+      }
+      channel.forumTags = channel.forumTags.filter((entry) => entry.id !== tag.id);
+      channel.messages.forEach((message) => {
+        message.forumTagIds = normalizeThreadTagIds(message.forumTagIds, channel.forumTags);
+      });
+      setForumThreadTagFilter(channel.id, getForumThreadTagFilter(channel.id).filter((id) => id !== tag.id));
+      addSystemMessage(channel, `Removed forum tag: ${name}`);
+      renderMessages();
+      return true;
+    }
+    addSystemMessage(channel, "Usage: /forumtag <add|remove|list> ...");
+    return true;
+  }
+
+  if (command === "tagthread") {
+    if (channel.type !== "forum") {
+      addSystemMessage(channel, "This command only works in forum channels.");
+      return true;
+    }
+    channel.forumTags = forumTagsForChannel(channel);
+    const roots = channel.messages.filter((entry) => !entry.forumThreadId);
+    const targetRoot = replyTarget?.threadId
+      ? roots.find((entry) => entry.id === replyTarget.threadId)
+      : roots[roots.length - 1];
+    if (!targetRoot) {
+      addSystemMessage(channel, "No forum thread found. Create a post first.");
+      return true;
+    }
+    const raw = arg.trim();
+    if (!raw) {
+      const currentTags = normalizeThreadTagIds(targetRoot.forumTagIds, channel.forumTags)
+        .map((id) => channel.forumTags.find((tag) => tag.id === id)?.name)
+        .filter(Boolean);
+      addSystemMessage(channel, currentTags.length > 0 ? `Thread tags: ${currentTags.join(", ")}` : "Thread has no tags.");
+      return true;
+    }
+    if (raw.toLowerCase() === "clear") {
+      targetRoot.forumTagIds = [];
+      addSystemMessage(channel, "Cleared thread tags.");
+      return true;
+    }
+    const names = [...new Set(raw.split(",").map((entry) => sanitizeForumTagName(entry)).filter(Boolean))];
+    if (names.length === 0) {
+      addSystemMessage(channel, "Usage: /tagthread <tag1,tag2...|clear>");
+      return true;
+    }
+    const resolved = names.map((name) => resolveForumTagByName(channel, name)).filter(Boolean);
+    if (resolved.length === 0) {
+      addSystemMessage(channel, "No matching forum tags. Use /forumtag add first.");
+      return true;
+    }
+    targetRoot.forumTagIds = normalizeThreadTagIds(resolved.map((tag) => tag.id), channel.forumTags);
+    addSystemMessage(channel, `Thread tags set: ${resolved.map((tag) => tag.name).join(", ")}`);
+    renderMessages();
     return true;
   }
 
@@ -7039,7 +7534,7 @@ function renderChannels() {
       renderChannels();
     });
     button.addEventListener("contextmenu", (event) => {
-      openContextMenu(event, [
+      const menuItems = [
         {
           label: "Open Channel",
           action: () => {
@@ -7132,7 +7627,41 @@ function renderChannels() {
             ui.deleteChannelBtn.click();
           }
         }
-      ]);
+      ];
+      if (channel.type === "forum") {
+        menuItems.splice(menuItems.length - 1, 0, {
+          label: "Forum Tags",
+          disabled: !canCurrentUser("manageChannels"),
+          submenu: [
+            {
+              label: "Add Tag…",
+              action: () => {
+                const raw = prompt("Forum tag name", "discussion");
+                if (typeof raw !== "string") return;
+                const name = sanitizeForumTagName(raw);
+                if (!name) return;
+                channel.forumTags = forumTagsForChannel(channel);
+                if (resolveForumTagByName(channel, name)) return;
+                channel.forumTags.push({ id: createId(), name, color: "#5865f2" });
+                saveState();
+                renderMessages();
+              }
+            },
+            ...forumTagsForChannel(channel).map((tag) => ({
+              label: `Remove ${tag.name}`,
+              action: () => {
+                channel.forumTags = forumTagsForChannel(channel).filter((entry) => entry.id !== tag.id);
+                channel.messages.forEach((message) => {
+                  message.forumTagIds = normalizeThreadTagIds(message.forumTagIds, channel.forumTags);
+                });
+                saveState();
+                renderMessages();
+              }
+            }))
+          ]
+        });
+      }
+      openContextMenu(event, menuItems);
     });
     ui.channelList.appendChild(button);
   });
@@ -7225,6 +7754,9 @@ function setReplyTarget(conversationId, message, threadId = null) {
 }
 
 function renderForumThreads(conversationId, channel, messages, currentAccount) {
+  channel.forumTags = forumTagsForChannel(channel);
+  const forumTags = channel.forumTags;
+  const activeTagFilter = getForumThreadTagFilter(channel?.id).filter((id) => forumTags.some((tag) => tag.id === id));
   const topLevel = messages.filter((message) => !message.forumThreadId);
   const repliesByThread = new Map();
   const channelLastReadMs = toTimestampMs(channel?.readState?.[currentAccount?.id]);
@@ -7235,11 +7767,15 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
   });
 
   const threadSortMode = getForumThreadSortMode(channel?.id);
-  const threadModels = topLevel.map((post) => {
+  let threadModels = topLevel.map((post) => {
     const replies = (repliesByThread.get(post.id) || []).slice().sort((a, b) => toTimestampMs(a.ts) - toTimestampMs(b.ts));
     const latestTsMs = replies.reduce((maxTs, replyMessage) => Math.max(maxTs, toTimestampMs(replyMessage.ts)), toTimestampMs(post.ts));
-    return { post, replies, latestTsMs };
+    const postTagIds = normalizeThreadTagIds(post.forumTagIds, forumTags);
+    return { post, replies, latestTsMs, postTagIds };
   });
+  if (activeTagFilter.length > 0) {
+    threadModels = threadModels.filter((entry) => activeTagFilter.some((tagId) => entry.postTagIds.includes(tagId)));
+  }
   threadModels.sort((a, b) => {
     if (threadSortMode === "created") return toTimestampMs(b.post.ts) - toTimestampMs(a.post.ts);
     return b.latestTsMs - a.latestTsMs;
@@ -7302,12 +7838,56 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     });
     toolbar.appendChild(markAllReadBtn);
 
+    if (forumTags.length > 0) {
+      const tagWrap = document.createElement("div");
+      tagWrap.className = "forum-tag-filter";
+      forumTags.forEach((tag) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = `forum-tag-chip ${activeTagFilter.includes(tag.id) ? "active" : ""}`;
+        chip.textContent = tag.name;
+        chip.style.setProperty("--tag-color", tag.color || "#5865f2");
+        chip.title = `Filter by ${tag.name}`;
+        chip.addEventListener("click", () => {
+          toggleForumThreadTagFilter(channel?.id, tag.id);
+          saveState();
+          renderMessages();
+        });
+        tagWrap.appendChild(chip);
+      });
+      if (activeTagFilter.length > 0) {
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "forum-thread-toolbar__btn";
+        clearBtn.textContent = "Clear Tag Filter";
+        clearBtn.addEventListener("click", () => {
+          setForumThreadTagFilter(channel?.id, []);
+          saveState();
+          renderMessages();
+        });
+        tagWrap.appendChild(clearBtn);
+      }
+      toolbar.appendChild(tagWrap);
+    }
+
     ui.messageList.appendChild(toolbar);
   }
 
-  threadModels.forEach(({ post, replies }) => {
+  if (threadModels.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = activeTagFilter.length > 0
+      ? "No threads match selected tags."
+      : "No forum posts yet. Start with a post title on the first line.";
+    ui.messageList.appendChild(empty);
+  }
+
+  threadModels.forEach(({ post, replies, postTagIds }) => {
     const postRow = document.createElement("article");
     postRow.className = "message message--forum message--forum-root";
+    if (isMessageHighlightedForAccount(post, currentAccount)) {
+      postRow.classList.add("message--mentioned");
+    }
     postRow.dataset.messageId = post.id;
 
     const head = document.createElement("div");
@@ -7354,6 +7934,20 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     titleText.textContent = title;
     forumTitle.appendChild(toggleBtn);
     forumTitle.appendChild(titleText);
+    if (postTagIds.length > 0) {
+      const tagInline = document.createElement("span");
+      tagInline.className = "forum-thread-tags";
+      postTagIds.forEach((tagId) => {
+        const tag = forumTags.find((entry) => entry.id === tagId);
+        if (!tag) return;
+        const chip = document.createElement("span");
+        chip.className = "forum-tag-pill";
+        chip.textContent = tag.name;
+        chip.style.setProperty("--tag-color", tag.color || "#5865f2");
+        tagInline.appendChild(chip);
+      });
+      forumTitle.appendChild(tagInline);
+    }
     postRow.appendChild(forumTitle);
 
     if (body) {
@@ -7429,6 +8023,9 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       replies.forEach((replyMessage) => {
         const replyRow = document.createElement("article");
         replyRow.className = "message message--forum-reply";
+        if (isMessageHighlightedForAccount(replyMessage, currentAccount)) {
+          replyRow.classList.add("message--mentioned");
+        }
         replyRow.dataset.messageId = replyMessage.id;
 
         const replyHead = document.createElement("div");
@@ -7567,6 +8164,30 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
             saveState();
             renderMessages();
           }
+        },
+        {
+          label: "Thread Tags",
+          submenu: [
+            {
+              label: "Clear Tags",
+              action: () => {
+                post.forumTagIds = [];
+                saveState();
+                renderMessages();
+              }
+            },
+            ...forumTags.map((tag) => ({
+              label: `${postTagIds.includes(tag.id) ? "✓ " : ""}${tag.name}`,
+              action: () => {
+                const next = postTagIds.includes(tag.id)
+                  ? postTagIds.filter((id) => id !== tag.id)
+                  : [...postTagIds, tag.id];
+                post.forumTagIds = normalizeThreadTagIds(next, forumTags);
+                saveState();
+                renderMessages();
+              }
+            }))
+          ]
         },
         {
           label: normalizePoll(post.poll)?.closed ? "Reopen Poll" : "Close Poll",
@@ -7849,6 +8470,9 @@ function renderMessages() {
     }
     const messageRow = document.createElement("article");
     messageRow.className = `message ${!isDm && channel?.type === "forum" ? "message--forum" : ""}`;
+    if (isMessageHighlightedForAccount(message, currentAccount)) {
+      messageRow.classList.add("message--mentioned");
+    }
     const groupedWithPrevious = !(!isDm && channel?.type === "forum") && shouldGroupMessageWithPrevious(message, previousThreadMessage);
     if (groupedWithPrevious) messageRow.classList.add("message--grouped");
     messageRow.dataset.messageId = message.id;
@@ -8976,6 +9600,44 @@ ui.messageForm.addEventListener("submit", (event) => {
       }
       return;
     }
+    if (dmCommand === "schedule") {
+      const splitAt = dmArg.indexOf("|");
+      if (splitAt < 0) {
+        showToast("Usage: /schedule <when> | <text>", { tone: "error" });
+        return;
+      }
+      const queued = queueScheduledMessage(
+        conversation,
+        account,
+        dmArg.slice(0, splitAt).trim(),
+        dmArg.slice(splitAt + 1).trim()
+      );
+      if (!queued.ok) {
+        showToast(queued.error || "Could not schedule message.", { tone: "error" });
+        return;
+      }
+      ui.messageInput.value = "";
+      resizeComposerInput();
+      saveState();
+      renderMessages();
+      showToast(`Scheduled ${queued.entry.id.slice(0, 8)} for ${new Date(queued.entry.sendAt).toLocaleString()}.`);
+      return;
+    }
+    if (dmCommand === "scheduled") {
+      const rows = listScheduledMessagesForConversation(conversation.id);
+      showToast(rows.length > 0 ? `${rows.length} scheduled message${rows.length === 1 ? "" : "s"} in this DM.` : "No scheduled messages in this DM.");
+      return;
+    }
+    if (dmCommand === "unschedule") {
+      const removed = removeScheduledMessageByToken(conversation.id, dmArg.trim() || "last");
+      if (removed > 0) {
+        saveState();
+        showToast(`Removed ${removed} scheduled message${removed === 1 ? "" : "s"}.`);
+      } else {
+        showToast("No scheduled message matched.", { tone: "error" });
+      }
+      return;
+    }
   }
   if (conversation.type === "channel" && !canCurrentUserPostInChannel(conversation.channel, account)) {
     showToast("You do not have permission to send messages in this channel.", { tone: "error" });
@@ -9025,6 +9687,11 @@ ui.messageForm.addEventListener("submit", (event) => {
         const [firstLine, ...rest] = text.split("\n");
         nextMessage.forumTitle = (firstLine || "Untitled Post").trim().slice(0, 100) || "Untitled Post";
         nextMessage.text = rest.join("\n").trim();
+        const defaultTags = normalizeThreadTagIds(
+          getForumThreadTagFilter(conversation.channel.id),
+          forumTagsForChannel(conversation.channel)
+        );
+        if (defaultTags.length > 0) nextMessage.forumTagIds = defaultTags;
       }
     }
     if (conversation.type === "dm") {
@@ -9690,12 +10357,14 @@ ui.createChannelForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const server = getActiveServer();
   if (!server) return;
+  const nextType = ["text", "announcement", "forum", "media"].includes(ui.channelTypeInput.value) ? ui.channelTypeInput.value : "text";
 
   const channel = {
     id: createId(),
     name: sanitizeChannelName(ui.channelNameInput.value, "new-channel"),
-    type: ["text", "announcement", "forum", "media"].includes(ui.channelTypeInput.value) ? ui.channelTypeInput.value : "text",
+    type: nextType,
     topic: "",
+    forumTags: nextType === "forum" ? [] : [],
     readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
     slowmodeSec: 0,
     slowmodeState: {},
@@ -10957,6 +11626,8 @@ document.addEventListener("focusin", (event) => {
 
 mediaPickerTab = getPreferences().mediaLastTab;
 renderComposerMediaButtons();
+runScheduledDispatch();
+ensureScheduledDispatchTimer();
 safeRender("startup");
 loadSwfLibrary();
 deployMediaRuntimes();
