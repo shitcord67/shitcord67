@@ -773,8 +773,14 @@ let memberPresenceFilter = "all";
 let quickSwitchQuery = "";
 let quickSwitchSelectionIndex = 0;
 let findQuery = "";
+let findAuthorFilter = "";
+let findAfterFilter = "";
+let findBeforeFilter = "";
+let findHasLinkOnly = false;
 let findSelectionIndex = 0;
 let cosmeticsTab = "decor";
+let pinsSearchTerm = "";
+let pinsSortMode = "latest";
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -855,6 +861,10 @@ const ui = {
   findDialog: document.getElementById("findDialog"),
   findForm: document.getElementById("findForm"),
   findInput: document.getElementById("findInput"),
+  findAuthorInput: document.getElementById("findAuthorInput"),
+  findAfterInput: document.getElementById("findAfterInput"),
+  findBeforeInput: document.getElementById("findBeforeInput"),
+  findHasLinkInput: document.getElementById("findHasLinkInput"),
   findMeta: document.getElementById("findMeta"),
   findList: document.getElementById("findList"),
   findPrevBtn: document.getElementById("findPrevBtn"),
@@ -1019,6 +1029,8 @@ const ui = {
   rolesCloseBtn: document.getElementById("rolesCloseBtn"),
   pinsDialog: document.getElementById("pinsDialog"),
   pinsForm: document.getElementById("pinsForm"),
+  pinsSearchInput: document.getElementById("pinsSearchInput"),
+  pinsSortInput: document.getElementById("pinsSortInput"),
   pinsList: document.getElementById("pinsList"),
   pinsCloseBtn: document.getElementById("pinsCloseBtn"),
   debugDialog: document.getElementById("debugDialog"),
@@ -1474,21 +1486,120 @@ function searchableMessageText(message, channelType = "text") {
   return raw;
 }
 
-function messageMatchesFindQuery(message, query, channelType = "text") {
-  const term = (query || "").trim().toLowerCase();
-  if (!term || !message) return false;
+function parseFindDateInput(value, endOfDay = false) {
+  const raw = (value || "").toString().trim();
+  if (!raw) return 0;
+  const parsed = new Date(`${raw}T00:00:00`);
+  if (!Number.isFinite(parsed.getTime())) return 0;
+  if (endOfDay) parsed.setHours(23, 59, 59, 999);
+  return parsed.getTime();
+}
+
+function buildFindSpec(query = findQuery) {
+  return {
+    term: (query || "").trim().toLowerCase(),
+    author: (findAuthorFilter || "").trim().replace(/^@/, "").toLowerCase(),
+    afterMs: parseFindDateInput(findAfterFilter, false),
+    beforeMs: parseFindDateInput(findBeforeFilter, true),
+    hasLink: Boolean(findHasLinkOnly)
+  };
+}
+
+function extractFindInlineFilters(rawQuery) {
+  const source = (rawQuery || "").toString().trim();
+  if (!source) return { query: "", author: "", after: "", before: "", hasLink: false };
+  const authorParts = [];
+  const keepParts = [];
+  let after = "";
+  let before = "";
+  let hasLink = false;
+  source.split(/\s+/).forEach((part) => {
+    const token = part.trim();
+    if (!token) return;
+    const fromMatch = token.match(/^from:(.+)$/i);
+    if (fromMatch) {
+      authorParts.push(fromMatch[1].replace(/^@/, ""));
+      return;
+    }
+    const afterMatch = token.match(/^after:(\d{4}-\d{2}-\d{2})$/i);
+    if (afterMatch) {
+      after = afterMatch[1];
+      return;
+    }
+    const beforeMatch = token.match(/^before:(\d{4}-\d{2}-\d{2})$/i);
+    if (beforeMatch) {
+      before = beforeMatch[1];
+      return;
+    }
+    if (/^has:link$/i.test(token)) {
+      hasLink = true;
+      return;
+    }
+    keepParts.push(token);
+  });
+  return {
+    query: keepParts.join(" "),
+    author: authorParts.join(" ").slice(0, 32),
+    after,
+    before,
+    hasLink
+  };
+}
+
+function hasActiveFindSpec(spec) {
+  if (!spec) return false;
+  return Boolean(spec.term || spec.author || spec.afterMs || spec.beforeMs || spec.hasLink);
+}
+
+function messageHasLink(message, channelType = "text") {
+  if (!message) return false;
+  const text = searchableMessageText(message, channelType);
+  if (/(https?:\/\/|www\.)/i.test(text)) return true;
+  const attachments = normalizeAttachments(message.attachments);
+  return attachments.some((attachment) => /^https?:\/\//i.test((attachment?.url || "").toString()));
+}
+
+function messageMatchesFindSpec(message, spec, channelType = "text") {
+  if (!message || !spec) return false;
   const haystack = searchableMessageText(message, channelType).toLowerCase();
-  return haystack.includes(term);
+  if (spec.term && !haystack.includes(spec.term)) return false;
+  if (spec.author) {
+    const authorName = displayNameForMessage(message).toLowerCase();
+    const authorAccount = message.userId ? getAccountById(message.userId) : null;
+    const authorUsername = (authorAccount?.username || "").toLowerCase();
+    if (!authorName.includes(spec.author) && !authorUsername.includes(spec.author)) return false;
+  }
+  if (spec.hasLink && !messageHasLink(message, channelType)) return false;
+  const tsMs = toTimestampMs(message.ts);
+  if (spec.afterMs && tsMs < spec.afterMs) return false;
+  if (spec.beforeMs && tsMs > spec.beforeMs) return false;
+  return true;
+}
+
+function messageMatchesFindQuery(message, query, channelType = "text", specOverride = null) {
+  const spec = specOverride || buildFindSpec(query);
+  if (!hasActiveFindSpec(spec)) return false;
+  return messageMatchesFindSpec(message, spec, channelType);
+}
+
+function formatFindSpecSummary(spec) {
+  const parts = [];
+  if (spec.term) parts.push(`text "${spec.term}"`);
+  if (spec.author) parts.push(`from @${spec.author}`);
+  if (spec.afterMs) parts.push(`after ${new Date(spec.afterMs).toLocaleDateString()}`);
+  if (spec.beforeMs) parts.push(`before ${new Date(spec.beforeMs).toLocaleDateString()}`);
+  if (spec.hasLink) parts.push("has link");
+  return parts.join(" · ");
 }
 
 function getFindMatchesForConversation(conversation, query) {
-  const term = (query || "").trim();
-  if (!conversation || !term) return [];
+  const spec = buildFindSpec(query);
+  if (!conversation || !hasActiveFindSpec(spec)) return [];
   const isDm = conversation.type === "dm";
   const channelType = isDm ? "text" : (conversation.channel?.type || "text");
   const bucket = isDm ? (conversation.thread?.messages || []) : (conversation.channel?.messages || []);
   return bucket
-    .filter((message) => messageMatchesFindQuery(message, term, channelType))
+    .filter((message) => messageMatchesFindSpec(message, spec, channelType))
     .map((message) => ({
       id: message.id,
       ts: message.ts,
@@ -1507,22 +1618,23 @@ function getFindActiveMessageId() {
 function renderFindList() {
   if (!ui.findList || !ui.findMeta) return;
   const conversation = getActiveConversation();
+  const spec = buildFindSpec(findQuery);
   const matches = getFindMatchesForConversation(conversation, findQuery);
   findSelectionIndex = Math.max(0, Math.min(findSelectionIndex, Math.max(0, matches.length - 1)));
   ui.findList.innerHTML = "";
-  if (!findQuery.trim()) {
-    ui.findMeta.textContent = "Type to search messages in this conversation.";
+  if (!hasActiveFindSpec(spec)) {
+    ui.findMeta.textContent = "Type text or set filters to search this conversation.";
     return;
   }
   if (matches.length === 0) {
-    ui.findMeta.textContent = "No results.";
+    ui.findMeta.textContent = `No results${formatFindSpecSummary(spec) ? ` for ${formatFindSpecSummary(spec)}` : ""}.`;
     const empty = document.createElement("div");
     empty.className = "channel-empty";
     empty.textContent = "No matching messages found.";
     ui.findList.appendChild(empty);
     return;
   }
-  ui.findMeta.textContent = `${findSelectionIndex + 1} of ${matches.length} results`;
+  ui.findMeta.textContent = `${findSelectionIndex + 1} of ${matches.length} results${formatFindSpecSummary(spec) ? ` · ${formatFindSpecSummary(spec)}` : ""}`;
   matches.forEach((entry, index) => {
     const row = document.createElement("button");
     row.type = "button";
@@ -1550,18 +1662,35 @@ function renderFindList() {
 
 function openFindDialog() {
   findQuery = "";
+  findAuthorFilter = "";
+  findAfterFilter = "";
+  findBeforeFilter = "";
+  findHasLinkOnly = false;
   findSelectionIndex = 0;
   if (ui.findInput) ui.findInput.value = "";
+  if (ui.findAuthorInput) ui.findAuthorInput.value = "";
+  if (ui.findAfterInput) ui.findAfterInput.value = "";
+  if (ui.findBeforeInput) ui.findBeforeInput.value = "";
+  if (ui.findHasLinkInput) ui.findHasLinkInput.checked = false;
   renderFindList();
   ui.findDialog?.showModal();
   requestAnimationFrame(() => ui.findInput?.focus());
 }
 
 function openFindDialogWithQuery(query) {
-  const safeQuery = (query || "").toString().trim().slice(0, 120);
+  const inline = extractFindInlineFilters(query);
+  const safeQuery = inline.query.slice(0, 120);
   findQuery = safeQuery;
+  findAuthorFilter = inline.author || "";
+  findAfterFilter = inline.after || "";
+  findBeforeFilter = inline.before || "";
+  findHasLinkOnly = Boolean(inline.hasLink);
   findSelectionIndex = 0;
   if (ui.findInput) ui.findInput.value = safeQuery;
+  if (ui.findAuthorInput) ui.findAuthorInput.value = findAuthorFilter;
+  if (ui.findAfterInput) ui.findAfterInput.value = findAfterFilter;
+  if (ui.findBeforeInput) ui.findBeforeInput.value = findBeforeFilter;
+  if (ui.findHasLinkInput) ui.findHasLinkInput.checked = findHasLinkOnly;
   renderFindList();
   ui.findDialog?.showModal();
   renderMessages();
@@ -10753,13 +10882,34 @@ function renderRolesDialog() {
 
 function renderPinsDialog() {
   const channel = getActiveChannel();
+  if (ui.pinsSearchInput && ui.pinsSearchInput.value !== pinsSearchTerm) {
+    ui.pinsSearchInput.value = pinsSearchTerm;
+  }
+  if (ui.pinsSortInput && ui.pinsSortInput.value !== pinsSortMode) {
+    ui.pinsSortInput.value = pinsSortMode;
+  }
   ui.pinsList.innerHTML = "";
   if (!channel) return;
-  const pinned = channel.messages.filter((message) => message.pinned);
+  let pinned = channel.messages.filter((message) => message.pinned);
+  const term = (pinsSearchTerm || "").trim().toLowerCase();
+  if (term) {
+    pinned = pinned.filter((message) => {
+      const author = displayNameForMessage(message).toLowerCase();
+      const text = (message.text || "").toString().toLowerCase();
+      const stamp = formatFullTimestamp(message.ts || "").toLowerCase();
+      return author.includes(term) || text.includes(term) || stamp.includes(term);
+    });
+  }
+  pinned.sort((a, b) => {
+    if (pinsSortMode === "oldest") return toTimestampMs(a.ts) - toTimestampMs(b.ts);
+    if (pinsSortMode === "author-asc") return displayNameForMessage(a).localeCompare(displayNameForMessage(b));
+    if (pinsSortMode === "author-desc") return displayNameForMessage(b).localeCompare(displayNameForMessage(a));
+    return toTimestampMs(b.ts) - toTimestampMs(a.ts);
+  });
   if (pinned.length === 0) {
     const empty = document.createElement("div");
     empty.className = "pin-item";
-    empty.textContent = "No pinned messages yet.";
+    empty.textContent = term ? "No pinned messages match your filter." : "No pinned messages yet.";
     ui.pinsList.appendChild(empty);
     return;
   }
@@ -10860,6 +11010,8 @@ function hardenInputAutocompleteNoise() {
     ui.memberSearchInput,
     ui.mediaSearchInput,
     ui.findInput,
+    ui.findAuthorInput,
+    ui.pinsSearchInput,
     ui.quickSwitchInput,
     ui.messageInput
   ].filter(Boolean);
@@ -12155,6 +12307,30 @@ ui.findInput?.addEventListener("input", () => {
   renderFindList();
   renderMessages();
 });
+ui.findAuthorInput?.addEventListener("input", () => {
+  findAuthorFilter = ui.findAuthorInput.value.slice(0, 32);
+  findSelectionIndex = 0;
+  renderFindList();
+  renderMessages();
+});
+ui.findAfterInput?.addEventListener("input", () => {
+  findAfterFilter = ui.findAfterInput.value;
+  findSelectionIndex = 0;
+  renderFindList();
+  renderMessages();
+});
+ui.findBeforeInput?.addEventListener("input", () => {
+  findBeforeFilter = ui.findBeforeInput.value;
+  findSelectionIndex = 0;
+  renderFindList();
+  renderMessages();
+});
+ui.findHasLinkInput?.addEventListener("change", () => {
+  findHasLinkOnly = Boolean(ui.findHasLinkInput.checked);
+  findSelectionIndex = 0;
+  renderFindList();
+  renderMessages();
+});
 ui.findInput?.addEventListener("keydown", (event) => {
   if (event.key === "ArrowDown") {
     event.preventDefault();
@@ -12183,8 +12359,16 @@ ui.findForm?.addEventListener("submit", (event) => {
 });
 ui.findDialog?.addEventListener("close", () => {
   findQuery = "";
+  findAuthorFilter = "";
+  findAfterFilter = "";
+  findBeforeFilter = "";
+  findHasLinkOnly = false;
   findSelectionIndex = 0;
   if (ui.findInput) ui.findInput.value = "";
+  if (ui.findAuthorInput) ui.findAuthorInput.value = "";
+  if (ui.findAfterInput) ui.findAfterInput.value = "";
+  if (ui.findBeforeInput) ui.findBeforeInput.value = "";
+  if (ui.findHasLinkInput) ui.findHasLinkInput.checked = false;
   renderFindList();
   renderMessages();
 });
@@ -12295,8 +12479,21 @@ ui.openRolesBtn.addEventListener("click", () => {
 });
 
 ui.openPinsBtn.addEventListener("click", () => {
+  pinsSearchTerm = "";
+  pinsSortMode = "latest";
+  if (ui.pinsSearchInput) ui.pinsSearchInput.value = "";
+  if (ui.pinsSortInput) ui.pinsSortInput.value = "latest";
   renderPinsDialog();
   ui.pinsDialog.showModal();
+});
+ui.pinsSearchInput?.addEventListener("input", () => {
+  pinsSearchTerm = ui.pinsSearchInput.value.slice(0, 80);
+  renderPinsDialog();
+});
+ui.pinsSortInput?.addEventListener("change", () => {
+  const next = (ui.pinsSortInput.value || "").toString();
+  pinsSortMode = ["latest", "oldest", "author-asc", "author-desc"].includes(next) ? next : "latest";
+  renderPinsDialog();
 });
 
 ui.markChannelReadBtn?.addEventListener("click", () => {

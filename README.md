@@ -27,6 +27,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
 - Pin/unpin messages per channel, with a pinned-messages panel.
+- Pinned-messages panel now supports live filter and sort modes (newest/oldest/author).
 - Guild rail now scrolls as one native-feeling column (brand, guild icons, and `+` create button).
 - Unread + mention badges for channels and guilds, with per-account read tracking.
 - Quick channel filter input in the sidebar.
@@ -75,6 +76,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Section visibility shortcuts: `Alt+Shift+D` collapses/expands DM section, `Alt+Shift+C` collapses/expands guild channel section.
 - Quick switcher shortcut: `Ctrl+K` (or `Cmd+K`) opens channel/DM/guild quick jump modal.
 - Find shortcut: `Ctrl+F` (or `Cmd+F`) opens "Find in conversation" with hit highlighting and jump.
+- Find dialog supports Discord-like scoped filters: `From user`, `After`, `Before`, and `Has link` (also parseable in `/find` via `from:`, `after:YYYY-MM-DD`, `before:YYYY-MM-DD`, `has:link`).
 - Find navigation shortcuts: `F3` / `Shift+F3` and `Ctrl+G` / `Shift+Ctrl+G` jump between matches.
 - Channel reorder shortcut: `Ctrl+Alt+ArrowUp/Down` moves active channel (manage channels permission).
 - Channel quick-jump shortcuts: `Alt+Home`/`Alt+End` jump to first/last channel.
