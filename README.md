@@ -278,6 +278,7 @@ XMPP mode (experimental):
   - `npm run xmpp:auth-gateway`
   - The login validator will auto-try `http://localhost:8790/auth-check` after browser Strophe failure.
   - This is intended for local web + Electron compatibility where browser auth stacks can differ.
+- For `xmpp.jp`, relay auth now uses a PLAIN-only SASL workaround in Strophe due SCRAM challenge incompatibility (`Response decoding failed`) seen with this runtime build.
 
 ## Design Research Notes
 - Investigated Discord-adjacent client repositories for interaction and layout references:

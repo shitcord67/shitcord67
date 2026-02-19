@@ -13,6 +13,7 @@ const XMPP_DEBUG_EVENT_LIMIT = 600;
 const XMPP_DEBUG_RAW_TRUNCATE = 1800;
 const XMPP_HOST_META_TIMEOUT_MS = 3600;
 const XMPP_LOCAL_AUTH_GATEWAY_URL = "http://localhost:8790";
+const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -3400,6 +3401,7 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
   };
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
+    if (relayStatus !== "connected") return false;
     const roomJid = xmppRoomJidForToken(room, prefs);
     if (!roomJid) return false;
     joinXmppRoom(room, current);
@@ -3477,6 +3479,35 @@ function xmppDomainFromJid(jid) {
   return raw.slice(at + 1).toLowerCase();
 }
 
+function shouldUsePlainOnlySasl(jid, wsUrl = "") {
+  const jidDomain = xmppDomainFromJid(jid);
+  if (jidDomain && XMPP_PLAIN_ONLY_DOMAINS.has(jidDomain)) return true;
+  try {
+    const host = new URL(normalizeXmppWsUrl(wsUrl) || "").hostname.toLowerCase();
+    if (!host) return false;
+    for (const domain of XMPP_PLAIN_ONLY_DOMAINS.values()) {
+      if (host === domain || host.endsWith(`.${domain}`)) return true;
+    }
+  } catch {
+    // Ignore URL parse errors.
+  }
+  return false;
+}
+
+function stropheConnectionOptionsForXmpp({ jid, wsUrl }) {
+  const options = { keepalive: true };
+  const stropheApi = globalThis.Strophe;
+  if (!stropheApi) return options;
+  if (shouldUsePlainOnlySasl(jid, wsUrl) && stropheApi.SASLPlain) {
+    options.mechanisms = [stropheApi.SASLPlain];
+    addXmppDebugEvent("connect", "Using PLAIN-only SASL workaround", {
+      jid: normalizeXmppJid(jid),
+      wsUrl: normalizeXmppWsUrl(wsUrl)
+    });
+  }
+  return options;
+}
+
 function resolveXmppMucService(prefs = getPreferences()) {
   const explicit = normalizeXmppMucService(prefs.xmppMucService);
   if (explicit) return explicit;
@@ -3542,6 +3573,8 @@ async function loadXmppLibrary() {
 
 function joinXmppRoom(roomToken, account = getCurrentAccount()) {
   if (!xmppConnection || !account) return false;
+  if (relayStatus !== "connected") return false;
+  if (xmppConnection.authenticated === false || xmppConnection.connected === false) return false;
   const prefs = getPreferences();
   const roomJid = xmppRoomJidForToken(roomToken, prefs);
   if (!roomJid) return false;
@@ -3744,7 +3777,10 @@ function connectRelaySocket({ force = false } = {}) {
         return;
       }
       try {
-        xmppConnection = new globalThis.Strophe.Connection(wsUrl, { keepalive: true });
+        xmppConnection = new globalThis.Strophe.Connection(wsUrl, stropheConnectionOptionsForXmpp({
+          jid,
+          wsUrl
+        }));
         addXmppDebugEvent("connect", "Created Strophe connection", { wsUrl });
       } catch (error) {
         addXmppDebugEvent("error", "Failed to construct Strophe connection", { wsUrl, error: String(error) });
@@ -3868,7 +3904,15 @@ function connectRelaySocket({ force = false } = {}) {
           scheduleRelayReconnect();
           return;
         }
-        if (status === S.CONNFAIL || status === S.AUTHFAIL || status === S.ERROR) {
+        if (status === S.AUTHFAIL) {
+          addXmppDebugEvent("error", "Relay auth failed; auto-reconnect suppressed after AUTHFAIL", {
+            wsUrl,
+            jid
+          });
+          setRelayStatus("error", "XMPP authentication failed");
+          return;
+        }
+        if (status === S.CONNFAIL || status === S.ERROR) {
           addXmppDebugEvent("error", "Relay connect/auth failed", {
             status: statusName,
             wsUrl,
@@ -4021,6 +4065,7 @@ function publishRelayChannelMessage(channel, message, account) {
   if (!room) return false;
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
+    if (relayStatus !== "connected") return false;
     const roomJid = xmppRoomJidForToken(room, prefs);
     if (!roomJid) {
       setRelayStatus("error", "XMPP MUC service not configured.");
@@ -4109,6 +4154,7 @@ function publishRelayDirectMessage(thread, message, account) {
   const room = `dm:${participants.slice(0, 2).join(":")}`;
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
+    if (relayStatus !== "connected") return false;
     const roomJid = xmppRoomJidForToken(room, prefs);
     if (!roomJid) {
       setRelayStatus("error", "XMPP MUC service not configured.");
@@ -13886,6 +13932,10 @@ async function discoverXmppWsViaHostMeta(jid, { force = false, timeoutMs = XMPP_
   const cleanJid = normalizeXmppJid(jid);
   const domain = xmppDomainFromJid(cleanJid);
   if (!domain || !looksLikeCompleteJid(cleanJid)) return [];
+  if (XMPP_PLAIN_ONLY_DOMAINS.has(domain)) {
+    addXmppDebugEvent("runtime", "Skipping host-meta discovery for known-cert-mismatch domain", { domain });
+    return [];
+  }
   const cacheKey = domain.toLowerCase();
   const cacheEntry = xmppWsDiscoveryCache.get(cacheKey);
   const now = Date.now();
@@ -14371,7 +14421,10 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         done({ ok: false, reason: "timeout", wsUrl: candidateWs });
       }, Math.max(2500, Math.min(10000, timeoutMs)));
       try {
-        connection = new globalThis.Strophe.Connection(candidateWs, { keepalive: true });
+        connection = new globalThis.Strophe.Connection(candidateWs, stropheConnectionOptionsForXmpp({
+          jid: cleanJid,
+          wsUrl: candidateWs
+        }));
       } catch (error) {
         if (timeoutHandle) clearTimeout(timeoutHandle);
         addXmppDebugEvent("error", "Failed to create Strophe connection for endpoint", {
