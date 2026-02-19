@@ -1,3 +1,5 @@
 *.swf
 SVGscreenshots/
 node_modules/
+.env.local
+.xmpp.local.json

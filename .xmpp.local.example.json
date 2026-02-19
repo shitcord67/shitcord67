@@ -1,0 +1,12 @@
+{
+  "account": {
+    "jid": "user@example.com",
+    "password": "change-me",
+    "service": "wss://api.example.com/ws",
+    "mucService": "conference.example.com",
+    "resource": "shitcord67-local"
+  },
+  "contacts": {
+    "primary": "friend@example.net"
+  }
+}

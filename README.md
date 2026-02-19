@@ -244,6 +244,13 @@ XMPP mode (experimental):
 4. Messages in active channels/DMs are mapped to MUC rooms and sent/received via XMPP groupchat
 - Verified working provider example: `xmpp.jp` with endpoint `wss://api.xmpp.jp/ws` and MUC service `conference.xmpp.jp`
 
+## Local XMPP Secrets + Direct Send Script
+- Local secret file: `.xmpp.local.json` (git-ignored).
+- Example template: `.xmpp.local.example.json`.
+- Quick direct message script:
+  - `node scripts/xmpp-send.mjs --to someone@example.org --message "hello"`
+  - If `--to` is omitted, it uses `contacts.primary` from `.xmpp.local.json`.
+
 ## XMPP/Standalone Readiness
 - Yes: this project is now at the point where real multi-user chat can be enabled with the relay path today.
 - XMPP adapter path is now implemented experimentally (Strophe runtime load + connect/auth + MUC room join/send/receive).
