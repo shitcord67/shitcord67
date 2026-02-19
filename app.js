@@ -28,6 +28,8 @@ const SLASH_COMMANDS = [
   { name: "guildtag", args: "[TAG|clear]", description: "Set or clear your guild tag." },
   { name: "decor", args: "[emoji|clear]", description: "Set or clear avatar decoration emoji." },
   { name: "nameplate", args: "[url|data:image/svg+xml|clear]", description: "Set or clear nameplate image for your name." },
+  { name: "whoami", args: "", description: "Show your current identity summary." },
+  { name: "profilecard", args: "", description: "Post your profile card text into chat." },
   { name: "mediaprivacy", args: "[status|safe|off]", description: "Control two-click external media loading privacy mode." },
   { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
   { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
@@ -813,6 +815,12 @@ const ui = {
   profileAvatarColorPicker: document.getElementById("profileAvatarColorPicker"),
   profileAvatarUrlInput: document.getElementById("profileAvatarUrlInput"),
   profileAvatarPreview: document.getElementById("profileAvatarPreview"),
+  profileIdentityPreview: document.getElementById("profileIdentityPreview"),
+  profileIdentityPreviewBanner: document.getElementById("profileIdentityPreviewBanner"),
+  profileIdentityPreviewAvatar: document.getElementById("profileIdentityPreviewAvatar"),
+  profileIdentityPreviewName: document.getElementById("profileIdentityPreviewName"),
+  profileIdentityPreviewStatus: document.getElementById("profileIdentityPreviewStatus"),
+  profileIdentityClearBtn: document.getElementById("profileIdentityClearBtn"),
   profileAvatarUploadBtn: document.getElementById("profileAvatarUploadBtn"),
   profileAvatarClearBtn: document.getElementById("profileAvatarClearBtn"),
   profileAvatarUploadHint: document.getElementById("profileAvatarUploadHint"),
@@ -2754,6 +2762,41 @@ function renderProfileAvatarPreview() {
     ui.profileAvatarPreview.style.backgroundSize = "cover";
     ui.profileAvatarPreview.style.backgroundPosition = "center";
   }
+}
+
+function renderProfileIdentityPreview() {
+  if (!ui.profileIdentityPreview) return;
+  const previewAccount = {
+    username: "preview",
+    displayName: ui.displayNameInput?.value?.trim() || "Preview User",
+    avatarColor: ui.profileAvatarInput?.value?.trim() || "#57f287",
+    avatarUrl: ui.profileAvatarUrlInput?.value?.trim() || "",
+    banner: ui.profileBannerInput?.value?.trim() || "",
+    customStatus: ui.profileStatusInput?.value?.trim() || "",
+    customStatusEmoji: ui.profileStatusEmojiInput?.value?.trim() || "",
+    presence: ui.presenceInput?.value || "online",
+    avatarDecoration: ui.profileAvatarDecorationInput?.value?.trim() || "",
+    guildTag: ui.profileGuildTagInput?.value?.trim().slice(0, 8).toUpperCase() || "",
+    profileEffect: normalizeProfileEffect(ui.profileEffectInput?.value),
+    profileNameplateSvg: ui.profileNameplateSvgInput?.value?.trim() || ""
+  };
+  applyAvatarStyle(ui.profileIdentityPreviewAvatar, previewAccount, null);
+  applyAvatarDecoration(ui.profileIdentityPreviewAvatar, previewAccount);
+  applyBannerStyle(ui.profileIdentityPreviewBanner, previewAccount.banner);
+  ui.profileIdentityPreviewName.textContent = previewAccount.displayName;
+  applyNameplateStyle(ui.profileIdentityPreviewName, previewAccount);
+  const tag = accountGuildTag(previewAccount);
+  if (tag) {
+    ui.profileIdentityPreviewName.appendChild(document.createTextNode(" "));
+    const chip = document.createElement("span");
+    chip.className = "guild-tag-chip";
+    chip.textContent = tag;
+    ui.profileIdentityPreviewName.appendChild(chip);
+  }
+  ui.profileIdentityPreviewStatus.textContent = displayStatus(previewAccount, null);
+  ui.profileIdentityPreview.classList.remove("profile-effect-aurora", "profile-effect-flame", "profile-effect-ocean");
+  const effect = accountProfileEffect(previewAccount);
+  if (effect !== "none") ui.profileIdentityPreview.classList.add(`profile-effect-${effect}`);
 }
 
 function setProfileAvatarUploadHint(text, isError = false) {
@@ -4806,6 +4849,26 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "whoami") {
+    const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
+    addSystemMessage(channel, formatIdentitySummaryText(account, guildId));
+    return true;
+  }
+
+  if (command === "profilecard") {
+    const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
+    channel.messages.push({
+      id: createId(),
+      userId: account.id,
+      authorName: "",
+      text: `🪪 ${formatIdentitySummaryText(account, guildId)}`,
+      ts: new Date().toISOString(),
+      reactions: [],
+      attachments: []
+    });
+    return true;
+  }
+
   if (command === "mediaprivacy") {
     const mode = arg.toLowerCase();
     state.preferences = getPreferences();
@@ -5373,6 +5436,17 @@ function formatQuestSummaryText(accountId) {
     `Polls: ${stats.pollsCreated}`,
     nextParts.length > 0 ? `Progress: ${nextParts.join(" · ")}` : "Progress: all tracked milestones reached"
   ].join(" · ");
+}
+
+function formatIdentitySummaryText(account, guildId = null) {
+  if (!account) return "Unknown identity.";
+  const name = displayNameForAccount(account, guildId);
+  const status = displayStatus(account, guildId);
+  const tag = accountGuildTag(account) || "(none)";
+  const decor = accountDecorationEmoji(account) || "(none)";
+  const effect = accountProfileEffect(account);
+  const hasNameplate = accountNameplateSvg(account) ? "yes" : "no";
+  return `Name: ${name} · Status: ${status} · Tag: ${tag} · Decor: ${decor} · Effect: ${effect} · Nameplate: ${hasNameplate}`;
 }
 
 function renderQuestBadges(container, accountId) {
@@ -9456,8 +9530,21 @@ function renderMessages() {
           action: () => mentionInComposer(author)
         },
         {
+          label: "Show Quest Summary",
+          disabled: !author,
+          action: () => {
+            if (!author) return;
+            showToast(formatQuestSummaryText(author.id));
+          }
+        },
+        {
           label: "Copy",
           submenu: [
+            {
+              label: "Display Name",
+              disabled: !author,
+              action: () => copyText(author ? displayNameForAccount(author, getActiveGuild()?.id || null) : "")
+            },
             {
               label: "Username",
               disabled: !author,
@@ -9472,6 +9559,16 @@ function renderMessages() {
               label: "Guild Tag",
               disabled: !author || !accountGuildTag(author),
               action: () => copyText(author ? accountGuildTag(author) : "")
+            },
+            {
+              label: "Avatar Decoration",
+              disabled: !author || !accountDecorationEmoji(author),
+              action: () => copyText(author ? accountDecorationEmoji(author) : "")
+            },
+            {
+              label: "Nameplate URL",
+              disabled: !author || !accountNameplateSvg(author),
+              action: () => copyText(author ? accountNameplateSvg(author) : "")
             }
           ]
         }
@@ -10121,12 +10218,16 @@ function renderMemberList() {
           openContextMenu(event, [
             { label: "View Profile", action: () => openUserPopout(account) },
             { label: "Start DM", disabled: account.id === current?.id, action: () => openDmWithAccount(account) },
+            { label: "Show Quest Summary", action: () => showToast(formatQuestSummaryText(account.id)) },
             {
               label: "Copy",
               submenu: [
+                { label: "Display Name", action: () => copyText(displayNameForAccount(account, null)) },
                 { label: "Username", action: () => copyText(`@${account.username}`) },
                 { label: "User ID", action: () => copyText(account.id) },
-                { label: "Guild Tag", disabled: !accountGuildTag(account), action: () => copyText(accountGuildTag(account)) }
+                { label: "Guild Tag", disabled: !accountGuildTag(account), action: () => copyText(accountGuildTag(account)) },
+                { label: "Avatar Decoration", disabled: !accountDecorationEmoji(account), action: () => copyText(accountDecorationEmoji(account)) },
+                { label: "Nameplate URL", disabled: !accountNameplateSvg(account), action: () => copyText(accountNameplateSvg(account)) }
               ]
             }
           ]);
@@ -10245,11 +10346,18 @@ function renderMemberList() {
             action: () => mentionInComposer(account)
           },
           {
+            label: "Show Quest Summary",
+            action: () => showToast(formatQuestSummaryText(account.id))
+          },
+          {
             label: "Copy",
             submenu: [
+              { label: "Display Name", action: () => copyText(displayNameForAccount(account, server.id)) },
               { label: "Username", action: () => copyText(`@${account.username}`) },
               { label: "User ID", action: () => copyText(account.id) },
-              { label: "Guild Tag", disabled: !accountGuildTag(account), action: () => copyText(accountGuildTag(account)) }
+              { label: "Guild Tag", disabled: !accountGuildTag(account), action: () => copyText(accountGuildTag(account)) },
+              { label: "Avatar Decoration", disabled: !accountDecorationEmoji(account), action: () => copyText(accountDecorationEmoji(account)) },
+              { label: "Nameplate URL", disabled: !accountNameplateSvg(account), action: () => copyText(accountNameplateSvg(account)) }
             ]
           }
         ]);
@@ -10589,6 +10697,7 @@ function openProfileEditor() {
   ui.profileAvatarUrlInput.value = account.avatarUrl || "";
   setProfileAvatarUploadHint("Accepts image files up to 2 MB.");
   renderProfileAvatarPreview();
+  renderProfileIdentityPreview();
   ui.profileDialog.showModal();
 }
 
@@ -10824,6 +10933,24 @@ ui.messageForm.addEventListener("submit", (event) => {
       saveState();
       render();
       showToast("Nameplate updated.");
+      return;
+    }
+    if (dmCommand === "whoami") {
+      showToast(formatIdentitySummaryText(account, null));
+      return;
+    }
+    if (dmCommand === "profilecard") {
+      conversation.thread.messages.push({
+        id: createId(),
+        userId: account.id,
+        authorName: "",
+        text: `🪪 ${formatIdentitySummaryText(account, null)}`,
+        ts: new Date().toISOString(),
+        reactions: [],
+        attachments: []
+      });
+      saveState();
+      renderMessages();
       return;
     }
     if (dmCommand === "find") {
@@ -12364,6 +12491,7 @@ ui.selfQuestStats?.addEventListener("click", () => {
   const account = getCurrentAccount();
   if (!account) return;
   showToast(formatQuestSummaryText(account.id));
+  ui.selfMenuDialog.close();
 });
 
 ui.selfSwitchAccount.addEventListener("click", () => {
@@ -12422,6 +12550,7 @@ ui.profileAvatarClearBtn.addEventListener("click", () => {
   ui.profileAvatarFileInput.value = "";
   setProfileAvatarUploadHint("Avatar image cleared.");
   renderProfileAvatarPreview();
+  renderProfileIdentityPreview();
 });
 
 ui.profileAvatarInput.addEventListener("input", renderProfileAvatarPreview);
@@ -12429,10 +12558,12 @@ ui.profileAvatarInput.addEventListener("input", () => {
   if (ui.profileAvatarColorPicker) {
     ui.profileAvatarColorPicker.value = normalizeColorForPicker(ui.profileAvatarInput.value || "#57f287", "#57f287");
   }
+  renderProfileIdentityPreview();
 });
 ui.profileAvatarColorPicker?.addEventListener("input", () => {
   ui.profileAvatarInput.value = ui.profileAvatarColorPicker.value;
   renderProfileAvatarPreview();
+  renderProfileIdentityPreview();
 });
 ui.profileGuildAvatarInput?.addEventListener("input", () => {
   if (ui.profileGuildAvatarColorPicker) {
@@ -12443,11 +12574,29 @@ ui.profileGuildAvatarColorPicker?.addEventListener("input", () => {
   ui.profileGuildAvatarInput.value = ui.profileGuildAvatarColorPicker.value;
 });
 ui.profileAvatarUrlInput.addEventListener("input", renderProfileAvatarPreview);
+ui.profileAvatarUrlInput.addEventListener("input", renderProfileIdentityPreview);
+ui.displayNameInput?.addEventListener("input", renderProfileIdentityPreview);
+ui.profileStatusInput?.addEventListener("input", renderProfileIdentityPreview);
+ui.profileStatusEmojiInput?.addEventListener("input", renderProfileIdentityPreview);
+ui.profileBannerInput?.addEventListener("input", renderProfileIdentityPreview);
+ui.profileAvatarDecorationInput?.addEventListener("input", renderProfileIdentityPreview);
+ui.profileGuildTagInput?.addEventListener("input", renderProfileIdentityPreview);
+ui.profileEffectInput?.addEventListener("change", renderProfileIdentityPreview);
+ui.profileNameplateSvgInput?.addEventListener("input", renderProfileIdentityPreview);
+ui.presenceInput?.addEventListener("change", renderProfileIdentityPreview);
+ui.profileIdentityClearBtn?.addEventListener("click", () => {
+  if (ui.profileAvatarDecorationInput) ui.profileAvatarDecorationInput.value = "";
+  if (ui.profileGuildTagInput) ui.profileGuildTagInput.value = "";
+  if (ui.profileEffectInput) ui.profileEffectInput.value = "none";
+  if (ui.profileNameplateSvgInput) ui.profileNameplateSvgInput.value = "";
+  renderProfileIdentityPreview();
+});
 
 ui.profileAvatarFileInput.addEventListener("change", async () => {
   const file = ui.profileAvatarFileInput.files?.[0];
   await applyProfileAvatarFile(file);
   ui.profileAvatarFileInput.value = "";
+  renderProfileIdentityPreview();
 });
 
 ui.profileForm.addEventListener("submit", (event) => {
@@ -13031,6 +13180,13 @@ document.addEventListener("keydown", (event) => {
     const account = getCurrentAccount();
     if (!account) return;
     showToast(formatQuestSummaryText(account.id));
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "y") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    openProfileEditor();
     return;
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "n") {

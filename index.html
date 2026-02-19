@@ -379,6 +379,13 @@
           <small id="profileAvatarUploadHint">Accepts image files up to 2 MB.</small>
         </div>
       </div>
+      <div id="profileIdentityPreview" class="profile-identity-preview">
+        <div id="profileIdentityPreviewBanner" class="profile-identity-preview__banner"></div>
+        <div id="profileIdentityPreviewAvatar" class="profile-identity-preview__avatar"></div>
+        <strong id="profileIdentityPreviewName" class="profile-identity-preview__name">Preview User</strong>
+        <small id="profileIdentityPreviewStatus" class="profile-identity-preview__status">Online</small>
+      </div>
+      <button id="profileIdentityClearBtn" type="button">Clear Identity Extras</button>
       <input id="profileAvatarFileInput" type="file" accept="image/*" hidden />
       <div class="modal-actions">
         <button type="button" id="profileCancel">Cancel</button>
@@ -520,6 +527,7 @@
         <div><kbd>Alt+R</kbd> Mark current channel as read</div>
         <div><kbd>Alt+N / Alt+P</kbd> Jump next / previous unread channel</div>
         <div><kbd>Alt+Q</kbd> Show your quest stats</div>
+        <div><kbd>Alt+Y</kbd> Open profile editor</div>
         <div><kbd>Alt+1..9</kbd> Open media tab quickly</div>
         <div><kbd>Alt+ArrowUp / ArrowDown</kbd> Switch channel up/down</div>
         <div><kbd>Alt+Home / Alt+End</kbd> Jump first / last channel</div>

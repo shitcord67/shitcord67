@@ -2725,6 +2725,73 @@ body[data-compact-members="on"] .member-item {
   color: #aeb4bf;
 }
 
+.profile-identity-preview {
+  margin-top: 0.55rem;
+  border: 1px solid #3c4250;
+  background: #1f2229;
+  border-radius: 10px;
+  padding: 0.45rem 0.55rem 0.6rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-identity-preview__banner {
+  height: 52px;
+  border-radius: 8px;
+  background: linear-gradient(120deg, #5160f7, #2b45d4);
+  background-size: cover;
+  background-position: center;
+}
+
+.profile-identity-preview__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid #1f2229;
+  margin-top: -20px;
+  background: #57f287;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.profile-identity-preview__name {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.profile-identity-preview__status {
+  color: #aeb4bf;
+  font-size: 0.72rem;
+}
+
+#profileIdentityClearBtn {
+  width: 100%;
+  margin-top: 0.45rem;
+  background: #3c4150;
+  color: #edf1f8;
+  padding: 0.4rem 0.6rem;
+  border-radius: 7px;
+}
+
+.profile-identity-preview.profile-effect-aurora .profile-identity-preview__banner {
+  background-image: linear-gradient(120deg, #35c7a4, #3f71ff, #8f56f2);
+  background-size: 220% 220%;
+  animation: profileFxShift 5.5s ease-in-out infinite;
+}
+
+.profile-identity-preview.profile-effect-flame .profile-identity-preview__banner {
+  background-image: linear-gradient(120deg, #ff8a00, #ff3f5f, #a62eff);
+  background-size: 220% 220%;
+  animation: profileFxShift 4.6s ease-in-out infinite;
+}
+
+.profile-identity-preview.profile-effect-ocean .profile-identity-preview__banner {
+  background-image: linear-gradient(120deg, #1da8ff, #2ed6c4, #2d5bff);
+  background-size: 220% 220%;
+  animation: profileFxShift 6.2s ease-in-out infinite;
+}
+
 .role-chip-list {
   display: flex;
   flex-wrap: wrap;
