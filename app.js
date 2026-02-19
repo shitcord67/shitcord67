@@ -2394,14 +2394,27 @@ async function copyText(value) {
     // Fallback below.
   }
   const area = document.createElement("textarea");
+  const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   area.value = text;
+  area.setAttribute("readonly", "true");
   area.style.position = "fixed";
+  area.style.top = "-9999px";
+  area.style.left = "-9999px";
   area.style.opacity = "0";
+  area.style.pointerEvents = "none";
   document.body.appendChild(area);
-  area.select();
-  const copied = document.execCommand("copy");
-  area.remove();
-  return Boolean(copied);
+  try {
+    area.focus();
+    area.select();
+    area.setSelectionRange(0, area.value.length);
+    const copied = document.execCommand("copy");
+    return Boolean(copied);
+  } catch {
+    return false;
+  } finally {
+    area.remove();
+    if (active) active.focus();
+  }
 }
 
 function ensureToastHost() {
@@ -16486,7 +16499,9 @@ ui.refreshDebugBtn.addEventListener("click", () => {
 });
 
 ui.copyDebugBtn.addEventListener("click", () => {
-  copyText(formatDebugLogs());
+  void copyText(formatDebugLogs()).then((ok) => {
+    showToast(ok ? "Debug logs copied." : "Copy failed. Browser blocked clipboard access.", { tone: ok ? "info" : "error" });
+  });
 });
 
 ui.clearDebugBtn.addEventListener("click", () => {
@@ -16504,7 +16519,9 @@ ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
 });
 
 ui.copyXmppConsoleBtn?.addEventListener("click", () => {
-  copyText(formatXmppConsoleLogs());
+  void copyText(formatXmppConsoleLogs()).then((ok) => {
+    showToast(ok ? "XMPP logs copied." : "Copy failed. Browser blocked clipboard access.", { tone: ok ? "info" : "error" });
+  });
 });
 
 ui.clearXmppConsoleBtn?.addEventListener("click", () => {
