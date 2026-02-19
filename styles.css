@@ -92,11 +92,32 @@ select {
 }
 
 .login-card {
+  position: relative;
   width: min(420px, 100%);
   background: #2b2d31;
   border-radius: 14px;
   padding: 1.5rem;
   box-shadow: 0 24px 40px rgba(0, 0, 0, 0.35);
+}
+
+.login-debug-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: #3a3f49;
+  color: #f1f3f7;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.login-debug-btn:hover {
+  background: #4a5161;
 }
 
 .login-card h1 {
