@@ -263,6 +263,13 @@ XMPP mode (experimental):
 - XMPP adapter path is now implemented experimentally (Strophe runtime load + connect/auth + MUC room join/send/receive).
 - Standalone client path is viable after transport abstraction hardens (Electron/Tauri shell + same web UI + selectable transport adapter).
 
+## XMPP Runtime Troubleshooting
+- If login shows `Failed to load XMPP runtime`, the Strophe runtime script could not be loaded.
+- The app now tries local first (`./node_modules/strophe.js/dist/strophe.min.js`) and then CDN fallbacks.
+- Install local runtime dependency in project root:
+  - `npm install strophe.js`
+- Keep browser/devtools network policy open for script loading if you rely on CDN fallback.
+
 ## Design Research Notes
 - Investigated Discord-adjacent client repositories for interaction and layout references:
   - `https://github.com/Vencord/Vesktop`

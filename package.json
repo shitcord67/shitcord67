@@ -21,6 +21,7 @@
   "dependencies": {
     "@xmpp/client": "^0.14.0",
     "@xmpp/debug": "^0.14.0",
+    "strophe.js": "^1.6.2",
     "ws": "^8.19.0"
   }
 }
