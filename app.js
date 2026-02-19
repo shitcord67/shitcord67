@@ -13659,10 +13659,16 @@ function resolveXmppWsCandidates(jid, explicitWs = "") {
     if (!normalized) return;
     if (!candidates.includes(normalized)) candidates.push(normalized);
   };
-  push(explicitWs);
   const domain = xmppDomainFromJid(jid);
   if (!domain || !looksLikeCompleteJid(jid)) return candidates;
-  push(knownXmppWsForDomain(domain));
+  const knownWs = knownXmppWsForDomain(domain);
+  const explicitNormalized = normalizeXmppWsUrl(explicitWs);
+  if (knownWs) {
+    push(explicitNormalized);
+    push(knownWs);
+    return candidates;
+  }
+  push(explicitNormalized);
   push(`wss://api.${domain}/ws`);
   push(`wss://${domain}/ws`);
   push(`wss://${domain}/xmpp-websocket`);
@@ -13989,7 +13995,9 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
       }
       resolve({
         ok: false,
-        error: sawAuthFail ? "XMPP authentication failed." : "XMPP connection failed for discovered WebSocket endpoints.",
+        error: sawAuthFail
+          ? `XMPP authentication failed. Tried: ${candidates.join(", ")}`
+          : `XMPP connection failed for WebSocket endpoints. Tried: ${candidates.join(", ")}`,
         wsUrl: candidates[0] || ""
       });
     }).catch((error) => {
