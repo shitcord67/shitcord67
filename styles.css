@@ -542,6 +542,18 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   font-weight: 800;
 }
 
+.channel-badge--live {
+  margin-left: 0;
+  background: rgba(87, 242, 135, 0.18);
+  color: #8ce9ab;
+  min-width: 2.2rem;
+  height: 1.05rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+}
+
 .channel-empty {
   color: #9ca3ae;
   font-size: 0.8rem;
@@ -843,6 +855,47 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   border-radius: 7px;
   padding: 0.25rem 0.45rem;
   font-size: 0.69rem;
+}
+
+.voice-stage__activity {
+  border-top: 1px solid #3a4050;
+  padding-top: 0.6rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.voice-stage__activity h4 {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #cdd5e6;
+}
+
+.voice-stage__activity-list {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.voice-stage__activity-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+  border: 1px solid #384052;
+  border-radius: 7px;
+  padding: 0.3rem 0.4rem;
+  background: #262c39;
+}
+
+.voice-stage__activity-row small {
+  color: #c7d0e2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-stage__activity-row span {
+  color: #96a3bb;
+  font-size: 0.66rem;
 }
 
 .message {

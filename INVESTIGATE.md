@@ -38,3 +38,12 @@ This file lists things that are likely environment- or content-specific and shou
 - Reason: some SVG exports are structurally broken or visually inconsistent.
 - Tooling: run `python3 scripts/process_pdf_references.py --root SVGscreenshots` to render stable PNG previews into `SVGscreenshots/pdf-previews/`.
 - Optional: `--also-svg` keeps a best-effort SVG export path only when needed.
+
+## External Reference URLs Reviewed
+
+1. `https://github.com/Vencord/Vesktop`
+- Focus: desktop shell cues, interaction pacing, and native-feeling control placement.
+
+2. `https://github.com/fluxerapp/fluxer`
+- Focus: broad architecture scanning only.
+- Constraint used here: keep naming and UX wording independent in this codebase.

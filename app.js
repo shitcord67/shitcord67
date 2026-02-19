@@ -66,6 +66,11 @@ const SLASH_COMMANDS = [
   { name: "schedule", args: "<when> | <text>", description: "Schedule a message for later (e.g. 10m, 2h, date)." },
   { name: "scheduled", args: "", description: "List pending scheduled messages for this conversation." },
   { name: "unschedule", args: "<id|last|all>", description: "Cancel scheduled message(s) for this conversation." },
+  { name: "vc", args: "<join|leave|mute|unmute|toggle|status>", description: "Control active voice/stage channel state quickly." },
+  { name: "voicewho", args: "", description: "Show connected members for current voice/stage channel." },
+  { name: "hand", args: "[raise|lower|toggle]", description: "Raise/lower hand in current stage channel." },
+  { name: "speaker", args: "[on|off|toggle]", description: "Toggle your speaker role in current stage channel." },
+  { name: "stage", args: "<approve|dismiss|mute|unmute|promote|demote|disconnect> <member>", description: "Moderate stage participants by name/id." },
   { name: "forumtag", args: "<add|remove|list> ...", description: "Manage forum tags in this channel (manage channels)." },
   { name: "tagthread", args: "<tag1,tag2...|clear>", description: "Assign tags to a forum thread root post." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
@@ -151,7 +156,8 @@ function createVoiceState() {
     connectedIds: [],
     mutedIds: [],
     raisedHandIds: [],
-    speakerIds: []
+    speakerIds: [],
+    activity: []
   };
 }
 
@@ -233,7 +239,8 @@ function rolePresetPermissions(preset) {
       administrator: true,
       manageChannels: true,
       manageRoles: true,
-      manageMessages: true
+      manageMessages: true,
+      stageModeration: true
     };
   }
   if (preset === "mod") {
@@ -241,14 +248,16 @@ function rolePresetPermissions(preset) {
       administrator: false,
       manageChannels: true,
       manageRoles: false,
-      manageMessages: true
+      manageMessages: true,
+      stageModeration: true
     };
   }
   return {
     administrator: false,
     manageChannels: false,
     manageRoles: false,
-    manageMessages: false
+    manageMessages: false,
+    stageModeration: false
   };
 }
 
@@ -503,7 +512,8 @@ function migrateState(raw) {
               administrator: Boolean(role.permissions?.administrator),
               manageChannels: Boolean(role.permissions?.manageChannels),
               manageRoles: Boolean(role.permissions?.manageRoles),
-              manageMessages: Boolean(role.permissions?.manageMessages)
+              manageMessages: Boolean(role.permissions?.manageMessages),
+              stageModeration: Boolean(role.permissions?.stageModeration ?? role.permissions?.manageMessages)
             }
           }))
         : [baseRole];
@@ -1873,9 +1883,87 @@ function canCurrentUserPostInChannel(channel, account) {
   return true;
 }
 
+function canModerateStageChannel(channel = null) {
+  if (channel && channel.type !== "stage") return false;
+  return canCurrentUser("stageModeration") || canCurrentUser("manageMessages") || canCurrentUser("administrator");
+}
+
 function ensureVoiceStateForChannel(channel) {
   if (!channel) return;
   channel.voiceState = normalizeVoiceState(channel.voiceState);
+}
+
+function addVoiceActivity(channel, accountId, action, detail = "") {
+  if (!channel || !accountId || !action) return;
+  ensureVoiceStateForChannel(channel);
+  if (!Array.isArray(channel.voiceState.activity)) channel.voiceState.activity = [];
+  channel.voiceState.activity.push({
+    id: createId(),
+    accountId,
+    action: action.toString().slice(0, 32),
+    detail: detail.toString().slice(0, 120),
+    ts: new Date().toISOString()
+  });
+  if (channel.voiceState.activity.length > 30) {
+    channel.voiceState.activity = channel.voiceState.activity.slice(-30);
+  }
+}
+
+function setVoiceMuteState(channel, accountId, muted) {
+  if (!channel || !accountId) return false;
+  ensureVoiceStateForChannel(channel);
+  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
+  const hasMuted = channel.voiceState.mutedIds.includes(accountId);
+  if (muted && !hasMuted) channel.voiceState.mutedIds.push(accountId);
+  if (!muted && hasMuted) channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== accountId);
+  return hasMuted !== muted;
+}
+
+function setStageRaisedHandState(channel, accountId, raised) {
+  if (!channel || !accountId || channel.type !== "stage") return false;
+  ensureVoiceStateForChannel(channel);
+  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
+  const hasRaised = channel.voiceState.raisedHandIds.includes(accountId);
+  if (raised && !hasRaised) channel.voiceState.raisedHandIds.push(accountId);
+  if (!raised && hasRaised) channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
+  return hasRaised !== raised;
+}
+
+function setStageSpeakerState(channel, accountId, speaker) {
+  if (!channel || !accountId || channel.type !== "stage") return false;
+  ensureVoiceStateForChannel(channel);
+  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
+  const isSpeaker = channel.voiceState.speakerIds.includes(accountId);
+  if (speaker && !isSpeaker) channel.voiceState.speakerIds.push(accountId);
+  if (!speaker && isSpeaker) channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== accountId);
+  if (speaker) {
+    channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
+  }
+  return isSpeaker !== speaker;
+}
+
+function resolveVoiceParticipantByToken(channel, token, guild) {
+  if (!channel || !guild) return null;
+  ensureVoiceStateForChannel(channel);
+  const needle = (token || "").trim().toLowerCase();
+  if (!needle) return null;
+  const connected = channel.voiceState.connectedIds
+    .map((id) => getAccountById(id))
+    .filter(Boolean);
+  const byId = connected.find((entry) => entry.id.toLowerCase().startsWith(needle));
+  if (byId) return byId;
+  const exact = connected.filter((entry) => {
+    const username = (entry.username || "").toLowerCase();
+    const display = displayNameForAccount(entry, guild.id).toLowerCase();
+    return username === needle || display === needle;
+  });
+  if (exact.length === 1) return exact[0];
+  const partial = connected.filter((entry) => {
+    const username = (entry.username || "").toLowerCase();
+    const display = displayNameForAccount(entry, guild.id).toLowerCase();
+    return username.includes(needle) || display.includes(needle);
+  });
+  return partial.length === 1 ? partial[0] : null;
 }
 
 function leaveAllVoiceChannelsForAccount(guild, accountId) {
@@ -1900,6 +1988,7 @@ function joinVoiceLikeChannel(channel, accountId) {
   leaveAllVoiceChannelsForAccount(guild, accountId);
   ensureVoiceStateForChannel(channel);
   if (!channel.voiceState.connectedIds.includes(accountId)) channel.voiceState.connectedIds.push(accountId);
+  addVoiceActivity(channel, accountId, "join");
   return true;
 }
 
@@ -1911,44 +2000,59 @@ function leaveVoiceLikeChannel(channel, accountId) {
   channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== accountId);
   channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
   channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== accountId);
-  return JSON.stringify(channel.voiceState) !== before;
+  const changed = JSON.stringify(channel.voiceState) !== before;
+  if (changed) addVoiceActivity(channel, accountId, "leave");
+  return changed;
 }
 
 function toggleVoiceMuteForSelf(channel, accountId) {
   if (!channel || !accountId) return false;
   ensureVoiceStateForChannel(channel);
-  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
-  if (channel.voiceState.mutedIds.includes(accountId)) {
-    channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== accountId);
-  } else {
-    channel.voiceState.mutedIds.push(accountId);
-  }
-  return true;
+  const nextMuted = !channel.voiceState.mutedIds.includes(accountId);
+  const changed = setVoiceMuteState(channel, accountId, nextMuted);
+  if (changed) addVoiceActivity(channel, accountId, nextMuted ? "mute" : "unmute");
+  return changed;
+}
+
+function describeVoiceActivity(entry, guild) {
+  const account = getAccountById(entry?.accountId || "");
+  const who = account ? displayNameForAccount(account, guild?.id || null) : "Unknown";
+  const detail = (entry?.detail || "").trim();
+  const map = {
+    join: "joined",
+    leave: "left",
+    mute: "muted",
+    unmute: "unmuted",
+    hand_raise: "raised hand",
+    hand_lower: "lowered hand",
+    speaker_on: "became speaker",
+    speaker_off: "stopped speaking",
+    approved: "approved speaker request",
+    dismissed: "dismissed hand raise",
+    promoted: "promoted to speaker",
+    demoted: "demoted from speaker",
+    disconnected: "disconnected member"
+  };
+  const verb = map[entry?.action] || (entry?.action || "updated");
+  return detail ? `${who} ${verb} (${detail})` : `${who} ${verb}`;
 }
 
 function toggleRaisedHandForSelf(channel, accountId) {
   if (!channel || !accountId || channel.type !== "stage") return false;
   ensureVoiceStateForChannel(channel);
-  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
-  if (channel.voiceState.raisedHandIds.includes(accountId)) {
-    channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
-  } else {
-    channel.voiceState.raisedHandIds.push(accountId);
-  }
-  return true;
+  const nextRaised = !channel.voiceState.raisedHandIds.includes(accountId);
+  const changed = setStageRaisedHandState(channel, accountId, nextRaised);
+  if (changed) addVoiceActivity(channel, accountId, nextRaised ? "hand_raise" : "hand_lower");
+  return changed;
 }
 
 function toggleStageSpeaker(channel, accountId) {
   if (!channel || !accountId || channel.type !== "stage") return false;
   ensureVoiceStateForChannel(channel);
-  if (!channel.voiceState.connectedIds.includes(accountId)) return false;
-  if (channel.voiceState.speakerIds.includes(accountId)) {
-    channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== accountId);
-  } else {
-    channel.voiceState.speakerIds.push(accountId);
-    channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== accountId);
-  }
-  return true;
+  const nextSpeaker = !channel.voiceState.speakerIds.includes(accountId);
+  const changed = setStageSpeakerState(channel, accountId, nextSpeaker);
+  if (changed) addVoiceActivity(channel, accountId, nextSpeaker ? "speaker_on" : "speaker_off");
+  return changed;
 }
 
 function getChannelSlowmodeRemainingMs(channel, accountId) {
@@ -2460,6 +2564,10 @@ function ensureCurrentUserInActiveServer() {
     channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => channel.voiceState.connectedIds.includes(id));
     channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => channel.voiceState.connectedIds.includes(id));
     channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => channel.voiceState.connectedIds.includes(id));
+    if (!Array.isArray(channel.voiceState.activity)) channel.voiceState.activity = [];
+    channel.voiceState.activity = channel.voiceState.activity
+      .filter((entry) => entry && typeof entry === "object" && entry.accountId)
+      .slice(-30);
     if (JSON.stringify(channel.voiceState || {}) !== beforeVoice) changed = true;
     channel.forumTags = channel.type === "forum" ? forumTagsForChannel(channel) : [];
     ensureChannelReadState(channel);
@@ -2719,11 +2827,24 @@ function normalizeProfileEffect(value) {
 function normalizeVoiceState(value) {
   const safe = value && typeof value === "object" ? value : {};
   const normalizeIds = (arr) => [...new Set((Array.isArray(arr) ? arr : []).map((id) => (id || "").toString()).filter(Boolean))];
+  const activity = Array.isArray(safe.activity)
+    ? safe.activity
+      .map((entry) => ({
+        id: (entry?.id || createId()).toString(),
+        accountId: (entry?.accountId || "").toString(),
+        action: (entry?.action || "").toString().slice(0, 32),
+        detail: (entry?.detail || "").toString().slice(0, 120),
+        ts: entry?.ts || new Date().toISOString()
+      }))
+      .filter((entry) => entry.accountId && entry.action)
+      .slice(-30)
+    : [];
   return {
     connectedIds: normalizeIds(safe.connectedIds),
     mutedIds: normalizeIds(safe.mutedIds),
     raisedHandIds: normalizeIds(safe.raisedHandIds),
-    speakerIds: normalizeIds(safe.speakerIds)
+    speakerIds: normalizeIds(safe.speakerIds),
+    activity
   };
 }
 
@@ -5078,6 +5199,211 @@ function handleSlashCommand(rawText, channel, account) {
     if (!conversation) return true;
     const removed = removeScheduledMessageByToken(conversation.id, arg.trim());
     addSystemMessage(channel, removed > 0 ? `Removed ${removed} scheduled message${removed === 1 ? "" : "s"}.` : "No scheduled message matched.");
+    return true;
+  }
+
+  if (command === "vc" || command === "voice") {
+    if (!(channel.type === "voice" || channel.type === "stage")) {
+      addSystemMessage(channel, "This command only works in voice/stage channels.");
+      return true;
+    }
+    ensureVoiceStateForChannel(channel);
+    const action = (arg || "status").toLowerCase();
+    const connected = channel.voiceState.connectedIds.includes(account.id);
+    if (action === "status") {
+      const muted = channel.voiceState.mutedIds.includes(account.id);
+      const speakers = channel.type === "stage" ? channel.voiceState.speakerIds.length : 0;
+      const raised = channel.type === "stage" ? channel.voiceState.raisedHandIds.length : 0;
+      addSystemMessage(
+        channel,
+        [
+          `Connected: ${connected ? "yes" : "no"}`,
+          `Muted: ${muted ? "yes" : "no"}`,
+          `Listeners: ${channel.voiceState.connectedIds.length}`,
+          channel.type === "stage" ? `Speakers: ${speakers}` : "",
+          channel.type === "stage" ? `Queue: ${raised}` : ""
+        ].filter(Boolean).join(" · ")
+      );
+      return true;
+    }
+    if (action === "join") {
+      if (connected) {
+        addSystemMessage(channel, "Already connected.");
+        return true;
+      }
+      joinVoiceLikeChannel(channel, account.id);
+      addSystemMessage(channel, "Joined channel.");
+      renderMemberList();
+      renderMessages();
+      return true;
+    }
+    if (action === "leave") {
+      if (!connected) {
+        addSystemMessage(channel, "Not connected.");
+        return true;
+      }
+      leaveVoiceLikeChannel(channel, account.id);
+      addSystemMessage(channel, "Left channel.");
+      renderMemberList();
+      renderMessages();
+      return true;
+    }
+    if (action === "toggle") {
+      const changed = connected
+        ? leaveVoiceLikeChannel(channel, account.id)
+        : joinVoiceLikeChannel(channel, account.id);
+      if (changed) addSystemMessage(channel, connected ? "Left channel." : "Joined channel.");
+      renderMemberList();
+      renderMessages();
+      return true;
+    }
+    if (action === "mute" || action === "unmute") {
+      if (!connected) {
+        addSystemMessage(channel, "Join first, then use mute controls.");
+        return true;
+      }
+      const changed = setVoiceMuteState(channel, account.id, action === "mute");
+      if (changed) {
+        addVoiceActivity(channel, account.id, action);
+        addSystemMessage(channel, action === "mute" ? "Muted." : "Unmuted.");
+      } else {
+        addSystemMessage(channel, action === "mute" ? "Already muted." : "Already unmuted.");
+      }
+      renderMemberList();
+      renderMessages();
+      return true;
+    }
+    addSystemMessage(channel, "Usage: /vc <join|leave|mute|unmute|toggle|status>");
+    return true;
+  }
+
+  if (command === "voicewho") {
+    if (!(channel.type === "voice" || channel.type === "stage")) {
+      addSystemMessage(channel, "This command only works in voice/stage channels.");
+      return true;
+    }
+    const guild = getActiveGuild();
+    ensureVoiceStateForChannel(channel);
+    const rows = channel.voiceState.connectedIds
+      .map((id) => getAccountById(id))
+      .filter(Boolean)
+      .map((member) => {
+        const flags = [];
+        if (channel.voiceState.mutedIds.includes(member.id)) flags.push("Muted");
+        if (channel.type === "stage" && channel.voiceState.speakerIds.includes(member.id)) flags.push("Speaker");
+        if (channel.type === "stage" && channel.voiceState.raisedHandIds.includes(member.id)) flags.push("Hand Raised");
+        return `${displayNameForAccount(member, guild?.id || null)}${flags.length > 0 ? ` (${flags.join(", ")})` : ""}`;
+      });
+    addSystemMessage(channel, rows.length > 0 ? `Connected: ${rows.join(" · ")}` : "Nobody is connected.");
+    return true;
+  }
+
+  if (command === "hand") {
+    if (channel.type !== "stage") {
+      addSystemMessage(channel, "This command only works in stage channels.");
+      return true;
+    }
+    ensureVoiceStateForChannel(channel);
+    if (!channel.voiceState.connectedIds.includes(account.id)) {
+      addSystemMessage(channel, "Join the stage first.");
+      return true;
+    }
+    const action = (arg || "toggle").toLowerCase();
+    const changed = action === "raise"
+      ? setStageRaisedHandState(channel, account.id, true)
+      : action === "lower"
+        ? setStageRaisedHandState(channel, account.id, false)
+        : action === "toggle"
+          ? toggleRaisedHandForSelf(channel, account.id)
+          : null;
+    if (changed === null) {
+      addSystemMessage(channel, "Usage: /hand [raise|lower|toggle]");
+      return true;
+    }
+    if (changed && action !== "toggle") addVoiceActivity(channel, account.id, action === "raise" ? "hand_raise" : "hand_lower");
+    addSystemMessage(channel, channel.voiceState.raisedHandIds.includes(account.id) ? "Hand raised." : "Hand lowered.");
+    renderMemberList();
+    renderMessages();
+    return true;
+  }
+
+  if (command === "speaker") {
+    if (channel.type !== "stage") {
+      addSystemMessage(channel, "This command only works in stage channels.");
+      return true;
+    }
+    ensureVoiceStateForChannel(channel);
+    if (!channel.voiceState.connectedIds.includes(account.id)) {
+      addSystemMessage(channel, "Join the stage first.");
+      return true;
+    }
+    const action = (arg || "toggle").toLowerCase();
+    const changed = action === "on"
+      ? setStageSpeakerState(channel, account.id, true)
+      : action === "off"
+        ? setStageSpeakerState(channel, account.id, false)
+        : action === "toggle"
+          ? toggleStageSpeaker(channel, account.id)
+          : null;
+    if (changed === null) {
+      addSystemMessage(channel, "Usage: /speaker [on|off|toggle]");
+      return true;
+    }
+    if (changed && action !== "toggle") addVoiceActivity(channel, account.id, action === "on" ? "speaker_on" : "speaker_off");
+    addSystemMessage(channel, channel.voiceState.speakerIds.includes(account.id) ? "You are now a speaker." : "You are now a listener.");
+    renderMemberList();
+    renderMessages();
+    return true;
+  }
+
+  if (command === "stage") {
+    if (channel.type !== "stage") {
+      addSystemMessage(channel, "This command only works in stage channels.");
+      return true;
+    }
+    if (!canModerateStageChannel(channel)) {
+      addSystemMessage(channel, "Stage Moderation permission required.");
+      return true;
+    }
+    const guild = getActiveGuild();
+    const [rawAction, ...restToken] = arg.split(" ");
+    const action = (rawAction || "").toLowerCase();
+    const token = restToken.join(" ").trim();
+    if (!action || !token) {
+      addSystemMessage(channel, "Usage: /stage <approve|dismiss|mute|unmute|promote|demote|disconnect> <member>");
+      return true;
+    }
+    const target = resolveVoiceParticipantByToken(channel, token, guild);
+    if (!target) {
+      addSystemMessage(channel, "Member not found (use username/display name or id prefix).");
+      return true;
+    }
+    let changed = false;
+    if (action === "approve" || action === "promote") {
+      changed = setStageSpeakerState(channel, target.id, true);
+      if (changed) addVoiceActivity(channel, account.id, action === "approve" ? "approved" : "promoted", displayNameForAccount(target, guild?.id || null));
+    } else if (action === "dismiss") {
+      changed = setStageRaisedHandState(channel, target.id, false);
+      if (changed) addVoiceActivity(channel, account.id, "dismissed", displayNameForAccount(target, guild?.id || null));
+    } else if (action === "mute") {
+      changed = setVoiceMuteState(channel, target.id, true);
+      if (changed) addVoiceActivity(channel, account.id, "mute", displayNameForAccount(target, guild?.id || null));
+    } else if (action === "unmute") {
+      changed = setVoiceMuteState(channel, target.id, false);
+      if (changed) addVoiceActivity(channel, account.id, "unmute", displayNameForAccount(target, guild?.id || null));
+    } else if (action === "demote") {
+      changed = setStageSpeakerState(channel, target.id, false);
+      if (changed) addVoiceActivity(channel, account.id, "demoted", displayNameForAccount(target, guild?.id || null));
+    } else if (action === "disconnect") {
+      changed = leaveVoiceLikeChannel(channel, target.id);
+      if (changed) addVoiceActivity(channel, account.id, "disconnected", displayNameForAccount(target, guild?.id || null));
+    } else {
+      addSystemMessage(channel, "Usage: /stage <approve|dismiss|mute|unmute|promote|demote|disconnect> <member>");
+      return true;
+    }
+    addSystemMessage(channel, changed ? `Updated ${displayNameForAccount(target, guild?.id || null)}.` : "No change applied.");
+    renderMemberList();
+    renderMessages();
     return true;
   }
 
@@ -9047,6 +9373,22 @@ function renderChannels() {
       getChannelUnreadStats(channel, currentAccount),
       notificationMode
     );
+    if (channel.type === "voice" || channel.type === "stage") {
+      ensureVoiceStateForChannel(channel);
+      const connectedCount = channel.voiceState.connectedIds.length;
+      if (connectedCount > 0) {
+        const liveBadge = document.createElement("span");
+        liveBadge.className = "channel-badge channel-badge--live";
+        if (channel.type === "stage") {
+          const speakerCount = channel.voiceState.speakerIds.length;
+          const raisedCount = channel.voiceState.raisedHandIds.length;
+          liveBadge.textContent = `${connectedCount} · S${speakerCount} Q${raisedCount}`;
+        } else {
+          liveBadge.textContent = `${connectedCount} live`;
+        }
+        button.appendChild(liveBadge);
+      }
+    }
     if (unreadStats.mentions > 0) {
       const mentionBadge = document.createElement("span");
       mentionBadge.className = "channel-badge channel-badge--mention";
@@ -9982,7 +10324,7 @@ function renderVoiceStageSurface(channel) {
   const isMuted = channel.voiceState.mutedIds.includes(current.id);
   const hasRaised = channel.voiceState.raisedHandIds.includes(current.id);
   const isSpeaker = channel.voiceState.speakerIds.includes(current.id);
-  const canModerateStage = channel.type === "stage" && canCurrentUser("manageMessages");
+  const canModerateStage = channel.type === "stage" && canModerateStageChannel(channel);
 
   const shell = document.createElement("section");
   shell.className = "voice-stage";
@@ -10111,8 +10453,9 @@ function renderVoiceStageSurface(channel) {
         approve.textContent = "Approve";
         approve.addEventListener("click", () => {
           ensureVoiceStateForChannel(channel);
-          if (!channel.voiceState.speakerIds.includes(account.id)) channel.voiceState.speakerIds.push(account.id);
-          channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== account.id);
+          const changed = setStageSpeakerState(channel, account.id, true);
+          if (!changed) return;
+          addVoiceActivity(channel, current.id, "approved", displayNameForAccount(account, guild.id));
           saveState();
           renderMessages();
           renderMemberList();
@@ -10124,7 +10467,9 @@ function renderVoiceStageSurface(channel) {
         deny.textContent = "Dismiss";
         deny.addEventListener("click", () => {
           ensureVoiceStateForChannel(channel);
-          channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== account.id);
+          const changed = setStageRaisedHandState(channel, account.id, false);
+          if (!changed) return;
+          addVoiceActivity(channel, current.id, "dismissed", displayNameForAccount(account, guild.id));
           saveState();
           renderMessages();
           renderMemberList();
@@ -10153,12 +10498,9 @@ function renderVoiceStageSurface(channel) {
         muteBtnMember.type = "button";
         muteBtnMember.textContent = memberMuted ? "Unmute" : "Mute";
         muteBtnMember.addEventListener("click", () => {
-          ensureVoiceStateForChannel(channel);
-          if (channel.voiceState.mutedIds.includes(account.id)) {
-            channel.voiceState.mutedIds = channel.voiceState.mutedIds.filter((id) => id !== account.id);
-          } else {
-            channel.voiceState.mutedIds.push(account.id);
-          }
+          const changed = setVoiceMuteState(channel, account.id, !memberMuted);
+          if (!changed) return;
+          addVoiceActivity(channel, current.id, memberMuted ? "unmute" : "mute", displayNameForAccount(account, guild.id));
           saveState();
           renderMessages();
           renderMemberList();
@@ -10169,13 +10511,9 @@ function renderVoiceStageSurface(channel) {
         speakerBtnMember.type = "button";
         speakerBtnMember.textContent = memberSpeaker ? "Demote" : "Promote";
         speakerBtnMember.addEventListener("click", () => {
-          ensureVoiceStateForChannel(channel);
-          if (channel.voiceState.speakerIds.includes(account.id)) {
-            channel.voiceState.speakerIds = channel.voiceState.speakerIds.filter((id) => id !== account.id);
-          } else {
-            channel.voiceState.speakerIds.push(account.id);
-            channel.voiceState.raisedHandIds = channel.voiceState.raisedHandIds.filter((id) => id !== account.id);
-          }
+          const changed = setStageSpeakerState(channel, account.id, !memberSpeaker);
+          if (!changed) return;
+          addVoiceActivity(channel, current.id, memberSpeaker ? "demoted" : "promoted", displayNameForAccount(account, guild.id));
           saveState();
           renderMessages();
           renderMemberList();
@@ -10187,6 +10525,7 @@ function renderVoiceStageSurface(channel) {
         removeBtn.textContent = "Disconnect";
         removeBtn.addEventListener("click", () => {
           if (!leaveVoiceLikeChannel(channel, account.id)) return;
+          addVoiceActivity(channel, current.id, "disconnected", displayNameForAccount(account, guild.id));
           saveState();
           renderMessages();
           renderMemberList();
@@ -10197,6 +10536,30 @@ function renderVoiceStageSurface(channel) {
     }
     mod.appendChild(people);
     shell.appendChild(mod);
+  }
+
+  const activityRows = (channel.voiceState.activity || []).slice(-6).reverse();
+  if (activityRows.length > 0) {
+    const activity = document.createElement("section");
+    activity.className = "voice-stage__activity";
+    const activityTitle = document.createElement("h4");
+    activityTitle.textContent = "Live Activity";
+    activity.appendChild(activityTitle);
+    const activityList = document.createElement("div");
+    activityList.className = "voice-stage__activity-list";
+    activityRows.forEach((entry) => {
+      const row = document.createElement("div");
+      row.className = "voice-stage__activity-row";
+      const label = document.createElement("small");
+      label.textContent = describeVoiceActivity(entry, guild);
+      const ts = document.createElement("span");
+      ts.textContent = formatTime(entry.ts);
+      row.appendChild(label);
+      row.appendChild(ts);
+      activityList.appendChild(row);
+    });
+    activity.appendChild(activityList);
+    shell.appendChild(activity);
   }
   ui.messageList.appendChild(shell);
   updateJumpToBottomButton();
@@ -14357,6 +14720,26 @@ document.addEventListener("keydown", (event) => {
     if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
     openMediaPickerWithTab("pdf");
+    return;
+  }
+  if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "v") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    if (getViewMode() !== "guild") return;
+    const channel = getActiveChannel();
+    const current = getCurrentAccount();
+    if (!channel || !current) return;
+    if (!(channel.type === "voice" || channel.type === "stage")) return;
+    ensureVoiceStateForChannel(channel);
+    event.preventDefault();
+    const isConnected = channel.voiceState.connectedIds.includes(current.id);
+    const changed = isConnected
+      ? leaveVoiceLikeChannel(channel, current.id)
+      : joinVoiceLikeChannel(channel, current.id);
+    if (!changed) return;
+    saveState();
+    render();
+    showToast(isConnected ? "Left channel." : "Joined channel.");
     return;
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "k") {
