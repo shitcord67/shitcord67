@@ -2601,6 +2601,32 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.78rem;
 }
 
+.find-filters {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.5rem;
+  align-items: end;
+}
+
+.find-filters label {
+  display: block;
+  margin-bottom: 0.18rem;
+  font-size: 0.7rem;
+  color: #aeb7c8;
+}
+
+.find-filters input[type="text"],
+.find-filters input[type="date"] {
+  width: 100%;
+  margin: 0;
+}
+
+.find-filter-check {
+  margin: 0;
+  padding-bottom: 0.18rem;
+}
+
 .modal-actions button:first-child {
   background: transparent;
   color: #c7ccd2;
@@ -2873,6 +2899,18 @@ body[data-compact-members="on"] .member-item {
   max-height: 320px;
   overflow-y: auto;
   margin-bottom: 0.7rem;
+}
+
+.pins-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  margin: 0.4rem 0 0.55rem;
+}
+
+.pins-toolbar input,
+.pins-toolbar select {
+  margin: 0;
 }
 
 .pin-item {

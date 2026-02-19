@@ -212,6 +212,8 @@
 - [done] Hardened anti-autocomplete attributes for login/search/find/quick-switch/composer inputs at runtime
 - [done] `/help` now supports optional text filter (`/help find`) for faster command discovery
 - [done] DM slash command parity expanded for `/find`, `/findnext`, `/findprev`, `/markunread`
+- [done] Find dialog upgraded with scoped filters (`from`, `before/after`, `has link`) and inline `/find` token parsing.
+- [done] Pins dialog upgraded with quick filter and sort modes (newest/oldest/author).
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior

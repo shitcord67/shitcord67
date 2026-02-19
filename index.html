@@ -558,6 +558,24 @@
       <h3>Find in Conversation</h3>
       <label for="findInput">Search text</label>
       <input id="findInput" type="text" maxlength="120" placeholder="Find messages..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <div class="find-filters">
+        <div>
+          <label for="findAuthorInput">From user</label>
+          <input id="findAuthorInput" type="text" maxlength="32" placeholder="@username" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        </div>
+        <div>
+          <label for="findAfterInput">After date</label>
+          <input id="findAfterInput" type="date" />
+        </div>
+        <div>
+          <label for="findBeforeInput">Before date</label>
+          <input id="findBeforeInput" type="date" />
+        </div>
+        <label class="modal-check find-filter-check">
+          <input id="findHasLinkInput" type="checkbox" />
+          Has link
+        </label>
+      </div>
       <div id="findMeta" class="find-meta">Type to search messages in this conversation.</div>
       <div id="findList" class="quick-switch-list"></div>
       <div class="modal-actions">
@@ -660,6 +678,15 @@
   <dialog id="pinsDialog" class="modal">
     <form id="pinsForm" class="modal-form" method="dialog">
       <h3>Pinned Messages</h3>
+      <div class="pins-toolbar">
+        <input id="pinsSearchInput" type="text" maxlength="80" placeholder="Filter pinned messages" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <select id="pinsSortInput">
+          <option value="latest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="author-asc">Author A-Z</option>
+          <option value="author-desc">Author Z-A</option>
+        </select>
+      </div>
       <div id="pinsList" class="pins-list"></div>
       <div class="modal-actions">
         <button type="button" id="pinsCloseBtn">Close</button>
