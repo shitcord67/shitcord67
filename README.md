@@ -274,6 +274,10 @@ XMPP mode (experimental):
 - Manual re-sync if needed:
   - `npm run sync:xmpp-runtime`
 - Keep browser/devtools network policy open for script loading if you rely on CDN fallback.
+- If browser login shows `AUTHFAIL` but Node-based auth works, run local fallback gateway:
+  - `npm run xmpp:auth-gateway`
+  - The login validator will auto-try `http://localhost:8790/auth-check` after browser Strophe failure.
+  - This is intended for local web + Electron compatibility where browser auth stacks can differ.
 
 ## Design Research Notes
 - Investigated Discord-adjacent client repositories for interaction and layout references:

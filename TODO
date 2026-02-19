@@ -14,6 +14,7 @@
 - [done] Login can optionally prefill from `.xmpp.local.json` via a local profile dropdown when the file is web-accessible.
 - [done] Added dedicated XMPP Console with runtime/auth/endpoint/stanza diagnostics (filter/search/pause/copy).
 - [done] Added XEP-0156 host-meta WebSocket discovery for smarter XMPP endpoint selection on login.
+- [done] Added local Node XMPP auth gateway fallback (`scripts/xmpp-auth-gateway.mjs`) for browser/Electron compatibility.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
 - Profile image upload with validation and preview.
