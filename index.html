@@ -298,6 +298,27 @@
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
+            <h3>Live Relay (Experimental)</h3>
+            <label for="relayModeInput">Transport mode</label>
+            <select id="relayModeInput">
+              <option value="local">Local only</option>
+              <option value="ws">WebSocket relay</option>
+              <option value="off">Off</option>
+            </select>
+            <label for="relayUrlInput">Relay URL</label>
+            <input id="relayUrlInput" type="text" maxlength="180" placeholder="ws://localhost:8787" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="relayRoomInput">Relay room override (optional)</label>
+            <input id="relayRoomInput" type="text" maxlength="80" placeholder="leave empty to use active guild/channel room" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="relayAutoConnectInput">Auto-connect relay</label>
+            <select id="relayAutoConnectInput">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+            <p id="relayStatusOutput">Relay: disconnected</p>
+            <div class="settings-inline-actions">
+              <button id="relayConnectBtn" type="button">Connect Relay</button>
+              <button id="relayDisconnectBtn" type="button">Disconnect Relay</button>
+            </div>
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export App JSON</button>
               <button id="importDataBtn" type="button">Import App JSON</button>

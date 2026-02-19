@@ -1,9 +1,16 @@
 const STORAGE_KEY = "shitcord67-state-v1";
 const SESSION_ACCOUNT_KEY = "shitcord67-session-account-id";
+const RELAY_STATUS_LABELS = {
+  disconnected: "Disconnected",
+  connecting: "Connecting",
+  connected: "Connected",
+  error: "Error"
+};
 const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
+  { name: "relay", args: "[status|connect|disconnect|mode <local|ws|off>|url <ws://...>|room <name|clear>]", description: "Control experimental realtime relay transport." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
   { name: "tableflip", args: "[text]", description: "Send a table-flip message." },
   { name: "unflip", args: "", description: "Send table reset emote." },
@@ -405,7 +412,12 @@ function buildInitialState() {
       collapseDmSection: "off",
       collapseGuildSection: "off",
       lastChannelByGuild: {},
-      swfPipPosition: null
+      swfPipPosition: null,
+      relayMode: "local",
+      relayUrl: "ws://localhost:8787",
+      relayRoom: "",
+      relayAutoConnect: "on",
+      relayClientId: createId()
     }
   };
 }
@@ -819,6 +831,13 @@ let findSelectionIndex = 0;
 let cosmeticsTab = "decor";
 let pinsSearchTerm = "";
 let pinsSortMode = "latest";
+let relaySocket = null;
+let relayStatus = "disconnected";
+let relayLastError = "";
+let relayJoinedRoom = "";
+let relayManualDisconnect = false;
+let relayReconnectTimer = null;
+const relaySeenMessageIds = new Set();
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -1040,6 +1059,13 @@ const ui = {
   swfAutoplayInput: document.getElementById("swfAutoplayInput"),
   swfPauseOnMuteInput: document.getElementById("swfPauseOnMuteInput"),
   swfVuMeterInput: document.getElementById("swfVuMeterInput"),
+  relayModeInput: document.getElementById("relayModeInput"),
+  relayUrlInput: document.getElementById("relayUrlInput"),
+  relayRoomInput: document.getElementById("relayRoomInput"),
+  relayAutoConnectInput: document.getElementById("relayAutoConnectInput"),
+  relayStatusOutput: document.getElementById("relayStatusOutput"),
+  relayConnectBtn: document.getElementById("relayConnectBtn"),
+  relayDisconnectBtn: document.getElementById("relayDisconnectBtn"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -2851,6 +2877,23 @@ function normalizeProfileEffect(value) {
   return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
 }
 
+function normalizeRelayMode(value) {
+  const mode = (value || "").toString().toLowerCase();
+  if (mode === "ws" || mode === "off") return mode;
+  return "local";
+}
+
+function normalizeRelayUrl(value) {
+  const trimmed = (value || "").toString().trim().slice(0, 180);
+  if (!trimmed) return "ws://localhost:8787";
+  if (!/^wss?:\/\//i.test(trimmed)) return "ws://localhost:8787";
+  return trimmed;
+}
+
+function normalizeRelayRoom(value) {
+  return (value || "").toString().trim().slice(0, 80);
+}
+
 function normalizeVoiceState(value) {
   const safe = value && typeof value === "object" ? value : {};
   const normalizeIds = (arr) => [...new Set((Array.isArray(arr) ? arr : []).map((id) => (id || "").toString()).filter(Boolean))];
@@ -2944,6 +2987,11 @@ function getPreferences() {
     collapseDmSection: normalizeToggle(current.collapseDmSection),
     collapseGuildSection: normalizeToggle(current.collapseGuildSection),
     lastChannelByGuild: normalizeLastChannelByGuildMap(current.lastChannelByGuild),
+    relayMode: normalizeRelayMode(current.relayMode),
+    relayUrl: normalizeRelayUrl(current.relayUrl),
+    relayRoom: normalizeRelayRoom(current.relayRoom),
+    relayAutoConnect: normalizeToggle(current.relayAutoConnect),
+    relayClientId: (current.relayClientId || createId()).toString(),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -2952,6 +3000,248 @@ function getPreferences() {
         }
       : null
   };
+}
+
+function relayStatusText() {
+  const base = RELAY_STATUS_LABELS[relayStatus] || "Disconnected";
+  const detail = relayLastError ? ` (${relayLastError.slice(0, 72)})` : "";
+  return `${base}${detail}`;
+}
+
+function renderRelayStatusOutput() {
+  if (!ui.relayStatusOutput) return;
+  ui.relayStatusOutput.textContent = `Relay: ${relayStatusText()}`;
+}
+
+function setRelayStatus(status, errorText = "") {
+  relayStatus = status;
+  relayLastError = errorText || "";
+  renderRelayStatusOutput();
+}
+
+function relayClientId() {
+  state.preferences = getPreferences();
+  if (!state.preferences.relayClientId) state.preferences.relayClientId = createId();
+  return state.preferences.relayClientId;
+}
+
+function relayRoomForActiveConversation() {
+  const prefs = getPreferences();
+  if (prefs.relayRoom) return prefs.relayRoom;
+  const conversation = getActiveConversation();
+  if (conversation?.type === "channel" && conversation.channel) {
+    const guild = getActiveGuild();
+    const guildName = sanitizeChannelName(guild?.name || "guild", "guild");
+    const channelName = sanitizeChannelName(conversation.channel.name || "general", "general");
+    return `${guildName}:${channelName}`;
+  }
+  return "lobby:general";
+}
+
+function sendRelayPacket(packet) {
+  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
+  try {
+    relaySocket.send(JSON.stringify(packet));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function joinRelayRoom(room) {
+  if (!room) return false;
+  const current = getCurrentAccount();
+  if (!current) return false;
+  const ok = sendRelayPacket({
+    type: "join",
+    room,
+    clientId: relayClientId(),
+    username: current.username
+  });
+  if (ok) relayJoinedRoom = room;
+  return ok;
+}
+
+function clearRelayReconnectTimer() {
+  if (!relayReconnectTimer) return;
+  clearTimeout(relayReconnectTimer);
+  relayReconnectTimer = null;
+}
+
+function scheduleRelayReconnect() {
+  const prefs = getPreferences();
+  if (prefs.relayAutoConnect !== "on") return;
+  if (prefs.relayMode !== "ws") return;
+  clearRelayReconnectTimer();
+  relayReconnectTimer = setTimeout(() => {
+    relayReconnectTimer = null;
+    connectRelaySocket();
+  }, 1600);
+}
+
+function disconnectRelaySocket({ manual = true } = {}) {
+  relayManualDisconnect = manual;
+  clearRelayReconnectTimer();
+  relayJoinedRoom = "";
+  if (relaySocket) {
+    try {
+      relaySocket.close();
+    } catch {
+      // Ignore close errors for stale sockets.
+    }
+  }
+  relaySocket = null;
+  setRelayStatus("disconnected");
+}
+
+function resolveRelayTargetChannel() {
+  const conversation = getActiveConversation();
+  if (conversation?.type === "channel" && conversation.channel) return conversation.channel;
+  const guild = getActiveGuild();
+  if (!guild) return null;
+  return guild.channels.find((entry) => ["text", "announcement", "forum", "media"].includes(entry.type)) || guild.channels[0] || null;
+}
+
+function applyRelayIncomingMessage(packet) {
+  const current = getCurrentAccount();
+  if (!current) return;
+  const remoteClientId = (packet.clientId || "").toString();
+  if (!remoteClientId || remoteClientId === relayClientId()) return;
+  const remoteMessage = packet.message;
+  if (!remoteMessage || typeof remoteMessage !== "object") return;
+  const relayId = `${remoteClientId}:${(remoteMessage.id || createId()).toString()}`;
+  if (relaySeenMessageIds.has(relayId)) return;
+  relaySeenMessageIds.add(relayId);
+  if (relaySeenMessageIds.size > 280) {
+    const first = relaySeenMessageIds.values().next().value;
+    relaySeenMessageIds.delete(first);
+  }
+  const targetChannel = resolveRelayTargetChannel();
+  if (!targetChannel || targetChannel.type === "voice" || targetChannel.type === "stage") return;
+  ensureChannelReadState(targetChannel);
+  const username = normalizeUsername(remoteMessage.authorUsername || `relay_${remoteClientId.slice(0, 6)}`) || `relay_${remoteClientId.slice(0, 6)}`;
+  let remoteAccount = getAccountByUsername(username);
+  if (!remoteAccount) {
+    remoteAccount = createAccount(username, remoteMessage.authorDisplay || username);
+    state.accounts.push(remoteAccount);
+  }
+  if (remoteMessage.authorDisplay) {
+    remoteAccount.displayName = remoteMessage.authorDisplay.toString().slice(0, 32) || remoteAccount.displayName;
+  }
+  const entry = {
+    id: createId(),
+    relayId,
+    userId: remoteAccount.id,
+    authorName: "",
+    text: (remoteMessage.text || "").toString().slice(0, 400),
+    ts: remoteMessage.ts || new Date().toISOString(),
+    reactions: [],
+    attachments: Array.isArray(remoteMessage.attachments) ? remoteMessage.attachments.slice(0, 4) : []
+  };
+  targetChannel.messages.push(entry);
+  saveState();
+  renderChannels();
+  renderServers();
+  if (state.activeChannelId === targetChannel.id) renderMessages();
+}
+
+function connectRelaySocket({ force = false } = {}) {
+  const prefs = getPreferences();
+  const current = getCurrentAccount();
+  if (!current) {
+    disconnectRelaySocket({ manual: true });
+    return false;
+  }
+  if (prefs.relayMode !== "ws") {
+    disconnectRelaySocket({ manual: true });
+    return false;
+  }
+  if (relaySocket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(relaySocket.readyState) && !force) {
+    return true;
+  }
+  if (relaySocket) disconnectRelaySocket({ manual: false });
+  relayManualDisconnect = false;
+  const url = normalizeRelayUrl(prefs.relayUrl);
+  try {
+    relaySocket = new WebSocket(url);
+  } catch (error) {
+    setRelayStatus("error", String(error));
+    scheduleRelayReconnect();
+    return false;
+  }
+  setRelayStatus("connecting");
+  relaySocket.addEventListener("open", () => {
+    setRelayStatus("connected");
+    const room = relayRoomForActiveConversation();
+    joinRelayRoom(room);
+  });
+  relaySocket.addEventListener("message", (event) => {
+    let data = null;
+    try {
+      data = JSON.parse(event.data || "{}");
+    } catch {
+      return;
+    }
+    if (!data || typeof data !== "object") return;
+    if (data.type === "chat") applyRelayIncomingMessage(data);
+    if (data.type === "joined" && data.room) relayJoinedRoom = data.room.toString();
+  });
+  relaySocket.addEventListener("error", () => {
+    setRelayStatus("error", "WebSocket error");
+  });
+  relaySocket.addEventListener("close", () => {
+    relaySocket = null;
+    if (relayManualDisconnect) {
+      setRelayStatus("disconnected");
+      return;
+    }
+    setRelayStatus("error", "Connection closed");
+    scheduleRelayReconnect();
+  });
+  return true;
+}
+
+function syncRelayRoomForActiveConversation() {
+  const prefs = getPreferences();
+  if (prefs.relayMode !== "ws") return;
+  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return;
+  const nextRoom = relayRoomForActiveConversation();
+  if (!nextRoom || nextRoom === relayJoinedRoom) return;
+  joinRelayRoom(nextRoom);
+}
+
+function publishRelayChannelMessage(channel, message, account) {
+  const prefs = getPreferences();
+  if (prefs.relayMode !== "ws") return false;
+  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
+  if (!channel || !message || !account) return false;
+  const guild = getActiveGuild();
+  const room = relayRoomForActiveConversation();
+  if (!room) return false;
+  if (relayJoinedRoom !== room) joinRelayRoom(room);
+  return sendRelayPacket({
+    type: "chat",
+    room,
+    clientId: relayClientId(),
+    guildName: guild?.name || "",
+    channelName: channel.name || "",
+    message: {
+      id: message.id,
+      text: (message.text || "").toString().slice(0, 400),
+      ts: message.ts || new Date().toISOString(),
+      authorUsername: account.username,
+      authorDisplay: displayNameForAccount(account, guild?.id || null),
+      attachments: (Array.isArray(message.attachments) ? message.attachments : [])
+        .filter((entry) => entry && typeof entry === "object" && entry.url)
+        .slice(0, 4)
+        .map((entry) => ({
+          type: (entry.type || "image").toString().slice(0, 16),
+          url: (entry.url || "").toString().slice(0, 640),
+          name: (entry.name || "file").toString().slice(0, 80),
+          format: (entry.format || "image").toString().slice(0, 24)
+        }))
+    }
+  });
 }
 
 function getGuildNotificationMode(guildId) {
@@ -5914,6 +6204,71 @@ function handleSlashCommand(rawText, channel, account) {
       return true;
     }
     addSystemMessage(channel, "Usage: /mediaprivacy [status|safe|off]");
+    return true;
+  }
+
+  if (command === "relay") {
+    const [subRaw, ...restRelay] = arg.split(" ");
+    const sub = (subRaw || "status").toLowerCase();
+    const payload = restRelay.join(" ").trim();
+    state.preferences = getPreferences();
+    if (sub === "status") {
+      const prefs = getPreferences();
+      addSystemMessage(channel, [
+        `Mode: ${prefs.relayMode}`,
+        `Status: ${relayStatusText()}`,
+        `URL: ${prefs.relayUrl}`,
+        `Room: ${prefs.relayRoom || relayRoomForActiveConversation()}`
+      ].join(" · "));
+      return true;
+    }
+    if (sub === "connect") {
+      state.preferences.relayMode = "ws";
+      if (payload) state.preferences.relayUrl = normalizeRelayUrl(payload);
+      saveState();
+      const ok = connectRelaySocket({ force: true });
+      addSystemMessage(channel, ok ? "Relay connect requested." : "Relay connection failed to start.");
+      return true;
+    }
+    if (sub === "disconnect") {
+      disconnectRelaySocket({ manual: true });
+      addSystemMessage(channel, "Relay disconnected.");
+      return true;
+    }
+    if (sub === "mode") {
+      const mode = normalizeRelayMode(payload);
+      state.preferences.relayMode = mode;
+      saveState();
+      if (mode === "ws") connectRelaySocket({ force: true });
+      else disconnectRelaySocket({ manual: true });
+      addSystemMessage(channel, `Relay mode set to: ${mode}`);
+      return true;
+    }
+    if (sub === "url") {
+      if (!payload) {
+        addSystemMessage(channel, `Relay URL: ${state.preferences.relayUrl}`);
+        return true;
+      }
+      state.preferences.relayUrl = normalizeRelayUrl(payload);
+      saveState();
+      addSystemMessage(channel, `Relay URL set to: ${state.preferences.relayUrl}`);
+      return true;
+    }
+    if (sub === "room") {
+      if (!payload || payload.toLowerCase() === "clear") {
+        state.preferences.relayRoom = "";
+        saveState();
+        syncRelayRoomForActiveConversation();
+        addSystemMessage(channel, "Relay room override cleared.");
+        return true;
+      }
+      state.preferences.relayRoom = normalizeRelayRoom(payload);
+      saveState();
+      syncRelayRoomForActiveConversation();
+      addSystemMessage(channel, `Relay room set to: ${state.preferences.relayRoom}`);
+      return true;
+    }
+    addSystemMessage(channel, "Usage: /relay [status|connect|disconnect|mode <local|ws|off>|url <ws://...>|room <name|clear>]");
     return true;
   }
 
@@ -10868,6 +11223,7 @@ function renderMessages() {
   const isDm = conversation?.type === "dm";
   const channel = !isDm ? conversation?.channel : null;
   const dmThread = isDm ? conversation?.thread : null;
+  syncRelayRoomForActiveConversation();
   const conversationId = conversation?.id || null;
   syncComposerDraftConversation(conversationId);
   const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
@@ -12217,6 +12573,11 @@ function renderSettingsScreen() {
   ui.swfAutoplayInput.value = prefs.swfAutoplay;
   ui.swfPauseOnMuteInput.value = prefs.swfPauseOnMute;
   ui.swfVuMeterInput.value = prefs.swfVuMeter;
+  if (ui.relayModeInput) ui.relayModeInput.value = prefs.relayMode;
+  if (ui.relayUrlInput) ui.relayUrlInput.value = prefs.relayUrl;
+  if (ui.relayRoomInput) ui.relayRoomInput.value = prefs.relayRoom;
+  if (ui.relayAutoConnectInput) ui.relayAutoConnectInput.value = prefs.relayAutoConnect;
+  renderRelayStatusOutput();
   if (ui.guildNotifGuildName) {
     ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
   }
@@ -12461,6 +12822,8 @@ function createOrSwitchAccount(usernameInput) {
     state.activeChannelId = getFirstOpenableChannelIdForGuild(state.guilds[0]) || state.guilds[0]?.channels?.[0]?.id || null;
   }
   ensureCurrentUserInActiveServer();
+  const prefs = getPreferences();
+  if (prefs.relayMode === "ws" && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
   return true;
 }
 
@@ -12555,6 +12918,52 @@ ui.messageForm.addEventListener("submit", (event) => {
       } else {
         ui.messageInput.focus();
       }
+      return;
+    }
+    if (dmCommand === "relay") {
+      state.preferences = getPreferences();
+      const [subRaw, ...restRelay] = dmArg.split(" ");
+      const sub = (subRaw || "status").toLowerCase();
+      const payload = restRelay.join(" ").trim();
+      if (sub === "status") {
+        showToast(`Relay: ${relayStatusText()} · ${state.preferences.relayMode} · ${state.preferences.relayUrl}`);
+        return;
+      }
+      if (sub === "connect") {
+        state.preferences.relayMode = "ws";
+        if (payload) state.preferences.relayUrl = normalizeRelayUrl(payload);
+        saveState();
+        connectRelaySocket({ force: true });
+        showToast("Relay connect requested.");
+        return;
+      }
+      if (sub === "disconnect") {
+        disconnectRelaySocket({ manual: true });
+        showToast("Relay disconnected.");
+        return;
+      }
+      if (sub === "mode") {
+        state.preferences.relayMode = normalizeRelayMode(payload);
+        saveState();
+        if (state.preferences.relayMode === "ws") connectRelaySocket({ force: true });
+        else disconnectRelaySocket({ manual: true });
+        showToast(`Relay mode: ${state.preferences.relayMode}`);
+        return;
+      }
+      if (sub === "url") {
+        state.preferences.relayUrl = normalizeRelayUrl(payload);
+        saveState();
+        showToast(`Relay URL set: ${state.preferences.relayUrl}`);
+        return;
+      }
+      if (sub === "room") {
+        state.preferences.relayRoom = !payload || payload.toLowerCase() === "clear" ? "" : normalizeRelayRoom(payload);
+        saveState();
+        syncRelayRoomForActiveConversation();
+        showToast(state.preferences.relayRoom ? `Relay room: ${state.preferences.relayRoom}` : "Relay room override cleared.");
+        return;
+      }
+      showToast("Usage: /relay [status|connect|disconnect|mode|url|room]", { tone: "error" });
       return;
     }
     if (dmCommand === "quests") {
@@ -12820,6 +13229,7 @@ ui.messageForm.addEventListener("submit", (event) => {
     } else {
       conversation.channel.messages.push(nextMessage);
       recordChannelSlowmodeSend(conversation.channel, account.id);
+      publishRelayChannelMessage(conversation.channel, nextMessage, account);
     }
     replyTarget = null;
     clearComposerPendingAttachment();
@@ -14098,6 +14508,7 @@ ui.settingsSwitchAccount.addEventListener("click", () => {
 });
 
 ui.settingsLogout.addEventListener("click", () => {
+  disconnectRelaySocket({ manual: true });
   state.currentAccountId = null;
   clearRememberedAccountSession();
   closeSettingsScreen();
@@ -14136,9 +14547,35 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.swfAutoplay = normalizeSwfAutoplay(ui.swfAutoplayInput.value);
   state.preferences.swfPauseOnMute = normalizeToggle(ui.swfPauseOnMuteInput.value);
   state.preferences.swfVuMeter = normalizeToggle(ui.swfVuMeterInput.value);
+  state.preferences.relayMode = normalizeRelayMode(ui.relayModeInput?.value || "local");
+  state.preferences.relayUrl = normalizeRelayUrl(ui.relayUrlInput?.value || "");
+  state.preferences.relayRoom = normalizeRelayRoom(ui.relayRoomInput?.value || "");
+  state.preferences.relayAutoConnect = normalizeToggle(ui.relayAutoConnectInput?.value || "on");
+  if (!state.preferences.relayClientId) state.preferences.relayClientId = createId();
   saveState();
+  if (state.preferences.relayMode === "ws" && state.preferences.relayAutoConnect === "on") {
+    connectRelaySocket({ force: true });
+  } else if (state.preferences.relayMode !== "ws") {
+    disconnectRelaySocket({ manual: true });
+  }
+  renderRelayStatusOutput();
   refreshSwfAudioFocus();
   render();
+});
+
+ui.relayConnectBtn?.addEventListener("click", () => {
+  state.preferences = getPreferences();
+  state.preferences.relayMode = normalizeRelayMode(ui.relayModeInput?.value || "ws");
+  state.preferences.relayUrl = normalizeRelayUrl(ui.relayUrlInput?.value || "");
+  state.preferences.relayRoom = normalizeRelayRoom(ui.relayRoomInput?.value || "");
+  state.preferences.relayAutoConnect = normalizeToggle(ui.relayAutoConnectInput?.value || "on");
+  if (!state.preferences.relayClientId) state.preferences.relayClientId = createId();
+  saveState();
+  connectRelaySocket({ force: true });
+});
+
+ui.relayDisconnectBtn?.addEventListener("click", () => {
+  disconnectRelaySocket({ manual: true });
 });
 
 ui.exportDataBtn.addEventListener("click", () => {
@@ -14294,6 +14731,7 @@ ui.selfSwitchAccount.addEventListener("click", () => {
 });
 
 ui.selfLogout.addEventListener("click", () => {
+  disconnectRelaySocket({ manual: true });
   state.currentAccountId = null;
   clearRememberedAccountSession();
   ui.selfMenuDialog.close();
@@ -14480,6 +14918,8 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   } else if (selectedSwitchAccountId) {
     state.currentAccountId = selectedSwitchAccountId;
     rememberAccountSession(selectedSwitchAccountId);
+    const prefs = getPreferences();
+    if (prefs.relayMode === "ws" && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
   }
 
   ensureCurrentUserInActiveServer();
@@ -15142,3 +15582,6 @@ ensureScheduledDispatchTimer();
 safeRender("startup");
 loadSwfLibrary();
 deployMediaRuntimes();
+if (state.currentAccountId && getPreferences().relayMode === "ws" && getPreferences().relayAutoConnect === "on") {
+  connectRelaySocket();
+}

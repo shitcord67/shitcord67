@@ -179,6 +179,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Added `Alt+M` hotkey for self mute/unmute in active voice/stage channel.
 - Voice/stage channel context menu now includes quick self mute and status actions.
 - Voice/stage call surface now includes direct channel-link copy action.
+- Experimental realtime transport mode is now available via Advanced settings (`Transport mode: WebSocket relay`).
+- Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).
@@ -217,6 +219,22 @@ A lightweight Discord-style chat client prototype with local persistence.
 - `app.js`: state, rendering, actions, persistence.
 - `TODO`: roadmap for XMPP/Matrix and advanced features.
 - `swf-index.json`: searchable local SWF catalog for the picker.
+- `scripts/ws-relay-server.mjs`: minimal Node WebSocket room relay for multi-user chat testing.
+
+## Realtime Chat (Now)
+1. Install relay dependency once: `npm install ws`.
+2. Start relay server: `node scripts/ws-relay-server.mjs` (default `ws://localhost:8787`).
+3. In each client, open **Settings -> Advanced -> Live Relay (Experimental)**.
+4. Set:
+- `Transport mode`: `WebSocket relay`
+- `Relay URL`: `ws://localhost:8787`
+- Optional `Relay room override`: same value on all clients to force same room.
+5. Save Advanced or run `/relay connect`, then chat in the same channel/room.
+
+## XMPP/Standalone Readiness
+- Yes: this project is now at the point where real multi-user chat can be enabled with the relay path today.
+- Next step for XMPP login: add an adapter that maps guild/channel semantics to XMPP MUC + direct chats and move auth/session into transport providers.
+- Standalone client path is viable after transport abstraction hardens (Electron/Tauri shell + same web UI + selectable transport adapter).
 
 ## Design Research Notes
 - Investigated Discord-adjacent client repositories for interaction and layout references:
