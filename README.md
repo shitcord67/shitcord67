@@ -9,6 +9,13 @@ A lightweight Discord-style chat client prototype with local persistence.
 2. Optional local server:
    - `python3 -m http.server 8080`
    - open `http://localhost:8080`
+3. One-command launcher (auto-cleans child processes on exit/termination):
+   - `npm run dev:stack`
+   - starts `http://127.0.0.1:8080`
+   - in `auto` mode, also starts XMPP gateway when `.xmpp.local.json` exists
+   - force gateway on/off:
+     - `npm run dev:stack -- --with-gateway`
+     - `npm run dev:stack -- --no-gateway`
 
 ## Implemented
 - Login by username (creates/switches local accounts).
