@@ -7,6 +7,10 @@
 
 ## Done (basic MVP)
 - Username login.
+- [done] Unified login identity field (`username` or `user@example.com`) to avoid duplicate username/JID entry confusion.
+- [done] Login-time XMPP auth validation gate (fails closed: stays on login page when auth/connect fails).
+- [done] XMPP roster sync now auto-creates DM contacts/threads from account contact list.
+- [done] XMPP bookmarks/groups now map into an `XMPP Spaces` guild/channel surface.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
 - Profile image upload with validation and preview.

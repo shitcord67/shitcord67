@@ -885,6 +885,7 @@ let xmppConnection = null;
 let xmppRuntimeReady = false;
 let xmppLoadingPromise = null;
 const xmppRoomByJid = new Map();
+const xmppRosterByJid = new Map();
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -904,7 +905,6 @@ const ui = {
   chatScreen: document.getElementById("chatScreen"),
   loginForm: document.getElementById("loginForm"),
   loginUsername: document.getElementById("loginUsername"),
-  loginXmppJid: document.getElementById("loginXmppJid"),
   loginPassword: document.getElementById("loginPassword"),
   loginXmppServer: document.getElementById("loginXmppServer"),
   loginRememberInput: document.getElementById("loginRememberInput"),
@@ -3189,12 +3189,31 @@ function relayRoomForActiveConversation() {
     if (usernames.length >= 2) return `dm:${usernames.slice(0, 2).join(":")}`;
   }
   if (conversation?.type === "channel" && conversation.channel) {
+    if (conversation.channel.relayRoomToken) return conversation.channel.relayRoomToken.toString();
+    if (conversation.channel.xmppRoomJid) return `xmpp:${normalizeXmppJid(conversation.channel.xmppRoomJid).toLowerCase()}`;
     const guild = getActiveGuild();
     const guildName = sanitizeChannelName(guild?.name || "guild", "guild");
     const channelName = sanitizeChannelName(conversation.channel.name || "general", "general");
     return `${guildName}:${channelName}`;
   }
   return "lobby:general";
+}
+
+function findRelayTargetChannelByRoom(roomToken) {
+  if (!roomToken) return null;
+  const room = roomToken.toString();
+  for (const guild of state.guilds) {
+    if (!guild || !Array.isArray(guild.channels)) continue;
+    for (const channel of guild.channels) {
+      if (!channel || (channel.type === "voice" || channel.type === "stage")) continue;
+      if (channel.relayRoomToken && channel.relayRoomToken.toString() === room) return channel;
+      if (channel.xmppRoomJid && `xmpp:${normalizeXmppJid(channel.xmppRoomJid).toLowerCase()}` === room) return channel;
+      const guildName = sanitizeChannelName(guild.name || "guild", "guild");
+      const channelName = sanitizeChannelName(channel.name || "general", "general");
+      if (`${guildName}:${channelName}` === room) return channel;
+    }
+  }
+  return null;
 }
 
 function clearRelayTypingState() {
@@ -3385,6 +3404,10 @@ function updateComposerTypingPublish() {
 }
 
 function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
+  const direct = (roomToken || "").toString();
+  if (/^xmpp:/i.test(direct)) {
+    return normalizeXmppJid(direct.slice(5)).toLowerCase();
+  }
   const mucService = resolveXmppMucService(prefs);
   if (!mucService) return "";
   const node = sanitizeChannelName((roomToken || "lobby-general").replace(/[:]/g, "-"), "lobby-general");
@@ -3605,7 +3628,7 @@ function applyRelayIncomingMessage(packet) {
     if (state.viewMode === "dm" && state.activeDmId === thread.id) renderMessages();
     return;
   }
-  const targetChannel = resolveRelayTargetChannel();
+  const targetChannel = findRelayTargetChannelByRoom(room) || resolveRelayTargetChannel();
   if (!targetChannel || targetChannel.type === "voice" || targetChannel.type === "stage") return;
   ensureChannelReadState(targetChannel);
   targetChannel.messages.push(entry);
@@ -3708,6 +3731,21 @@ function connectRelaySocket({ force = false } = {}) {
         if (status === S.CONNECTED) {
           setRelayStatus("connected");
           xmppConnection.send(globalThis.$pres());
+          Promise.allSettled([
+            fetchXmppRoster(xmppConnection),
+            fetchXmppBookmarks(xmppConnection)
+          ]).then((results) => {
+            const rosterItems = results[0]?.status === "fulfilled" ? results[0].value : [];
+            const bookmarkItems = results[1]?.status === "fulfilled" ? results[1].value : [];
+            syncXmppRosterIntoState(rosterItems, getPreferences(), current);
+            upsertXmppSpaceChannels(bookmarkItems, getPreferences(), current);
+            saveState();
+            renderServers();
+            renderDmList();
+            renderChannels();
+          }).catch(() => {
+            // Keep transport connected even if roster/bookmark sync fails.
+          });
           const room = relayRoomForActiveConversation();
           joinXmppRoom(room, current);
           relayJoinedRoom = room;
@@ -13405,7 +13443,6 @@ function isTypingInputTarget(target) {
 function hardenInputAutocompleteNoise() {
   const targets = [
     ui.loginUsername,
-    ui.loginXmppJid,
     ui.loginPassword,
     ui.loginXmppServer,
     ui.dmSearchInput,
@@ -13605,6 +13642,296 @@ function parseLoginIdentity(rawUsername, explicitJid = "") {
   };
 }
 
+function xmppUserLabelFromJid(jid, fallback = "") {
+  const raw = (jid || "").toString().trim().toLowerCase();
+  const [local = "", domain = ""] = raw.split("@");
+  const localSafe = local.replace(/[^a-z0-9._-]/g, "_");
+  const domainSafe = domain.replace(/[^a-z0-9.-]/g, "").replace(/[.]/g, "_");
+  const seed = [localSafe, domainSafe].filter(Boolean).join("_") || fallback || "xmpp_user";
+  return normalizeUsername(seed).slice(0, 24);
+}
+
+function ensureAccountByXmppJid(jid, displayName = "") {
+  const bare = normalizeXmppJid(jid).toLowerCase();
+  if (!bare) return null;
+  const mapped = xmppRosterByJid.get(bare);
+  if (mapped) {
+    const account = getAccountById(mapped.accountId);
+    if (account) {
+      if (displayName) account.displayName = displayName.toString().slice(0, 32) || account.displayName;
+      account.xmppJid = bare;
+      return account;
+    }
+  }
+  const existing = state.accounts.find((account) => normalizeXmppJid(account.xmppJid || "").toLowerCase() === bare) || null;
+  if (existing) {
+    if (displayName) existing.displayName = displayName.toString().slice(0, 32) || existing.displayName;
+    existing.xmppJid = bare;
+    xmppRosterByJid.set(bare, { accountId: existing.id, groups: [] });
+    return existing;
+  }
+  const username = xmppUserLabelFromJid(bare, bare.split("@")[0] || "xmpp");
+  let account = getAccountByUsername(username);
+  if (!account) {
+    account = createAccount(username, displayName || bare.split("@")[0] || username);
+    account.xmppJid = bare;
+    state.accounts.push(account);
+  } else {
+    account.xmppJid = bare;
+    if (displayName) account.displayName = displayName.toString().slice(0, 32) || account.displayName;
+  }
+  xmppRosterByJid.set(bare, { accountId: account.id, groups: [] });
+  return account;
+}
+
+function ensureXmppSpacesGuild(prefs = getPreferences(), account = getCurrentAccount()) {
+  const domain = xmppDomainFromJid(prefs.xmppJid) || "xmpp";
+  const guildId = `xmpp-spaces:${domain}`;
+  let guild = state.guilds.find((entry) => entry.id === guildId) || null;
+  if (guild) {
+    if (account && !guild.memberIds.includes(account.id)) guild.memberIds.push(account.id);
+    return guild;
+  }
+  const everyoneRole = createRole("@everyone", "#b5bac1", "member");
+  guild = {
+    id: guildId,
+    name: "XMPP Spaces",
+    description: `Synced from ${domain}`,
+    accentColor: "#3f71ff",
+    memberIds: account ? [account.id] : [],
+    customEmojis: [],
+    customStickers: [],
+    customGifs: [],
+    customSvgs: [],
+    customPdfs: [],
+    customTexts: [],
+    customDocs: [],
+    customSwfs: [],
+    customHtmls: [],
+    roles: [everyoneRole],
+    memberRoles: account ? { [account.id]: [everyoneRole.id] } : {},
+    channels: [
+      {
+        id: createId(),
+        name: "general",
+        type: "text",
+        topic: "XMPP mapped channels",
+        forumTags: [],
+        permissionOverrides: {},
+        voiceState: createVoiceState(),
+        readState: account ? { [account.id]: new Date().toISOString() } : {},
+        slowmodeSec: 0,
+        slowmodeState: {},
+        messages: []
+      }
+    ]
+  };
+  state.guilds.push(guild);
+  return guild;
+}
+
+function upsertXmppSpaceChannels(bookmarks, prefs = getPreferences(), account = getCurrentAccount()) {
+  if (!Array.isArray(bookmarks) || bookmarks.length === 0) return;
+  const guild = ensureXmppSpacesGuild(prefs, account);
+  if (!guild) return;
+  let changed = false;
+  bookmarks.forEach((entry) => {
+    const roomJid = normalizeXmppJid(entry?.jid || "").toLowerCase();
+    if (!roomJid) return;
+    const roomNameSeed = (entry?.name || roomJid.split("@")[0] || "space").toString();
+    const roomName = sanitizeChannelName(roomNameSeed, "space");
+    let channel = guild.channels.find((item) => item?.xmppRoomJid === roomJid) || null;
+    if (!channel) {
+      channel = {
+        id: createId(),
+        name: roomName,
+        type: "text",
+        topic: `XMPP MUC ${roomJid}`,
+        forumTags: [],
+        permissionOverrides: {},
+        voiceState: createVoiceState(),
+        readState: account ? { [account.id]: new Date().toISOString() } : {},
+        slowmodeSec: 0,
+        slowmodeState: {},
+        messages: [],
+        xmppRoomJid: roomJid,
+        relayRoomToken: `xmpp:${roomJid}`
+      };
+      guild.channels.push(channel);
+      changed = true;
+      return;
+    }
+    channel.name = roomName || channel.name;
+    channel.xmppRoomJid = roomJid;
+    channel.relayRoomToken = `xmpp:${roomJid}`;
+  });
+  if (changed) saveState();
+}
+
+function syncXmppRosterIntoState(items, prefs = getPreferences(), account = getCurrentAccount()) {
+  if (!Array.isArray(items) || !account) return;
+  const guild = ensureXmppSpacesGuild(prefs, account);
+  const groupMembers = new Map();
+  items.forEach((item) => {
+    const bare = normalizeXmppJid(item?.jid || "").toLowerCase();
+    if (!bare) return;
+    const accountEntry = ensureAccountByXmppJid(bare, item?.name || bare.split("@")[0] || "");
+    if (!accountEntry || accountEntry.id === account.id) return;
+    getOrCreateDmThread(account, accountEntry);
+    const groups = Array.isArray(item?.groups)
+      ? item.groups.map((entry) => (entry || "").toString().trim()).filter(Boolean).slice(0, 8)
+      : [];
+    xmppRosterByJid.set(bare, { accountId: accountEntry.id, groups });
+    groups.forEach((groupName) => {
+      if (!groupMembers.has(groupName)) groupMembers.set(groupName, 0);
+      groupMembers.set(groupName, (groupMembers.get(groupName) || 0) + 1);
+    });
+  });
+  if (guild) {
+    groupMembers.forEach((memberCount, groupName) => {
+      const channelName = sanitizeChannelName(groupName, "group");
+      let channel = guild.channels.find((entry) => entry?.xmppGroupName === groupName) || null;
+      if (!channel) {
+        channel = {
+          id: createId(),
+          name: channelName,
+          type: "text",
+          topic: `${memberCount} XMPP contacts`,
+          forumTags: [],
+          permissionOverrides: {},
+          voiceState: createVoiceState(),
+          readState: { [account.id]: new Date().toISOString() },
+          slowmodeSec: 0,
+          slowmodeState: {},
+          messages: [],
+          xmppGroupName: groupName
+        };
+        guild.channels.push(channel);
+      } else {
+        channel.topic = `${memberCount} XMPP contacts`;
+      }
+    });
+  }
+}
+
+function fetchXmppRoster(connection) {
+  return new Promise((resolve) => {
+    if (!connection || !globalThis.$iq) {
+      resolve([]);
+      return;
+    }
+    const iq = globalThis.$iq({ type: "get" }).c("query", { xmlns: "jabber:iq:roster" });
+    connection.sendIQ(
+      iq,
+      (stanza) => {
+        try {
+          const items = [...stanza.getElementsByTagName("item")].map((node) => ({
+            jid: node.getAttribute("jid") || "",
+            name: node.getAttribute("name") || "",
+            subscription: node.getAttribute("subscription") || "",
+            groups: [...node.getElementsByTagName("group")].map((group) => globalThis.Strophe.getText(group) || "")
+          })).filter((entry) => entry.jid && entry.subscription !== "remove");
+          resolve(items);
+        } catch {
+          resolve([]);
+        }
+      },
+      () => resolve([]),
+      7000
+    );
+  });
+}
+
+function fetchXmppBookmarks(connection) {
+  return new Promise((resolve) => {
+    if (!connection || !globalThis.$iq) {
+      resolve([]);
+      return;
+    }
+    const iq = globalThis.$iq({ type: "get" })
+      .c("query", { xmlns: "jabber:iq:private" })
+      .c("storage", { xmlns: "storage:bookmarks" });
+    connection.sendIQ(
+      iq,
+      (stanza) => {
+        try {
+          const list = [...stanza.getElementsByTagName("conference")]
+            .map((node) => ({
+              jid: node.getAttribute("jid") || "",
+              name: node.getAttribute("name") || ""
+            }))
+            .filter((entry) => entry.jid);
+          resolve(list);
+        } catch {
+          resolve([]);
+        }
+      },
+      () => resolve([]),
+      7000
+    );
+  });
+}
+
+function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 }) {
+  return new Promise((resolve) => {
+    const cleanJid = normalizeXmppJid(jid);
+    const cleanPass = normalizeXmppPassword(password);
+    const inferredWs = normalizeXmppWsUrl(wsUrl) || inferXmppWsUrlFromJid(cleanJid);
+    if (!cleanJid || !cleanPass || !inferredWs) {
+      resolve({ ok: false, error: "XMPP login requires JID, password, and a valid WebSocket URL.", wsUrl: inferredWs });
+      return;
+    }
+    let finished = false;
+    let connection = null;
+    const done = (result) => {
+      if (finished) return;
+      finished = true;
+      try {
+        if (connection) connection.disconnect();
+      } catch {
+        // Ignore cleanup errors.
+      }
+      resolve(result);
+    };
+    loadXmppLibrary().then((ready) => {
+      if (!ready || !globalThis.Strophe) {
+        done({ ok: false, error: "Failed to load XMPP runtime.", wsUrl: inferredWs });
+        return;
+      }
+      let timeoutHandle = setTimeout(() => {
+        timeoutHandle = null;
+        done({ ok: false, error: "XMPP login timed out.", wsUrl: inferredWs });
+      }, Math.max(3000, timeoutMs));
+      try {
+        connection = new globalThis.Strophe.Connection(inferredWs, { keepalive: true });
+      } catch (error) {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        done({ ok: false, error: String(error), wsUrl: inferredWs });
+        return;
+      }
+      connection.connect(cleanJid, cleanPass, (status) => {
+        const S = globalThis.Strophe.Status;
+        if (status === S.CONNECTED) {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          done({ ok: true, wsUrl: inferredWs });
+          return;
+        }
+        if (status === S.AUTHFAIL) {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          done({ ok: false, error: "XMPP authentication failed.", wsUrl: inferredWs });
+          return;
+        }
+        if (status === S.CONNFAIL || status === S.ERROR || status === S.DISCONNECTED) {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          done({ ok: false, error: "XMPP connection failed.", wsUrl: inferredWs });
+        }
+      });
+    }).catch((error) => {
+      done({ ok: false, error: String(error), wsUrl: inferredWs });
+    });
+  });
+}
+
 function renderXmppProviderList() {
   if (!ui.xmppProviderList) return;
   ui.xmppProviderList.innerHTML = "";
@@ -13654,8 +13981,8 @@ function syncLoginFieldsFromSessionPrefs() {
   if (ui.loginRememberInput) {
     ui.loginRememberInput.checked = prefs.rememberLogin === "on" && isSessionPersistenceEnabled();
   }
-  if (ui.loginXmppJid && !ui.loginXmppJid.value && prefs.xmppJid) {
-    ui.loginXmppJid.value = prefs.xmppJid;
+  if (ui.loginUsername && !ui.loginUsername.value && prefs.xmppJid) {
+    ui.loginUsername.value = prefs.xmppJid;
   }
   if (ui.loginXmppServer && !ui.loginXmppServer.value && prefs.xmppWsUrl) {
     ui.loginXmppServer.value = prefs.xmppWsUrl;
@@ -13717,10 +14044,10 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   return true;
 }
 
-ui.loginForm.addEventListener("submit", (event) => {
+ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const typed = ui.loginUsername.value;
-  const explicitJid = ui.loginXmppJid?.value || "";
+  const explicitJid = "";
   const password = ui.loginPassword?.value || "";
   const wsServer = ui.loginXmppServer?.value || "";
   const rememberLogin = ui.loginRememberInput?.checked !== false;
@@ -13729,47 +14056,63 @@ ui.loginForm.addEventListener("submit", (event) => {
     showToast("Username must include at least one letter or number.", { tone: "error" });
     return;
   }
-  const xmppConfig = parsed.xmppJid || password || wsServer
-    ? {
-      jid: parsed.xmppJid,
-      password,
-      wsUrl: wsServer
-    }
-    : null;
-  if (!createOrSwitchAccount(parsed.accountUsername, {
-    displayName: parsed.accountDisplay,
-    rememberLogin,
-    xmpp: xmppConfig
-  })) {
-    showToast("Could not create or switch account.", { tone: "error" });
+  const wantsXmpp = Boolean(parsed.xmppJid || password || wsServer);
+  if (wantsXmpp && (!parsed.xmppJid || !password)) {
+    showToast("For XMPP login, provide both JID (or JID in username) and password.", { tone: "error" });
     return;
   }
-  renderScreens();
-  ui.loginUsername.value = "";
-  if (ui.loginPassword) ui.loginPassword.value = "";
-  saveState();
-  safeRender("login-submit");
-  closeSettingsScreen();
-  requestAnimationFrame(() => {
-    ui.messageInput.focus();
-  });
+  const submitBtn = ui.loginForm.querySelector("button[type=\"submit\"]");
+  if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
+  try {
+    let validatedWsUrl = normalizeXmppWsUrl(wsServer);
+    if (wantsXmpp) {
+      const check = await validateXmppLoginCredentials({
+        jid: parsed.xmppJid,
+        password,
+        wsUrl: wsServer
+      });
+      validatedWsUrl = check.wsUrl || validatedWsUrl;
+      if (!check.ok) {
+        showToast(check.error || "XMPP login failed.", { tone: "error" });
+        return;
+      }
+    }
+    const xmppConfig = parsed.xmppJid || password || wsServer
+      ? {
+        jid: parsed.xmppJid,
+        password,
+        wsUrl: validatedWsUrl || wsServer
+      }
+      : null;
+    if (!createOrSwitchAccount(parsed.accountUsername, {
+      displayName: parsed.accountDisplay,
+      rememberLogin,
+      xmpp: xmppConfig
+    })) {
+      showToast("Could not create or switch account.", { tone: "error" });
+      return;
+    }
+    renderScreens();
+    ui.loginUsername.value = "";
+    if (ui.loginPassword) ui.loginPassword.value = "";
+    saveState();
+    safeRender("login-submit");
+    closeSettingsScreen();
+    requestAnimationFrame(() => {
+      ui.messageInput.focus();
+    });
+  } finally {
+    if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
+  }
 });
 
 ui.loginUsername?.addEventListener("input", () => {
   const raw = (ui.loginUsername.value || "").trim();
   if (!raw.includes("@")) return;
-  if (ui.loginXmppJid && !ui.loginXmppJid.value.trim()) ui.loginXmppJid.value = raw;
   if (ui.loginXmppServer && !ui.loginXmppServer.value.trim()) {
     const inferred = inferXmppWsUrlFromJid(raw);
     if (inferred) ui.loginXmppServer.value = inferred;
   }
-});
-
-ui.loginXmppJid?.addEventListener("input", () => {
-  const jid = (ui.loginXmppJid.value || "").trim();
-  if (!jid || !ui.loginXmppServer || ui.loginXmppServer.value.trim()) return;
-  const inferred = inferXmppWsUrlFromJid(jid);
-  if (inferred) ui.loginXmppServer.value = inferred;
 });
 
 ui.loginProvidersBtn?.addEventListener("click", () => {

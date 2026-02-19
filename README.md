@@ -216,6 +216,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Login/settings/chat views are now viewport-isolated (no page-level scroll between app sections).
 - Login now supports optional XMPP credentials (JID/password/WebSocket URL), JID-based server auto-detection, and a remember-login toggle.
 - Added login-time XMPP provider/registration directory modal with quick server prefill actions.
+- When XMPP login credentials are provided, login now validates auth/connection before entering the app and keeps user on login on failure.
+- XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
 
 ## Files
 - `index.html`: app shell and dialogs.
