@@ -351,6 +351,11 @@
             <input id="xmppWsUrlInput" type="text" maxlength="180" placeholder="wss://example.com:5281/xmpp-websocket" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <label for="xmppMucServiceInput">XMPP MUC service</label>
             <input id="xmppMucServiceInput" type="text" maxlength="120" placeholder="conference.example.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="xmppHideNonXmppInput">Non-XMPP guilds/channels (XMPP mode)</label>
+            <select id="xmppHideNonXmppInput">
+              <option value="on">Hide by default</option>
+              <option value="off">Show with red warning border</option>
+            </select>
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export App JSON</button>
               <button id="importDataBtn" type="button">Import App JSON</button>
