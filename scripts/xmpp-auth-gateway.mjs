@@ -2,6 +2,9 @@
 import http from "node:http";
 
 import { client } from "@xmpp/client";
+import { WebSocket } from "ws";
+
+globalThis.WebSocket = WebSocket;
 
 const port = Number(process.env.PORT || 8790);
 const host = process.env.HOST || "127.0.0.1";
@@ -85,21 +88,23 @@ async function tryXmppAuth({ jid, password, service, timeoutMs = 12000 }) {
     });
 
     xmpp.on("error", (error) => {
-      const msg = String(error?.message || error || "").toLowerCase();
+      const raw = String(error?.message || error || "");
+      const msg = raw.toLowerCase();
       if (msg.includes("not-authorized") || msg.includes("authentication") || msg.includes("invalid-credentials")) {
-        done({ ok: false, reason: "auth", error: String(error?.message || error) });
+        done({ ok: false, reason: "auth", error: raw });
         return;
       }
-      done({ ok: false, reason: "connect", error: String(error?.message || error) });
+      done({ ok: false, reason: "connect", error: raw });
     });
 
     xmpp.start().catch((error) => {
-      const msg = String(error?.message || error || "").toLowerCase();
+      const raw = String(error?.message || error || "");
+      const msg = raw.toLowerCase();
       if (msg.includes("not-authorized") || msg.includes("authentication") || msg.includes("invalid-credentials")) {
-        done({ ok: false, reason: "auth", error: String(error?.message || error) });
+        done({ ok: false, reason: "auth", error: raw });
         return;
       }
-      done({ ok: false, reason: "connect", error: String(error?.message || error) });
+      done({ ok: false, reason: "connect", error: raw });
     });
   });
 }
@@ -130,6 +135,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: false, error: "jid, password, and candidates are required." }));
         return;
       }
+      const failures = [];
       for (const wsUrl of candidates) {
         // eslint-disable-next-line no-await-in-loop
         const attempt = await tryXmppAuth({
@@ -143,14 +149,19 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ ok: true, wsUrl }));
           return;
         }
+        failures.push({
+          wsUrl,
+          reason: attempt.reason || "connect",
+          error: (attempt.error || "").toString().slice(0, 200)
+        });
         if (attempt.reason === "auth") {
           res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
-          res.end(JSON.stringify({ ok: false, error: `Authentication failed on ${wsUrl}.` }));
+          res.end(JSON.stringify({ ok: false, error: `Authentication failed on ${wsUrl}.`, failures }));
           return;
         }
       }
       res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
-      res.end(JSON.stringify({ ok: false, error: "Connection failed for all candidate endpoints." }));
+      res.end(JSON.stringify({ ok: false, error: "Connection failed for all candidate endpoints.", failures }));
     } catch (error) {
       res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
       res.end(JSON.stringify({ ok: false, error: String(error?.message || error) }));
