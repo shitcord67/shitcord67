@@ -14001,7 +14001,10 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
           resolve({ ok: true, wsUrl: candidateWs });
           return;
         }
-        if (attempt.reason === "auth") sawAuthFail = true;
+        if (attempt.reason === "auth") {
+          sawAuthFail = true;
+          break;
+        }
       }
       resolve({
         ok: false,
