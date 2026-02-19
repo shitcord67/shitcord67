@@ -216,6 +216,7 @@
 - [done] Pins dialog upgraded with quick filter and sort modes (newest/oldest/author).
 - [done] Channel permission overrides per role (`view`, `send`, `reactions`, `create threads/posts`) with enforcement in channel rendering/composer/reactions.
 - [done] Added voice/stage channel shells with join/leave controls, stage raise-hand/speaker states, and connected-member sidebar behavior.
+- [done] Added stage moderation controls (approve/dismiss raised hands, promote/demote speakers, mute/unmute, disconnect participant).
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior

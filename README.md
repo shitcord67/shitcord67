@@ -167,6 +167,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Channel-level permission overrides per role for `View`, `Send`, `Reactions`, and `Create Threads/Posts` (configured in channel settings).
 - Channel type expansion includes `voice` and `stage` channels with dedicated control surfaces.
 - Voice/stage channels support join/leave state, self mute/unmute, stage hand-raise, and stage speaker toggles.
+- Stage channels now include moderator controls for raised-hand queue, speaker promotion/demotion, mute toggles, and participant disconnect.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).
