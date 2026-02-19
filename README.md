@@ -21,6 +21,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 
 ## Implemented
 - Login by username (creates/switches local accounts).
+- XMPP login now shows a friendly progress card with current step + elapsed timer during server/auth checks.
 - Bottom-left account dock with avatar, display name, status, and settings gear.
 - Full-screen user settings page (Discord-style categories: My Account, Profiles, Appearance, Advanced).
 - Create guilds and channels.
