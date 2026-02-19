@@ -10,6 +10,8 @@ These instructions are project-local continuity notes for future LLM instances.
 ## Git and Change Flow
 - It is explicitly allowed to add/update local `TODO` entries during implementation.
 - It is explicitly allowed to commit incremental local changes without extra confirmation.
+- By default, after implementing and validating changes, create coherent local commits automatically unless the user explicitly asks not to commit.
+- Do not wait for a separate "please commit" prompt after code changes.
 - Use small, coherent commits with clear messages.
 - Do not revert unrelated user changes.
 
