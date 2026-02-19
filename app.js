@@ -3444,8 +3444,10 @@ async function loadXmppLibrary() {
   xmppLoadingPromise = (async () => {
     const errors = [];
     const urls = [
-      "./node_modules/strophe.js/dist/strophe.min.js",
-      "node_modules/strophe.js/dist/strophe.min.js",
+      "./vendor/strophe.umd.min.js",
+      "vendor/strophe.umd.min.js",
+      "./node_modules/strophe.js/dist/strophe.umd.min.js",
+      "node_modules/strophe.js/dist/strophe.umd.min.js",
       "https://cdn.jsdelivr.net/npm/strophe.js@1.6.2/dist/strophe.min.js",
       "https://unpkg.com/strophe.js@1.6.2/dist/strophe.min.js"
     ];
