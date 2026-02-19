@@ -336,6 +336,7 @@
       <input id="profileGuildNicknameInput" type="text" maxlength="32" placeholder="Server nickname" />
       <label for="profileGuildAvatarInput">Avatar color (active guild)</label>
       <input id="profileGuildAvatarInput" type="text" placeholder="#57f287" />
+      <input id="profileGuildAvatarColorPicker" type="color" value="#57f287" />
       <label for="profileGuildAvatarUrlInput">Avatar image URL (active guild)</label>
       <input id="profileGuildAvatarUrlInput" type="text" placeholder="https://..." />
       <label for="profileGuildBannerInput">Banner color/image URL (active guild)</label>
@@ -353,6 +354,7 @@
       <input id="profileBannerInput" type="text" placeholder="#3f51b5 or https://..." />
       <label for="profileAvatarInput">Avatar color</label>
       <input id="profileAvatarInput" type="text" placeholder="#57f287" />
+      <input id="profileAvatarColorPicker" type="color" value="#57f287" />
       <label for="profileAvatarUrlInput">Avatar image URL</label>
       <input id="profileAvatarUrlInput" type="text" placeholder="https://..." />
       <div class="profile-avatar-upload">
@@ -404,6 +406,7 @@
       <textarea id="guildSettingsDescriptionInput" maxlength="180" placeholder="Describe this guild"></textarea>
       <label for="guildSettingsAccentInput">Accent color</label>
       <input id="guildSettingsAccentInput" type="text" placeholder="#5865f2" />
+      <input id="guildSettingsAccentPicker" type="color" value="#5865f2" />
       <div class="modal-actions">
         <button type="button" id="guildSettingsCancel">Cancel</button>
         <button type="submit">Save</button>
@@ -489,6 +492,7 @@
       <div class="shortcut-list">
         <div><kbd>Alt+K</kbd> Focus channel/DM search</div>
         <div><kbd>Ctrl+K</kbd> Quick switcher (channels/DMs)</div>
+        <div><kbd>Ctrl+F</kbd> Find in current conversation</div>
         <div><kbd>Ctrl+Shift+F</kbd> Focus channel/DM filter</div>
         <div><kbd>Ctrl+Shift+U</kbd> Focus member filter</div>
         <div><kbd>Ctrl+Shift+L</kbd> Focus message composer</div>
@@ -519,6 +523,21 @@
       </div>
       <div class="modal-actions">
         <button type="submit">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="findDialog" class="modal">
+    <form id="findForm" class="modal-form" method="dialog">
+      <h3>Find in Conversation</h3>
+      <label for="findInput">Search text</label>
+      <input id="findInput" type="text" maxlength="120" placeholder="Find messages..." autocomplete="off" />
+      <div id="findMeta" class="find-meta">Type to search messages in this conversation.</div>
+      <div id="findList" class="quick-switch-list"></div>
+      <div class="modal-actions">
+        <button type="button" id="findPrevBtn">Previous</button>
+        <button type="button" id="findNextBtn">Next</button>
+        <button type="button" id="findCancel">Close</button>
       </div>
     </form>
   </dialog>
@@ -584,6 +603,7 @@
       <input id="roleNameInput" type="text" maxlength="28" placeholder="Moderator" />
       <label for="roleColorInput">Role color</label>
       <input id="roleColorInput" type="text" maxlength="24" placeholder="#f23f43" />
+      <input id="roleColorPicker" type="color" value="#f23f43" />
 
       <label for="rolePermPresetInput">Permission preset</label>
       <select id="rolePermPresetInput">
