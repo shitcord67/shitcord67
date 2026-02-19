@@ -902,6 +902,7 @@ let xmppRuntimeLastError = "";
 const xmppWsDiscoveryCache = new Map();
 const xmppRoomByJid = new Map();
 const xmppRosterByJid = new Map();
+const xmppOccupantsByRoomJid = new Map();
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -3612,14 +3613,40 @@ function updateComposerTypingPublish() {
   publishRelayTypingState(true);
 }
 
+function xmppBareJid(value) {
+  return normalizeXmppJid((value || "").toString().split("/")[0] || "").toLowerCase();
+}
+
+function xmppRoomNodeForToken(roomToken) {
+  const raw = (roomToken || "").toString().trim();
+  if (!raw) return "lobby";
+  const pair = raw.match(/^([^:]+):([^:]+)$/);
+  if (pair) {
+    const guildNode = sanitizeChannelName(pair[1], "");
+    const channelNode = sanitizeChannelName(pair[2], "");
+    if (channelNode === "general" && guildNode) {
+      return guildNode;
+    }
+  }
+  return sanitizeChannelName(raw.replace(/[:]/g, "-"), "lobby-general");
+}
+
+function isXmppMucRoomJid(roomJid, prefs = getPreferences()) {
+  const bare = xmppBareJid(roomJid);
+  if (!bare || !bare.includes("@")) return false;
+  const mucService = resolveXmppMucService(prefs);
+  if (mucService && bare.endsWith(`@${mucService}`)) return true;
+  return /@conference\./i.test(bare);
+}
+
 function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
   const direct = (roomToken || "").toString();
   if (/^xmpp:/i.test(direct)) {
-    return normalizeXmppJid(direct.slice(5)).toLowerCase();
+    return xmppBareJid(direct.slice(5));
   }
   const mucService = resolveXmppMucService(prefs);
   if (!mucService) return "";
-  const node = sanitizeChannelName((roomToken || "lobby-general").replace(/[:]/g, "-"), "lobby-general");
+  const node = xmppRoomNodeForToken(roomToken || "lobby:general");
   return `${node}@${mucService}`;
 }
 
@@ -3778,6 +3805,7 @@ function teardownXmppConnection() {
   }
   xmppConnection = null;
   xmppRoomByJid.clear();
+  xmppOccupantsByRoomJid.clear();
 }
 
 function sendRelayPacket(packet) {
@@ -4114,6 +4142,91 @@ function connectRelaySocket({ force = false } = {}) {
         }
         return true;
       }, null, "iq", "set", null, null);
+      xmppConnection.addHandler((stanza) => {
+        try {
+          const from = stanza?.getAttribute("from") || "";
+          const type = (stanza?.getAttribute("type") || "").toLowerCase();
+          const roomJid = xmppBareJid(from);
+          const nick = (from.split("/")[1] || "").toString().trim();
+          if (!roomJid || !nick) return true;
+          if (!isXmppMucRoomJid(roomJid, getPreferences())) return true;
+          const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
+          xmppRoomByJid.set(roomJid, roomToken);
+          const synced = upsertXmppRoomChannel(roomJid, {
+            roomToken,
+            roomName: roomJid.split("@")[0] || "",
+            account: current,
+            persist: false
+          });
+          if (synced.created) {
+            saveState();
+            renderServers();
+            renderChannels();
+          }
+          const mucUserNode = [...stanza.getElementsByTagName("x")]
+            .find((node) => (node.getAttribute("xmlns") || "").toLowerCase() === "http://jabber.org/protocol/muc#user") || null;
+          const itemNode = mucUserNode ? mucUserNode.getElementsByTagName("item")[0] : null;
+          const occupantJid = xmppBareJid(itemNode?.getAttribute("jid") || "");
+          const role = (itemNode?.getAttribute("role") || "").toString().trim().toLowerCase();
+          const affiliation = (itemNode?.getAttribute("affiliation") || "").toString().trim().toLowerCase();
+          const occupants = xmppOccupantsByRoomJid.get(roomJid) || new Map();
+          if (type === "unavailable") {
+            if (occupantJid) occupants.delete(occupantJid);
+            for (const [key, value] of [...occupants.entries()]) {
+              if ((value?.nick || "").toString().toLowerCase() === nick.toLowerCase()) {
+                occupants.delete(key);
+              }
+            }
+            if (occupants.size > 0) {
+              xmppOccupantsByRoomJid.set(roomJid, occupants);
+            } else {
+              xmppOccupantsByRoomJid.delete(roomJid);
+            }
+            addXmppDebugEvent("presence", "MUC occupant left", {
+              roomJid,
+              nick,
+              jid: occupantJid || "",
+              role,
+              affiliation
+            });
+          } else {
+            const account = occupantJid
+              ? ensureAccountByXmppJid(occupantJid, nick || occupantJid.split("@")[0] || "")
+              : null;
+            if (occupantJid) {
+              for (const [key, value] of [...occupants.entries()]) {
+                if (key === occupantJid) continue;
+                if ((value?.nick || "").toString().toLowerCase() === nick.toLowerCase()) {
+                  occupants.delete(key);
+                }
+              }
+            }
+            const occupantKey = occupantJid || nick.toLowerCase();
+            occupants.set(occupantKey, {
+              nick,
+              jid: occupantJid,
+              role,
+              affiliation,
+              accountId: account?.id || ""
+            });
+            xmppOccupantsByRoomJid.set(roomJid, occupants);
+            addXmppDebugEvent("presence", "MUC occupant updated", {
+              roomJid,
+              nick,
+              jid: occupantJid || "",
+              role,
+              affiliation
+            });
+          }
+          const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
+          if (activeRoomJid && activeRoomJid === roomJid) {
+            renderMemberList();
+          }
+        } catch {
+          addXmppDebugEvent("error", "MUC presence handling failed");
+        }
+        return true;
+      }, null, "presence", null, null, null);
       xmppConnection.connect(jid, prefs.xmppPassword || "", (status) => {
         const S = globalThis.Strophe.Status;
         const statusName = Object.entries(S || {}).find(([, value]) => value === status)?.[0] || String(status);
@@ -13635,6 +13748,89 @@ function renderMemberList() {
     });
     return;
   }
+  if (activeChannel && activeChannel.xmppRoomJid) {
+    const roomJid = xmppBareJid(activeChannel.xmppRoomJid);
+    const occupantMap = xmppOccupantsByRoomJid.get(roomJid) || new Map();
+    const rawOccupants = [...occupantMap.values()].filter((entry) => entry && typeof entry === "object");
+    const seen = new Set();
+    const occupants = rawOccupants.filter((entry) => {
+      const key = (entry.jid || `nick:${(entry.nick || "").toString().toLowerCase()}`).toString();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).filter((entry) => {
+      if (presenceFilter === "offline") return false;
+      if (!filter) return true;
+      const account = entry.accountId ? getAccountById(entry.accountId) : null;
+      const label = account
+        ? displayNameForAccount(account, server.id)
+        : (entry.nick || entry.jid?.split("@")[0] || "occupant");
+      const haystack = [
+        label,
+        account?.username || "",
+        entry.nick || "",
+        entry.jid || "",
+        entry.role || "",
+        entry.affiliation || ""
+      ].join(" ").toLowerCase();
+      return haystack.includes(filter);
+    });
+    occupants.sort((a, b) => {
+      const aAccount = a.accountId ? getAccountById(a.accountId) : null;
+      const bAccount = b.accountId ? getAccountById(b.accountId) : null;
+      const aLabel = (aAccount ? displayNameForAccount(aAccount, server.id) : (a.nick || a.jid || "occupant")).toLowerCase();
+      const bLabel = (bAccount ? displayNameForAccount(bAccount, server.id) : (b.nick || b.jid || "occupant")).toLowerCase();
+      return aLabel.localeCompare(bLabel);
+    });
+    if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `In Room — ${occupants.length}`;
+    const title = document.createElement("div");
+    title.className = "member-group-title";
+    title.textContent = `XMPP Occupants — ${roomJid.split("@")[0] || "room"}`;
+    ui.memberList.appendChild(title);
+    if (occupants.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "channel-empty";
+      empty.textContent = "No room occupants visible yet.";
+      ui.memberList.appendChild(empty);
+      return;
+    }
+    occupants.forEach((entry) => {
+      const account = entry.accountId ? getAccountById(entry.accountId) : null;
+      const row = document.createElement("button");
+      row.className = "member-item";
+      const avatar = document.createElement("div");
+      avatar.className = "member-avatar";
+      if (account) {
+        applyAvatarStyle(avatar, account, server.id);
+        applyAvatarDecoration(avatar, account);
+      } else {
+        avatar.textContent = ((entry.nick || entry.jid || "?").toString().trim().charAt(0) || "?").toUpperCase();
+      }
+      const dot = document.createElement("span");
+      dot.className = "presence-dot presence-online";
+      avatar.appendChild(dot);
+      const meta = document.createElement("span");
+      meta.className = "member-meta";
+      const label = document.createElement("span");
+      label.className = "member-meta__name";
+      label.textContent = account
+        ? displayNameForAccount(account, server.id)
+        : (entry.nick || entry.jid?.split("@")[0] || "occupant");
+      if (account) applyNameplateStyle(label, account);
+      const status = document.createElement("small");
+      status.className = "member-meta__status";
+      status.textContent = [entry.role || "", entry.affiliation || "", entry.jid || ""].filter(Boolean).join(" · ") || "XMPP occupant";
+      meta.appendChild(label);
+      meta.appendChild(status);
+      row.appendChild(avatar);
+      row.appendChild(meta);
+      if (account) {
+        row.addEventListener("click", () => openUserPopout(account));
+      }
+      ui.memberList.appendChild(row);
+    });
+    return;
+  }
 
   const online = [];
   const offline = [];
@@ -14715,6 +14911,9 @@ function upsertXmppRoomChannel(roomJid, {
   const desiredName = sanitizeChannelName((roomName || roomNode).toString(), "space");
   const desiredToken = (roomToken || `xmpp:${normalizedRoomJid}`).toString().trim() || `xmpp:${normalizedRoomJid}`;
   let channel = guild.channels.find((entry) => normalizeXmppJid(entry?.xmppRoomJid || "").toLowerCase() === normalizedRoomJid) || null;
+  if (!channel && desiredToken) {
+    channel = guild.channels.find((entry) => (entry?.relayRoomToken || "").toString().trim() === desiredToken) || null;
+  }
   if (!channel) {
     channel = {
       id: createId(),
