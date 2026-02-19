@@ -87,18 +87,89 @@ function parseHostMetaXml(rawXml) {
   return extractXmppAltConnectionUrls(links);
 }
 
-async function fetchWithTimeout(url, timeoutMs = 4000) {
+async function fetchWithTimeout(url, {
+  timeoutMs = 4000,
+  method = "GET",
+  redirect = "follow"
+} = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(1500, Math.min(12000, Number(timeoutMs) || 4000)));
   try {
     return await fetch(url, {
-      method: "GET",
+      method,
       cache: "no-store",
+      redirect,
       signal: controller.signal
     });
   } finally {
     clearTimeout(timer);
   }
+}
+
+function wsToHttpUrl(wsUrl) {
+  try {
+    const url = new URL(wsUrl);
+    if (url.protocol === "wss:") {
+      url.protocol = "https:";
+    } else if (url.protocol === "ws:") {
+      url.protocol = "http:";
+    } else {
+      return "";
+    }
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function httpToWsUrl(httpUrl) {
+  try {
+    const url = new URL(httpUrl);
+    if (url.protocol === "https:") {
+      url.protocol = "wss:";
+    } else if (url.protocol === "http:") {
+      url.protocol = "ws:";
+    } else {
+      return "";
+    }
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+async function resolveWsService(service, timeoutMs = 3500) {
+  const normalized = normalizeWs(service);
+  if (!normalized) return "";
+  const probeStart = wsToHttpUrl(normalized);
+  if (!probeStart) return normalized;
+
+  let current = probeStart;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let response;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      response = await fetchWithTimeout(current, {
+        timeoutMs,
+        method: "GET",
+        redirect: "manual"
+      });
+    } catch {
+      return normalized;
+    }
+    const status = Number(response?.status || 0);
+    if (![301, 302, 303, 307, 308].includes(status)) break;
+    const location = response.headers.get("location");
+    if (!location) break;
+    try {
+      current = new URL(location, current).toString();
+    } catch {
+      break;
+    }
+  }
+
+  const resolved = normalizeWs(httpToWsUrl(current));
+  return resolved || normalized;
 }
 
 async function discoverXmppWs({ jid, timeoutMs = 4500 }) {
@@ -114,7 +185,7 @@ async function discoverXmppWs({ jid, timeoutMs = 4500 }) {
   for (const sourceUrl of sources) {
     try {
       // eslint-disable-next-line no-await-in-loop
-      const response = await fetchWithTimeout(sourceUrl, timeoutMs);
+      const response = await fetchWithTimeout(sourceUrl, { timeoutMs });
       if (!response.ok) {
         failures.push({ url: sourceUrl, reason: "http", error: `HTTP ${response.status}` });
         continue;
@@ -188,8 +259,13 @@ async function tryXmppAuth({ jid, password, service, timeoutMs = 12000 }) {
   const parsed = parseJid(jid);
   if (!parsed) return { ok: false, reason: "bad-jid" };
   if (!password) return { ok: false, reason: "missing-password" };
-  const ws = normalizeWs(service);
+  let ws = normalizeWs(service);
   if (!ws) return { ok: false, reason: "bad-service" };
+  try {
+    ws = await resolveWsService(ws, Math.min(4500, timeoutMs));
+  } catch {
+    // keep original ws service
+  }
 
   const resource = `shitcord67-gateway-${Date.now().toString(36).slice(-5)}`;
   const xmpp = client({
@@ -207,7 +283,7 @@ async function tryXmppAuth({ jid, password, service, timeoutMs = 12000 }) {
       finished = true;
       clearTimeout(timer);
       xmpp.stop().catch(() => {});
-      resolve(result);
+      resolve({ ...result, service: ws });
     };
     const timer = setTimeout(() => {
       done({ ok: false, reason: "timeout" });
@@ -243,8 +319,13 @@ async function tryXmppRegister({ jid, password, service, timeoutMs = 14000 }) {
   const parsed = parseJid(jid);
   if (!parsed) return { ok: false, reason: "bad-jid" };
   if (!password) return { ok: false, reason: "missing-password" };
-  const ws = normalizeWs(service);
+  let ws = normalizeWs(service);
   if (!ws) return { ok: false, reason: "bad-service" };
+  try {
+    ws = await resolveWsService(ws, Math.min(4500, timeoutMs));
+  } catch {
+    // keep original ws service
+  }
 
   return new Promise((resolve) => {
     let finished = false;
@@ -263,7 +344,7 @@ async function tryXmppRegister({ jid, password, service, timeoutMs = 14000 }) {
       } catch {
         // ignore close errors
       }
-      resolve(result);
+      resolve({ ...result, service: ws });
     };
 
     const timer = setTimeout(() => {
@@ -362,11 +443,11 @@ const server = http.createServer(async (req, res) => {
         });
         if (attempt.ok) {
           res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
-          res.end(JSON.stringify({ ok: true, wsUrl }));
+          res.end(JSON.stringify({ ok: true, wsUrl: attempt.service || wsUrl }));
           return;
         }
         failures.push({
-          wsUrl,
+          wsUrl: attempt.service || wsUrl,
           reason: attempt.reason || "connect",
           error: (attempt.error || "").toString().slice(0, 200)
         });
@@ -441,11 +522,11 @@ const server = http.createServer(async (req, res) => {
         });
         if (attempt.ok) {
           res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
-          res.end(JSON.stringify({ ok: true, wsUrl }));
+          res.end(JSON.stringify({ ok: true, wsUrl: attempt.service || wsUrl }));
           return;
         }
         failures.push({
-          wsUrl,
+          wsUrl: attempt.service || wsUrl,
           reason: attempt.reason || "register",
           error: (attempt.error || "").toString().slice(0, 220)
         });
