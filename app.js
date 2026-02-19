@@ -658,6 +658,8 @@ let composerDraftConversationId = null;
 let composerDraftSaveTimer = null;
 let composerMetaRefreshTimer = null;
 let scheduledDispatchTimer = null;
+let memberSearchTerm = "";
+let memberPresenceFilter = "all";
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -680,6 +682,8 @@ const ui = {
   channelFilterInput: document.getElementById("channelFilterInput"),
   memberList: document.getElementById("memberList"),
   memberPanelTitle: document.getElementById("memberPanelTitle"),
+  memberSearchInput: document.getElementById("memberSearchInput"),
+  memberPresenceFilterButtons: [...document.querySelectorAll(".member-filter-btn")],
   activeServerName: document.getElementById("activeServerName"),
   openGuildSettingsBtn: document.getElementById("openGuildSettingsBtn"),
   activeChannelName: document.getElementById("activeChannelName"),
@@ -1518,6 +1522,61 @@ function showToast(message, { tone = "info", duration = 1800 } = {}) {
   }, Math.max(500, Number(duration) || 1800));
 }
 
+function ensureMediaLightbox() {
+  let overlay = document.getElementById("mediaLightbox");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "mediaLightbox";
+  overlay.className = "media-lightbox";
+  overlay.hidden = true;
+  overlay.innerHTML = [
+    "<button type=\"button\" class=\"media-lightbox__close\" aria-label=\"Close\">✕</button>",
+    "<div class=\"media-lightbox__stage\"></div>",
+    "<div class=\"media-lightbox__caption\"></div>"
+  ].join("");
+  overlay.addEventListener("click", (event) => {
+    if (!(event.target instanceof HTMLElement)) return;
+    if (event.target.closest(".media-lightbox__stage video")) return;
+    if (event.target.closest(".media-lightbox__close")) {
+      closeMediaLightbox();
+      return;
+    }
+    closeMediaLightbox();
+  });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function closeMediaLightbox() {
+  const overlay = document.getElementById("mediaLightbox");
+  if (!overlay) return;
+  overlay.hidden = true;
+  const stage = overlay.querySelector(".media-lightbox__stage");
+  if (stage) stage.innerHTML = "";
+  document.body.style.removeProperty("overflow");
+}
+
+function openMediaLightbox({ url, label = "", video = false } = {}) {
+  if (!url) return;
+  const overlay = ensureMediaLightbox();
+  const stage = overlay.querySelector(".media-lightbox__stage");
+  const caption = overlay.querySelector(".media-lightbox__caption");
+  if (!stage || !caption) return;
+  stage.innerHTML = "";
+  const media = document.createElement(video ? "video" : "img");
+  if (video) {
+    media.controls = true;
+    media.autoplay = true;
+    media.playsInline = true;
+  }
+  media.src = url;
+  media.alt = label || "media preview";
+  stage.appendChild(media);
+  caption.textContent = label || "";
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
 function mentionInComposer(account) {
   if (!account) return;
   const base = ui.messageInput.value.trim();
@@ -1868,6 +1927,11 @@ function normalizePresence(value) {
   return "online";
 }
 
+function normalizeMemberPresenceFilter(value) {
+  if (value === "online" || value === "offline") return value;
+  return "all";
+}
+
 function normalizeToggle(value) {
   return value === "on" ? "on" : "off";
 }
@@ -2192,6 +2256,12 @@ function getMemberTopRoleColor(server, accountId) {
   return (top?.color || "").toString();
 }
 
+function getMemberTopRoleName(server, accountId) {
+  const roles = getMemberRoles(server, accountId).filter((role) => role.name !== "@everyone");
+  if (roles.length === 0) return "";
+  return (roles[roles.length - 1]?.name || "").toString();
+}
+
 function parseStatusExpiryAt(value) {
   const now = new Date();
   if (value === "30m") return new Date(now.getTime() + 30 * 60 * 1000).toISOString();
@@ -2411,8 +2481,12 @@ function inferAttachmentTypeFromFile(file) {
   if (name.endsWith(".svg") || mime === "image/svg+xml") return "svg";
   if (name.endsWith(".html") || name.endsWith(".htm") || mime === "text/html") return "html";
   if (name.endsWith(".bin")) return "bin";
-  if (name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".mp4") || name.endsWith(".webm")) return "gif";
+  if (name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".mp4") || name.endsWith(".webm") || /^image\//i.test(mime) || /^video\//i.test(mime)) return "gif";
   return "gif";
+}
+
+function getComposerAttachAllowedTypes() {
+  return new Set(["pdf", "text", "odf", "rtf", "bin", "gif", "audio", "swf", "svg", "html"]);
 }
 
 function clearComposerPendingAttachment() {
@@ -2446,7 +2520,7 @@ function setComposerPendingAttachment(entry) {
 async function attachFileToComposer(file) {
   if (!file) return false;
   const type = inferAttachmentTypeFromFile(file);
-  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  const allowed = getComposerAttachAllowedTypes();
   if (!allowed.has(type)) return false;
   const url = await readFileAsDataUrl(file);
   setComposerPendingAttachment({
@@ -6842,13 +6916,20 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       video.autoplay = true;
       video.loop = true;
       video.muted = true;
+      video.controls = true;
       video.playsInline = true;
+      video.addEventListener("dblclick", () => {
+        openMediaLightbox({ url: mediaUrl, label: attachment.name || "Video", video: true });
+      });
       wrap.appendChild(video);
     } else {
       const img = document.createElement("img");
       img.src = mediaUrl;
       img.loading = "lazy";
       img.alt = attachment.name || "GIF";
+      img.addEventListener("click", () => {
+        openMediaLightbox({ url: mediaUrl, label: attachment.name || "GIF" });
+      });
       wrap.appendChild(img);
     }
     container.appendChild(wrap);
@@ -6887,6 +6968,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     img.src = mediaUrl;
     img.loading = "lazy";
     img.alt = attachment.name || "SVG";
+    img.addEventListener("click", () => {
+      openMediaLightbox({ url: mediaUrl, label: attachment.name || "SVG" });
+    });
     wrap.appendChild(img);
     const downloadBtn = document.createElement("a");
     downloadBtn.className = "message-swf-link";
@@ -7061,6 +7145,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   img.src = mediaUrl;
   img.loading = "lazy";
   img.alt = attachment.name || type.toUpperCase();
+  img.addEventListener("click", () => {
+    openMediaLightbox({ url: mediaUrl, label: attachment.name || type.toUpperCase() });
+  });
   wrap.appendChild(img);
   container.appendChild(wrap);
 }
@@ -8602,6 +8689,9 @@ function renderMessages() {
       imagePreview.src = imageUrl;
       imagePreview.alt = "shared image";
       imagePreview.loading = "lazy";
+      imagePreview.addEventListener("click", () => {
+        openMediaLightbox({ url: imageUrl, label: "Shared image" });
+      });
     }
     const attachments = normalizeAttachments([
       ...normalizeAttachments(message.attachments),
@@ -9053,19 +9143,44 @@ function appendMessageRowLite(channel, message) {
 }
 
 function renderMemberList() {
+  const filter = memberSearchTerm.trim().toLowerCase();
+  const presenceFilter = normalizeMemberPresenceFilter(memberPresenceFilter);
+  if (ui.memberSearchInput && ui.memberSearchInput.value !== memberSearchTerm) {
+    ui.memberSearchInput.value = memberSearchTerm;
+  }
+  ui.memberPresenceFilterButtons?.forEach((button) => {
+    const active = button.dataset.memberFilter === presenceFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  const matchesMemberFilter = (account, guildId = null) => {
+    if (!account) return false;
+    const presence = normalizePresence(account.presence);
+    if (presenceFilter === "online" && presence === "invisible") return false;
+    if (presenceFilter === "offline" && presence !== "invisible") return false;
+    if (!filter) return true;
+    const haystack = [
+      account.username,
+      account.displayName,
+      displayNameForAccount(account, guildId),
+      displayStatus(account, guildId),
+      presenceLabel(account.presence)
+    ].join(" ").toLowerCase();
+    return haystack.includes(filter);
+  };
   const activeDm = getActiveDmThread();
   if (activeDm) {
     const current = getCurrentAccount();
-    if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `Members — ${activeDm.participantIds.length}`;
+    const dmAccounts = activeDm.participantIds
+      .map((id) => getAccountById(id))
+      .filter((account) => matchesMemberFilter(account, null));
+    if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `Members — ${dmAccounts.length}`;
     ui.memberList.innerHTML = "";
     const title = document.createElement("div");
     title.className = "member-group-title";
     title.textContent = "Direct Message";
     ui.memberList.appendChild(title);
-    activeDm.participantIds
-      .map((id) => getAccountById(id))
-      .filter(Boolean)
-      .forEach((account) => {
+    dmAccounts.forEach((account) => {
         const row = document.createElement("button");
         row.className = "member-item";
         const avatar = document.createElement("div");
@@ -9087,6 +9202,7 @@ function renderMemberList() {
         row.appendChild(avatar);
         row.appendChild(meta);
         row.addEventListener("click", () => openUserPopout(account));
+        row.addEventListener("dblclick", () => mentionInComposer(account));
         row.addEventListener("contextmenu", (event) => {
           openContextMenu(event, [
             { label: "View Profile", action: () => openUserPopout(account) },
@@ -9102,6 +9218,12 @@ function renderMemberList() {
         });
         ui.memberList.appendChild(row);
       });
+    if (dmAccounts.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "channel-empty";
+      empty.textContent = "No members match your filter.";
+      ui.memberList.appendChild(empty);
+    }
     return;
   }
   const server = getActiveServer();
@@ -9117,6 +9239,7 @@ function renderMemberList() {
   server.memberIds.forEach((memberId) => {
     const account = getAccountById(memberId);
     if (!account) return;
+    if (!matchesMemberFilter(account, server.id)) return;
     if (normalizePresence(account.presence) === "invisible") {
       offline.push(account);
     } else {
@@ -9128,10 +9251,9 @@ function renderMemberList() {
   online.sort(sortByName);
   offline.sort(sortByName);
 
-  const groups = [
-    { title: `Online — ${online.length}`, items: online },
-    { title: `Offline — ${offline.length}`, items: offline }
-  ];
+  const groups = [];
+  if (presenceFilter !== "offline") groups.push({ title: `Online — ${online.length}`, items: online });
+  if (presenceFilter !== "online") groups.push({ title: `Offline — ${offline.length}`, items: offline });
   if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `Members — ${online.length + offline.length}`;
 
   groups.forEach((group) => {
@@ -9163,11 +9285,19 @@ function renderMemberList() {
       status.className = "member-meta__status";
       status.textContent = displayStatus(account, server.id);
       meta.appendChild(label);
+      const topRole = getMemberTopRoleName(server, account.id);
+      if (topRole) {
+        const roleTag = document.createElement("span");
+        roleTag.className = "member-meta__role";
+        roleTag.textContent = topRole;
+        meta.appendChild(roleTag);
+      }
       meta.appendChild(status);
 
       row.appendChild(avatar);
       row.appendChild(meta);
       row.addEventListener("click", () => openUserPopout(account));
+      row.addEventListener("dblclick", () => mentionInComposer(account));
       row.addEventListener("contextmenu", (event) => {
         openContextMenu(event, [
           {
@@ -9195,6 +9325,12 @@ function renderMemberList() {
       ui.memberList.appendChild(row);
     });
   });
+  if (online.length + offline.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = "No members match your filter.";
+    ui.memberList.appendChild(empty);
+  }
 }
 
 function renderDock() {
@@ -9971,6 +10107,32 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
   openDmWithAccount(candidate);
 });
 
+ui.memberSearchInput?.addEventListener("input", () => {
+  memberSearchTerm = ui.memberSearchInput.value.trim().slice(0, 40);
+  renderMemberList();
+});
+
+ui.memberSearchInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  event.preventDefault();
+  if (memberSearchTerm) {
+    memberSearchTerm = "";
+    ui.memberSearchInput.value = "";
+    renderMemberList();
+    return;
+  }
+  ui.memberSearchInput.blur();
+});
+
+ui.memberPresenceFilterButtons?.forEach((button) => {
+  button.addEventListener("click", () => {
+    const next = normalizeMemberPresenceFilter(button.dataset.memberFilter);
+    if (memberPresenceFilter === next) return;
+    memberPresenceFilter = next;
+    renderMemberList();
+  });
+});
+
 ui.toggleDmSectionBtn?.addEventListener("click", () => {
   toggleDmSectionCollapsed();
 });
@@ -10196,7 +10358,7 @@ ui.messageInput.addEventListener("paste", (event) => {
   const [file] = files;
   if (!file) return;
   const inferred = inferAttachmentTypeFromFile(file);
-  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  const allowed = getComposerAttachAllowedTypes();
   if (!allowed.has(inferred)) return;
   event.preventDefault();
   void attachFileToComposer(file).then((attached) => {
@@ -11148,7 +11310,7 @@ function maybeHandleComposerDrop(event) {
   const [file] = files;
   if (!file) return false;
   const inferred = inferAttachmentTypeFromFile(file);
-  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  const allowed = getComposerAttachAllowedTypes();
   if (!allowed.has(inferred)) return false;
   event.preventDefault();
   event.stopPropagation();
@@ -11167,7 +11329,7 @@ document.addEventListener("dragover", (event) => {
   if (!files || files.length === 0) return;
   const [file] = files;
   const inferred = inferAttachmentTypeFromFile(file);
-  const allowed = new Set(["pdf", "text", "odf", "rtf", "bin"]);
+  const allowed = getComposerAttachAllowedTypes();
   if (!allowed.has(inferred)) return;
   event.preventDefault();
   ui.messageForm.classList.add("message-form--drop");
@@ -11331,6 +11493,12 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  const lightbox = document.getElementById("mediaLightbox");
+  if (event.key === "Escape" && lightbox && !lightbox.hidden) {
+    event.preventDefault();
+    closeMediaLightbox();
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key === "/") {
     if (!state.currentAccountId) return;
     event.preventDefault();
@@ -11500,6 +11668,14 @@ document.addEventListener("keydown", (event) => {
     if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
     ui.messageInput.focus();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "u") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    ui.memberSearchInput?.focus();
+    ui.memberSearchInput?.select?.();
     return;
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
