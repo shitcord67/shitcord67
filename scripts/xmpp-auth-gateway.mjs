@@ -54,6 +54,101 @@ function normalizeWs(value) {
   return /^wss?:\/\//i.test(raw) ? raw : "";
 }
 
+function extractXmppAltConnectionUrls(links) {
+  if (!Array.isArray(links)) return [];
+  const urls = [];
+  links.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const rel = (entry.rel || "").toString().toLowerCase();
+    if (!rel.includes("xmpp:alt-connections") || !rel.includes("websocket")) return;
+    const href = normalizeWs(entry.href || entry.url || "");
+    if (!href) return;
+    if (!urls.includes(href)) urls.push(href);
+  });
+  return urls;
+}
+
+function parseHostMetaXml(rawXml) {
+  const xml = (rawXml || "").toString();
+  if (!xml) return [];
+  const links = [];
+  const linkPattern = /<link\b([^>]*)\/?>/gi;
+  let match = linkPattern.exec(xml);
+  while (match) {
+    const attrs = (match[1] || "").toString();
+    const relMatch = attrs.match(/\brel=['"]([^'"]+)['"]/i);
+    const hrefMatch = attrs.match(/\bhref=['"]([^'"]+)['"]/i);
+    links.push({
+      rel: relMatch?.[1] || "",
+      href: hrefMatch?.[1] || ""
+    });
+    match = linkPattern.exec(xml);
+  }
+  return extractXmppAltConnectionUrls(links);
+}
+
+async function fetchWithTimeout(url, timeoutMs = 4000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(1500, Math.min(12000, Number(timeoutMs) || 4000)));
+  try {
+    return await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function discoverXmppWs({ jid, timeoutMs = 4500 }) {
+  const parsed = parseJid(jid);
+  if (!parsed) return { ok: false, error: "bad-jid", urls: [] };
+  const domain = parsed.domain;
+  const sources = [
+    `https://${domain}/.well-known/host-meta.json`,
+    `https://${domain}/.well-known/host-meta`
+  ];
+  const urls = [];
+  const failures = [];
+  for (const sourceUrl of sources) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const response = await fetchWithTimeout(sourceUrl, timeoutMs);
+      if (!response.ok) {
+        failures.push({ url: sourceUrl, reason: "http", error: `HTTP ${response.status}` });
+        continue;
+      }
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (contentType.includes("json")) {
+        // eslint-disable-next-line no-await-in-loop
+        const payload = await response.json().catch(() => ({}));
+        extractXmppAltConnectionUrls(Array.isArray(payload?.links) ? payload.links : []).forEach((entry) => {
+          if (!urls.includes(entry)) urls.push(entry);
+        });
+      } else {
+        // eslint-disable-next-line no-await-in-loop
+        const xml = await response.text();
+        parseHostMetaXml(xml).forEach((entry) => {
+          if (!urls.includes(entry)) urls.push(entry);
+        });
+      }
+    } catch (error) {
+      failures.push({
+        url: sourceUrl,
+        reason: "fetch",
+        error: String(error?.message || error).slice(0, 220)
+      });
+    }
+  }
+  return {
+    ok: true,
+    domain,
+    urls: urls.slice(0, 8),
+    failures
+  };
+}
+
 function xmlEscape(value) {
   return (value || "")
     .toString()
@@ -286,6 +381,38 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
       res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
       res.end(JSON.stringify({ ok: false, error: String(error?.message || error) }));
+    }
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/discover") {
+    try {
+      const payload = await readJson(req);
+      const jid = (payload.jid || "").toString().trim();
+      if (!jid) {
+        res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+        res.end(JSON.stringify({ ok: false, error: "jid is required." }));
+        return;
+      }
+      const discovered = await discoverXmppWs({
+        jid,
+        timeoutMs: Number(payload.timeoutMs) || 4500
+      });
+      if (!discovered.ok) {
+        res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+        res.end(JSON.stringify({ ok: false, error: discovered.error || "discover-failed", urls: [] }));
+        return;
+      }
+      res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
+      res.end(JSON.stringify({
+        ok: true,
+        domain: discovered.domain,
+        urls: discovered.urls,
+        failures: discovered.failures.slice(0, 6)
+      }));
+    } catch (error) {
+      res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+      res.end(JSON.stringify({ ok: false, error: String(error?.message || error), urls: [] }));
     }
     return;
   }
