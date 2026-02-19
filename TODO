@@ -226,6 +226,7 @@
 - [done] Added voice discovery/jump commands (`/voicechannels`, `/voicegoto`) and stage bulk moderation commands (`/stageshush`, `/stageaudience`).
 - [done] Added `Alt+J` quick-join/leave hotkey and voice surface quick-copy link action.
 - [done] Added experimental WebSocket relay transport mode (settings + `/relay` command + `scripts/ws-relay-server.mjs`) for real multi-user chat across clients.
+- [done] Added dependency-free HTTP/SSE relay mode (`scripts/http-relay-server.mjs`) for multi-user chat without npm packages.
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior

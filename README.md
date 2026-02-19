@@ -179,7 +179,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Added `Alt+M` hotkey for self mute/unmute in active voice/stage channel.
 - Voice/stage channel context menu now includes quick self mute and status actions.
 - Voice/stage call surface now includes direct channel-link copy action.
-- Experimental realtime transport mode is now available via Advanced settings (`Transport mode: WebSocket relay`).
+- Experimental realtime transport mode is now available via Advanced settings (`Transport mode: HTTP relay (SSE)` or `WebSocket relay`).
 - Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
@@ -219,17 +219,22 @@ A lightweight Discord-style chat client prototype with local persistence.
 - `app.js`: state, rendering, actions, persistence.
 - `TODO`: roadmap for XMPP/Matrix and advanced features.
 - `swf-index.json`: searchable local SWF catalog for the picker.
+- `scripts/http-relay-server.mjs`: no-dependency Node HTTP/SSE relay for multi-user chat testing.
 - `scripts/ws-relay-server.mjs`: minimal Node WebSocket room relay for multi-user chat testing.
 
 ## Realtime Chat (Now)
-1. Install relay dependency once: `npm install ws`.
-2. Start relay server: `node scripts/ws-relay-server.mjs` (default `ws://localhost:8787`).
+1. Start no-dependency relay server: `node scripts/http-relay-server.mjs` (default `http://localhost:8788`).
 3. In each client, open **Settings -> Advanced -> Live Relay (Experimental)**.
 4. Set:
-- `Transport mode`: `WebSocket relay`
-- `Relay URL`: `ws://localhost:8787`
+- `Transport mode`: `HTTP relay (SSE)`
+- `Relay URL`: `http://localhost:8788`
 - Optional `Relay room override`: same value on all clients to force same room.
 5. Save Advanced or run `/relay connect`, then chat in the same channel/room.
+
+Optional WebSocket mode:
+1. Install dependency once: `npm install ws`
+2. Start server: `node scripts/ws-relay-server.mjs` (default `ws://localhost:8787`)
+3. Use `Transport mode: WebSocket relay` and URL `ws://localhost:8787`
 
 ## XMPP/Standalone Readiness
 - Yes: this project is now at the point where real multi-user chat can be enabled with the relay path today.
