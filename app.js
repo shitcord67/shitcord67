@@ -10,7 +10,7 @@ const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
-  { name: "relay", args: "[status|connect|disconnect|mode <local|http|ws|off>|url <http://...|ws://...>|room <name|clear>]", description: "Control experimental realtime relay transport." },
+  { name: "relay", args: "[status|connect|disconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>]", description: "Control experimental realtime relay transport." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
   { name: "tableflip", args: "[text]", description: "Send a table-flip message." },
   { name: "unflip", args: "", description: "Send table reset emote." },
@@ -417,7 +417,10 @@ function buildInitialState() {
       relayUrl: "ws://localhost:8787",
       relayRoom: "",
       relayAutoConnect: "on",
-      relayClientId: createId()
+      relayClientId: createId(),
+      xmppJid: "",
+      xmppPassword: "",
+      xmppWsUrl: ""
     }
   };
 }
@@ -869,6 +872,7 @@ const ui = {
   activeChannelGlyph: document.getElementById("activeChannelGlyph"),
   activeChannelLabel: document.getElementById("activeChannelLabel"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
+  relayHeaderBadge: document.getElementById("relayHeaderBadge"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
   nextUnreadBtn: document.getElementById("nextUnreadBtn"),
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
@@ -1067,6 +1071,9 @@ const ui = {
   relayStatusOutput: document.getElementById("relayStatusOutput"),
   relayConnectBtn: document.getElementById("relayConnectBtn"),
   relayDisconnectBtn: document.getElementById("relayDisconnectBtn"),
+  xmppJidInput: document.getElementById("xmppJidInput"),
+  xmppPasswordInput: document.getElementById("xmppPasswordInput"),
+  xmppWsUrlInput: document.getElementById("xmppWsUrlInput"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -2880,7 +2887,7 @@ function normalizeProfileEffect(value) {
 
 function normalizeRelayMode(value) {
   const mode = (value || "").toString().toLowerCase();
-  if (mode === "ws" || mode === "http" || mode === "off") return mode;
+  if (mode === "ws" || mode === "http" || mode === "xmpp" || mode === "off") return mode;
   return "local";
 }
 
@@ -2893,6 +2900,20 @@ function normalizeRelayUrl(value) {
 
 function normalizeRelayRoom(value) {
   return (value || "").toString().trim().slice(0, 80);
+}
+
+function normalizeXmppJid(value) {
+  return (value || "").toString().trim().slice(0, 120);
+}
+
+function normalizeXmppPassword(value) {
+  return (value || "").toString().slice(0, 120);
+}
+
+function normalizeXmppWsUrl(value) {
+  const raw = (value || "").toString().trim().slice(0, 180);
+  if (!raw) return "";
+  return /^wss?:\/\//i.test(raw) ? raw : "";
 }
 
 function normalizeVoiceState(value) {
@@ -2993,6 +3014,9 @@ function getPreferences() {
     relayRoom: normalizeRelayRoom(current.relayRoom),
     relayAutoConnect: normalizeToggle(current.relayAutoConnect),
     relayClientId: (current.relayClientId || createId()).toString(),
+    xmppJid: normalizeXmppJid(current.xmppJid),
+    xmppPassword: normalizeXmppPassword(current.xmppPassword),
+    xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -3009,9 +3033,51 @@ function relayStatusText() {
   return `${base}${detail}`;
 }
 
+function getTransportAdapter(mode = getPreferences().relayMode) {
+  const adapters = {
+    local: {
+      id: "local",
+      label: "Local",
+      canRealtime: false,
+      description: "Messages stay in local browser storage."
+    },
+    off: {
+      id: "off",
+      label: "Off",
+      canRealtime: false,
+      description: "Transport disabled."
+    },
+    http: {
+      id: "http",
+      label: "HTTP Relay",
+      canRealtime: true,
+      description: "SSE + POST relay transport."
+    },
+    ws: {
+      id: "ws",
+      label: "WebSocket Relay",
+      canRealtime: true,
+      description: "Bidirectional WebSocket relay transport."
+    },
+    xmpp: {
+      id: "xmpp",
+      label: "XMPP (Stub)",
+      canRealtime: false,
+      description: "Scaffold mode; runtime connector not implemented yet."
+    }
+  };
+  return adapters[mode] || adapters.local;
+}
+
 function renderRelayStatusOutput() {
   if (!ui.relayStatusOutput) return;
   ui.relayStatusOutput.textContent = `Relay: ${relayStatusText()}`;
+  if (ui.relayHeaderBadge) {
+    const prefs = getPreferences();
+    const adapter = getTransportAdapter(prefs.relayMode);
+    ui.relayHeaderBadge.textContent = `${adapter.label} · ${RELAY_STATUS_LABELS[relayStatus] || "Disconnected"}`;
+    ui.relayHeaderBadge.dataset.state = relayStatus;
+  }
 }
 
 function setRelayStatus(status, errorText = "") {
@@ -3185,6 +3251,16 @@ function connectRelaySocket({ force = false } = {}) {
   const current = getCurrentAccount();
   if (!current) {
     disconnectRelaySocket({ manual: true });
+    return false;
+  }
+  if (prefs.relayMode === "xmpp") {
+    const hasJid = Boolean(normalizeXmppJid(prefs.xmppJid));
+    const hasWsUrl = Boolean(normalizeXmppWsUrl(prefs.xmppWsUrl));
+    if (!hasJid || !hasWsUrl) {
+      setRelayStatus("error", "XMPP requires JID and XMPP WebSocket URL.");
+      return false;
+    }
+    setRelayStatus("error", "XMPP runtime adapter not implemented yet.");
     return false;
   }
   if (prefs.relayMode === "http") {
@@ -6387,8 +6463,10 @@ function handleSlashCommand(rawText, channel, account) {
     state.preferences = getPreferences();
     if (sub === "status") {
       const prefs = getPreferences();
+      const adapter = getTransportAdapter(prefs.relayMode);
       addSystemMessage(channel, [
         `Mode: ${prefs.relayMode}`,
+        `Adapter: ${adapter.label}`,
         `Status: ${relayStatusText()}`,
         `URL: ${prefs.relayUrl}`,
         `Room: ${prefs.relayRoom || relayRoomForActiveConversation()}`
@@ -6396,7 +6474,8 @@ function handleSlashCommand(rawText, channel, account) {
       return true;
     }
     if (sub === "connect") {
-      state.preferences.relayMode = payload.toLowerCase().startsWith("http") ? "http" : "ws";
+      if (/^xmpp$/i.test(payload)) state.preferences.relayMode = "xmpp";
+      else state.preferences.relayMode = payload.toLowerCase().startsWith("http") ? "http" : "ws";
       if (payload) state.preferences.relayUrl = normalizeRelayUrl(payload);
       saveState();
       const ok = connectRelaySocket({ force: true });
@@ -6441,7 +6520,7 @@ function handleSlashCommand(rawText, channel, account) {
       addSystemMessage(channel, `Relay room set to: ${state.preferences.relayRoom}`);
       return true;
     }
-    addSystemMessage(channel, "Usage: /relay [status|connect|disconnect|mode <local|http|ws|off>|url <http://...|ws://...>|room <name|clear>]");
+    addSystemMessage(channel, "Usage: /relay [status|connect|disconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>]");
     return true;
   }
 
@@ -12750,6 +12829,9 @@ function renderSettingsScreen() {
   if (ui.relayUrlInput) ui.relayUrlInput.value = prefs.relayUrl;
   if (ui.relayRoomInput) ui.relayRoomInput.value = prefs.relayRoom;
   if (ui.relayAutoConnectInput) ui.relayAutoConnectInput.value = prefs.relayAutoConnect;
+  if (ui.xmppJidInput) ui.xmppJidInput.value = prefs.xmppJid;
+  if (ui.xmppPasswordInput) ui.xmppPasswordInput.value = prefs.xmppPassword;
+  if (ui.xmppWsUrlInput) ui.xmppWsUrlInput.value = prefs.xmppWsUrl;
   renderRelayStatusOutput();
   if (ui.guildNotifGuildName) {
     ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
@@ -12996,7 +13078,7 @@ function createOrSwitchAccount(usernameInput) {
   }
   ensureCurrentUserInActiveServer();
   const prefs = getPreferences();
-  if (["ws", "http"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
+  if (["ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
   return true;
 }
 
@@ -13099,11 +13181,13 @@ ui.messageForm.addEventListener("submit", (event) => {
       const sub = (subRaw || "status").toLowerCase();
       const payload = restRelay.join(" ").trim();
       if (sub === "status") {
-        showToast(`Relay: ${relayStatusText()} · ${state.preferences.relayMode} · ${state.preferences.relayUrl}`);
+        const adapter = getTransportAdapter(state.preferences.relayMode);
+        showToast(`Relay: ${relayStatusText()} · ${state.preferences.relayMode}/${adapter.label} · ${state.preferences.relayUrl}`);
         return;
       }
       if (sub === "connect") {
-        state.preferences.relayMode = payload.toLowerCase().startsWith("http") ? "http" : "ws";
+        if (/^xmpp$/i.test(payload)) state.preferences.relayMode = "xmpp";
+        else state.preferences.relayMode = payload.toLowerCase().startsWith("http") ? "http" : "ws";
         if (payload) state.preferences.relayUrl = normalizeRelayUrl(payload);
         saveState();
         connectRelaySocket({ force: true });
@@ -13136,7 +13220,7 @@ ui.messageForm.addEventListener("submit", (event) => {
         showToast(state.preferences.relayRoom ? `Relay room: ${state.preferences.relayRoom}` : "Relay room override cleared.");
         return;
       }
-      showToast("Usage: /relay [status|connect|disconnect|mode|url|room]", { tone: "error" });
+      showToast("Usage: /relay [status|connect|disconnect|mode <local|http|ws|xmpp|off>|url|room]", { tone: "error" });
       return;
     }
     if (dmCommand === "quests") {
@@ -14726,10 +14810,13 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.relayRoom = normalizeRelayRoom(ui.relayRoomInput?.value || "");
   state.preferences.relayAutoConnect = normalizeToggle(ui.relayAutoConnectInput?.value || "on");
   if (!state.preferences.relayClientId) state.preferences.relayClientId = createId();
+  state.preferences.xmppJid = normalizeXmppJid(ui.xmppJidInput?.value || "");
+  state.preferences.xmppPassword = normalizeXmppPassword(ui.xmppPasswordInput?.value || "");
+  state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
   saveState();
-  if (["ws", "http"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
+  if (["ws", "http", "xmpp"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
     connectRelaySocket({ force: true });
-  } else if (!["ws", "http"].includes(state.preferences.relayMode)) {
+  } else if (!["ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
     disconnectRelaySocket({ manual: true });
   }
   renderRelayStatusOutput();
@@ -14744,6 +14831,9 @@ ui.relayConnectBtn?.addEventListener("click", () => {
   state.preferences.relayRoom = normalizeRelayRoom(ui.relayRoomInput?.value || "");
   state.preferences.relayAutoConnect = normalizeToggle(ui.relayAutoConnectInput?.value || "on");
   if (!state.preferences.relayClientId) state.preferences.relayClientId = createId();
+  state.preferences.xmppJid = normalizeXmppJid(ui.xmppJidInput?.value || "");
+  state.preferences.xmppPassword = normalizeXmppPassword(ui.xmppPasswordInput?.value || "");
+  state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
   saveState();
   connectRelaySocket({ force: true });
 });
@@ -15093,7 +15183,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
     state.currentAccountId = selectedSwitchAccountId;
     rememberAccountSession(selectedSwitchAccountId);
     const prefs = getPreferences();
-    if (["ws", "http"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
+    if (["ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
   }
 
   ensureCurrentUserInActiveServer();
@@ -15756,6 +15846,6 @@ ensureScheduledDispatchTimer();
 safeRender("startup");
 loadSwfLibrary();
 deployMediaRuntimes();
-if (state.currentAccountId && ["ws", "http"].includes(getPreferences().relayMode) && getPreferences().relayAutoConnect === "on") {
+if (state.currentAccountId && ["ws", "http", "xmpp"].includes(getPreferences().relayMode) && getPreferences().relayAutoConnect === "on") {
   connectRelaySocket();
 }

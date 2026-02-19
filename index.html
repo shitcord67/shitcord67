@@ -72,6 +72,7 @@
           </h2>
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
+            <span id="relayHeaderBadge" class="chat-topic chat-topic--relay">Local</span>
             <button id="openFindBtn" class="chat-topic-edit" title="Find in conversation">Find</button>
             <button id="markChannelReadBtn" class="chat-topic-edit" title="Mark channel read">Mark Read</button>
             <button id="nextUnreadBtn" class="chat-topic-edit" title="Jump to next unread channel">Next Unread</button>
@@ -304,6 +305,7 @@
               <option value="local">Local only</option>
               <option value="http">HTTP relay (SSE)</option>
               <option value="ws">WebSocket relay</option>
+              <option value="xmpp">XMPP (experimental stub)</option>
               <option value="off">Off</option>
             </select>
             <label for="relayUrlInput">Relay URL</label>
@@ -320,6 +322,13 @@
               <button id="relayConnectBtn" type="button">Connect Relay</button>
               <button id="relayDisconnectBtn" type="button">Disconnect Relay</button>
             </div>
+            <h3>XMPP (Scaffold)</h3>
+            <label for="xmppJidInput">JID</label>
+            <input id="xmppJidInput" type="text" maxlength="120" placeholder="user@example.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="xmppPasswordInput">Password</label>
+            <input id="xmppPasswordInput" type="password" maxlength="120" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="xmppWsUrlInput">XMPP WebSocket URL</label>
+            <input id="xmppWsUrlInput" type="text" maxlength="180" placeholder="wss://example.com:5281/xmpp-websocket" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export App JSON</button>
               <button id="importDataBtn" type="button">Import App JSON</button>
