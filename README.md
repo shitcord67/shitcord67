@@ -179,7 +179,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Added `Alt+M` hotkey for self mute/unmute in active voice/stage channel.
 - Voice/stage channel context menu now includes quick self mute and status actions.
 - Voice/stage call surface now includes direct channel-link copy action.
-- Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP stub`, `off`).
+- Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
 - Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
 - Chat header now shows live transport status badge (adapter + connection state), Discord-style.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
@@ -237,14 +237,15 @@ Optional WebSocket mode:
 2. Start server: `node scripts/ws-relay-server.mjs` (default `ws://localhost:8787`)
 3. Use `Transport mode: WebSocket relay` and URL `ws://localhost:8787`
 
-XMPP scaffold mode:
-1. Set `Transport mode: XMPP (experimental stub)`
-2. Fill `JID` + `XMPP WebSocket URL` in Advanced settings
-3. Current behavior: validates/stores config and reports status; runtime XMPP connector is the next implementation step
+XMPP mode (experimental):
+1. Set `Transport mode: XMPP`
+2. Fill `JID`, `Password`, `XMPP WebSocket URL`, and `XMPP MUC service` in Advanced settings
+3. Save and connect (`Connect Relay` or `/relay connect xmpp`)
+4. Messages in active channels/DMs are mapped to MUC rooms and sent/received via XMPP groupchat
 
 ## XMPP/Standalone Readiness
 - Yes: this project is now at the point where real multi-user chat can be enabled with the relay path today.
-- Next step for XMPP login: add an adapter that maps guild/channel semantics to XMPP MUC + direct chats and move auth/session into transport providers.
+- XMPP adapter path is now implemented experimentally (Strophe runtime load + connect/auth + MUC room join/send/receive).
 - Standalone client path is viable after transport abstraction hardens (Electron/Tauri shell + same web UI + selectable transport adapter).
 
 ## Design Research Notes

@@ -420,7 +420,8 @@ function buildInitialState() {
       relayClientId: createId(),
       xmppJid: "",
       xmppPassword: "",
-      xmppWsUrl: ""
+      xmppWsUrl: "",
+      xmppMucService: ""
     }
   };
 }
@@ -836,6 +837,10 @@ let pinsSearchTerm = "";
 let pinsSortMode = "latest";
 let relaySocket = null;
 let relayEventSource = null;
+let xmppConnection = null;
+let xmppRuntimeReady = false;
+let xmppLoadingPromise = null;
+const xmppRoomByJid = new Map();
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -1074,6 +1079,7 @@ const ui = {
   xmppJidInput: document.getElementById("xmppJidInput"),
   xmppPasswordInput: document.getElementById("xmppPasswordInput"),
   xmppWsUrlInput: document.getElementById("xmppWsUrlInput"),
+  xmppMucServiceInput: document.getElementById("xmppMucServiceInput"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -2916,6 +2922,10 @@ function normalizeXmppWsUrl(value) {
   return /^wss?:\/\//i.test(raw) ? raw : "";
 }
 
+function normalizeXmppMucService(value) {
+  return (value || "").toString().trim().toLowerCase().slice(0, 120);
+}
+
 function normalizeVoiceState(value) {
   const safe = value && typeof value === "object" ? value : {};
   const normalizeIds = (arr) => [...new Set((Array.isArray(arr) ? arr : []).map((id) => (id || "").toString()).filter(Boolean))];
@@ -3017,6 +3027,7 @@ function getPreferences() {
     xmppJid: normalizeXmppJid(current.xmppJid),
     xmppPassword: normalizeXmppPassword(current.xmppPassword),
     xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),
+    xmppMucService: normalizeXmppMucService(current.xmppMucService),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -3061,9 +3072,9 @@ function getTransportAdapter(mode = getPreferences().relayMode) {
     },
     xmpp: {
       id: "xmpp",
-      label: "XMPP (Stub)",
-      canRealtime: false,
-      description: "Scaffold mode; runtime connector not implemented yet."
+      label: "XMPP",
+      canRealtime: true,
+      description: "XMPP over WebSocket with MUC room mapping."
     }
   };
   return adapters[mode] || adapters.local;
@@ -3114,6 +3125,72 @@ function relayRoomForActiveConversation() {
   return "lobby:general";
 }
 
+function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
+  const mucService = normalizeXmppMucService(prefs.xmppMucService);
+  if (!mucService) return "";
+  const node = sanitizeChannelName((roomToken || "lobby-general").replace(/[:]/g, "-"), "lobby-general");
+  return `${node}@${mucService}`;
+}
+
+async function loadXmppLibrary() {
+  if (xmppRuntimeReady && globalThis.Strophe && globalThis.$msg && globalThis.$pres) return true;
+  if (xmppLoadingPromise) return xmppLoadingPromise;
+  xmppLoadingPromise = (async () => {
+    const urls = [
+      "https://cdn.jsdelivr.net/npm/strophe.js@1.6.2/dist/strophe.min.js",
+      "https://unpkg.com/strophe.js@1.6.2/dist/strophe.min.js"
+    ];
+    for (const url of urls) {
+      try {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = url;
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error(`failed: ${url}`));
+          document.head.appendChild(script);
+        });
+        if (globalThis.Strophe && globalThis.$msg && globalThis.$pres) {
+          xmppRuntimeReady = true;
+          xmppLoadingPromise = null;
+          return true;
+        }
+      } catch {
+        // Try next CDN URL.
+      }
+    }
+    xmppLoadingPromise = null;
+    return false;
+  })();
+  return xmppLoadingPromise;
+}
+
+function joinXmppRoom(roomToken, account = getCurrentAccount()) {
+  if (!xmppConnection || !account) return false;
+  const prefs = getPreferences();
+  const roomJid = xmppRoomJidForToken(roomToken, prefs);
+  if (!roomJid) return false;
+  if (xmppRoomByJid.has(roomJid)) return true;
+  const nick = sanitizeChannelName(account.username || "user", "user");
+  const presence = globalThis.$pres({ to: `${roomJid}/${nick}` })
+    .c("x", { xmlns: "http://jabber.org/protocol/muc" });
+  xmppConnection.send(presence);
+  xmppRoomByJid.set(roomJid, roomToken);
+  return true;
+}
+
+function teardownXmppConnection() {
+  if (xmppConnection) {
+    try {
+      xmppConnection.disconnect();
+    } catch {
+      // Ignore disconnect errors.
+    }
+  }
+  xmppConnection = null;
+  xmppRoomByJid.clear();
+}
+
 function sendRelayPacket(packet) {
   if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
   try {
@@ -3153,7 +3230,7 @@ function clearRelayReconnectTimer() {
 function scheduleRelayReconnect() {
   const prefs = getPreferences();
   if (prefs.relayAutoConnect !== "on") return;
-  if (!["ws", "http"].includes(prefs.relayMode)) return;
+  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return;
   clearRelayReconnectTimer();
   relayReconnectTimer = setTimeout(() => {
     relayReconnectTimer = null;
@@ -3181,6 +3258,7 @@ function disconnectRelaySocket({ manual = true } = {}) {
     }
   }
   relaySocket = null;
+  teardownXmppConnection();
   setRelayStatus("disconnected");
 }
 
@@ -3200,6 +3278,11 @@ function applyRelayIncomingMessage(packet) {
   const room = (packet.room || "").toString();
   const remoteMessage = packet.message;
   if (!remoteMessage || typeof remoteMessage !== "object") return;
+  if (remoteClientId.startsWith("xmpp:")) {
+    const mine = normalizeUsername(getCurrentAccount()?.username || "");
+    const theirs = normalizeUsername(remoteMessage.authorUsername || "");
+    if (mine && theirs && mine === theirs) return;
+  }
   const relayId = `${remoteClientId}:${(remoteMessage.id || createId()).toString()}`;
   if (relaySeenMessageIds.has(relayId)) return;
   relaySeenMessageIds.add(relayId);
@@ -3254,14 +3337,97 @@ function connectRelaySocket({ force = false } = {}) {
     return false;
   }
   if (prefs.relayMode === "xmpp") {
-    const hasJid = Boolean(normalizeXmppJid(prefs.xmppJid));
-    const hasWsUrl = Boolean(normalizeXmppWsUrl(prefs.xmppWsUrl));
-    if (!hasJid || !hasWsUrl) {
-      setRelayStatus("error", "XMPP requires JID and XMPP WebSocket URL.");
+    const jid = normalizeXmppJid(prefs.xmppJid);
+    const wsUrl = normalizeXmppWsUrl(prefs.xmppWsUrl);
+    const mucService = normalizeXmppMucService(prefs.xmppMucService);
+    if (!jid || !wsUrl || !mucService) {
+      setRelayStatus("error", "XMPP requires JID, WebSocket URL, and MUC service.");
       return false;
     }
-    setRelayStatus("error", "XMPP runtime adapter not implemented yet.");
-    return false;
+    if (xmppConnection && !force) return true;
+    disconnectRelaySocket({ manual: false });
+    relayManualDisconnect = false;
+    setRelayStatus("connecting");
+    loadXmppLibrary().then((ok) => {
+      if (!ok) {
+        setRelayStatus("error", "Failed to load Strophe runtime.");
+        scheduleRelayReconnect();
+        return;
+      }
+      try {
+        xmppConnection = new globalThis.Strophe.Connection(wsUrl, { keepalive: true });
+      } catch (error) {
+        setRelayStatus("error", String(error));
+        scheduleRelayReconnect();
+        return;
+      }
+      xmppConnection.addHandler((stanza) => {
+        try {
+          const from = stanza.getAttribute("from") || "";
+          const type = stanza.getAttribute("type") || "";
+          if (type && !["groupchat", "chat", "normal", ""].includes(type)) return true;
+          const bodyNode = stanza.getElementsByTagName("body")[0];
+          if (!bodyNode) return true;
+          const text = globalThis.Strophe.getText(bodyNode) || "";
+          if (!text.trim()) return true;
+          const roomJid = from.split("/")[0] || "";
+          const nick = from.split("/")[1] || "";
+          const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
+          applyRelayIncomingMessage({
+            type: "chat",
+            room: roomToken,
+            clientId: `xmpp:${from}`,
+            message: {
+              id: createId(),
+              text,
+              ts: new Date().toISOString(),
+              authorUsername: nick || roomJid.split("@")[0] || "xmpp",
+              authorDisplay: nick || ""
+            }
+          });
+        } catch {
+          // Ignore malformed XMPP messages.
+        }
+        return true;
+      }, null, "message", null, null, null);
+      xmppConnection.connect(jid, prefs.xmppPassword || "", (status) => {
+        const S = globalThis.Strophe.Status;
+        if (status === S.CONNECTING) {
+          setRelayStatus("connecting");
+          return;
+        }
+        if (status === S.AUTHENTICATING) {
+          setRelayStatus("connecting", "Authenticating");
+          return;
+        }
+        if (status === S.CONNECTED) {
+          setRelayStatus("connected");
+          xmppConnection.send(globalThis.$pres());
+          const room = relayRoomForActiveConversation();
+          joinXmppRoom(room, current);
+          relayJoinedRoom = room;
+          return;
+        }
+        if (status === S.DISCONNECTED) {
+          xmppConnection = null;
+          if (relayManualDisconnect) {
+            setRelayStatus("disconnected");
+            return;
+          }
+          setRelayStatus("error", "XMPP disconnected");
+          scheduleRelayReconnect();
+          return;
+        }
+        if (status === S.CONNFAIL || status === S.AUTHFAIL || status === S.ERROR) {
+          setRelayStatus("error", status === S.AUTHFAIL ? "XMPP authentication failed" : "XMPP connection failed");
+          scheduleRelayReconnect();
+        }
+      });
+    }).catch((error) => {
+      setRelayStatus("error", String(error));
+      scheduleRelayReconnect();
+    });
+    return true;
   }
   if (prefs.relayMode === "http") {
     if (relayEventSource && !force) return true;
@@ -3354,7 +3520,16 @@ function connectRelaySocket({ force = false } = {}) {
 
 function syncRelayRoomForActiveConversation() {
   const prefs = getPreferences();
-  if (!["ws", "http"].includes(prefs.relayMode)) return;
+  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return;
+  if (prefs.relayMode === "xmpp") {
+    if (!xmppConnection) return;
+    const nextRoom = relayRoomForActiveConversation();
+    if (!nextRoom || nextRoom === relayJoinedRoom) return;
+    const ok = joinXmppRoom(nextRoom, getCurrentAccount());
+    if (!ok) return;
+    relayJoinedRoom = nextRoom;
+    return;
+  }
   if (prefs.relayMode === "http") {
     const nextRoom = relayRoomForActiveConversation();
     if (!nextRoom || nextRoom === relayJoinedRoom) return;
@@ -3367,13 +3542,38 @@ function syncRelayRoomForActiveConversation() {
   joinRelayRoom(nextRoom);
 }
 
+function relayMessageBodyText(message) {
+  const text = (message?.text || "").toString().slice(0, 400);
+  const links = (Array.isArray(message?.attachments) ? message.attachments : [])
+    .filter((entry) => entry && typeof entry === "object" && entry.url)
+    .slice(0, 3)
+    .map((entry) => (entry.url || "").toString().slice(0, 640))
+    .filter(Boolean);
+  if (links.length === 0) return text;
+  return [text, ...links].filter(Boolean).join("\n");
+}
+
 function publishRelayChannelMessage(channel, message, account) {
   const prefs = getPreferences();
-  if (!["ws", "http"].includes(prefs.relayMode)) return false;
+  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
   if (!channel || !message || !account) return false;
   const guild = getActiveGuild();
   const room = relayRoomForActiveConversation();
   if (!room) return false;
+  if (prefs.relayMode === "xmpp") {
+    if (!xmppConnection) return false;
+    const roomJid = xmppRoomJidForToken(room, prefs);
+    if (!roomJid) {
+      setRelayStatus("error", "XMPP MUC service not configured.");
+      return false;
+    }
+    joinXmppRoom(room, account);
+    const body = relayMessageBodyText(message);
+    if (!body) return false;
+    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c("body").t(body);
+    xmppConnection.send(stanza);
+    return true;
+  }
   if (prefs.relayMode === "http") {
     const endpoint = new URL(normalizeRelayUrl(prefs.relayUrl).replace(/^ws:/i, "http:").replace(/^wss:/i, "https:"));
     endpoint.pathname = "/chat";
@@ -3438,7 +3638,7 @@ function publishRelayChannelMessage(channel, message, account) {
 
 function publishRelayDirectMessage(thread, message, account) {
   const prefs = getPreferences();
-  if (!["ws", "http"].includes(prefs.relayMode)) return false;
+  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
   if (!thread || !message || !account) return false;
   const participants = (thread.participantIds || [])
     .map((id) => getAccountById(id))
@@ -3448,6 +3648,20 @@ function publishRelayDirectMessage(thread, message, account) {
     .sort();
   if (participants.length < 2) return false;
   const room = `dm:${participants.slice(0, 2).join(":")}`;
+  if (prefs.relayMode === "xmpp") {
+    if (!xmppConnection) return false;
+    const roomJid = xmppRoomJidForToken(room, prefs);
+    if (!roomJid) {
+      setRelayStatus("error", "XMPP MUC service not configured.");
+      return false;
+    }
+    joinXmppRoom(room, account);
+    const body = relayMessageBodyText(message);
+    if (!body) return false;
+    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c("body").t(body);
+    xmppConnection.send(stanza);
+    return true;
+  }
   if (prefs.relayMode === "http") {
     const endpoint = new URL(normalizeRelayUrl(prefs.relayUrl).replace(/^ws:/i, "http:").replace(/^wss:/i, "https:"));
     endpoint.pathname = "/chat";
@@ -6468,7 +6682,8 @@ function handleSlashCommand(rawText, channel, account) {
         `Mode: ${prefs.relayMode}`,
         `Adapter: ${adapter.label}`,
         `Status: ${relayStatusText()}`,
-        `URL: ${prefs.relayUrl}`,
+        `URL: ${prefs.relayMode === "xmpp" ? (prefs.xmppWsUrl || "(unset)") : prefs.relayUrl}`,
+        prefs.relayMode === "xmpp" ? `MUC: ${prefs.xmppMucService || "(unset)"}` : "",
         `Room: ${prefs.relayRoom || relayRoomForActiveConversation()}`
       ].join(" · "));
       return true;
@@ -12832,6 +13047,7 @@ function renderSettingsScreen() {
   if (ui.xmppJidInput) ui.xmppJidInput.value = prefs.xmppJid;
   if (ui.xmppPasswordInput) ui.xmppPasswordInput.value = prefs.xmppPassword;
   if (ui.xmppWsUrlInput) ui.xmppWsUrlInput.value = prefs.xmppWsUrl;
+  if (ui.xmppMucServiceInput) ui.xmppMucServiceInput.value = prefs.xmppMucService;
   renderRelayStatusOutput();
   if (ui.guildNotifGuildName) {
     ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
@@ -14813,6 +15029,7 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.xmppJid = normalizeXmppJid(ui.xmppJidInput?.value || "");
   state.preferences.xmppPassword = normalizeXmppPassword(ui.xmppPasswordInput?.value || "");
   state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
+  state.preferences.xmppMucService = normalizeXmppMucService(ui.xmppMucServiceInput?.value || "");
   saveState();
   if (["ws", "http", "xmpp"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
     connectRelaySocket({ force: true });
@@ -14834,6 +15051,7 @@ ui.relayConnectBtn?.addEventListener("click", () => {
   state.preferences.xmppJid = normalizeXmppJid(ui.xmppJidInput?.value || "");
   state.preferences.xmppPassword = normalizeXmppPassword(ui.xmppPasswordInput?.value || "");
   state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
+  state.preferences.xmppMucService = normalizeXmppMucService(ui.xmppMucServiceInput?.value || "");
   saveState();
   connectRelaySocket({ force: true });
 });

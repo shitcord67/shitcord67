@@ -305,7 +305,7 @@
               <option value="local">Local only</option>
               <option value="http">HTTP relay (SSE)</option>
               <option value="ws">WebSocket relay</option>
-              <option value="xmpp">XMPP (experimental stub)</option>
+              <option value="xmpp">XMPP (experimental)</option>
               <option value="off">Off</option>
             </select>
             <label for="relayUrlInput">Relay URL</label>
@@ -329,6 +329,8 @@
             <input id="xmppPasswordInput" type="password" maxlength="120" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <label for="xmppWsUrlInput">XMPP WebSocket URL</label>
             <input id="xmppWsUrlInput" type="text" maxlength="180" placeholder="wss://example.com:5281/xmpp-websocket" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="xmppMucServiceInput">XMPP MUC service</label>
+            <input id="xmppMucServiceInput" type="text" maxlength="120" placeholder="conference.example.com" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export App JSON</button>
               <button id="importDataBtn" type="button">Import App JSON</button>
