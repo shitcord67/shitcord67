@@ -214,6 +214,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - JSON export/import from Advanced settings for snapshot backup/restore.
 - Persisted state in `localStorage` (`shitcord67-state-v1`, with migration from `flashcord-state-v2` and `flashcord-state-v1`).
 - Login/settings/chat views are now viewport-isolated (no page-level scroll between app sections).
+- Login now supports optional XMPP credentials (JID/password/WebSocket URL), JID-based server auto-detection, and a remember-login toggle.
+- Added login-time XMPP provider/registration directory modal with quick server prefill actions.
 
 ## Files
 - `index.html`: app shell and dialogs.

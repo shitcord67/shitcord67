@@ -1,5 +1,6 @@
 const STORAGE_KEY = "shitcord67-state-v1";
 const SESSION_ACCOUNT_KEY = "shitcord67-session-account-id";
+const SESSION_PERSIST_KEY = "shitcord67-session-persist";
 const RELAY_STATUS_LABELS = {
   disconnected: "Disconnected",
   connecting: "Connecting",
@@ -8,6 +9,40 @@ const RELAY_STATUS_LABELS = {
 };
 const RELAY_TYPING_TTL_MS = 6500;
 const RELAY_TYPING_THROTTLE_MS = 2200;
+const XMPP_PROVIDER_CATALOG = [
+  {
+    id: "xmpp_jp",
+    name: "xmpp.jp",
+    site: "https://xmpp.jp/",
+    register: "https://xmpp.jp/",
+    ws: "wss://api.xmpp.jp/ws",
+    notes: "Public provider; verify current terms and anti-abuse limits before heavy usage."
+  },
+  {
+    id: "disroot",
+    name: "Disroot XMPP",
+    site: "https://disroot.org/en/services/xmpp",
+    register: "https://user.disroot.org/register",
+    ws: "",
+    notes: "Free account service with anti-abuse policy and moderation controls."
+  },
+  {
+    id: "snikket",
+    name: "Snikket Hosting",
+    site: "https://snikket.org/",
+    register: "https://snikket.org/hosting/",
+    ws: "",
+    notes: "Managed XMPP hosting for private groups and family-sized deployments."
+  },
+  {
+    id: "discover_more",
+    name: "Provider Discovery",
+    site: "https://providers.xmpp.net/",
+    register: "https://providers.xmpp.net/",
+    ws: "",
+    notes: "Compare providers and verify registration rules, limits, and policies."
+  }
+];
 const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
@@ -420,6 +455,7 @@ function buildInitialState() {
       relayRoom: "",
       relayAutoConnect: "on",
       relayClientId: createId(),
+      rememberLogin: "on",
       xmppJid: "",
       xmppPassword: "",
       xmppWsUrl: "",
@@ -741,8 +777,14 @@ function migrateState(raw) {
 function loadState() {
   const applySessionRestore = (restored) => {
     if (!restored || !Array.isArray(restored.accounts)) return restored;
+    const persistSession = isSessionPersistenceEnabled();
     const accountIds = restored.accounts.map((account) => account?.id).filter(Boolean);
     const validIds = new Set(accountIds);
+    if (!persistSession) {
+      restored.currentAccountId = null;
+      localStorage.removeItem(SESSION_ACCOUNT_KEY);
+      return restored;
+    }
     if (restored.currentAccountId && validIds.has(restored.currentAccountId)) {
       localStorage.setItem(SESSION_ACCOUNT_KEY, restored.currentAccountId);
       return restored;
@@ -862,6 +904,12 @@ const ui = {
   chatScreen: document.getElementById("chatScreen"),
   loginForm: document.getElementById("loginForm"),
   loginUsername: document.getElementById("loginUsername"),
+  loginXmppJid: document.getElementById("loginXmppJid"),
+  loginPassword: document.getElementById("loginPassword"),
+  loginXmppServer: document.getElementById("loginXmppServer"),
+  loginRememberInput: document.getElementById("loginRememberInput"),
+  loginProvidersBtn: document.getElementById("loginProvidersBtn"),
+  loginRegisterBtn: document.getElementById("loginRegisterBtn"),
   serverBrand: document.getElementById("serverBrand"),
   serverBrandBadge: document.getElementById("serverBrandBadge"),
   serverList: document.getElementById("serverList"),
@@ -1055,6 +1103,9 @@ const ui = {
   accountList: document.getElementById("accountList"),
   newAccountInput: document.getElementById("newAccountInput"),
   accountCancel: document.getElementById("accountCancel"),
+  xmppProviderDialog: document.getElementById("xmppProviderDialog"),
+  xmppProviderList: document.getElementById("xmppProviderList"),
+  xmppProviderCloseBtn: document.getElementById("xmppProviderCloseBtn"),
   settingsTitle: document.getElementById("settingsTitle"),
   closeSettingsBtn: document.getElementById("closeSettingsBtn"),
   settingsDisplayName: document.getElementById("settingsDisplayName"),
@@ -1163,8 +1214,18 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function rememberAccountSession(accountId) {
+function isSessionPersistenceEnabled() {
+  return localStorage.getItem(SESSION_PERSIST_KEY) !== "off";
+}
+
+function rememberAccountSession(accountId, remember = true) {
   if (!accountId) return;
+  if (!remember) {
+    localStorage.setItem(SESSION_PERSIST_KEY, "off");
+    localStorage.removeItem(SESSION_ACCOUNT_KEY);
+    return;
+  }
+  localStorage.setItem(SESSION_PERSIST_KEY, "on");
   localStorage.setItem(SESSION_ACCOUNT_KEY, accountId);
 }
 
@@ -3034,6 +3095,7 @@ function getPreferences() {
     relayRoom: normalizeRelayRoom(current.relayRoom),
     relayAutoConnect: normalizeToggle(current.relayAutoConnect),
     relayClientId: (current.relayClientId || createId()).toString(),
+    rememberLogin: normalizeToggle(current.rememberLogin),
     xmppJid: normalizeXmppJid(current.xmppJid),
     xmppPassword: normalizeXmppPassword(current.xmppPassword),
     xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),
@@ -10247,6 +10309,7 @@ function renderScreens() {
   const loggedIn = Boolean(state.currentAccountId);
   ui.loginScreen.classList.toggle("screen--active", !loggedIn);
   ui.chatScreen.classList.toggle("screen--active", loggedIn);
+  if (!loggedIn) syncLoginFieldsFromSessionPrefs();
   if (!loggedIn && ui.settingsScreen.classList.contains("settings-screen--active")) {
     closeSettingsScreen();
   }
@@ -13342,6 +13405,9 @@ function isTypingInputTarget(target) {
 function hardenInputAutocompleteNoise() {
   const targets = [
     ui.loginUsername,
+    ui.loginXmppJid,
+    ui.loginPassword,
+    ui.loginXmppServer,
     ui.dmSearchInput,
     ui.channelFilterInput,
     ui.memberSearchInput,
@@ -13519,13 +13585,91 @@ function renderChannelPermissionEditor() {
   if (ui.channelPermThreadInput) ui.channelPermThreadInput.value = getChannelPermissionOverride(channel, roleId, "createThreads");
 }
 
-function createOrSwitchAccount(usernameInput) {
+function inferXmppWsUrlFromJid(jid) {
+  const domain = xmppDomainFromJid(jid);
+  if (!domain) return "";
+  return `wss://api.${domain}/ws`;
+}
+
+function parseLoginIdentity(rawUsername, explicitJid = "") {
+  const userRaw = (rawUsername || "").toString().trim();
+  const jidRaw = (explicitJid || "").toString().trim();
+  const effectiveJid = jidRaw || (userRaw.includes("@") ? userRaw : "");
+  const baseUsernameRaw = userRaw.includes("@") ? userRaw.split("@")[0] : userRaw;
+  const fallbackFromJid = effectiveJid.includes("@") ? effectiveJid.split("@")[0] : "";
+  const accountSeed = baseUsernameRaw || fallbackFromJid;
+  return {
+    accountUsername: normalizeUsername(accountSeed),
+    accountDisplay: accountSeed.trim().slice(0, 32),
+    xmppJid: normalizeXmppJid(effectiveJid)
+  };
+}
+
+function renderXmppProviderList() {
+  if (!ui.xmppProviderList) return;
+  ui.xmppProviderList.innerHTML = "";
+  XMPP_PROVIDER_CATALOG.forEach((provider) => {
+    const row = document.createElement("div");
+    row.className = "quick-switch-item";
+    const title = document.createElement("strong");
+    title.textContent = provider.name;
+    const detail = document.createElement("small");
+    const wsHint = provider.ws ? `WS: ${provider.ws}` : "WS endpoint depends on provider config.";
+    detail.textContent = `${provider.notes} ${wsHint}`;
+    const actions = document.createElement("div");
+    actions.className = "settings-inline-actions";
+    actions.style.marginTop = "0.35rem";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.textContent = "Open Site";
+    openBtn.addEventListener("click", () => {
+      window.open(provider.site, "_blank", "noopener,noreferrer");
+    });
+    actions.appendChild(openBtn);
+    const registerBtn = document.createElement("button");
+    registerBtn.type = "button";
+    registerBtn.textContent = "Register";
+    registerBtn.addEventListener("click", () => {
+      window.open(provider.register || provider.site, "_blank", "noopener,noreferrer");
+    });
+    actions.appendChild(registerBtn);
+    if (provider.ws) {
+      const useBtn = document.createElement("button");
+      useBtn.type = "button";
+      useBtn.textContent = "Use Server";
+      useBtn.addEventListener("click", () => {
+        if (ui.loginXmppServer) ui.loginXmppServer.value = provider.ws;
+        ui.xmppProviderDialog?.close();
+        ui.loginUsername?.focus();
+      });
+      actions.appendChild(useBtn);
+    }
+    row.append(title, detail, actions);
+    ui.xmppProviderList.appendChild(row);
+  });
+}
+
+function syncLoginFieldsFromSessionPrefs() {
+  const prefs = getPreferences();
+  if (ui.loginRememberInput) {
+    ui.loginRememberInput.checked = prefs.rememberLogin === "on" && isSessionPersistenceEnabled();
+  }
+  if (ui.loginXmppJid && !ui.loginXmppJid.value && prefs.xmppJid) {
+    ui.loginXmppJid.value = prefs.xmppJid;
+  }
+  if (ui.loginXmppServer && !ui.loginXmppServer.value && prefs.xmppWsUrl) {
+    ui.loginXmppServer.value = prefs.xmppWsUrl;
+  }
+}
+
+function createOrSwitchAccount(usernameInput, options = {}) {
   const normalized = normalizeUsername(usernameInput);
   if (!normalized) return false;
 
   let account = getAccountByUsername(normalized);
   if (!account) {
-    account = createAccount(normalized, usernameInput.trim().slice(0, 32));
+    const displayName = (options.displayName || usernameInput || "").toString().trim().slice(0, 32);
+    account = createAccount(normalized, displayName);
     ensureAccountCosmetics(account);
     state.accounts.push(account);
   } else {
@@ -13535,8 +13679,31 @@ function createOrSwitchAccount(usernameInput) {
     ensureAccountCosmetics(account);
   }
 
+  state.preferences = getPreferences();
+  const rememberRequested = typeof options.rememberLogin === "boolean"
+    ? options.rememberLogin
+    : state.preferences.rememberLogin !== "off";
+  const rememberLogin = rememberRequested ? "on" : "off";
+  state.preferences.rememberLogin = rememberLogin;
   state.currentAccountId = account.id;
-  rememberAccountSession(account.id);
+  rememberAccountSession(account.id, rememberLogin === "on");
+  const xmpp = options.xmpp && typeof options.xmpp === "object" ? options.xmpp : null;
+  if (xmpp) {
+    const jid = normalizeXmppJid(xmpp.jid || "");
+    const password = normalizeXmppPassword(xmpp.password || "");
+    const wsInput = normalizeXmppWsUrl(xmpp.wsUrl || "") || inferXmppWsUrlFromJid(jid);
+    if (jid) state.preferences.xmppJid = jid;
+    if (typeof xmpp.password === "string") state.preferences.xmppPassword = password;
+    if (wsInput) state.preferences.xmppWsUrl = wsInput;
+    if (jid && !state.preferences.xmppMucService) {
+      const domain = xmppDomainFromJid(jid);
+      if (domain) state.preferences.xmppMucService = `conference.${domain}`;
+    }
+    if (jid && password) {
+      state.preferences.relayMode = "xmpp";
+      state.preferences.relayAutoConnect = "on";
+    }
+  }
   if (state.viewMode !== "dm" && state.viewMode !== "guild") state.viewMode = "guild";
   if (!state.activeGuildId && state.guilds[0]) {
     state.activeGuildId = state.guilds[0].id;
@@ -13553,18 +13720,70 @@ function createOrSwitchAccount(usernameInput) {
 ui.loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const typed = ui.loginUsername.value;
-  if (!createOrSwitchAccount(typed)) {
+  const explicitJid = ui.loginXmppJid?.value || "";
+  const password = ui.loginPassword?.value || "";
+  const wsServer = ui.loginXmppServer?.value || "";
+  const rememberLogin = ui.loginRememberInput?.checked !== false;
+  const parsed = parseLoginIdentity(typed, explicitJid);
+  if (!parsed.accountUsername) {
     showToast("Username must include at least one letter or number.", { tone: "error" });
+    return;
+  }
+  const xmppConfig = parsed.xmppJid || password || wsServer
+    ? {
+      jid: parsed.xmppJid,
+      password,
+      wsUrl: wsServer
+    }
+    : null;
+  if (!createOrSwitchAccount(parsed.accountUsername, {
+    displayName: parsed.accountDisplay,
+    rememberLogin,
+    xmpp: xmppConfig
+  })) {
+    showToast("Could not create or switch account.", { tone: "error" });
     return;
   }
   renderScreens();
   ui.loginUsername.value = "";
+  if (ui.loginPassword) ui.loginPassword.value = "";
   saveState();
   safeRender("login-submit");
   closeSettingsScreen();
   requestAnimationFrame(() => {
     ui.messageInput.focus();
   });
+});
+
+ui.loginUsername?.addEventListener("input", () => {
+  const raw = (ui.loginUsername.value || "").trim();
+  if (!raw.includes("@")) return;
+  if (ui.loginXmppJid && !ui.loginXmppJid.value.trim()) ui.loginXmppJid.value = raw;
+  if (ui.loginXmppServer && !ui.loginXmppServer.value.trim()) {
+    const inferred = inferXmppWsUrlFromJid(raw);
+    if (inferred) ui.loginXmppServer.value = inferred;
+  }
+});
+
+ui.loginXmppJid?.addEventListener("input", () => {
+  const jid = (ui.loginXmppJid.value || "").trim();
+  if (!jid || !ui.loginXmppServer || ui.loginXmppServer.value.trim()) return;
+  const inferred = inferXmppWsUrlFromJid(jid);
+  if (inferred) ui.loginXmppServer.value = inferred;
+});
+
+ui.loginProvidersBtn?.addEventListener("click", () => {
+  renderXmppProviderList();
+  ui.xmppProviderDialog?.showModal();
+});
+
+ui.loginRegisterBtn?.addEventListener("click", () => {
+  renderXmppProviderList();
+  ui.xmppProviderDialog?.showModal();
+});
+
+ui.xmppProviderCloseBtn?.addEventListener("click", () => {
+  ui.xmppProviderDialog?.close();
 });
 
 ui.messageForm.addEventListener("submit", (event) => {
@@ -15683,6 +15902,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.accountSwitchDialog,
+  ui.xmppProviderDialog,
   ui.debugDialog,
   ui.cosmeticsDialog,
   ui.swfViewerDialog
