@@ -167,6 +167,14 @@ button {
   margin: 0;
 }
 
+.login-local-profile {
+  margin-bottom: 0.55rem;
+}
+
+.login-local-profile select {
+  margin-bottom: 0;
+}
+
 #chatScreen {
   display: none;
   height: 100vh;

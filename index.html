@@ -16,6 +16,12 @@
         <h1>Welcome back</h1>
         <p>Sign in with a username or XMPP credentials to continue to shitcord67</p>
         <form id="loginForm" autocomplete="off">
+          <div id="loginLocalProfileWrap" class="login-local-profile" hidden>
+            <label for="loginLocalProfileSelect">Local XMPP profile</label>
+            <select id="loginLocalProfileSelect">
+              <option value="">Select profile from .xmpp.local.json</option>
+            </select>
+          </div>
           <label for="loginUsername">Username or XMPP JID</label>
           <input id="loginUsername" type="text" maxlength="120" placeholder="username or user@example.com" required autocomplete="off" autocapitalize="off" spellcheck="false" />
           <label for="loginPassword">Password (optional)</label>
