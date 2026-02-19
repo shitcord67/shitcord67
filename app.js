@@ -101,7 +101,7 @@ const SLASH_COMMANDS = [
   { name: "findnext", args: "", description: "Jump to next find match in current conversation." },
   { name: "findprev", args: "", description: "Jump to previous find match in current conversation." },
   { name: "markunread", args: "[message-id-prefix|last]", description: "Mark conversation unread from selected message." },
-  { name: "newdm", args: "<username>", description: "Open or create a DM with a user." },
+  { name: "newdm", args: "<username-or-jid>", description: "Open or create a DM with a user or XMPP JID." },
   { name: "closedm", args: "", description: "Close current DM thread." },
   { name: "leaveguild", args: "", description: "Leave the active guild (if more than one)." },
   { name: "newchannel", args: "<name> [type]", description: "Create a channel in the active guild (manage channels). Types: text/announcement/forum/media/voice/stage." },
@@ -941,6 +941,13 @@ const ui = {
   dmList: document.getElementById("dmList"),
   dmSearchInput: document.getElementById("dmSearchInput"),
   newDmBtn: document.getElementById("newDmBtn"),
+  addFriendDialog: document.getElementById("addFriendDialog"),
+  addFriendForm: document.getElementById("addFriendForm"),
+  addFriendIdentityInput: document.getElementById("addFriendIdentityInput"),
+  addFriendDisplayInput: document.getElementById("addFriendDisplayInput"),
+  addFriendXmppRequestInput: document.getElementById("addFriendXmppRequestInput"),
+  addFriendCancelBtn: document.getElementById("addFriendCancelBtn"),
+  addFriendSubmitBtn: document.getElementById("addFriendSubmitBtn"),
   channelFilterInput: document.getElementById("channelFilterInput"),
   memberList: document.getElementById("memberList"),
   memberPanelTitle: document.getElementById("memberPanelTitle"),
@@ -1479,6 +1486,89 @@ function openDmWithAccount(targetAccount) {
   state.activeDmId = thread.id;
   saveState();
   render();
+}
+
+function resolveOrCreateDmTarget(identity, { displayName = "" } = {}) {
+  const raw = (identity || "").toString().trim();
+  if (!raw) return null;
+  if (looksLikeCompleteJid(raw)) {
+    return ensureAccountByXmppJid(raw, displayName || raw.split("@")[0] || "");
+  }
+  const normalized = normalizeUsername(raw);
+  if (!normalized) return null;
+  let target = getAccountByUsername(normalized);
+  if (!target) {
+    target = createAccount(normalized, displayName || normalized);
+    state.accounts.push(target);
+    return target;
+  }
+  if (displayName) {
+    target.displayName = displayName.toString().trim().slice(0, 32) || target.displayName;
+  }
+  return target;
+}
+
+function openDmByIdentity(identity, { displayName = "" } = {}) {
+  const current = getCurrentAccount();
+  if (!current) return null;
+  const target = resolveOrCreateDmTarget(identity, { displayName });
+  if (!target || target.id === current.id) return null;
+  openDmWithAccount(target);
+  return target;
+}
+
+function openAddFriendDialog(initialIdentity = "") {
+  if (!ui.addFriendDialog) return;
+  const seed = (initialIdentity || "").toString().trim().slice(0, 120);
+  if (ui.addFriendIdentityInput) ui.addFriendIdentityInput.value = seed;
+  if (ui.addFriendDisplayInput) {
+    if (looksLikeCompleteJid(seed)) {
+      ui.addFriendDisplayInput.value = seed.split("@")[0] || "";
+    } else {
+      ui.addFriendDisplayInput.value = "";
+    }
+  }
+  if (ui.addFriendXmppRequestInput) ui.addFriendXmppRequestInput.checked = true;
+  if (!ui.addFriendDialog.open) ui.addFriendDialog.showModal();
+  requestAnimationFrame(() => {
+    ui.addFriendIdentityInput?.focus();
+    ui.addFriendIdentityInput?.select?.();
+  });
+}
+
+function requestXmppRosterSubscription(targetAccount, { nameHint = "" } = {}) {
+  const targetJid = normalizeXmppJid(targetAccount?.xmppJid || "").toLowerCase();
+  if (!targetJid) return false;
+  if (!xmppConnection || relayStatus !== "connected") return false;
+  if (!globalThis.$iq || !globalThis.$pres) return false;
+  const label = (nameHint || targetAccount?.displayName || targetAccount?.username || targetJid.split("@")[0] || "")
+    .toString()
+    .trim()
+    .slice(0, 64);
+  try {
+    const iq = globalThis.$iq({ type: "set" })
+      .c("query", { xmlns: "jabber:iq:roster" })
+      .c("item", { jid: targetJid, name: label });
+    xmppConnection.sendIQ(
+      iq,
+      () => {
+        addXmppDebugEvent("iq", "Roster add/update succeeded", { jid: targetJid, name: label });
+      },
+      () => {
+        addXmppDebugEvent("error", "Roster add/update failed", { jid: targetJid, name: label });
+      },
+      7000
+    );
+    xmppConnection.send(globalThis.$pres({ to: targetJid, type: "subscribe" }));
+    addXmppDebugEvent("presence", "Sent XMPP subscribe request", { jid: targetJid });
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "Failed to send XMPP contact request", {
+      jid: targetJid,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
 }
 
 function sendDirectMessageToAccount(targetAccount, text) {
@@ -3241,18 +3331,55 @@ function relayClientId() {
   return state.preferences.relayClientId;
 }
 
+function relayRoomForDmParticipantAccounts(accounts = []) {
+  const usernames = (Array.isArray(accounts) ? accounts : [])
+    .filter(Boolean)
+    .map((entry) => normalizeUsername(entry.username || ""))
+    .filter(Boolean)
+    .sort();
+  if (usernames.length < 2) return "";
+  return `dm:${usernames.slice(0, 2).join(":")}`;
+}
+
+function relayRoomForDmThread(thread) {
+  if (!thread || !Array.isArray(thread.participantIds)) return "";
+  const participants = thread.participantIds
+    .map((id) => getAccountById(id))
+    .filter(Boolean);
+  return relayRoomForDmParticipantAccounts(participants);
+}
+
+function findDmThreadByRelayRoom(roomToken, account = getCurrentAccount()) {
+  if (!roomToken || !account) return null;
+  const room = roomToken.toString();
+  return state.dmThreads.find((thread) => (
+    Array.isArray(thread.participantIds)
+    && thread.participantIds.includes(account.id)
+    && relayRoomForDmThread(thread) === room
+  )) || null;
+}
+
+function xmppPeerJidForDmThread(thread, account = getCurrentAccount()) {
+  if (!thread || !account || !Array.isArray(thread.participantIds)) return "";
+  const peerId = thread.participantIds.find((id) => id && id !== account.id);
+  if (!peerId) return "";
+  const peer = getAccountById(peerId);
+  return normalizeXmppJid(peer?.xmppJid || "").toLowerCase();
+}
+
+function xmppPeerJidForRelayRoom(roomToken, account = getCurrentAccount()) {
+  if (!roomToken || !/^dm:/i.test(roomToken.toString())) return "";
+  const thread = findDmThreadByRelayRoom(roomToken, account);
+  return xmppPeerJidForDmThread(thread, account);
+}
+
 function relayRoomForActiveConversation() {
   const prefs = getPreferences();
   if (prefs.relayRoom) return prefs.relayRoom;
   const conversation = getActiveConversation();
   if (conversation?.type === "dm" && conversation.thread) {
-    const usernames = (conversation.thread.participantIds || [])
-      .map((id) => getAccountById(id))
-      .filter(Boolean)
-      .map((entry) => normalizeUsername(entry.username || ""))
-      .filter(Boolean)
-      .sort();
-    if (usernames.length >= 2) return `dm:${usernames.slice(0, 2).join(":")}`;
+    const room = relayRoomForDmThread(conversation.thread);
+    if (room) return room;
   }
   if (conversation?.type === "channel" && conversation.channel) {
     if (conversation.channel.relayRoomToken) return conversation.channel.relayRoomToken.toString();
@@ -3411,10 +3538,22 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
+    const stateNode = active ? "composing" : "paused";
+    if (/^dm:/i.test(room)) {
+      const dmThread = findDmThreadByRelayRoom(room, current);
+      const peerJid = xmppPeerJidForDmThread(dmThread, current);
+      if (peerJid) {
+        const stanza = globalThis.$msg({ to: peerJid, type: "chat" }).c(stateNode, { xmlns: "http://jabber.org/protocol/chatstates" });
+        xmppConnection.send(stanza);
+        relayLocalTypingState.active = Boolean(active);
+        relayLocalTypingState.room = room;
+        relayLocalTypingState.lastSentAt = now;
+        return true;
+      }
+    }
     const roomJid = xmppRoomJidForToken(room, prefs);
     if (!roomJid) return false;
     joinXmppRoom(room, current);
-    const stateNode = active ? "composing" : "paused";
     const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c(stateNode, { xmlns: "http://jabber.org/protocol/chatstates" });
     xmppConnection.send(stanza);
     relayLocalTypingState.active = Boolean(active);
@@ -3827,11 +3966,56 @@ function connectRelaySocket({ force = false } = {}) {
         try {
           addXmppDebugEvent("message", "Incoming stanza", trimXmppRaw(xmppSerializePayload(stanza)));
           const from = stanza.getAttribute("from") || "";
-          const type = stanza.getAttribute("type") || "";
+          const type = (stanza.getAttribute("type") || "").toLowerCase();
           if (type && !["groupchat", "chat", "normal", ""].includes(type)) return true;
-          const roomJid = from.split("/")[0] || "";
+          const bareFrom = normalizeXmppJid(from.split("/")[0] || "").toLowerCase();
           const nick = from.split("/")[1] || "";
-          const fallbackRoomToken = roomJid ? `xmpp:${normalizeXmppJid(roomJid).toLowerCase()}` : "";
+          const ownBare = normalizeXmppJid(getPreferences().xmppJid || "").toLowerCase();
+          const hasComposing = stanza.getElementsByTagName("composing").length > 0;
+          const hasPaused = stanza.getElementsByTagName("paused").length > 0;
+          const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
+          const hasGone = stanza.getElementsByTagName("gone").length > 0;
+          const hasActive = stanza.getElementsByTagName("active").length > 0;
+          if ((type === "chat" || type === "normal") && !/@conference\./i.test(bareFrom)) {
+            if (!bareFrom || (ownBare && bareFrom === ownBare)) return true;
+            const peer = ensureAccountByXmppJid(bareFrom, nick || bareFrom.split("@")[0] || "");
+            if (!peer || peer.id === current.id) return true;
+            const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
+            if (!dmRoom) return true;
+            if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
+              applyRelayIncomingTyping({
+                type: "typing",
+                room: dmRoom,
+                clientId: `xmpp:${from}`,
+                username: peer.username,
+                typing: {
+                  state: hasComposing ? "composing" : "paused",
+                  active: hasComposing,
+                  authorUsername: peer.username,
+                  authorDisplay: peer.displayName || peer.username
+                }
+              });
+            }
+            const bodyNode = stanza.getElementsByTagName("body")[0];
+            if (!bodyNode) return true;
+            const text = globalThis.Strophe.getText(bodyNode) || "";
+            if (!text.trim()) return true;
+            applyRelayIncomingMessage({
+              type: "chat",
+              room: dmRoom,
+              clientId: `xmpp:${from}`,
+              message: {
+                id: xmppStanzaStableId(stanza) || createId(),
+                text,
+                ts: new Date().toISOString(),
+                authorUsername: peer.username,
+                authorDisplay: peer.displayName || peer.username
+              }
+            });
+            return true;
+          }
+          const roomJid = bareFrom;
+          const fallbackRoomToken = roomJid ? `xmpp:${roomJid}` : "";
           const roomToken = xmppRoomByJid.get(roomJid) || fallbackRoomToken || `xmpp:${roomJid}`;
           if (roomJid) {
             xmppRoomByJid.set(roomJid, roomToken);
@@ -3847,11 +4031,6 @@ function connectRelaySocket({ force = false } = {}) {
               renderChannels();
             }
           }
-          const hasComposing = stanza.getElementsByTagName("composing").length > 0;
-          const hasPaused = stanza.getElementsByTagName("paused").length > 0;
-          const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
-          const hasGone = stanza.getElementsByTagName("gone").length > 0;
-          const hasActive = stanza.getElementsByTagName("active").length > 0;
           if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
             applyRelayIncomingTyping({
               type: "typing",
@@ -3875,7 +4054,7 @@ function connectRelaySocket({ force = false } = {}) {
             room: roomToken,
             clientId: `xmpp:${from}`,
             message: {
-              id: createId(),
+              id: xmppStanzaStableId(stanza) || createId(),
               text,
               ts: new Date().toISOString(),
               authorUsername: nick || roomJid.split("@")[0] || "xmpp",
@@ -3949,9 +4128,10 @@ function connectRelaySocket({ force = false } = {}) {
             // Keep transport connected even if roster/bookmark sync fails.
           });
           const room = relayRoomForActiveConversation();
-          joinXmppRoom(room, current);
+          const directPeerJid = xmppPeerJidForRelayRoom(room, current);
+          if (!directPeerJid) joinXmppRoom(room, current);
           relayJoinedRoom = room;
-          addXmppDebugEvent("presence", "Joined initial relay room", { room });
+          addXmppDebugEvent("presence", directPeerJid ? "Using direct XMPP DM route for initial conversation" : "Joined initial relay room", { room, peerJid: directPeerJid || "" });
           return;
         }
         if (status === S.DISCONNECTED) {
@@ -4090,6 +4270,11 @@ function syncRelayRoomForActiveConversation() {
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return;
     if (!nextRoom || nextRoom === relayJoinedRoom) return;
+    const directPeerJid = xmppPeerJidForRelayRoom(nextRoom, getCurrentAccount());
+    if (directPeerJid) {
+      relayJoinedRoom = nextRoom;
+      return;
+    }
     const ok = joinXmppRoom(nextRoom, getCurrentAccount());
     if (!ok) return;
     relayJoinedRoom = nextRoom;
@@ -4114,6 +4299,14 @@ function relayMessageBodyText(message) {
     .filter(Boolean);
   if (links.length === 0) return text;
   return [text, ...links].filter(Boolean).join("\n");
+}
+
+function xmppStanzaStableId(stanza) {
+  if (!stanza || typeof stanza.getAttribute !== "function") return "";
+  const stanzaId = (stanza.getAttribute("id") || "").toString().trim();
+  const stableId = (stanza.getElementsByTagName("stanza-id")[0]?.getAttribute("id") || "").toString().trim();
+  const originId = (stanza.getElementsByTagName("origin-id")[0]?.getAttribute("id") || "").toString().trim();
+  return stableId || originId || stanzaId;
 }
 
 function publishRelayChannelMessage(channel, message, account) {
@@ -4204,25 +4397,25 @@ function publishRelayDirectMessage(thread, message, account) {
   const prefs = getPreferences();
   if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
   if (!thread || !message || !account) return false;
-  const participants = (thread.participantIds || [])
-    .map((id) => getAccountById(id))
-    .filter(Boolean)
-    .map((entry) => normalizeUsername(entry.username || ""))
-    .filter(Boolean)
-    .sort();
-  if (participants.length < 2) return false;
-  const room = `dm:${participants.slice(0, 2).join(":")}`;
+  const room = relayRoomForDmThread(thread);
+  if (!room) return false;
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
+    const peerJid = xmppPeerJidForDmThread(thread, account);
     const roomJid = xmppRoomJidForToken(room, prefs);
-    if (!roomJid) {
+    if (!peerJid && !roomJid) {
       setRelayStatus("error", "XMPP MUC service not configured.");
       return false;
     }
-    joinXmppRoom(room, account);
     const body = relayMessageBodyText(message);
     if (!body) return false;
+    if (peerJid) {
+      const stanza = globalThis.$msg({ to: peerJid, type: "chat" }).c("body").t(body);
+      xmppConnection.send(stanza);
+      return true;
+    }
+    joinXmppRoom(room, account);
     const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c("body").t(body);
     xmppConnection.send(stanza);
     return true;
@@ -6380,21 +6573,16 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "newdm") {
-    const targetName = normalizeUsername(arg);
-    if (!targetName) {
-      addSystemMessage(channel, "Usage: /newdm <username>");
+    const rawIdentity = (arg || "").toString().trim();
+    if (!rawIdentity) {
+      addSystemMessage(channel, "Usage: /newdm <username-or-jid>");
       return true;
     }
-    let target = getAccountByUsername(targetName);
+    const target = openDmByIdentity(rawIdentity);
     if (!target) {
-      target = createAccount(targetName, targetName);
-      state.accounts.push(target);
-    }
-    if (target.id === account.id) {
-      addSystemMessage(channel, "Cannot open DM with yourself.");
+      addSystemMessage(channel, "Could not open DM (invalid username/JID or self).");
       return true;
     }
-    openDmWithAccount(target);
     return true;
   }
 
@@ -10909,7 +11097,8 @@ function renderDmList() {
       const username = (peer?.username || "").toLowerCase();
       const display = (peer?.displayName || "").toLowerCase();
       const nick = resolveAccountGuildNickname(peer, getActiveGuild()?.id || "").toLowerCase();
-      return username.includes(filter) || display.includes(filter) || nick.includes(filter);
+      const xmppJid = normalizeXmppJid(peer?.xmppJid || "").toLowerCase();
+      return username.includes(filter) || display.includes(filter) || nick.includes(filter) || xmppJid.includes(filter);
     })
     .sort((a, b) => {
       const aTs = toTimestampMs(a.messages?.[a.messages.length - 1]?.ts || 0);
@@ -15318,21 +15507,16 @@ ui.messageForm.addEventListener("submit", (event) => {
       return;
     }
     if (dmCommand === "newdm") {
-      const targetName = normalizeUsername(dmArg);
-      if (!targetName) {
-        showToast("Usage: /newdm <username>", { tone: "error" });
+      const rawIdentity = (dmArg || "").toString().trim();
+      if (!rawIdentity) {
+        showToast("Usage: /newdm <username-or-jid>", { tone: "error" });
         return;
       }
-      let target = getAccountByUsername(targetName);
+      const target = openDmByIdentity(rawIdentity);
       if (!target) {
-        target = createAccount(targetName, targetName);
-        state.accounts.push(target);
-      }
-      if (target.id === account.id) {
-        showToast("Cannot open DM with yourself.", { tone: "error" });
+        showToast("Could not open DM (check username/JID).", { tone: "error" });
         return;
       }
-      openDmWithAccount(target);
       ui.messageInput.value = "";
       resizeComposerInput();
       return;
@@ -15955,16 +16139,25 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
   event.preventDefault();
   const current = getCurrentAccount();
   if (!current) return;
-  const query = dmSearchTerm.trim().toLowerCase();
-  if (!query) return;
+  const rawQuery = dmSearchTerm.trim();
+  const query = rawQuery.toLowerCase();
+  if (!rawQuery) return;
   const candidate = state.accounts.find((account) => {
     if (!account || account.id === current.id) return false;
     const username = (account.username || "").toLowerCase();
     const display = (account.displayName || "").toLowerCase();
-    return username.startsWith(query) || display.startsWith(query);
+    const xmppJid = normalizeXmppJid(account.xmppJid || "").toLowerCase();
+    return username.startsWith(query) || display.startsWith(query) || xmppJid.startsWith(query);
   });
-  if (!candidate) return;
-  openDmWithAccount(candidate);
+  if (candidate) {
+    openDmWithAccount(candidate);
+    return;
+  }
+  if (looksLikeCompleteJid(rawQuery)) {
+    const target = openDmByIdentity(rawQuery);
+    if (target) return;
+  }
+  openAddFriendDialog(rawQuery);
 });
 
 ui.memberSearchInput?.addEventListener("input", () => {
@@ -16367,15 +16560,44 @@ ui.createChannelBtn.addEventListener("click", () => {
 });
 
 ui.newDmBtn.addEventListener("click", () => {
-  const current = getCurrentAccount();
-  if (!current) return;
-  const typed = prompt("Start DM with username", dmSearchTerm || "");
-  if (typeof typed !== "string") return;
-  const normalized = normalizeUsername(typed);
-  if (!normalized) return;
-  const target = getAccountByUsername(normalized);
-  if (!target || target.id === current.id) return;
-  openDmWithAccount(target);
+  openAddFriendDialog(dmSearchTerm || "");
+});
+
+ui.addFriendCancelBtn?.addEventListener("click", () => {
+  ui.addFriendDialog?.close();
+});
+
+ui.addFriendForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const rawIdentity = (ui.addFriendIdentityInput?.value || "").toString().trim();
+  const rawDisplay = (ui.addFriendDisplayInput?.value || "").toString().trim();
+  if (!rawIdentity) {
+    showToast("Enter a username or XMPP JID.", { tone: "error" });
+    return;
+  }
+  const target = openDmByIdentity(rawIdentity, { displayName: rawDisplay });
+  if (!target) {
+    showToast("Could not add friend or open DM (invalid or self).", { tone: "error" });
+    return;
+  }
+  const wantsXmppRequest = ui.addFriendXmppRequestInput?.checked !== false;
+  const hasXmppJid = Boolean(normalizeXmppJid(target.xmppJid || ""));
+  let sentXmppRequest = false;
+  if (wantsXmppRequest && hasXmppJid) {
+    sentXmppRequest = requestXmppRosterSubscription(target, { nameHint: rawDisplay || target.displayName || "" });
+  }
+  saveState();
+  renderDmList();
+  renderServers();
+  renderChannels();
+  ui.addFriendDialog?.close();
+  if (hasXmppJid && wantsXmppRequest) {
+    showToast(sentXmppRequest
+      ? "DM opened and XMPP contact request sent."
+      : "DM opened. Connect XMPP relay to send contact request.");
+    return;
+  }
+  showToast("DM opened.");
 });
 
 ui.channelCancel.addEventListener("click", () => ui.createChannelDialog.close());
@@ -17451,6 +17673,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.accountSwitchDialog,
+  ui.addFriendDialog,
   ui.xmppProviderDialog,
   ui.xmppRegisterDialog,
   ui.debugDialog,
