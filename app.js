@@ -13622,10 +13622,50 @@ function renderChannelPermissionEditor() {
   if (ui.channelPermThreadInput) ui.channelPermThreadInput.value = getChannelPermissionOverride(channel, roleId, "createThreads");
 }
 
-function inferXmppWsUrlFromJid(jid) {
+function looksLikeCompleteJid(jid) {
+  const raw = normalizeXmppJid(jid);
+  if (!raw || raw.includes(" ")) return false;
+  const at = raw.indexOf("@");
+  if (at <= 0 || at >= raw.length - 1) return false;
+  const local = raw.slice(0, at);
+  const domain = raw.slice(at + 1).toLowerCase();
+  if (!local || !domain.includes(".") || domain.startsWith(".") || domain.endsWith(".")) return false;
+  const labels = domain.split(".").filter(Boolean);
+  if (labels.length < 2) return false;
+  return labels.every((label) => /^[a-z0-9-]+$/i.test(label) && label.length > 0);
+}
+
+function knownXmppWsForDomain(domain) {
+  const normalized = (domain || "").toString().trim().toLowerCase();
+  const known = {
+    "xmpp.jp": "wss://api.xmpp.jp/ws"
+  };
+  return known[normalized] || "";
+}
+
+function resolveXmppWsCandidates(jid, explicitWs = "") {
+  const candidates = [];
+  const push = (url) => {
+    const normalized = normalizeXmppWsUrl(url);
+    if (!normalized) return;
+    if (!candidates.includes(normalized)) candidates.push(normalized);
+  };
+  push(explicitWs);
   const domain = xmppDomainFromJid(jid);
-  if (!domain) return "";
-  return `wss://api.${domain}/ws`;
+  if (!domain || !looksLikeCompleteJid(jid)) return candidates;
+  push(knownXmppWsForDomain(domain));
+  push(`wss://api.${domain}/ws`);
+  push(`wss://${domain}/ws`);
+  push(`wss://${domain}/xmpp-websocket`);
+  push(`wss://ws.${domain}/xmpp-websocket`);
+  push(`wss://xmpp.${domain}/xmpp-websocket`);
+  push(`wss://chat.${domain}/xmpp-websocket`);
+  return candidates.slice(0, 8);
+}
+
+function inferXmppWsUrlFromJid(jid) {
+  const [first] = resolveXmppWsCandidates(jid, "");
+  return first || "";
 }
 
 function parseLoginIdentity(rawUsername, explicitJid = "") {
@@ -13876,58 +13916,75 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
   return new Promise((resolve) => {
     const cleanJid = normalizeXmppJid(jid);
     const cleanPass = normalizeXmppPassword(password);
-    const inferredWs = normalizeXmppWsUrl(wsUrl) || inferXmppWsUrlFromJid(cleanJid);
-    if (!cleanJid || !cleanPass || !inferredWs) {
-      resolve({ ok: false, error: "XMPP login requires JID, password, and a valid WebSocket URL.", wsUrl: inferredWs });
+    const candidates = resolveXmppWsCandidates(cleanJid, wsUrl);
+    if (!cleanJid || !cleanPass || candidates.length === 0) {
+      resolve({ ok: false, error: "XMPP login requires JID, password, and a valid WebSocket URL.", wsUrl: normalizeXmppWsUrl(wsUrl) || "" });
       return;
     }
-    let finished = false;
-    let connection = null;
-    const done = (result) => {
-      if (finished) return;
-      finished = true;
-      try {
-        if (connection) connection.disconnect();
-      } catch {
-        // Ignore cleanup errors.
-      }
-      resolve(result);
-    };
-    loadXmppLibrary().then((ready) => {
-      if (!ready || !globalThis.Strophe) {
-        done({ ok: false, error: "Failed to load XMPP runtime.", wsUrl: inferredWs });
-        return;
-      }
+    const tryCandidate = (candidateWs) => new Promise((doneAttempt) => {
+      let connection = null;
+      let finished = false;
+      const done = (result) => {
+        if (finished) return;
+        finished = true;
+        try {
+          if (connection) connection.disconnect();
+        } catch {
+          // Ignore cleanup errors.
+        }
+        doneAttempt(result);
+      };
       let timeoutHandle = setTimeout(() => {
         timeoutHandle = null;
-        done({ ok: false, error: "XMPP login timed out.", wsUrl: inferredWs });
-      }, Math.max(3000, timeoutMs));
+        done({ ok: false, reason: "timeout", wsUrl: candidateWs });
+      }, Math.max(2500, Math.min(10000, timeoutMs)));
       try {
-        connection = new globalThis.Strophe.Connection(inferredWs, { keepalive: true });
+        connection = new globalThis.Strophe.Connection(candidateWs, { keepalive: true });
       } catch (error) {
         if (timeoutHandle) clearTimeout(timeoutHandle);
-        done({ ok: false, error: String(error), wsUrl: inferredWs });
+        done({ ok: false, reason: String(error), wsUrl: candidateWs });
         return;
       }
       connection.connect(cleanJid, cleanPass, (status) => {
         const S = globalThis.Strophe.Status;
         if (status === S.CONNECTED) {
           if (timeoutHandle) clearTimeout(timeoutHandle);
-          done({ ok: true, wsUrl: inferredWs });
+          done({ ok: true, wsUrl: candidateWs });
           return;
         }
         if (status === S.AUTHFAIL) {
           if (timeoutHandle) clearTimeout(timeoutHandle);
-          done({ ok: false, error: "XMPP authentication failed.", wsUrl: inferredWs });
+          done({ ok: false, reason: "auth", wsUrl: candidateWs });
           return;
         }
         if (status === S.CONNFAIL || status === S.ERROR || status === S.DISCONNECTED) {
           if (timeoutHandle) clearTimeout(timeoutHandle);
-          done({ ok: false, error: "XMPP connection failed.", wsUrl: inferredWs });
+          done({ ok: false, reason: "connect", wsUrl: candidateWs });
         }
       });
+    });
+    loadXmppLibrary().then(async (ready) => {
+      if (!ready || !globalThis.Strophe) {
+        resolve({ ok: false, error: "Failed to load XMPP runtime.", wsUrl: candidates[0] || "" });
+        return;
+      }
+      let sawAuthFail = false;
+      for (const candidateWs of candidates) {
+        // eslint-disable-next-line no-await-in-loop
+        const attempt = await tryCandidate(candidateWs);
+        if (attempt.ok) {
+          resolve({ ok: true, wsUrl: candidateWs });
+          return;
+        }
+        if (attempt.reason === "auth") sawAuthFail = true;
+      }
+      resolve({
+        ok: false,
+        error: sawAuthFail ? "XMPP authentication failed." : "XMPP connection failed for discovered WebSocket endpoints.",
+        wsUrl: candidates[0] || ""
+      });
     }).catch((error) => {
-      done({ ok: false, error: String(error), wsUrl: inferredWs });
+      resolve({ ok: false, error: String(error), wsUrl: candidates[0] || "" });
     });
   });
 }
@@ -14108,7 +14165,7 @@ ui.loginForm.addEventListener("submit", async (event) => {
 
 ui.loginUsername?.addEventListener("input", () => {
   const raw = (ui.loginUsername.value || "").trim();
-  if (!raw.includes("@")) return;
+  if (!looksLikeCompleteJid(raw)) return;
   if (ui.loginXmppServer && !ui.loginXmppServer.value.trim()) {
     const inferred = inferXmppWsUrlFromJid(raw);
     if (inferred) ui.loginXmppServer.value = inferred;
