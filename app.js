@@ -44,6 +44,10 @@ const SLASH_COMMANDS = [
   { name: "movechannel", args: "<up|down|top|bottom>", description: "Reorder active channel (manage channels)." },
   { name: "markdmread", args: "", description: "Mark current DM as read." },
   { name: "markallread", args: "", description: "Mark all channels and DMs as read." },
+  { name: "copylink", args: "", description: "Copy link for current channel/DM." },
+  { name: "copyid", args: "", description: "Copy current channel/DM ID." },
+  { name: "copytopic", args: "", description: "Copy current channel topic." },
+  { name: "notify", args: "[status|all|mentions|mute]", description: "View or set current guild notification mode." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -1210,6 +1214,18 @@ function markGuildRead(guild, accountId) {
   let changed = false;
   guild.channels.forEach((channel) => {
     if (markChannelRead(channel, accountId)) changed = true;
+  });
+  return changed;
+}
+
+function markAllReadForAccount(accountId) {
+  if (!accountId) return false;
+  let changed = false;
+  state.guilds.forEach((guild) => {
+    if (markGuildRead(guild, accountId)) changed = true;
+  });
+  state.dmThreads.forEach((thread) => {
+    if (markDmRead(thread, accountId)) changed = true;
   });
   return changed;
 }
@@ -3619,19 +3635,65 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "markallread") {
-    let changed = false;
-    state.guilds.forEach((guild) => {
-      if (markGuildRead(guild, account.id)) changed = true;
-    });
-    state.dmThreads.forEach((thread) => {
-      if (markDmRead(thread, account.id)) changed = true;
-    });
+    const changed = markAllReadForAccount(account.id);
     if (!changed) {
       addSystemMessage(channel, "Everything is already read.");
       return true;
     }
     saveState();
     render();
+    return true;
+  }
+
+  if (command === "copylink") {
+    const conversation = getActiveConversation();
+    if (!conversation) return true;
+    const link = conversation.type === "channel"
+      ? buildChannelPermalink(getActiveGuild()?.id || "", conversation.channel.id)
+      : buildMessagePermalink(conversation.thread.id, "");
+    void copyText(link).then((ok) => {
+      addSystemMessage(channel, ok ? "Copied current link." : "Failed to copy link.");
+    });
+    return true;
+  }
+
+  if (command === "copyid") {
+    const conversation = getActiveConversation();
+    if (!conversation) return true;
+    const id = conversation.type === "channel" ? conversation.channel.id : conversation.thread.id;
+    void copyText(id).then((ok) => {
+      addSystemMessage(channel, ok ? "Copied current ID." : "Failed to copy ID.");
+    });
+    return true;
+  }
+
+  if (command === "copytopic") {
+    const topic = (channel?.topic || "").toString();
+    void copyText(topic).then((ok) => {
+      addSystemMessage(channel, ok ? "Copied channel topic." : "Failed to copy topic.");
+    });
+    return true;
+  }
+
+  if (command === "notify") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const raw = arg.toLowerCase();
+    if (!raw || raw === "status") {
+      addSystemMessage(channel, `Guild notifications: ${getGuildNotificationMode(guild.id)}`);
+      return true;
+    }
+    if (!["all", "mentions", "mute"].includes(raw)) {
+      addSystemMessage(channel, "Usage: /notify [status|all|mentions|mute]");
+      return true;
+    }
+    setGuildNotificationMode(guild.id, raw);
+    addSystemMessage(channel, `Guild notifications set to: ${raw}`);
+    renderServers();
+    renderChannels();
     return true;
   }
 
@@ -7687,6 +7749,7 @@ function renderMessages() {
 
   const currentAccount = getCurrentAccount();
   const unreadStats = !isDm ? getChannelUnreadStats(channel, currentAccount) : { unread: 0, mentions: 0 };
+  const dmUnreadStats = isDm && dmThread && currentAccount ? getDmUnreadStats(dmThread, currentAccount) : { unread: 0, mentions: 0 };
   const firstUnreadMessageId = !isDm ? findFirstUnreadMessageId(channel, currentAccount) : null;
   const guildUnreadChannels = !isDm ? listUnreadGuildChannels(getActiveGuild(), currentAccount) : [];
   const channelPinnedCount = !isDm ? messageBucket.filter((message) => message.pinned).length : 0;
@@ -7694,11 +7757,16 @@ function renderMessages() {
     ui.openPinsBtn.textContent = channelPinnedCount > 0 ? `Pins (${channelPinnedCount})` : "Pins";
   }
   if (ui.markChannelReadBtn) {
-    ui.markChannelReadBtn.hidden = isDm;
-    ui.markChannelReadBtn.disabled = isDm || !currentAccount || unreadStats.unread === 0;
-    ui.markChannelReadBtn.classList.toggle("chat-topic-edit--active", !isDm && unreadStats.unread > 0);
-    if (!isDm && unreadStats.unread > 0) {
+    ui.markChannelReadBtn.hidden = false;
+    const canMark = isDm ? dmUnreadStats.unread > 0 : unreadStats.unread > 0;
+    ui.markChannelReadBtn.disabled = !currentAccount || !canMark;
+    ui.markChannelReadBtn.classList.toggle("chat-topic-edit--active", canMark);
+    if (isDm && dmUnreadStats.unread > 0) {
+      ui.markChannelReadBtn.textContent = `Mark DM Read (${dmUnreadStats.unread > 99 ? "99+" : dmUnreadStats.unread})`;
+    } else if (!isDm && unreadStats.unread > 0) {
       ui.markChannelReadBtn.textContent = `Mark Read (${unreadStats.unread > 99 ? "99+" : unreadStats.unread})`;
+    } else if (isDm) {
+      ui.markChannelReadBtn.textContent = "Mark DM Read";
     } else {
       ui.markChannelReadBtn.textContent = "Mark Read";
     }
@@ -8874,6 +8942,40 @@ ui.messageForm.addEventListener("submit", (event) => {
       resizeComposerInput();
       return;
     }
+    if (dmCommand === "markdmread") {
+      if (!markDmRead(conversation.thread, account.id)) return;
+      saveState();
+      render();
+      return;
+    }
+    if (dmCommand === "markallread") {
+      if (!markAllReadForAccount(account.id)) return;
+      saveState();
+      render();
+      return;
+    }
+    if (dmCommand === "copyid") {
+      void copyText(conversation.thread.id).then((ok) => {
+        showToast(ok ? "DM ID copied." : "Failed to copy DM ID.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
+    if (dmCommand === "copylink") {
+      const link = `${window.location.href.split("#")[0]}#msg=${conversation.thread.id}:`;
+      void copyText(link).then((ok) => {
+        showToast(ok ? "DM link copied." : "Failed to copy DM link.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
+    if (dmCommand === "focus") {
+      if (!dmArg || dmArg.toLowerCase() === "search") {
+        ui.dmSearchInput?.focus();
+        ui.dmSearchInput?.select?.();
+      } else {
+        ui.messageInput.focus();
+      }
+      return;
+    }
   }
   if (conversation.type === "channel" && !canCurrentUserPostInChannel(conversation.channel, account)) {
     showToast("You do not have permission to send messages in this channel.", { tone: "error" });
@@ -9730,14 +9832,67 @@ ui.openPinsBtn.addEventListener("click", () => {
 });
 
 ui.markChannelReadBtn?.addEventListener("click", () => {
-  const channel = getActiveChannel();
+  const conversation = getActiveConversation();
   const account = getCurrentAccount();
+  if (!conversation || !account) return;
+  if (conversation.type === "dm") {
+    if (!markDmRead(conversation.thread, account.id)) return;
+    saveState();
+    renderServers();
+    renderDmList();
+    renderMessages();
+    return;
+  }
+  const channel = getActiveChannel();
   if (!channel || !account) return;
   if (!markChannelRead(channel, account.id)) return;
   saveState();
   renderServers();
   renderChannels();
   renderMessages();
+});
+
+ui.markChannelReadBtn?.addEventListener("contextmenu", (event) => {
+  const account = getCurrentAccount();
+  const guild = getActiveGuild();
+  const dm = getActiveDmThread();
+  openContextMenu(event, [
+    {
+      label: "Mark Current Read",
+      disabled: !account || (!guild && !dm),
+      action: () => {
+        if (!account) return;
+        if (dm) {
+          if (!markDmRead(dm, account.id)) return;
+        } else {
+          const channel = getActiveChannel();
+          if (!channel || !markChannelRead(channel, account.id)) return;
+        }
+        saveState();
+        render();
+      }
+    },
+    {
+      label: "Mark Guild Read",
+      disabled: !account || !guild,
+      action: () => {
+        if (!account || !guild) return;
+        if (!markGuildRead(guild, account.id)) return;
+        saveState();
+        render();
+      }
+    },
+    {
+      label: "Mark All Read",
+      disabled: !account,
+      action: () => {
+        if (!account) return;
+        if (!markAllReadForAccount(account.id)) return;
+        saveState();
+        render();
+      }
+    }
+  ]);
 });
 
 ui.nextUnreadBtn?.addEventListener("click", () => {
@@ -10532,6 +10687,36 @@ document.addEventListener("keydown", (event) => {
       toggleGuildSectionCollapsed();
       return;
     }
+    if (key === "r") {
+      event.preventDefault();
+      ui.markChannelReadBtn?.click();
+      return;
+    }
+    if (key === "a") {
+      event.preventDefault();
+      const account = getCurrentAccount();
+      if (!account) return;
+      if (!markAllReadForAccount(account.id)) {
+        showToast("Everything already read.");
+        return;
+      }
+      saveState();
+      render();
+      return;
+    }
+    if (key === "g") {
+      event.preventDefault();
+      const guild = getActiveGuild();
+      if (!guild) return;
+      const current = getGuildNotificationMode(guild.id);
+      const next = current === "all" ? "mentions" : current === "mentions" ? "mute" : "all";
+      setGuildNotificationMode(guild.id, next);
+      saveState();
+      renderServers();
+      renderChannels();
+      showToast(`Guild notifications: ${next}`);
+      return;
+    }
   }
   if (event.altKey && event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
     if (!state.currentAccountId) return;
@@ -10603,7 +10788,6 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "n") {
     if (!state.currentAccountId) return;
-    if (isTypingInputTarget(event.target)) return;
     if (!canCurrentUser("manageChannels")) {
       showToast("Manage Channels required.", { tone: "error" });
       return;
@@ -10616,7 +10800,6 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
     if (!state.currentAccountId) return;
-    if (isTypingInputTarget(event.target)) return;
     event.preventDefault();
     ui.newDmBtn.click();
     return;
