@@ -74,6 +74,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Channel reorder shortcut: `Ctrl+Alt+ArrowUp/Down` moves active channel (manage channels permission).
 - Channel quick-jump shortcuts: `Alt+Home`/`Alt+End` jump to first/last channel.
 - Quick creation shortcuts: `Ctrl+Shift+N` opens create-channel, `Ctrl+Shift+D` opens new-DM prompt.
+- Read-state shortcuts: `Alt+Shift+R` marks current conversation read, `Alt+Shift+A` marks all read.
+- Guild notification shortcut: `Alt+Shift+G` cycles `all -> mentions -> mute`.
 - Additional quick nav shortcuts: `Alt+1/2/3` open GIF/Sticker/Emoji tabs and `Ctrl+Shift+F` focuses channel/DM filter.
 - Guild channel rows now render dedicated channel-type icons with stronger active/hover states.
 - DM sidebar rows now render peer avatars + presence dots.
@@ -93,6 +95,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - New draft utility commands: `/drafts`, `/cleardrafts [all]`, `/focus [search|composer]`.
 - New conversation admin commands: `/newdm <username>`, `/closedm`, `/leaveguild`.
 - Additional channel/reading commands: `/newchannel <name> [type]`, `/dupchannel`, `/movechannel <up|down|top|bottom>`, `/markdmread`, `/markallread`.
+- Copy/notification commands: `/copylink`, `/copyid`, `/copytopic`, `/notify [status|all|mentions|mute]`.
 - Channel/DM rows now show `Draft` badges for unsent composer drafts.
 - Right-click DM home icon allows `Mark All DMs Read`.
 - Right-click DM/Channel section headers now opens quick actions (`New DM`, `Create Channel`, `Mark Read`).
