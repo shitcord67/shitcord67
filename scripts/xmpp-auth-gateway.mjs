@@ -54,6 +54,41 @@ function normalizeWs(value) {
   return /^wss?:\/\//i.test(raw) ? raw : "";
 }
 
+function xmlEscape(value) {
+  return (value || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function escapeRegExp(value) {
+  return (value || "").toString().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractIqType(xml, id) {
+  const pattern = new RegExp(`<iq\\b[^>]*\\bid=['"]${escapeRegExp(id)}['"][^>]*>`, "i");
+  const match = (xml || "").match(pattern);
+  if (!match) return "";
+  const openTag = match[0];
+  const typeMatch = openTag.match(/\btype=['"]([^'"]+)['"]/i);
+  return typeMatch?.[1] || "";
+}
+
+function extractIqErrorText(xml, id) {
+  const pattern = new RegExp(`<iq\\b[^>]*\\bid=['"]${escapeRegExp(id)}['"][\\s\\S]*?<\\/iq>`, "i");
+  const match = (xml || "").match(pattern);
+  if (!match) return "";
+  const stanza = match[0];
+  const textMatch = stanza.match(/<text\b[^>]*>([\s\S]*?)<\/text>/i);
+  if (textMatch?.[1]) return textMatch[1].replace(/\s+/g, " ").trim();
+  const simpleTagMatch = stanza.match(/<(conflict|not-acceptable|forbidden|not-allowed|service-unavailable|not-authorized)\b/i);
+  if (simpleTagMatch?.[1]) return simpleTagMatch[1];
+  return "";
+}
+
 async function tryXmppAuth({ jid, password, service, timeoutMs = 12000 }) {
   const parsed = parseJid(jid);
   if (!parsed) return { ok: false, reason: "bad-jid" };
@@ -105,6 +140,92 @@ async function tryXmppAuth({ jid, password, service, timeoutMs = 12000 }) {
         return;
       }
       done({ ok: false, reason: "connect", error: raw });
+    });
+  });
+}
+
+async function tryXmppRegister({ jid, password, service, timeoutMs = 14000 }) {
+  const parsed = parseJid(jid);
+  if (!parsed) return { ok: false, reason: "bad-jid" };
+  if (!password) return { ok: false, reason: "missing-password" };
+  const ws = normalizeWs(service);
+  if (!ws) return { ok: false, reason: "bad-service" };
+
+  return new Promise((resolve) => {
+    let finished = false;
+    let stage = "await-features";
+    let buffer = "";
+    const iqGetId = "reg_get_1";
+    const iqSetId = "reg_set_1";
+    const wsClient = new WebSocket(ws, "xmpp");
+
+    const done = (result) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try {
+        wsClient.close();
+      } catch {
+        // ignore close errors
+      }
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => {
+      done({ ok: false, reason: "timeout", error: "Registration timed out." });
+    }, Math.max(5000, Math.min(22000, Number(timeoutMs) || 14000)));
+
+    wsClient.on("error", (error) => {
+      done({ ok: false, reason: "connect", error: String(error?.message || error) });
+    });
+
+    wsClient.on("close", (code, reason) => {
+      if (finished) return;
+      const detail = reason ? `${code} ${reason.toString()}` : `${code}`;
+      done({ ok: false, reason: "connect", error: `Socket closed before registration completed (${detail}).` });
+    });
+
+    wsClient.on("open", () => {
+      wsClient.send(`<open to="${xmlEscape(parsed.domain)}" version="1.0" xmlns="urn:ietf:params:xml:ns:xmpp-framing"/>`);
+    });
+
+    wsClient.on("message", (raw) => {
+      if (finished) return;
+      const chunk = raw.toString();
+      buffer = `${buffer}${chunk}`.slice(-300000);
+
+      if (stage === "await-features") {
+        const featuresMatch = buffer.match(/<stream:features[\s\S]*?<\/stream:features>/i);
+        if (!featuresMatch) return;
+        const featuresXml = featuresMatch[0];
+        const supportsRegister = /<register\b[^>]*xmlns=['"]http:\/\/jabber\.org\/features\/iq-register['"][^>]*\/?>/i.test(featuresXml);
+        if (!supportsRegister) {
+          done({ ok: false, reason: "no-register", error: "Server does not advertise in-band registration." });
+          return;
+        }
+        wsClient.send(`<iq type="get" id="${iqGetId}" xmlns="jabber:client"><query xmlns="jabber:iq:register"/></iq>`);
+        stage = "await-reg-get";
+        return;
+      }
+
+      if (stage === "await-reg-get") {
+        const iqType = extractIqType(buffer, iqGetId);
+        if (!iqType) return;
+        wsClient.send(`<iq type="set" id="${iqSetId}" xmlns="jabber:client"><query xmlns="jabber:iq:register"><username>${xmlEscape(parsed.local)}</username><password>${xmlEscape(password)}</password></query></iq>`);
+        stage = "await-reg-set";
+        return;
+      }
+
+      if (stage === "await-reg-set") {
+        const iqType = extractIqType(buffer, iqSetId);
+        if (!iqType) return;
+        if (iqType.toLowerCase() === "result") {
+          done({ ok: true });
+          return;
+        }
+        const errorText = extractIqErrorText(buffer, iqSetId) || "Registration rejected by server.";
+        done({ ok: false, reason: "register", error: errorText });
+      }
     });
   });
 }
@@ -162,6 +283,49 @@ const server = http.createServer(async (req, res) => {
       }
       res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
       res.end(JSON.stringify({ ok: false, error: "Connection failed for all candidate endpoints.", failures }));
+    } catch (error) {
+      res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+      res.end(JSON.stringify({ ok: false, error: String(error?.message || error) }));
+    }
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/register") {
+    try {
+      const payload = await readJson(req);
+      const jid = (payload.jid || "").toString().trim();
+      const password = (payload.password || "").toString();
+      const candidates = Array.isArray(payload.candidates)
+        ? payload.candidates.map((entry) => normalizeWs(entry)).filter(Boolean)
+        : [];
+      if (!jid || !password || candidates.length === 0) {
+        res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+        res.end(JSON.stringify({ ok: false, error: "jid, password, and candidates are required." }));
+        return;
+      }
+      const failures = [];
+      for (const wsUrl of candidates) {
+        // eslint-disable-next-line no-await-in-loop
+        const attempt = await tryXmppRegister({
+          jid,
+          password,
+          service: wsUrl,
+          timeoutMs: Number(payload.timeoutMs) || 14000
+        });
+        if (attempt.ok) {
+          res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
+          res.end(JSON.stringify({ ok: true, wsUrl }));
+          return;
+        }
+        failures.push({
+          wsUrl,
+          reason: attempt.reason || "register",
+          error: (attempt.error || "").toString().slice(0, 220)
+        });
+      }
+      const summary = failures[0]?.error || "Registration failed for all candidate endpoints.";
+      res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
+      res.end(JSON.stringify({ ok: false, error: summary, failures }));
     } catch (error) {
       res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
       res.end(JSON.stringify({ ok: false, error: String(error?.message || error) }));

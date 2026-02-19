@@ -1123,6 +1123,14 @@ const ui = {
   xmppProviderDialog: document.getElementById("xmppProviderDialog"),
   xmppProviderList: document.getElementById("xmppProviderList"),
   xmppProviderCloseBtn: document.getElementById("xmppProviderCloseBtn"),
+  xmppRegisterDialog: document.getElementById("xmppRegisterDialog"),
+  xmppRegisterForm: document.getElementById("xmppRegisterForm"),
+  registerJidInput: document.getElementById("registerJidInput"),
+  registerPasswordInput: document.getElementById("registerPasswordInput"),
+  registerXmppServerInput: document.getElementById("registerXmppServerInput"),
+  registerOpenProviderBtn: document.getElementById("registerOpenProviderBtn"),
+  registerCancelBtn: document.getElementById("registerCancelBtn"),
+  registerSubmitBtn: document.getElementById("registerSubmitBtn"),
   settingsTitle: document.getElementById("settingsTitle"),
   closeSettingsBtn: document.getElementById("closeSettingsBtn"),
   settingsDisplayName: document.getElementById("settingsDisplayName"),
@@ -14052,6 +14060,77 @@ async function validateXmppViaLocalGateway({ jid, password, candidates, timeoutM
   }
 }
 
+async function registerXmppViaLocalGateway({ jid, password, wsUrl = "", timeoutMs = 12000 }) {
+  const cleanJid = normalizeXmppJid(jid);
+  const cleanPass = normalizeXmppPassword(password);
+  if (!cleanJid || !cleanPass) {
+    return { ok: false, error: "JID and password are required for registration.", wsUrl: "" };
+  }
+  const explicitWs = normalizeXmppWsUrl(wsUrl);
+  const domain = xmppDomainFromJid(cleanJid);
+  let candidates = resolveXmppWsCandidates(cleanJid, explicitWs);
+  if (candidates.length === 0 && explicitWs) candidates = [explicitWs];
+  if (!XMPP_PLAIN_ONLY_DOMAINS.has(domain)) {
+    try {
+      const discovered = await discoverXmppWsViaHostMeta(cleanJid);
+      if (discovered.length > 0) {
+        const merged = [];
+        const push = (value) => {
+          const normalized = normalizeXmppWsUrl(value);
+          if (!normalized) return;
+          if (!merged.includes(normalized)) merged.push(normalized);
+        };
+        push(explicitWs);
+        discovered.forEach((entry) => push(entry));
+        candidates.forEach((entry) => push(entry));
+        candidates = merged;
+      }
+    } catch {
+      // Continue with fallback candidates only.
+    }
+  }
+  if (candidates.length === 0) {
+    return { ok: false, error: "Could not determine a valid XMPP WebSocket endpoint for registration.", wsUrl: "" };
+  }
+  addXmppDebugEvent("connect", "Attempting in-client registration via local gateway", {
+    jid: cleanJid,
+    gatewayUrl: XMPP_LOCAL_AUTH_GATEWAY_URL,
+    candidates
+  });
+  try {
+    const response = await fetch(`${XMPP_LOCAL_AUTH_GATEWAY_URL}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jid: cleanJid,
+        password: cleanPass,
+        candidates,
+        timeoutMs: Math.max(5000, Math.min(20000, Number(timeoutMs) || 12000))
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return {
+        ok: false,
+        wsUrl: normalizeXmppWsUrl(payload?.wsUrl || "") || candidates[0] || "",
+        error: (payload?.error || `Registration gateway returned HTTP ${response.status}.`).toString().slice(0, 420)
+      };
+    }
+    return {
+      ok: Boolean(payload?.ok),
+      wsUrl: normalizeXmppWsUrl(payload?.wsUrl || "") || candidates[0] || "",
+      error: (payload?.error || "").toString().slice(0, 420),
+      failures: Array.isArray(payload?.failures) ? payload.failures.slice(0, 5) : []
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      wsUrl: candidates[0] || "",
+      error: `Registration gateway unavailable at ${XMPP_LOCAL_AUTH_GATEWAY_URL}: ${String(error?.message || error)}`
+    };
+  }
+}
+
 function looksLikeCompleteJid(jid) {
   const raw = normalizeXmppJid(jid);
   if (!raw || raw.includes(" ")) return false;
@@ -14609,6 +14688,19 @@ function syncLoginFieldsFromSessionPrefs() {
   }
 }
 
+function openXmppRegisterDialog() {
+  const jidSeed = normalizeXmppJid(ui.loginUsername?.value || "");
+  const wsSeed = normalizeXmppWsUrl(ui.loginXmppServer?.value || "") || inferXmppWsUrlFromJid(jidSeed);
+  if (ui.registerJidInput) ui.registerJidInput.value = jidSeed || "";
+  if (ui.registerPasswordInput) ui.registerPasswordInput.value = "";
+  if (ui.registerXmppServerInput) {
+    ui.registerXmppServerInput.value = wsSeed || "";
+    ui.registerXmppServerInput.dataset.autofill = wsSeed ? "1" : "0";
+  }
+  ui.xmppRegisterDialog?.showModal();
+  requestAnimationFrame(() => ui.registerJidInput?.focus());
+}
+
 function normalizeLocalXmppProfiles(raw) {
   const entries = [];
   if (raw?.account && typeof raw.account === "object") entries.push(raw.account);
@@ -14851,8 +14943,7 @@ ui.loginProvidersBtn?.addEventListener("click", () => {
 });
 
 ui.loginRegisterBtn?.addEventListener("click", () => {
-  renderXmppProviderList();
-  ui.xmppProviderDialog?.showModal();
+  openXmppRegisterDialog();
 });
 
 ui.loginXmppConsoleBtn?.addEventListener("click", () => {
@@ -14861,6 +14952,82 @@ ui.loginXmppConsoleBtn?.addEventListener("click", () => {
 
 ui.xmppProviderCloseBtn?.addEventListener("click", () => {
   ui.xmppProviderDialog?.close();
+});
+
+ui.registerOpenProviderBtn?.addEventListener("click", () => {
+  renderXmppProviderList();
+  ui.xmppProviderDialog?.showModal();
+});
+
+ui.registerCancelBtn?.addEventListener("click", () => {
+  ui.xmppRegisterDialog?.close();
+});
+
+ui.registerJidInput?.addEventListener("input", () => {
+  const raw = normalizeXmppJid(ui.registerJidInput?.value || "");
+  if (!looksLikeCompleteJid(raw)) return;
+  if (!ui.registerXmppServerInput) return;
+  if (!ui.registerXmppServerInput.value.trim() || ui.registerXmppServerInput.dataset.autofill === "1") {
+    const inferred = inferXmppWsUrlFromJid(raw);
+    if (inferred) {
+      ui.registerXmppServerInput.value = inferred;
+      ui.registerXmppServerInput.dataset.autofill = "1";
+    }
+  }
+});
+
+ui.registerXmppServerInput?.addEventListener("input", () => {
+  if (!ui.registerXmppServerInput) return;
+  const normalized = normalizeXmppWsUrl(ui.registerXmppServerInput.value || "");
+  const inferred = inferXmppWsUrlFromJid(ui.registerJidInput?.value || "");
+  ui.registerXmppServerInput.dataset.autofill = normalized && inferred && normalized === inferred ? "1" : "0";
+});
+
+ui.xmppRegisterForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const jid = normalizeXmppJid(ui.registerJidInput?.value || "");
+  const password = normalizeXmppPassword(ui.registerPasswordInput?.value || "");
+  const wsUrl = normalizeXmppWsUrl(ui.registerXmppServerInput?.value || "");
+  if (!looksLikeCompleteJid(jid)) {
+    showToast("Enter a valid XMPP JID for registration.", { tone: "error" });
+    return;
+  }
+  if (!password) {
+    showToast("Password is required for registration.", { tone: "error" });
+    return;
+  }
+  if (ui.registerSubmitBtn instanceof HTMLButtonElement) ui.registerSubmitBtn.disabled = true;
+  try {
+    const result = await registerXmppViaLocalGateway({
+      jid,
+      password,
+      wsUrl
+    });
+    if (!result.ok) {
+      addXmppDebugEvent("error", "In-client registration failed", {
+        jid,
+        wsUrl: result.wsUrl || wsUrl || "",
+        error: result.error || "",
+        failures: result.failures || []
+      });
+      showToast(result.error || "Registration failed.", { tone: "error", duration: 3400 });
+      return;
+    }
+    addXmppDebugEvent("connect", "In-client registration succeeded", {
+      jid,
+      wsUrl: result.wsUrl || wsUrl || ""
+    });
+    if (ui.loginUsername) ui.loginUsername.value = jid;
+    if (ui.loginPassword) ui.loginPassword.value = password;
+    if (ui.loginXmppServer) {
+      ui.loginXmppServer.value = result.wsUrl || wsUrl || inferXmppWsUrlFromJid(jid);
+      ui.loginXmppServer.dataset.autofill = "1";
+    }
+    ui.xmppRegisterDialog?.close();
+    showToast("Account registered. Log in with the prefilled credentials.");
+  } finally {
+    if (ui.registerSubmitBtn instanceof HTMLButtonElement) ui.registerSubmitBtn.disabled = false;
+  }
 });
 
 ui.messageForm.addEventListener("submit", (event) => {
@@ -17021,6 +17188,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.userPopoutDialog,
   ui.accountSwitchDialog,
   ui.xmppProviderDialog,
+  ui.xmppRegisterDialog,
   ui.debugDialog,
   ui.xmppConsoleDialog,
   ui.cosmeticsDialog,
