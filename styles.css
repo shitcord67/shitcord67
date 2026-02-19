@@ -3434,6 +3434,12 @@ body[data-compact-members="on"] .member-item {
   padding: 0.5rem 0.75rem;
 }
 
+#relayStatusOutput {
+  margin: 0.45rem 0 0.2rem;
+  color: #b7c1d7;
+  font-size: 0.78rem;
+}
+
 body[data-developer-mode="on"]::before {
   content: "DEV MODE";
   position: fixed;
