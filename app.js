@@ -12,6 +12,7 @@ const RELAY_TYPING_THROTTLE_MS = 2200;
 const XMPP_DEBUG_EVENT_LIMIT = 600;
 const XMPP_DEBUG_RAW_TRUNCATE = 1800;
 const XMPP_HOST_META_TIMEOUT_MS = 3600;
+const XMPP_LOCAL_AUTH_GATEWAY_URL = "http://localhost:8790";
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -13926,6 +13927,65 @@ async function discoverXmppWsViaHostMeta(jid, { force = false, timeoutMs = XMPP_
   return endpoints.slice(0, 8);
 }
 
+async function validateXmppViaLocalGateway({ jid, password, candidates, timeoutMs = 10000 }) {
+  const cleanJid = normalizeXmppJid(jid);
+  const cleanPass = normalizeXmppPassword(password);
+  const wsCandidates = Array.isArray(candidates)
+    ? candidates.map((entry) => normalizeXmppWsUrl(entry)).filter(Boolean)
+    : [];
+  if (!cleanJid || !cleanPass || wsCandidates.length === 0) return null;
+  const gatewayUrl = XMPP_LOCAL_AUTH_GATEWAY_URL;
+  addXmppDebugEvent("connect", "Attempting local Node XMPP auth gateway", {
+    gatewayUrl,
+    jid: cleanJid,
+    candidates: wsCandidates
+  });
+  try {
+    const response = await fetch(`${gatewayUrl}/auth-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jid: cleanJid,
+        password: cleanPass,
+        candidates: wsCandidates,
+        timeoutMs: Math.max(3000, Math.min(15000, Number(timeoutMs) || 10000))
+      })
+    });
+    if (!response.ok) {
+      addXmppDebugEvent("runtime", "Local auth gateway returned non-OK status", {
+        gatewayUrl,
+        status: response.status
+      });
+      return null;
+    }
+    const payload = await response.json();
+    if (payload?.ok && normalizeXmppWsUrl(payload.wsUrl || "")) {
+      addXmppDebugEvent("connect", "Local auth gateway succeeded", {
+        gatewayUrl,
+        wsUrl: normalizeXmppWsUrl(payload.wsUrl || "")
+      });
+      return {
+        ok: true,
+        wsUrl: normalizeXmppWsUrl(payload.wsUrl || "")
+      };
+    }
+    addXmppDebugEvent("runtime", "Local auth gateway rejected credentials", {
+      gatewayUrl,
+      error: (payload?.error || "").toString().slice(0, 160)
+    });
+    return {
+      ok: false,
+      error: (payload?.error || "Local gateway rejected login.").toString().slice(0, 240)
+    };
+  } catch (error) {
+    addXmppDebugEvent("runtime", "Local auth gateway unavailable", {
+      gatewayUrl,
+      error: String(error?.message || error)
+    });
+    return null;
+  }
+}
+
 function looksLikeCompleteJid(jid) {
   const raw = normalizeXmppJid(jid);
   if (!raw || raw.includes(" ")) return false;
@@ -14363,11 +14423,24 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
           break;
         }
       }
+      const localGateway = await validateXmppViaLocalGateway({
+        jid: cleanJid,
+        password: cleanPass,
+        candidates,
+        timeoutMs
+      });
+      if (localGateway?.ok) {
+        resolve({ ok: true, wsUrl: localGateway.wsUrl || candidates[0] || "", via: "local-gateway" });
+        return;
+      }
+      const gatewayHint = localGateway && localGateway.ok === false
+        ? ` Local gateway check also failed: ${localGateway.error || "unknown error"}`
+        : ` Local gateway unavailable at ${XMPP_LOCAL_AUTH_GATEWAY_URL}; start it with: node scripts/xmpp-auth-gateway.mjs`;
       resolve({
         ok: false,
         error: sawAuthFail
-          ? `XMPP authentication failed. Tried: ${candidates.join(", ")}`
-          : `XMPP connection failed for WebSocket endpoints. Tried: ${candidates.join(", ")}`,
+          ? `XMPP authentication failed. Tried: ${candidates.join(", ")}.${gatewayHint}`
+          : `XMPP connection failed for WebSocket endpoints. Tried: ${candidates.join(", ")}.${gatewayHint}`,
         wsUrl: candidates[0] || ""
       });
     }).catch((error) => {
