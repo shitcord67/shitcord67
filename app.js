@@ -2409,12 +2409,22 @@ async function copyText(value) {
     area.select();
     area.setSelectionRange(0, area.value.length);
     const copied = document.execCommand("copy");
-    return Boolean(copied);
+    if (copied) return true;
+    // Manual fallback for browsers that block clipboard writes on non-secure origins.
+    window.prompt("Copy logs manually (Ctrl/Cmd+C, Enter):", text);
+    return false;
   } catch {
+    window.prompt("Copy logs manually (Ctrl/Cmd+C, Enter):", text);
     return false;
   } finally {
     area.remove();
-    if (active) active.focus();
+    if (active) {
+      try {
+        active.focus();
+      } catch {
+        // Ignore focus restore failures.
+      }
+    }
   }
 }
 
@@ -13971,11 +13981,17 @@ async function validateXmppViaLocalGateway({ jid, password, candidates, timeoutM
     }
     addXmppDebugEvent("runtime", "Local auth gateway rejected credentials", {
       gatewayUrl,
-      error: (payload?.error || "").toString().slice(0, 160)
+      error: (payload?.error || "").toString().slice(0, 160),
+      failures: Array.isArray(payload?.failures) ? payload.failures.slice(0, 4) : []
     });
     return {
       ok: false,
-      error: (payload?.error || "Local gateway rejected login.").toString().slice(0, 240)
+      error: [
+        (payload?.error || "Local gateway rejected login.").toString(),
+        Array.isArray(payload?.failures) && payload.failures.length > 0
+          ? `Details: ${payload.failures.map((entry) => `${entry.wsUrl || "?"} ${entry.reason || "connect"}${entry.error ? ` (${entry.error})` : ""}`).join("; ")}`
+          : ""
+      ].filter(Boolean).join(" ").slice(0, 480)
     };
   } catch (error) {
     addXmppDebugEvent("runtime", "Local auth gateway unavailable", {
@@ -16573,7 +16589,7 @@ ui.refreshDebugBtn.addEventListener("click", () => {
 
 ui.copyDebugBtn.addEventListener("click", () => {
   void copyText(formatDebugLogs()).then((ok) => {
-    showToast(ok ? "Debug logs copied." : "Copy failed. Browser blocked clipboard access.", { tone: ok ? "info" : "error" });
+    showToast(ok ? "Debug logs copied." : "Clipboard blocked. Manual copy prompt opened.", { tone: ok ? "info" : "error" });
   });
 });
 
@@ -16593,7 +16609,7 @@ ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
 
 ui.copyXmppConsoleBtn?.addEventListener("click", () => {
   void copyText(formatXmppConsoleLogs()).then((ok) => {
-    showToast(ok ? "XMPP logs copied." : "Copy failed. Browser blocked clipboard access.", { tone: ok ? "info" : "error" });
+    showToast(ok ? "XMPP logs copied." : "Clipboard blocked. Manual copy prompt opened.", { tone: ok ? "info" : "error" });
   });
 });
 
