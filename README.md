@@ -71,7 +71,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Alt+O` opens PDF tab, `Alt+U` opens file attach.
 - Extra channel shortcuts: `Alt+I` opens pins, `Alt+R` marks current channel read, `Alt+N/P` jumps unread channels, `Alt+ArrowUp/Down` navigates channels.
 - Section visibility shortcuts: `Alt+Shift+D` collapses/expands DM section, `Alt+Shift+C` collapses/expands guild channel section.
-- Quick-search shortcut: `Ctrl+K` (or `Cmd+K`) focuses active DM/channel search input.
+- Quick switcher shortcut: `Ctrl+K` (or `Cmd+K`) opens channel/DM/guild quick jump modal.
 - Channel reorder shortcut: `Ctrl+Alt+ArrowUp/Down` moves active channel (manage channels permission).
 - Channel quick-jump shortcuts: `Alt+Home`/`Alt+End` jump to first/last channel.
 - Quick creation shortcuts: `Ctrl+Shift+N` opens create-channel, `Ctrl+Shift+D` opens new-DM prompt.
@@ -93,6 +93,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Composer newline/send behavior: `Enter` sends, `Shift+Enter` inserts newline.
 - Composer also supports `Ctrl+Enter` (or `Cmd+Enter`) to send.
 - Composer clear shortcut: `Ctrl+Shift+Backspace` clears text + reply target + pending attachment.
+- Composer now supports multi-attachment queues (up to 6 files), with chip-based remove and bulk save-to-picker.
+- File attach/paste/drag-drop now supports richer media types (images/video/audio/SWF/SVG/HTML + docs/text/PDF/bin).
 - New draft utility commands: `/drafts`, `/cleardrafts [all]`, `/focus [search|composer]`.
 - New conversation admin commands: `/newdm <username>`, `/closedm`, `/leaveguild`.
 - Additional channel/reading commands: `/newchannel <name> [type]`, `/dupchannel`, `/movechannel <up|down|top|bottom>`, `/markdmread`, `/markallread`.
@@ -108,6 +110,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - DM list is now sorted by latest message activity.
 - DM rows include one-line last-message previews.
 - Guild member lists are sorted alphabetically inside Online/Offline groups.
+- Member panel now includes live member search + presence filters (`All/Online/Offline`) and role badges.
 - Extra media hotkeys: `Alt+4/5/6/7/8/9` open PDF/Text/Docs/HTML/SWF/SVG tabs.
 - Message rows support double-click to start reply quickly.
 - Reply preview lines can jump to the referenced message in-view.

@@ -340,6 +340,7 @@ function buildInitialState() {
       hideMemberPanel: "off",
       collapseDmSection: "off",
       collapseGuildSection: "off",
+      lastChannelByGuild: {},
       swfPipPosition: null
     }
   };
@@ -654,12 +655,15 @@ let pipDragState = null;
 let pipSuppressHeaderToggle = false;
 let toastHideTimer = null;
 let composerPendingAttachment = null;
+let composerPendingAttachments = [];
 let composerDraftConversationId = null;
 let composerDraftSaveTimer = null;
 let composerMetaRefreshTimer = null;
 let scheduledDispatchTimer = null;
 let memberSearchTerm = "";
 let memberPresenceFilter = "all";
+let quickSwitchQuery = "";
+let quickSwitchSelectionIndex = 0;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -733,8 +737,14 @@ const ui = {
   cancelReplyBtn: document.getElementById("cancelReplyBtn"),
   composerAttachmentBar: document.getElementById("composerAttachmentBar"),
   composerAttachmentText: document.getElementById("composerAttachmentText"),
+  composerAttachmentList: document.getElementById("composerAttachmentList"),
   saveComposerAttachmentBtn: document.getElementById("saveComposerAttachmentBtn"),
   clearComposerAttachmentBtn: document.getElementById("clearComposerAttachmentBtn"),
+  quickSwitchDialog: document.getElementById("quickSwitchDialog"),
+  quickSwitchForm: document.getElementById("quickSwitchForm"),
+  quickSwitchInput: document.getElementById("quickSwitchInput"),
+  quickSwitchList: document.getElementById("quickSwitchList"),
+  quickSwitchCancel: document.getElementById("quickSwitchCancel"),
   settingsScreen: document.getElementById("settingsScreen"),
   dockAvatar: document.getElementById("dockAvatar"),
   dockPresenceDot: document.getElementById("dockPresenceDot"),
@@ -937,6 +947,21 @@ function getActiveChannel() {
   const guild = getActiveGuild();
   if (!guild) return null;
   return guild.channels.find((channel) => channel.id === state.activeChannelId) || null;
+}
+
+function getPreferredGuildChannelId(guildId) {
+  if (!guildId) return "";
+  const prefs = getPreferences();
+  return (prefs.lastChannelByGuild?.[guildId] || "").toString();
+}
+
+function rememberGuildChannelSelection(guildId, channelId) {
+  if (!guildId || !channelId) return;
+  state.preferences = getPreferences();
+  state.preferences.lastChannelByGuild = {
+    ...(state.preferences.lastChannelByGuild || {}),
+    [guildId]: channelId
+  };
 }
 
 function getActiveDmThread() {
@@ -1392,6 +1417,26 @@ function getGuildChannelsForNavigation() {
   return guild.channels;
 }
 
+function getFirstOpenableChannelIdForGuild(guild) {
+  if (!guild || !Array.isArray(guild.channels) || guild.channels.length === 0) return null;
+  const preferred = getPreferredGuildChannelId(guild.id);
+  if (preferred && guild.channels.some((channel) => channel.id === preferred)) return preferred;
+  return guild.channels[0]?.id || null;
+}
+
+function openGuildById(guildId) {
+  const guild = state.guilds.find((entry) => entry.id === guildId);
+  if (!guild) return false;
+  state.viewMode = "guild";
+  state.activeGuildId = guild.id;
+  state.activeChannelId = getFirstOpenableChannelIdForGuild(guild);
+  state.activeDmId = null;
+  ensureCurrentUserInActiveServer();
+  saveState();
+  render();
+  return true;
+}
+
 function navigateGuildChannelByOffset(delta) {
   const channels = getGuildChannelsForNavigation();
   if (channels.length === 0) return false;
@@ -1616,7 +1661,7 @@ function deleteGuildById(guildId) {
   if (state.activeGuildId === guildId) {
     const nextGuild = state.guilds[0] || null;
     state.activeGuildId = nextGuild?.id || null;
-    state.activeChannelId = nextGuild?.channels[0]?.id || null;
+    state.activeChannelId = nextGuild ? getFirstOpenableChannelIdForGuild(nextGuild) : null;
   }
   saveState();
   render();
@@ -2019,6 +2064,15 @@ function normalizeForumThreadTagFilterMap(value) {
   }, {});
 }
 
+function normalizeLastChannelByGuildMap(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.entries(value).reduce((acc, [guildId, channelId]) => {
+    if (!guildId || !channelId) return acc;
+    acc[guildId] = channelId.toString();
+    return acc;
+  }, {});
+}
+
 function normalizeMediaPrivacyMode(value) {
   return value === "off" ? "off" : "safe";
 }
@@ -2081,6 +2135,7 @@ function getPreferences() {
     hideMemberPanel: normalizeToggle(current.hideMemberPanel),
     collapseDmSection: normalizeToggle(current.collapseDmSection),
     collapseGuildSection: normalizeToggle(current.collapseGuildSection),
+    lastChannelByGuild: normalizeLastChannelByGuildMap(current.lastChannelByGuild),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -2489,29 +2544,75 @@ function getComposerAttachAllowedTypes() {
   return new Set(["pdf", "text", "odf", "rtf", "bin", "gif", "audio", "swf", "svg", "html"]);
 }
 
+function syncPrimaryComposerAttachment() {
+  composerPendingAttachment = composerPendingAttachments[0] || null;
+}
+
+function composerAttachmentPreviewLabel(entry) {
+  if (!entry) return "file";
+  const label = entry.name || "file";
+  const type = (entry.type || "file").toUpperCase();
+  const size = formatFileSize(Number(entry.sizeBytes || 0));
+  return size ? `${type}: ${label} (${size})` : `${type}: ${label}`;
+}
+
+function renderComposerAttachmentList() {
+  if (!ui.composerAttachmentList) return;
+  ui.composerAttachmentList.innerHTML = "";
+  composerPendingAttachments.forEach((entry, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "composer-attachment-chip";
+    row.title = composerAttachmentPreviewLabel(entry);
+    const label = document.createElement("span");
+    label.textContent = `${index === 0 ? "• " : ""}${entry.name || "file"}`;
+    const remove = document.createElement("span");
+    remove.className = "composer-attachment-chip__remove";
+    remove.textContent = "✕";
+    row.appendChild(label);
+    row.appendChild(remove);
+    row.addEventListener("click", () => {
+      composerPendingAttachments.splice(index, 1);
+      syncPrimaryComposerAttachment();
+      if (composerPendingAttachments.length === 0) {
+        clearComposerPendingAttachment();
+        return;
+      }
+      setComposerPendingAttachment(null);
+      renderComposerMeta();
+    });
+    ui.composerAttachmentList.appendChild(row);
+  });
+}
+
 function clearComposerPendingAttachment() {
+  composerPendingAttachments = [];
   composerPendingAttachment = null;
   if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.add("composer-reply--hidden");
   if (ui.composerAttachmentText) ui.composerAttachmentText.textContent = "";
+  if (ui.composerAttachmentList) ui.composerAttachmentList.innerHTML = "";
   if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
   if (ui.quickAttachInput) ui.quickAttachInput.value = "";
   renderComposerMeta();
 }
 
-function setComposerPendingAttachment(entry) {
-  composerPendingAttachment = entry || null;
+function setComposerPendingAttachment(entry, { append = true } = {}) {
+  if (entry) {
+    if (!append) composerPendingAttachments = [];
+    composerPendingAttachments.push(entry);
+    composerPendingAttachments = composerPendingAttachments.slice(-6);
+  }
+  syncPrimaryComposerAttachment();
   if (!composerPendingAttachment) {
     clearComposerPendingAttachment();
     return;
   }
   if (ui.composerAttachmentText) {
-    const label = composerPendingAttachment.name || "file";
-    const type = (composerPendingAttachment.type || "file").toUpperCase();
-    const size = formatFileSize(Number(composerPendingAttachment.sizeBytes || 0));
-    ui.composerAttachmentText.textContent = size
-      ? `Attached ${type}: ${label} (${size})`
-      : `Attached ${type}: ${label}`;
+    ui.composerAttachmentText.textContent = composerPendingAttachments.length > 1
+      ? `Attached ${composerPendingAttachments.length} files`
+      : `Attached ${composerAttachmentPreviewLabel(composerPendingAttachment)}`;
   }
+  renderComposerAttachmentList();
   if (ui.composerAttachmentBar) ui.composerAttachmentBar.classList.remove("composer-reply--hidden");
   if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = false;
   renderComposerMeta();
@@ -2528,7 +2629,7 @@ async function attachFileToComposer(file) {
     url,
     name: file.name || `${type}-${Date.now()}`,
     sizeBytes: Number(file.size) || 0
-  });
+  }, { append: true });
   return true;
 }
 
@@ -2546,29 +2647,32 @@ function saveComposerAttachmentToPicker() {
   if (!composerPendingAttachment) return false;
   const guild = getActiveGuild();
   if (!guild) return false;
-  const type = composerPendingAttachment.type || "pdf";
-  const tab = pickerTabForAttachmentType(type);
-  const baseName = (composerPendingAttachment.name || `${type}-${Date.now()}`).toString().trim().slice(0, 64);
-  const extension = type === "pdf"
-    ? ".pdf"
-    : type === "text"
-      ? ".txt"
-      : type === "rtf"
-        ? ".rtf"
-        : type === "odf"
-          ? ".odt"
-          : type === "bin"
-            ? ".bin"
-            : "";
-  const resolvedName = baseName.includes(".") || !extension ? baseName : `${baseName}${extension}`;
-  const entry = {
-    name: sanitizeMediaName(resolvedName, `${tab}-${Date.now().toString().slice(-4)}`),
-    url: composerPendingAttachment.url,
-    format: "image",
-    type
-  };
-  const saved = upsertGuildResource(tab, entry);
-  if (!saved) return false;
+  let savedAny = false;
+  composerPendingAttachments.forEach((pending, index) => {
+    const type = pending.type || "pdf";
+    const tab = pickerTabForAttachmentType(type);
+    const baseName = (pending.name || `${type}-${Date.now()}-${index}`).toString().trim().slice(0, 64);
+    const extension = type === "pdf"
+      ? ".pdf"
+      : type === "text"
+        ? ".txt"
+        : type === "rtf"
+          ? ".rtf"
+          : type === "odf"
+            ? ".odt"
+            : type === "bin"
+              ? ".bin"
+              : "";
+    const resolvedName = baseName.includes(".") || !extension ? baseName : `${baseName}${extension}`;
+    const entry = {
+      name: sanitizeMediaName(resolvedName, `${tab}-${Date.now().toString().slice(-4)}`),
+      url: pending.url,
+      format: "image",
+      type
+    };
+    if (upsertGuildResource(tab, entry)) savedAny = true;
+  });
+  if (!savedAny) return false;
   saveState();
   return true;
 }
@@ -4415,6 +4519,146 @@ function openShortcutsDialog() {
   ui.shortcutsDialog?.showModal();
 }
 
+function quickSwitchHaystackForItem(item) {
+  return [
+    item.label || "",
+    item.meta || "",
+    item.guildName || "",
+    item.username || "",
+    item.type || ""
+  ].join(" ").toLowerCase();
+}
+
+function getQuickSwitchItems(rawQuery = "") {
+  const query = (rawQuery || "").trim().toLowerCase();
+  const current = getCurrentAccount();
+  const items = [];
+  state.guilds.forEach((guild) => {
+    if (current && Array.isArray(guild.memberIds) && !guild.memberIds.includes(current.id)) return;
+    items.push({
+      id: `guild:${guild.id}`,
+      type: "guild",
+      label: guild.name,
+      meta: "Guild",
+      guildId: guild.id,
+      guildName: guild.name
+    });
+    (guild.channels || []).forEach((channel) => {
+      items.push({
+        id: `channel:${guild.id}:${channel.id}`,
+        type: "channel",
+        label: `#${channel.name}`,
+        meta: guild.name,
+        guildId: guild.id,
+        guildName: guild.name,
+        channelId: channel.id
+      });
+    });
+  });
+  if (current) {
+    state.dmThreads
+      .filter((thread) => Array.isArray(thread.participantIds) && thread.participantIds.includes(current.id))
+      .forEach((thread) => {
+        const peerId = thread.participantIds.find((id) => id !== current.id);
+        const peer = peerId ? getAccountById(peerId) : null;
+        items.push({
+          id: `dm:${thread.id}`,
+          type: "dm",
+          label: peer ? `@${peer.username}` : "Unknown DM",
+          meta: "Direct Message",
+          threadId: thread.id,
+          username: peer?.username || ""
+        });
+      });
+  }
+  const scored = items
+    .map((item) => {
+      const haystack = quickSwitchHaystackForItem(item);
+      if (!query) return { item, score: 10 };
+      if (haystack.startsWith(query)) return { item, score: 0 };
+      if (item.label.toLowerCase().startsWith(query)) return { item, score: 1 };
+      if (haystack.includes(query)) return { item, score: 4 };
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.score - b.score || a.item.label.localeCompare(b.item.label))
+    .slice(0, 40)
+    .map((entry) => entry.item);
+  return scored;
+}
+
+function activateQuickSwitchItem(item) {
+  if (!item) return false;
+  if (item.type === "dm" && item.threadId) {
+    state.viewMode = "dm";
+    state.activeDmId = item.threadId;
+    saveState();
+    render();
+    return true;
+  }
+  if (item.type === "guild" && item.guildId) {
+    return openGuildById(item.guildId);
+  }
+  if (item.type === "channel" && item.guildId && item.channelId) {
+    const guild = state.guilds.find((entry) => entry.id === item.guildId);
+    if (!guild) return false;
+    state.viewMode = "guild";
+    state.activeGuildId = guild.id;
+    state.activeChannelId = item.channelId;
+    state.activeDmId = null;
+    rememberGuildChannelSelection(guild.id, item.channelId);
+    saveState();
+    render();
+    return true;
+  }
+  return false;
+}
+
+function renderQuickSwitchList() {
+  if (!ui.quickSwitchList) return;
+  const items = getQuickSwitchItems(quickSwitchQuery);
+  quickSwitchSelectionIndex = Math.max(0, Math.min(quickSwitchSelectionIndex, Math.max(0, items.length - 1)));
+  ui.quickSwitchList.innerHTML = "";
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = "No matches.";
+    ui.quickSwitchList.appendChild(empty);
+    return;
+  }
+  items.forEach((item, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `quick-switch-item ${index === quickSwitchSelectionIndex ? "active" : ""}`;
+    const title = document.createElement("strong");
+    title.textContent = item.label;
+    const meta = document.createElement("small");
+    meta.textContent = item.meta;
+    row.appendChild(title);
+    row.appendChild(meta);
+    row.addEventListener("mouseenter", () => {
+      quickSwitchSelectionIndex = index;
+      renderQuickSwitchList();
+    });
+    row.addEventListener("click", () => {
+      const ok = activateQuickSwitchItem(item);
+      if (ok) ui.quickSwitchDialog?.close();
+    });
+    ui.quickSwitchList.appendChild(row);
+  });
+}
+
+function openQuickSwitcher() {
+  quickSwitchQuery = "";
+  quickSwitchSelectionIndex = 0;
+  if (ui.quickSwitchInput) ui.quickSwitchInput.value = "";
+  renderQuickSwitchList();
+  ui.quickSwitchDialog?.showModal();
+  requestAnimationFrame(() => {
+    ui.quickSwitchInput?.focus();
+  });
+}
+
 function findLastEditableMessageInActiveConversation() {
   const conversation = getActiveConversation();
   const currentUser = getCurrentAccount();
@@ -4618,7 +4862,7 @@ function renderComposerMeta() {
     ui.composerSystemNotice.hidden = !notice;
   }
 
-  const hasPayload = rawValue.trim().length > 0 || Boolean(composerPendingAttachment);
+  const hasPayload = rawValue.trim().length > 0 || composerPendingAttachments.length > 0;
   submitBtn.disabled = !canPost || remainingSeconds > 0 || !hasPayload;
   if (remainingSeconds > 0) {
     composerMetaRefreshTimer = setTimeout(() => {
@@ -7212,13 +7456,7 @@ function renderServers() {
       button.appendChild(dot);
     }
     button.addEventListener("click", () => {
-      state.viewMode = "guild";
-      state.activeGuildId = server.id;
-      state.activeChannelId = server.channels[0]?.id || null;
-      state.activeDmId = null;
-      ensureCurrentUserInActiveServer();
-      saveState();
-      render();
+      openGuildById(server.id);
     });
     button.addEventListener("contextmenu", (event) => {
       const currentUser = getCurrentAccount();
@@ -7227,13 +7465,7 @@ function renderServers() {
         {
           label: "Open Guild",
           action: () => {
-            state.viewMode = "guild";
-            state.activeGuildId = server.id;
-            state.activeChannelId = server.channels[0]?.id || null;
-            state.activeDmId = null;
-            ensureCurrentUserInActiveServer();
-            saveState();
-            render();
+            openGuildById(server.id);
           }
         },
         {
@@ -7241,8 +7473,8 @@ function renderServers() {
           submenu: [
             { label: "Guild Name", action: () => copyText(server.name || "") },
             { label: "Guild ID", action: () => copyText(server.id) },
-            { label: "First Channel ID", action: () => copyText(server.channels[0]?.id || "") },
-            { label: "Guild Link", action: () => copyText(buildChannelPermalink(server.id, server.channels[0]?.id || "")) }
+            { label: "First Channel ID", action: () => copyText(getFirstOpenableChannelIdForGuild(server) || "") },
+            { label: "Guild Link", action: () => copyText(buildChannelPermalink(server.id, getFirstOpenableChannelIdForGuild(server) || "")) }
           ]
         },
         {
@@ -7297,7 +7529,7 @@ function renderServers() {
           disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
           action: () => {
             state.activeGuildId = server.id;
-            state.activeChannelId = server.channels[0]?.id || null;
+            state.activeChannelId = getFirstOpenableChannelIdForGuild(server);
             ui.channelNameInput.value = "";
             ui.channelTypeInput.value = "text";
             ui.createChannelDialog.showModal();
@@ -7616,6 +7848,7 @@ function renderChannels() {
       state.viewMode = "guild";
       state.activeChannelId = channel.id;
       state.activeDmId = null;
+      rememberGuildChannelSelection(server.id, channel.id);
       saveState();
       renderMessages();
       renderChannels();
@@ -7628,6 +7861,7 @@ function renderChannels() {
             state.viewMode = "guild";
             state.activeChannelId = channel.id;
             state.activeDmId = null;
+            rememberGuildChannelSelection(server.id, channel.id);
             saveState();
             renderMessages();
             renderChannels();
@@ -9518,6 +9752,9 @@ function render() {
   if (applyHashConversationNavigation()) {
     saveState();
   }
+  if (getViewMode() === "guild" && state.activeGuildId && state.activeChannelId) {
+    rememberGuildChannelSelection(state.activeGuildId, state.activeChannelId);
+  }
   renderServers();
   renderDmList();
   renderChannels();
@@ -9556,7 +9793,7 @@ function hasPendingComposerChanges() {
   if (!state.currentAccountId) return false;
   const text = (ui.messageInput?.value || "").trim();
   if (text.length > 0) return true;
-  if (composerPendingAttachment) return true;
+  if (composerPendingAttachments.length > 0) return true;
   if (replyTarget) return true;
   return false;
 }
@@ -9636,8 +9873,8 @@ function createOrSwitchAccount(usernameInput) {
   if (!state.activeGuildId && state.guilds[0]) {
     state.activeGuildId = state.guilds[0].id;
   }
-  if (!state.activeChannelId && state.guilds[0]?.channels[0]) {
-    state.activeChannelId = state.guilds[0].channels[0].id;
+  if (!state.activeChannelId && state.guilds[0]) {
+    state.activeChannelId = getFirstOpenableChannelIdForGuild(state.guilds[0]) || state.guilds[0]?.channels?.[0]?.id || null;
   }
   ensureCurrentUserInActiveServer();
   return true;
@@ -9665,7 +9902,7 @@ ui.messageForm.addEventListener("submit", (event) => {
   const text = ui.messageInput.value.trim();
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
-  if (!conversation || !account || (!text && !composerPendingAttachment)) return;
+  if (!conversation || !account || (!text && composerPendingAttachments.length === 0)) return;
   if (conversation.type === "dm" && text.startsWith("/")) {
     const [rawCommand, ...rawRest] = text.slice(1).split(" ");
     const dmCommand = rawCommand.toLowerCase();
@@ -9807,12 +10044,12 @@ ui.messageForm.addEventListener("submit", (event) => {
       text,
       ts: new Date().toISOString(),
       reactions: [],
-      attachments: composerPendingAttachment ? [{
-        type: composerPendingAttachment.type || "pdf",
-        url: composerPendingAttachment.url,
-        name: composerPendingAttachment.name || "file",
-        format: composerPendingAttachment.format || "image"
-      }] : [],
+      attachments: composerPendingAttachments.map((entry) => ({
+        type: entry.type || "pdf",
+        url: entry.url,
+        name: entry.name || "file",
+        format: entry.format || "image"
+      })),
       replyTo: nextReply
     };
     if (conversation.type === "channel" && conversation.channel.type === "forum") {
@@ -9905,14 +10142,20 @@ ui.quickFileAttachBtn.addEventListener("contextmenu", (event) => {
 });
 
 ui.quickAttachInput.addEventListener("change", async () => {
-  const file = ui.quickAttachInput.files?.[0];
-  if (!file) return;
+  const files = [...(ui.quickAttachInput.files || [])];
+  if (files.length === 0) return;
   try {
-    const attached = await attachFileToComposer(file);
-    if (!attached) {
-      showToast("Unsupported attachment type. Use PDF/Text/Docs/BIN.", { tone: "error" });
+    let attachedCount = 0;
+    for (const file of files.slice(0, 6)) {
+      const attached = await attachFileToComposer(file);
+      if (!attached) continue;
+      attachedCount += 1;
+    }
+    if (attachedCount === 0) {
+      showToast("Unsupported attachment type for selected files.", { tone: "error" });
       return;
     }
+    showToast(attachedCount > 1 ? `${attachedCount} files attached.` : "Attachment added.");
     ui.messageInput.focus();
   } catch {
     showToast("Failed to attach file.", { tone: "error" });
@@ -9926,14 +10169,14 @@ ui.clearComposerAttachmentBtn.addEventListener("click", () => {
 });
 
 ui.saveComposerAttachmentBtn?.addEventListener("click", () => {
-  if (!composerPendingAttachment) return;
+  if (composerPendingAttachments.length === 0) return;
   const ok = saveComposerAttachmentToPicker();
   if (!ok) {
     showToast("Could not save attachment to picker.", { tone: "error" });
     return;
   }
-  const tab = pickerTabForAttachmentType(composerPendingAttachment.type || "pdf");
-  showToast("Attachment saved to picker.");
+  const tab = pickerTabForAttachmentType(composerPendingAttachments[0]?.type || "pdf");
+  showToast(composerPendingAttachments.length > 1 ? "Attachments saved to picker." : "Attachment saved to picker.");
   openMediaPickerWithTab(tab);
 });
 
@@ -10198,7 +10441,7 @@ ui.messageInput.addEventListener("keydown", (event) => {
     }
   }
 
-  if (event.key === "Escape" && !ui.messageInput.value.trim() && composerPendingAttachment) {
+  if (event.key === "Escape" && !ui.messageInput.value.trim() && composerPendingAttachments.length > 0) {
     event.preventDefault();
     clearComposerPendingAttachment();
     showToast("Attachment cleared.");
@@ -10355,16 +10598,21 @@ ui.messageInput.addEventListener("keydown", (event) => {
 ui.messageInput.addEventListener("paste", (event) => {
   const files = event.clipboardData?.files;
   if (!files || files.length === 0) return;
-  const [file] = files;
-  if (!file) return;
-  const inferred = inferAttachmentTypeFromFile(file);
-  const allowed = getComposerAttachAllowedTypes();
-  if (!allowed.has(inferred)) return;
   event.preventDefault();
-  void attachFileToComposer(file).then((attached) => {
-    if (!attached) return;
+  const list = [...files].slice(0, 6);
+  void (async () => {
+    let attachedCount = 0;
+    for (const file of list) {
+      const inferred = inferAttachmentTypeFromFile(file);
+      const allowed = getComposerAttachAllowedTypes();
+      if (!allowed.has(inferred)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const attached = await attachFileToComposer(file);
+      if (attached) attachedCount += 1;
+    }
+    if (attachedCount <= 0) return;
     ui.messageInput.focus();
-    showToast("Attachment added from clipboard.");
+    showToast(attachedCount > 1 ? `${attachedCount} attachments added from clipboard.` : "Attachment added from clipboard.");
   }).catch(() => {
     showToast("Failed to attach clipboard file.", { tone: "error" });
   });
@@ -10552,6 +10800,40 @@ ui.openGuildSettingsBtn?.addEventListener("click", () => {
 });
 ui.openChannelSettingsBtn.addEventListener("click", openChannelSettings);
 ui.openShortcutsBtn?.addEventListener("click", openShortcutsDialog);
+ui.quickSwitchCancel?.addEventListener("click", () => ui.quickSwitchDialog?.close());
+ui.quickSwitchInput?.addEventListener("input", () => {
+  quickSwitchQuery = ui.quickSwitchInput.value.slice(0, 80);
+  quickSwitchSelectionIndex = 0;
+  renderQuickSwitchList();
+});
+ui.quickSwitchInput?.addEventListener("keydown", (event) => {
+  const items = getQuickSwitchItems(quickSwitchQuery);
+  if (event.key === "ArrowDown" && items.length > 0) {
+    event.preventDefault();
+    quickSwitchSelectionIndex = (quickSwitchSelectionIndex + 1) % items.length;
+    renderQuickSwitchList();
+    return;
+  }
+  if (event.key === "ArrowUp" && items.length > 0) {
+    event.preventDefault();
+    quickSwitchSelectionIndex = (quickSwitchSelectionIndex - 1 + items.length) % items.length;
+    renderQuickSwitchList();
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    ui.quickSwitchDialog?.close();
+  }
+});
+ui.quickSwitchForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const items = getQuickSwitchItems(quickSwitchQuery);
+  const selected = items[quickSwitchSelectionIndex] || items[0];
+  if (!selected) return;
+  if (activateQuickSwitchItem(selected)) {
+    ui.quickSwitchDialog?.close();
+  }
+});
 ui.toggleChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
 ui.toggleMemberPanelBtn?.addEventListener("click", toggleMemberPanelVisibility);
 ui.toggleSwfShelfBtn.addEventListener("click", () => {
@@ -10794,7 +11076,7 @@ ui.deleteChannelBtn.addEventListener("click", () => {
     return;
   }
   guild.channels = guild.channels.filter((entry) => entry.id !== channel.id);
-  state.activeChannelId = guild.channels[0]?.id || null;
+  state.activeChannelId = getFirstOpenableChannelIdForGuild(guild);
   saveState();
   ui.channelSettingsDialog.close();
   render();
@@ -11280,6 +11562,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.channelSettingsDialog,
   ui.messageEditDialog,
   ui.shortcutsDialog,
+  ui.quickSwitchDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.accountSwitchDialog,
@@ -11307,30 +11590,34 @@ function maybeHandleComposerDrop(event) {
   if (!state.currentAccountId) return false;
   const files = event.dataTransfer?.files;
   if (!files || files.length === 0) return false;
-  const [file] = files;
-  if (!file) return false;
-  const inferred = inferAttachmentTypeFromFile(file);
-  const allowed = getComposerAttachAllowedTypes();
-  if (!allowed.has(inferred)) return false;
   event.preventDefault();
   event.stopPropagation();
-  void attachFileToComposer(file).then((attached) => {
-    if (!attached) return;
+  const list = [...files].slice(0, 6);
+  void (async () => {
+    let attachedCount = 0;
+    for (const file of list) {
+      const inferred = inferAttachmentTypeFromFile(file);
+      const allowed = getComposerAttachAllowedTypes();
+      if (!allowed.has(inferred)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const attached = await attachFileToComposer(file);
+      if (attached) attachedCount += 1;
+    }
+    if (attachedCount <= 0) return;
     ui.messageInput.focus();
-    showToast(`${inferred.toUpperCase()} attached. Press Enter to send.`);
+    showToast(attachedCount > 1 ? `${attachedCount} files attached. Press Enter to send.` : "Attachment added. Press Enter to send.");
   }).catch(() => {
     showToast("Failed to attach dropped file.", { tone: "error" });
   });
-  return true;
+  return list.length > 0;
 }
 
 document.addEventListener("dragover", (event) => {
   const files = event.dataTransfer?.files;
   if (!files || files.length === 0) return;
-  const [file] = files;
-  const inferred = inferAttachmentTypeFromFile(file);
   const allowed = getComposerAttachAllowedTypes();
-  if (!allowed.has(inferred)) return;
+  const hasSupported = [...files].some((file) => allowed.has(inferAttachmentTypeFromFile(file)));
+  if (!hasSupported) return;
   event.preventDefault();
   ui.messageForm.classList.add("message-form--drop");
 });
@@ -11644,9 +11931,7 @@ document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {
     if (!state.currentAccountId) return;
     event.preventDefault();
-    const target = getViewMode() === "dm" ? ui.dmSearchInput : ui.channelFilterInput;
-    target?.focus();
-    target?.select?.();
+    openQuickSwitcher();
     return;
   }
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "b") {
@@ -11772,7 +12057,7 @@ document.addEventListener("keydown", (event) => {
     state.viewMode = getViewMode() === "dm" ? "guild" : "dm";
     if (state.viewMode === "guild" && !state.activeGuildId && state.guilds[0]) {
       state.activeGuildId = state.guilds[0].id;
-      state.activeChannelId = state.guilds[0].channels[0]?.id || state.activeChannelId;
+      state.activeChannelId = getFirstOpenableChannelIdForGuild(state.guilds[0]) || state.activeChannelId;
     }
     saveState();
     render();

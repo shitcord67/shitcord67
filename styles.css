@@ -1264,7 +1264,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .composer-reply {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
   font-size: 0.78rem;
   color: #c2c7cf;
@@ -1283,6 +1283,36 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   background: transparent;
   color: #c7ccd4;
   padding: 0.12rem 0.35rem;
+}
+
+.composer-attachment-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.composer-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 180px;
+  background: #242830;
+  border: 1px solid #3a4251;
+  border-radius: 999px;
+  color: #d4dae4;
+  font-size: 0.68rem;
+  padding: 0.16rem 0.44rem;
+}
+
+.composer-attachment-chip > span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.composer-attachment-chip__remove {
+  opacity: 0.78;
 }
 
 .slash-popup {
@@ -2488,6 +2518,40 @@ body[data-compact-members="on"] .member-item {
   color: #ecf1ff;
   font-family: "Fira Code", "Consolas", monospace;
   font-size: 0.73rem;
+}
+
+.quick-switch-list {
+  display: grid;
+  gap: 0.3rem;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.quick-switch-item {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.08rem;
+  background: #2a2e38;
+  border: 1px solid #394051;
+  border-radius: 8px;
+  color: #d6dce8;
+  padding: 0.42rem 0.5rem;
+}
+
+.quick-switch-item strong {
+  font-size: 0.8rem;
+}
+
+.quick-switch-item small {
+  color: #9ca5b4;
+  font-size: 0.68rem;
+}
+
+.quick-switch-item.active,
+.quick-switch-item:hover {
+  background: #374059;
+  border-color: #5b6ea0;
 }
 
 .modal-actions button:first-child {

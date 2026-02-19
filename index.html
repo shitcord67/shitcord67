@@ -131,6 +131,7 @@
 
           <div id="composerAttachmentBar" class="composer-reply composer-reply--hidden">
             <span id="composerAttachmentText"></span>
+            <div id="composerAttachmentList" class="composer-attachment-list"></div>
             <button id="saveComposerAttachmentBtn" type="button" title="Save to picker">Save to picker</button>
             <button id="clearComposerAttachmentBtn" type="button" title="Clear attachment">✕</button>
           </div>
@@ -149,7 +150,7 @@
             <span id="composerSystemNotice" class="composer-system-note" hidden></span>
             <span id="composerCharCount" class="composer-char-count">0/400</span>
           </div>
-          <input id="quickAttachInput" type="file" accept="image/*,video/*,audio/*,.gif,.webp,.mp4,.webm,.png,.jpg,.jpeg,.svg,.swf,.html,.htm,.pdf,.txt,.md,.log,.json,.js,.ts,.css,.xml,.yml,.yaml,.ini,.toml,.odt,.ods,.odp,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.bin,application/pdf,text/plain,application/json,application/rtf,text/rtf,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+          <input id="quickAttachInput" type="file" multiple accept="image/*,video/*,audio/*,.gif,.webp,.mp4,.webm,.png,.jpg,.jpeg,.svg,.swf,.html,.htm,.pdf,.txt,.md,.log,.json,.js,.ts,.css,.xml,.yml,.yaml,.ini,.toml,.odt,.ods,.odp,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.bin,application/pdf,text/plain,application/json,application/rtf,text/rtf,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
         </div>
       </main>
 
@@ -487,8 +488,9 @@
       <h3>Keyboard Shortcuts</h3>
       <div class="shortcut-list">
         <div><kbd>Alt+K</kbd> Focus channel/DM search</div>
-        <div><kbd>Ctrl+K</kbd> Quick focus channel/DM search</div>
+        <div><kbd>Ctrl+K</kbd> Quick switcher (channels/DMs)</div>
         <div><kbd>Ctrl+Shift+F</kbd> Focus channel/DM filter</div>
+        <div><kbd>Ctrl+Shift+U</kbd> Focus member filter</div>
         <div><kbd>Ctrl+Shift+L</kbd> Focus message composer</div>
         <div><kbd>Ctrl+Shift+O</kbd> Wrap selected composer text as spoiler</div>
         <div><kbd>Alt+U</kbd> Attach file</div>
@@ -517,6 +519,19 @@
       </div>
       <div class="modal-actions">
         <button type="submit">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="quickSwitchDialog" class="modal">
+    <form id="quickSwitchForm" class="modal-form" method="dialog">
+      <h3>Quick Switcher</h3>
+      <label for="quickSwitchInput">Jump to channel or DM</label>
+      <input id="quickSwitchInput" type="text" maxlength="80" placeholder="Search channels, guilds, or DMs" autocomplete="off" />
+      <div id="quickSwitchList" class="quick-switch-list"></div>
+      <div class="modal-actions">
+        <button type="button" id="quickSwitchCancel">Cancel</button>
+        <button type="submit">Open</button>
       </div>
     </form>
   </dialog>
