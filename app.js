@@ -924,6 +924,7 @@ const ui = {
   loginRememberInput: document.getElementById("loginRememberInput"),
   loginProvidersBtn: document.getElementById("loginProvidersBtn"),
   loginRegisterBtn: document.getElementById("loginRegisterBtn"),
+  loginXmppConsoleBtn: document.getElementById("loginXmppConsoleBtn"),
   serverBrand: document.getElementById("serverBrand"),
   serverBrandBadge: document.getElementById("serverBrandBadge"),
   serverList: document.getElementById("serverList"),
@@ -14664,6 +14665,10 @@ ui.loginProvidersBtn?.addEventListener("click", () => {
 ui.loginRegisterBtn?.addEventListener("click", () => {
   renderXmppProviderList();
   ui.xmppProviderDialog?.showModal();
+});
+
+ui.loginXmppConsoleBtn?.addEventListener("click", () => {
+  openXmppConsoleDialog();
 });
 
 ui.xmppProviderCloseBtn?.addEventListener("click", () => {
