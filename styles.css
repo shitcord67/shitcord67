@@ -2774,6 +2774,15 @@ body[data-compact-members="on"] .member-item {
   border-radius: 7px;
 }
 
+#profileOpenCosmeticsBtn {
+  width: 100%;
+  margin-top: 0.4rem;
+  background: #4a57cb;
+  color: #f3f6ff;
+  padding: 0.4rem 0.6rem;
+  border-radius: 7px;
+}
+
 .profile-identity-preview.profile-effect-aurora .profile-identity-preview__banner {
   background-image: linear-gradient(120deg, #35c7a4, #3f71ff, #8f56f2);
   background-size: 220% 220%;
@@ -2878,6 +2887,141 @@ body[data-compact-members="on"] .member-item {
 .pin-item small {
   display: block;
   color: #adb4bf;
+}
+
+.cosmetics-toolbar {
+  border: 1px solid #3b3f4a;
+  background: #1f2229;
+  border-radius: 8px;
+  padding: 0.5rem 0.55rem;
+  margin: 0.35rem 0 0.55rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.cosmetics-toolbar strong {
+  font-size: 0.9rem;
+  color: #edf2ff;
+}
+
+.cosmetics-toolbar small {
+  color: #aeb7c7;
+}
+
+.cosmetics-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.cosmetics-tabs button {
+  background: #2f3340;
+  color: #cdd5e3;
+  border: 1px solid #424859;
+  border-radius: 8px;
+  padding: 0.35rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.cosmetics-tabs button.active,
+.cosmetics-tabs button:hover {
+  background: #445089;
+  border-color: #6071bb;
+  color: #f3f6ff;
+}
+
+.cosmetics-grid {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 340px;
+  overflow: auto;
+  margin-bottom: 0.65rem;
+}
+
+.cosmetic-card {
+  border: 1px solid #3b4152;
+  border-radius: 10px;
+  background: #252932;
+  padding: 0.5rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.cosmetic-card__preview {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid #505669;
+  display: grid;
+  place-items: center;
+  background: #16191f;
+  overflow: hidden;
+}
+
+.cosmetic-card__preview--decor {
+  font-size: 1.2rem;
+}
+
+.cosmetic-card__preview--nameplate {
+  width: 54px;
+  height: 42px;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center;
+}
+
+.cosmetic-card__preview--effect {
+  width: 54px;
+  height: 42px;
+  border-radius: 8px;
+  background-image: linear-gradient(120deg, #3d66df, #7f5df4);
+  background-size: 220% 220%;
+  animation: profileFxShift 5.5s ease-in-out infinite;
+}
+
+.cosmetic-card__preview--effect-flame {
+  background-image: linear-gradient(120deg, #ff8a00, #ff3f5f, #a62eff);
+}
+
+.cosmetic-card__preview--effect-ocean {
+  background-image: linear-gradient(120deg, #1da8ff, #2ed6c4, #2d5bff);
+}
+
+.cosmetic-card__meta {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.cosmetic-card__meta strong {
+  font-size: 0.82rem;
+}
+
+.cosmetic-card__meta small {
+  color: #aeb6c4;
+  font-size: 0.7rem;
+}
+
+.cosmetic-card__action {
+  background: #4a57cb;
+  color: #f5f7ff;
+  border-radius: 7px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.72rem;
+  min-width: 80px;
+}
+
+.cosmetic-card__action.is-owned {
+  background: #2f8c5a;
+}
+
+.cosmetic-card__action:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .account-list {

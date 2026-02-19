@@ -386,6 +386,7 @@
         <small id="profileIdentityPreviewStatus" class="profile-identity-preview__status">Online</small>
       </div>
       <button id="profileIdentityClearBtn" type="button">Clear Identity Extras</button>
+      <button id="profileOpenCosmeticsBtn" type="button">Open Cosmetics Shop</button>
       <input id="profileAvatarFileInput" type="file" accept="image/*" hidden />
       <div class="modal-actions">
         <button type="button" id="profileCancel">Cancel</button>
@@ -592,6 +593,7 @@
       </div>
       <div class="modal-actions modal-actions--stack">
         <button type="button" id="selfEditProfile">Edit Profile</button>
+        <button type="button" id="selfCosmeticsShop">Cosmetics Shop</button>
         <button type="button" id="selfQuestStats">Quest Stats</button>
         <button type="button" id="selfSwitchAccount">Switch Account</button>
         <button type="button" id="selfLogout">Log Out</button>
@@ -687,6 +689,25 @@
         <button id="refreshDebugBtn" type="button">Refresh</button>
         <button id="clearDebugBtn" type="button">Clear</button>
         <button id="debugCloseBtn" type="button">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="cosmeticsDialog" class="modal">
+    <form id="cosmeticsForm" class="modal-form" method="dialog">
+      <h3>Cosmetics Shop</h3>
+      <div class="cosmetics-toolbar">
+        <strong id="cosmeticsBalance">0 shards</strong>
+        <small id="cosmeticsProgress">Earn shards through activity and quests.</small>
+      </div>
+      <div class="cosmetics-tabs" role="tablist" aria-label="Cosmetics categories">
+        <button id="cosmeticsTabDecor" type="button" data-cosmetics-tab="decor">Decorations</button>
+        <button id="cosmeticsTabNameplate" type="button" data-cosmetics-tab="nameplate">Nameplates</button>
+        <button id="cosmeticsTabEffect" type="button" data-cosmetics-tab="effect">Profile Effects</button>
+      </div>
+      <div id="cosmeticsGrid" class="cosmetics-grid"></div>
+      <div class="modal-actions">
+        <button type="button" id="cosmeticsCloseBtn">Close</button>
       </div>
     </form>
   </dialog>

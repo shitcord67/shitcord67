@@ -30,6 +30,8 @@ const SLASH_COMMANDS = [
   { name: "nameplate", args: "[url|data:image/svg+xml|clear]", description: "Set or clear nameplate image for your name." },
   { name: "whoami", args: "", description: "Show your current identity summary." },
   { name: "profilecard", args: "", description: "Post your profile card text into chat." },
+  { name: "shop", args: "[decor|nameplate|effect]", description: "Open cosmetics shop and browse collectible profile cosmetics." },
+  { name: "inventory", args: "", description: "Show owned cosmetics and current shard balance." },
   { name: "mediaprivacy", args: "[status|safe|off]", description: "Control two-click external media loading privacy mode." },
   { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
   { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
@@ -73,6 +75,24 @@ const SLASH_COMMANDS = [
 ];
 const MEDIA_TABS = ["gif", "sticker", "emoji", "swf", "svg", "pdf", "text", "docs", "html"];
 const PROFILE_AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const SHARD_ECONOMY = {
+  starter: 20,
+  messageEvery: 5,
+  reactionEvery: 3,
+  pollWorth: 4,
+  badgeWorth: 3
+};
+const COSMETIC_CATALOG = [
+  { id: "decor_starlight", type: "decor", name: "Starlight", value: "✨", cost: 14, note: "Classic sparkle trim." },
+  { id: "decor_flame", type: "decor", name: "Hotshot", value: "🔥", cost: 16, note: "Fire badge for high-energy profiles." },
+  { id: "decor_diamond", type: "decor", name: "Rare Cut", value: "💎", cost: 18, note: "Glossy collector badge." },
+  { id: "nameplate_aurora", type: "nameplate", name: "Aurora Ribbon", value: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 96'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%2335c7a4'/%3E%3Cstop offset='0.5' stop-color='%233f71ff'/%3E%3Cstop offset='1' stop-color='%238f56f2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='320' height='96' rx='24' fill='url(%23g)'/%3E%3C/svg%3E", cost: 28, note: "Animated-like gradient plate." },
+  { id: "nameplate_flare", type: "nameplate", name: "Solar Flare", value: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 96'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0.2' y2='0.8'%3E%3Cstop offset='0' stop-color='%23ff8a00'/%3E%3Cstop offset='0.55' stop-color='%23ff3f5f'/%3E%3Cstop offset='1' stop-color='%23a62eff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='320' height='96' rx='24' fill='url(%23g)'/%3E%3C/svg%3E", cost: 30, note: "High contrast warm palette." },
+  { id: "nameplate_wave", type: "nameplate", name: "Ocean Wave", value: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 96'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%231da8ff'/%3E%3Cstop offset='0.55' stop-color='%232ed6c4'/%3E%3Cstop offset='1' stop-color='%232d5bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='320' height='96' rx='24' fill='url(%23g)'/%3E%3C/svg%3E", cost: 30, note: "Cool-toned sea shimmer." },
+  { id: "effect_aurora", type: "effect", name: "Aurora", value: "aurora", cost: 20, note: "Green-blue-purple banner motion." },
+  { id: "effect_flame", type: "effect", name: "Flame", value: "flame", cost: 22, note: "Orange-pink energetic sweep." },
+  { id: "effect_ocean", type: "effect", name: "Ocean", value: "ocean", cost: 22, note: "Blue-cyan depth gradient." }
+];
 const mediaAllowOnceUrls = new Set();
 const EMOJI_LIBRARY = [
   { name: "grinning", value: "😀", aliases: ["smile"], keywords: ["happy", "face"] },
@@ -376,8 +396,65 @@ function createAccount(username, displayName = "") {
     avatarDecoration: "",
     guildTag: "",
     profileEffect: "none",
-    profileNameplateSvg: ""
+    profileNameplateSvg: "",
+    ownedCosmetics: {
+      decor: [],
+      nameplate: [],
+      effect: []
+    },
+    cosmeticPurchases: []
   };
+}
+
+function normalizeOwnedCosmetics(raw) {
+  const safe = raw && typeof raw === "object" ? raw : {};
+  return {
+    decor: Array.isArray(safe.decor) ? [...new Set(safe.decor.map((id) => (id || "").toString()).filter(Boolean))] : [],
+    nameplate: Array.isArray(safe.nameplate) ? [...new Set(safe.nameplate.map((id) => (id || "").toString()).filter(Boolean))] : [],
+    effect: Array.isArray(safe.effect) ? [...new Set(safe.effect.map((id) => (id || "").toString()).filter(Boolean))] : []
+  };
+}
+
+function normalizeCosmeticPurchases(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => ({
+      id: (entry?.id || "").toString(),
+      cost: Number(entry?.cost || 0),
+      ts: (entry?.ts || "").toString()
+    }))
+    .filter((entry) => entry.id && Number.isFinite(entry.cost) && entry.cost > 0)
+    .slice(-240);
+}
+
+function cosmeticById(id) {
+  const token = (id || "").toString().trim();
+  if (!token) return null;
+  return COSMETIC_CATALOG.find((item) => item.id === token) || null;
+}
+
+function ensureAccountCosmetics(account) {
+  if (!account) return;
+  account.ownedCosmetics = normalizeOwnedCosmetics(account.ownedCosmetics);
+  account.cosmeticPurchases = normalizeCosmeticPurchases(account.cosmeticPurchases);
+  const freeIds = ["decor_starlight", "effect_aurora"];
+  freeIds.forEach((id) => {
+    const item = cosmeticById(id);
+    if (!item) return;
+    if (!account.ownedCosmetics[item.type].includes(id)) {
+      account.ownedCosmetics[item.type].push(id);
+    }
+  });
+  const equipped = [
+    COSMETIC_CATALOG.find((item) => item.type === "decor" && item.value === accountDecorationEmoji(account)),
+    COSMETIC_CATALOG.find((item) => item.type === "nameplate" && item.value === accountNameplateSvg(account)),
+    COSMETIC_CATALOG.find((item) => item.type === "effect" && item.value === accountProfileEffect(account))
+  ].filter(Boolean);
+  equipped.forEach((item) => {
+    if (!account.ownedCosmetics[item.type].includes(item.id)) {
+      account.ownedCosmetics[item.type].push(item.id);
+    }
+  });
 }
 
 function migrateState(raw) {
@@ -394,8 +471,13 @@ function migrateState(raw) {
       avatarDecoration: (account?.avatarDecoration || "").toString().slice(0, 4),
       guildTag: (account?.guildTag || "").toString().trim().slice(0, 8),
       profileEffect: normalizeProfileEffect(account?.profileEffect),
-      profileNameplateSvg: (account?.profileNameplateSvg || "").toString().slice(0, 280)
-    }));
+      profileNameplateSvg: (account?.profileNameplateSvg || "").toString().slice(0, 280),
+      ownedCosmetics: normalizeOwnedCosmetics(account?.ownedCosmetics),
+      cosmeticPurchases: normalizeCosmeticPurchases(account?.cosmeticPurchases)
+    })).map((account) => {
+      ensureAccountCosmetics(account);
+      return account;
+    });
     raw.savedSwfs = normalizeSavedSwfs(raw.savedSwfs);
     raw.guilds = sourceGuilds.map((guild) => {
       const baseRole = createRole("@everyone", "#b5bac1", "member");
@@ -517,6 +599,7 @@ function migrateState(raw) {
       account.profileEffect = normalizeProfileEffect(raw.profile.profileEffect);
       account.profileNameplateSvg = (raw.profile.profileNameplateSvg || "").toString().slice(0, 280);
     }
+    ensureAccountCosmetics(account);
     migrated.accounts = [account];
     migrated.currentAccountId = account.id;
   }
@@ -691,6 +774,7 @@ let quickSwitchQuery = "";
 let quickSwitchSelectionIndex = 0;
 let findQuery = "";
 let findSelectionIndex = 0;
+let cosmeticsTab = "decor";
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -821,6 +905,7 @@ const ui = {
   profileIdentityPreviewName: document.getElementById("profileIdentityPreviewName"),
   profileIdentityPreviewStatus: document.getElementById("profileIdentityPreviewStatus"),
   profileIdentityClearBtn: document.getElementById("profileIdentityClearBtn"),
+  profileOpenCosmeticsBtn: document.getElementById("profileOpenCosmeticsBtn"),
   profileAvatarUploadBtn: document.getElementById("profileAvatarUploadBtn"),
   profileAvatarClearBtn: document.getElementById("profileAvatarClearBtn"),
   profileAvatarUploadHint: document.getElementById("profileAvatarUploadHint"),
@@ -862,6 +947,7 @@ const ui = {
   selfPopoutBio: document.getElementById("selfPopoutBio"),
   selfPopoutRoles: document.getElementById("selfPopoutRoles"),
   selfEditProfile: document.getElementById("selfEditProfile"),
+  selfCosmeticsShop: document.getElementById("selfCosmeticsShop"),
   selfQuestStats: document.getElementById("selfQuestStats"),
   selfSwitchAccount: document.getElementById("selfSwitchAccount"),
   selfLogout: document.getElementById("selfLogout"),
@@ -942,6 +1028,13 @@ const ui = {
   refreshDebugBtn: document.getElementById("refreshDebugBtn"),
   clearDebugBtn: document.getElementById("clearDebugBtn"),
   debugCloseBtn: document.getElementById("debugCloseBtn"),
+  cosmeticsDialog: document.getElementById("cosmeticsDialog"),
+  cosmeticsForm: document.getElementById("cosmeticsForm"),
+  cosmeticsBalance: document.getElementById("cosmeticsBalance"),
+  cosmeticsProgress: document.getElementById("cosmeticsProgress"),
+  cosmeticsGrid: document.getElementById("cosmeticsGrid"),
+  cosmeticsCloseBtn: document.getElementById("cosmeticsCloseBtn"),
+  cosmeticsTabs: [...document.querySelectorAll("[data-cosmetics-tab]")],
   swfPipDock: document.getElementById("swfPipDock"),
   swfPipTabs: document.getElementById("swfPipTabs"),
   swfPipHost: document.getElementById("swfPipHost"),
@@ -4869,6 +4962,16 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "shop") {
+    openCosmeticsDialog(arg);
+    return true;
+  }
+
+  if (command === "inventory") {
+    addSystemMessage(channel, formatCosmeticInventorySummary(account.id));
+    return true;
+  }
+
   if (command === "mediaprivacy") {
     const mode = arg.toLowerCase();
     state.preferences = getPreferences();
@@ -5447,6 +5550,177 @@ function formatIdentitySummaryText(account, guildId = null) {
   const effect = accountProfileEffect(account);
   const hasNameplate = accountNameplateSvg(account) ? "yes" : "no";
   return `Name: ${name} · Status: ${status} · Tag: ${tag} · Decor: ${decor} · Effect: ${effect} · Nameplate: ${hasNameplate}`;
+}
+
+function resolveShardWallet(accountId) {
+  const stats = collectAccountActivityStats(accountId);
+  const badges = resolveQuestBadgesForAccount(accountId).length;
+  const earned = SHARD_ECONOMY.starter
+    + Math.floor(stats.sentMessages / SHARD_ECONOMY.messageEvery)
+    + Math.floor(stats.reactionsGiven / SHARD_ECONOMY.reactionEvery)
+    + (stats.pollsCreated * SHARD_ECONOMY.pollWorth)
+    + (badges * SHARD_ECONOMY.badgeWorth);
+  const account = getAccountById(accountId);
+  ensureAccountCosmetics(account);
+  const spent = (account?.cosmeticPurchases || []).reduce((acc, entry) => acc + Math.max(0, Number(entry.cost || 0)), 0);
+  return {
+    earned,
+    spent,
+    balance: Math.max(0, earned - spent),
+    stats
+  };
+}
+
+function accountOwnsCosmetic(account, cosmetic) {
+  if (!account || !cosmetic) return false;
+  ensureAccountCosmetics(account);
+  return account.ownedCosmetics[cosmetic.type]?.includes(cosmetic.id) || false;
+}
+
+function isCosmeticEquipped(account, cosmetic) {
+  if (!account || !cosmetic) return false;
+  if (cosmetic.type === "decor") return accountDecorationEmoji(account) === cosmetic.value;
+  if (cosmetic.type === "nameplate") return accountNameplateSvg(account) === cosmetic.value;
+  if (cosmetic.type === "effect") return accountProfileEffect(account) === cosmetic.value;
+  return false;
+}
+
+function equipCosmetic(account, cosmetic) {
+  if (!account || !cosmetic || !accountOwnsCosmetic(account, cosmetic)) return false;
+  if (cosmetic.type === "decor") account.avatarDecoration = cosmetic.value;
+  if (cosmetic.type === "nameplate") account.profileNameplateSvg = cosmetic.value;
+  if (cosmetic.type === "effect") account.profileEffect = normalizeProfileEffect(cosmetic.value);
+  return true;
+}
+
+function buyCosmetic(account, cosmetic) {
+  if (!account || !cosmetic || cosmetic.cost <= 0) return { ok: false, reason: "Invalid cosmetic." };
+  ensureAccountCosmetics(account);
+  if (accountOwnsCosmetic(account, cosmetic)) return { ok: false, reason: "You already own this cosmetic." };
+  const wallet = resolveShardWallet(account.id);
+  if (wallet.balance < cosmetic.cost) return { ok: false, reason: "Not enough shards yet." };
+  account.ownedCosmetics[cosmetic.type].push(cosmetic.id);
+  account.cosmeticPurchases.push({
+    id: cosmetic.id,
+    cost: cosmetic.cost,
+    ts: new Date().toISOString()
+  });
+  account.cosmeticPurchases = normalizeCosmeticPurchases(account.cosmeticPurchases);
+  equipCosmetic(account, cosmetic);
+  return { ok: true };
+}
+
+function formatCosmeticInventorySummary(accountId) {
+  const account = getAccountById(accountId);
+  if (!account) return "No active account.";
+  ensureAccountCosmetics(account);
+  const wallet = resolveShardWallet(accountId);
+  const listFor = (type) => {
+    const owned = account.ownedCosmetics[type]
+      .map((id) => cosmeticById(id))
+      .filter(Boolean)
+      .map((item) => item.name);
+    return owned.length > 0 ? owned.join(", ") : "none";
+  };
+  return `Shards: ${wallet.balance} (earned ${wallet.earned}, spent ${wallet.spent}) · Decorations: ${listFor("decor")} · Nameplates: ${listFor("nameplate")} · Effects: ${listFor("effect")}`;
+}
+
+function normalizeCosmeticsTab(rawTab) {
+  const token = (rawTab || "").toString().trim().toLowerCase();
+  if (token === "decor" || token === "decoration" || token === "decorations") return "decor";
+  if (token === "nameplate" || token === "nameplates") return "nameplate";
+  if (token === "effect" || token === "effects" || token === "profilefx") return "effect";
+  return "decor";
+}
+
+function renderCosmeticsDialog() {
+  const account = getCurrentAccount();
+  if (!account || !ui.cosmeticsDialog?.open) return;
+  ensureAccountCosmetics(account);
+  const wallet = resolveShardWallet(account.id);
+  if (ui.cosmeticsBalance) ui.cosmeticsBalance.textContent = `${wallet.balance} shards`;
+  if (ui.cosmeticsProgress) {
+    ui.cosmeticsProgress.textContent = `Earned ${wallet.earned} · Spent ${wallet.spent} · Messages ${wallet.stats.sentMessages} · Reactions ${wallet.stats.reactionsGiven} · Polls ${wallet.stats.pollsCreated}`;
+  }
+  ui.cosmeticsTabs.forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.cosmeticsTab === cosmeticsTab);
+  });
+  if (!ui.cosmeticsGrid) return;
+  ui.cosmeticsGrid.innerHTML = "";
+  const items = COSMETIC_CATALOG.filter((item) => item.type === cosmeticsTab);
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "cosmetic-card";
+    const owned = accountOwnsCosmetic(account, item);
+    const equipped = isCosmeticEquipped(account, item);
+    const canAfford = wallet.balance >= item.cost;
+
+    const preview = document.createElement("div");
+    preview.className = "cosmetic-card__preview";
+    if (item.type === "decor") {
+      preview.classList.add("cosmetic-card__preview--decor");
+      preview.textContent = item.value;
+    } else if (item.type === "nameplate") {
+      preview.classList.add("cosmetic-card__preview--nameplate");
+      preview.style.backgroundImage = `url(${item.value})`;
+    } else {
+      preview.classList.add("cosmetic-card__preview--effect");
+      if (item.value === "flame") preview.classList.add("cosmetic-card__preview--effect-flame");
+      if (item.value === "ocean") preview.classList.add("cosmetic-card__preview--effect-ocean");
+    }
+    card.appendChild(preview);
+
+    const meta = document.createElement("div");
+    meta.className = "cosmetic-card__meta";
+    const name = document.createElement("strong");
+    name.textContent = item.name;
+    const info = document.createElement("small");
+    info.textContent = `${item.cost} shards · ${item.note}`;
+    meta.appendChild(name);
+    meta.appendChild(info);
+    card.appendChild(meta);
+
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "cosmetic-card__action";
+    if (equipped) {
+      action.textContent = "Equipped";
+      action.disabled = true;
+      action.classList.add("is-owned");
+    } else if (owned) {
+      action.textContent = "Equip";
+      action.classList.add("is-owned");
+      action.addEventListener("click", () => {
+        if (!equipCosmetic(account, item)) return;
+        saveState();
+        render();
+        renderCosmeticsDialog();
+      });
+    } else {
+      action.textContent = canAfford ? "Buy" : "Locked";
+      action.disabled = !canAfford;
+      action.addEventListener("click", () => {
+        const result = buyCosmetic(account, item);
+        if (!result.ok) {
+          showToast(result.reason, { tone: "error" });
+          return;
+        }
+        saveState();
+        render();
+        renderCosmeticsDialog();
+        showToast(`Purchased ${item.name}.`);
+      });
+    }
+    card.appendChild(action);
+    ui.cosmeticsGrid.appendChild(card);
+  });
+}
+
+function openCosmeticsDialog(tab = "decor") {
+  if (!ui.cosmeticsDialog) return;
+  cosmeticsTab = normalizeCosmeticsTab(tab);
+  if (!ui.cosmeticsDialog.open) ui.cosmeticsDialog.showModal();
+  renderCosmeticsDialog();
 }
 
 function renderQuestBadges(container, accountId) {
@@ -10630,6 +10904,7 @@ function render() {
   renderComposerMeta();
   updateDocumentTitle();
   if (mediaPickerOpen) renderMediaPicker();
+  if (ui.cosmeticsDialog?.open) renderCosmeticsDialog();
 }
 
 function updateDocumentTitle() {
@@ -10663,6 +10938,7 @@ function openProfileEditor() {
   const account = getCurrentAccount();
   const guild = getActiveGuild();
   if (!account) return;
+  ensureAccountCosmetics(account);
   ui.displayNameInput.value = account.displayName || account.username;
   ui.profileBioInput.value = account.bio || "";
   ui.profileStatusInput.value = account.customStatus || "";
@@ -10733,11 +11009,13 @@ function createOrSwitchAccount(usernameInput) {
   let account = getAccountByUsername(normalized);
   if (!account) {
     account = createAccount(normalized, usernameInput.trim().slice(0, 32));
+    ensureAccountCosmetics(account);
     state.accounts.push(account);
   } else {
     if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
     if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
     if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
+    ensureAccountCosmetics(account);
   }
 
   state.currentAccountId = account.id;
@@ -10951,6 +11229,14 @@ ui.messageForm.addEventListener("submit", (event) => {
       });
       saveState();
       renderMessages();
+      return;
+    }
+    if (dmCommand === "shop") {
+      openCosmeticsDialog(dmArg);
+      return;
+    }
+    if (dmCommand === "inventory") {
+      showToast(formatCosmeticInventorySummary(account.id));
       return;
     }
     if (dmCommand === "find") {
@@ -12487,6 +12773,11 @@ ui.selfEditProfile.addEventListener("click", () => {
   openProfileEditor();
 });
 
+ui.selfCosmeticsShop?.addEventListener("click", () => {
+  ui.selfMenuDialog.close();
+  openCosmeticsDialog("decor");
+});
+
 ui.selfQuestStats?.addEventListener("click", () => {
   const account = getCurrentAccount();
   if (!account) return;
@@ -12540,6 +12831,16 @@ ui.userSaveNoteBtn.addEventListener("click", () => {
 });
 
 ui.profileCancel.addEventListener("click", () => ui.profileDialog.close());
+ui.profileOpenCosmeticsBtn?.addEventListener("click", () => openCosmeticsDialog("decor"));
+
+ui.cosmeticsTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    cosmeticsTab = normalizeCosmeticsTab(tab.dataset.cosmeticsTab);
+    renderCosmeticsDialog();
+  });
+});
+
+ui.cosmeticsCloseBtn?.addEventListener("click", () => ui.cosmeticsDialog?.close());
 
 ui.profileAvatarUploadBtn.addEventListener("click", () => {
   ui.profileAvatarFileInput.click();
@@ -12703,6 +13004,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.userPopoutDialog,
   ui.accountSwitchDialog,
   ui.debugDialog,
+  ui.cosmeticsDialog,
   ui.swfViewerDialog
 ].forEach(wireDialogBackdropClose);
 

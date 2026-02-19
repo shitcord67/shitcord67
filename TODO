@@ -233,6 +233,7 @@
 - [done] Added `Copy -> Display Name`, `Avatar Decoration`, and `Nameplate URL` context actions
 - [done] Added `Show Quest Summary` action in message/member context menus
 - [done] Added `Alt+Y` shortcut to open profile editor
+- [done] Added cosmetics shop + inventory system (collectible decor/nameplates/effects, shard wallet from activity milestones, buy/equip flow).
 - Make in-line chat commands clickable in the pop-up. Also e.g. when bots display rich media visual things like playing cards, then those can also be defined as individually click able even when displayed in the same line
 - Create a bot which provides a shedding-type card game that users can start in chat and play together (each user gets displayed their own deck by leveraging advanced in-line commands
 - Learn a lot about Discord from resources like:
@@ -244,3 +245,5 @@ https://discord.js.org/docs/packages/discord.js/main
 - [done] Users can have custom avatar decorations
 - User can show a guild tag next to their name which opens up a small pop-up with a info profile of that guild
 - Implement some quests which give virtual currency or small icons on the profile. Maybe also some useful ones like "create an issue on the shirtcord67 repo" (with auto-validation)?
+- Seasonal cosmetics rotation and limited-time bundles (shop featured row + countdown).
+- Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
