@@ -11,6 +11,7 @@ const RELAY_TYPING_TTL_MS = 6500;
 const RELAY_TYPING_THROTTLE_MS = 2200;
 const XMPP_DEBUG_EVENT_LIMIT = 600;
 const XMPP_DEBUG_RAW_TRUNCATE = 1800;
+const XMPP_HOST_META_TIMEOUT_MS = 3600;
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -887,12 +888,14 @@ let pinsSearchTerm = "";
 let pinsSortMode = "latest";
 let loginLocalXmppProfiles = [];
 let loginLocalXmppProfilesLoadedOnce = false;
+let loginXmppDiscoveryToken = 0;
 let relaySocket = null;
 let relayEventSource = null;
 let xmppConnection = null;
 let xmppRuntimeReady = false;
 let xmppLoadingPromise = null;
 let xmppRuntimeLastError = "";
+const xmppWsDiscoveryCache = new Map();
 const xmppRoomByJid = new Map();
 const xmppRosterByJid = new Map();
 let relayStatus = "disconnected";
@@ -13808,6 +13811,107 @@ function renderChannelPermissionEditor() {
   if (ui.channelPermThreadInput) ui.channelPermThreadInput.value = getChannelPermissionOverride(channel, roleId, "createThreads");
 }
 
+function extractXmppAltConnectionUrls(links) {
+  if (!Array.isArray(links)) return [];
+  const urls = [];
+  links.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const rel = (entry.rel || "").toString().toLowerCase();
+    if (!rel.includes("xmpp:alt-connections") || !rel.includes("websocket")) return;
+    const href = normalizeXmppWsUrl(entry.href || entry.url || "");
+    if (!href) return;
+    if (!urls.includes(href)) urls.push(href);
+  });
+  return urls;
+}
+
+function parseXmppHostMetaXml(rawXml) {
+  const xml = (rawXml || "").toString().trim();
+  if (!xml) return [];
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, "application/xml");
+    if (!doc) return [];
+    const links = [...doc.getElementsByTagName("Link")].map((node) => ({
+      rel: node.getAttribute("rel") || "",
+      href: node.getAttribute("href") || ""
+    }));
+    return extractXmppAltConnectionUrls(links);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchWithTimeout(url, timeoutMs = XMPP_HOST_META_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), Math.max(1200, timeoutMs));
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
+async function discoverXmppWsViaHostMeta(jid, { force = false, timeoutMs = XMPP_HOST_META_TIMEOUT_MS } = {}) {
+  const cleanJid = normalizeXmppJid(jid);
+  const domain = xmppDomainFromJid(cleanJid);
+  if (!domain || !looksLikeCompleteJid(cleanJid)) return [];
+  const cacheKey = domain.toLowerCase();
+  const cacheEntry = xmppWsDiscoveryCache.get(cacheKey);
+  const now = Date.now();
+  if (!force && cacheEntry && (now - cacheEntry.ts) < (15 * 60 * 1000)) return cacheEntry.urls.slice();
+  const endpoints = [];
+  const sources = [
+    `https://${domain}/.well-known/host-meta.json`,
+    `https://${domain}/.well-known/host-meta`
+  ];
+  addXmppDebugEvent("runtime", "Discovering XMPP endpoints via host-meta", { domain, sources });
+  for (const url of sources) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const response = await fetchWithTimeout(url, timeoutMs);
+      if (!response.ok) {
+        addXmppDebugEvent("runtime", "Host-meta source returned non-OK status", { url, status: response.status });
+        continue;
+      }
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (contentType.includes("json")) {
+        // eslint-disable-next-line no-await-in-loop
+        const payload = await response.json();
+        const links = Array.isArray(payload?.links) ? payload.links : [];
+        extractXmppAltConnectionUrls(links).forEach((candidate) => {
+          if (!endpoints.includes(candidate)) endpoints.push(candidate);
+        });
+      } else {
+        // eslint-disable-next-line no-await-in-loop
+        const text = await response.text();
+        parseXmppHostMetaXml(text).forEach((candidate) => {
+          if (!endpoints.includes(candidate)) endpoints.push(candidate);
+        });
+      }
+      addXmppDebugEvent("runtime", "Host-meta source parsed", {
+        url,
+        contentType,
+        found: endpoints.length
+      });
+    } catch (error) {
+      addXmppDebugEvent("runtime", "Host-meta source failed", { url, error: String(error?.message || error) });
+    }
+  }
+  xmppWsDiscoveryCache.set(cacheKey, { ts: now, urls: endpoints.slice(0, 8) });
+  if (endpoints.length === 0) {
+    addXmppDebugEvent("runtime", "No WebSocket endpoints found in host-meta", { domain });
+  } else {
+    addXmppDebugEvent("runtime", "Discovered XMPP WebSocket endpoints", { domain, endpoints });
+  }
+  return endpoints.slice(0, 8);
+}
+
 function looksLikeCompleteJid(jid) {
   const raw = normalizeXmppJid(jid);
   if (!raw || raw.includes(" ")) return false;
@@ -13860,6 +13964,23 @@ function resolveXmppWsCandidates(jid, explicitWs = "") {
 function inferXmppWsUrlFromJid(jid) {
   const [first] = resolveXmppWsCandidates(jid, "");
   return first || "";
+}
+
+async function maybeDiscoverLoginXmppWsUrl(jid) {
+  const cleanJid = normalizeXmppJid(jid);
+  if (!looksLikeCompleteJid(cleanJid)) return;
+  const token = ++loginXmppDiscoveryToken;
+  const discovered = await discoverXmppWsViaHostMeta(cleanJid);
+  if (token !== loginXmppDiscoveryToken) return;
+  if (!ui.loginXmppServer) return;
+  const currentWs = normalizeXmppWsUrl(ui.loginXmppServer.value || "");
+  const first = discovered[0] || "";
+  if (!first) return;
+  if (!currentWs || ui.loginXmppServer.dataset.autofill === "1") {
+    ui.loginXmppServer.value = first;
+    ui.loginXmppServer.dataset.autofill = "1";
+    addXmppDebugEvent("connect", "Applied discovered login WebSocket endpoint", { jid: cleanJid, wsUrl: first });
+  }
 }
 
 function parseLoginIdentity(rawUsername, explicitJid = "") {
@@ -14124,10 +14245,11 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
   return new Promise((resolve) => {
     const cleanJid = normalizeXmppJid(jid);
     const cleanPass = normalizeXmppPassword(password);
-    const candidates = resolveXmppWsCandidates(cleanJid, wsUrl);
+    const explicitWs = normalizeXmppWsUrl(wsUrl);
+    let candidates = resolveXmppWsCandidates(cleanJid, explicitWs);
     addXmppDebugEvent("connect", "Login validation started", {
       jid: cleanJid,
-      explicitWs: normalizeXmppWsUrl(wsUrl),
+      explicitWs,
       candidates
     });
     if (!cleanJid || !cleanPass || candidates.length === 0) {
@@ -14194,6 +14316,24 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
         addXmppDebugEvent("error", "Login validation could not load runtime", { error: xmppRuntimeLastError || "" });
         resolve({ ok: false, error: `Failed to load XMPP runtime. ${xmppRuntimeLastError || ""}`.trim(), wsUrl: candidates[0] || "" });
         return;
+      }
+      try {
+        const discovered = await discoverXmppWsViaHostMeta(cleanJid);
+        if (discovered.length > 0) {
+          const merged = [];
+          const push = (value) => {
+            const normalized = normalizeXmppWsUrl(value);
+            if (!normalized) return;
+            if (!merged.includes(normalized)) merged.push(normalized);
+          };
+          push(explicitWs);
+          discovered.forEach((entry) => push(entry));
+          candidates.forEach((entry) => push(entry));
+          candidates = merged;
+          addXmppDebugEvent("connect", "Merged host-meta endpoints into candidate list", { candidates });
+        }
+      } catch (error) {
+        addXmppDebugEvent("runtime", "Host-meta discovery failed during login validation", { error: String(error?.message || error) });
       }
       let sawAuthFail = false;
       for (const candidateWs of candidates) {
@@ -14487,7 +14627,10 @@ ui.loginForm.addEventListener("submit", async (event) => {
 
 ui.loginUsername?.addEventListener("input", () => {
   const raw = (ui.loginUsername.value || "").trim();
-  if (!looksLikeCompleteJid(raw)) return;
+  if (!looksLikeCompleteJid(raw)) {
+    loginXmppDiscoveryToken += 1;
+    return;
+  }
   if (ui.loginXmppServer && (!ui.loginXmppServer.value.trim() || ui.loginXmppServer.dataset.autofill === "1")) {
     const inferred = inferXmppWsUrlFromJid(raw);
     if (inferred) {
@@ -14495,6 +14638,7 @@ ui.loginUsername?.addEventListener("input", () => {
       ui.loginXmppServer.dataset.autofill = "1";
     }
   }
+  void maybeDiscoverLoginXmppWsUrl(raw);
 });
 
 ui.loginLocalProfileSelect?.addEventListener("change", () => {

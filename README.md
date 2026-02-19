@@ -219,7 +219,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - If `.xmpp.local.json` is accessible to the web app, login shows a local profile dropdown to prefill JID/password/server.
 - When XMPP login credentials are provided, login now validates auth/connection before entering the app and keeps user on login on failure.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
-- XMPP WebSocket discovery uses known provider overrides plus common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.), because endpoints are not universally on one hostname pattern.
+- XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
 - Added a dedicated `XMPP Console` (Advanced settings) with runtime load tracing, endpoint/auth attempt timeline, raw XML RX/TX, stanza/iq logs, filter/search, pause, and copy.
 
 ## Files
