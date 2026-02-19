@@ -90,6 +90,26 @@ wss.on("connection", (ws) => {
         }
       };
       broadcastToRoom(room, out);
+      return;
+    }
+
+    if (packet.type === "typing") {
+      const room = (packet.room || meta.room || "").toString().trim().slice(0, 80);
+      if (!room) return;
+      const out = {
+        type: "typing",
+        room,
+        clientId: (packet.clientId || meta.clientId || "").toString().trim().slice(0, 64),
+        username: (packet.username || meta.username || "guest").toString().slice(0, 32),
+        typing: {
+          state: (packet.typing?.state || "composing").toString().slice(0, 24),
+          active: packet.typing?.active !== false,
+          ts: packet.typing?.ts || new Date().toISOString(),
+          authorUsername: (packet.typing?.authorUsername || packet.username || meta.username || "guest").toString().slice(0, 24),
+          authorDisplay: (packet.typing?.authorDisplay || "").toString().slice(0, 32)
+        }
+      };
+      broadcastToRoom(room, out, ws);
     }
   });
 

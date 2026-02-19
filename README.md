@@ -181,6 +181,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Voice/stage call surface now includes direct channel-link copy action.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
 - Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
+- Added Discord-like live typing indicators across relay transports (`ws`, `http/sse`, `xmpp`).
 - Chat header now shows live transport status badge (adapter + connection state), Discord-style.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
@@ -242,6 +243,7 @@ XMPP mode (experimental):
 2. Fill `JID`, `Password`, `XMPP WebSocket URL`, and `XMPP MUC service` in Advanced settings
 3. Save and connect (`Connect Relay` or `/relay connect xmpp`)
 4. Messages in active channels/DMs are mapped to MUC rooms and sent/received via XMPP groupchat
+- Includes XEP-0085 chat states (`composing`/`paused`) mapped to typing indicators in composer meta.
 - Verified working provider example: `xmpp.jp` with endpoint `wss://api.xmpp.jp/ws` and MUC service `conference.xmpp.jp`
 
 ## Local XMPP Secrets + Direct Send Script

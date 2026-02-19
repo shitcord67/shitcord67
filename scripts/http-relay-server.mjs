@@ -78,6 +78,25 @@ const server = http.createServer(async (req, res) => {
     try {
       const packet = await readJson(req);
       const room = (packet.room || "lobby:general").toString().slice(0, 80);
+      if ((packet.type || "chat").toString() === "typing") {
+        const outTyping = {
+          type: "typing",
+          room,
+          clientId: (packet.clientId || "").toString().slice(0, 64),
+          username: (packet.username || "").toString().slice(0, 32),
+          typing: {
+            state: (packet.typing?.state || "composing").toString().slice(0, 24),
+            active: packet.typing?.active !== false,
+            ts: packet.typing?.ts || new Date().toISOString(),
+            authorUsername: (packet.typing?.authorUsername || packet.username || "guest").toString().slice(0, 24),
+            authorDisplay: (packet.typing?.authorDisplay || "").toString().slice(0, 32)
+          }
+        };
+        broadcast(room, outTyping);
+        res.writeHead(204, { "access-control-allow-origin": "*" });
+        res.end();
+        return;
+      }
       const out = {
         type: "chat",
         room,
