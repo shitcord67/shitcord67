@@ -884,6 +884,7 @@ let relayEventSource = null;
 let xmppConnection = null;
 let xmppRuntimeReady = false;
 let xmppLoadingPromise = null;
+let xmppRuntimeLastError = "";
 const xmppRoomByJid = new Map();
 const xmppRosterByJid = new Map();
 let relayStatus = "disconnected";
@@ -3439,8 +3440,12 @@ function resolveXmppServiceUrl(prefs = getPreferences()) {
 async function loadXmppLibrary() {
   if (xmppRuntimeReady && globalThis.Strophe && globalThis.$msg && globalThis.$pres) return true;
   if (xmppLoadingPromise) return xmppLoadingPromise;
+  xmppRuntimeLastError = "";
   xmppLoadingPromise = (async () => {
+    const errors = [];
     const urls = [
+      "./node_modules/strophe.js/dist/strophe.min.js",
+      "node_modules/strophe.js/dist/strophe.min.js",
       "https://cdn.jsdelivr.net/npm/strophe.js@1.6.2/dist/strophe.min.js",
       "https://unpkg.com/strophe.js@1.6.2/dist/strophe.min.js"
     ];
@@ -3456,13 +3461,15 @@ async function loadXmppLibrary() {
         });
         if (globalThis.Strophe && globalThis.$msg && globalThis.$pres) {
           xmppRuntimeReady = true;
+          xmppRuntimeLastError = "";
           xmppLoadingPromise = null;
           return true;
         }
-      } catch {
-        // Try next CDN URL.
+      } catch (error) {
+        errors.push(error?.message || String(error) || `failed: ${url}`);
       }
     }
+    xmppRuntimeLastError = errors.length > 0 ? errors.join(" | ") : "Unknown XMPP runtime load failure.";
     xmppLoadingPromise = null;
     return false;
   })();
@@ -3659,7 +3666,7 @@ function connectRelaySocket({ force = false } = {}) {
     setRelayStatus("connecting");
     loadXmppLibrary().then((ok) => {
       if (!ok) {
-        setRelayStatus("error", "Failed to load Strophe runtime.");
+        setRelayStatus("error", `Failed to load Strophe runtime. ${xmppRuntimeLastError || ""}`.trim());
         scheduleRelayReconnect();
         return;
       }
@@ -13965,7 +13972,7 @@ function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000 
     });
     loadXmppLibrary().then(async (ready) => {
       if (!ready || !globalThis.Strophe) {
-        resolve({ ok: false, error: "Failed to load XMPP runtime.", wsUrl: candidates[0] || "" });
+        resolve({ ok: false, error: `Failed to load XMPP runtime. ${xmppRuntimeLastError || ""}`.trim(), wsUrl: candidates[0] || "" });
         return;
       }
       let sawAuthFail = false;
