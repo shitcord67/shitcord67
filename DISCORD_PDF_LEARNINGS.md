@@ -74,6 +74,7 @@ This file is intended as persistent context for future LLM runs.
 9. Draft visibility improved: draft badges in channel/DM lists and lightweight draft counts in section headers.
 10. Keyboard/search flow improved with `Ctrl/Cmd+K` quick filter focus and `Ctrl/Cmd+Enter` send.
 11. Sidebar power-user flows improved with section-header context menus and channel reorder actions.
+12. Background-awareness parity improved with unread/mention count reflected in page title.
 
 ## Operational Guidance
 
