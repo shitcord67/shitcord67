@@ -72,6 +72,7 @@
           </h2>
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
+            <button id="openFindBtn" class="chat-topic-edit" title="Find in conversation">Find</button>
             <button id="markChannelReadBtn" class="chat-topic-edit" title="Mark channel read">Mark Read</button>
             <button id="nextUnreadBtn" class="chat-topic-edit" title="Jump to next unread channel">Next Unread</button>
             <button id="openChannelSettingsBtn" class="chat-topic-edit" title="Channel settings">Channel</button>
@@ -119,7 +120,7 @@
               <button type="button" class="media-picker__tab" data-media-tab="html">HTML</button>
             </nav>
             <div class="media-picker__header">
-              <input id="mediaSearchInput" type="text" maxlength="80" placeholder="Search media" />
+              <input id="mediaSearchInput" type="text" maxlength="80" placeholder="Search media" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
               <div class="media-picker__actions">
                 <button id="addMediaUrlBtn" type="button">Add URL</button>
                 <button id="addMediaFileBtn" type="button">Add File</button>
@@ -143,7 +144,7 @@
             <button id="openEmojiPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Emoji picker">🙂</button>
             <button id="quickFileAttachBtn" type="button" class="message-form__media-btn" title="Attach file from computer">📎</button>
             <button id="toggleSwfAudioBtn" type="button" class="message-form__media-btn" title="Toggle SWF audio">🔇</button>
-            <textarea id="messageInput" rows="1" maxlength="400" placeholder="Message #general" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+            <textarea id="messageInput" rows="1" maxlength="400" placeholder="Message #general" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
             <button type="submit">Send</button>
           </form>
           <div class="composer-meta">
@@ -493,6 +494,8 @@
         <div><kbd>Alt+K</kbd> Focus channel/DM search</div>
         <div><kbd>Ctrl+K</kbd> Quick switcher (channels/DMs)</div>
         <div><kbd>Ctrl+F</kbd> Find in current conversation</div>
+        <div><kbd>Ctrl+G / Shift+Ctrl+G</kbd> Find next / previous match</div>
+        <div><kbd>F3 / Shift+F3</kbd> Find next / previous match</div>
         <div><kbd>Ctrl+Shift+F</kbd> Focus channel/DM filter</div>
         <div><kbd>Ctrl+Shift+U</kbd> Focus member filter</div>
         <div><kbd>Ctrl+Shift+L</kbd> Focus message composer</div>
@@ -531,7 +534,7 @@
     <form id="findForm" class="modal-form" method="dialog">
       <h3>Find in Conversation</h3>
       <label for="findInput">Search text</label>
-      <input id="findInput" type="text" maxlength="120" placeholder="Find messages..." autocomplete="off" />
+      <input id="findInput" type="text" maxlength="120" placeholder="Find messages..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
       <div id="findMeta" class="find-meta">Type to search messages in this conversation.</div>
       <div id="findList" class="quick-switch-list"></div>
       <div class="modal-actions">
@@ -546,7 +549,7 @@
     <form id="quickSwitchForm" class="modal-form" method="dialog">
       <h3>Quick Switcher</h3>
       <label for="quickSwitchInput">Jump to channel or DM</label>
-      <input id="quickSwitchInput" type="text" maxlength="80" placeholder="Search channels, guilds, or DMs" autocomplete="off" />
+      <input id="quickSwitchInput" type="text" maxlength="80" placeholder="Search channels, guilds, or DMs" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
       <div id="quickSwitchList" class="quick-switch-list"></div>
       <div class="modal-actions">
         <button type="button" id="quickSwitchCancel">Cancel</button>
