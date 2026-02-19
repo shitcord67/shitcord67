@@ -974,6 +974,17 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   text-decoration: underline;
 }
 
+.message-user.has-nameplate,
+.member-meta__name.has-nameplate,
+.dock-meta strong.has-nameplate,
+.profile-preview__body h4.has-nameplate {
+  background-image: var(--nameplate-image);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 0.58em;
+  padding-bottom: 0.08rem;
+}
+
 .message-time {
   color: #949ba4;
   font-size: 0.75rem;
@@ -2425,6 +2436,22 @@ body[data-compact-members="on"] .member-item {
   position: relative;
 }
 
+.avatar-decoration {
+  position: absolute;
+  right: -6px;
+  top: -7px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid #1f2124;
+  background: rgba(9, 10, 13, 0.92);
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .presence-dot {
   width: 10px;
   height: 10px;
@@ -2608,6 +2635,24 @@ body[data-compact-members="on"] .member-item {
   width: min(340px, calc(100vw - 2rem));
 }
 
+.profile-popout.profile-effect-aurora .profile-preview__banner {
+  background-image: linear-gradient(120deg, #35c7a4, #3f71ff, #8f56f2);
+  background-size: 220% 220%;
+  animation: profileFxShift 5.5s ease-in-out infinite;
+}
+
+.profile-popout.profile-effect-flame .profile-preview__banner {
+  background-image: linear-gradient(120deg, #ff8a00, #ff3f5f, #a62eff);
+  background-size: 220% 220%;
+  animation: profileFxShift 4.6s ease-in-out infinite;
+}
+
+.profile-popout.profile-effect-ocean .profile-preview__banner {
+  background-image: linear-gradient(120deg, #1da8ff, #2ed6c4, #2d5bff);
+  background-size: 220% 220%;
+  animation: profileFxShift 6.2s ease-in-out infinite;
+}
+
 .profile-preview__banner {
   height: 90px;
   background: linear-gradient(120deg, #5160f7, #2b45d4);
@@ -2693,6 +2738,57 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.72rem;
   padding: 0.16rem 0.45rem;
   color: #e3e6eb;
+}
+
+.guild-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  margin-left: 0.3rem;
+  padding: 0.02rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(88, 101, 242, 0.5);
+  background: rgba(88, 101, 242, 0.2);
+  color: #dfe6ff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.guild-tag-chip:hover {
+  background: rgba(88, 101, 242, 0.34);
+}
+
+.quest-badges {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.quest-badge {
+  border-radius: 999px;
+  border: 1px solid #56607a;
+  background: rgba(70, 90, 138, 0.28);
+  color: #e3e8f9;
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 0.11rem 0.42rem;
+}
+
+@keyframes profileFxShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .pins-list {
