@@ -196,6 +196,57 @@ button {
   margin-bottom: 0;
 }
 
+.login-xmpp-progress {
+  margin: 0.1rem 0 0.8rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #3d434e;
+  border-radius: 10px;
+  background: #22252b;
+}
+
+.login-xmpp-progress__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.login-xmpp-progress__row strong {
+  color: #f0f4fb;
+}
+
+.login-xmpp-progress__row span {
+  color: #b7c8ff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.login-xmpp-progress__detail {
+  margin-top: 0.35rem;
+  font-size: 0.77rem;
+  color: #9da6b5;
+  line-height: 1.35;
+}
+
+.login-xmpp-progress[data-state="ok"] {
+  border-color: #2f7450;
+  background: #1f2a24;
+}
+
+.login-xmpp-progress[data-state="ok"] .login-xmpp-progress__row span {
+  color: #79d49f;
+}
+
+.login-xmpp-progress[data-state="error"] {
+  border-color: #8d3b3b;
+  background: #2e1f23;
+}
+
+.login-xmpp-progress[data-state="error"] .login-xmpp-progress__row span {
+  color: #ff8f8f;
+}
+
 #chatScreen {
   display: none;
   height: 100vh;

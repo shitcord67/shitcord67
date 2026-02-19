@@ -37,6 +37,13 @@
             <button id="loginProvidersBtn" type="button">Provider Directory</button>
             <button id="loginRegisterBtn" type="button">Register XMPP Account</button>
           </div>
+          <div id="loginXmppProgress" class="login-xmpp-progress" hidden aria-live="polite">
+            <div class="login-xmpp-progress__row">
+              <strong id="loginXmppProgressStatus">Checking sign-in…</strong>
+              <span id="loginXmppProgressTimer">0:00</span>
+            </div>
+            <div id="loginXmppProgressDetail" class="login-xmpp-progress__detail">Please wait.</div>
+          </div>
           <button type="submit">Log In</button>
         </form>
       </div>
