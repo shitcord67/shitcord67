@@ -73,6 +73,7 @@ This file is intended as persistent context for future LLM runs.
 8. Composer switched to textarea rhythm (`Enter` send, `Shift+Enter` newline), closer to desktop Discord typing.
 9. Draft visibility improved: draft badges in channel/DM lists and lightweight draft counts in section headers.
 10. Keyboard/search flow improved with `Ctrl/Cmd+K` quick filter focus and `Ctrl/Cmd+Enter` send.
+11. Sidebar power-user flows improved with section-header context menus and channel reorder actions.
 
 ## Operational Guidance
 

@@ -36,6 +36,9 @@ const SLASH_COMMANDS = [
   { name: "drafts", args: "", description: "List current channel/DM drafts." },
   { name: "cleardrafts", args: "[all]", description: "Clear draft for this conversation or all drafts." },
   { name: "focus", args: "[search|composer]", description: "Focus channel/DM search or composer." },
+  { name: "newdm", args: "<username>", description: "Open or create a DM with a user." },
+  { name: "closedm", args: "", description: "Close current DM thread." },
+  { name: "leaveguild", args: "", description: "Leave the active guild (if more than one)." },
   { name: "topic", args: "<topic>", description: "Set the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
@@ -1325,6 +1328,17 @@ function navigateGuildChannelByOffset(delta) {
   return true;
 }
 
+function moveActiveChannelByOffset(delta) {
+  const guild = getActiveGuild();
+  const channelId = state.activeChannelId;
+  if (!guild || !channelId || !canCurrentUser("manageChannels")) return false;
+  const moved = moveChannelByOffset(guild, channelId, delta);
+  if (!moved) return false;
+  saveState();
+  renderChannels();
+  return true;
+}
+
 function listUnreadGuildChannels(guild, account) {
   if (!guild || !account) return [];
   return guild.channels
@@ -1351,6 +1365,33 @@ function jumpToUnreadGuildChannel(direction = 1) {
   saveState();
   render();
   return true;
+}
+
+function moveChannelByOffset(guild, channelId, delta) {
+  if (!guild || !Array.isArray(guild.channels) || !channelId || !Number.isFinite(delta) || delta === 0) return false;
+  const from = guild.channels.findIndex((entry) => entry.id === channelId);
+  if (from < 0) return false;
+  const to = Math.max(0, Math.min(guild.channels.length - 1, from + (delta > 0 ? 1 : -1)));
+  if (to === from) return false;
+  const [entry] = guild.channels.splice(from, 1);
+  guild.channels.splice(to, 0, entry);
+  return true;
+}
+
+function duplicateChannelInGuild(guild, channel) {
+  if (!guild || !channel) return null;
+  const clone = {
+    id: createId(),
+    name: sanitizeChannelName(`${channel.name || "channel"}-copy`, "channel-copy"),
+    type: channel.type || "text",
+    topic: (channel.topic || "").toString(),
+    readState: state.currentAccountId ? { [state.currentAccountId]: new Date().toISOString() } : {},
+    slowmodeSec: normalizeSlowmodeSeconds(channel.slowmodeSec || 0),
+    slowmodeState: {},
+    messages: []
+  };
+  guild.channels.push(clone);
+  return clone;
 }
 
 async function copyText(value) {
@@ -3418,6 +3459,65 @@ function handleSlashCommand(rawText, channel, account) {
       return true;
     }
     addSystemMessage(channel, "Usage: /focus [search|composer]");
+    return true;
+  }
+
+  if (command === "newdm") {
+    const targetName = normalizeUsername(arg);
+    if (!targetName) {
+      addSystemMessage(channel, "Usage: /newdm <username>");
+      return true;
+    }
+    let target = getAccountByUsername(targetName);
+    if (!target) {
+      target = createAccount(targetName, targetName);
+      state.accounts.push(target);
+    }
+    if (target.id === account.id) {
+      addSystemMessage(channel, "Cannot open DM with yourself.");
+      return true;
+    }
+    openDmWithAccount(target);
+    return true;
+  }
+
+  if (command === "closedm") {
+    if (getViewMode() !== "dm" || !state.activeDmId) {
+      addSystemMessage(channel, "No active DM to close.");
+      return true;
+    }
+    const closingId = state.activeDmId;
+    state.dmThreads = state.dmThreads.filter((entry) => entry.id !== closingId);
+    state.activeDmId = null;
+    saveState();
+    render();
+    return true;
+  }
+
+  if (command === "leaveguild") {
+    if (getViewMode() !== "guild") {
+      addSystemMessage(channel, "Switch to a guild channel to use /leaveguild.");
+      return true;
+    }
+    const guild = getActiveGuild();
+    if (!guild || state.guilds.length <= 1) {
+      addSystemMessage(channel, "You cannot leave the last remaining guild.");
+      return true;
+    }
+    const accountId = account.id;
+    guild.memberIds = (guild.memberIds || []).filter((id) => id !== accountId);
+    if (guild.memberRoles && typeof guild.memberRoles === "object") delete guild.memberRoles[accountId];
+    if (guild.memberIds.length === 0) {
+      removeGuildFromFolders(guild.id);
+      state.guilds = state.guilds.filter((entry) => entry.id !== guild.id);
+    }
+    const nextGuild = state.guilds.find((entry) => entry.id !== guild.id) || state.guilds[0] || null;
+    state.activeGuildId = nextGuild?.id || null;
+    state.activeChannelId = nextGuild?.channels?.[0]?.id || null;
+    state.viewMode = "guild";
+    state.activeDmId = null;
+    saveState();
+    render();
     return true;
   }
 
@@ -6818,6 +6918,35 @@ function renderChannels() {
           }
         },
         {
+          label: "Duplicate Channel",
+          disabled: !canCurrentUser("manageChannels"),
+          action: () => {
+            const clone = duplicateChannelInGuild(server, channel);
+            if (!clone) return;
+            state.activeChannelId = clone.id;
+            saveState();
+            render();
+          }
+        },
+        {
+          label: "Move Up",
+          disabled: !canCurrentUser("manageChannels") || server.channels[0]?.id === channel.id,
+          action: () => {
+            if (!moveChannelByOffset(server, channel.id, -1)) return;
+            saveState();
+            renderChannels();
+          }
+        },
+        {
+          label: "Move Down",
+          disabled: !canCurrentUser("manageChannels") || server.channels[server.channels.length - 1]?.id === channel.id,
+          action: () => {
+            if (!moveChannelByOffset(server, channel.id, 1)) return;
+            saveState();
+            renderChannels();
+          }
+        },
+        {
           label: "Delete Channel",
           danger: true,
           disabled: !canCurrentUser("manageChannels") || server.channels.length <= 1,
@@ -8565,6 +8694,43 @@ ui.messageForm.addEventListener("submit", (event) => {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
   if (!conversation || !account || (!text && !composerPendingAttachment)) return;
+  if (conversation.type === "dm" && text.startsWith("/")) {
+    const [rawCommand, ...rawRest] = text.slice(1).split(" ");
+    const dmCommand = rawCommand.toLowerCase();
+    const dmArg = rawRest.join(" ").trim();
+    if (dmCommand === "closedm") {
+      const closingId = state.activeDmId;
+      if (closingId) {
+        state.dmThreads = state.dmThreads.filter((entry) => entry.id !== closingId);
+        state.activeDmId = null;
+        ui.messageInput.value = "";
+        resizeComposerInput();
+        saveState();
+        render();
+      }
+      return;
+    }
+    if (dmCommand === "newdm") {
+      const targetName = normalizeUsername(dmArg);
+      if (!targetName) {
+        showToast("Usage: /newdm <username>", { tone: "error" });
+        return;
+      }
+      let target = getAccountByUsername(targetName);
+      if (!target) {
+        target = createAccount(targetName, targetName);
+        state.accounts.push(target);
+      }
+      if (target.id === account.id) {
+        showToast("Cannot open DM with yourself.", { tone: "error" });
+        return;
+      }
+      openDmWithAccount(target);
+      ui.messageInput.value = "";
+      resizeComposerInput();
+      return;
+    }
+  }
   if (conversation.type === "channel" && !canCurrentUserPostInChannel(conversation.channel, account)) {
     showToast("You do not have permission to send messages in this channel.", { tone: "error" });
     renderComposerMeta();
@@ -8895,9 +9061,56 @@ ui.dmSearchInput.addEventListener("keydown", (event) => {
 ui.toggleDmSectionBtn?.addEventListener("click", () => {
   toggleDmSectionCollapsed();
 });
+ui.toggleDmSectionBtn?.addEventListener("contextmenu", (event) => {
+  const current = getCurrentAccount();
+  const unread = getTotalDmUnreadStats(current);
+  openContextMenu(event, [
+    {
+      label: "New DM",
+      action: () => ui.newDmBtn.click()
+    },
+    {
+      label: "Mark All DMs Read",
+      disabled: !current || unread.unread === 0,
+      action: () => {
+        if (!current) return;
+        let changed = false;
+        state.dmThreads.forEach((thread) => {
+          if (!Array.isArray(thread.participantIds) || !thread.participantIds.includes(current.id)) return;
+          if (markDmRead(thread, current.id)) changed = true;
+        });
+        if (!changed) return;
+        saveState();
+        render();
+      }
+    }
+  ]);
+});
 
 ui.toggleGuildSectionBtn?.addEventListener("click", () => {
   toggleGuildSectionCollapsed();
+});
+ui.toggleGuildSectionBtn?.addEventListener("contextmenu", (event) => {
+  const current = getCurrentAccount();
+  const guild = getActiveGuild();
+  openContextMenu(event, [
+    {
+      label: "Create Channel",
+      disabled: !canCurrentUser("manageChannels"),
+      action: () => ui.createChannelBtn.click()
+    },
+    {
+      label: "Mark Guild Read",
+      disabled: !guild || !current || getGuildUnreadStats(guild, current).unread === 0,
+      action: () => {
+        if (!guild || !current) return;
+        if (!markGuildRead(guild, current.id)) return;
+        saveState();
+        renderServers();
+        renderChannels();
+      }
+    }
+  ]);
 });
 
 ui.messageInput.addEventListener("keydown", (event) => {
@@ -8918,6 +9131,20 @@ ui.messageInput.addEventListener("keydown", (event) => {
   }
 
   if (event.ctrlKey && event.shiftKey) {
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      ui.messageInput.value = "";
+      clearComposerPendingAttachment();
+      replyTarget = null;
+      renderReplyComposer();
+      setComposerDraft(composerDraftConversationId, "");
+      queueComposerDraftSave();
+      resizeComposerInput();
+      renderComposerMeta();
+      renderChannels();
+      showToast("Composer cleared.");
+      return;
+    }
     if (event.key.toLowerCase() === "o") {
       event.preventDefault();
       const start = ui.messageInput.selectionStart ?? 0;
@@ -9026,7 +9253,18 @@ ui.messageInput.addEventListener("keydown", (event) => {
     if (suggestion.type === "slash") {
       const selected = suggestion.items[slashSelectionIndex] || suggestion.items[0];
       const raw = ui.messageInput.value.trim();
+      if (
+        event.key === "Enter"
+        && /^\/[a-z0-9-]+$/i.test(raw)
+        && SLASH_COMMANDS.some((entry) => `/${entry.name}` === raw.toLowerCase())
+      ) {
+        event.preventDefault();
+        ui.messageForm.requestSubmit();
+        return;
+      }
       if (event.key === "Enter" && selected && raw === `/${selected.name}`) {
+        event.preventDefault();
+        ui.messageForm.requestSubmit();
         return;
       }
       event.preventDefault();
@@ -9979,6 +10217,10 @@ document.addEventListener("drop", (event) => {
 document.addEventListener("contextmenu", (event) => {
   if (event.defaultPrevented) return;
   const target = event.target;
+  if (target instanceof HTMLElement && target.closest("#contextMenu, .context-submenu")) {
+    event.preventDefault();
+    return;
+  }
   if (target instanceof HTMLElement) {
     const isEditable = target.closest("input, textarea, [contenteditable='true']");
     const insideApp = Boolean(target.closest("#app"));
@@ -10141,6 +10383,15 @@ document.addEventListener("keydown", (event) => {
       toggleGuildSectionCollapsed();
       return;
     }
+  }
+  if (event.altKey && event.ctrlKey && !event.metaKey && !event.shiftKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    if (getViewMode() !== "guild") return;
+    event.preventDefault();
+    const moved = moveActiveChannelByOffset(event.key === "ArrowUp" ? -1 : 1);
+    if (!moved) showToast("Cannot move channel further.");
+    return;
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
     if (!state.currentAccountId) return;
