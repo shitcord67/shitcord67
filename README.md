@@ -102,6 +102,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - New conversation admin commands: `/newdm <username>`, `/closedm`, `/leaveguild`.
 - Additional channel/reading commands: `/newchannel <name> [type]`, `/dupchannel`, `/movechannel <up|down|top|bottom>`, `/markdmread`, `/markallread`.
 - Unread command: `/markunread [message-id-prefix|last]` marks current conversation unread from a specific message.
+- Identity/engagement commands: `/quests` shows activity badges and `/profilefx <none|aurora|flame|ocean>` sets profile effects.
 - Copy/notification commands: `/copylink`, `/copyid`, `/copytopic`, `/notify [status|all|mentions|mute]`.
 - Channel/DM rows now show `Draft` badges for unsent composer drafts.
 - Right-click DM home icon allows `Mark All DMs Read`.
@@ -161,6 +162,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
+- Profile identity extras: avatar decoration emoji, guild tag, profile effect, and optional nameplate SVG/URL.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
 - Right-click context menus for guilds, channels, messages, and members (quick actions).

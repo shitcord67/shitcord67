@@ -212,6 +212,13 @@
 - [done] Hardened anti-autocomplete attributes for login/search/find/quick-switch/composer inputs at runtime
 - [done] `/help` now supports optional text filter (`/help find`) for faster command discovery
 - [done] DM slash command parity expanded for `/find`, `/findnext`, `/findprev`, `/markunread`
+- [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
+- [done] Avatar decorations now render on dock/member/message/popout avatars
+- [done] Guild tag chips now render across name surfaces with click-to-inspect behavior
+- [done] Nameplate SVG background styling now renders on member/message/popout names
+- [done] Animated profile effects (`aurora`, `flame`, `ocean`) now apply on profile popouts
+- [done] Added lightweight quest badges based on account activity (messages/reactions/polls)
+- [done] Added `/quests` and `/profilefx` slash commands (plus DM parity for both)
 - Make in-line chat commands clickable in the pop-up. Also e.g. when bots display rich media visual things like playing cards, then those can also be defined as individually click able even when displayed in the same line
 - Create a bot which provides a shedding-type card game that users can start in chat and play together (each user gets displayed their own deck by leveraging advanced in-line commands
 - Learn a lot about Discord from resources like:

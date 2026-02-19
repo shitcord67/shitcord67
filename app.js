@@ -21,6 +21,8 @@ const SLASH_COMMANDS = [
   { name: "note", args: "<text>", description: "Send a collaborative message editable by anyone in the channel." },
   { name: "nick", args: "<nickname>", description: "Set your nickname in the active guild." },
   { name: "status", args: "<text>", description: "Set your custom status message." },
+  { name: "quests", args: "", description: "Show your earned quest badges and activity stats." },
+  { name: "profilefx", args: "<none|aurora|flame|ocean>", description: "Set your profile effect quickly." },
   { name: "mediaprivacy", args: "[status|safe|off]", description: "Control two-click external media loading privacy mode." },
   { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
   { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
@@ -363,7 +365,11 @@ function createAccount(username, displayName = "") {
     presence: "online",
     customStatus: "",
     customStatusEmoji: "",
-    customStatusExpiresAt: null
+    customStatusExpiresAt: null,
+    avatarDecoration: "",
+    guildTag: "",
+    profileEffect: "none",
+    profileNameplateSvg: ""
   };
 }
 
@@ -377,7 +383,11 @@ function migrateState(raw) {
       ...account,
       guildProfiles: account && typeof account.guildProfiles === "object" ? { ...account.guildProfiles } : {},
       customStatusEmoji: (account?.customStatusEmoji || "").toString().slice(0, 4),
-      customStatusExpiresAt: account?.customStatusExpiresAt || null
+      customStatusExpiresAt: account?.customStatusExpiresAt || null,
+      avatarDecoration: (account?.avatarDecoration || "").toString().slice(0, 4),
+      guildTag: (account?.guildTag || "").toString().trim().slice(0, 8),
+      profileEffect: normalizeProfileEffect(account?.profileEffect),
+      profileNameplateSvg: (account?.profileNameplateSvg || "").toString().slice(0, 280)
     }));
     raw.savedSwfs = normalizeSavedSwfs(raw.savedSwfs);
     raw.guilds = sourceGuilds.map((guild) => {
@@ -495,6 +505,10 @@ function migrateState(raw) {
       account.bio = (raw.profile.bio || "").toString();
       account.banner = (raw.profile.banner || "").toString();
       account.avatarColor = (raw.profile.avatarColor || "#57f287").toString();
+      account.avatarDecoration = (raw.profile.avatarDecoration || "").toString().slice(0, 4);
+      account.guildTag = (raw.profile.guildTag || "").toString().trim().slice(0, 8);
+      account.profileEffect = normalizeProfileEffect(raw.profile.profileEffect);
+      account.profileNameplateSvg = (raw.profile.profileNameplateSvg || "").toString().slice(0, 280);
     }
     migrated.accounts = [account];
     migrated.currentAccountId = account.id;
@@ -777,6 +791,10 @@ const ui = {
   profileBioInput: document.getElementById("profileBioInput"),
   profileStatusInput: document.getElementById("profileStatusInput"),
   profileStatusEmojiInput: document.getElementById("profileStatusEmojiInput"),
+  profileAvatarDecorationInput: document.getElementById("profileAvatarDecorationInput"),
+  profileGuildTagInput: document.getElementById("profileGuildTagInput"),
+  profileEffectInput: document.getElementById("profileEffectInput"),
+  profileNameplateSvgInput: document.getElementById("profileNameplateSvgInput"),
   profileStatusExpiryInput: document.getElementById("profileStatusExpiryInput"),
   profileGuildNicknameInput: document.getElementById("profileGuildNicknameInput"),
   profileGuildAvatarInput: document.getElementById("profileGuildAvatarInput"),
@@ -2260,6 +2278,11 @@ function normalizeMediaTrustRules(value) {
     .slice(0, 120);
 }
 
+function normalizeProfileEffect(value) {
+  const effect = (value || "").toString().toLowerCase();
+  return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
+}
+
 function normalizeRecentEmojis(value) {
   if (!Array.isArray(value)) return [];
   const seen = new Set();
@@ -2555,6 +2578,37 @@ function displayStatus(account, guildId = null) {
   return presenceLabel(account.presence);
 }
 
+function accountDecorationEmoji(account) {
+  return (account?.avatarDecoration || "").toString().trim().slice(0, 4);
+}
+
+function accountGuildTag(account) {
+  return (account?.guildTag || "").toString().trim().slice(0, 8);
+}
+
+function accountProfileEffect(account) {
+  return normalizeProfileEffect(account?.profileEffect);
+}
+
+function accountNameplateSvg(account) {
+  const raw = (account?.profileNameplateSvg || "").toString().trim().slice(0, 280);
+  if (!raw) return "";
+  if (/^data:image\/svg\+xml/i.test(raw)) return raw;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return "";
+}
+
+function showGuildTagInfo(account) {
+  if (!account) return;
+  const tag = accountGuildTag(account);
+  if (!tag) return;
+  const guild = getActiveGuild();
+  const details = guild
+    ? `${tag} · ${guild.name}`
+    : `${tag} · no active guild`;
+  showToast(details);
+}
+
 function channelTypePrefix(channel) {
   if (!channel || channel.type === "text") return "#";
   if (channel.type === "announcement") return "📣";
@@ -2655,6 +2709,33 @@ function applyAvatarStyle(element, account, guildId = null) {
     element.style.backgroundSize = "cover";
     element.style.backgroundPosition = "center";
   }
+}
+
+function applyAvatarDecoration(element, account) {
+  if (!(element instanceof HTMLElement)) return;
+  element.classList.toggle("has-decoration", false);
+  const existing = element.querySelector(".avatar-decoration");
+  if (existing) existing.remove();
+  const emoji = accountDecorationEmoji(account);
+  if (!emoji) return;
+  const badge = document.createElement("span");
+  badge.className = "avatar-decoration";
+  badge.textContent = emoji;
+  badge.title = "Avatar decoration";
+  element.appendChild(badge);
+  element.classList.toggle("has-decoration", true);
+}
+
+function applyNameplateStyle(element, account) {
+  if (!(element instanceof HTMLElement)) return;
+  const image = accountNameplateSvg(account);
+  if (!image) {
+    element.style.removeProperty("--nameplate-image");
+    element.classList.remove("has-nameplate");
+    return;
+  }
+  element.style.setProperty("--nameplate-image", `url(${image})`);
+  element.classList.add("has-nameplate");
 }
 
 function renderProfileAvatarPreview() {
@@ -4636,6 +4717,33 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "quests") {
+    const stats = collectAccountActivityStats(account.id);
+    const badges = resolveQuestBadgesForAccount(account.id);
+    addSystemMessage(channel, [
+      `Badges: ${badges.length > 0 ? badges.join(", ") : "none yet"}`,
+      `Messages sent: ${stats.sentMessages}`,
+      `Reactions given: ${stats.reactionsGiven}`,
+      `Polls created: ${stats.pollsCreated}`
+    ].join(" · "));
+    return true;
+  }
+
+  if (command === "profilefx") {
+    const nextEffect = normalizeProfileEffect(arg);
+    if (!arg) {
+      addSystemMessage(channel, `Current profile effect: ${accountProfileEffect(account)}`);
+      return true;
+    }
+    if (!["none", "aurora", "flame", "ocean"].includes(arg.toLowerCase())) {
+      addSystemMessage(channel, "Usage: /profilefx <none|aurora|flame|ocean>");
+      return true;
+    }
+    account.profileEffect = nextEffect;
+    addSystemMessage(channel, `Profile effect set to: ${nextEffect}`);
+    return true;
+  }
+
   if (command === "mediaprivacy") {
     const mode = arg.toLowerCase();
     state.preferences = getPreferences();
@@ -5126,6 +5234,66 @@ function renderRoleChips(container, accountId) {
     chip.style.color = role.color || "#e3e6eb";
     container.appendChild(chip);
   });
+}
+
+function collectAccountActivityStats(accountId) {
+  const stats = {
+    sentMessages: 0,
+    reactionsGiven: 0,
+    pollsCreated: 0
+  };
+  if (!accountId) return stats;
+  state.guilds.forEach((guild) => {
+    (guild.channels || []).forEach((channel) => {
+      (channel.messages || []).forEach((message) => {
+        if (message.userId === accountId) {
+          stats.sentMessages += 1;
+          if (message.poll) stats.pollsCreated += 1;
+        }
+        normalizeReactions(message.reactions).forEach((reaction) => {
+          if (reaction.userIds.includes(accountId)) stats.reactionsGiven += 1;
+        });
+      });
+    });
+  });
+  state.dmThreads.forEach((thread) => {
+    (thread.messages || []).forEach((message) => {
+      if (message.userId === accountId) {
+        stats.sentMessages += 1;
+        if (message.poll) stats.pollsCreated += 1;
+      }
+      normalizeReactions(message.reactions).forEach((reaction) => {
+        if (reaction.userIds.includes(accountId)) stats.reactionsGiven += 1;
+      });
+    });
+  });
+  return stats;
+}
+
+function resolveQuestBadgesForAccount(accountId) {
+  const stats = collectAccountActivityStats(accountId);
+  const badges = [];
+  if (stats.sentMessages >= 1) badges.push("First Message");
+  if (stats.sentMessages >= 25) badges.push("Regular");
+  if (stats.sentMessages >= 100) badges.push("Power Chatter");
+  if (stats.reactionsGiven >= 10) badges.push("Reactor");
+  if (stats.pollsCreated >= 1) badges.push("Poll Starter");
+  return badges.slice(0, 4);
+}
+
+function renderQuestBadges(container, accountId) {
+  if (!(container instanceof HTMLElement) || !accountId) return;
+  const badges = resolveQuestBadgesForAccount(accountId);
+  if (badges.length === 0) return;
+  const wrap = document.createElement("div");
+  wrap.className = "quest-badges";
+  badges.forEach((label) => {
+    const chip = document.createElement("span");
+    chip.className = "quest-badge";
+    chip.textContent = label;
+    wrap.appendChild(chip);
+  });
+  container.appendChild(wrap);
 }
 
 function applyPreferencesToUI() {
@@ -8263,11 +8431,28 @@ function openUserPopout(account, fallbackName = "Unknown") {
   const activeServer = getActiveConversation()?.type === "channel" ? getActiveServer() : null;
   const userRoleColor = account?.id && activeServer ? getMemberTopRoleColor(activeServer, account.id) : "";
   ui.userPopoutName.style.color = userRoleColor || "";
+  applyNameplateStyle(ui.userPopoutName, account);
+  const userTag = accountGuildTag(account);
+  if (userTag) {
+    ui.userPopoutName.appendChild(document.createTextNode(" "));
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "guild-tag-chip";
+    chip.textContent = userTag;
+    chip.title = "Guild tag";
+    chip.addEventListener("click", () => showGuildTagInfo(account));
+    ui.userPopoutName.appendChild(chip);
+  }
   ui.userPopoutStatus.textContent = account ? displayStatus(account, guildId) : "Offline";
   ui.userPopoutBio.textContent = bio;
   applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
+  applyAvatarDecoration(ui.userPopoutAvatar, account);
   applyBannerStyle(ui.userPopoutBanner, resolveAccountBanner(account, guildId));
+  ui.userPopoutDialog.classList.remove("profile-effect-aurora", "profile-effect-flame", "profile-effect-ocean");
+  const userEffect = accountProfileEffect(account);
+  if (userEffect !== "none") ui.userPopoutDialog.classList.add(`profile-effect-${userEffect}`);
   renderRoleChips(ui.userPopoutRoles, account?.id);
+  renderQuestBadges(ui.userPopoutRoles, account?.id);
   if (ui.userNoteInput) {
     ui.userNoteInput.value = current && selectedUserPopoutId ? getUserNote(current.id, selectedUserPopoutId) : "";
     ui.userNoteInput.disabled = !selectedUserPopoutId;
@@ -8900,6 +9085,7 @@ function renderDmHome() {
       avatar.className = "dm-home__avatar";
       if (peer) {
         applyAvatarStyle(avatar, peer, null);
+        applyAvatarDecoration(avatar, peer);
         const dot = document.createElement("span");
         dot.className = `presence-dot presence-${normalizePresence(peer.presence)}`;
         avatar.appendChild(dot);
@@ -9134,6 +9320,7 @@ function renderMessages() {
     const guildId = !isDm ? getActiveGuild()?.id || null : null;
     if (author) {
       applyAvatarStyle(avatar, author, guildId);
+      applyAvatarDecoration(avatar, author);
     } else {
       avatar.textContent = initialsForName(displayNameForMessage(message));
     }
@@ -9191,6 +9378,23 @@ function renderMessages() {
         }
       ]);
     });
+    if (author) {
+      applyNameplateStyle(userButton, author);
+    }
+    const messageTag = accountGuildTag(author);
+    let userTagButton = null;
+    if (messageTag) {
+      userTagButton = document.createElement("button");
+      userTagButton.type = "button";
+      userTagButton.className = "guild-tag-chip";
+      userTagButton.textContent = messageTag;
+      userTagButton.title = "Guild tag";
+      userTagButton.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        showGuildTagInfo(author);
+      });
+    }
 
     const time = document.createElement("span");
     time.className = "message-time";
@@ -9409,6 +9613,7 @@ function renderMessages() {
     }
 
     head.appendChild(userButton);
+    if (userTagButton) head.appendChild(userTagButton);
     head.appendChild(time);
     if (collaborativeBadge) head.appendChild(collaborativeBadge);
     if (editedBadge) head.appendChild(editedBadge);
@@ -9677,8 +9882,9 @@ function appendMessageRowLite(channel, message) {
   const userButton = document.createElement("button");
   userButton.className = "message-user";
   userButton.textContent = displayNameForMessage(message);
+  const author = message.userId ? getAccountById(message.userId) : null;
+  if (author) applyNameplateStyle(userButton, author);
   userButton.addEventListener("click", () => {
-    const author = message.userId ? getAccountById(message.userId) : null;
     openUserPopout(author, message.authorName || "Unknown");
   });
   const time = document.createElement("span");
@@ -9693,6 +9899,20 @@ function appendMessageRowLite(channel, message) {
     });
   });
   head.appendChild(userButton);
+  const tag = accountGuildTag(author);
+  if (tag) {
+    const tagChip = document.createElement("button");
+    tagChip.type = "button";
+    tagChip.className = "guild-tag-chip";
+    tagChip.textContent = tag;
+    tagChip.title = "Guild tag";
+    tagChip.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showGuildTagInfo(author);
+    });
+    head.appendChild(tagChip);
+  }
   head.appendChild(time);
   messageRow.appendChild(head);
   const text = document.createElement("div");
@@ -9765,6 +9985,7 @@ function renderMemberList() {
         const avatar = document.createElement("div");
         avatar.className = "member-avatar";
         applyAvatarStyle(avatar, account, null);
+        applyAvatarDecoration(avatar, account);
         const dot = document.createElement("span");
         dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
         avatar.appendChild(dot);
@@ -9773,6 +9994,21 @@ function renderMemberList() {
         const label = document.createElement("span");
         label.className = "member-meta__name";
         label.textContent = displayNameForAccount(account, null);
+        applyNameplateStyle(label, account);
+        const tag = accountGuildTag(account);
+        if (tag) {
+          const tagChip = document.createElement("span");
+          tagChip.className = "guild-tag-chip";
+          tagChip.textContent = tag;
+          tagChip.title = "Guild tag";
+          tagChip.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            showGuildTagInfo(account);
+          });
+          label.appendChild(document.createTextNode(" "));
+          label.appendChild(tagChip);
+        }
         const status = document.createElement("small");
         status.className = "member-meta__status";
         status.textContent = presenceLabel(account.presence);
@@ -9848,6 +10084,7 @@ function renderMemberList() {
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
       applyAvatarStyle(avatar, account, server.id);
+      applyAvatarDecoration(avatar, account);
 
       const dot = document.createElement("span");
       dot.className = `presence-dot presence-${normalizePresence(account.presence)}`;
@@ -9858,8 +10095,23 @@ function renderMemberList() {
       const label = document.createElement("span");
       label.className = "member-meta__name";
       label.textContent = displayNameForAccount(account, server.id);
+      applyNameplateStyle(label, account);
       const roleColor = getMemberTopRoleColor(server, account.id);
       if (roleColor) label.style.color = roleColor;
+      const tag = accountGuildTag(account);
+      if (tag) {
+        const tagChip = document.createElement("span");
+        tagChip.className = "guild-tag-chip";
+        tagChip.textContent = tag;
+        tagChip.title = "Guild tag";
+        tagChip.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          showGuildTagInfo(account);
+        });
+        label.appendChild(document.createTextNode(" "));
+        label.appendChild(tagChip);
+      }
       const status = document.createElement("small");
       status.className = "member-meta__status";
       status.textContent = displayStatus(account, server.id);
@@ -9918,8 +10170,24 @@ function renderDock() {
   const conversation = getActiveConversation();
   const guildId = conversation?.type === "channel" ? getActiveGuild()?.id || null : null;
   ui.dockName.textContent = displayNameForAccount(account, guildId);
+  applyNameplateStyle(ui.dockName, account);
+  const dockTag = accountGuildTag(account);
+  if (dockTag) {
+    ui.dockName.appendChild(document.createTextNode(" "));
+    const chip = document.createElement("span");
+    chip.className = "guild-tag-chip";
+    chip.textContent = dockTag;
+    chip.title = "Guild tag";
+    chip.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showGuildTagInfo(account);
+    });
+    ui.dockName.appendChild(chip);
+  }
   ui.dockStatus.textContent = displayStatus(account, guildId);
   applyAvatarStyle(ui.dockAvatar, account, guildId);
+  applyAvatarDecoration(ui.dockAvatar, account);
   ui.dockPresenceDot.className = `dock-presence-dot presence-${normalizePresence(account.presence)}`;
 }
 
@@ -9929,11 +10197,28 @@ function renderSelfPopout() {
   ui.selfPopoutName.textContent = displayNameForAccount(account, getActiveGuild()?.id || null);
   const selfRoleColor = getActiveServer() ? getMemberTopRoleColor(getActiveServer(), account.id) : "";
   ui.selfPopoutName.style.color = selfRoleColor || "";
+  applyNameplateStyle(ui.selfPopoutName, account);
+  const selfTag = accountGuildTag(account);
+  if (selfTag) {
+    ui.selfPopoutName.appendChild(document.createTextNode(" "));
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "guild-tag-chip";
+    chip.textContent = selfTag;
+    chip.title = "Guild tag";
+    chip.addEventListener("click", () => showGuildTagInfo(account));
+    ui.selfPopoutName.appendChild(chip);
+  }
   ui.selfPopoutStatus.textContent = displayStatus(account, getActiveGuild()?.id || null);
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);
+  applyAvatarDecoration(ui.selfPopoutAvatar, account);
   applyBannerStyle(ui.selfPopoutBanner, resolveAccountBanner(account, getActiveGuild()?.id || null));
+  ui.selfMenuDialog.classList.remove("profile-effect-aurora", "profile-effect-flame", "profile-effect-ocean");
+  const selfEffect = accountProfileEffect(account);
+  if (selfEffect !== "none") ui.selfMenuDialog.classList.add(`profile-effect-${selfEffect}`);
   renderRoleChips(ui.selfPopoutRoles, account.id);
+  renderQuestBadges(ui.selfPopoutRoles, account.id);
 }
 
 function renderAccountSwitchList() {
@@ -10173,6 +10458,10 @@ function openProfileEditor() {
   ui.profileBioInput.value = account.bio || "";
   ui.profileStatusInput.value = account.customStatus || "";
   ui.profileStatusEmojiInput.value = account.customStatusEmoji || "";
+  ui.profileAvatarDecorationInput.value = account.avatarDecoration || "";
+  ui.profileGuildTagInput.value = account.guildTag || "";
+  ui.profileEffectInput.value = accountProfileEffect(account);
+  ui.profileNameplateSvgInput.value = account.profileNameplateSvg || "";
   ui.profileStatusExpiryInput.value = statusExpiryPreset(account);
   ui.profileGuildNicknameInput.value = guild ? resolveAccountGuildNickname(account, guild.id) : "";
   const guildAvatar = guild ? resolveAccountAvatar(account, guild.id) : { color: "", url: "" };
@@ -10345,6 +10634,29 @@ ui.messageForm.addEventListener("submit", (event) => {
       } else {
         ui.messageInput.focus();
       }
+      return;
+    }
+    if (dmCommand === "quests") {
+      const stats = collectAccountActivityStats(account.id);
+      const badges = resolveQuestBadgesForAccount(account.id);
+      showToast(
+        `Badges: ${badges.length > 0 ? badges.join(", ") : "none"} · Msg: ${stats.sentMessages} · React: ${stats.reactionsGiven} · Polls: ${stats.pollsCreated}`
+      );
+      return;
+    }
+    if (dmCommand === "profilefx") {
+      if (!dmArg) {
+        showToast(`Current profile effect: ${accountProfileEffect(account)}`);
+        return;
+      }
+      if (!["none", "aurora", "flame", "ocean"].includes(dmArg.toLowerCase())) {
+        showToast("Usage: /profilefx <none|aurora|flame|ocean>", { tone: "error" });
+        return;
+      }
+      account.profileEffect = normalizeProfileEffect(dmArg);
+      saveState();
+      render();
+      showToast(`Profile effect set to: ${account.profileEffect}`);
       return;
     }
     if (dmCommand === "find") {
@@ -11975,6 +12287,10 @@ ui.profileForm.addEventListener("submit", (event) => {
   account.bio = ui.profileBioInput.value.trim().slice(0, 180);
   account.customStatus = ui.profileStatusInput.value.trim().slice(0, 80);
   account.customStatusEmoji = ui.profileStatusEmojiInput.value.trim().slice(0, 4);
+  account.avatarDecoration = ui.profileAvatarDecorationInput.value.trim().slice(0, 4);
+  account.guildTag = ui.profileGuildTagInput.value.trim().slice(0, 8).toUpperCase();
+  account.profileEffect = normalizeProfileEffect(ui.profileEffectInput.value);
+  account.profileNameplateSvg = ui.profileNameplateSvgInput.value.trim().slice(0, 280);
   account.customStatusExpiresAt = account.customStatus
     ? parseStatusExpiryAt(ui.profileStatusExpiryInput.value)
     : null;
