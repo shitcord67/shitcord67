@@ -242,6 +242,7 @@ XMPP mode (experimental):
 2. Fill `JID`, `Password`, `XMPP WebSocket URL`, and `XMPP MUC service` in Advanced settings
 3. Save and connect (`Connect Relay` or `/relay connect xmpp`)
 4. Messages in active channels/DMs are mapped to MUC rooms and sent/received via XMPP groupchat
+- Verified working provider example: `xmpp.jp` with endpoint `wss://api.xmpp.jp/ws` and MUC service `conference.xmpp.jp`
 
 ## XMPP/Standalone Readiness
 - Yes: this project is now at the point where real multi-user chat can be enabled with the relay path today.
