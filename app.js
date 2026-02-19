@@ -3126,10 +3126,32 @@ function relayRoomForActiveConversation() {
 }
 
 function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
-  const mucService = normalizeXmppMucService(prefs.xmppMucService);
+  const mucService = resolveXmppMucService(prefs);
   if (!mucService) return "";
   const node = sanitizeChannelName((roomToken || "lobby-general").replace(/[:]/g, "-"), "lobby-general");
   return `${node}@${mucService}`;
+}
+
+function xmppDomainFromJid(jid) {
+  const raw = (jid || "").toString().trim();
+  const at = raw.indexOf("@");
+  if (at < 0) return "";
+  return raw.slice(at + 1).toLowerCase();
+}
+
+function resolveXmppMucService(prefs = getPreferences()) {
+  const explicit = normalizeXmppMucService(prefs.xmppMucService);
+  if (explicit) return explicit;
+  const domain = xmppDomainFromJid(prefs.xmppJid);
+  return domain ? `conference.${domain}` : "";
+}
+
+function resolveXmppServiceUrl(prefs = getPreferences()) {
+  const explicit = normalizeXmppWsUrl(prefs.xmppWsUrl);
+  if (explicit) return explicit;
+  const domain = xmppDomainFromJid(prefs.xmppJid);
+  if (!domain) return "";
+  return `wss://api.${domain}/ws`;
 }
 
 async function loadXmppLibrary() {
@@ -3338,8 +3360,8 @@ function connectRelaySocket({ force = false } = {}) {
   }
   if (prefs.relayMode === "xmpp") {
     const jid = normalizeXmppJid(prefs.xmppJid);
-    const wsUrl = normalizeXmppWsUrl(prefs.xmppWsUrl);
-    const mucService = normalizeXmppMucService(prefs.xmppMucService);
+    const wsUrl = resolveXmppServiceUrl(prefs);
+    const mucService = resolveXmppMucService(prefs);
     if (!jid || !wsUrl || !mucService) {
       setRelayStatus("error", "XMPP requires JID, WebSocket URL, and MUC service.");
       return false;
@@ -6682,8 +6704,8 @@ function handleSlashCommand(rawText, channel, account) {
         `Mode: ${prefs.relayMode}`,
         `Adapter: ${adapter.label}`,
         `Status: ${relayStatusText()}`,
-        `URL: ${prefs.relayMode === "xmpp" ? (prefs.xmppWsUrl || "(unset)") : prefs.relayUrl}`,
-        prefs.relayMode === "xmpp" ? `MUC: ${prefs.xmppMucService || "(unset)"}` : "",
+        `URL: ${prefs.relayMode === "xmpp" ? (resolveXmppServiceUrl(prefs) || "(unset)") : prefs.relayUrl}`,
+        prefs.relayMode === "xmpp" ? `MUC: ${resolveXmppMucService(prefs) || "(unset)"}` : "",
         `Room: ${prefs.relayRoom || relayRoomForActiveConversation()}`
       ].join(" · "));
       return true;
