@@ -179,8 +179,9 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Added `Alt+M` hotkey for self mute/unmute in active voice/stage channel.
 - Voice/stage channel context menu now includes quick self mute and status actions.
 - Voice/stage call surface now includes direct channel-link copy action.
-- Experimental realtime transport mode is now available via Advanced settings (`Transport mode: HTTP relay (SSE)` or `WebSocket relay`).
+- Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP stub`, `off`).
 - Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
+- Chat header now shows live transport status badge (adapter + connection state), Discord-style.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
 - If a guild has no administrator assigned yet, the first active member is auto-granted an `Owner` admin role.
 - Channel settings dialog (rename/delete with permission checks).
@@ -235,6 +236,11 @@ Optional WebSocket mode:
 1. Install dependency once: `npm install ws`
 2. Start server: `node scripts/ws-relay-server.mjs` (default `ws://localhost:8787`)
 3. Use `Transport mode: WebSocket relay` and URL `ws://localhost:8787`
+
+XMPP scaffold mode:
+1. Set `Transport mode: XMPP (experimental stub)`
+2. Fill `JID` + `XMPP WebSocket URL` in Advanced settings
+3. Current behavior: validates/stores config and reports status; runtime XMPP connector is the next implementation step
 
 ## XMPP/Standalone Readiness
 - Yes: this project is now at the point where real multi-user chat can be enabled with the relay path today.
