@@ -70,6 +70,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - PDF attachments now always include open/download controls plus a fallback note for browsers with inline PDF viewing disabled.
 - Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Alt+O` opens PDF tab, `Alt+U` opens file attach.
 - Extra channel shortcuts: `Alt+I` opens pins, `Alt+R` marks current channel read, `Alt+N/P` jumps unread channels, `Alt+ArrowUp/Down` navigates channels.
+- Quest shortcut: `Alt+Q` shows your current quest/badge progress summary.
 - Section visibility shortcuts: `Alt+Shift+D` collapses/expands DM section, `Alt+Shift+C` collapses/expands guild channel section.
 - Quick switcher shortcut: `Ctrl+K` (or `Cmd+K`) opens channel/DM/guild quick jump modal.
 - Find shortcut: `Ctrl+F` (or `Cmd+F`) opens "Find in conversation" with hit highlighting and jump.
@@ -102,7 +103,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - New conversation admin commands: `/newdm <username>`, `/closedm`, `/leaveguild`.
 - Additional channel/reading commands: `/newchannel <name> [type]`, `/dupchannel`, `/movechannel <up|down|top|bottom>`, `/markdmread`, `/markallread`.
 - Unread command: `/markunread [message-id-prefix|last]` marks current conversation unread from a specific message.
-- Identity/engagement commands: `/quests` shows activity badges and `/profilefx <none|aurora|flame|ocean>` sets profile effects.
+- Identity/engagement commands: `/quests`, `/questprogress`, `/questbadges`, `/profilefx <none|aurora|flame|ocean>`, `/guildtag [TAG|clear]`, `/decor [emoji|clear]`, `/nameplate [url|data:image/svg+xml|clear]`.
 - Copy/notification commands: `/copylink`, `/copyid`, `/copytopic`, `/notify [status|all|mentions|mute]`.
 - Channel/DM rows now show `Draft` badges for unsent composer drafts.
 - Right-click DM home icon allows `Mark All DMs Read`.
@@ -163,6 +164,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Channel settings dialog (rename/delete with permission checks).
 - Profile customization: display name, bio, custom status, presence, avatar color/image URL, banner color/image URL.
 - Profile identity extras: avatar decoration emoji, guild tag, profile effect, and optional nameplate SVG/URL.
+- Guild tag is now copyable from user/member context menus and visible in more name surfaces.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
 - Right-click context menus for guilds, channels, messages, and members (quick actions).
