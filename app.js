@@ -1047,6 +1047,7 @@ const ui = {
   activeChannelGlyph: document.getElementById("activeChannelGlyph"),
   activeChannelLabel: document.getElementById("activeChannelLabel"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
+  chatHeaderRight: document.querySelector(".chat-header__right"),
   relayHeaderBadge: document.getElementById("relayHeaderBadge"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
   nextUnreadBtn: document.getElementById("nextUnreadBtn"),
@@ -1351,37 +1352,27 @@ const ui = {
 if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 
 const HEADER_ACTION_BUTTONS = [
-  { key: "openFindBtn", icon: "🔍", fallback: "Find" },
+  { key: "openFindBtn", icon: "🔍", fallback: "Find", preferIcon: true },
   { key: "markChannelReadBtn", icon: "✓", fallback: "Mark Read" },
   { key: "nextUnreadBtn", icon: "⤓", fallback: "Next Unread" },
   { key: "openChannelSettingsBtn", icon: "⚙", fallback: "Channel" },
-  { key: "openPinsBtn", icon: "📌", fallback: "Pins" },
+  { key: "openPinsBtn", icon: "📌", fallback: "Pins", preferIcon: true },
   { key: "openRolesBtn", icon: "🛡", fallback: "Roles" },
-  { key: "openShortcutsBtn", icon: "⌨", fallback: "Shortcuts" },
-  { key: "toggleChannelPanelBtn", icon: "🧭", fallback: "Channels" },
-  { key: "toggleMemberPanelBtn", icon: "👥", fallback: "Members" },
-  { key: "toggleSwfShelfBtn", icon: "📼", fallback: "SWF Shelf" },
+  { key: "openShortcutsBtn", icon: "⌨", fallback: "Shortcuts", preferIcon: true },
+  { key: "toggleChannelPanelBtn", icon: "🧭", fallback: "Channels", preferIcon: true },
+  { key: "toggleMemberPanelBtn", icon: "👥", fallback: "Members", preferIcon: true },
+  { key: "toggleSwfShelfBtn", icon: "📼", fallback: "SWF Shelf", preferIcon: true },
   { key: "editTopicBtn", icon: "✎", fallback: "Edit Topic" }
 ];
 
 function headerActionsShouldUseIconMode() {
   const compactWidth = window.innerWidth <= 1280;
   const compactHeight = window.innerHeight <= 680 && window.innerWidth <= 1500;
-  return compactWidth || compactHeight;
+  const denseDesktop = window.innerWidth <= 1480 && window.innerHeight <= 780;
+  return compactWidth || compactHeight || denseDesktop;
 }
 
-function setHeaderActionButtonLabel(buttonOrKey, label) {
-  const button = typeof buttonOrKey === "string"
-    ? ui[buttonOrKey]
-    : buttonOrKey;
-  if (!(button instanceof HTMLButtonElement)) return;
-  const next = (label || "").toString().trim();
-  if (next) button.dataset.fullLabel = next;
-  if (button.isConnected) refreshHeaderActionButtonLabels();
-}
-
-function refreshHeaderActionButtonLabels() {
-  const iconMode = headerActionsShouldUseIconMode();
+function applyHeaderActionButtonLabels(iconMode = false) {
   HEADER_ACTION_BUTTONS.forEach((entry) => {
     const button = ui[entry.key];
     if (!(button instanceof HTMLButtonElement)) return;
@@ -1391,7 +1382,8 @@ function refreshHeaderActionButtonLabels() {
       button.dataset.fullLabel = seed || entry.fallback;
     }
     const fullLabel = (button.dataset.fullLabel || entry.fallback).toString();
-    if (iconMode) {
+    const useIcon = iconMode || entry.preferIcon === true;
+    if (useIcon) {
       button.textContent = entry.icon;
       button.classList.add("chat-topic-edit--icon");
       button.title = fullLabel;
@@ -1405,6 +1397,27 @@ function refreshHeaderActionButtonLabels() {
     button.title = title;
     button.setAttribute("aria-label", title);
   });
+}
+
+function setHeaderActionButtonLabel(buttonOrKey, label) {
+  const button = typeof buttonOrKey === "string"
+    ? ui[buttonOrKey]
+    : buttonOrKey;
+  if (!(button instanceof HTMLButtonElement)) return;
+  const next = (label || "").toString().trim();
+  if (next) button.dataset.fullLabel = next;
+  if (button.isConnected) refreshHeaderActionButtonLabels();
+}
+
+function refreshHeaderActionButtonLabels() {
+  let iconMode = headerActionsShouldUseIconMode();
+  applyHeaderActionButtonLabels(iconMode);
+  if (iconMode || !(ui.chatHeaderRight instanceof HTMLElement)) return;
+  const wrapped = ui.chatHeaderRight.scrollHeight > (ui.chatHeaderRight.clientHeight + 4);
+  const overflowed = ui.chatHeaderRight.scrollWidth > (ui.chatHeaderRight.clientWidth + 8);
+  if (!wrapped && !overflowed) return;
+  iconMode = true;
+  applyHeaderActionButtonLabels(iconMode);
 }
 
 function saveState() {
@@ -10979,7 +10992,7 @@ function shouldGroupMessageWithPrevious(currentMessage, previousMessage) {
   const currentTs = toTimestampMs(currentMessage.ts);
   const previousTs = toTimestampMs(previousMessage.ts);
   if (!currentTs || !previousTs) return false;
-  return (currentTs - previousTs) <= (6 * 60 * 1000);
+  return (currentTs - previousTs) <= (10 * 60 * 1000);
 }
 
 function appendMentionOrEmoji(target, token, context) {
@@ -12823,6 +12836,14 @@ function collectLiveSwfRuntimeKeys() {
   return keys;
 }
 
+function shouldPreserveSwfRuntime(runtimeKey, runtime, liveSwfKeys = null) {
+  if (!runtime) return false;
+  if (runtime.inPip || runtime.pipTransitioning || runtime.parked) return true;
+  if (swfPipTabs.includes(runtimeKey)) return true;
+  if (liveSwfKeys instanceof Set && liveSwfKeys.has(runtimeKey)) return true;
+  return false;
+}
+
 function swfRuntimeTelemetryEntry(runtimeKey) {
   if (!runtimeKey) return null;
   if (!swfRuntimeTelemetry.has(runtimeKey)) {
@@ -13060,9 +13081,35 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     runtime.originHost.replaceWith(runtime.host);
     runtime.parked = false;
   } else if (runtime.host.parentElement === document.body) {
-    const parked = parkSwfRuntimeHost(runtimeKey);
+    let parked = parkSwfRuntimeHost(runtimeKey);
     removeSwfPipTab(runtimeKey);
     if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
+    if (!parked && runtime.player instanceof HTMLElement) {
+      const lot = ensureSwfRuntimeParkingLot();
+      let fallbackHost = runtime.host instanceof HTMLElement ? runtime.host : null;
+      if (!(fallbackHost instanceof HTMLElement)) {
+        fallbackHost = document.createElement("div");
+        fallbackHost.className = "message-swf-player";
+      }
+      if (!fallbackHost.classList.contains("message-swf-player")) {
+        fallbackHost.classList.add("message-swf-player");
+      }
+      if (!fallbackHost.contains(runtime.player)) {
+        fallbackHost.innerHTML = "";
+        fallbackHost.appendChild(runtime.player);
+      }
+      fallbackHost.classList.remove("swf-pip-player", "message-swf-player--pip-floating");
+      fallbackHost.classList.add("message-swf-player--parked");
+      lot.appendChild(fallbackHost);
+      runtime.host = fallbackHost;
+      runtime.originHost = fallbackHost;
+      runtime.inPip = false;
+      runtime.pipHost = null;
+      runtime.pipTransitioning = false;
+      runtime.parked = true;
+      parked = true;
+      addDebugLog("warn", "Recovered SWF runtime after PiP close with fallback parking host", { key: runtimeKey });
+    }
     if (!parked) {
       runtime.host.remove();
       swfRuntimes.delete(runtimeKey);
@@ -13647,39 +13694,81 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       // ignore
     }
     const loadWithFallback = async () => {
-      let mounted = playerWrap.isConnected && ui.messageList.isConnected;
+      const resolveLoadState = () => {
+        const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+        const host = runtime?.player === player && runtime.host instanceof HTMLElement
+          ? runtime.host
+          : playerWrap;
+        const preserved = runtimeKey ? shouldPreserveSwfRuntime(runtimeKey, runtime) : false;
+        return { runtime, host, preserved };
+      };
+      const destroyDetachedRuntime = () => {
+        if (!runtimeKey) return false;
+        const runtime = swfRuntimes.get(runtimeKey);
+        if (!runtime || runtime.player !== player || !runtime.loading) return false;
+        if (shouldPreserveSwfRuntime(runtimeKey, runtime)) return false;
+        if (runtime.observer) {
+          runtime.observer.disconnect();
+          runtime.observer = null;
+        }
+        swfRuntimes.delete(runtimeKey);
+        noteSwfRuntimeEvent(runtimeKey, "destroyed");
+        removeSwfPipTab(runtimeKey);
+        if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
+        swfPendingUi.delete(runtimeKey);
+        swfPendingAudio.delete(runtimeKey);
+        refreshSwfRuntimeHealthUi(runtimeKey);
+        refreshSwfAudioFocus();
+        return true;
+      };
+      let loadState = resolveLoadState();
+      let mounted = loadState.host instanceof HTMLElement
+        && loadState.host.isConnected
+        && (ui.messageList.isConnected || ui.swfViewerDialog.open || loadState.preserved);
       if (!mounted) {
-        for (let attempt = 0; attempt < 6; attempt += 1) {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
           await nextFrame();
-          mounted = playerWrap.isConnected && (ui.messageList.isConnected || ui.swfViewerDialog.open);
+          loadState = resolveLoadState();
+          if (
+            runtimeKey
+            && loadState.runtime?.inPip
+            && (!(loadState.host instanceof HTMLElement) || !loadState.host.isConnected)
+          ) {
+            recoverDetachedSwfPipHost(runtimeKey);
+            loadState = resolveLoadState();
+          }
+          mounted = loadState.host instanceof HTMLElement
+            && loadState.host.isConnected
+            && (ui.messageList.isConnected || ui.swfViewerDialog.open || loadState.preserved);
           if (mounted) break;
         }
       }
-      if (!mounted) {
-        addDebugLog("info", "Skipped SWF load because player never mounted", { url: mediaUrl });
-        if (runtimeKey) {
-          const runtime = swfRuntimes.get(runtimeKey);
-          if (runtime?.player === player && runtime.loading) {
-            swfRuntimes.delete(runtimeKey);
-            noteSwfRuntimeEvent(runtimeKey, "destroyed");
-            refreshSwfRuntimeHealthUi(runtimeKey);
-          }
-        }
+      if (!mounted && !loadState.preserved) {
+        addDebugLog("info", "Skipped SWF load because runtime never mounted", { url: mediaUrl });
+        destroyDetachedRuntime();
         return;
+      }
+      if (!mounted && loadState.preserved) {
+        addDebugLog("warn", "Continuing SWF load while runtime is detached but preserved", { key: runtimeKey, url: mediaUrl });
       }
       let loaded = false;
       for (const candidate of urlCandidates) {
-        if (!playerWrap.isConnected) {
-          addDebugLog("info", "Aborted SWF load because player became detached", { url: candidate });
-          if (runtimeKey) {
-            const runtime = swfRuntimes.get(runtimeKey);
-            if (runtime?.player === player && runtime.loading) {
-              swfRuntimes.delete(runtimeKey);
-              noteSwfRuntimeEvent(runtimeKey, "destroyed");
-              refreshSwfRuntimeHealthUi(runtimeKey);
-            }
+        let activeState = resolveLoadState();
+        if (
+          runtimeKey
+          && activeState.runtime?.inPip
+          && (!(activeState.host instanceof HTMLElement) || !activeState.host.isConnected)
+        ) {
+          recoverDetachedSwfPipHost(runtimeKey);
+          activeState = resolveLoadState();
+        }
+        if (!(activeState.host instanceof HTMLElement) || !activeState.host.isConnected) {
+          if (!activeState.preserved) {
+            addDebugLog("info", "Aborted SWF load because runtime became detached", { url: candidate });
+            destroyDetachedRuntime();
+            return;
           }
-          return;
+          addDebugLog("info", "SWF runtime detached during load but preserved", { key: runtimeKey, url: candidate });
         }
         try {
           await Promise.resolve(player.load({
@@ -13706,25 +13795,47 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           }
         }
       }
-      if (!loaded && playerWrap.isConnected) {
-        playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+      if (!loaded) {
+        const failedState = resolveLoadState();
+        if (failedState.host instanceof HTMLElement && failedState.host.isConnected) {
+          failedState.host.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+        } else if (playerWrap instanceof HTMLElement && playerWrap.isConnected) {
+          playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+        }
         if (runtimeKey) {
-          swfRuntimes.delete(runtimeKey);
-          noteSwfRuntimeEvent(runtimeKey, "destroyed");
-          removeSwfPipTab(runtimeKey);
-          if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
-          swfPendingUi.delete(runtimeKey);
-          refreshSwfAudioFocus();
+          const runtime = swfRuntimes.get(runtimeKey);
+          if (runtime?.player === player) runtime.loading = false;
+          if (!failedState.preserved) {
+            if (runtime?.observer) {
+              runtime.observer.disconnect();
+              runtime.observer = null;
+            }
+            swfRuntimes.delete(runtimeKey);
+            noteSwfRuntimeEvent(runtimeKey, "destroyed");
+            removeSwfPipTab(runtimeKey);
+            if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
+            swfPendingUi.delete(runtimeKey);
+            swfPendingAudio.delete(runtimeKey);
+            refreshSwfAudioFocus();
+          } else {
+            addDebugLog("warn", "Preserved SWF runtime after load failure because runtime is pinned/parked", { key: runtimeKey });
+          }
+          refreshSwfRuntimeHealthUi(runtimeKey);
         }
         return;
       }
       if (runtimeKey) {
         const runtime = swfRuntimes.get(runtimeKey);
-        if (!runtime) return;
+        if (!runtime || runtime.player !== player) return;
         runtime.attachment = { ...attachment };
         runtime.player = player;
-        runtime.host = playerWrap;
-        runtime.originHost = playerWrap;
+        const activeHost = runtime.host instanceof HTMLElement ? runtime.host : playerWrap;
+        if (activeHost instanceof HTMLElement && !activeHost.contains(player)) {
+          activeHost.innerHTML = "";
+          activeHost.appendChild(player);
+        }
+        runtime.host = activeHost;
+        if (!runtime.inPip && !runtime.parked) runtime.originHost = activeHost;
         runtime.guildId = getActiveGuild()?.id || runtime.guildId || null;
         runtime.playing = autoplay !== "off";
         runtime.allowAutoPlay = autoplay !== "off";
@@ -13739,7 +13850,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         }
         refreshSwfAudioFocus();
         refreshSwfRuntimeHealthUi(runtimeKey);
-        bindSwfVisibilityObserver(runtimeKey);
+        if (!runtime.inPip && !runtime.parked) bindSwfVisibilityObserver(runtimeKey);
       }
     };
     void loadWithFallback();
@@ -16480,6 +16591,10 @@ function renderMessages() {
     if (runtime.inPip && (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected)) {
       const recovered = recoverDetachedSwfPipHost(key);
       if (!recovered) {
+        if (shouldPreserveSwfRuntime(key, runtime, liveSwfKeys)) {
+          addDebugLog("warn", "Keeping SWF runtime after PiP host detach to avoid teardown", { key });
+          return;
+        }
         swfRuntimes.delete(key);
         noteSwfRuntimeEvent(key, "destroyed");
         removeSwfPipTab(key);
@@ -16490,7 +16605,7 @@ function renderMessages() {
       return;
     }
     if (runtime.inPip || runtime.pipTransitioning) return;
-    if (liveSwfKeys.has(key)) return;
+    if (liveSwfKeys.has(key) || shouldPreserveSwfRuntime(key, runtime, liveSwfKeys)) return;
     if (runtime.observer) runtime.observer.disconnect();
     if (runtime.host instanceof HTMLElement) runtime.host.remove();
     swfRuntimes.delete(key);

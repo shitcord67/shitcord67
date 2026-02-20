@@ -259,7 +259,10 @@
 - [done] Added `/nameplate [url|data:image/svg+xml|clear]` command (with DM parity)
 - [done] Added `Alt+Q` shortcut to show quest progress quickly
 - [done] Header actions now auto-switch to compact icon mode in tighter window sizes.
+- [done] Header actions now use a hybrid icon-first mode for utility controls and force icon fallback when the header wraps/overflows.
 - [done] SWF PiP runtime lifecycle hardened: detached PiP hosts are recovered, and PiP off now parks/re-attaches runtimes instead of destroying them.
+- [done] Hardened SWF async load lifecycle against detach races so PiP/parked/tab-preserved runtimes are not torn down mid-load.
+- [done] Consecutive same-author message grouping now compacts more aggressively (denser gutter, tighter head/text spacing, longer grouping window).
 - [done] Media runtime bootstrap hardened with local-first probes and multi-CDN fallback for Ruffle/dotLottie.
 - [done] Added XEP-0184 DM delivery receipts (request + received ack handling with sent/delivered badges).
 - [done] Added `Quest Stats` action in self profile menu
