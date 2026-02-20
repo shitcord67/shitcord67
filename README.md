@@ -297,6 +297,10 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Video PiP now runs in-client (dock panel) instead of browser/OS Picture-in-Picture windows.
 - Non-GIF video embeds now hide native controls and use custom controls only.
 - SWF/video controls now auto-hide until hover/focus (touch devices keep controls visible).
+- Hidden media controls now collapse without reserving layout space until revealed.
+- Video PiP panel is now draggable and includes inline custom controls inside the PiP host.
+- Video scrubbing now shows a frame-preview tooltip, and `Esc` while scrubbing cancels back to the pre-seek position.
+- Dock mute/deafen toggles now also suppress inline video/audio element playback.
 - Text/binary attachment previews are cached in-memory to reduce repeated network fetches and scrolling lag while browsing history.
 - Body-hosted in-chat SWF runtimes now keep header/composer above overlayed content and follow message scroll positioning more reliably.
 - Anchored in-chat SWF overlays are clipped to the message list viewport so they do not bleed over the composer area while scrolling.
@@ -304,6 +308,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Find dialog performance is improved via match caching/debouncing, and jump-to-message now resolves XMPP reference IDs when possible.
 - User/self profile dialogs now expose context-menu quick actions (DM, mention/insert username, copy identity fields).
 - Media privacy gate cards now use a more polished Discord-like layout with lock icon + host badge.
+- Privacy gate host row now uses compact icon actions (open/toggle URL/options), with full URL reveal on host hover or pin toggle.
 - XMPP rich body extraction now prefers `text/markdown` payloads (`urn:xmpp:content`) and basic XHTML-IM formatting when present.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
 - Candidate probing now also includes common `/ws` + trailing-slash variants and `:5281` defaults, and gateway auth/register attempts can follow HTTP redirect hops before opening the WebSocket.
