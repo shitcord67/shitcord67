@@ -861,6 +861,8 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.16);
   min-height: 48px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 22;
 }
 
 .chat-header h2 {
@@ -997,6 +999,8 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   overflow-x: hidden;
   padding: 0.28rem 0 0.34rem;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .voice-stage {
@@ -1768,6 +1772,8 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .composer-stack {
   padding: 0.3rem 1rem 1.1rem;
   min-height: 0;
+  position: relative;
+  z-index: 22;
 }
 
 .composer-reply {
@@ -2829,6 +2835,56 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   position: fixed !important;
   z-index: 125;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+}
+
+.video-pip {
+  position: fixed;
+  right: 14px;
+  bottom: 208px;
+  width: min(420px, 42vw);
+  background: #1e2026;
+  border: 1px solid #3a3e47;
+  border-radius: 10px;
+  z-index: 123;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.video-pip--hidden {
+  display: none;
+}
+
+.video-pip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid #2d3038;
+}
+
+.video-pip__header button {
+  background: #363a45;
+  color: #d9dde6;
+  font-size: 0.7rem;
+  border-radius: 6px;
+  padding: 0.2rem 0.44rem;
+}
+
+.video-pip__host {
+  padding: 0.4rem;
+}
+
+.video-pip__host video {
+  width: 100%;
+  max-height: min(52vh, 420px);
+  background: #101219;
+  border-radius: 8px;
+  border: 1px solid #2f3239;
+}
+
+.message-video--pip-floating {
+  width: 100%;
+  height: auto;
 }
 
 .debug-output {

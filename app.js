@@ -913,6 +913,8 @@ const swfPipTabs = [];
 let swfPipActiveKey = null;
 let swfPipManuallyHidden = false;
 let swfPipCollapsed = false;
+const videoPipRuntimes = new Map();
+let videoPipActiveKey = null;
 let swfAnchorLayoutRaf = 0;
 let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
@@ -1343,6 +1345,10 @@ const ui = {
   swfPipTabs: document.getElementById("swfPipTabs"),
   swfPipHost: document.getElementById("swfPipHost"),
   swfPipCloseBtn: document.getElementById("swfPipCloseBtn"),
+  videoPipDock: document.getElementById("videoPipDock"),
+  videoPipTitle: document.getElementById("videoPipTitle"),
+  videoPipHost: document.getElementById("videoPipHost"),
+  videoPipCloseBtn: document.getElementById("videoPipCloseBtn"),
   swfViewerDialog: document.getElementById("swfViewerDialog"),
   swfViewerHost: document.getElementById("swfViewerHost"),
   swfViewerTitle: document.getElementById("swfViewerTitle"),
@@ -13277,6 +13283,139 @@ function collectLiveSwfRuntimeKeys() {
   return keys;
 }
 
+function attachmentUsesInlineVideoControls(attachment) {
+  if (!attachment || typeof attachment !== "object") return false;
+  const type = (attachment.type || "").toString().toLowerCase();
+  const mediaUrl = resolveMediaUrl(attachment.url || "");
+  const videoLike = type === "video" || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
+  return videoLike && type !== "gif";
+}
+
+function collectLiveVideoPipRuntimeKeys(messageBucket = []) {
+  const keys = new Set();
+  (Array.isArray(messageBucket) ? messageBucket : []).forEach((message) => {
+    (message?.attachments || []).forEach((attachment, index) => {
+      if (attachmentUsesInlineVideoControls(attachment)) keys.add(`video:${message.id}:${index}`);
+    });
+  });
+  return keys;
+}
+
+function ensureVideoPipRuntime(runtimeKey, { video = null, label = "" } = {}) {
+  if (!runtimeKey) return null;
+  let runtime = videoPipRuntimes.get(runtimeKey) || null;
+  if (!runtime) {
+    runtime = {
+      key: runtimeKey,
+      video: null,
+      controlsEl: null,
+      syncControls: null,
+      anchorHost: null,
+      label: "",
+      inPip: false
+    };
+    videoPipRuntimes.set(runtimeKey, runtime);
+  }
+  if (video instanceof HTMLVideoElement) runtime.video = video;
+  if (label) runtime.label = label;
+  return runtime;
+}
+
+function destroyVideoPipRuntime(runtimeKey, { force = false } = {}) {
+  const runtime = videoPipRuntimes.get(runtimeKey);
+  if (!runtime) return false;
+  if (!force && runtime.inPip) return false;
+  if (runtime.controlsEl instanceof HTMLElement) runtime.controlsEl.remove();
+  if (runtime.video instanceof HTMLVideoElement) {
+    runtime.video.classList.remove("message-video--pip-floating");
+    runtime.video.style.left = "";
+    runtime.video.style.top = "";
+    runtime.video.style.width = "";
+    runtime.video.style.height = "";
+    runtime.video.style.zIndex = "";
+  }
+  videoPipRuntimes.delete(runtimeKey);
+  if (videoPipActiveKey === runtimeKey) {
+    videoPipActiveKey = null;
+    renderVideoPipDock();
+  }
+  return true;
+}
+
+function renderVideoPipDock() {
+  if (!(ui.videoPipDock instanceof HTMLElement) || !(ui.videoPipHost instanceof HTMLElement)) return;
+  const runtime = videoPipActiveKey ? videoPipRuntimes.get(videoPipActiveKey) : null;
+  const hasActive = Boolean(runtime?.inPip && runtime.video instanceof HTMLVideoElement);
+  ui.videoPipDock.classList.toggle("video-pip--hidden", !hasActive);
+  ui.videoPipHost.innerHTML = "";
+  if (!hasActive) {
+    if (ui.videoPipTitle) ui.videoPipTitle.textContent = "Video PiP";
+    videoPipActiveKey = null;
+    videoPipRuntimes.forEach((entry) => {
+      if (entry?.syncControls instanceof Function) entry.syncControls();
+    });
+    return;
+  }
+  if (ui.videoPipTitle) ui.videoPipTitle.textContent = runtime.label || "Video";
+  ui.videoPipHost.appendChild(runtime.video);
+  runtime.video.classList.add("message-video--pip-floating");
+  updateVideoPipDockLayout();
+  videoPipRuntimes.forEach((entry) => {
+    if (entry?.syncControls instanceof Function) entry.syncControls();
+  });
+}
+
+function updateVideoPipDockLayout() {
+  if (!(ui.videoPipDock instanceof HTMLElement) || ui.videoPipDock.classList.contains("video-pip--hidden")) return;
+  const rect = ui.videoPipDock.getBoundingClientRect();
+  const width = rect.width || 420;
+  const height = rect.height || 280;
+  const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  let left = Math.max(10, window.innerWidth - width - 14);
+  let top = Math.max(10, window.innerHeight - height - 208);
+  if (composerRect) {
+    top = Math.max(8, composerRect.top - height - 8);
+  }
+  if (ui.swfPipDock instanceof HTMLElement && !ui.swfPipDock.classList.contains("swf-pip--hidden")) {
+    const swfRect = ui.swfPipDock.getBoundingClientRect();
+    const candidateLeft = swfRect.left - width - 12;
+    if (candidateLeft > 10) {
+      left = candidateLeft;
+      top = Math.max(8, swfRect.top);
+    }
+  }
+  ui.videoPipDock.style.left = `${Math.round(left)}px`;
+  ui.videoPipDock.style.top = `${Math.round(top)}px`;
+  ui.videoPipDock.style.right = "auto";
+  ui.videoPipDock.style.bottom = "auto";
+}
+
+function setVideoRuntimePip(runtimeKey, enabled) {
+  const runtime = videoPipRuntimes.get(runtimeKey);
+  if (!runtime?.video) return false;
+  if (enabled) {
+    if (videoPipActiveKey && videoPipActiveKey !== runtimeKey) {
+      setVideoRuntimePip(videoPipActiveKey, false);
+    }
+    videoPipActiveKey = runtimeKey;
+    runtime.inPip = true;
+    if (runtime.anchorHost instanceof HTMLElement) {
+      runtime.anchorHost.innerHTML = "<div class=\"channel-empty\">Running in PiP panel.</div>";
+    }
+    renderVideoPipDock();
+    return true;
+  }
+  runtime.inPip = false;
+  runtime.video.classList.remove("message-video--pip-floating");
+  if (runtime.anchorHost instanceof HTMLElement && runtime.anchorHost.isConnected) {
+    runtime.anchorHost.innerHTML = "";
+    runtime.anchorHost.appendChild(runtime.video);
+  }
+  if (videoPipActiveKey === runtimeKey) videoPipActiveKey = null;
+  renderVideoPipDock();
+  return true;
+}
+
 function shouldPreserveSwfRuntime(runtimeKey, runtime, liveSwfKeys = null) {
   if (!runtime) return false;
   if (runtime.keepAlive === true) return true;
@@ -13498,7 +13637,7 @@ function positionSwfAnchoredRuntimeHosts() {
     if (!anchor) {
       host.classList.add("message-swf-player--parked");
       runtime.parked = true;
-      if (runtime.playing) setSwfPlayback(runtimeKey, false, "system");
+      applySwfVisibilityPlayback(runtimeKey, false);
       return;
     }
     const rect = anchor.getBoundingClientRect();
@@ -13515,16 +13654,16 @@ function positionSwfAnchoredRuntimeHosts() {
     host.style.borderColor = "";
     host.style.background = "";
     host.style.boxShadow = "";
-    host.style.left = `${Math.max(0, rect.left)}px`;
-    host.style.top = `${Math.max(0, rect.top)}px`;
+    host.style.left = `${rect.left}px`;
+    host.style.top = `${rect.top}px`;
     host.style.width = `${Math.max(1, rect.width)}px`;
     host.style.height = `${Math.max(1, rect.height)}px`;
-    host.style.zIndex = "124";
+    host.style.zIndex = "12";
     host.style.pointerEvents = visible ? "auto" : "none";
     host.style.opacity = visible ? "1" : "0";
     host.style.visibility = visible ? "visible" : "hidden";
     runtime.parked = !visible;
-    if (!visible && runtime.playing) setSwfPlayback(runtimeKey, false, "system");
+    applySwfVisibilityPlayback(runtimeKey, visible);
   });
 }
 
@@ -13584,7 +13723,7 @@ function parkSwfRuntimeHost(runtimeKey) {
   runtime.pipHost = null;
   runtime.pipTransitioning = false;
   runtime.parked = true;
-  setSwfPlayback(runtimeKey, false, "system");
+  applySwfVisibilityPlayback(runtimeKey, false);
   addDebugLog("info", "Parked SWF runtime host for later reattach", { key: runtimeKey });
   return true;
 }
@@ -13680,6 +13819,7 @@ function renderSwfPipDock() {
   ui.swfPipTabs.innerHTML = "";
   if (!hasTabs) {
     requestSwfRuntimeLayoutSync();
+    updateVideoPipDockLayout();
     return;
   }
   updateSwfPipDockLayout();
@@ -13718,6 +13858,7 @@ function renderSwfPipDock() {
   if (!activeRuntime?.pipHost) return;
   setSwfPlayback(swfPipActiveKey, true, "user");
   requestSwfRuntimeLayoutSync();
+  updateVideoPipDockLayout();
 }
 
 function positionSwfPipRuntimeHosts() {
@@ -13834,6 +13975,7 @@ function setSwfPlayback(runtimeKey, shouldPlay, reason = "system") {
   if (!runtime?.player) return false;
   if (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected) {
     runtime.playing = Boolean(shouldPlay);
+    if (!shouldPlay || reason !== "system") runtime.autoPausedByVisibility = false;
     return false;
   }
   if (shouldPlay && reason === "system" && !runtime.allowAutoPlay && !runtime.manualPlay) return false;
@@ -13841,11 +13983,13 @@ function setSwfPlayback(runtimeKey, shouldPlay, reason = "system") {
     if (shouldPlay) {
       if (typeof runtime.player.play === "function") runtime.player.play();
       runtime.playing = true;
+      runtime.autoPausedByVisibility = false;
       if (reason !== "system") runtime.manualPlay = true;
     } else {
       if (typeof runtime.player.pause === "function") runtime.player.pause();
       runtime.playing = false;
       runtime.autoPausedByMute = false;
+      if (reason !== "system") runtime.autoPausedByVisibility = false;
     }
     refreshSwfAudioFocus(shouldPlay ? runtimeKey : null);
     return true;
@@ -14159,6 +14303,20 @@ function swfVisibilityTarget(runtime) {
   return runtime.host instanceof HTMLElement ? runtime.host : null;
 }
 
+function applySwfVisibilityPlayback(runtimeKey, isVisible) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime) return;
+  if (isVisible) {
+    if (!runtime.autoPausedByVisibility) return;
+    const resumed = setSwfPlayback(runtimeKey, true, "system");
+    if (resumed) runtime.autoPausedByVisibility = false;
+    return;
+  }
+  if (!runtime.playing) return;
+  const paused = setSwfPlayback(runtimeKey, false, "system");
+  if (paused) runtime.autoPausedByVisibility = true;
+}
+
 function bindSwfVisibilityObserver(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.host || !runtime.player) return;
@@ -14174,7 +14332,7 @@ function bindSwfVisibilityObserver(runtimeKey) {
       if (entry.target !== runtime.observerTarget) return;
       if (currentViewerRuntimeKey === runtimeKey) return;
       if (document.fullscreenElement && runtime.host === document.fullscreenElement) return;
-      setSwfPlayback(runtimeKey, entry.isIntersecting, "system");
+      applySwfVisibilityPlayback(runtimeKey, entry.isIntersecting);
     });
   }, { threshold: 0.22 });
   runtime.observer.observe(target);
@@ -14260,6 +14418,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         allowAutoPlay: autoplay !== "off",
         manualPlay: false,
         autoPausedByMute: false,
+        autoPausedByVisibility: existingRuntime.autoPausedByVisibility === true,
         observer: null,
         floating: false,
         restoreStyle: "",
@@ -14619,7 +14778,7 @@ function formatVideoTimeLabel(seconds) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-function createVideoControlStrip(video, { label = "Video" } = {}) {
+function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {}) {
   if (!(video instanceof HTMLVideoElement)) return null;
   const row = document.createElement("div");
   row.className = "message-video-controls";
@@ -14670,9 +14829,12 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
   time.textContent = "0:00 / 0:00";
   const pipBtn = document.createElement("button");
   pipBtn.type = "button";
-  pipBtn.textContent = "PiP";
-  pipBtn.title = "Picture in Picture";
-  pipBtn.hidden = !document.pictureInPictureEnabled || typeof video.requestPictureInPicture !== "function";
+  pipBtn.textContent = "Dock";
+  pipBtn.title = "In-client PiP";
+  if (!runtimeKey) {
+    pipBtn.disabled = true;
+    pipBtn.title = "In-client PiP unavailable here";
+  }
   const fullscreenBtn = document.createElement("button");
   fullscreenBtn.type = "button";
   fullscreenBtn.textContent = "⛶";
@@ -14704,7 +14866,8 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
       ? (Number(seek.value) / 1000) * video.duration
       : currentTime;
     time.textContent = `${formatVideoTimeLabel(shownCurrent)} / ${formatVideoTimeLabel(video.duration)}`;
-    pipBtn.classList.toggle("is-active", document.pictureInPictureElement === video);
+    const runtime = runtimeKey ? videoPipRuntimes.get(runtimeKey) : null;
+    pipBtn.classList.toggle("is-active", Boolean(runtime?.inPip && videoPipActiveKey === runtimeKey));
     fullscreenBtn.classList.toggle("is-active", document.fullscreenElement === video);
   };
 
@@ -14756,18 +14919,15 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
     video.playbackRate = next;
     sync();
   });
-  pipBtn.addEventListener("click", async () => {
-    try {
-      if (document.pictureInPictureElement === video) {
-        await document.exitPictureInPicture();
-      } else if (typeof video.requestPictureInPicture === "function") {
-        await video.requestPictureInPicture();
-      }
-    } catch (error) {
-      addDebugLog("warn", "Video PiP toggle failed", { label, error: String(error) });
-    } finally {
-      sync();
+  pipBtn.addEventListener("click", () => {
+    if (!runtimeKey) return;
+    const runtime = videoPipRuntimes.get(runtimeKey);
+    if (!runtime) return;
+    const ok = setVideoRuntimePip(runtimeKey, !runtime.inPip);
+    if (!ok) {
+      addDebugLog("warn", "Video in-client PiP toggle failed", { label, key: runtimeKey });
     }
+    sync();
   });
   fullscreenBtn.addEventListener("click", async () => {
     try {
@@ -14786,6 +14946,7 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
   ["play", "pause", "ended", "volumechange", "ratechange", "timeupdate", "loadedmetadata", "enterpictureinpicture", "leavepictureinpicture", "fullscreenchange"]
     .forEach((eventName) => video.addEventListener(eventName, sync));
   sync();
+  row.__sync = sync;
 
   row.appendChild(playBtn);
   row.appendChild(backBtn);
@@ -15215,24 +15376,68 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const videoLike = type === "video" || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
     if (videoLike) {
       const gifLikeVideo = type === "gif";
-      const video = createVideoPreviewElement(
-        mediaUrl,
-        attachment.name || (gifLikeVideo ? "GIF" : "Video"),
-        wrap,
-        {
-          animatedLoop: gifLikeVideo,
-          preferDirect: gifLikeVideo
-        }
-      );
-      video.addEventListener("dblclick", () => {
-        openMediaLightbox({ url: mediaUrl, label: attachment.name || (gifLikeVideo ? "GIF" : "Video"), video: true });
-      });
-      wrap.appendChild(video);
-      if (!gifLikeVideo) {
-        const controls = createVideoControlStrip(video, {
-          label: attachment.name || "Video"
+      const label = attachment.name || (gifLikeVideo ? "GIF" : "Video");
+      if (gifLikeVideo) {
+        const video = createVideoPreviewElement(
+          mediaUrl,
+          label,
+          wrap,
+          {
+            animatedLoop: true,
+            preferDirect: true
+          }
+        );
+        video.addEventListener("dblclick", () => {
+          openMediaLightbox({ url: mediaUrl, label, video: true });
         });
-        if (controls) wrap.appendChild(controls);
+        wrap.appendChild(video);
+      } else {
+        const runtimeKey = swfKey ? `video:${swfKey}` : "";
+        let runtime = runtimeKey ? videoPipRuntimes.get(runtimeKey) : null;
+        if (!runtime?.video) {
+          const video = createVideoPreviewElement(
+            mediaUrl,
+            label,
+            wrap,
+            {
+              animatedLoop: false,
+              preferDirect: false
+            }
+          );
+          video.addEventListener("dblclick", () => {
+            openMediaLightbox({ url: mediaUrl, label, video: true });
+          });
+          runtime = ensureVideoPipRuntime(runtimeKey, { video, label });
+        } else {
+          runtime.label = label;
+        }
+        const mount = document.createElement("div");
+        mount.className = "message-video-mount";
+        wrap.appendChild(mount);
+        if (runtime?.video) {
+          runtime.anchorHost = mount;
+          if (runtime.inPip && videoPipActiveKey === runtime.key) {
+            mount.innerHTML = "<div class=\"channel-empty\">Running in PiP panel.</div>";
+            renderVideoPipDock();
+          } else {
+            runtime.inPip = false;
+            mount.innerHTML = "";
+            mount.appendChild(runtime.video);
+          }
+          if (!(runtime.controlsEl instanceof HTMLElement)) {
+            runtime.controlsEl = createVideoControlStrip(runtime.video, {
+              label,
+              runtimeKey: runtime.key
+            });
+            runtime.syncControls = runtime.controlsEl && typeof runtime.controlsEl.__sync === "function"
+              ? runtime.controlsEl.__sync
+              : null;
+          }
+          if (runtime.controlsEl instanceof HTMLElement) {
+            wrap.appendChild(runtime.controlsEl);
+            if (runtime.syncControls instanceof Function) runtime.syncControls();
+          }
+        }
       }
       const openBtn = document.createElement("a");
       openBtn.className = "message-swf-link";
@@ -17396,6 +17601,7 @@ function renderMessages() {
     return;
   }
   const liveSwfKeys = collectLiveSwfRuntimeKeys();
+  const liveVideoKeys = collectLiveVideoPipRuntimeKeys(messageBucket);
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
     if (runtime.inPip && (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected)) {
@@ -17413,6 +17619,11 @@ function renderMessages() {
     if (runtime.inPip || runtime.pipTransitioning) return;
     if (liveSwfKeys.has(key)) return;
     destroySwfRuntime(key, { reason: "render-prune", removeHost: true, liveSwfKeys });
+  });
+  videoPipRuntimes.forEach((runtime, key) => {
+    if (liveVideoKeys.has(key)) return;
+    if (runtime?.inPip && key === videoPipActiveKey) return;
+    destroyVideoPipRuntime(key, { force: true });
   });
   refreshSwfAudioFocus();
   ui.messageList.innerHTML = "";
@@ -22175,6 +22386,10 @@ ui.swfPipCloseBtn.addEventListener("click", () => {
   swfPipManuallyHidden = true;
   renderSwfPipDock();
 });
+ui.videoPipCloseBtn?.addEventListener("click", () => {
+  if (!videoPipActiveKey) return;
+  setVideoRuntimePip(videoPipActiveKey, false);
+});
 
 const swfPipHeader = ui.swfPipDock.querySelector(".swf-pip__header");
 if (swfPipHeader) {
@@ -22219,6 +22434,7 @@ document.addEventListener("mousemove", (event) => {
   ui.swfPipDock.style.right = "auto";
   ui.swfPipDock.style.bottom = "auto";
   positionSwfPipRuntimeHosts();
+  updateVideoPipDockLayout();
 });
 
 document.addEventListener("mouseup", () => {
@@ -23330,6 +23546,7 @@ window.addEventListener("resize", () => {
   }
   updateSwfPipDockLayout();
   renderSwfPipDock();
+  updateVideoPipDockLayout();
   requestSwfRuntimeLayoutSync();
 });
 window.addEventListener("hashchange", () => {
@@ -23352,11 +23569,13 @@ if (window.visualViewport) {
     if (mediaPickerOpen) renderMediaPicker();
     updateSwfPipDockLayout();
     renderSwfPipDock();
+    updateVideoPipDockLayout();
     requestSwfRuntimeLayoutSync();
   });
   window.visualViewport.addEventListener("scroll", () => {
     updateSwfPipDockLayout();
     renderSwfPipDock();
+    updateVideoPipDockLayout();
     requestSwfRuntimeLayoutSync();
   });
 }
