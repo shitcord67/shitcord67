@@ -968,6 +968,9 @@ let findSelectionIndex = 0;
 let findRenderTimer = null;
 let findMatchesCacheKey = "";
 let findMatchesCache = [];
+let findDialogCloseReason = "manual";
+let findDialogPendingJumpId = "";
+let findDialogPendingJumpToast = false;
 let pendingFindJumpMessageId = "";
 let pendingFindJumpAttempts = 0;
 let lastRenderedMessageSignature = "";
@@ -2336,15 +2339,14 @@ function renderFindList() {
     meta.textContent = `${entry.author} · ${formatFullTimestamp(entry.ts || "")}`;
     row.appendChild(title);
     row.appendChild(meta);
-    row.addEventListener("mouseenter", () => {
+    row.addEventListener("click", (event) => {
+      if (event.button !== 0) return;
       findSelectionIndex = index;
       renderFindList();
-    });
-    row.addEventListener("click", () => {
-      findSelectionIndex = index;
-      renderFindList();
-      renderMessages();
-      focusMessageByIdWithHistory(entry.id, { toastOnLoad: true });
+      findDialogCloseReason = "jump";
+      findDialogPendingJumpId = entry.id || "";
+      findDialogPendingJumpToast = true;
+      ui.findDialog?.close();
     });
     ui.findList.appendChild(row);
   });
@@ -2361,6 +2363,9 @@ function scheduleFindUiRefresh({ rerenderMessages = true, delayMs = 80 } = {}) {
 }
 
 function openFindDialog() {
+  findDialogCloseReason = "manual";
+  findDialogPendingJumpId = "";
+  findDialogPendingJumpToast = false;
   findQuery = "";
   findAuthorFilter = "";
   findAfterFilter = "";
@@ -2380,6 +2385,9 @@ function openFindDialog() {
 
 function openFindDialogWithQuery(query) {
   const inline = extractFindInlineFilters(query);
+  findDialogCloseReason = "manual";
+  findDialogPendingJumpId = "";
+  findDialogPendingJumpToast = false;
   const safeQuery = inline.query.slice(0, 120);
   findQuery = safeQuery;
   findAuthorFilter = inline.author || "";
@@ -10893,11 +10901,8 @@ function renderQuickSwitchList() {
     meta.textContent = item.meta;
     row.appendChild(title);
     row.appendChild(meta);
-    row.addEventListener("mouseenter", () => {
-      quickSwitchSelectionIndex = index;
-      renderQuickSwitchList();
-    });
-    row.addEventListener("click", () => {
+    row.addEventListener("click", (event) => {
+      if (event.button !== 0) return;
       const ok = activateQuickSwitchItem(item);
       if (ok) ui.quickSwitchDialog?.close();
     });
@@ -14356,6 +14361,7 @@ function destroySwfRuntime(runtimeKey, {
   if (!runtimeKey) return false;
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime) return false;
+  setSwfRuntimeHoverState(runtimeKey, false);
   if (!force && shouldPreserveSwfRuntime(runtimeKey, runtime, liveSwfKeys)) {
     ensurePreservedSwfRuntimeHost(runtimeKey, runtime, reason);
     addDebugLog("warn", "Skipped SWF runtime destroy because runtime is preserved", {
@@ -14483,6 +14489,19 @@ function shouldUseAnchoredBodySwfRuntime(runtimeKey) {
   return key.includes(":");
 }
 
+function setSwfRuntimeHoverState(runtimeKey, hovered) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime) return;
+  const active = Boolean(hovered);
+  runtime.runtimeHover = active;
+  const attachment = runtime.anchorHost instanceof HTMLElement
+    ? runtime.anchorHost.closest(".message-attachment--swf")
+    : null;
+  if (attachment instanceof HTMLElement) {
+    attachment.classList.toggle("message-attachment--swf-runtime-hover", active);
+  }
+}
+
 function ensureSwfRuntimeBodyHost(runtimeKey, runtime) {
   if (!runtime?.player || !(runtime.player instanceof HTMLElement)) return null;
   if (!shouldUseAnchoredBodySwfRuntime(runtimeKey)) return runtime.host instanceof HTMLElement ? runtime.host : null;
@@ -14496,6 +14515,15 @@ function ensureSwfRuntimeBodyHost(runtimeKey, runtime) {
   } else if (!host.contains(runtime.player)) {
     host.innerHTML = "";
     host.appendChild(runtime.player);
+  }
+  if (host.dataset.hoverBridgeBound !== "on") {
+    host.dataset.hoverBridgeBound = "on";
+    host.addEventListener("mouseenter", () => {
+      setSwfRuntimeHoverState(runtimeKey, true);
+    });
+    host.addEventListener("mouseleave", () => {
+      setSwfRuntimeHoverState(runtimeKey, false);
+    });
   }
   host.classList.remove("message-swf-player--parked");
   return host;
@@ -14596,6 +14624,7 @@ function positionSwfAnchoredRuntimeHosts() {
       ? runtime.anchorHost
       : null;
     if (!anchor) {
+      setSwfRuntimeHoverState(runtimeKey, false);
       host.classList.add("message-swf-player--parked");
       runtime.parked = true;
       applySwfVisibilityPlayback(runtimeKey, false);
@@ -14631,7 +14660,7 @@ function positionSwfAnchoredRuntimeHosts() {
     host.style.top = `${rect.top}px`;
     host.style.width = `${Math.max(1, rect.width)}px`;
     host.style.height = `${Math.max(1, rect.height)}px`;
-    host.style.zIndex = "2";
+    host.style.zIndex = "1";
     host.style.pointerEvents = visible ? "auto" : "none";
     host.style.opacity = visible ? "1" : "0";
     host.style.visibility = visible ? "visible" : "hidden";
@@ -14645,6 +14674,7 @@ function positionSwfAnchoredRuntimeHosts() {
       }
     }
     runtime.parked = !visible;
+    if (!visible) setSwfRuntimeHoverState(runtimeKey, false);
     applySwfVisibilityPlayback(runtimeKey, visible);
   });
 }
@@ -14652,6 +14682,7 @@ function positionSwfAnchoredRuntimeHosts() {
 function attachExistingSwfRuntime(runtimeKey, hostElement) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player || !(hostElement instanceof HTMLElement)) return false;
+  setSwfRuntimeHoverState(runtimeKey, false);
   if (shouldUseAnchoredBodySwfRuntime(runtimeKey)) runtime.bodyHosted = true;
   if (!hostElement.classList.contains("message-swf-player")) hostElement.classList.add("message-swf-player");
   const liveHost = ensureSwfRuntimeBodyHost(runtimeKey, runtime);
@@ -14688,6 +14719,7 @@ function ensureSwfRuntimeParkingLot() {
 function parkSwfRuntimeHost(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player || !(runtime.host instanceof HTMLElement)) return false;
+  setSwfRuntimeHoverState(runtimeKey, false);
   if (runtime.observer) {
     runtime.observer.disconnect();
     runtime.observer = null;
@@ -15350,6 +15382,12 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
   try {
     const ruffle = window.RufflePlayer.newest();
     const player = ruffle.createPlayer();
+    if (runtimeKey) {
+      player.addEventListener("pointerdown", () => {
+        grantSwfAudioClickFocus(runtimeKey);
+        setSwfPlayback(runtimeKey, true, "user");
+      });
+    }
     if (runtimeKey) noteSwfRuntimeEvent(runtimeKey, "created");
     player.style.width = "100%";
     player.style.height = "100%";
@@ -16078,6 +16116,18 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     pipBtn.disabled = true;
     pipBtn.title = "In-client PiP unavailable here";
   }
+  const nativePipBtn = document.createElement("button");
+  nativePipBtn.type = "button";
+  nativePipBtn.textContent = "PiP";
+  nativePipBtn.title = "Native Picture-in-Picture";
+  const canNativePip = Boolean(
+    document.pictureInPictureEnabled
+    && typeof video.requestPictureInPicture === "function"
+  );
+  if (!canNativePip) {
+    nativePipBtn.disabled = true;
+    nativePipBtn.title = "Native Picture-in-Picture unavailable";
+  }
   const fullscreenBtn = document.createElement("button");
   fullscreenBtn.type = "button";
   fullscreenBtn.textContent = "⛶";
@@ -16102,6 +16152,8 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   let previewDisabled = false;
   let previewToken = 0;
   let seekPointerActive = false;
+  let previewRaf = 0;
+  let previewLastTime = Number.NaN;
 
   const seekTargetTime = () => {
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
@@ -16191,6 +16243,29 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     if (node.readyState < 1) node.load();
   };
 
+  const stopSeekPreviewLoop = () => {
+    if (!previewRaf) return;
+    cancelAnimationFrame(previewRaf);
+    previewRaf = 0;
+    previewLastTime = Number.NaN;
+  };
+
+  const seekPreviewLoopStep = () => {
+    previewRaf = 0;
+    if (!seeking || !seekPointerActive) return;
+    const target = seekTargetTime();
+    if (!Number.isFinite(previewLastTime) || Math.abs(target - previewLastTime) >= 0.03) {
+      previewLastTime = target;
+      requestSeekPreviewFrame(target);
+    }
+    previewRaf = requestAnimationFrame(seekPreviewLoopStep);
+  };
+
+  const startSeekPreviewLoop = () => {
+    if (previewRaf) return;
+    previewRaf = requestAnimationFrame(seekPreviewLoopStep);
+  };
+
   const beginSeek = ({ showPreview = false } = {}) => {
     if (seeking) return;
     seeking = true;
@@ -16198,7 +16273,12 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     seekWasPlaying = !video.paused && !video.ended;
     if (seekWasPlaying) video.pause();
     preview.hidden = !showPreview;
-    if (showPreview) requestSeekPreviewFrame(seekTargetTime());
+    if (showPreview) {
+      requestSeekPreviewFrame(seekTargetTime());
+      startSeekPreviewLoop();
+    } else {
+      stopSeekPreviewLoop();
+    }
   };
 
   const finishSeek = ({ cancel = false } = {}) => {
@@ -16206,6 +16286,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     const nextTime = cancel ? seekStartTime : seekTargetTime();
     if (Number.isFinite(nextTime)) video.currentTime = Math.max(0, nextTime);
     seeking = false;
+    stopSeekPreviewLoop();
     preview.hidden = true;
     if (!cancel && seekWasPlaying) {
       void video.play().catch(() => {});
@@ -16242,6 +16323,14 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     time.textContent = `${formatVideoTimeLabel(shownCurrent)} / ${formatVideoTimeLabel(video.duration)}`;
     const runtime = runtimeKey ? videoPipRuntimes.get(runtimeKey) : null;
     pipBtn.classList.toggle("is-active", Boolean(runtime?.inPip && videoPipActiveKey === runtimeKey));
+    const nativePipActive = document.pictureInPictureElement === video;
+    nativePipBtn.classList.toggle("is-active", nativePipActive);
+    if (canNativePip) {
+      nativePipBtn.title = nativePipActive ? "Exit native Picture-in-Picture" : "Native Picture-in-Picture";
+    }
+    if (video.controls !== nativePipActive) {
+      video.controls = nativePipActive;
+    }
     fullscreenBtn.classList.toggle("is-active", document.fullscreenElement === video);
   };
 
@@ -16268,8 +16357,10 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     if (seekPointerActive) {
       preview.hidden = false;
       requestSeekPreviewFrame(seekTargetTime());
+      startSeekPreviewLoop();
     } else {
       preview.hidden = true;
+      stopSeekPreviewLoop();
     }
     sync();
   });
@@ -16284,17 +16375,32 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   seek.addEventListener("blur", () => {
     if (!seeking) return;
     seekPointerActive = false;
+    stopSeekPreviewLoop();
     finishSeek({ cancel: false });
   });
-  seek.addEventListener("pointerdown", () => {
+  seek.addEventListener("pointerdown", (event) => {
     seekPointerActive = true;
+    try {
+      seek.setPointerCapture(event.pointerId);
+    } catch {
+      // Ignore unsupported pointer capture.
+    }
     if (seeking) {
       preview.hidden = false;
       requestSeekPreviewFrame(seekTargetTime());
+      startSeekPreviewLoop();
     }
   });
-  const clearSeekPointer = () => {
+  const clearSeekPointer = (event) => {
+    if (event && "pointerId" in event) {
+      try {
+        seek.releasePointerCapture(event.pointerId);
+      } catch {
+        // Ignore unsupported pointer capture release.
+      }
+    }
     seekPointerActive = false;
+    stopSeekPreviewLoop();
     if (seeking) preview.hidden = true;
   };
   seek.addEventListener("pointerup", clearSeekPointer);
@@ -16326,6 +16432,25 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     }
     sync();
   });
+  nativePipBtn.addEventListener("click", async () => {
+    if (!canNativePip) return;
+    try {
+      if (document.pictureInPictureElement === video) {
+        if (typeof document.exitPictureInPicture === "function") {
+          await document.exitPictureInPicture();
+        }
+      } else {
+        if (document.pictureInPictureElement && typeof document.exitPictureInPicture === "function") {
+          await document.exitPictureInPicture();
+        }
+        await video.requestPictureInPicture();
+      }
+    } catch (error) {
+      addDebugLog("warn", "Native video PiP toggle failed", { label, key: runtimeKey || "", error: String(error) });
+    } finally {
+      sync();
+    }
+  });
   fullscreenBtn.addEventListener("click", async () => {
     try {
       if (document.fullscreenElement === video && document.exitFullscreen) {
@@ -16342,9 +16467,10 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
 
   ["play", "pause", "ended", "volumechange", "ratechange", "timeupdate", "loadedmetadata", "enterpictureinpicture", "leavepictureinpicture", "fullscreenchange"]
     .forEach((eventName) => video.addEventListener(eventName, sync));
-  seek.addEventListener("mousemove", () => {
+  seek.addEventListener("pointermove", () => {
     if (!seeking || !seekPointerActive) return;
     requestSeekPreviewFrame(seekTargetTime());
+    startSeekPreviewLoop();
   });
   sync();
   row.__sync = sync;
@@ -16358,6 +16484,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   row.appendChild(volume);
   row.appendChild(speed);
   row.appendChild(pipBtn);
+  row.appendChild(nativePipBtn);
   row.appendChild(fullscreenBtn);
   row.appendChild(preview);
   return row;
@@ -16396,6 +16523,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const info = document.createElement("div");
     info.className = "message-swf-meta message-media-gate__host";
     info.textContent = host;
+    const iconRow = document.createElement("div");
+    iconRow.className = "message-media-gate__icon-row";
     const openUrlBtn = document.createElement("a");
     openUrlBtn.className = "message-media-gate__icon-btn";
     openUrlBtn.href = mediaUrl;
@@ -16408,23 +16537,53 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     revealUrlBtn.className = "message-media-gate__icon-btn";
     revealUrlBtn.title = "Toggle full URL";
     revealUrlBtn.textContent = "⌗";
+    const setUrlLatched = (latched) => {
+      gate.dataset.urlLatched = latched ? "on" : "off";
+      if (latched || gate.dataset.urlPinned === "on") {
+        gate.classList.add("is-url-latched");
+      } else {
+        gate.classList.remove("is-url-latched");
+      }
+    };
     revealUrlBtn.addEventListener("click", () => {
       const pinned = gate.dataset.urlPinned === "on";
-      gate.dataset.urlPinned = pinned ? "off" : "on";
-      gate.classList.toggle("is-url-pinned", !pinned);
-      revealUrlBtn.classList.toggle("is-active", !pinned);
+      const nextPinned = !pinned;
+      gate.dataset.urlPinned = nextPinned ? "on" : "off";
+      gate.classList.toggle("is-url-pinned", nextPinned);
+      revealUrlBtn.classList.toggle("is-active", nextPinned);
+      if (nextPinned) {
+        setUrlLatched(true);
+      } else if (!gate.matches(":hover")) {
+        setUrlLatched(false);
+      }
     });
-    hostRow.addEventListener("mouseenter", () => {
-      gate.dataset.urlLatched = "on";
-      gate.classList.add("is-url-latched");
+    gate.addEventListener("mouseenter", () => {
+      setUrlLatched(true);
     });
     gate.addEventListener("mouseleave", () => {
-      gate.dataset.urlLatched = "off";
-      if (gate.dataset.urlPinned !== "on") gate.classList.remove("is-url-latched");
+      if (gate.dataset.urlPinned === "on") return;
+      setUrlLatched(false);
+    });
+    gate.addEventListener("focusin", () => {
+      setUrlLatched(true);
+    });
+    gate.addEventListener("focusout", (event) => {
+      if (gate.dataset.urlPinned === "on") return;
+      const next = event.relatedTarget;
+      if (next instanceof Node && gate.contains(next)) return;
+      setUrlLatched(false);
     });
     hostRow.appendChild(info);
-    hostRow.appendChild(openUrlBtn);
-    hostRow.appendChild(revealUrlBtn);
+    const gateModeBtn = document.createElement("button");
+    gateModeBtn.type = "button";
+    gateModeBtn.className = "message-media-gate__icon-btn";
+    const syncGateModeButton = () => {
+      const enabled = getPreferences().mediaPrivacyMode !== "off";
+      gateModeBtn.textContent = enabled ? "Off" : "On";
+      gateModeBtn.title = enabled ? "Disable media privacy gate" : "Enable media privacy gate";
+      gateModeBtn.classList.toggle("is-active", enabled);
+    };
+    syncGateModeButton();
     const urlNote = document.createElement("div");
     urlNote.className = "message-embed-note message-media-gate__url";
     urlNote.textContent = mediaUrl;
@@ -16432,7 +16591,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     armBtn.type = "button";
     armBtn.className = "message-media-gate__icon-btn";
     armBtn.textContent = "⋯";
-    armBtn.title = "Load options (Once, Trust, Copy, Gate toggle)";
+    armBtn.title = "Load options";
     const controls = document.createElement("div");
     controls.className = "settings-inline-actions message-media-gate__controls";
     controls.hidden = true;
@@ -16499,13 +16658,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       const copied = await copyText(mediaUrl);
       showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
     });
-    const allowAllBtn = document.createElement("button");
-    allowAllBtn.type = "button";
-    allowAllBtn.className = "message-media-gate__option";
-    const privacyEnabled = getPreferences().mediaPrivacyMode !== "off";
-    allowAllBtn.textContent = privacyEnabled ? "Off" : "On";
-    allowAllBtn.title = privacyEnabled ? "Disable media privacy gate" : "Enable media privacy gate";
-    allowAllBtn.addEventListener("click", () => {
+    gateModeBtn.addEventListener("click", () => {
       state.preferences = getPreferences();
       const nextMode = state.preferences.mediaPrivacyMode === "off" ? "safe" : "off";
       state.preferences.mediaPrivacyMode = nextMode;
@@ -16514,23 +16667,28 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       applyPreferencesToUI();
       if (mediaPickerOpen) renderMediaPicker();
       showToast(nextMode === "off" ? "Media privacy gate disabled." : "Media privacy gate enabled.");
+      syncGateModeButton();
     });
     controls.appendChild(onceBtn);
     controls.appendChild(trustBtn);
     controls.appendChild(trustSubdomainBtn);
     controls.appendChild(customRuleBtn);
     controls.appendChild(copyUrlBtn);
-    controls.appendChild(allowAllBtn);
     armBtn.addEventListener("click", () => {
       controls.hidden = !controls.hidden;
       armBtn.classList.toggle("is-active", !controls.hidden);
+      gate.classList.toggle("is-controls-open", !controls.hidden);
     });
+    iconRow.appendChild(openUrlBtn);
+    iconRow.appendChild(revealUrlBtn);
+    iconRow.appendChild(gateModeBtn);
+    iconRow.appendChild(armBtn);
+    hostRow.appendChild(iconRow);
     textWrap.appendChild(title);
     textWrap.appendChild(hostRow);
     textWrap.appendChild(urlNote);
     top.appendChild(icon);
     top.appendChild(textWrap);
-    top.appendChild(armBtn);
     gate.appendChild(top);
     gate.appendChild(controls);
     wrap.appendChild(gate);
@@ -17654,6 +17812,7 @@ function renderChannels() {
   ui.dmSection.classList.toggle("panel-section--collapsed", prefs.collapseDmSection === "on");
   ui.guildSection.classList.toggle("panel-section--collapsed", prefs.collapseGuildSection === "on");
   if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = dmMode;
+  if (ui.createChannelBtn) ui.createChannelBtn.hidden = dmMode;
   const server = getActiveServer();
   ui.channelList.innerHTML = "";
   if (dmMode) {
@@ -17696,6 +17855,13 @@ function renderChannels() {
     const canManage = Boolean(current && hasServerPermission(server, current.id, "manageChannels"));
     ui.openGuildSettingsBtn.disabled = !canManage;
     ui.openGuildSettingsBtn.title = canManage ? "Guild settings" : "Manage Channels permission required";
+  }
+  if (ui.createChannelBtn) {
+    const current = getCurrentAccount();
+    const canManage = Boolean(current && hasServerPermission(server, current.id, "manageChannels"));
+    ui.createChannelBtn.disabled = !canManage;
+    ui.createChannelBtn.hidden = !canManage;
+    ui.createChannelBtn.title = canManage ? "Create channel" : "Manage Channels permission required";
   }
   if (!currentAccount) return;
   const visibleChannels = server.channels
@@ -17784,6 +17950,7 @@ function renderChannels() {
       renderChannels();
     });
     button.addEventListener("contextmenu", (event) => {
+      const canManageChannels = canCurrentUser("manageChannels");
       const menuItems = [
         {
           label: "Open Channel",
@@ -17876,96 +18043,96 @@ function renderChannels() {
             renderServers();
             renderChannels();
           }
-        },
-        {
-          label: "Slowmode",
-          disabled: !canCurrentUser("manageChannels"),
-          submenu: [
-            { label: "Off", action: () => { channel.slowmodeSec = 0; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
-            { label: "5s", action: () => { channel.slowmodeSec = 5; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
-            { label: "15s", action: () => { channel.slowmodeSec = 15; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
-            { label: "30s", action: () => { channel.slowmodeSec = 30; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
-            { label: "60s", action: () => { channel.slowmodeSec = 60; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } }
-          ]
-        },
-        {
-          label: "Rename Channel",
-          disabled: !canCurrentUser("manageChannels"),
-          action: () => {
-            state.activeChannelId = channel.id;
-            openChannelSettings();
+        }
+      ];
+      if (canManageChannels) {
+        menuItems.push(
+          {
+            label: "Slowmode",
+            submenu: [
+              { label: "Off", action: () => { channel.slowmodeSec = 0; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+              { label: "5s", action: () => { channel.slowmodeSec = 5; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+              { label: "15s", action: () => { channel.slowmodeSec = 15; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+              { label: "30s", action: () => { channel.slowmodeSec = 30; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
+              { label: "60s", action: () => { channel.slowmodeSec = 60; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } }
+            ]
+          },
+          {
+            label: "Rename Channel",
+            action: () => {
+              state.activeChannelId = channel.id;
+              openChannelSettings();
+            }
+          },
+          {
+            label: "Duplicate Channel",
+            action: () => {
+              const clone = duplicateChannelInGuild(server, channel);
+              if (!clone) return;
+              state.activeChannelId = clone.id;
+              saveState();
+              render();
+            }
+          },
+          {
+            label: "Move Up",
+            disabled: server.channels[0]?.id === channel.id,
+            action: () => {
+              if (!moveChannelByOffset(server, channel.id, -1)) return;
+              saveState();
+              renderChannels();
+            }
+          },
+          {
+            label: "Move Down",
+            disabled: server.channels[server.channels.length - 1]?.id === channel.id,
+            action: () => {
+              if (!moveChannelByOffset(server, channel.id, 1)) return;
+              saveState();
+              renderChannels();
+            }
           }
-        },
-        {
-          label: "Duplicate Channel",
-          disabled: !canCurrentUser("manageChannels"),
-          action: () => {
-            const clone = duplicateChannelInGuild(server, channel);
-            if (!clone) return;
-            state.activeChannelId = clone.id;
-            saveState();
-            render();
-          }
-        },
-        {
-          label: "Move Up",
-          disabled: !canCurrentUser("manageChannels") || server.channels[0]?.id === channel.id,
-          action: () => {
-            if (!moveChannelByOffset(server, channel.id, -1)) return;
-            saveState();
-            renderChannels();
-          }
-        },
-        {
-          label: "Move Down",
-          disabled: !canCurrentUser("manageChannels") || server.channels[server.channels.length - 1]?.id === channel.id,
-          action: () => {
-            if (!moveChannelByOffset(server, channel.id, 1)) return;
-            saveState();
-            renderChannels();
-          }
-        },
-        {
+        );
+        if (channel.type === "forum") {
+          menuItems.push({
+            label: "Forum Tags",
+            submenu: [
+              {
+                label: "Add Tag…",
+                action: () => {
+                  const raw = prompt("Forum tag name", "discussion");
+                  if (typeof raw !== "string") return;
+                  const name = sanitizeForumTagName(raw);
+                  if (!name) return;
+                  channel.forumTags = forumTagsForChannel(channel);
+                  if (resolveForumTagByName(channel, name)) return;
+                  channel.forumTags.push({ id: createId(), name, color: "#5865f2" });
+                  saveState();
+                  renderMessages();
+                }
+              },
+              ...forumTagsForChannel(channel).map((tag) => ({
+                label: `Remove ${tag.name}`,
+                action: () => {
+                  channel.forumTags = forumTagsForChannel(channel).filter((entry) => entry.id !== tag.id);
+                  channel.messages.forEach((message) => {
+                    message.forumTagIds = normalizeThreadTagIds(message.forumTagIds, channel.forumTags);
+                  });
+                  saveState();
+                  renderMessages();
+                }
+              }))
+            ]
+          });
+        }
+        menuItems.push({
           label: "Delete Channel",
           danger: true,
-          disabled: !canCurrentUser("manageChannels") || server.channels.length <= 1,
+          disabled: server.channels.length <= 1,
           action: () => {
             state.activeChannelId = channel.id;
             ui.deleteChannelBtn.click();
           }
-        }
-      ];
-      if (channel.type === "forum") {
-        menuItems.splice(menuItems.length - 1, 0, {
-          label: "Forum Tags",
-          disabled: !canCurrentUser("manageChannels"),
-          submenu: [
-            {
-              label: "Add Tag…",
-              action: () => {
-                const raw = prompt("Forum tag name", "discussion");
-                if (typeof raw !== "string") return;
-                const name = sanitizeForumTagName(raw);
-                if (!name) return;
-                channel.forumTags = forumTagsForChannel(channel);
-                if (resolveForumTagByName(channel, name)) return;
-                channel.forumTags.push({ id: createId(), name, color: "#5865f2" });
-                saveState();
-                renderMessages();
-              }
-            },
-            ...forumTagsForChannel(channel).map((tag) => ({
-              label: `Remove ${tag.name}`,
-              action: () => {
-                channel.forumTags = forumTagsForChannel(channel).filter((entry) => entry.id !== tag.id);
-                channel.messages.forEach((message) => {
-                  message.forumTagIds = normalizeThreadTagIds(message.forumTagIds, channel.forumTags);
-                });
-                saveState();
-                renderMessages();
-              }
-            }))
-          ]
         });
       }
       openContextMenu(event, menuItems);
@@ -18717,6 +18884,9 @@ function renderDmHome() {
   if (ui.nextUnreadBtn) ui.nextUnreadBtn.hidden = true;
   if (ui.openPinsBtn) setHeaderActionButtonLabel(ui.openPinsBtn, "Pins");
   if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = true;
+  if (ui.openChannelSettingsBtn) ui.openChannelSettingsBtn.hidden = true;
+  if (ui.editTopicBtn) ui.editTopicBtn.hidden = true;
+  if (ui.openRolesBtn) ui.openRolesBtn.hidden = true;
   ui.messageList.innerHTML = "";
   const shell = document.createElement("section");
   shell.className = "dm-home";
@@ -19181,6 +19351,35 @@ function renderMessages() {
       ui.messageInput.placeholder = channel ? `Message ${channelTypePrefix(channel)} ${channel.name}` : "No channel selected";
     }
   }
+  const headerGuild = getActiveGuild();
+  const headerAccount = getCurrentAccount();
+  const canManageChannelsHere = Boolean(
+    !isDm
+    && headerGuild
+    && headerAccount
+    && hasServerPermission(headerGuild, headerAccount.id, "manageChannels")
+  );
+  const canManageRolesHere = Boolean(
+    !isDm
+    && headerGuild
+    && headerAccount
+    && hasServerPermission(headerGuild, headerAccount.id, "manageRoles")
+  );
+  if (ui.openChannelSettingsBtn) {
+    ui.openChannelSettingsBtn.hidden = isDm || !canManageChannelsHere;
+    ui.openChannelSettingsBtn.disabled = !canManageChannelsHere;
+    ui.openChannelSettingsBtn.title = canManageChannelsHere ? "Channel settings" : "Manage Channels permission required";
+  }
+  if (ui.editTopicBtn) {
+    ui.editTopicBtn.hidden = isDm || !canManageChannelsHere;
+    ui.editTopicBtn.disabled = !canManageChannelsHere;
+    ui.editTopicBtn.title = canManageChannelsHere ? "Edit channel topic" : "Manage Channels permission required";
+  }
+  if (ui.openRolesBtn) {
+    ui.openRolesBtn.hidden = isDm || !canManageRolesHere;
+    ui.openRolesBtn.disabled = !canManageRolesHere;
+    ui.openRolesBtn.title = canManageRolesHere ? "Manage roles" : "Manage Roles permission required";
+  }
   if (!conversationId || (replyTarget && replyTarget.channelId !== conversationId)) {
     replyTarget = null;
   }
@@ -19303,13 +19502,13 @@ function renderMessages() {
       if (!xmppConnection || relayStatus !== "connected") {
         control.classList.add("xmpp-history-control--done");
         control.textContent = "Connect XMPP to load history.";
-      } else if (mamState.loading) {
-        control.textContent = "Loading older messages...";
       } else if (mamState.complete) {
         control.classList.add("xmpp-history-control--done");
         control.textContent = mamState.pagesLoaded > 0
           ? "Start of available message history."
           : "No archived history available.";
+      } else if (mamState.loading) {
+        control.textContent = "Loading older messages...";
       } else {
         const button = document.createElement("button");
         button.type = "button";
@@ -19768,7 +19967,9 @@ function renderMessages() {
     attachments.forEach((attachment, index) => {
       renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
     });
-    messageRow.appendChild(reactions);
+    if (reactions.childElementCount > 0) {
+      messageRow.appendChild(reactions);
+    }
     messageRow.appendChild(reactionPicker);
     previousThreadMessage = message;
     const openMessageContextMenuAt = (event) => {
@@ -20228,6 +20429,7 @@ function renderMemberList() {
   const activeChannel = getActiveChannel();
   if (activeChannel && (activeChannel.type === "voice" || activeChannel.type === "stage")) {
     ensureVoiceStateForChannel(activeChannel);
+    const current = getCurrentAccount();
     const connectedIds = activeChannel.voiceState.connectedIds.filter((id) => server.memberIds.includes(id));
     const connectedAccounts = connectedIds
       .map((id) => getAccountById(id))
@@ -20272,6 +20474,22 @@ function renderMemberList() {
       row.appendChild(avatar);
       row.appendChild(meta);
       row.addEventListener("click", () => openUserPopout(account));
+      row.addEventListener("dblclick", () => mentionInComposer(account));
+      row.addEventListener("contextmenu", (event) => {
+        openContextMenu(event, [
+          { label: "View Profile", action: () => openUserPopout(account) },
+          { label: "Start DM", disabled: account.id === current?.id, action: () => openDmWithAccount(account) },
+          { label: "Mention User", action: () => mentionInComposer(account) },
+          {
+            label: "Copy",
+            submenu: [
+              { label: "Display Name", action: () => copyText(displayNameForAccount(account, server.id)) },
+              { label: "Username", action: () => copyText(`@${account.username}`) },
+              { label: "User ID", action: () => copyText(account.id) }
+            ]
+          }
+        ]);
+      });
       ui.memberList.appendChild(row);
     });
     return;
@@ -20322,6 +20540,7 @@ function renderMemberList() {
       ui.memberList.appendChild(empty);
       return;
     }
+    const current = getCurrentAccount();
     occupants.forEach((entry) => {
       let account = entry.accountId ? getAccountById(entry.accountId) : null;
       if (!account && entry.jid) {
@@ -20365,6 +20584,50 @@ function renderMemberList() {
       row.appendChild(avatar);
       row.appendChild(meta);
       row.addEventListener("click", () => openUserPopout(account, fallbackName));
+      row.addEventListener("dblclick", () => {
+        if (account) mentionInComposer(account);
+      });
+      row.addEventListener("contextmenu", (event) => {
+        const startDm = () => {
+          if (account) {
+            if (account.id === current?.id) return;
+            openDmWithAccount(account);
+            return;
+          }
+          const identity = (entry.jid || entry.nick || "").toString().trim();
+          if (!identity) return;
+          openDmByIdentity(identity, { displayName: fallbackName });
+        };
+        openContextMenu(event, [
+          {
+            label: "View Profile",
+            action: () => openUserPopout(account, fallbackName)
+          },
+          {
+            label: "Start DM",
+            disabled: account ? account.id === current?.id : !(entry.jid || entry.nick),
+            action: startDm
+          },
+          {
+            label: "Mention User",
+            disabled: !account,
+            action: () => {
+              if (account) mentionInComposer(account);
+            }
+          },
+          {
+            label: "Copy",
+            submenu: [
+              { label: "Display Name", action: () => copyText(fallbackName) },
+              { label: "XMPP JID", disabled: !entry.jid, action: () => copyText(entry.jid || "") },
+              { label: "Role", disabled: !entry.role, action: () => copyText(entry.role || "") },
+              { label: "Affiliation", disabled: !entry.affiliation, action: () => copyText(entry.affiliation || "") },
+              { label: "Username", disabled: !account, action: () => copyText(account ? `@${account.username}` : "") },
+              { label: "User ID", disabled: !account, action: () => copyText(account?.id || "") }
+            ]
+          }
+        ]);
+      });
       ui.memberList.appendChild(row);
     });
     return;
@@ -23880,9 +24143,18 @@ ui.findForm?.addEventListener("submit", (event) => {
   const matches = getFindMatchesForConversation(conversation, findQuery);
   const selected = matches[findSelectionIndex] || matches[0];
   if (!selected) return;
-  focusMessageByIdWithHistory(selected.id, { toastOnLoad: true });
+  findDialogCloseReason = "jump";
+  findDialogPendingJumpId = selected.id || "";
+  findDialogPendingJumpToast = true;
+  ui.findDialog?.close();
 });
 ui.findDialog?.addEventListener("close", () => {
+  const closeReason = findDialogCloseReason;
+  const jumpId = findDialogPendingJumpId;
+  const jumpToast = findDialogPendingJumpToast;
+  findDialogCloseReason = "manual";
+  findDialogPendingJumpId = "";
+  findDialogPendingJumpToast = false;
   findQuery = "";
   findAuthorFilter = "";
   findAfterFilter = "";
@@ -23901,6 +24173,9 @@ ui.findDialog?.addEventListener("close", () => {
   resetFindMatchCache();
   renderFindList();
   renderMessages();
+  if (closeReason === "jump" && jumpId) {
+    focusMessageByIdWithHistory(jumpId, { toastOnLoad: jumpToast });
+  }
 });
 ui.toggleChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
 ui.toggleMemberPanelBtn?.addEventListener("click", toggleMemberPanelVisibility);
@@ -23941,6 +24216,9 @@ if (swfPipHeader) {
   swfPipHeader.addEventListener("mousedown", (event) => {
     beginPipDrag(event, "swf", ui.swfPipDock);
   });
+  swfPipHeader.addEventListener("pointerdown", (event) => {
+    beginPipDrag(event, "swf", ui.swfPipDock);
+  });
   swfPipHeader.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.closest("button")) return;
     if (pipSuppressHeaderToggle) {
@@ -23956,9 +24234,12 @@ if (videoPipHeader) {
   videoPipHeader.addEventListener("mousedown", (event) => {
     beginPipDrag(event, "video", ui.videoPipDock);
   });
+  videoPipHeader.addEventListener("pointerdown", (event) => {
+    beginPipDrag(event, "video", ui.videoPipDock);
+  });
 }
 
-document.addEventListener("mousemove", (event) => {
+const handlePipDragMove = (event) => {
   if (!pipDragState?.dragging) return;
   const targetDock = pipDragState.target === "video" ? ui.videoPipDock : ui.swfPipDock;
   if (!(targetDock instanceof HTMLElement)) return;
@@ -23979,9 +24260,9 @@ document.addEventListener("mousemove", (event) => {
     positionSwfPipRuntimeHosts();
     updateVideoPipDockLayout();
   }
-});
+};
 
-document.addEventListener("mouseup", () => {
+const finishPipDrag = () => {
   if (!pipDragState?.dragging) return;
   const dragTarget = pipDragState.target || "swf";
   if (dragTarget === "swf" && pipDragState.moved) pipSuppressHeaderToggle = true;
@@ -23998,7 +24279,13 @@ document.addEventListener("mouseup", () => {
   }
   saveState();
   pipDragState = null;
-});
+};
+
+document.addEventListener("mousemove", handlePipDragMove);
+document.addEventListener("pointermove", handlePipDragMove);
+document.addEventListener("mouseup", finishPipDrag);
+document.addEventListener("pointerup", finishPipDrag);
+document.addEventListener("pointercancel", finishPipDrag);
 ui.clearSwfShelfBtn.addEventListener("click", () => {
   state.savedSwfs = [];
   saveState();
