@@ -170,8 +170,8 @@ async function createMainWindow() {
   const browser = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 960,
-    minHeight: 640,
+    minWidth: 640,
+    minHeight: 480,
     title: "shitcord67",
     autoHideMenuBar: true,
     backgroundColor: "#101217",
