@@ -12838,10 +12838,39 @@ function collectLiveSwfRuntimeKeys() {
 
 function shouldPreserveSwfRuntime(runtimeKey, runtime, liveSwfKeys = null) {
   if (!runtime) return false;
+  if (runtime.keepAlive === true) return true;
   if (runtime.inPip || runtime.pipTransitioning || runtime.parked) return true;
   if (swfPipTabs.includes(runtimeKey)) return true;
   if (liveSwfKeys instanceof Set && liveSwfKeys.has(runtimeKey)) return true;
   return false;
+}
+
+function ensurePreservedSwfRuntimeHost(runtimeKey, runtime, reason = "preserve") {
+  if (!runtime?.player || !(runtime.player instanceof HTMLElement)) return false;
+  if (runtime.host instanceof HTMLElement && runtime.host.isConnected) return true;
+  if (runtime.inPip && recoverDetachedSwfPipHost(runtimeKey)) return true;
+  let host = runtime.host instanceof HTMLElement ? runtime.host : null;
+  if (!(host instanceof HTMLElement)) {
+    host = document.createElement("div");
+    host.className = "message-swf-player";
+  }
+  if (!host.classList.contains("message-swf-player")) host.classList.add("message-swf-player");
+  if (!host.contains(runtime.player)) {
+    host.innerHTML = "";
+    host.appendChild(runtime.player);
+  }
+  const lot = ensureSwfRuntimeParkingLot();
+  host.classList.remove("swf-pip-player", "message-swf-player--pip-floating");
+  host.classList.add("message-swf-player--parked");
+  lot.appendChild(host);
+  runtime.host = host;
+  runtime.originHost = host;
+  runtime.inPip = false;
+  runtime.pipHost = null;
+  runtime.pipTransitioning = false;
+  runtime.parked = true;
+  addDebugLog("warn", "Preserved SWF runtime by parking detached host", { key: runtimeKey, reason });
+  return true;
 }
 
 function swfRuntimeTelemetryEntry(runtimeKey) {
@@ -13029,6 +13058,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     runtime.originHost = host;
   }
   if (enabled) {
+    runtime.keepAlive = true;
     if (runtime.observer) {
       runtime.observer.disconnect();
       runtime.observer = null;
@@ -13111,11 +13141,15 @@ function setSwfRuntimePip(runtimeKey, enabled) {
       addDebugLog("warn", "Recovered SWF runtime after PiP close with fallback parking host", { key: runtimeKey });
     }
     if (!parked) {
-      runtime.host.remove();
-      swfRuntimes.delete(runtimeKey);
-      noteSwfRuntimeEvent(runtimeKey, "destroyed");
-      swfPendingUi.delete(runtimeKey);
-      swfPendingAudio.delete(runtimeKey);
+      if (!shouldPreserveSwfRuntime(runtimeKey, runtime)) {
+        runtime.host.remove();
+        swfRuntimes.delete(runtimeKey);
+        noteSwfRuntimeEvent(runtimeKey, "destroyed");
+        swfPendingUi.delete(runtimeKey);
+        swfPendingAudio.delete(runtimeKey);
+      } else {
+        ensurePreservedSwfRuntimeHost(runtimeKey, runtime, "pip-disable-fallback");
+      }
     }
     refreshSwfAudioFocus();
     return true;
@@ -13556,6 +13590,20 @@ async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
   }
 }
 
+async function ensureSwfRuntimeReadyForPip(runtimeKey, hostElement, attachment) {
+  if (!runtimeKey) return null;
+  let runtime = swfRuntimes.get(runtimeKey);
+  if (runtime?.player instanceof HTMLElement) return runtime;
+  if (!(hostElement instanceof HTMLElement) || !attachment) return runtime || null;
+  attachRufflePlayer(hostElement, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey });
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    await nextFrame();
+    runtime = swfRuntimes.get(runtimeKey);
+    if (runtime?.player instanceof HTMLElement) return runtime;
+  }
+  return runtime || null;
+}
+
 function resetSwfRuntime(runtimeKey, hostElement, attachment) {
   if (!confirm("Reset this SWF to the beginning?")) return;
   const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
@@ -13673,6 +13721,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         pipHost: existingRuntime.pipHost || null,
         pipTransitioning: existingRuntime.pipTransitioning === true,
         parked: existingRuntime.parked === true,
+        keepAlive: existingRuntime.keepAlive === true,
         loading: true,
         audioEnabled: getPreferences().swfAudio === "on",
         audioVolume: getPreferences().swfVolume,
@@ -13749,6 +13798,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         return;
       }
       if (!mounted && loadState.preserved) {
+        if (runtimeKey && loadState.runtime) ensurePreservedSwfRuntimeHost(runtimeKey, loadState.runtime, "load-not-mounted");
         addDebugLog("warn", "Continuing SWF load while runtime is detached but preserved", { key: runtimeKey, url: mediaUrl });
       }
       let loaded = false;
@@ -13768,6 +13818,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             destroyDetachedRuntime();
             return;
           }
+          if (runtimeKey && activeState.runtime) ensurePreservedSwfRuntimeHost(runtimeKey, activeState.runtime, "load-detached");
           addDebugLog("info", "SWF runtime detached during load but preserved", { key: runtimeKey, url: candidate });
         }
         try {
@@ -13818,6 +13869,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             swfPendingAudio.delete(runtimeKey);
             refreshSwfAudioFocus();
           } else {
+            if (runtime) ensurePreservedSwfRuntimeHost(runtimeKey, runtime, "load-failed");
             addDebugLog("warn", "Preserved SWF runtime after load failure because runtime is pinned/parked", { key: runtimeKey });
           }
           refreshSwfRuntimeHealthUi(runtimeKey);
@@ -14348,6 +14400,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const runtimeInMap = swfKey ? swfRuntimes.get(swfKey) : null;
     soloBtn.classList.toggle("is-active", swfKey && swfSoloRuntimeKey === swfKey);
     pipBtn.classList.toggle("is-active", Boolean(runtimeInMap?.inPip));
+    pipBtn.title = runtimeInMap?.inPip ? "Remove from PiP" : "Pin to PiP";
     if (runtimeInMap?.inPip) {
       runtimeInMap.originHost = playerWrap;
       playerWrap.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
@@ -14395,13 +14448,31 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       refreshSwfAudioFocus(swfKey);
     });
     pipBtn.addEventListener("click", () => {
-      if (!swfKey) return;
-      const runtime = swfRuntimes.get(swfKey);
-      if (!runtime) return;
-      const nextEnabled = !runtime.inPip;
-      setSwfRuntimePip(swfKey, nextEnabled);
-      pipBtn.classList.toggle("is-active", nextEnabled);
-      refreshSwfAudioFocus(swfKey);
+      if (!swfKey || pipBtn.dataset.pending === "on") return;
+      pipBtn.dataset.pending = "on";
+      pipBtn.disabled = true;
+      const run = async () => {
+        const runtime = await ensureSwfRuntimeReadyForPip(swfKey, playerWrap, attachment);
+        if (!runtime?.player) {
+          showToast("SWF runtime is still loading. Try PiP again in a moment.", { tone: "error" });
+          return;
+        }
+        const nextEnabled = !runtime.inPip;
+        runtime.keepAlive = true;
+        const ok = setSwfRuntimePip(swfKey, nextEnabled);
+        const runtimeAfter = swfRuntimes.get(swfKey);
+        const pipActive = Boolean(runtimeAfter?.inPip);
+        pipBtn.classList.toggle("is-active", pipActive);
+        pipBtn.title = pipActive ? "Remove from PiP" : "Pin to PiP";
+        if (!ok) {
+          showToast("Could not toggle PiP for this SWF.", { tone: "error" });
+        }
+        refreshSwfAudioFocus(swfKey);
+      };
+      void run().finally(() => {
+        pipBtn.dataset.pending = "off";
+        pipBtn.disabled = false;
+      });
     });
     wrap.appendChild(card);
     container.appendChild(wrap);
@@ -16592,6 +16663,7 @@ function renderMessages() {
       const recovered = recoverDetachedSwfPipHost(key);
       if (!recovered) {
         if (shouldPreserveSwfRuntime(key, runtime, liveSwfKeys)) {
+          ensurePreservedSwfRuntimeHost(key, runtime, "render-pip-detach");
           addDebugLog("warn", "Keeping SWF runtime after PiP host detach to avoid teardown", { key });
           return;
         }
@@ -16605,7 +16677,11 @@ function renderMessages() {
       return;
     }
     if (runtime.inPip || runtime.pipTransitioning) return;
-    if (liveSwfKeys.has(key) || shouldPreserveSwfRuntime(key, runtime, liveSwfKeys)) return;
+    if (liveSwfKeys.has(key)) return;
+    if (shouldPreserveSwfRuntime(key, runtime, liveSwfKeys)) {
+      ensurePreservedSwfRuntimeHost(key, runtime, "render-preserve");
+      return;
+    }
     if (runtime.observer) runtime.observer.disconnect();
     if (runtime.host instanceof HTMLElement) runtime.host.remove();
     swfRuntimes.delete(key);

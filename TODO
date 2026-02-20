@@ -262,6 +262,8 @@
 - [done] Header actions now use a hybrid icon-first mode for utility controls and force icon fallback when the header wraps/overflows.
 - [done] SWF PiP runtime lifecycle hardened: detached PiP hosts are recovered, and PiP off now parks/re-attaches runtimes instead of destroying them.
 - [done] Hardened SWF async load lifecycle against detach races so PiP/parked/tab-preserved runtimes are not torn down mid-load.
+- [done] SWF runtimes now enter keep-alive mode after first PiP use and are parked/recovered instead of being destroyed on detach.
+- [done] PiP toggle now waits for lazy SWF runtime startup, so PiP works even when clicked while a SWF is still loading.
 - [done] Consecutive same-author message grouping now compacts more aggressively (denser gutter, tighter head/text spacing, longer grouping window).
 - [done] Media runtime bootstrap hardened with local-first probes and multi-CDN fallback for Ruffle/dotLottie.
 - [done] Added XEP-0184 DM delivery receipts (request + received ack handling with sent/delivered badges).
