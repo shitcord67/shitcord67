@@ -165,6 +165,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Header now includes a direct `Mark Read` action and live pinned-message count on the `Pins` button.
 - Header now includes a direct `Find` action button for conversation search.
 - Discord-like visual tuning pass applied (font stack, channel row states, header controls, message spacing, member-list hover treatment).
+- Message rows were compacted further (reduced vertical padding/line-height) to cut extra blank space above/below content.
 - Composer input bar now uses compact Discord-style action sizing with arrow send button treatment.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
 - Clicking an SWF player promotes it to active audio focus (unless that SWF is explicitly muted).
@@ -245,8 +246,12 @@ A lightweight Discord-style chat client prototype with local persistence.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
 - XMPP reply references now keep stanza reference IDs and can resolve/jump once referenced messages are loaded from archive.
+- Reply preview rows now prefer resolved referenced author/text (when available) and keep click-to-jump behavior.
 - XMPP presence updates now refresh mapped account status/avatar (vCard fetch) for DMs and visible MUC occupants.
 - XMPP avatar fetch now attempts PEP avatar data (`urn:xmpp:avatar:data`, XEP-0084) with vCard fallback for broader profile-photo compatibility.
+- Member sidebar avatar rendering now proactively requests XMPP avatars for visible contacts/occupants to reduce missing profile photos.
+- MUC detection now also treats known mapped room JIDs as rooms even when the service is not `conference.*` (improves occupant tracking for rooms like `chat.disroot.org`).
+- Multi-account guild visibility is account-scoped; account switching no longer auto-joins the active guild from another account session.
 - XMPP OOB/reference URLs and inline media links now map into richer inline embeds (including images and video).
 - Unknown file attachments from XMPP OOB/reference URLs now render as generic file cards with open/download actions.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
