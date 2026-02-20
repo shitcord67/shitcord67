@@ -165,19 +165,19 @@
           </div>
 
           <form id="messageForm" class="message-form" autocomplete="off">
-            <button id="openMediaPickerBtn" type="button" class="message-form__media-btn" title="Open media picker">+</button>
-            <button id="openGifPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open GIF picker">GIF</button>
-            <button id="openStickerPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Sticker picker">STK</button>
-            <button id="openEmojiPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Emoji picker">🙂</button>
             <button id="quickFileAttachBtn" type="button" class="message-form__media-btn" title="Attach file from computer">📎</button>
             <button id="toggleSwfAudioBtn" type="button" class="message-form__media-btn" title="Toggle SWF audio">🔇</button>
-            <textarea id="messageInput" rows="1" maxlength="400" placeholder="Message #general" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+            <button id="openMediaPickerBtn" type="button" class="message-form__media-btn message-form__media-btn--hidden" title="Open media picker" aria-hidden="true" tabindex="-1">+</button>
+            <textarea id="messageInput" rows="1" maxlength="2000" placeholder="Message #general" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+            <button id="openGifPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open GIF picker">GIF</button>
+            <button id="openStickerPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Sticker picker">🏷️</button>
+            <button id="openEmojiPickerBtn" type="button" class="message-form__media-btn message-form__tab-btn" title="Open Emoji picker">🙂</button>
             <button type="submit">Send</button>
           </form>
           <div class="composer-meta">
             <span id="composerSystemNotice" class="composer-system-note" hidden></span>
             <span id="composerTypingNote" class="composer-typing-note" hidden></span>
-            <span id="composerCharCount" class="composer-char-count">0/400</span>
+            <span id="composerCharCount" class="composer-char-count">0/2000</span>
           </div>
           <input id="quickAttachInput" type="file" multiple accept="image/*,video/*,audio/*,.gif,.webp,.mp4,.webm,.png,.jpg,.jpeg,.svg,.swf,.html,.htm,.pdf,.txt,.md,.log,.json,.js,.ts,.css,.xml,.yml,.yaml,.ini,.toml,.odt,.ods,.odp,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.bin,application/pdf,text/plain,application/json,application/rtf,text/rtf,application/vnd.oasis.opendocument.text,application/vnd.oasis.opendocument.spreadsheet,application/vnd.oasis.opendocument.presentation,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
         </div>
@@ -595,7 +595,7 @@
     <form id="messageEditForm" class="modal-form" method="dialog">
       <h3>Edit message</h3>
       <label for="messageEditInput">Message</label>
-      <textarea id="messageEditInput" maxlength="400"></textarea>
+      <textarea id="messageEditInput" maxlength="2000"></textarea>
       <div class="modal-actions">
         <button type="button" id="messageEditCancel">Cancel</button>
         <button type="submit">Save</button>

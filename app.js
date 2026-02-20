@@ -17,6 +17,17 @@ const XMPP_ENABLE_BROWSER_HOST_META_FALLBACK = false;
 const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_MAM_NAMESPACE = "urn:xmpp:mam:2";
 const XMPP_MAM_PAGE_SIZE = 120;
+const MESSAGE_CHAR_LIMIT_MIN = 200;
+const MESSAGE_CHAR_LIMIT_DEFAULT = 2000;
+const MESSAGE_CHAR_LIMIT_MAX = 20000;
+const MESSAGE_CHAR_LIMIT_TEMP_BUMP = 2000;
+const MESSAGE_TEXT_STORAGE_MAX = 20000;
+const MESSAGE_TEXT_TRANSPORT_MAX = 8000;
+const GIF_PICKER_INITIAL_PAGE_SIZE = 140;
+const GIF_PICKER_PAGE_STEP = 120;
+const TENOR_PUBLIC_API_KEY = "LIVDSRZULELA";
+const TENOR_CLIENT_KEY = "shitcord67";
+const TENOR_RESULTS_PAGE_SIZE = 36;
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -282,8 +293,12 @@ function normalizeComposerDrafts(value) {
   if (!value || typeof value !== "object") return {};
   const entries = Object.entries(value)
     .filter(([conversationId]) => typeof conversationId === "string" && conversationId)
-    .map(([conversationId, draft]) => [conversationId, (draft || "").toString().slice(0, 400)]);
+    .map(([conversationId, draft]) => [conversationId, (draft || "").toString().slice(0, MESSAGE_TEXT_STORAGE_MAX)]);
   return Object.fromEntries(entries.filter(([, draft]) => draft.length > 0));
+}
+
+function clampMessageTextForStorage(value) {
+  return (value || "").toString().slice(0, MESSAGE_TEXT_STORAGE_MAX);
 }
 
 function escapeRegExp(value) {
@@ -444,6 +459,7 @@ function buildInitialState() {
       swfPauseOnMute: "off",
       swfVuMeter: "off",
       swfQuickAudioMode: "click",
+      messageCharLimit: MESSAGE_CHAR_LIMIT_DEFAULT,
       guildNotifications: {},
       forumCollapsedThreads: {},
       forumThreadReadState: {},
@@ -848,6 +864,14 @@ let selectedUserPopoutId = null;
 let mediaPickerOpen = false;
 let mediaPickerTab = "gif";
 let mediaPickerQuery = "";
+let gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+let gifPickerRemoteEntries = [];
+let gifPickerRemoteNext = "";
+let gifPickerRemoteLoading = false;
+let gifPickerRemoteError = "";
+let gifPickerRemoteQueryKey = "";
+let gifPickerRemoteRequestToken = 0;
+let gifPickerQueryDebounceTimer = null;
 let swfLibrary = [];
 const debugLogs = [];
 const xmppDebugEvents = [];
@@ -879,6 +903,9 @@ let composerPendingAttachments = [];
 let composerDraftConversationId = null;
 let composerDraftSaveTimer = null;
 let composerMetaRefreshTimer = null;
+let composerTempLimitConversationId = null;
+let composerTempLimitExtra = 0;
+let composerCharCountClickTimer = null;
 let scheduledDispatchTimer = null;
 let memberSearchTerm = "";
 let memberPresenceFilter = "all";
@@ -1399,6 +1426,40 @@ function getActiveConversation() {
   return { type: "channel", channel, id: channel.id };
 }
 
+function hardLimitForConversation(conversation = getActiveConversation()) {
+  const prefs = getPreferences();
+  let limit = normalizeMessageCharLimit(prefs.messageCharLimit);
+  if (conversation?.type === "channel") {
+    const serverLimit = Number(conversation.channel?.messageCharLimit || conversation.channel?.messageMaxLength || 0);
+    if (Number.isFinite(serverLimit) && serverLimit > 0) {
+      limit = Math.max(MESSAGE_CHAR_LIMIT_MIN, Math.min(MESSAGE_CHAR_LIMIT_MAX, Math.floor(serverLimit)));
+    }
+  }
+  return limit;
+}
+
+function composerLimitForConversation(conversation = getActiveConversation()) {
+  const base = hardLimitForConversation(conversation);
+  if (!conversation?.id) return base;
+  if (composerTempLimitConversationId !== conversation.id || composerTempLimitExtra <= 0) return base;
+  return Math.max(MESSAGE_CHAR_LIMIT_MIN, Math.min(MESSAGE_CHAR_LIMIT_MAX, base + composerTempLimitExtra));
+}
+
+function trimTextForConversation(value, conversation = getActiveConversation()) {
+  return (value || "").toString().slice(0, composerLimitForConversation(conversation));
+}
+
+function trimTextForTransport(value) {
+  return clampMessageTextForStorage(value).slice(0, MESSAGE_TEXT_TRANSPORT_MAX);
+}
+
+function applyComposerInputLimit() {
+  if (!(ui.messageInput instanceof HTMLTextAreaElement)) return;
+  const conversation = getActiveConversation();
+  const limit = composerLimitForConversation(conversation);
+  ui.messageInput.maxLength = limit;
+}
+
 function ensureComposerDraftsStore() {
   if (!state.composerDrafts || typeof state.composerDrafts !== "object") {
     state.composerDrafts = {};
@@ -1409,7 +1470,7 @@ function ensureComposerDraftsStore() {
 function setComposerDraft(conversationId, text) {
   if (!conversationId) return;
   const drafts = ensureComposerDraftsStore();
-  const next = (text || "").toString().slice(0, 400);
+  const next = clampMessageTextForStorage(text);
   if (next.trim()) {
     drafts[conversationId] = next;
     return;
@@ -1420,7 +1481,7 @@ function setComposerDraft(conversationId, text) {
 function getComposerDraft(conversationId) {
   if (!conversationId) return "";
   const drafts = ensureComposerDraftsStore();
-  return (drafts[conversationId] || "").toString().slice(0, 400);
+  return clampMessageTextForStorage(drafts[conversationId] || "");
 }
 
 function hasDraftForConversation(conversationId) {
@@ -1454,10 +1515,15 @@ function syncComposerDraftConversation(nextConversationId) {
     setComposerDraft(previousId, ui.messageInput.value);
   }
   composerDraftConversationId = nextConversationId || null;
+  if (composerTempLimitConversationId && composerTempLimitConversationId !== composerDraftConversationId) {
+    composerTempLimitConversationId = null;
+    composerTempLimitExtra = 0;
+  }
   const nextDraft = nextConversationId ? getComposerDraft(nextConversationId) : "";
   if ((ui.messageInput.value || "") !== nextDraft) {
-    ui.messageInput.value = nextDraft;
+    ui.messageInput.value = trimTextForConversation(nextDraft, getActiveConversation());
   }
+  applyComposerInputLimit();
   resizeComposerInput();
 }
 
@@ -1634,7 +1700,7 @@ function requestXmppRosterSubscription(targetAccount, { nameHint = "" } = {}) {
 
 function sendDirectMessageToAccount(targetAccount, text) {
   const current = getCurrentAccount();
-  const body = (text || "").trim().slice(0, 400);
+  const body = trimTextForConversation((text || "").trim(), { type: "dm", id: "dm-send" });
   if (!current || !targetAccount || targetAccount.id === current.id || !body) return false;
   const thread = getOrCreateDmThread(current, targetAccount);
   if (!thread) return false;
@@ -2762,9 +2828,12 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
 function mentionInComposer(account) {
   if (!account) return;
   const base = ui.messageInput.value.trim();
-  ui.messageInput.value = `${base ? `${base} ` : ""}@${account.username} `;
+  ui.messageInput.value = trimTextForConversation(`${base ? `${base} ` : ""}@${account.username} `, getActiveConversation());
+  setComposerDraft(composerDraftConversationId, ui.messageInput.value);
+  queueComposerDraftSave();
   ui.messageInput.focus();
   renderSlashSuggestions();
+  renderComposerMeta();
 }
 
 function normalizeColorForPicker(value, fallback = "#5865f2") {
@@ -3331,6 +3400,12 @@ function normalizeMediaTrustRules(value) {
     .slice(0, 120);
 }
 
+function normalizeMessageCharLimit(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return MESSAGE_CHAR_LIMIT_DEFAULT;
+  return Math.max(MESSAGE_CHAR_LIMIT_MIN, Math.min(MESSAGE_CHAR_LIMIT_MAX, Math.floor(parsed)));
+}
+
 function normalizeProfileEffect(value) {
   const effect = (value || "").toString().toLowerCase();
   return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
@@ -3450,6 +3525,7 @@ function getPreferences() {
     swfPauseOnMute: normalizeToggle(current.swfPauseOnMute),
     swfVuMeter: normalizeToggle(current.swfVuMeter),
     swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode),
+    messageCharLimit: normalizeMessageCharLimit(current.messageCharLimit),
     guildNotifications: normalizeGuildNotificationsMap(current.guildNotifications),
     forumCollapsedThreads: normalizeForumCollapsedThreadsMap(current.forumCollapsedThreads),
     forumThreadReadState: normalizeForumThreadReadStateMap(current.forumThreadReadState),
@@ -5350,7 +5426,7 @@ function applyRelayIncomingMessage(packet) {
     xmppNick: remoteClientId.startsWith("xmpp:") ? (remoteMessage.authorDisplay || remoteMessage.authorUsername || "") : "",
     userId: remoteAccount.id,
     authorName: "",
-    text: decodeHtmlEntities((remoteMessage.text || "").toString()).slice(0, 400),
+    text: clampMessageTextForStorage(decodeHtmlEntities((remoteMessage.text || "").toString())),
     ts: Number.isFinite(Date.parse(remoteMessage.ts || "")) ? new Date(remoteMessage.ts).toISOString() : new Date().toISOString(),
     reactions: [],
     attachments: normalizeAttachments(Array.isArray(remoteMessage.attachments) ? remoteMessage.attachments.slice(0, 6) : []),
@@ -6180,7 +6256,7 @@ function maybeLoadOlderXmppHistoryForActiveConversation({ trigger = "scroll", fo
 }
 
 function relayMessageBodyText(message) {
-  const text = (message?.text || "").toString().slice(0, 400);
+  const text = trimTextForTransport(message?.text || "");
   const links = (Array.isArray(message?.attachments) ? message.attachments : [])
     .filter((entry) => entry && typeof entry === "object" && entry.url)
     .slice(0, 3)
@@ -6245,7 +6321,7 @@ function publishRelayChannelMessage(channel, message, account) {
       channelName: channel.name || "",
       message: {
         id: message.id,
-        text: (message.text || "").toString().slice(0, 400),
+        text: trimTextForTransport(message.text || ""),
         ts: message.ts || new Date().toISOString(),
         authorUsername: account.username,
         authorDisplay: displayNameForAccount(account, guild?.id || null),
@@ -6279,7 +6355,7 @@ function publishRelayChannelMessage(channel, message, account) {
     channelName: channel.name || "",
     message: {
       id: message.id,
-      text: (message.text || "").toString().slice(0, 400),
+      text: trimTextForTransport(message.text || ""),
       ts: message.ts || new Date().toISOString(),
       authorUsername: account.username,
       authorDisplay: displayNameForAccount(account, guild?.id || null),
@@ -6337,7 +6413,7 @@ function publishRelayDirectMessage(thread, message, account) {
         channelName: "dm",
         message: {
           id: message.id,
-          text: (message.text || "").toString().slice(0, 400),
+          text: trimTextForTransport(message.text || ""),
           ts: message.ts || new Date().toISOString(),
           authorUsername: account.username,
           authorDisplay: account.displayName || account.username,
@@ -6359,7 +6435,7 @@ function publishRelayDirectMessage(thread, message, account) {
     channelName: "dm",
     message: {
       id: message.id,
-      text: (message.text || "").toString().slice(0, 400),
+      text: trimTextForTransport(message.text || ""),
       ts: message.ts || new Date().toISOString(),
       authorUsername: account.username,
       authorDisplay: account.displayName || account.username,
@@ -6500,6 +6576,26 @@ function displayNameForAccount(account, guildId = null) {
   const nick = resolveAccountGuildNickname(account, guildId);
   if (nick) return nick;
   return account.displayName || account.username;
+}
+
+function accountBareXmppJid(account) {
+  return xmppBareJid(account?.xmppJid || "");
+}
+
+function dmPrimaryLabelForAccount(account) {
+  if (!account) return "Unknown DM";
+  const bareJid = accountBareXmppJid(account);
+  if (bareJid) return bareJid;
+  return `@${account.username || "unknown"}`;
+}
+
+function dmSecondaryLabelForAccount(account) {
+  if (!account) return "";
+  const bareJid = accountBareXmppJid(account);
+  if (bareJid) return `xmpp:${bareJid}`;
+  const display = displayNameForAccount(account, null);
+  const fallback = `@${account.username || "unknown"}`;
+  return display && display !== account.username ? display : fallback;
 }
 
 function resolveAccountAvatar(account, guildId = null) {
@@ -6692,7 +6788,7 @@ function activeConversationReferenceText() {
     const current = getCurrentAccount();
     const peerId = conversation.thread?.participantIds?.find((id) => id !== current?.id);
     const peer = peerId ? getAccountById(peerId) : null;
-    return peer ? `@${peer.username}` : "@dm";
+    return peer ? dmSecondaryLabelForAccount(peer) : "@dm";
   }
   const channel = conversation.channel;
   return channel ? `#${channel.name}` : "";
@@ -7126,7 +7222,7 @@ function normalizeScheduledMessages(value) {
       const conversationType = entry?.conversationType === "dm" ? "dm" : "channel";
       const conversationId = (entry?.conversationId || "").toString();
       const authorId = (entry?.authorId || "").toString();
-      const text = (entry?.text || "").toString().slice(0, 400);
+      const text = clampMessageTextForStorage(entry?.text || "");
       const sendAt = typeof entry?.sendAt === "string" ? entry.sendAt : "";
       if (!conversationId || !authorId || !text.trim()) return null;
       if (!toTimestampMs(sendAt)) return null;
@@ -7353,6 +7449,31 @@ function mediaUrlHost(url) {
   } catch {
     return "";
   }
+}
+
+function isIpLikeHost(host) {
+  return /^[0-9.]+$/.test(host) || host.includes(":");
+}
+
+function registrableDomainForHost(host) {
+  const normalized = (host || "").toString().trim().toLowerCase();
+  if (!normalized || normalized === "localhost" || isIpLikeHost(normalized)) return normalized;
+  const labels = normalized.split(".").filter(Boolean);
+  if (labels.length <= 2) return normalized;
+  const commonSecondLevel = new Set(["co.uk", "org.uk", "gov.uk", "ac.uk", "com.au", "net.au", "org.au", "co.jp", "com.br"]);
+  const suffix2 = labels.slice(-2).join(".");
+  if (commonSecondLevel.has(suffix2) && labels.length >= 3) {
+    return labels.slice(-3).join(".");
+  }
+  return labels.slice(-2).join(".");
+}
+
+function suggestSubdomainTrustRule(host) {
+  const cleaned = (host || "").toString().trim().toLowerCase();
+  if (!cleaned) return "";
+  const domain = registrableDomainForHost(cleaned);
+  if (!domain || domain === cleaned) return cleaned;
+  return `*.${domain}`;
 }
 
 function isExternalMediaUrl(url) {
@@ -7849,7 +7970,7 @@ function formatRelativeMs(targetMs) {
 function queueScheduledMessage(conversation, account, whenRaw, textBody) {
   const whenMs = parseScheduleWhen(whenRaw);
   if (!whenMs || whenMs < Date.now() + 2000) return { ok: false, error: "Choose a time at least 2s in the future." };
-  const messageText = (textBody || "").toString().trim().slice(0, 400);
+  const messageText = trimTextForConversation((textBody || "").toString().trim(), conversation);
   if (!messageText) return { ok: false, error: "Scheduled message cannot be empty." };
   const queue = ensureScheduledMessagesStore();
   const entry = {
@@ -8427,7 +8548,7 @@ function handleSlashCommand(rawText, channel, account) {
       .map((thread) => {
         const peerId = thread.participantIds.find((id) => id !== account.id);
         const peer = peerId ? getAccountById(peerId) : null;
-        return peer ? `@${peer.username}` : "(unknown DM)";
+        return peer ? dmPrimaryLabelForAccount(peer) : "(unknown DM)";
       });
     const parts = [];
     if (channelDrafts.length > 0) parts.push(`Channels: ${channelDrafts.join(", ")}`);
@@ -9637,7 +9758,16 @@ function formatMessageEditHistory(message) {
 
 function openMessageEditor(conversationId, messageId, messageText) {
   messageEditTarget = { conversationId, messageId };
-  ui.messageEditInput.value = messageText || "";
+  const scopedThread = state.dmThreads.find((thread) => thread.id === conversationId) || null;
+  const scopedChannel = !scopedThread ? findChannelById(conversationId) : null;
+  const scopedConversation = scopedThread
+    ? { type: "dm", id: scopedThread.id, thread: scopedThread }
+    : scopedChannel
+      ? { type: "channel", id: scopedChannel.id, channel: scopedChannel }
+      : null;
+  const limit = hardLimitForConversation(scopedConversation);
+  if (ui.messageEditInput instanceof HTMLTextAreaElement) ui.messageEditInput.maxLength = limit;
+  ui.messageEditInput.value = trimTextForConversation(messageText || "", scopedConversation);
   ui.messageEditDialog.showModal();
   requestAnimationFrame(() => {
     ui.messageEditInput.focus();
@@ -9655,6 +9785,7 @@ function quickSwitchHaystackForItem(item) {
     item.meta || "",
     item.guildName || "",
     item.username || "",
+    item.xmppJid || "",
     item.type || ""
   ].join(" ").toLowerCase();
 }
@@ -9692,13 +9823,16 @@ function getQuickSwitchItems(rawQuery = "") {
       .forEach((thread) => {
         const peerId = thread.participantIds.find((id) => id !== current.id);
         const peer = peerId ? getAccountById(peerId) : null;
+        const primary = peer ? dmPrimaryLabelForAccount(peer) : "Unknown DM";
+        const secondary = peer ? dmSecondaryLabelForAccount(peer) : "";
         items.push({
           id: `dm:${thread.id}`,
           type: "dm",
-          label: peer ? `@${peer.username}` : "Unknown DM",
-          meta: "Direct Message",
+          label: primary,
+          meta: secondary || "Direct Message",
           threadId: thread.id,
-          username: peer?.username || ""
+          username: peer?.username || "",
+          xmppJid: peer?.xmppJid || ""
         });
       });
   }
@@ -9871,9 +10005,13 @@ function applyMentionCompletion(account) {
   if (!context) return;
   const prefix = raw.slice(0, context.tokenStart);
   const suffix = raw.slice(context.tokenEnd);
-  ui.messageInput.value = `${prefix}@${account.username} ${suffix}`.replace(/\s{2,}/g, " ");
+  const next = `${prefix}@${account.username} ${suffix}`.replace(/\s{2,}/g, " ");
+  ui.messageInput.value = trimTextForConversation(next, getActiveConversation());
+  setComposerDraft(composerDraftConversationId, ui.messageInput.value);
+  queueComposerDraftSave();
   mentionSelectionIndex = 0;
   renderSlashSuggestions();
+  renderComposerMeta();
 }
 
 function getComposerSuggestionState() {
@@ -9952,17 +10090,29 @@ function renderComposerMeta() {
     clearTimeout(composerMetaRefreshTimer);
     composerMetaRefreshTimer = null;
   }
-  const rawValue = (ui.messageInput.value || "").toString();
+  const conversation = getActiveConversation();
+  applyComposerInputLimit();
+  const limit = composerLimitForConversation(conversation);
+  const baseLimit = hardLimitForConversation(conversation);
+  const rawValue = clampMessageTextForStorage(ui.messageInput.value || "");
+  if (rawValue !== (ui.messageInput.value || "")) {
+    ui.messageInput.value = rawValue;
+  }
   const used = rawValue.length;
   if (ui.composerCharCount) {
-    ui.composerCharCount.textContent = `${used}/400`;
-    ui.composerCharCount.classList.toggle("is-near-limit", used >= 320);
-    ui.composerCharCount.classList.toggle("is-at-limit", used >= 390);
+    ui.composerCharCount.textContent = `${used}/${limit}`;
+    ui.composerCharCount.classList.toggle("is-near-limit", used >= Math.floor(limit * 0.8));
+    ui.composerCharCount.classList.toggle("is-at-limit", used >= limit - 1);
+    const activeTemp = conversation?.id && composerTempLimitConversationId === conversation.id && composerTempLimitExtra > 0;
+    if (activeTemp) {
+      ui.composerCharCount.title = `Temporary +${composerTempLimitExtra} chars. Click to add more, double-click to set default limit.`;
+    } else {
+      ui.composerCharCount.title = `Click to temporarily add ${MESSAGE_CHAR_LIMIT_TEMP_BUMP} chars. Double-click to set default limit (current ${baseLimit}).`;
+    }
   }
 
   const submitBtn = ui.messageForm?.querySelector?.("button[type=\"submit\"]");
   if (!(submitBtn instanceof HTMLButtonElement)) return;
-  const conversation = getActiveConversation();
   const account = getCurrentAccount();
   const room = relayRoomForActiveConversation();
   const typingSummary = formatTypingSummary(typingNamesForRoom(room));
@@ -10013,6 +10163,45 @@ function renderComposerMeta() {
       renderComposerMeta();
     }, 400);
   }
+}
+
+function bumpComposerTemporaryLimit() {
+  const conversation = getActiveConversation();
+  if (!conversation?.id) return;
+  if (composerTempLimitConversationId !== conversation.id) {
+    composerTempLimitConversationId = conversation.id;
+    composerTempLimitExtra = 0;
+  }
+  composerTempLimitExtra = Math.max(
+    MESSAGE_CHAR_LIMIT_TEMP_BUMP,
+    Math.min(MESSAGE_CHAR_LIMIT_MAX, composerTempLimitExtra + MESSAGE_CHAR_LIMIT_TEMP_BUMP)
+  );
+  applyComposerInputLimit();
+  renderComposerMeta();
+  showToast(`Temporary message limit raised to ${composerLimitForConversation(conversation)} chars.`);
+}
+
+function configureDefaultComposerLimit() {
+  const prefs = getPreferences();
+  const typed = prompt(
+    `Set default message limit (${MESSAGE_CHAR_LIMIT_MIN}-${MESSAGE_CHAR_LIMIT_MAX})`,
+    String(prefs.messageCharLimit || MESSAGE_CHAR_LIMIT_DEFAULT)
+  );
+  if (typed === null) return;
+  const parsed = Number(typed.trim());
+  if (!Number.isFinite(parsed)) {
+    showToast("Enter a valid number.", { tone: "error" });
+    return;
+  }
+  const nextLimit = normalizeMessageCharLimit(parsed);
+  state.preferences = getPreferences();
+  state.preferences.messageCharLimit = nextLimit;
+  composerTempLimitConversationId = null;
+  composerTempLimitExtra = 0;
+  applyComposerInputLimit();
+  saveState();
+  renderComposerMeta();
+  showToast(`Default message limit set to ${nextLimit}.`);
 }
 
 function renderReplyComposer() {
@@ -11011,7 +11200,7 @@ function mediaEntriesForActiveTab() {
   }
   if (mediaPickerTab === "gif") {
     const custom = (guild?.customGifs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
-    return [...custom, ...GIF_LIBRARY];
+    return [...custom, ...gifPickerRemoteEntries, ...GIF_LIBRARY];
   }
   if (mediaPickerTab === "sticker") {
     const custom = (guild?.customStickers || []).map((entry) => ({ ...entry, source: "guild-custom" }));
@@ -11042,6 +11231,108 @@ function mediaEntriesForActiveTab() {
     return custom;
   }
   return [];
+}
+
+function gifPickerQueryKey() {
+  return (mediaPickerQuery || "").toString().trim().toLowerCase();
+}
+
+function normalizeGifPickerEntry(entry) {
+  const value = entry && typeof entry === "object" ? entry : {};
+  const name = (value.name || "gif").toString().trim().slice(0, 120) || "gif";
+  const url = (value.url || "").toString().trim();
+  if (!url) return null;
+  const preview = value.preview === "video" ? "video" : "";
+  return { name, url, preview, source: "remote" };
+}
+
+function appendGifPickerEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return;
+  const seen = new Set(gifPickerRemoteEntries.map((entry) => `${entry.url}::${entry.name}`));
+  const next = [...gifPickerRemoteEntries];
+  entries.forEach((entry) => {
+    const normalized = normalizeGifPickerEntry(entry);
+    if (!normalized) return;
+    const key = `${normalized.url}::${normalized.name}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    next.push(normalized);
+  });
+  gifPickerRemoteEntries = next.slice(0, 720);
+}
+
+async function fetchTenorGifEntries(query = "", nextCursor = "") {
+  if (typeof fetch !== "function") return { entries: [], next: "" };
+  const endpoint = new URL(query ? "https://tenor.googleapis.com/v2/search" : "https://tenor.googleapis.com/v2/featured");
+  endpoint.searchParams.set("key", TENOR_PUBLIC_API_KEY);
+  endpoint.searchParams.set("client_key", TENOR_CLIENT_KEY);
+  endpoint.searchParams.set("limit", String(TENOR_RESULTS_PAGE_SIZE));
+  endpoint.searchParams.set("media_filter", "gif,mp4,tinygif,tinymp4");
+  if (query) endpoint.searchParams.set("q", query);
+  if (nextCursor) endpoint.searchParams.set("pos", nextCursor);
+  try {
+    const response = await fetch(endpoint.toString(), { cache: "no-store" });
+    if (!response.ok) return { entries: [], next: "" };
+    const payload = await response.json();
+    const results = Array.isArray(payload?.results) ? payload.results : [];
+    const entries = results
+      .map((item) => {
+        const formats = item?.media_formats || {};
+        const gifFormat = formats.gif || formats.tinygif || formats.nanogif;
+        const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4;
+        const preferred = gifFormat?.url || mp4Format?.url || "";
+        if (!preferred) return null;
+        return {
+          name: (item?.content_description || item?.title || "gif").toString().trim().slice(0, 120) || "gif",
+          url: preferred,
+          preview: gifFormat?.url ? "" : "video",
+          source: "remote"
+        };
+      })
+      .filter(Boolean);
+    return {
+      entries,
+      next: (payload?.next || "").toString()
+    };
+  } catch {
+    return { entries: [], next: "" };
+  }
+}
+
+function maybeLoadMoreGifPickerEntries({ reset = false } = {}) {
+  if (mediaPickerTab !== "gif") return;
+  const queryKey = gifPickerQueryKey();
+  if (reset || gifPickerRemoteQueryKey !== queryKey) {
+    gifPickerRemoteEntries = [];
+    gifPickerRemoteNext = "";
+    gifPickerRemoteError = "";
+    gifPickerRemoteQueryKey = queryKey;
+    gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+    if (gifPickerRemoteLoading) {
+      gifPickerRemoteRequestToken += 1;
+      gifPickerRemoteLoading = false;
+    }
+  }
+  if (gifPickerRemoteLoading) return;
+  const requestToken = ++gifPickerRemoteRequestToken;
+  gifPickerRemoteLoading = true;
+  const cursor = reset ? "" : gifPickerRemoteNext;
+  fetchTenorGifEntries(queryKey, cursor)
+    .then(({ entries, next }) => {
+      if (requestToken !== gifPickerRemoteRequestToken || queryKey !== gifPickerRemoteQueryKey) return;
+      appendGifPickerEntries(entries);
+      gifPickerRemoteNext = (next || "").toString();
+      gifPickerRemoteError = entries.length === 0 ? "No more GIFs from provider." : "";
+    })
+    .catch(() => {
+      if (requestToken !== gifPickerRemoteRequestToken || queryKey !== gifPickerRemoteQueryKey) return;
+      gifPickerRemoteError = "Could not load remote GIFs right now.";
+    })
+    .finally(() => {
+      if (requestToken !== gifPickerRemoteRequestToken || queryKey !== gifPickerRemoteQueryKey) return;
+      gifPickerRemoteLoading = false;
+      if (mediaPickerOpen && mediaPickerTab === "gif") renderMediaPicker();
+    });
 }
 
 function filteredMediaEntries() {
@@ -11078,6 +11369,10 @@ function renderComposerMediaButtons() {
 
 function closeMediaPicker() {
   mediaPickerOpen = false;
+  if (gifPickerQueryDebounceTimer) {
+    clearTimeout(gifPickerQueryDebounceTimer);
+    gifPickerQueryDebounceTimer = null;
+  }
   ui.mediaPicker.classList.add("media-picker--hidden");
   renderComposerMediaButtons();
 }
@@ -11087,12 +11382,18 @@ function openMediaPicker() {
   ui.mediaPicker.classList.remove("media-picker--hidden");
   rememberMediaPickerTab(mediaPickerTab);
   renderMediaPicker();
+  if (mediaPickerTab === "gif") {
+    maybeLoadMoreGifPickerEntries({ reset: gifPickerRemoteQueryKey !== gifPickerQueryKey() });
+  }
   renderComposerMediaButtons();
   ui.mediaSearchInput.focus();
 }
 
 function openMediaPickerWithTab(tab, { resetQuery = false } = {}) {
   if (MEDIA_TABS.includes(tab)) {
+    if (mediaPickerTab !== tab) {
+      gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+    }
     mediaPickerTab = tab;
     rememberMediaPickerTab(tab);
   }
@@ -11131,10 +11432,14 @@ function insertTextAtCursor(text) {
   const input = ui.messageInput;
   const start = input.selectionStart ?? input.value.length;
   const end = input.selectionEnd ?? input.value.length;
-  input.value = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
-  const cursor = start + text.length;
+  const merged = `${input.value.slice(0, start)}${text}${input.value.slice(end)}`;
+  input.value = trimTextForConversation(merged, getActiveConversation());
+  const cursor = Math.min(start + text.length, input.value.length);
   input.setSelectionRange(cursor, cursor);
   input.focus();
+  setComposerDraft(composerDraftConversationId, input.value);
+  queueComposerDraftSave();
+  renderComposerMeta();
 }
 
 function findEmojiEntryByValue(value) {
@@ -11171,7 +11476,7 @@ function sendMediaAttachment(entry, type) {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
   if (!conversation || !account || !entry || !entry.url) return;
-  const text = ui.messageInput.value.trim().slice(0, 400);
+  const text = trimTextForConversation((ui.messageInput.value || "").trim(), conversation);
   const nextReply = replyTarget && replyTarget.channelId === conversation.id
     ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
     : null;
@@ -11197,6 +11502,11 @@ function sendMediaAttachment(entry, type) {
   }
   replyTarget = null;
   ui.messageInput.value = "";
+  setComposerDraft(conversation.id, "");
+  composerTempLimitConversationId = null;
+  composerTempLimitExtra = 0;
+  applyComposerInputLimit();
+  resizeComposerInput();
   saveState();
   closeMediaPicker();
   if (swfPipTabs.length > 0) {
@@ -11380,7 +11690,12 @@ function renderMediaPicker() {
     return;
   }
 
-  const visibleEntries = mediaPickerTab === "swf" ? entries : entries.slice(0, 140);
+  const maxVisible = mediaPickerTab === "swf"
+    ? entries.length
+    : mediaPickerTab === "gif"
+      ? Math.max(GIF_PICKER_INITIAL_PAGE_SIZE, gifPickerVisibleCount)
+      : 140;
+  const visibleEntries = entries.slice(0, maxVisible);
   visibleEntries.forEach((entry, index) => {
     const sendType = attachmentTypeForMediaPickerTab(mediaPickerTab, entry);
     const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
@@ -11461,13 +11776,33 @@ function renderMediaPicker() {
       });
       const trustBtn = document.createElement("button");
       trustBtn.type = "button";
-      trustBtn.textContent = "Trust host";
+      const domainRule = suggestSubdomainTrustRule(hostLabel);
+      trustBtn.textContent = domainRule.startsWith("*.") ? "Trust domain + subdomains" : "Trust host";
+      trustBtn.title = domainRule || hostLabel || "";
       trustBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const host = mediaUrlHost(resolvedEntryUrl) || "";
         if (!host) return;
+        const trustRule = suggestSubdomainTrustRule(host) || host;
+        const added = addMediaTrustRule(trustRule);
+        if (added) showToast(`Trusted: ${trustRule}`);
+        else showToast(`Already trusted: ${trustRule}`);
+        if (added) saveState();
+        renderMediaPicker();
+      });
+      const trustSubdomainBtn = document.createElement("button");
+      trustSubdomainBtn.type = "button";
+      trustSubdomainBtn.textContent = "Trust subdomain";
+      trustSubdomainBtn.title = hostLabel ? `Trust only ${hostLabel}` : "Trust only this host";
+      trustSubdomainBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const host = mediaUrlHost(resolvedEntryUrl) || "";
+        if (!host) return;
         const added = addMediaTrustRule(host);
+        if (added) showToast(`Trusted subdomain: ${host}`);
+        else showToast(`Already trusted: ${host}`);
         if (added) saveState();
         renderMediaPicker();
       });
@@ -11479,7 +11814,7 @@ function renderMediaPicker() {
         event.stopPropagation();
         sendMediaAttachment(entry, sendType);
       });
-      actions.append(onceBtn, trustBtn, sendBtn);
+      actions.append(onceBtn, trustBtn, trustSubdomainBtn, sendBtn);
       card.append(preview, label, meta, urlNote, actions);
       ui.mediaGrid.appendChild(card);
       return;
@@ -11603,6 +11938,49 @@ function renderMediaPicker() {
     });
     ui.mediaGrid.appendChild(card);
   });
+
+  if (mediaPickerTab === "gif") {
+    const hasMoreVisible = entries.length > visibleEntries.length;
+    const canLoadRemote = Boolean(gifPickerRemoteNext || gifPickerRemoteEntries.length === 0 || gifPickerRemoteError);
+    const footer = document.createElement("div");
+    footer.className = "media-card--empty";
+    footer.style.display = "grid";
+    footer.style.gap = "0.35rem";
+    const info = document.createElement("div");
+    if (gifPickerRemoteLoading) {
+      info.textContent = "Loading more GIFs...";
+    } else if (gifPickerRemoteError) {
+      info.textContent = gifPickerRemoteError;
+    } else {
+      info.textContent = `${entries.length} GIFs ready.`;
+    }
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "message-action-btn";
+    loadBtn.disabled = gifPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote);
+    if (hasMoreVisible) {
+      loadBtn.textContent = "Show more GIFs";
+    } else if (gifPickerRemoteLoading) {
+      loadBtn.textContent = "Loading...";
+    } else {
+      loadBtn.textContent = "Load more GIFs";
+    }
+    loadBtn.addEventListener("click", () => {
+      if (hasMoreVisible) {
+        gifPickerVisibleCount = Math.min(1200, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
+        renderMediaPicker();
+        return;
+      }
+      maybeLoadMoreGifPickerEntries({ reset: false });
+      renderMediaPicker();
+    });
+    footer.appendChild(info);
+    footer.appendChild(loadBtn);
+    ui.mediaGrid.appendChild(footer);
+    if (!gifPickerRemoteLoading && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
+      maybeLoadMoreGifPickerEntries({ reset: false });
+    }
+  }
 }
 
 function saveSwfToShelf(entry) {
@@ -12613,7 +12991,9 @@ function closeSwfViewerAndRestore() {
 function attachmentTypeDisplayLabel(type, mediaUrl = "") {
   const normalized = (inferAttachmentTypeFromUrl(mediaUrl) || type || "file").toLowerCase();
   if (normalized === "gif") {
-    return /\.gif(\?|$|#|&)/i.test(mediaUrl) ? "GIF" : "image";
+    if (/\.(gif|apng|webp)(\?|$|#|&)/i.test(mediaUrl)) return "GIF";
+    if (/\.(mp4|webm|mov|m4v|ogv|m3u8)(\?|$|#|&)/i.test(mediaUrl)) return "animated media";
+    return "image";
   }
   if (normalized === "video") return "video";
   if (normalized === "audio") return "audio";
@@ -12629,18 +13009,21 @@ function attachmentTypeDisplayLabel(type, mediaUrl = "") {
   return "file";
 }
 
-function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = null) {
+function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = null, options = {}) {
+  const opts = options && typeof options === "object" ? options : {};
+  const animatedLoop = Boolean(opts.animatedLoop);
+  const preferDirect = Boolean(opts.preferDirect);
   const cleanedSourceUrl = resolveMediaUrl(sourceUrl);
-  const proxyCandidate = resolveMediaPlaybackUrl(cleanedSourceUrl, { kind: "video" });
+  const proxyCandidate = preferDirect ? "" : resolveMediaPlaybackUrl(cleanedSourceUrl, { kind: "video" });
   const candidates = [];
   if (proxyCandidate) candidates.push(proxyCandidate);
   if (cleanedSourceUrl && !candidates.includes(cleanedSourceUrl)) candidates.push(cleanedSourceUrl);
   if (candidates.length === 0) candidates.push(cleanedSourceUrl || sourceUrl || "");
   const video = document.createElement("video");
-  video.autoplay = false;
-  video.loop = false;
-  video.muted = false;
-  video.controls = true;
+  video.autoplay = animatedLoop;
+  video.loop = animatedLoop;
+  video.muted = animatedLoop;
+  video.controls = !animatedLoop;
   video.playsInline = true;
   video.preload = "metadata";
   let candidateIndex = 0;
@@ -12726,8 +13109,24 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     });
     const trustBtn = document.createElement("button");
     trustBtn.type = "button";
-    trustBtn.textContent = "Always trust host";
+    const trustRule = suggestSubdomainTrustRule(host);
+    trustBtn.textContent = trustRule.startsWith("*.") ? "Trust domain + subdomains" : "Trust host";
+    trustBtn.title = trustRule || host;
     trustBtn.addEventListener("click", () => {
+      const added = addMediaTrustRule(trustRule || host);
+      if (added) {
+        saveState();
+        showToast(`Added trust rule: ${trustRule || host}`);
+      } else {
+        showToast(`Already trusted: ${trustRule || host}`);
+      }
+      renderMessages();
+    });
+    const trustSubdomainBtn = document.createElement("button");
+    trustSubdomainBtn.type = "button";
+    trustSubdomainBtn.textContent = "Trust subdomain";
+    trustSubdomainBtn.title = `Trust only ${host}`;
+    trustSubdomainBtn.addEventListener("click", () => {
       const added = addMediaTrustRule(host);
       if (added) {
         saveState();
@@ -12771,6 +13170,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     });
     controls.appendChild(onceBtn);
     controls.appendChild(trustBtn);
+    controls.appendChild(trustSubdomainBtn);
     controls.appendChild(customRuleBtn);
     controls.appendChild(copyUrlBtn);
     controls.appendChild(allowAllBtn);
@@ -13058,9 +13458,18 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   if (type === "gif" || type === "video") {
     const videoLike = type === "video" || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
     if (videoLike) {
-      const video = createVideoPreviewElement(mediaUrl, attachment.name || "Video", wrap);
+      const gifLikeVideo = type === "gif";
+      const video = createVideoPreviewElement(
+        mediaUrl,
+        attachment.name || (gifLikeVideo ? "GIF" : "Video"),
+        wrap,
+        {
+          animatedLoop: gifLikeVideo,
+          preferDirect: gifLikeVideo
+        }
+      );
       video.addEventListener("dblclick", () => {
-        openMediaLightbox({ url: mediaUrl, label: attachment.name || "Video", video: true });
+        openMediaLightbox({ url: mediaUrl, label: attachment.name || (gifLikeVideo ? "GIF" : "Video"), video: true });
       });
       wrap.appendChild(video);
       const openBtn = document.createElement("a");
@@ -13068,7 +13477,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       openBtn.href = mediaUrl;
       openBtn.target = "_blank";
       openBtn.rel = "noopener noreferrer";
-      openBtn.textContent = "Open video in new tab";
+      openBtn.textContent = gifLikeVideo ? "Open GIF in new tab" : "Open video in new tab";
       wrap.appendChild(openBtn);
     } else {
       const img = document.createElement("img");
@@ -13649,7 +14058,7 @@ function renderDmList() {
       left.appendChild(avatar);
       const textWrap = document.createElement("div");
       const name = document.createElement("strong");
-      name.textContent = account ? `@${account.username}` : (entry.name || entry.jid);
+      name.textContent = account ? dmPrimaryLabelForAccount(account) : (entry.name || entry.jid);
       const jid = document.createElement("small");
       jid.textContent = entry.jid;
       textWrap.appendChild(name);
@@ -13723,7 +14132,7 @@ function renderDmList() {
     button.appendChild(avatar);
     const label = document.createElement("span");
     label.className = "channel-item__name";
-    label.textContent = peer ? `@${peer.username}` : "Unknown DM";
+    label.textContent = peer ? dmPrimaryLabelForAccount(peer) : "Unknown DM";
     const content = document.createElement("span");
     content.className = "channel-item__meta";
     content.appendChild(label);
@@ -13733,7 +14142,7 @@ function renderDmList() {
     if (!lastMessage) {
       preview.textContent = "No messages yet.";
     } else {
-      const sender = lastMessage.userId === currentAccount.id ? "You" : (peer ? peer.username : "Unknown");
+      const sender = lastMessage.userId === currentAccount.id ? "You" : (peer ? dmPrimaryLabelForAccount(peer) : "Unknown");
       const text = (lastMessage.text || "").replace(/\s+/g, " ").trim();
       preview.textContent = `${sender}: ${text || "(attachment)"}`.slice(0, 66);
     }
@@ -13789,6 +14198,7 @@ function renderDmList() {
         {
           label: "Copy",
           submenu: [
+            { label: "Peer Address", action: () => copyText(peer ? dmSecondaryLabelForAccount(peer) : "") },
             { label: "Peer Username", action: () => copyText(peer ? `@${peer.username}` : "") },
             { label: "Thread ID", action: () => copyText(thread.id) },
             { label: "Peer User ID", action: () => copyText(peer?.id || "") }
@@ -14885,7 +15295,7 @@ function renderDmHome() {
       const top = document.createElement("div");
       top.className = "dm-home__top";
       const name = document.createElement("strong");
-      name.textContent = `@${peer?.username || "unknown"}`;
+      name.textContent = peer ? dmPrimaryLabelForAccount(peer) : "unknown";
       const ts = document.createElement("small");
       ts.className = "dm-home__time";
       ts.textContent = last?.ts ? formatTime(last.ts) : "";
@@ -15246,9 +15656,11 @@ function renderMessages() {
     const current = getCurrentAccount();
     const peerId = dmThread.participantIds.find((id) => id !== current?.id);
     const peer = peerId ? getAccountById(peerId) : null;
-    setActiveChannelHeader(peer ? peer.username : "dm", "@", peer ? `@${peer.username}` : "@dm");
+    const peerPrimary = peer ? dmPrimaryLabelForAccount(peer) : "dm";
+    const peerSecondary = peer ? dmSecondaryLabelForAccount(peer) : "@dm";
+    setActiveChannelHeader(peerPrimary, "@", peerSecondary);
     setActiveChannelTopic("Direct Message");
-    ui.messageInput.placeholder = peer ? `Message @${peer.username}` : "Message DM";
+    ui.messageInput.placeholder = peer ? `Message ${peerPrimary}` : "Message DM";
   } else {
     const guild = getActiveGuild();
     const current = getCurrentAccount();
@@ -18609,8 +19021,8 @@ ui.xmppRegisterForm?.addEventListener("submit", async (event) => {
 ui.messageForm.addEventListener("submit", (event) => {
   event.preventDefault();
   publishRelayTypingState(false, { force: true });
-  const text = ui.messageInput.value.trim();
   const conversation = getActiveConversation();
+  const text = trimTextForConversation((ui.messageInput.value || "").trim(), conversation);
   const account = getCurrentAccount();
   if (!conversation || !account || (!text && composerPendingAttachments.length === 0)) return;
   if (conversation.type === "dm" && text.startsWith("/")) {
@@ -18997,6 +19409,9 @@ ui.messageForm.addEventListener("submit", (event) => {
     if (swfPipTabs.length > 0 && !(conversation.type === "channel" && conversation.channel.type === "forum")) {
       ui.messageInput.value = "";
       setComposerDraft(conversation.id, "");
+      composerTempLimitConversationId = null;
+      composerTempLimitExtra = 0;
+      applyComposerInputLimit();
       resizeComposerInput();
       slashSelectionIndex = 0;
       closeMediaPicker();
@@ -19010,6 +19425,9 @@ ui.messageForm.addEventListener("submit", (event) => {
 
   ui.messageInput.value = "";
   setComposerDraft(conversation.id, "");
+  composerTempLimitConversationId = null;
+  composerTempLimitExtra = 0;
+  applyComposerInputLimit();
   clearComposerPendingAttachment();
   slashSelectionIndex = 0;
   closeMediaPicker();
@@ -19021,6 +19439,11 @@ ui.messageForm.addEventListener("submit", (event) => {
 });
 
 ui.messageInput.addEventListener("input", () => {
+  const conversation = getActiveConversation();
+  const limited = trimTextForConversation(ui.messageInput.value || "", conversation);
+  if (limited !== ui.messageInput.value) {
+    ui.messageInput.value = limited;
+  }
   setComposerDraft(composerDraftConversationId, ui.messageInput.value);
   queueComposerDraftSave();
   resizeComposerInput();
@@ -19034,6 +19457,26 @@ ui.messageInput.addEventListener("input", () => {
 
 ui.messageInput.addEventListener("blur", () => {
   publishRelayTypingState(false, { force: true });
+});
+
+ui.composerCharCount?.addEventListener("click", () => {
+  if (composerCharCountClickTimer) {
+    clearTimeout(composerCharCountClickTimer);
+    composerCharCountClickTimer = null;
+  }
+  composerCharCountClickTimer = setTimeout(() => {
+    composerCharCountClickTimer = null;
+    bumpComposerTemporaryLimit();
+  }, 220);
+});
+
+ui.composerCharCount?.addEventListener("dblclick", (event) => {
+  event.preventDefault();
+  if (composerCharCountClickTimer) {
+    clearTimeout(composerCharCountClickTimer);
+    composerCharCountClickTimer = null;
+  }
+  configureDefaultComposerLimit();
 });
 
 ui.openMediaPickerBtn.addEventListener("click", () => {
@@ -19131,16 +19574,36 @@ ui.mediaTabs.forEach((tabBtn) => {
   tabBtn.addEventListener("click", () => {
     const nextTab = tabBtn.dataset.mediaTab;
     if (!MEDIA_TABS.includes(nextTab)) return;
+    if (gifPickerQueryDebounceTimer) {
+      clearTimeout(gifPickerQueryDebounceTimer);
+      gifPickerQueryDebounceTimer = null;
+    }
+    if (nextTab !== mediaPickerTab) {
+      gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+    }
     mediaPickerTab = nextTab;
     mediaPickerQuery = "";
     renderMediaPicker();
+    if (mediaPickerTab === "gif") {
+      maybeLoadMoreGifPickerEntries({ reset: true });
+    }
     ui.mediaSearchInput.focus();
   });
 });
 
 ui.mediaSearchInput.addEventListener("input", () => {
   mediaPickerQuery = ui.mediaSearchInput.value.slice(0, 80);
+  if (mediaPickerTab === "gif") {
+    gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+  }
   renderMediaPicker();
+  if (mediaPickerTab === "gif") {
+    if (gifPickerQueryDebounceTimer) clearTimeout(gifPickerQueryDebounceTimer);
+    gifPickerQueryDebounceTimer = setTimeout(() => {
+      gifPickerQueryDebounceTimer = null;
+      maybeLoadMoreGifPickerEntries({ reset: true });
+    }, 220);
+  }
 });
 
 ui.mediaSearchInput.addEventListener("keydown", (event) => {
@@ -19148,7 +19611,9 @@ ui.mediaSearchInput.addEventListener("keydown", (event) => {
     if (mediaPickerQuery) {
       event.preventDefault();
       mediaPickerQuery = "";
+      if (mediaPickerTab === "gif") gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
       renderMediaPicker();
+      if (mediaPickerTab === "gif") maybeLoadMoreGifPickerEntries({ reset: true });
       return;
     }
     closeMediaPicker();
@@ -20236,18 +20701,21 @@ ui.messageEditForm.addEventListener("submit", (event) => {
   if (!messageEditTarget) return;
   const editor = getCurrentAccount();
   if (!editor) return;
-  const nextText = ui.messageEditInput.value.trim().slice(0, 400);
   let scopedMessage = null;
   let scopedChannel = null;
   let isDmConversation = false;
+  let scopedConversation = null;
   const scopedThread = state.dmThreads.find((thread) => thread.id === messageEditTarget.conversationId) || null;
   if (scopedThread) {
     scopedMessage = findMessageInChannel(scopedThread, messageEditTarget.messageId);
     isDmConversation = true;
+    scopedConversation = { type: "dm", id: scopedThread.id, thread: scopedThread };
   } else {
     scopedChannel = findChannelById(messageEditTarget.conversationId);
     scopedMessage = findMessageInChannel(scopedChannel, messageEditTarget.messageId);
+    if (scopedChannel) scopedConversation = { type: "channel", id: scopedChannel.id, channel: scopedChannel };
   }
+  const nextText = trimTextForConversation(ui.messageEditInput.value.trim(), scopedConversation);
   if (!scopedMessage) return;
   const canManage = !isDmConversation && scopedChannel && hasServerPermission(getActiveServer(), editor.id, "manageMessages");
   const canEdit = canEditMessageEntry(scopedMessage, {
