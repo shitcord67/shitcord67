@@ -2641,6 +2641,43 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   display: inline-block;
 }
 
+.message-video-controls {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.message-video-controls button,
+.message-video-controls select {
+  background: #2f3340;
+  color: #d5dae4;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  height: 26px;
+  padding: 0 0.42rem;
+}
+
+.message-video-controls button.is-active {
+  background: #4a5198;
+  color: #fff;
+}
+
+.message-video-controls__volume {
+  width: 92px;
+}
+
+.message-video-controls__speed {
+  min-width: 64px;
+}
+
+.message-video-controls__time {
+  font-size: 0.7rem;
+  color: #aeb6c4;
+  min-width: 96px;
+}
+
 .message-embed-note {
   font-size: 0.73rem;
   color: #aeb6c4;
