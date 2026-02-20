@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, shell, session } = require("electron");
+const { app, BrowserWindow, dialog, session } = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const http = require("node:http");
@@ -23,6 +23,7 @@ let stackProcess = null;
 let stackStopTimer = null;
 let isShuttingDown = false;
 let securityHeadersInstalled = false;
+const externalWindows = new Set();
 
 function log(message, extra = "") {
   const suffix = extra ? ` ${extra}` : "";
@@ -170,15 +171,58 @@ function installClientSecurityHeaders() {
 }
 
 function attachNavigationGuards(windowInstance, allowedOrigin) {
+  const openExternalInApp = (url) => {
+    let target;
+    try {
+      target = new URL(url);
+    } catch {
+      return;
+    }
+    if (target.protocol !== "http:" && target.protocol !== "https:") return;
+    const externalWindow = new BrowserWindow({
+      width: 1180,
+      height: 800,
+      minWidth: 640,
+      minHeight: 480,
+      title: target.hostname || "External URL",
+      autoHideMenuBar: true,
+      backgroundColor: "#101217",
+      parent: windowInstance || undefined,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true
+      }
+    });
+    externalWindows.add(externalWindow);
+    externalWindow.on("closed", () => {
+      externalWindows.delete(externalWindow);
+    });
+    externalWindow.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
+      try {
+        const next = new URL(nextUrl);
+        if (next.protocol !== "http:" && next.protocol !== "https:") return { action: "deny" };
+        externalWindow.loadURL(next.toString()).catch(() => {});
+      } catch {
+        // Ignore malformed URLs.
+      }
+      return { action: "deny" };
+    });
+    externalWindow.loadURL(target.toString()).catch((error) => {
+      log("failed to open URL in in-app browser", String(error?.message || error));
+      if (!externalWindow.isDestroyed()) externalWindow.close();
+    });
+  };
+
   windowInstance.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url).catch(() => {});
+    openExternalInApp(url);
     return { action: "deny" };
   });
 
   windowInstance.webContents.on("will-navigate", (event, url) => {
     if (url.startsWith(allowedOrigin)) return;
     event.preventDefault();
-    shell.openExternal(url).catch(() => {});
+    openExternalInApp(url);
   });
 }
 

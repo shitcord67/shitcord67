@@ -897,6 +897,8 @@ let selectedUserPopoutId = null;
 let mediaPickerOpen = false;
 let mediaPickerTab = "gif";
 let mediaPickerQuery = "";
+let mediaPickerEmojiOnlyMode = false;
+let mediaPickerEmojiSelectHandler = null;
 let gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
 let gifPickerRemoteEntries = [];
 let gifPickerRemoteNext = "";
@@ -1006,6 +1008,7 @@ const xmppMucAvatarFetchInFlight = new Set();
 const xmppKnownMucOccupantJidByKey = new Map();
 const xmppIncomingContactRequestsByJid = new Map();
 const xmppOutgoingContactRequestsByJid = new Map();
+const xmppMucJoinStateByRoomJid = new Map();
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -1027,6 +1030,9 @@ const attachmentTextPreviewCache = new Map();
 const attachmentTextPreviewInFlight = new Map();
 const attachmentBinaryPreviewCache = new Map();
 const attachmentBinaryPreviewInFlight = new Map();
+const avatarUrlRenderabilityByUrl = new Map();
+const avatarUrlRenderabilityInFlight = new Set();
+let avatarUrlRenderRefreshRaf = 0;
 let lastRenderedConversationId = null;
 const relayLocalTypingState = {
   room: "",
@@ -1375,6 +1381,7 @@ const ui = {
   cosmeticsTabs: [...document.querySelectorAll("[data-cosmetics-tab]")],
   swfPipDock: document.getElementById("swfPipDock"),
   swfPipTabs: document.getElementById("swfPipTabs"),
+  swfPipControls: document.getElementById("swfPipControls"),
   swfPipHost: document.getElementById("swfPipHost"),
   swfPipCloseBtn: document.getElementById("swfPipCloseBtn"),
   videoPipDock: document.getElementById("videoPipDock"),
@@ -3038,6 +3045,16 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
   overlay.focus({ preventScroll: true });
+}
+
+function openExternalUrlInClient(rawUrl) {
+  const targetUrl = resolveMediaUrl((rawUrl || "").toString().trim());
+  if (!/^https?:\/\//i.test(targetUrl)) return;
+  try {
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+  } catch {
+    // Ignore blocked popup/navigation failures.
+  }
 }
 
 function mentionInComposer(account) {
@@ -5170,6 +5187,89 @@ function isKnownXmppRoomJid(roomJid) {
   return Boolean(findXmppRoomChannelByJid(bare));
 }
 
+function xmppStanzaErrorDetails(stanza) {
+  const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
+  if (!errorNode) return null;
+  const conditionNode = [...(errorNode.childNodes || [])].find((node) => (
+    node?.nodeType === 1
+    && ((node.namespaceURI || "").toLowerCase() === "urn:ietf:params:xml:ns:xmpp-stanzas")
+    && ((node.localName || "").toLowerCase() !== "text")
+  )) || null;
+  const condition = (conditionNode?.localName || conditionNode?.nodeName || "").toString().trim().toLowerCase();
+  const textNode = [...errorNode.getElementsByTagName("text")]
+    .find((node) => xmppNodeHasXmlns(node, "urn:ietf:params:xml:ns:xmpp-stanzas")) || null;
+  const text = xmppNodeText(textNode).trim();
+  const type = (errorNode.getAttribute("type") || "").toString().trim().toLowerCase();
+  const by = (errorNode.getAttribute("by") || "").toString().trim();
+  return {
+    condition,
+    text,
+    type,
+    by
+  };
+}
+
+function xmppMucJoinErrorHint(condition) {
+  const token = (condition || "").toString().trim().toLowerCase();
+  if (token === "service-unavailable") {
+    return "Room unavailable on this service (wrong MUC domain/room, room creation disabled, or access restricted).";
+  }
+  if (token === "item-not-found") {
+    return "Room not found on this MUC service.";
+  }
+  if (token === "not-authorized" || token === "registration-required") {
+    return "Room requires a password/invite/membership.";
+  }
+  if (token === "forbidden") {
+    return "Join is forbidden for this account.";
+  }
+  if (token === "conflict") {
+    return "Nickname conflict; try another nickname.";
+  }
+  return "";
+}
+
+function reportXmppMucJoinError(roomJid, nick, stanza) {
+  const bareRoom = xmppBareJid(roomJid);
+  if (!bareRoom) return;
+  const details = xmppStanzaErrorDetails(stanza) || { condition: "", text: "", type: "", by: "" };
+  const condition = details.condition || "unknown-error";
+  const joinHint = xmppMucJoinErrorHint(condition);
+  const token = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
+  const channel = findXmppRoomChannelByJid(bareRoom);
+  const mappedChannel = channel || findRelayTargetChannelByRoom(token);
+  if (mappedChannel) {
+    const reasonText = [condition, details.text].filter(Boolean).join(" · ");
+    addSystemMessage(
+      mappedChannel,
+      `XMPP room join failed (${reasonText || "unknown error"}).${joinHint ? ` ${joinHint}` : ""}`
+    );
+  }
+  const toastMessage = `Could not join ${bareRoom}: ${condition}${details.text ? ` — ${details.text}` : ""}`;
+  showToast(toastMessage, { tone: "error" });
+  addXmppDebugEvent("presence", "MUC join failed", {
+    roomJid: bareRoom,
+    nick: nick || "",
+    condition,
+    text: details.text || "",
+    errorType: details.type || "",
+    by: details.by || "",
+    hint: joinHint
+  });
+  const joinState = xmppMucJoinStateByRoomJid.get(bareRoom) || {};
+  xmppMucJoinStateByRoomJid.set(bareRoom, {
+    ...joinState,
+    nick: nick || joinState.nick || "",
+    roomToken: joinState.roomToken || token,
+    pending: false,
+    lastErrorAt: new Date().toISOString(),
+    lastErrorCondition: condition,
+    lastErrorText: details.text || ""
+  });
+  renderChannels();
+  if (mappedChannel && state.activeChannelId === mappedChannel.id) renderMessages();
+}
+
 function xmppHasEncryptedPayload(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return false;
   const hasLegacyOmemo = [...stanza.getElementsByTagName("encrypted")]
@@ -5584,6 +5684,14 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
   const roomJid = xmppRoomJidForToken(roomToken, prefs);
   if (!roomJid) return false;
   if (xmppRoomByJid.has(roomJid)) {
+    const existingJoin = xmppMucJoinStateByRoomJid.get(roomJid) || {};
+    xmppMucJoinStateByRoomJid.set(roomJid, {
+      ...existingJoin,
+      roomToken,
+      nick: existingJoin.nick || sanitizeChannelName(account.username || "user", "user"),
+      pending: false,
+      joinedAt: existingJoin.joinedAt || new Date().toISOString()
+    });
     const mamState = ensureXmppMamState(roomJid);
     if (!mamState || (mamState.pagesLoaded === 0 && !mamState.loading)) {
       requestXmppRoomHistory(roomJid, { reason: "join" });
@@ -5595,6 +5703,15 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     .c("x", { xmlns: "http://jabber.org/protocol/muc" });
   xmppConnection.send(presence);
   xmppRoomByJid.set(roomJid, roomToken);
+  xmppMucJoinStateByRoomJid.set(roomJid, {
+    roomToken,
+    nick,
+    pending: true,
+    attemptedAt: new Date().toISOString(),
+    lastErrorAt: "",
+    lastErrorCondition: "",
+    lastErrorText: ""
+  });
   const mapped = upsertXmppRoomChannel(roomJid, {
     roomToken,
     account,
@@ -5635,6 +5752,7 @@ function teardownXmppConnection() {
   xmppKnownMucOccupantJidByKey.clear();
   xmppIncomingContactRequestsByJid.clear();
   xmppOutgoingContactRequestsByJid.clear();
+  xmppMucJoinStateByRoomJid.clear();
 }
 
 function sendRelayPacket(packet) {
@@ -6578,9 +6696,32 @@ function connectRelaySocket({ force = false } = {}) {
             return true;
           }
           if (!roomJid || !nick) return true;
-          if (type === "error") return true;
+          if (type === "error") {
+            reportXmppMucJoinError(roomJid, nick, stanza);
+            return true;
+          }
           const roomToken = xmppRoomByJid.get(roomJid) || `xmpp:${roomJid}`;
           xmppRoomByJid.set(roomJid, roomToken);
+          const joinState = xmppMucJoinStateByRoomJid.get(roomJid) || {};
+          const ownNick = (joinState.nick || sanitizeChannelName(current?.username || "user", "user")).toLowerCase();
+          const joiningOwnNick = nick.toLowerCase() === ownNick;
+          if (joiningOwnNick) {
+            xmppMucJoinStateByRoomJid.set(roomJid, {
+              ...joinState,
+              roomToken,
+              nick,
+              pending: false,
+              joinedAt: new Date().toISOString(),
+              lastErrorAt: "",
+              lastErrorCondition: "",
+              lastErrorText: ""
+            });
+          } else if (!joinState.roomToken || joinState.roomToken !== roomToken) {
+            xmppMucJoinStateByRoomJid.set(roomJid, {
+              ...joinState,
+              roomToken
+            });
+          }
           const synced = upsertXmppRoomChannel(roomJid, {
             roomToken,
             roomName: roomJid.split("@")[0] || "",
@@ -12302,14 +12443,18 @@ async function loadTextAttachmentPreview(url) {
     return attachmentTextPreviewInFlight.get(key);
   }
   const task = (async () => {
-    const response = await fetch(url, { cache: "force-cache" });
+    const response = await fetch(url, {
+      cache: "force-cache",
+      headers: { Range: "bytes=0-65535" }
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     const lines = text.replace(/\r\n/g, "\n").split("\n");
     const clipped = lines.slice(0, 40).join("\n").slice(0, 3500);
-    const truncated = lines.length > 40 || text.length > clipped.length;
+    const partial = response.status === 206;
+    const truncated = partial || lines.length > 40 || text.length > clipped.length;
     const preview = `${clipped}${truncated ? "\n… (truncated)" : ""}`;
-    setCachedAttachmentPreview(attachmentTextPreviewCache, key, preview);
+    setCachedAttachmentPreview(attachmentTextPreviewCache, key, preview, 30 * 60 * 1000);
     return preview;
   })().finally(() => {
     attachmentTextPreviewInFlight.delete(key);
@@ -13180,8 +13325,24 @@ function renderComposerMediaButtons() {
   ui.openEmojiPickerBtn?.classList.toggle("message-form__media-btn--active", mediaPickerOpen && mediaPickerTab === "emoji");
 }
 
+function configureMediaPickerEmojiMode(enabled, { onSelect = null } = {}) {
+  mediaPickerEmojiOnlyMode = Boolean(enabled);
+  mediaPickerEmojiSelectHandler = mediaPickerEmojiOnlyMode && typeof onSelect === "function"
+    ? onSelect
+    : null;
+  if (!(ui.mediaPicker instanceof HTMLElement)) return;
+  ui.mediaPicker.classList.toggle("media-picker--emoji-only", mediaPickerEmojiOnlyMode);
+  ui.mediaTabs.forEach((tabBtn) => {
+    const tab = (tabBtn.dataset.mediaTab || "").toString();
+    tabBtn.hidden = mediaPickerEmojiOnlyMode && tab !== "emoji";
+  });
+  if (ui.addMediaUrlBtn) ui.addMediaUrlBtn.hidden = mediaPickerEmojiOnlyMode;
+  if (ui.addMediaFileBtn) ui.addMediaFileBtn.hidden = mediaPickerEmojiOnlyMode;
+}
+
 function closeMediaPicker() {
   mediaPickerOpen = false;
+  configureMediaPickerEmojiMode(false);
   if (gifPickerQueryDebounceTimer) {
     clearTimeout(gifPickerQueryDebounceTimer);
     gifPickerQueryDebounceTimer = null;
@@ -13194,7 +13355,11 @@ function closeMediaPicker() {
   renderComposerMediaButtons();
 }
 
-function openMediaPicker() {
+function openMediaPicker({ emojiOnly = false, onEmojiSelect = null } = {}) {
+  configureMediaPickerEmojiMode(emojiOnly, { onSelect: onEmojiSelect });
+  if (mediaPickerEmojiOnlyMode && mediaPickerTab !== "emoji") {
+    mediaPickerTab = "emoji";
+  }
   mediaPickerOpen = true;
   ui.mediaPicker.classList.remove("media-picker--hidden");
   rememberMediaPickerTab(mediaPickerTab);
@@ -13210,17 +13375,22 @@ function openMediaPicker() {
   ui.mediaSearchInput.focus();
 }
 
-function openMediaPickerWithTab(tab, { resetQuery = false } = {}) {
-  if (MEDIA_TABS.includes(tab)) {
-    if (mediaPickerTab !== tab) {
+function openMediaPickerWithTab(tab, {
+  resetQuery = false,
+  emojiOnly = false,
+  onEmojiSelect = null
+} = {}) {
+  const targetTab = emojiOnly ? "emoji" : tab;
+  if (MEDIA_TABS.includes(targetTab)) {
+    if (mediaPickerTab !== targetTab) {
       gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
       emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
     }
-    mediaPickerTab = tab;
-    rememberMediaPickerTab(tab);
+    mediaPickerTab = targetTab;
+    rememberMediaPickerTab(targetTab);
   }
   if (resetQuery) mediaPickerQuery = "";
-  openMediaPicker();
+  openMediaPicker({ emojiOnly, onEmojiSelect });
 }
 
 function toggleMediaPicker() {
@@ -13284,6 +13454,21 @@ function rememberRecentEmoji(value) {
   state.preferences = getPreferences();
   const current = normalizeRecentEmojis(state.preferences.recentEmojis);
   state.preferences.recentEmojis = [emoji, ...current.filter((item) => item !== emoji)].slice(0, 24);
+}
+
+function quickReactionEmojiChoices(limit = 3) {
+  const max = Math.max(1, Math.min(8, Number(limit) || 3));
+  const prefs = getPreferences();
+  const recents = normalizeRecentEmojis(prefs.recentEmojis);
+  const choices = [];
+  const add = (emoji) => {
+    const token = (emoji || "").toString().trim();
+    if (!token || choices.includes(token)) return;
+    choices.push(token);
+  };
+  recents.forEach(add);
+  DEFAULT_REACTIONS.forEach(add);
+  return choices.slice(0, max);
 }
 
 function stickerFormatFromName(name, url) {
@@ -13650,6 +13835,13 @@ function renderMediaPicker() {
       }
       card.title = `:${entry.name || "emoji"}:`;
       card.addEventListener("click", () => {
+        if (entry.value && mediaPickerEmojiOnlyMode && mediaPickerEmojiSelectHandler) {
+          mediaPickerEmojiSelectHandler(entry.value, entry);
+          rememberRecentEmoji(entry.value);
+          saveState();
+          closeMediaPicker();
+          return;
+        }
         if (entry.value) {
           insertTextAtCursor(entry.value);
           rememberRecentEmoji(entry.value);
@@ -14226,8 +14418,8 @@ function renderVideoPipDock() {
   ui.videoPipHost.appendChild(runtime.video);
   runtime.video.classList.add("message-video--pip-floating");
   if (runtime.controlsEl instanceof HTMLElement) {
-    runtime.controlsEl.classList.add("message-video-controls--pip");
-    ui.videoPipHost.appendChild(runtime.controlsEl);
+    runtime.controlsEl.classList.remove("message-video-controls--pip");
+    restoreVideoRuntimeControls(runtime);
   }
   updateVideoPipDockLayout();
   videoPipRuntimes.forEach((entry) => {
@@ -14831,6 +15023,10 @@ function renderSwfPipDock() {
   ui.swfPipDock.classList.toggle("swf-pip--hidden", !hasTabs || swfPipManuallyHidden);
   ui.swfPipDock.classList.toggle("swf-pip--collapsed", swfPipCollapsed);
   ui.swfPipTabs.innerHTML = "";
+  if (ui.swfPipControls instanceof HTMLElement) {
+    ui.swfPipControls.innerHTML = "";
+    ui.swfPipControls.hidden = true;
+  }
   if (!hasTabs) {
     requestSwfRuntimeLayoutSync();
     updateVideoPipDockLayout();
@@ -14868,11 +15064,79 @@ function renderSwfPipDock() {
   });
   // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
   positionSwfPipRuntimeHosts();
+  renderSwfPipDockControls(swfPipActiveKey);
   const activeRuntime = swfRuntimes.get(swfPipActiveKey);
   if (!activeRuntime?.pipHost) return;
   setSwfPlayback(swfPipActiveKey, true, "user");
   requestSwfRuntimeLayoutSync();
   updateVideoPipDockLayout();
+}
+
+function renderSwfPipDockControls(runtimeKey = "") {
+  if (!(ui.swfPipControls instanceof HTMLElement)) return;
+  ui.swfPipControls.innerHTML = "";
+  const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
+  if (!runtime) {
+    ui.swfPipControls.hidden = true;
+    return;
+  }
+  ui.swfPipControls.hidden = false;
+  const makeButton = (label, title, onClick, { active = false } = {}) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.title = title;
+    if (active) button.classList.add("is-active");
+    button.addEventListener("click", onClick);
+    return button;
+  };
+  const playBtn = makeButton(
+    runtime.playing ? "⏸" : "▶",
+    runtime.playing ? "Pause SWF" : "Play SWF",
+    () => {
+      setSwfPlayback(runtimeKey, !runtime.playing, "user");
+      renderSwfPipDockControls(runtimeKey);
+    },
+    { active: runtime.playing }
+  );
+  const muteBtn = makeButton(
+    runtime.audioEnabled ? "🔊" : "🔇",
+    runtime.audioEnabled ? "Mute SWF audio" : "Unmute SWF audio",
+    () => {
+      updateSwfRuntimeAudio(runtimeKey, { enabled: !runtime.audioEnabled });
+      if (!runtime.audioEnabled) grantSwfAudioClickFocus(runtimeKey);
+      renderSwfPipDockControls(runtimeKey);
+    },
+    { active: runtime.audioEnabled }
+  );
+  const resetBtn = makeButton("↺", "Reset SWF", () => {
+    const swfAttachment = runtime.attachment?.url ? runtime.attachment : null;
+    if (!swfAttachment) return;
+    const host = runtime.host instanceof HTMLElement
+      ? runtime.host
+      : (runtime.pipHost instanceof HTMLElement ? runtime.pipHost : runtime.originHost);
+    if (!(host instanceof HTMLElement)) return;
+    resetSwfRuntime(runtimeKey, host, swfAttachment);
+    renderSwfPipDockControls(runtimeKey);
+  });
+  const fullscreenBtn = makeButton("⛶", "Fullscreen SWF", () => {
+    const swfAttachment = runtime.attachment?.url ? runtime.attachment : null;
+    if (!swfAttachment) return;
+    const host = runtime.host instanceof HTMLElement
+      ? runtime.host
+      : (runtime.pipHost instanceof HTMLElement ? runtime.pipHost : runtime.originHost);
+    if (!(host instanceof HTMLElement)) return;
+    void openSwfFullscreen(runtimeKey, host, swfAttachment);
+  });
+  const removeBtn = makeButton("✕", "Remove from PiP", () => {
+    setSwfRuntimePip(runtimeKey, false);
+    refreshSwfAudioFocus();
+  });
+  ui.swfPipControls.appendChild(playBtn);
+  ui.swfPipControls.appendChild(muteBtn);
+  ui.swfPipControls.appendChild(resetBtn);
+  ui.swfPipControls.appendChild(fullscreenBtn);
+  ui.swfPipControls.appendChild(removeBtn);
 }
 
 function positionSwfPipRuntimeHosts() {
@@ -16154,6 +16418,8 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   let seekPointerActive = false;
   let previewRaf = 0;
   let previewLastTime = Number.NaN;
+  let previewSeekQueuedTime = Number.NaN;
+  let previewSeekInFlight = false;
 
   const seekTargetTime = () => {
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
@@ -16195,6 +16461,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
       previewCanvas.hidden = true;
     });
     node.addEventListener("seeked", () => {
+      previewSeekInFlight = false;
       if (previewDisabled) return;
       if (!Number.isFinite(node.videoWidth) || !Number.isFinite(node.videoHeight) || node.videoWidth <= 1 || node.videoHeight <= 1) return;
       try {
@@ -16206,10 +16473,33 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
       } catch {
         previewDisabled = true;
         previewCanvas.hidden = true;
+      } finally {
+        if (Number.isFinite(previewSeekQueuedTime)) {
+          const nextTarget = previewSeekQueuedTime;
+          previewSeekQueuedTime = Number.NaN;
+          queueSeekPreviewNode(nextTarget);
+        }
       }
     });
     previewVideo = node;
     return previewVideo;
+  };
+
+  const queueSeekPreviewNode = (targetSeconds) => {
+    const node = ensurePreviewVideo();
+    if (!(node instanceof HTMLVideoElement) || previewDisabled) return;
+    if (previewSeekInFlight) {
+      previewSeekQueuedTime = targetSeconds;
+      return;
+    }
+    previewSeekInFlight = true;
+    try {
+      node.currentTime = targetSeconds;
+    } catch {
+      previewSeekInFlight = false;
+      previewDisabled = true;
+      previewCanvas.hidden = true;
+    }
   };
 
   const requestSeekPreviewFrame = (timeSeconds) => {
@@ -16228,12 +16518,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     const token = ++previewToken;
     const seekPreviewNode = () => {
       if (token !== previewToken) return;
-      try {
-        node.currentTime = safeTarget;
-      } catch {
-        previewDisabled = true;
-        previewCanvas.hidden = true;
-      }
+      queueSeekPreviewNode(safeTarget);
     };
     if (Number.isFinite(node.duration) && node.duration > 0) {
       seekPreviewNode();
@@ -16324,12 +16609,14 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     const runtime = runtimeKey ? videoPipRuntimes.get(runtimeKey) : null;
     pipBtn.classList.toggle("is-active", Boolean(runtime?.inPip && videoPipActiveKey === runtimeKey));
     const nativePipActive = document.pictureInPictureElement === video;
+    const dockPipActive = Boolean(runtime?.inPip && videoPipActiveKey === runtimeKey);
     nativePipBtn.classList.toggle("is-active", nativePipActive);
     if (canNativePip) {
       nativePipBtn.title = nativePipActive ? "Exit native Picture-in-Picture" : "Native Picture-in-Picture";
     }
-    if (video.controls !== nativePipActive) {
-      video.controls = nativePipActive;
+    const shouldUseNativeControls = nativePipActive || dockPipActive;
+    if (video.controls !== shouldUseNativeControls) {
+      video.controls = shouldUseNativeControls;
     }
     fullscreenBtn.classList.toggle("is-active", document.fullscreenElement === video);
   };
@@ -16490,6 +16777,95 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   return row;
 }
 
+function createGifControlStrip(video, { label = "GIF", mediaUrl = "" } = {}) {
+  if (!(video instanceof HTMLVideoElement)) return null;
+  const row = document.createElement("div");
+  row.className = "message-gif-controls";
+  const playBtn = document.createElement("button");
+  playBtn.type = "button";
+  playBtn.title = "Pause/Resume";
+  const backFrameBtn = document.createElement("button");
+  backFrameBtn.type = "button";
+  backFrameBtn.textContent = "←F";
+  backFrameBtn.title = "Step one frame backward";
+  const nextFrameBtn = document.createElement("button");
+  nextFrameBtn.type = "button";
+  nextFrameBtn.textContent = "F→";
+  nextFrameBtn.title = "Step one frame forward";
+  const resetBtn = document.createElement("button");
+  resetBtn.type = "button";
+  resetBtn.textContent = "↺";
+  resetBtn.title = "Reset to start";
+  const loopModeBtn = document.createElement("button");
+  loopModeBtn.type = "button";
+  loopModeBtn.title = "Toggle play mode";
+  const openBtn = document.createElement("button");
+  openBtn.type = "button";
+  openBtn.textContent = "↗";
+  openBtn.title = "Open GIF URL";
+  const frameStepSeconds = () => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+    if (duration <= 0) return 1 / 30;
+    return Math.max(1 / 120, Math.min(1 / 12, duration / 300));
+  };
+  const clampSeek = (value) => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+    if (duration <= 0) return Math.max(0, value);
+    return Math.max(0, Math.min(Math.max(0, duration - 0.01), value));
+  };
+  const sync = () => {
+    const playing = !video.paused && !video.ended;
+    playBtn.textContent = playing ? "⏸" : "▶";
+    playBtn.classList.toggle("is-active", playing);
+    const loopEnabled = video.loop !== false;
+    loopModeBtn.textContent = loopEnabled ? "∞" : "1×";
+    loopModeBtn.classList.toggle("is-active", loopEnabled);
+    loopModeBtn.title = loopEnabled ? "Play mode: infinite loop" : "Play mode: once";
+  };
+  playBtn.addEventListener("click", () => {
+    if (video.paused || video.ended) {
+      void video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+    sync();
+  });
+  backFrameBtn.addEventListener("click", () => {
+    video.pause();
+    video.currentTime = clampSeek((Number.isFinite(video.currentTime) ? video.currentTime : 0) - frameStepSeconds());
+    sync();
+  });
+  nextFrameBtn.addEventListener("click", () => {
+    video.pause();
+    video.currentTime = clampSeek((Number.isFinite(video.currentTime) ? video.currentTime : 0) + frameStepSeconds());
+    sync();
+  });
+  resetBtn.addEventListener("click", () => {
+    video.pause();
+    video.currentTime = 0;
+    sync();
+  });
+  loopModeBtn.addEventListener("click", () => {
+    video.loop = !video.loop;
+    sync();
+  });
+  openBtn.addEventListener("click", () => {
+    openExternalUrlInClient(mediaUrl || video.currentSrc || video.src || "");
+  });
+  ["play", "pause", "ended", "loadedmetadata", "ratechange"].forEach((eventName) => {
+    video.addEventListener(eventName, sync);
+  });
+  row.appendChild(playBtn);
+  row.appendChild(backFrameBtn);
+  row.appendChild(nextFrameBtn);
+  row.appendChild(resetBtn);
+  row.appendChild(loopModeBtn);
+  row.appendChild(openBtn);
+  row.__sync = sync;
+  sync();
+  return row;
+}
+
 function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
@@ -16525,13 +16901,16 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     info.textContent = host;
     const iconRow = document.createElement("div");
     iconRow.className = "message-media-gate__icon-row";
-    const openUrlBtn = document.createElement("a");
+    const openUrlBtn = document.createElement("button");
+    openUrlBtn.type = "button";
     openUrlBtn.className = "message-media-gate__icon-btn";
-    openUrlBtn.href = mediaUrl;
-    openUrlBtn.target = "_blank";
-    openUrlBtn.rel = "noopener noreferrer";
-    openUrlBtn.title = "Open URL in new tab";
+    openUrlBtn.title = "Open URL";
     openUrlBtn.textContent = "↗";
+    openUrlBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openExternalUrlInClient(mediaUrl);
+    });
     const revealUrlBtn = document.createElement("button");
     revealUrlBtn.type = "button";
     revealUrlBtn.className = "message-media-gate__icon-btn";
@@ -16587,19 +16966,16 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const urlNote = document.createElement("div");
     urlNote.className = "message-embed-note message-media-gate__url";
     urlNote.textContent = mediaUrl;
-    const armBtn = document.createElement("button");
-    armBtn.type = "button";
-    armBtn.className = "message-media-gate__icon-btn";
-    armBtn.textContent = "⋯";
-    armBtn.title = "Load options";
     const controls = document.createElement("div");
     controls.className = "settings-inline-actions message-media-gate__controls";
-    controls.hidden = true;
+    controls.hidden = false;
     const onceBtn = document.createElement("button");
     onceBtn.type = "button";
     onceBtn.className = "message-media-gate__option";
     onceBtn.textContent = "Once";
-    onceBtn.addEventListener("click", () => {
+    onceBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       mediaAllowOnceUrls.add(mediaUrl);
       renderMessages();
     });
@@ -16609,7 +16985,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const trustRule = suggestSubdomainTrustRule(host);
     trustBtn.textContent = trustRule.startsWith("*.") ? "Trust+" : "Trust";
     trustBtn.title = trustRule || host;
-    trustBtn.addEventListener("click", () => {
+    trustBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const added = addMediaTrustRule(trustRule || host);
       if (added) {
         saveState();
@@ -16624,7 +17002,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     trustSubdomainBtn.className = "message-media-gate__option";
     trustSubdomainBtn.textContent = "Sub";
     trustSubdomainBtn.title = `Trust only ${host}`;
-    trustSubdomainBtn.addEventListener("click", () => {
+    trustSubdomainBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const added = addMediaTrustRule(host);
       if (added) {
         saveState();
@@ -16638,7 +17018,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     customRuleBtn.type = "button";
     customRuleBtn.className = "message-media-gate__option";
     customRuleBtn.textContent = "Rule";
-    customRuleBtn.addEventListener("click", () => {
+    customRuleBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
       if (typeof nextRule !== "string") return;
       const added = addMediaTrustRule(nextRule);
@@ -16654,11 +17036,15 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     copyUrlBtn.type = "button";
     copyUrlBtn.className = "message-media-gate__option";
     copyUrlBtn.textContent = "Copy";
-    copyUrlBtn.addEventListener("click", async () => {
+    copyUrlBtn.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const copied = await copyText(mediaUrl);
       showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
     });
-    gateModeBtn.addEventListener("click", () => {
+    gateModeBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       state.preferences = getPreferences();
       const nextMode = state.preferences.mediaPrivacyMode === "off" ? "safe" : "off";
       state.preferences.mediaPrivacyMode = nextMode;
@@ -16674,15 +17060,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controls.appendChild(trustSubdomainBtn);
     controls.appendChild(customRuleBtn);
     controls.appendChild(copyUrlBtn);
-    armBtn.addEventListener("click", () => {
-      controls.hidden = !controls.hidden;
-      armBtn.classList.toggle("is-active", !controls.hidden);
-      gate.classList.toggle("is-controls-open", !controls.hidden);
-    });
     iconRow.appendChild(openUrlBtn);
     iconRow.appendChild(revealUrlBtn);
     iconRow.appendChild(gateModeBtn);
-    iconRow.appendChild(armBtn);
     hostRow.appendChild(iconRow);
     textWrap.appendChild(title);
     textWrap.appendChild(hostRow);
@@ -16703,8 +17083,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     header.className = "message-swf-header";
     const title = document.createElement("strong");
     title.textContent = attachment.name || "SWF file";
-    const meta = document.createElement("div");
-    meta.className = "message-swf-meta";
     const controlRow = document.createElement("div");
     controlRow.className = "message-swf-top-controls";
     const saveIconBtn = document.createElement("button");
@@ -16794,8 +17172,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controlRow.appendChild(pipBtn);
     controlRow.appendChild(audioIndicator);
     controlRow.appendChild(runtimeHealthBadge);
-    meta.appendChild(controlRow);
-    header.appendChild(meta);
     card.appendChild(header);
 
     const body = document.createElement("div");
@@ -16856,20 +17232,15 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       updateSwfRuntimeAudio(swfKey, { volume: Number(audioSlider.value) });
       grantSwfAudioClickFocus(swfKey);
     });
-    const jumpBtn = document.createElement("button");
-    jumpBtn.type = "button";
-    jumpBtn.className = "message-swf-jump";
-    jumpBtn.textContent = "↑";
-    jumpBtn.title = "Jump to this SWF controls";
-    jumpBtn.addEventListener("click", () => {
-      header.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    });
     audioRail.appendChild(audioToggleBtn);
     audioRail.appendChild(audioSlider);
-    body.appendChild(audioRail);
     body.appendChild(playerWrap);
-    body.appendChild(jumpBtn);
     card.appendChild(body);
+    const controlsStack = document.createElement("div");
+    controlsStack.className = "message-swf-controls-stack";
+    controlsStack.appendChild(controlRow);
+    controlsStack.appendChild(audioRail);
+    card.appendChild(controlsStack);
     let vuMeterFill = null;
     if (prefs.swfVuMeter === "on") {
       const details = document.createElement("details");
@@ -17000,6 +17371,20 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
           openMediaLightbox({ url: mediaUrl, label, video: true });
         });
         wrap.appendChild(video);
+        const gifControls = createGifControlStrip(video, { label, mediaUrl });
+        const gifMenuBtn = document.createElement("button");
+        gifMenuBtn.type = "button";
+        gifMenuBtn.className = "message-gif-hover-btn";
+        gifMenuBtn.textContent = "⋯";
+        gifMenuBtn.title = "GIF controls";
+        gifMenuBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          wrap.classList.toggle("message-attachment--gif-controls-open");
+          if (gifControls && typeof gifControls.__sync === "function") gifControls.__sync();
+        });
+        wrap.appendChild(gifMenuBtn);
+        if (gifControls) wrap.appendChild(gifControls);
       } else {
         const runtimeKey = swfKey ? `video:${swfKey}` : "";
         let runtime = runtimeKey ? videoPipRuntimes.get(runtimeKey) : null;
@@ -17044,23 +17429,19 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
           }
           runtime.controlsHome = wrap;
           if (runtime.controlsEl instanceof HTMLElement) {
-            if (runtime.inPip && videoPipActiveKey === runtime.key) {
-              runtime.controlsEl.classList.add("message-video-controls--pip");
-            } else {
-              runtime.controlsEl.classList.remove("message-video-controls--pip");
-              if (!wrap.contains(runtime.controlsEl)) wrap.appendChild(runtime.controlsEl);
-            }
+            runtime.controlsEl.classList.remove("message-video-controls--pip");
+            if (!wrap.contains(runtime.controlsEl)) wrap.appendChild(runtime.controlsEl);
             if (runtime.syncControls instanceof Function) runtime.syncControls();
           }
         }
+        const openBtn = document.createElement("a");
+        openBtn.className = "message-swf-link";
+        openBtn.href = mediaUrl;
+        openBtn.target = "_blank";
+        openBtn.rel = "noopener noreferrer";
+        openBtn.textContent = "Open video in new tab";
+        wrap.appendChild(openBtn);
       }
-      const openBtn = document.createElement("a");
-      openBtn.className = "message-swf-link";
-      openBtn.href = mediaUrl;
-      openBtn.target = "_blank";
-      openBtn.rel = "noopener noreferrer";
-      openBtn.textContent = gifLikeVideo ? "Open GIF in new tab" : "Open video in new tab";
-      wrap.appendChild(openBtn);
     } else {
       const img = document.createElement("img");
       img.src = mediaUrl;
@@ -17883,6 +18264,8 @@ function renderChannels() {
   }
   channelsToRender.forEach((channel) => {
     const xmppBackedChannel = isXmppBackedChannel(channel);
+    const xmppRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
+    const xmppJoinState = xmppRoomJid ? (xmppMucJoinStateByRoomJid.get(xmppRoomJid) || null) : null;
     const button = document.createElement("button");
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
     if (showXmppWarning && !xmppBackedChannel) button.classList.add("channel-item--non-xmpp");
@@ -17939,6 +18322,20 @@ function renderChannels() {
     }
     if (showXmppWarning && !xmppBackedChannel) {
       button.title = `${button.title ? `${button.title} • ` : ""}Not mapped from XMPP`;
+    }
+    if (xmppJoinState?.pending) {
+      const syncingBadge = document.createElement("span");
+      syncingBadge.className = "channel-badge channel-badge--dot";
+      syncingBadge.title = "Joining XMPP room…";
+      button.appendChild(syncingBadge);
+      button.title = `${button.title ? `${button.title} • ` : ""}Joining room…`;
+    } else if (xmppJoinState?.lastErrorCondition) {
+      const errorBadge = document.createElement("span");
+      errorBadge.className = "channel-badge channel-badge--mention";
+      errorBadge.textContent = "!";
+      errorBadge.title = `XMPP join failed: ${xmppJoinState.lastErrorCondition}${xmppJoinState.lastErrorText ? ` — ${xmppJoinState.lastErrorText}` : ""}`;
+      button.appendChild(errorBadge);
+      button.title = `${button.title ? `${button.title} • ` : ""}Join failed: ${xmppJoinState.lastErrorCondition}`;
     }
     button.addEventListener("click", () => {
       state.viewMode = "guild";
@@ -19561,7 +19958,7 @@ function renderMessages() {
     });
     messageRow.addEventListener("dblclick", (event) => {
       if (!(event.target instanceof HTMLElement)) return;
-      if (event.target.closest("button, a, input, textarea, iframe, video, audio, .reaction-chip")) return;
+      if (event.target.closest("button, a, input, textarea, iframe, video, audio, .reaction-chip, .message-media-gate")) return;
       setReplyTarget(conversationId, message, message.forumThreadId || null);
     });
     let replyLine = null;
@@ -19810,18 +20207,42 @@ function renderMessages() {
     const actionBar = document.createElement("div");
     actionBar.className = "message-actions";
     const canReact = isDm || canCurrentUserReactInChannel(channel, getActiveGuild());
-
-    const reactBtn = document.createElement("button");
-    reactBtn.type = "button";
-    reactBtn.className = "message-action-btn";
-    reactBtn.textContent = "React";
-    reactBtn.disabled = !canReact;
-    reactBtn.addEventListener("click", () => {
-      if (!canReact) return;
-      const pickerBtn = reactionPicker.querySelector("button");
-      if (pickerBtn) pickerBtn.click();
-    });
-    actionBar.appendChild(reactBtn);
+    if (currentUser && canReact) {
+      const reactionQuick = document.createElement("div");
+      reactionQuick.className = "message-action-reactions";
+      quickReactionEmojiChoices(3).forEach((emoji) => {
+        const reactionBtn = document.createElement("button");
+        reactionBtn.type = "button";
+        reactionBtn.className = "message-action-emoji-btn";
+        reactionBtn.textContent = emoji;
+        reactionBtn.title = `React with ${emoji}`;
+        reactionBtn.addEventListener("click", () => {
+          toggleReaction(message, emoji, currentUser.id);
+          saveState();
+          renderMessages();
+        });
+        reactionQuick.appendChild(reactionBtn);
+      });
+      const emojiPickerBtn = document.createElement("button");
+      emojiPickerBtn.type = "button";
+      emojiPickerBtn.className = "message-action-emoji-btn message-action-emoji-btn--picker";
+      emojiPickerBtn.textContent = "☺";
+      emojiPickerBtn.title = "Open emoji reaction picker";
+      emojiPickerBtn.addEventListener("click", () => {
+        openMediaPickerWithTab("emoji", {
+          resetQuery: true,
+          emojiOnly: true,
+          onEmojiSelect: (emoji) => {
+            if (!emoji) return;
+            toggleReaction(message, emoji, currentUser.id);
+            saveState();
+            renderMessages();
+          }
+        });
+      });
+      reactionQuick.appendChild(emojiPickerBtn);
+      actionBar.appendChild(reactionQuick);
+    }
 
     const replyBtn = document.createElement("button");
     replyBtn.type = "button";
@@ -19923,23 +20344,6 @@ function renderMessages() {
       reactions.appendChild(chip);
     });
 
-    const reactionPicker = document.createElement("div");
-    reactionPicker.className = "reaction-picker";
-    if (currentUser && canReact) {
-      DEFAULT_REACTIONS.forEach((emoji) => {
-        const pickerBtn = document.createElement("button");
-        pickerBtn.type = "button";
-        pickerBtn.textContent = emoji;
-        pickerBtn.title = `React with ${emoji}`;
-        pickerBtn.addEventListener("click", () => {
-          toggleReaction(message, emoji, currentUser.id);
-          saveState();
-          renderMessages();
-        });
-        reactionPicker.appendChild(pickerBtn);
-      });
-    }
-
     head.appendChild(userButton);
     if (userTagButton) head.appendChild(userTagButton);
     head.appendChild(time);
@@ -19970,7 +20374,6 @@ function renderMessages() {
     if (reactions.childElementCount > 0) {
       messageRow.appendChild(reactions);
     }
-    messageRow.appendChild(reactionPicker);
     previousThreadMessage = message;
     const openMessageContextMenuAt = (event) => {
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
@@ -23442,6 +23845,13 @@ ui.mediaSearchInput.addEventListener("keydown", (event) => {
   if (!first) return;
   if (mediaPickerTab === "emoji") {
     const value = first.value || "";
+    if (value && mediaPickerEmojiOnlyMode && mediaPickerEmojiSelectHandler) {
+      mediaPickerEmojiSelectHandler(value, first);
+      rememberRecentEmoji(value);
+      saveState();
+      closeMediaPicker();
+      return;
+    }
     insertTextAtCursor(value);
     if (value) {
       rememberRecentEmoji(value);
@@ -25235,7 +25645,8 @@ document.addEventListener("click", (event) => {
       || ui.quickFileAttachBtn.contains(event.target)
       || ui.openGifPickerBtn?.contains(event.target)
       || ui.openStickerPickerBtn?.contains(event.target)
-      || ui.openEmojiPickerBtn?.contains(event.target);
+      || ui.openEmojiPickerBtn?.contains(event.target)
+      || (event.target instanceof HTMLElement && Boolean(event.target.closest(".message-action-emoji-btn--picker")));
     if (!inPicker && !onToggle) closeMediaPicker();
   }
 });
