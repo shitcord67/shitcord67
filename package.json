@@ -6,6 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev:stack": "bash scripts/run-client-stack.sh",
+    "electron": "electron electron/main.cjs",
+    "electron:no-gateway": "ELECTRON_GATEWAY_MODE=off electron electron/main.cjs",
+    "electron:with-gateway": "ELECTRON_GATEWAY_MODE=on electron electron/main.cjs",
     "sync:xmpp-runtime": "node scripts/sync-strophe-runtime.mjs",
     "xmpp:auth-gateway": "node scripts/xmpp-auth-gateway.mjs",
     "postinstall": "node scripts/sync-strophe-runtime.mjs"
@@ -27,5 +30,8 @@
     "@xmpp/debug": "^0.14.0",
     "strophe.js": "^1.6.2",
     "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0"
   }
 }
