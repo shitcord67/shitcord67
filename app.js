@@ -1249,6 +1249,11 @@ const ui = {
   swfAutoplayInput: document.getElementById("swfAutoplayInput"),
   swfPauseOnMuteInput: document.getElementById("swfPauseOnMuteInput"),
   swfVuMeterInput: document.getElementById("swfVuMeterInput"),
+  tenorApiKeyInput: document.getElementById("tenorApiKeyInput"),
+  tenorClientKeyInput: document.getElementById("tenorClientKeyInput"),
+  tenorCredentialsStatus: document.getElementById("tenorCredentialsStatus"),
+  testTenorCredentialsBtn: document.getElementById("testTenorCredentialsBtn"),
+  clearTenorCredentialsBtn: document.getElementById("clearTenorCredentialsBtn"),
   relayModeInput: document.getElementById("relayModeInput"),
   relayUrlInput: document.getElementById("relayUrlInput"),
   relayRoomInput: document.getElementById("relayRoomInput"),
@@ -3445,6 +3450,14 @@ function normalizeRelayUrl(value) {
 
 function normalizeRelayRoom(value) {
   return (value || "").toString().trim().slice(0, 80);
+}
+
+function normalizeTenorApiKey(value) {
+  return (value || "").toString().trim().slice(0, 180);
+}
+
+function normalizeTenorClientKey(value) {
+  return (value || "").toString().trim().slice(0, 120);
 }
 
 function normalizeXmppJid(value) {
@@ -11484,21 +11497,99 @@ function appendGifPickerEntries(entries) {
   gifPickerRemoteEntries = next.slice(0, 4000);
 }
 
+function readStoredTenorCredentials() {
+  try {
+    return {
+      key: normalizeTenorApiKey(localStorage.getItem(TENOR_KEY_STORAGE_KEY) || ""),
+      clientKey: normalizeTenorClientKey(localStorage.getItem(TENOR_CLIENT_STORAGE_KEY) || ""),
+      readable: true
+    };
+  } catch {
+    return { key: "", clientKey: "", readable: false };
+  }
+}
+
+function writeStoredTenorCredentials(key, clientKey) {
+  const nextKey = normalizeTenorApiKey(key);
+  const nextClientKey = normalizeTenorClientKey(clientKey);
+  try {
+    if (nextKey) localStorage.setItem(TENOR_KEY_STORAGE_KEY, nextKey);
+    else localStorage.removeItem(TENOR_KEY_STORAGE_KEY);
+    if (nextClientKey) localStorage.setItem(TENOR_CLIENT_STORAGE_KEY, nextClientKey);
+    else localStorage.removeItem(TENOR_CLIENT_STORAGE_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function invalidateGifPickerRemoteEntries() {
+  gifPickerRemoteRequestToken += 1;
+  gifPickerRemoteLoading = false;
+  gifPickerRemoteEntries = [];
+  gifPickerRemoteNext = "";
+  gifPickerRemoteError = "";
+  gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+}
+
+function setTenorCredentialsStatus(message, tone = "") {
+  if (!ui.tenorCredentialsStatus) return;
+  ui.tenorCredentialsStatus.textContent = (message || "").toString().slice(0, 240);
+  if (tone === "ok" || tone === "error") ui.tenorCredentialsStatus.dataset.tone = tone;
+  else delete ui.tenorCredentialsStatus.dataset.tone;
+}
+
+function renderTenorCredentialSettings() {
+  const stored = readStoredTenorCredentials();
+  if (ui.tenorApiKeyInput) ui.tenorApiKeyInput.value = stored.key;
+  if (ui.tenorClientKeyInput) ui.tenorClientKeyInput.value = stored.clientKey;
+  if (!stored.readable) {
+    setTenorCredentialsStatus("Tenor credentials unavailable: browser storage is blocked.", "error");
+    return;
+  }
+  if (stored.key) {
+    const activeClientKey = stored.clientKey || TENOR_CLIENT_KEY;
+    setTenorCredentialsStatus(`Using custom Tenor credentials (client: ${activeClientKey}).`, "ok");
+    return;
+  }
+  setTenorCredentialsStatus("Using built-in demo Tenor credentials.");
+}
+
+function saveTenorCredentialSettings({ refreshGifPicker = false } = {}) {
+  if (!ui.tenorApiKeyInput || !ui.tenorClientKeyInput) return true;
+  const key = normalizeTenorApiKey(ui.tenorApiKeyInput.value);
+  const clientKey = normalizeTenorClientKey(ui.tenorClientKeyInput.value);
+  ui.tenorApiKeyInput.value = key;
+  ui.tenorClientKeyInput.value = clientKey;
+  const saved = writeStoredTenorCredentials(key, clientKey);
+  if (!saved) {
+    setTenorCredentialsStatus("Could not persist Tenor credentials in browser storage.", "error");
+    return false;
+  }
+  if (key) {
+    setTenorCredentialsStatus(`Saved custom Tenor credentials (client: ${clientKey || TENOR_CLIENT_KEY}).`, "ok");
+  } else {
+    setTenorCredentialsStatus("Tenor credentials cleared. Using built-in demo key.");
+  }
+  if (refreshGifPicker) {
+    invalidateGifPickerRemoteEntries();
+    if (mediaPickerOpen && mediaPickerTab === "gif") {
+      maybeLoadMoreGifPickerEntries({ reset: true, force: true });
+    }
+  }
+  return true;
+}
+
 function resolveTenorCredentials() {
   let key = TENOR_PUBLIC_API_KEY;
   let clientKey = TENOR_CLIENT_KEY;
   let customKey = false;
-  try {
-    const storedKey = (localStorage.getItem(TENOR_KEY_STORAGE_KEY) || "").toString().trim();
-    const storedClient = (localStorage.getItem(TENOR_CLIENT_STORAGE_KEY) || "").toString().trim();
-    if (storedKey) {
-      key = storedKey;
-      customKey = true;
-    }
-    if (storedClient) clientKey = storedClient;
-  } catch {
-    // Ignore localStorage access failures.
+  const stored = readStoredTenorCredentials();
+  if (stored.key) {
+    key = stored.key;
+    customKey = true;
   }
+  if (stored.clientKey) clientKey = stored.clientKey;
   return { key, clientKey, customKey };
 }
 
@@ -11612,7 +11703,7 @@ async function fetchTenorGifEntries(query = "", nextCursor = "") {
       next: "",
       error: customKey
         ? "GIF provider rejected your Tenor API credentials."
-        : "GIF provider rejected demo Tenor credentials. Set localStorage key `shitcord67-tenor-api-key` and retry."
+        : "GIF provider rejected demo Tenor credentials. Open Settings > Advanced and set your Tenor API key."
     };
   }
   return { entries: [], next: "", error: lastError || "Request failed" };
@@ -17611,6 +17702,7 @@ function renderSettingsScreen() {
   ui.swfAutoplayInput.value = prefs.swfAutoplay;
   ui.swfPauseOnMuteInput.value = prefs.swfPauseOnMute;
   ui.swfVuMeterInput.value = prefs.swfVuMeter;
+  renderTenorCredentialSettings();
   if (ui.relayModeInput) ui.relayModeInput.value = prefs.relayMode;
   if (ui.relayUrlInput) ui.relayUrlInput.value = prefs.relayUrl;
   if (ui.relayRoomInput) ui.relayRoomInput.value = prefs.relayRoom;
@@ -21307,6 +21399,9 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
   state.preferences.xmppMucService = normalizeXmppMucService(ui.xmppMucServiceInput?.value || "");
   state.preferences.xmppHideNonXmpp = normalizeToggle(ui.xmppHideNonXmppInput?.value || "on");
+  if (!saveTenorCredentialSettings({ refreshGifPicker: true })) {
+    showToast("Could not save Tenor credentials.", { tone: "error" });
+  }
   saveState();
   if (["ws", "http", "xmpp"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
     connectRelaySocket({ force: true });
@@ -21316,6 +21411,41 @@ ui.advancedForm.addEventListener("submit", (event) => {
   renderRelayStatusOutput();
   refreshSwfAudioFocus();
   render();
+});
+
+ui.clearTenorCredentialsBtn?.addEventListener("click", () => {
+  if (ui.tenorApiKeyInput) ui.tenorApiKeyInput.value = "";
+  if (ui.tenorClientKeyInput) ui.tenorClientKeyInput.value = "";
+  const saved = saveTenorCredentialSettings({ refreshGifPicker: true });
+  if (!saved) {
+    showToast("Could not clear Tenor credentials.", { tone: "error" });
+    return;
+  }
+  showToast("Tenor credentials cleared.");
+});
+
+ui.testTenorCredentialsBtn?.addEventListener("click", async () => {
+  const saved = saveTenorCredentialSettings({ refreshGifPicker: false });
+  if (!saved) {
+    showToast("Could not save Tenor credentials.", { tone: "error" });
+    return;
+  }
+  ui.testTenorCredentialsBtn.disabled = true;
+  setTenorCredentialsStatus("Testing Tenor credentials...");
+  const result = await fetchTenorGifEntries("cat", "");
+  ui.testTenorCredentialsBtn.disabled = false;
+  if (result.error) {
+    setTenorCredentialsStatus(`Tenor test failed: ${result.error}`, "error");
+    showToast("Tenor credentials test failed.", { tone: "error" });
+    return;
+  }
+  const count = Array.isArray(result.entries) ? result.entries.length : 0;
+  setTenorCredentialsStatus(`Tenor test succeeded (${count} result${count === 1 ? "" : "s"}).`, "ok");
+  showToast("Tenor credentials test passed.");
+  if (mediaPickerOpen && mediaPickerTab === "gif") {
+    invalidateGifPickerRemoteEntries();
+    maybeLoadMoreGifPickerEntries({ reset: true, force: true });
+  }
 });
 
 ui.relayConnectBtn?.addEventListener("click", () => {
