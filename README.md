@@ -265,6 +265,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
 - XMPP DM threads now use direct `chat` stanzas to peer JIDs (not only MUC mapping), so one-to-one messaging works for JID-backed DM contacts.
 - XMPP DM sends now request delivery receipts (`urn:xmpp:receipts`) and show sent/delivered status for outbound DM messages.
+- XMPP message edits now use Last Message Correction (`urn:xmpp:message-correct:0`, XEP-0308): incoming `replace` stanzas patch existing DM/MUC messages, and local edits publish correction stanzas when stanza references are known.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
 - DM MAM now retries alternate archive targets (`domain` then own bare JID) for broader server compatibility when archive queries fail on the first target.
@@ -290,6 +291,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP OOB/reference URLs and inline media links now map into richer inline embeds (including images and video).
 - Unknown file attachments from XMPP OOB/reference URLs now render as generic file cards with open/download actions.
 - Video embeds now try a local gateway compatibility proxy (`/media-proxy`) first for external sources, then fall back to direct stream if proxy path fails.
+- Non-GIF video attachments now include an inline control strip (play/pause, +/-10s seek, scrub bar, volume/mute, speed, PiP, fullscreen).
 - Text/binary attachment previews are cached in-memory to reduce repeated network fetches and scrolling lag while browsing history.
 - XMPP rich body extraction now prefers `text/markdown` payloads (`urn:xmpp:content`) and basic XHTML-IM formatting when present.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).

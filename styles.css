@@ -2647,16 +2647,25 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   flex-wrap: wrap;
   align-items: center;
   gap: 0.3rem;
+  padding: 0.38rem 0.42rem;
+  border: 1px solid #2f3239;
+  border-radius: 8px;
+  background: rgba(17, 20, 27, 0.86);
 }
 
 .message-video-controls button,
 .message-video-controls select {
   background: #2f3340;
   color: #d5dae4;
+  border: 1px solid #3a3f4f;
   border-radius: 6px;
   font-size: 0.7rem;
   height: 26px;
   padding: 0 0.42rem;
+}
+
+.message-video-controls button {
+  min-width: 34px;
 }
 
 .message-video-controls button.is-active {
@@ -2664,8 +2673,16 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   color: #fff;
 }
 
+.message-video-controls__seek {
+  flex: 1 1 170px;
+  min-width: 120px;
+  max-width: 100%;
+  accent-color: #6f79ff;
+}
+
 .message-video-controls__volume {
   width: 92px;
+  accent-color: #8ea1ff;
 }
 
 .message-video-controls__speed {
