@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import http from "node:http";
+import { Readable } from "node:stream";
 
 import { client } from "@xmpp/client";
 import { WebSocket } from "ws";
@@ -13,7 +14,8 @@ function corsHeaders(extra = {}) {
   return {
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type,range",
+    "access-control-expose-headers": "content-type,content-length,accept-ranges",
     ...extra
   };
 }
@@ -416,6 +418,65 @@ const server = http.createServer(async (req, res) => {
   if (req.url === "/health") {
     res.writeHead(200, corsHeaders({ "content-type": "application/json" }));
     res.end(JSON.stringify({ ok: true, service: "xmpp-auth-gateway" }));
+    return;
+  }
+
+  if ((req.method === "GET" || req.method === "HEAD") && req.url?.startsWith("/media-proxy")) {
+    try {
+      const parsed = new URL(req.url, `http://${host}:${port}`);
+      const targetRaw = (parsed.searchParams.get("url") || "").toString().trim();
+      if (!targetRaw) {
+        res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+        res.end(JSON.stringify({ ok: false, error: "Missing url query parameter." }));
+        return;
+      }
+      let target;
+      try {
+        target = new URL(targetRaw);
+      } catch {
+        res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+        res.end(JSON.stringify({ ok: false, error: "Invalid target url." }));
+        return;
+      }
+      if (!["http:", "https:"].includes(target.protocol)) {
+        res.writeHead(400, corsHeaders({ "content-type": "application/json" }));
+        res.end(JSON.stringify({ ok: false, error: "Only http/https target urls are allowed." }));
+        return;
+      }
+      const upstream = await fetch(target.toString(), {
+        method: req.method,
+        cache: "no-store",
+        redirect: "follow",
+        headers: {
+          "user-agent": "shitcord67-media-proxy/1.0"
+        }
+      });
+      const headers = corsHeaders({
+        "content-type": upstream.headers.get("content-type") || "application/octet-stream",
+        "cache-control": upstream.headers.get("cache-control") || "public, max-age=120",
+        "accept-ranges": "none",
+        "x-media-proxy-target": target.host
+      });
+      const length = upstream.headers.get("content-length");
+      if (length && Number(length) > 0) headers["content-length"] = length;
+      res.writeHead(upstream.ok ? 200 : upstream.status, headers);
+      if (req.method === "HEAD" || !upstream.body) {
+        res.end();
+        return;
+      }
+      const bodyStream = Readable.fromWeb(upstream.body);
+      bodyStream.on("error", () => {
+        try {
+          if (!res.writableEnded) res.end();
+        } catch {
+          // Ignore stream close races.
+        }
+      });
+      bodyStream.pipe(res);
+    } catch (error) {
+      res.writeHead(502, corsHeaders({ "content-type": "application/json" }));
+      res.end(JSON.stringify({ ok: false, error: String(error?.message || error) }));
+    }
     return;
   }
 
