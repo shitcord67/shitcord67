@@ -864,6 +864,7 @@ const swfRuntimes = new Map();
 const swfPendingAudio = new Map();
 const swfPendingUi = new Map();
 let swfRuntimeParkingRoot = null;
+let swfRuntimePipRoot = null;
 const swfPipTabs = [];
 let swfPipActiveKey = null;
 let swfPipManuallyHidden = false;
@@ -3972,10 +3973,28 @@ function xmppXhtmlNodeToInlineText(node) {
   const childText = [...(node.childNodes || [])].map((child) => xmppXhtmlNodeToInlineText(child)).join("");
   if (tag === "strong" || tag === "b") return `**${childText}**`;
   if (tag === "em" || tag === "i") return `*${childText}*`;
+  if (tag === "u") return `__${childText}__`;
+  if (tag === "s" || tag === "strike" || tag === "del") return `~~${childText}~~`;
   if (tag === "code") return `\`${childText}\``;
+  if (tag === "pre") return `\`\`\`\n${childText}\n\`\`\`\n`;
   if (tag === "a") {
     const href = (node.getAttribute?.("href") || "").toString().trim();
     return href ? `[${childText || href}](${href})` : childText;
+  }
+  if (tag === "blockquote") {
+    return childText
+      .split("\n")
+      .map((line) => `> ${line}`.trimEnd())
+      .join("\n");
+  }
+  if (tag === "span") {
+    const style = (node.getAttribute?.("style") || "").toString().toLowerCase();
+    let output = childText;
+    if (style.includes("font-weight:bold") || style.includes("font-weight: 700")) output = `**${output}**`;
+    if (style.includes("font-style:italic")) output = `*${output}*`;
+    if (style.includes("text-decoration:underline")) output = `__${output}__`;
+    if (style.includes("line-through")) output = `~~${output}~~`;
+    return output;
   }
   if (tag === "li") return `- ${childText}\n`;
   if (tag === "p" || tag === "div") return `${childText}\n`;
@@ -6688,6 +6707,21 @@ function resizeComposerInput() {
 
 function isLikelyUrl(value) {
   return /^https?:\/\//i.test((value || "").trim());
+}
+
+function isLikelyRichTextLink(value) {
+  const token = (value || "").toString().trim();
+  return (
+    /^https?:\/\//i.test(token)
+    || /^mailto:[^\s]+$/i.test(token)
+    || /^xmpp:[^\s]+$/i.test(token)
+  );
+}
+
+function sanitizeRichTextHref(value) {
+  const token = (value || "").toString().trim();
+  if (!isLikelyRichTextLink(token)) return "";
+  return token;
 }
 
 function isLikelyImageDataUrl(value) {
@@ -10544,7 +10578,7 @@ function appendMentionOrEmoji(target, token, context) {
 }
 
 function appendInlineRichText(target, text, context) {
-  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]{1,80}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:)[^\s)]+\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:)[^\s)]+\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
   let lastIndex = 0;
   let match = tokenPattern.exec(text);
   while (match) {
@@ -10566,14 +10600,38 @@ function appendInlineRichText(target, text, context) {
       strong.textContent = token.slice(2, -2);
       target.appendChild(strong);
     } else if (token.startsWith("__") && token.endsWith("__")) {
+      const prev = text[match.index - 1] || "";
+      const next = text[match.index + token.length] || "";
+      if (/[a-z0-9]/i.test(prev) || /[a-z0-9]/i.test(next)) {
+        target.appendChild(document.createTextNode(token));
+        lastIndex = tokenPattern.lastIndex;
+        match = tokenPattern.exec(text);
+        continue;
+      }
       const strong = document.createElement("strong");
       strong.textContent = token.slice(2, -2);
       target.appendChild(strong);
     } else if (token.startsWith("*") && token.endsWith("*")) {
+      const prev = text[match.index - 1] || "";
+      const next = text[match.index + token.length] || "";
+      if (/[a-z0-9]/i.test(prev) || /[a-z0-9]/i.test(next)) {
+        target.appendChild(document.createTextNode(token));
+        lastIndex = tokenPattern.lastIndex;
+        match = tokenPattern.exec(text);
+        continue;
+      }
       const em = document.createElement("em");
       em.textContent = token.slice(1, -1);
       target.appendChild(em);
     } else if (token.startsWith("_") && token.endsWith("_")) {
+      const prev = text[match.index - 1] || "";
+      const next = text[match.index + token.length] || "";
+      if (/[a-z0-9]/i.test(prev) || /[a-z0-9]/i.test(next)) {
+        target.appendChild(document.createTextNode(token));
+        lastIndex = tokenPattern.lastIndex;
+        match = tokenPattern.exec(text);
+        continue;
+      }
       const em = document.createElement("em");
       em.textContent = token.slice(1, -1);
       target.appendChild(em);
@@ -10585,11 +10643,25 @@ function appendInlineRichText(target, text, context) {
       const code = document.createElement("code");
       code.textContent = token.slice(1, -1);
       target.appendChild(code);
-    } else if (token.startsWith("[") && token.includes("](") && token.endsWith(")")) {
-      const parts = token.match(/^\[([^\]]{1,80})\]\((https?:\/\/[^\s)]+)\)$/i);
-      if (parts) {
+    } else if (token.startsWith("![") && token.includes("](") && token.endsWith(")")) {
+      const parts = token.match(/^!\[([^\]]{0,80})\]\(((?:https?:\/\/|mailto:|xmpp:)[^\s)]+)\)$/i);
+      const href = sanitizeRichTextHref(parts?.[2] || "");
+      if (parts && href) {
         const link = document.createElement("a");
-        link.href = parts[2];
+        link.href = href;
+        link.textContent = parts[1] || href;
+        link.target = "_blank";
+        link.rel = "noreferrer noopener";
+        target.appendChild(link);
+      } else {
+        target.appendChild(document.createTextNode(token));
+      }
+    } else if (token.startsWith("[") && token.includes("](") && token.endsWith(")")) {
+      const parts = token.match(/^\[([^\]]{1,80})\]\(((?:https?:\/\/|mailto:|xmpp:)[^\s)]+)\)$/i);
+      const href = sanitizeRichTextHref(parts?.[2] || "");
+      if (parts && href) {
+        const link = document.createElement("a");
+        link.href = href;
         link.textContent = parts[1];
         link.target = "_blank";
         link.rel = "noreferrer noopener";
@@ -10597,13 +10669,23 @@ function appendInlineRichText(target, text, context) {
       } else {
         target.appendChild(document.createTextNode(token));
       }
-    } else if (isLikelyUrl(token)) {
+    } else if (isLikelyRichTextLink(token)) {
+      const cleaned = token.replace(/[),.!?]+$/, "");
+      const trailing = token.slice(cleaned.length);
+      const href = sanitizeRichTextHref(cleaned);
+      if (!href) {
+        target.appendChild(document.createTextNode(token));
+        lastIndex = tokenPattern.lastIndex;
+        match = tokenPattern.exec(text);
+        continue;
+      }
       const link = document.createElement("a");
-      link.href = token;
-      link.textContent = token;
+      link.href = href;
+      link.textContent = cleaned;
       link.target = "_blank";
       link.rel = "noreferrer noopener";
       target.appendChild(link);
+      if (trailing) target.appendChild(document.createTextNode(trailing));
     } else {
       appendMentionOrEmoji(target, token, context);
     }
@@ -10684,10 +10766,11 @@ function renderMessageText(container, rawText) {
       return;
     }
     flushList();
-    if (line.startsWith("> ")) {
+    const quoteMatch = line.match(/^\s*(>{1,3})\s?(.*)$/);
+    if (quoteMatch) {
       const quote = document.createElement("span");
       quote.className = "message-quote";
-      appendInlineRichText(quote, line.slice(2), context);
+      appendInlineRichText(quote, quoteMatch[2] || "", context);
       container.appendChild(quote);
     } else {
       appendInlineRichText(container, line, context);
@@ -11073,6 +11156,17 @@ function stickerFormatFromName(name, url) {
   return "image";
 }
 
+function attachmentTypeForMediaPickerTab(tab, entry = null) {
+  if (tab === "gif") return "gif";
+  if (tab === "sticker") return "sticker";
+  if (tab === "swf") return "swf";
+  if (tab === "html") return "html";
+  if (tab === "pdf") return "pdf";
+  if (tab === "text") return "text";
+  if (tab === "docs") return entry?.type === "rtf" ? "rtf" : "odf";
+  return "svg";
+}
+
 function sendMediaAttachment(entry, type) {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
@@ -11288,8 +11382,17 @@ function renderMediaPicker() {
 
   const visibleEntries = mediaPickerTab === "swf" ? entries : entries.slice(0, 140);
   visibleEntries.forEach((entry, index) => {
+    const sendType = attachmentTypeForMediaPickerTab(mediaPickerTab, entry);
+    const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
+    const hostLabel = mediaUrlHost(resolvedEntryUrl) || "";
     const useSwfCard = mediaPickerTab === "swf";
-    const card = document.createElement(useSwfCard ? "div" : "button");
+    const usePrivacyGate = Boolean(
+      !useSwfCard
+      && mediaPickerTab !== "emoji"
+      && resolvedEntryUrl
+      && shouldGateMediaUrl(resolvedEntryUrl)
+    );
+    const card = document.createElement((useSwfCard || usePrivacyGate) ? "div" : "button");
     if (card instanceof HTMLButtonElement) card.type = "button";
     card.className = `media-card${useSwfCard ? " media-card--swf" : ""}`;
     if (useSwfCard) {
@@ -11333,6 +11436,55 @@ function renderMediaPicker() {
       label.appendChild(kind);
     }
 
+    if (usePrivacyGate) {
+      card.classList.add("media-card--gated");
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview media-card__preview--gated";
+      const typeLabel = attachmentTypeDisplayLabel(sendType, resolvedEntryUrl) || "media";
+      preview.textContent = `External ${typeLabel} hidden`;
+      const meta = document.createElement("span");
+      meta.className = "media-card__gate-meta";
+      meta.textContent = hostLabel ? `Host: ${hostLabel}` : "External host";
+      const urlNote = document.createElement("span");
+      urlNote.className = "media-card__gate-url";
+      urlNote.textContent = resolvedEntryUrl;
+      const actions = document.createElement("div");
+      actions.className = "media-card__gate-actions";
+      const onceBtn = document.createElement("button");
+      onceBtn.type = "button";
+      onceBtn.textContent = "Load preview";
+      onceBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        mediaAllowOnceUrls.add(resolvedEntryUrl);
+        renderMediaPicker();
+      });
+      const trustBtn = document.createElement("button");
+      trustBtn.type = "button";
+      trustBtn.textContent = "Trust host";
+      trustBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const host = mediaUrlHost(resolvedEntryUrl) || "";
+        if (!host) return;
+        const added = addMediaTrustRule(host);
+        if (added) saveState();
+        renderMediaPicker();
+      });
+      const sendBtn = document.createElement("button");
+      sendBtn.type = "button";
+      sendBtn.textContent = "Send";
+      sendBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        sendMediaAttachment(entry, sendType);
+      });
+      actions.append(onceBtn, trustBtn, sendBtn);
+      card.append(preview, label, meta, urlNote, actions);
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
     if (mediaPickerTab === "swf") {
       const preview = document.createElement("div");
       preview.className = "media-card__preview";
@@ -11345,11 +11497,11 @@ function renderMediaPicker() {
       preview.appendChild(overlay);
       card.appendChild(preview);
       card.appendChild(label);
-      card.addEventListener("click", () => sendMediaAttachment(entry, "swf"));
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
       card.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        sendMediaAttachment(entry, "swf");
+        sendMediaAttachment(entry, sendType);
       });
       ui.mediaGrid.appendChild(card);
       requestAnimationFrame(() => {
@@ -11369,7 +11521,7 @@ function renderMediaPicker() {
       preview.textContent = "HTML";
       card.appendChild(preview);
       card.appendChild(label);
-      card.addEventListener("click", () => sendMediaAttachment(entry, "html"));
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
       ui.mediaGrid.appendChild(card);
       return;
     }
@@ -11384,7 +11536,7 @@ function renderMediaPicker() {
       preview.textContent = "PDF";
       card.appendChild(preview);
       card.appendChild(label);
-      card.addEventListener("click", () => sendMediaAttachment(entry, "pdf"));
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
       ui.mediaGrid.appendChild(card);
       return;
     }
@@ -11399,7 +11551,7 @@ function renderMediaPicker() {
       preview.textContent = "TXT";
       card.appendChild(preview);
       card.appendChild(label);
-      card.addEventListener("click", () => sendMediaAttachment(entry, "text"));
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
       ui.mediaGrid.appendChild(card);
       return;
     }
@@ -11414,10 +11566,7 @@ function renderMediaPicker() {
       preview.textContent = entry.type === "rtf" ? "RTF" : "DOC";
       card.appendChild(preview);
       card.appendChild(label);
-      card.addEventListener("click", () => {
-        const docType = entry.type === "rtf" ? "rtf" : "odf";
-        sendMediaAttachment(entry, docType);
-      });
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
       ui.mediaGrid.appendChild(card);
       return;
     }
@@ -11425,7 +11574,7 @@ function renderMediaPicker() {
     if (mediaPickerTab === "gif" && entry.preview === "video") {
       const video = document.createElement("video");
       video.className = "media-card__preview";
-      video.src = entry.url;
+      video.src = resolvedEntryUrl || entry.url;
       video.autoplay = true;
       video.loop = true;
       video.muted = true;
@@ -11444,26 +11593,13 @@ function renderMediaPicker() {
       const img = document.createElement("img");
       img.className = "media-card__preview";
       img.loading = "lazy";
-      img.src = entry.url;
+      img.src = resolvedEntryUrl || entry.url;
       img.alt = entry.name || "media";
       card.appendChild(img);
     }
     card.appendChild(label);
     card.addEventListener("click", () => {
-      const type = mediaPickerTab === "gif"
-        ? "gif"
-        : mediaPickerTab === "sticker"
-          ? "sticker"
-          : mediaPickerTab === "html"
-            ? "html"
-            : mediaPickerTab === "pdf"
-              ? "pdf"
-              : mediaPickerTab === "text"
-                ? "text"
-                : mediaPickerTab === "docs"
-                  ? "odf"
-              : "svg";
-      sendMediaAttachment(entry, type);
+      sendMediaAttachment(entry, sendType);
     });
     ui.mediaGrid.appendChild(card);
   });
@@ -11597,9 +11733,32 @@ function getSwfRuntimeParkingRoot() {
   return root;
 }
 
+function getSwfRuntimePipRoot() {
+  if (swfRuntimePipRoot?.isConnected) return swfRuntimePipRoot;
+  const root = document.createElement("div");
+  root.id = "swf-runtime-pip-root";
+  root.style.position = "fixed";
+  root.style.left = "0";
+  root.style.top = "0";
+  root.style.width = "0";
+  root.style.height = "0";
+  root.style.pointerEvents = "none";
+  root.style.zIndex = "124";
+  document.body.appendChild(root);
+  swfRuntimePipRoot = root;
+  return root;
+}
+
 function parkSwfRuntimeHost(runtime) {
   if (!(runtime?.host instanceof HTMLElement)) return;
   const root = getSwfRuntimeParkingRoot();
+  if (runtime.host.parentElement === root) return;
+  root.appendChild(runtime.host);
+}
+
+function moveSwfRuntimeHostToPipLayer(runtime) {
+  if (!(runtime?.host instanceof HTMLElement)) return;
+  const root = getSwfRuntimePipRoot();
   if (runtime.host.parentElement === root) return;
   root.appendChild(runtime.host);
 }
@@ -11635,6 +11794,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     runtime.inPip = true;
     runtime.pipHost = runtime.host;
     runtime.pipHost.classList.add("swf-pip-player", "message-swf-player--pip-floating");
+    moveSwfRuntimeHostToPipLayer(runtime);
     runtime.pipTransitioning = false;
     activateSwfPipTab(runtimeKey);
     setSwfPlayback(runtimeKey, true, "user");
@@ -11649,6 +11809,13 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   runtime.host.style.height = "";
   runtime.pipHost = null;
   runtime.pipTransitioning = false;
+  if (runtime.originHost instanceof HTMLElement && runtime.originHost.isConnected && runtime.originHost !== runtime.host) {
+    runtime.originHost.innerHTML = "";
+    runtime.originHost.appendChild(runtime.host);
+    runtime.host = runtime.originHost;
+  } else {
+    parkSwfRuntimeHost(runtime);
+  }
   bindSwfVisibilityObserver(runtimeKey);
   removeSwfPipTab(runtimeKey);
   setSwfPlayback(runtimeKey, true, "user");
@@ -11706,6 +11873,9 @@ function positionSwfPipRuntimeHosts() {
   swfPipTabs.forEach((runtimeKey) => {
     const runtime = swfRuntimes.get(runtimeKey);
     if (!runtime?.pipHost) return;
+    if (!runtime.pipHost.isConnected || runtime.pipHost.parentElement !== getSwfRuntimePipRoot()) {
+      moveSwfRuntimeHostToPipLayer(runtime);
+    }
     const visible = (
       runtimeKey === swfPipActiveKey
       && !ui.swfPipDock.classList.contains("swf-pip--hidden")

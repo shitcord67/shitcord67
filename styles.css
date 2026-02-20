@@ -1893,6 +1893,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   cursor: pointer;
 }
 
+.media-card--gated {
+  cursor: default;
+}
+
 .media-card:hover {
   border-color: #5865f2;
 }
@@ -1924,6 +1928,15 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   background: transparent;
 }
 
+.media-card__preview--gated {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #c4ccd8;
+  font-size: 0.74rem;
+  padding: 0.55rem;
+}
+
 .media-card--swf .media-card__preview {
   aspect-ratio: 4 / 3;
   min-height: 120px;
@@ -1944,6 +1957,38 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   margin-left: 0.2rem;
   color: #97a4bd;
   font-size: 0.66rem;
+}
+
+.media-card__gate-meta,
+.media-card__gate-url {
+  display: block;
+  font-size: 0.66rem;
+  color: #9ca7bc;
+  padding: 0 0.45rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.media-card__gate-url {
+  color: #7fa4e8;
+  margin-top: 0.1rem;
+}
+
+.media-card__gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  padding: 0.36rem 0.45rem 0.45rem;
+}
+
+.media-card__gate-actions button {
+  background: #30343d;
+  color: #d9dee7;
+  border: 1px solid #424855;
+  border-radius: 6px;
+  font-size: 0.66rem;
+  padding: 0.2rem 0.4rem;
 }
 
 .media-card--emoji {
