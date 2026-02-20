@@ -3983,6 +3983,26 @@ function rememberXmppRoomMessage(roomJid, stanzaId, message) {
   }
 }
 
+function xmppStanzaReferenceIds(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+  const out = [];
+  const seen = new Set();
+  const push = (value) => {
+    const key = (value || "").toString().trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(key);
+  };
+  push(stanza.getAttribute?.("id") || "");
+  [...stanza.getElementsByTagName("stanza-id")].forEach((node) => {
+    push(node.getAttribute?.("id") || "");
+  });
+  [...stanza.getElementsByTagName("origin-id")].forEach((node) => {
+    push(node.getAttribute?.("id") || "");
+  });
+  return out;
+}
+
 function findXmppRoomMessageByStanzaId(roomJid, stanzaId) {
   const key = (stanzaId || "").toString().trim();
   if (!roomJid || !key) return null;
@@ -4738,6 +4758,10 @@ function scheduleRelayUiRefresh({
 function mergeRelayMessageEntry(target, incoming) {
   if (!target || !incoming) return false;
   let changed = false;
+  if (!(target.xmppNick || "").toString().trim() && (incoming.xmppNick || "").toString().trim()) {
+    target.xmppNick = incoming.xmppNick;
+    changed = true;
+  }
   const incomingText = (incoming.text || "").toString();
   if (!(target.text || "").toString().trim() && incomingText.trim()) {
     target.text = incomingText;
@@ -4754,6 +4778,27 @@ function mergeRelayMessageEntry(target, incoming) {
       target.replyTo.authorName = incoming.replyTo.authorName || target.replyTo.authorName || "";
       target.replyTo.text = incoming.replyTo.text || target.replyTo.text || "";
       if (!target.replyTo.stanzaId && incoming.replyTo.stanzaId) target.replyTo.stanzaId = incoming.replyTo.stanzaId;
+      changed = true;
+    } else {
+      if (!target.replyTo.stanzaId && incoming.replyTo.stanzaId) {
+        target.replyTo.stanzaId = incoming.replyTo.stanzaId;
+        changed = true;
+      }
+      if (!(target.replyTo.authorName || "").toString().trim() && (incoming.replyTo.authorName || "").toString().trim()) {
+        target.replyTo.authorName = incoming.replyTo.authorName;
+        changed = true;
+      }
+      if (!(target.replyTo.text || "").toString().trim() && (incoming.replyTo.text || "").toString().trim()) {
+        target.replyTo.text = incoming.replyTo.text;
+        changed = true;
+      }
+      if ((target.replyTo.text || "").toString().trim().toLowerCase() === "xmpp reply" && (incoming.replyTo.text || "").toString().trim()) {
+        target.replyTo.text = incoming.replyTo.text;
+        changed = true;
+      }
+    }
+    if (!(target.replyTo.text || "").toString().trim()) {
+      target.replyTo.text = "XMPP reply";
       changed = true;
     }
   }
@@ -4851,8 +4896,11 @@ function applyRelayIncomingMessage(packet) {
     ? {
         stanzaId: (remoteMessage.replyTo.stanzaId || "").toString().slice(0, 96),
         messageId: (remoteMessage.replyTo.messageId || "").toString().slice(0, 64),
-        authorName: decodeHtmlEntities((remoteMessage.replyTo.authorName || "").toString()).slice(0, 60),
-        text: decodeHtmlEntities((remoteMessage.replyTo.text || "").toString()).slice(0, 180),
+        authorName: decodeHtmlEntities((remoteMessage.replyTo.authorName || "").toString()).slice(0, 60) || "message",
+        text: (() => {
+          const value = decodeHtmlEntities((remoteMessage.replyTo.text || "").toString()).slice(0, 180);
+          return value.trim() ? value : "XMPP reply";
+        })(),
         threadId: (remoteMessage.replyTo.threadId || "").toString().slice(0, 64) || null
       }
     : null;
@@ -4860,6 +4908,7 @@ function applyRelayIncomingMessage(packet) {
     id: createId(),
     relayId,
     xmppStanzaId: remoteClientId.startsWith("xmpp:") ? remoteMessageId : "",
+    xmppNick: remoteClientId.startsWith("xmpp:") ? (remoteMessage.authorDisplay || remoteMessage.authorUsername || "") : "",
     userId: remoteAccount.id,
     authorName: "",
     text: decodeHtmlEntities((remoteMessage.text || "").toString()).slice(0, 400),
@@ -5045,7 +5094,7 @@ function connectRelaySocket({ force = false } = {}) {
           text = type === "groupchat" ? `[Room subject] ${subjectText}` : subjectText;
         }
         if (!text && encrypted) {
-          text = "[Encrypted XMPP message not supported in this client yet]";
+          text = "[Encrypted XMPP message (OMEMO/PGP) — decryption is not available in this client yet]";
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         const attachments = xmppAttachmentsFromUrls(xmppExtractOobUrls(stanza));
@@ -5071,12 +5120,19 @@ function connectRelaySocket({ force = false } = {}) {
           }
           const replyMeta = xmppReplyMetaFromStanza(stanza, "");
           if (!text.trim() && attachments.length === 0 && !replyMeta) return;
+          const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
+            from,
+            ts: timestamp,
+            text,
+            attachments,
+            replyId: replyMeta?.stanzaId || ""
+          });
           applyRelayIncomingMessage({
             type: "chat",
             room: dmRoom,
             clientId: `xmpp:${from}`,
             message: {
-              id: xmppStanzaStableId(stanza) || createId(),
+              id: xmppMessageId,
               text,
               ts: timestamp,
               authorUsername: peer.username,
@@ -5124,6 +5180,13 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const replyMeta = xmppReplyMetaFromStanza(stanza, roomJid);
         if (!text.trim() && attachments.length === 0 && !replyMeta) return;
+        const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
+          from,
+          ts: timestamp,
+          text,
+          attachments,
+          replyId: replyMeta?.stanzaId || ""
+        });
         let authorJid = xmppMucMessageAuthorJid(stanza);
         if (!authorJid && roomJid && nick) {
           const occupant = xmppMucOccupantByNick(roomJid, nick);
@@ -5139,7 +5202,7 @@ function connectRelaySocket({ force = false } = {}) {
           room: roomToken,
           clientId: `xmpp:${from}`,
           message: {
-            id: xmppStanzaStableId(stanza) || createId(),
+            id: xmppMessageId,
             text,
             ts: timestamp,
             authorUsername: nick || roomJid.split("@")[0] || "xmpp",
@@ -5152,13 +5215,15 @@ function connectRelaySocket({ force = false } = {}) {
           }
         });
         if (inserted && roomJid) {
-          const stableId = xmppStanzaStableId(stanza);
-          if (stableId) {
-            rememberXmppRoomMessage(roomJid, stableId, inserted);
-            if (hydrateXmppRepliesForRoom(roomToken, roomJid, stableId, inserted)) {
-              saveState();
-              if (state.activeChannelId === findXmppRoomChannelByJid(roomJid)?.id) renderMessages();
-            }
+          const refIds = xmppStanzaReferenceIds(stanza);
+          let hydrated = false;
+          refIds.forEach((refId) => {
+            rememberXmppRoomMessage(roomJid, refId, inserted);
+            if (hydrateXmppRepliesForRoom(roomToken, roomJid, refId, inserted)) hydrated = true;
+          });
+          if (hydrated) {
+            saveState();
+            if (state.activeChannelId === findXmppRoomChannelByJid(roomJid)?.id) renderMessages();
           }
         }
         if (authorJid) {
@@ -5627,11 +5692,25 @@ function relayMessageBodyText(message) {
 }
 
 function xmppStanzaStableId(stanza) {
-  if (!stanza || typeof stanza.getAttribute !== "function") return "";
-  const stanzaId = (stanza.getAttribute("id") || "").toString().trim();
-  const stableId = (stanza.getElementsByTagName("stanza-id")[0]?.getAttribute("id") || "").toString().trim();
-  const originId = (stanza.getElementsByTagName("origin-id")[0]?.getAttribute("id") || "").toString().trim();
-  return stableId || originId || stanzaId;
+  const ids = xmppStanzaReferenceIds(stanza);
+  return ids[0] || "";
+}
+
+function xmppSyntheticMessageId({ from = "", ts = "", text = "", attachments = [], replyId = "" } = {}) {
+  const headAttachment = normalizeAttachments(attachments)[0]?.url || "";
+  const seed = [
+    (from || "").toString().trim().toLowerCase(),
+    (ts || "").toString().trim(),
+    (text || "").toString().trim(),
+    headAttachment,
+    (replyId || "").toString().trim()
+  ].join("|");
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return `xmpp-syn-${(hash >>> 0).toString(16)}`;
 }
 
 function publishRelayChannelMessage(channel, message, account) {
@@ -14488,7 +14567,8 @@ function renderMessages() {
       const appliedAvatar = resolveAccountAvatar(author, guildId);
       if (!isRenderableAvatarUrl(appliedAvatar.url || "")) {
         const activeRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
-        const mucAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, message.authorName || "") : "";
+        const nickHint = (message.xmppNick || message.authorName || displayNameForMessage(message) || "").toString();
+        const mucAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, nickHint) : "";
         if (isRenderableAvatarUrl(mucAvatar)) {
           avatar.style.backgroundImage = `url(${mucAvatar})`;
           avatar.style.backgroundSize = "cover";
@@ -14497,7 +14577,8 @@ function renderMessages() {
       }
     } else {
       const activeRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
-      const mucAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, message.authorName || "") : "";
+      const nickHint = (message.xmppNick || message.authorName || displayNameForMessage(message) || "").toString();
+      const mucAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, nickHint) : "";
       if (isRenderableAvatarUrl(mucAvatar)) {
         avatar.style.backgroundImage = `url(${mucAvatar})`;
         avatar.style.backgroundSize = "cover";
@@ -14678,7 +14759,7 @@ function renderMessages() {
         resolvedReplyText = "(attachment)";
       }
       if (!resolvedReplyText || /^xmpp reply$/i.test(resolvedReplyText)) {
-        resolvedReplyText = targetReplyId ? "Jump to original message" : "(empty message)";
+        resolvedReplyText = targetReplyId ? "Jump to original message" : "Referenced message unavailable";
       }
       replyName.textContent = resolvedReplyAuthor.slice(0, 60);
       replyText.textContent = resolvedReplyText.slice(0, 90);

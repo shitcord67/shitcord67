@@ -251,10 +251,12 @@ A lightweight Discord-style chat client prototype with local persistence.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
 - XMPP reply references now keep stanza reference IDs and can resolve/jump once referenced messages are loaded from archive.
 - Reply preview rows now prefer resolved referenced author/text (when available) and keep click-to-jump behavior.
+- XMPP reply resolution now indexes multiple stanza identifiers (`id`, `stanza-id`, `origin-id`) to improve cross-client reply target lookup.
 - XMPP presence updates now refresh mapped account status/avatar (vCard fetch) for DMs and visible MUC occupants.
 - XMPP avatar fetch now attempts PEP avatar data (`urn:xmpp:avatar:data`, XEP-0084) with vCard fallback for broader profile-photo compatibility.
 - Member sidebar avatar rendering now proactively requests XMPP avatars for visible contacts/occupants to reduce missing profile photos.
 - For MUC occupants without exposed real JID, the client now also tries occupant-address vCard fetch (`room@service/nick`) and uses that avatar when available.
+- Message-row avatars in XMPP rooms now also use MUC occupant-avatar fallback when account-level avatar data is missing.
 - MUC detection now also treats known mapped room JIDs as rooms even when the service is not `conference.*` (improves occupant tracking for rooms like `chat.disroot.org`).
 - Multi-account guild visibility is account-scoped; account switching no longer auto-joins the active guild from another account session.
 - XMPP OOB/reference URLs and inline media links now map into richer inline embeds (including images and video).
