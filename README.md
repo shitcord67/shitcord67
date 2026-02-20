@@ -292,7 +292,9 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Unknown file attachments from XMPP OOB/reference URLs now render as generic file cards with open/download actions.
 - Video embeds now try a local gateway compatibility proxy (`/media-proxy`) first for external sources, then fall back to direct stream if proxy path fails.
 - Non-GIF video attachments now include an inline control strip (play/pause, +/-10s seek, scrub bar, volume/mute, speed, PiP, fullscreen).
+- Video PiP now runs in-client (dock panel) instead of browser/OS Picture-in-Picture windows.
 - Text/binary attachment previews are cached in-memory to reduce repeated network fetches and scrolling lag while browsing history.
+- Body-hosted in-chat SWF runtimes now keep header/composer above overlayed content and follow message scroll positioning more reliably.
 - XMPP rich body extraction now prefers `text/markdown` payloads (`urn:xmpp:content`) and basic XHTML-IM formatting when present.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
 - Candidate probing now also includes common `/ws` + trailing-slash variants and `:5281` defaults, and gateway auth/register attempts can follow HTTP redirect hops before opening the WebSocket.

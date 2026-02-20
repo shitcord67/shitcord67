@@ -73,6 +73,8 @@
 - dotLottie controls parity (pause/speed/scrub) and richer APNG/sticker management.
 - Add provider-backed GIF/sticker search adapter (GIPHY/Tenor) with local fallback.
 - [done] Expanded non-GIF video controls (seek +/-10s, scrubber, speed, volume, PiP, fullscreen).
+- [done] Switched video PiP to in-client dock mode (no browser/OS PiP window).
+- [done] Fixed anchored in-chat SWF layering/scroll sync issues (header/composer now above; no top-stuck clamp).
 
 ## Protocol/transport path
 - Define transport adapter interface (`send`, `subscribe`, `fetchHistory`, `presence`).
