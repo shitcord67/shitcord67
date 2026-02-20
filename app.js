@@ -1320,6 +1320,26 @@ function getActiveGuild() {
   return state.guilds.find((guild) => guild.id === state.activeGuildId) || null;
 }
 
+function canAccountAccessGuild(guild, account = getCurrentAccount()) {
+  if (!guild || !account) return false;
+  const guildId = (guild.id || "").toString().toLowerCase();
+  if (guildId.startsWith("xmpp-spaces:")) {
+    const guildDomain = guildId.slice("xmpp-spaces:".length);
+    const accountDomain = xmppDomainFromJid(account.xmppJid || "");
+    if (guildDomain && accountDomain && guildDomain !== accountDomain) return false;
+  }
+  const members = Array.isArray(guild.memberIds) ? guild.memberIds.filter(Boolean) : [];
+  if (members.includes(account.id)) return true;
+  // Keep legacy local guilds reachable when memberIds was never populated.
+  if (members.length === 0 && !isXmppBackedGuild(guild)) return true;
+  return false;
+}
+
+function listAccessibleGuildsForAccount(account = getCurrentAccount()) {
+  if (!account) return [];
+  return state.guilds.filter((guild) => canAccountAccessGuild(guild, account));
+}
+
 function getActiveServer() {
   return getActiveGuild();
 }
@@ -2377,7 +2397,7 @@ function formatSlowmodeLabel(seconds) {
 
 function getGuildUnreadStats(guild, account) {
   if (!guild || !account) return { unread: 0, mentions: 0 };
-  if (!Array.isArray(guild.memberIds) || !guild.memberIds.includes(account.id)) {
+  if (!canAccountAccessGuild(guild, account)) {
     return { unread: 0, mentions: 0 };
   }
   const totals = guild.channels.reduce((acc, channel) => {
@@ -2410,14 +2430,58 @@ function getFirstOpenableChannelIdForGuild(guild) {
   return visible[0]?.id || null;
 }
 
+function ensureActiveGuildForCurrentAccount() {
+  const account = getCurrentAccount();
+  if (!account) return false;
+  const accessibleGuilds = listAccessibleGuildsForAccount(account);
+  let changed = false;
+  if (accessibleGuilds.length === 0) {
+    if (state.viewMode === "guild") {
+      state.viewMode = "dm";
+      changed = true;
+    }
+    if (state.activeGuildId) {
+      state.activeGuildId = null;
+      changed = true;
+    }
+    if (state.activeChannelId) {
+      state.activeChannelId = null;
+      changed = true;
+    }
+    return changed;
+  }
+  let activeGuild = state.guilds.find((entry) => entry.id === state.activeGuildId) || null;
+  if (!activeGuild || !canAccountAccessGuild(activeGuild, account)) {
+    [activeGuild] = accessibleGuilds;
+    const nextGuildId = activeGuild?.id || null;
+    if (state.activeGuildId !== nextGuildId) {
+      state.activeGuildId = nextGuildId;
+      changed = true;
+    }
+  }
+  if (!activeGuild) return changed;
+  const activeChannelStillOpen = activeGuild.channels.some((channel) => (
+    channel.id === state.activeChannelId && canAccountViewChannel(activeGuild, channel, account.id)
+  ));
+  if (!activeChannelStillOpen) {
+    const nextChannelId = getFirstOpenableChannelIdForGuild(activeGuild);
+    if (state.activeChannelId !== nextChannelId) {
+      state.activeChannelId = nextChannelId;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function openGuildById(guildId) {
+  const current = getCurrentAccount();
   const guild = state.guilds.find((entry) => entry.id === guildId);
   if (!guild) return false;
+  if (current && !canAccountAccessGuild(guild, current)) return false;
   state.viewMode = "guild";
   state.activeGuildId = guild.id;
   state.activeChannelId = getFirstOpenableChannelIdForGuild(guild);
   state.activeDmId = null;
-  ensureCurrentUserInActiveServer();
   saveState();
   render();
   return true;
@@ -2588,7 +2652,7 @@ function ensureMediaLightbox() {
   overlay.tabIndex = -1;
   overlay.hidden = true;
   overlay.innerHTML = [
-    "<button type=\"button\" class=\"media-lightbox__close\" aria-label=\"Close\">✕</button>",
+    "<button type=\"button\" class=\"media-lightbox__close\" data-lightbox-close=\"1\" aria-label=\"Close\">✕</button>",
     "<div class=\"media-lightbox__stage\"></div>",
     "<div class=\"media-lightbox__caption\"></div>"
   ].join("");
@@ -2596,15 +2660,21 @@ function ensureMediaLightbox() {
   closeBtn?.addEventListener("click", () => {
     closeMediaLightbox();
   });
+  const shouldKeepOpenForTarget = (target) => {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.closest("[data-lightbox-close=\"1\"]")) return false;
+    if (target.closest(".media-lightbox__media")) return true;
+    if (target.closest(".message-swf-link")) return true;
+    return false;
+  };
   overlay.addEventListener("click", (event) => {
     if (!(event.target instanceof HTMLElement)) return;
-    if (event.target.closest(".media-lightbox__close")) {
+    if (event.target.closest("[data-lightbox-close=\"1\"]")) {
       closeMediaLightbox();
       return;
     }
-    if (event.target === overlay || event.target.classList.contains("media-lightbox__stage")) {
-      closeMediaLightbox();
-    }
+    if (shouldKeepOpenForTarget(event.target)) return;
+    closeMediaLightbox();
   });
   document.body.appendChild(overlay);
   return overlay;
@@ -2628,6 +2698,7 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
   if (!stage || !caption) return;
   stage.innerHTML = "";
   const media = document.createElement(video ? "video" : "img");
+  media.className = "media-lightbox__media";
   if (video) {
     media.controls = true;
     media.autoplay = false;
@@ -2869,6 +2940,12 @@ function ensureCurrentUserInActiveServer() {
   const account = getCurrentAccount();
   const server = getActiveServer();
   if (!account || !server) return false;
+  const existingMembers = Array.isArray(server.memberIds) ? server.memberIds.filter(Boolean) : [];
+  const alreadyMember = existingMembers.includes(account.id);
+  if (!alreadyMember && existingMembers.length > 0) {
+    // Do not silently join a guild that belongs to another logged-in account.
+    return false;
+  }
   let changed = false;
   if (!Array.isArray(server.roles) || server.roles.length === 0) {
     server.roles = [createRole("@everyone", "#b5bac1", "member")];
@@ -3713,9 +3790,10 @@ function xmppRoomNodeForToken(roomToken) {
 function isXmppMucRoomJid(roomJid, prefs = getPreferences()) {
   const bare = xmppBareJid(roomJid);
   if (!bare || !bare.includes("@")) return false;
+  if (isKnownXmppRoomJid(bare)) return true;
   const mucService = resolveXmppMucService(prefs);
   if (mucService && bare.endsWith(`@${mucService}`)) return true;
-  return /@conference\./i.test(bare);
+  return /@(?:conference|muc)\./i.test(bare);
 }
 
 function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
@@ -3744,10 +3822,19 @@ function xmppNodeText(node) {
 
 function decodeHtmlEntities(text) {
   const raw = (text || "").toString();
-  if (!raw || !/&(?:[a-z][a-z0-9]+|#\d+|#x[a-f0-9]+);/i.test(raw)) return raw;
-  const area = document.createElement("textarea");
-  area.innerHTML = raw;
-  return area.value || raw;
+  if (!raw) return raw;
+  let value = raw;
+  for (let i = 0; i < 3; i += 1) {
+    if (!/&(?:[a-z][a-z0-9]+|#\d+|#x[a-f0-9]+);/i.test(value)) break;
+    const area = document.createElement("textarea");
+    area.innerHTML = value
+      .replace(/&apos;/gi, "'")
+      .replace(/&quot;/gi, "\"");
+    const decoded = area.value || value;
+    if (decoded === value) break;
+    value = decoded;
+  }
+  return value;
 }
 
 function detectImageMimeFromBase64(bin) {
@@ -8723,7 +8810,7 @@ function getQuickSwitchItems(rawQuery = "") {
   const current = getCurrentAccount();
   const items = [];
   state.guilds.forEach((guild) => {
-    if (current && Array.isArray(guild.memberIds) && !guild.memberIds.includes(current.id)) return;
+    if (current && !canAccountAccessGuild(guild, current)) return;
     items.push({
       id: `guild:${guild.id}`,
       type: "guild",
@@ -9580,7 +9667,7 @@ function displayNameForMessage(message) {
       return displayNameForAccount(account, guildId);
     }
   }
-  return message.authorName || "Unknown";
+  return decodeHtmlEntities((message.authorName || "Unknown").toString());
 }
 
 function initialsForName(name) {
@@ -9708,7 +9795,7 @@ function renderMessageText(container, rawText) {
     current,
     customEmojiMap: new Map((guild?.customEmojis || []).map((emoji) => [emoji.name, emoji.url]))
   };
-  const lines = (rawText || "").split("\n");
+  const lines = decodeHtmlEntities(rawText || "").split("\n");
   lines.forEach((line, index) => {
     if (line.startsWith("> ")) {
       const quote = document.createElement("span");
@@ -12022,14 +12109,16 @@ function renderServers() {
   const prefs = getPreferences();
   const hideNonXmpp = prefs.relayMode === "xmpp" && prefs.xmppHideNonXmpp === "on";
   const showXmppWarning = prefs.relayMode === "xmpp" && !hideNonXmpp;
-  const isGuildVisible = (guild) => !hideNonXmpp || isXmppBackedGuild(guild);
-  if (hideNonXmpp) {
-    const activeGuild = state.guilds.find((guild) => guild.id === state.activeGuildId) || null;
-    if (!activeGuild || !isGuildVisible(activeGuild)) {
-      const fallbackGuild = state.guilds.find((guild) => isGuildVisible(guild)) || null;
-      state.activeGuildId = fallbackGuild?.id || null;
-      if (!fallbackGuild) state.activeChannelId = null;
-    }
+  const isGuildVisible = (guild) => {
+    if (!guild) return false;
+    if (currentAccount && !canAccountAccessGuild(guild, currentAccount)) return false;
+    return !hideNonXmpp || isXmppBackedGuild(guild);
+  };
+  const activeGuild = state.guilds.find((guild) => guild.id === state.activeGuildId) || null;
+  if (!activeGuild || !isGuildVisible(activeGuild)) {
+    const fallbackGuild = state.guilds.find((guild) => isGuildVisible(guild)) || null;
+    state.activeGuildId = fallbackGuild?.id || null;
+    state.activeChannelId = fallbackGuild ? getFirstOpenableChannelIdForGuild(fallbackGuild) : null;
   }
   const dmStats = getTotalDmUnreadStats(currentAccount);
   if (ui.serverBrandBadge) {
@@ -12403,6 +12492,15 @@ function renderChannels() {
     return;
   }
   const currentAccount = getCurrentAccount();
+  if (currentAccount && !canAccountAccessGuild(server, currentAccount)) {
+    if (ensureActiveGuildForCurrentAccount()) {
+      saveState();
+      renderChannels();
+      return;
+    }
+    ui.activeServerName.textContent = "No accessible guild";
+    return;
+  }
   if (ui.toggleGuildSectionBtn) {
     const heading = ui.toggleGuildSectionBtn.querySelector("span");
     const guildStats = getGuildUnreadStats(server, currentAccount);
@@ -14176,17 +14274,30 @@ function renderMessages() {
       replyLine = document.createElement("div");
       replyLine.className = "message-reply";
       const replyName = document.createElement("strong");
-      replyName.textContent = message.replyTo.authorName || "Unknown";
       const replyText = document.createElement("span");
-      replyText.textContent = message.replyTo.text?.trim()?.slice(0, 90) || "(empty message)";
-      replyLine.appendChild(document.createTextNode("Replying to "));
+      const targetReplyId = resolveReplyTargetMessageId(message.replyTo, channel);
+      const referenced = targetReplyId
+        ? messageBucket.find((entry) => entry.id === targetReplyId) || null
+        : null;
+      const resolvedReplyAuthor = referenced
+        ? displayNameForMessage(referenced)
+        : decodeHtmlEntities((message.replyTo.authorName || "").toString()).trim() || "Unknown";
+      let resolvedReplyText = referenced
+        ? decodeHtmlEntities((referenced.text || "").toString())
+        : decodeHtmlEntities((message.replyTo.text || "").toString());
+      resolvedReplyText = resolvedReplyText.replace(/\s+/g, " ").trim();
+      if (!resolvedReplyText && referenced && collectRenderableAttachments(referenced).length > 0) {
+        resolvedReplyText = "(attachment)";
+      }
+      if (!resolvedReplyText || /^xmpp reply$/i.test(resolvedReplyText)) {
+        resolvedReplyText = targetReplyId ? "Jump to original message" : "(empty message)";
+      }
+      replyName.textContent = resolvedReplyAuthor.slice(0, 60);
+      replyText.textContent = resolvedReplyText.slice(0, 90);
+      replyLine.appendChild(document.createTextNode("↪ "));
       replyLine.appendChild(replyName);
       replyLine.appendChild(document.createTextNode(": "));
       replyLine.appendChild(replyText);
-      const targetReplyId = resolveReplyTargetMessageId(message.replyTo, channel);
-      if (targetReplyId) {
-        replyText.textContent = message.replyTo.text?.trim()?.slice(0, 90) || replyText.textContent;
-      }
       if (targetReplyId) {
         replyLine.title = "Jump to referenced message";
         replyLine.classList.add("message-reply--jump");
@@ -14720,6 +14831,7 @@ function renderMemberList() {
         row.className = "member-item";
         const avatar = document.createElement("div");
         avatar.className = "member-avatar";
+        if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
         applyAvatarStyle(avatar, account, null);
         applyAvatarDecoration(avatar, account);
         const dot = document.createElement("span");
@@ -14812,6 +14924,7 @@ function renderMemberList() {
       row.className = "member-item";
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
+      if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
       applyAvatarStyle(avatar, account, server.id);
       applyAvatarDecoration(avatar, account);
       const dot = document.createElement("span");
@@ -14891,6 +15004,7 @@ function renderMemberList() {
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
       if (account) {
+        if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
         applyAvatarStyle(avatar, account, server.id);
         applyAvatarDecoration(avatar, account);
       } else {
@@ -14957,6 +15071,7 @@ function renderMemberList() {
 
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
+      if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
       applyAvatarStyle(avatar, account, server.id);
       applyAvatarDecoration(avatar, account);
 
@@ -15314,6 +15429,9 @@ function render() {
     closeMediaPicker();
     clearComposerPendingAttachment();
     return;
+  }
+  if (ensureActiveGuildForCurrentAccount()) {
+    saveState();
   }
   if (ensureCurrentUserInActiveServer()) {
     saveState();
@@ -16871,6 +16989,7 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   if (!state.activeChannelId && state.guilds[0]) {
     state.activeChannelId = getFirstOpenableChannelIdForGuild(state.guilds[0]) || state.guilds[0]?.channels?.[0]?.id || null;
   }
+  ensureActiveGuildForCurrentAccount();
   ensureCurrentUserInActiveServer();
   const prefs = getPreferences();
   if (["ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
@@ -19249,6 +19368,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
     if (["ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
   }
 
+  ensureActiveGuildForCurrentAccount();
   ensureCurrentUserInActiveServer();
   saveState();
   ui.accountSwitchDialog.close();
@@ -19875,9 +19995,17 @@ document.addEventListener("keydown", (event) => {
     if (!state.currentAccountId) return;
     event.preventDefault();
     state.viewMode = getViewMode() === "dm" ? "guild" : "dm";
-    if (state.viewMode === "guild" && !state.activeGuildId && state.guilds[0]) {
-      state.activeGuildId = state.guilds[0].id;
-      state.activeChannelId = getFirstOpenableChannelIdForGuild(state.guilds[0]) || state.activeChannelId;
+    if (state.viewMode === "guild") {
+      const current = getCurrentAccount();
+      const fallbackGuild = listAccessibleGuildsForAccount(current)[0] || null;
+      if (!state.activeGuildId && fallbackGuild) {
+        state.activeGuildId = fallbackGuild.id;
+      }
+      ensureActiveGuildForCurrentAccount();
+      const activeGuild = getActiveGuild();
+      if (activeGuild) {
+        state.activeChannelId = getFirstOpenableChannelIdForGuild(activeGuild) || state.activeChannelId;
+      }
     }
     saveState();
     render();
