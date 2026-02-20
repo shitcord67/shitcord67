@@ -264,6 +264,8 @@
 - [done] Hardened SWF async load lifecycle against detach races so PiP/parked/tab-preserved runtimes are not torn down mid-load.
 - [done] SWF runtimes now enter keep-alive mode after first PiP use and are parked/recovered instead of being destroyed on detach.
 - [done] PiP toggle now waits for lazy SWF runtime startup, so PiP works even when clicked while a SWF is still loading.
+- [done] Local media runtime probing no longer injects missing script paths; it verifies local JS module responses before loading.
+- [done] Added explicit renderer CSP meta policy for Electron hardening (no `unsafe-eval`).
 - [done] Consecutive same-author message grouping now compacts more aggressively (denser gutter, tighter head/text spacing, longer grouping window).
 - [done] Media runtime bootstrap hardened with local-first probes and multi-CDN fallback for Ruffle/dotLottie.
 - [done] Added XEP-0184 DM delivery receipts (request + received ack handling with sent/delivered badges).

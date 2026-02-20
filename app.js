@@ -7550,8 +7550,16 @@ function loadScriptTag(src, type = "text/javascript") {
 
 async function localRuntimeExists(src) {
   try {
-    const response = await fetch(src, { method: "HEAD", cache: "no-store" });
-    return response.ok;
+    const response = await fetch(src, { method: "GET", cache: "no-store" });
+    if (!response.ok) return false;
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType) return true;
+    if (contentType.includes("javascript")) return true;
+    if (contentType.includes("ecmascript")) return true;
+    if (contentType.includes("application/octet-stream")) return true;
+    // Guard against dev servers returning index.html for missing files.
+    if (contentType.includes("text/html")) return false;
+    return true;
   } catch {
     return false;
   }
@@ -7560,9 +7568,7 @@ async function localRuntimeExists(src) {
 async function deployMediaRuntimes() {
   let shouldRerender = false;
   const localRuffleCandidates = [
-    "vendor/ruffle/ruffle.js",
-    "node_modules/@ruffle-rs/ruffle/ruffle.js",
-    "ruffle/ruffle.js"
+    "vendor/ruffle/ruffle.js"
   ];
   for (const candidate of localRuffleCandidates) {
     if (window.RufflePlayer?.newest) break;
@@ -7601,9 +7607,7 @@ async function deployMediaRuntimes() {
     // SWF fallback card remains available.
   }
   const localDotLottieCandidates = [
-    "vendor/dotlottie/dotlottie-player.mjs",
-    "node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs",
-    "dotlottie/dotlottie-player.mjs"
+    "vendor/dotlottie/dotlottie-player.mjs"
   ];
   for (const candidate of localDotLottieCandidates) {
     if (typeof customElements !== "undefined" && customElements.get("dotlottie-player")) break;
@@ -13059,6 +13063,13 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   }
   if (enabled) {
     runtime.keepAlive = true;
+    if (runtime.loading) {
+      runtime.pendingPip = true;
+      activateSwfPipTab(runtimeKey);
+      addDebugLog("info", "Queued SWF PiP until runtime load completes", { key: runtimeKey });
+      return true;
+    }
+    runtime.pendingPip = false;
     if (runtime.observer) {
       runtime.observer.disconnect();
       runtime.observer = null;
@@ -13097,6 +13108,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   }
   runtime.pipTransitioning = true;
   runtime.inPip = false;
+  runtime.pendingPip = false;
   runtime.host.classList.remove("swf-pip-player", "message-swf-player--pip-floating");
   runtime.host.style.left = "";
   runtime.host.style.top = "";
@@ -13593,13 +13605,13 @@ async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
 async function ensureSwfRuntimeReadyForPip(runtimeKey, hostElement, attachment) {
   if (!runtimeKey) return null;
   let runtime = swfRuntimes.get(runtimeKey);
-  if (runtime?.player instanceof HTMLElement) return runtime;
+  if (runtime?.player instanceof HTMLElement && !runtime.loading) return runtime;
   if (!(hostElement instanceof HTMLElement) || !attachment) return runtime || null;
   attachRufflePlayer(hostElement, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey });
-  for (let attempt = 0; attempt < 24; attempt += 1) {
+  for (let attempt = 0; attempt < 90; attempt += 1) {
     await nextFrame();
     runtime = swfRuntimes.get(runtimeKey);
-    if (runtime?.player instanceof HTMLElement) return runtime;
+    if (runtime?.player instanceof HTMLElement && !runtime.loading) return runtime;
   }
   return runtime || null;
 }
@@ -13720,6 +13732,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         inPip: existingRuntime.inPip === true,
         pipHost: existingRuntime.pipHost || null,
         pipTransitioning: existingRuntime.pipTransitioning === true,
+        pendingPip: existingRuntime.pendingPip === true,
         parked: existingRuntime.parked === true,
         keepAlive: existingRuntime.keepAlive === true,
         loading: true,
@@ -13855,7 +13868,10 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         }
         if (runtimeKey) {
           const runtime = swfRuntimes.get(runtimeKey);
-          if (runtime?.player === player) runtime.loading = false;
+          if (runtime?.player === player) {
+            runtime.loading = false;
+            runtime.pendingPip = false;
+          }
           if (!failedState.preserved) {
             if (runtime?.observer) {
               runtime.observer.disconnect();
@@ -13892,6 +13908,8 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         runtime.playing = autoplay !== "off";
         runtime.allowAutoPlay = autoplay !== "off";
         runtime.loading = false;
+        const shouldPromoteToPip = runtime.pendingPip === true;
+        runtime.pendingPip = false;
         applyPendingSwfUiBindings(runtimeKey);
         const pendingAudio = swfPendingAudio.get(runtimeKey);
         if (pendingAudio) {
@@ -13903,6 +13921,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         refreshSwfAudioFocus();
         refreshSwfRuntimeHealthUi(runtimeKey);
         if (!runtime.inPip && !runtime.parked) bindSwfVisibilityObserver(runtimeKey);
+        if (shouldPromoteToPip) setSwfRuntimePip(runtimeKey, true);
       }
     };
     void loadWithFallback();
