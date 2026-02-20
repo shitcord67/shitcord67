@@ -73,6 +73,7 @@ const SLASH_COMMANDS = [
   { name: "note", args: "<text>", description: "Send a collaborative message editable by anyone in the channel." },
   { name: "nick", args: "<nickname>", description: "Set your nickname in the active guild." },
   { name: "status", args: "<text>", description: "Set your custom status message." },
+  { name: "presence", args: "<online|idle|dnd|invisible>", description: "Set your online presence state." },
   { name: "quests", args: "", description: "Show your earned quest badges and activity stats." },
   { name: "questprogress", args: "", description: "Show quest milestone progress and next goals." },
   { name: "questbadges", args: "", description: "List your unlocked quest badges." },
@@ -911,6 +912,8 @@ const xmppMamStateByRoomJid = new Map();
 const xmppRoomMessageIndexByJid = new Map();
 const xmppAvatarFetchInFlight = new Set();
 const xmppAvatarHashByJid = new Map();
+const xmppMucAvatarByOccupantKey = new Map();
+const xmppMucAvatarFetchInFlight = new Set();
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -1130,6 +1133,7 @@ const ui = {
   selfPopoutAvatar: document.getElementById("selfPopoutAvatar"),
   selfPopoutName: document.getElementById("selfPopoutName"),
   selfPopoutStatus: document.getElementById("selfPopoutStatus"),
+  selfPresenceSelect: document.getElementById("selfPresenceSelect"),
   selfPopoutBio: document.getElementById("selfPopoutBio"),
   selfPopoutRoles: document.getElementById("selfPopoutRoles"),
   selfEditProfile: document.getElementById("selfEditProfile"),
@@ -3148,6 +3152,42 @@ function normalizePresence(value) {
   return "online";
 }
 
+function xmppShowValueForPresence(presence) {
+  const mode = normalizePresence(presence);
+  if (mode === "idle") return "away";
+  if (mode === "dnd") return "dnd";
+  return "";
+}
+
+function sendCurrentXmppPresence() {
+  if (!xmppConnection || relayStatus !== "connected" || !globalThis.$pres) return false;
+  const account = getCurrentAccount();
+  const mode = normalizePresence(account?.presence || "online");
+  if (mode === "invisible") {
+    xmppConnection.send(globalThis.$pres({ type: "unavailable" }));
+    return true;
+  }
+  const show = xmppShowValueForPresence(mode);
+  const stanza = globalThis.$pres();
+  if (show) stanza.c("show").t(show);
+  xmppConnection.send(stanza);
+  return true;
+}
+
+function setCurrentAccountPresence(mode, { persist = true, rerender = true, announceXmpp = true } = {}) {
+  const account = getCurrentAccount();
+  if (!account) return false;
+  const next = normalizePresence(mode);
+  const previous = normalizePresence(account.presence || "online");
+  if (next === previous) return false;
+  account.presence = next;
+  if (persist) saveState();
+  if (announceXmpp) sendCurrentXmppPresence();
+  if (ui.selfMenuDialog?.open) renderSelfPopout();
+  if (rerender) render();
+  return true;
+}
+
 function normalizeMemberPresenceFilter(value) {
   if (value === "online" || value === "offline") return value;
   return "all";
@@ -4084,6 +4124,56 @@ function xmppMucOccupantByNick(roomJid, nick = "") {
   )) || null;
 }
 
+function xmppMucOccupantAvatarKey(roomJid, nick = "") {
+  const bareRoom = xmppBareJid(roomJid);
+  const nickValue = (nick || "").toString().trim().toLowerCase();
+  if (!bareRoom || !nickValue) return "";
+  return `${bareRoom}|${nickValue}`;
+}
+
+function xmppMucAvatarUrlForOccupant(roomJid, nick = "") {
+  const key = xmppMucOccupantAvatarKey(roomJid, nick);
+  if (!key) return "";
+  return (xmppMucAvatarByOccupantKey.get(key) || "").toString();
+}
+
+function maybeFetchXmppMucAvatar(roomJid, nick, fullOccupantJid = "") {
+  const key = xmppMucOccupantAvatarKey(roomJid, nick);
+  const toJid = normalizeXmppJid(fullOccupantJid || "");
+  if (!key || !toJid || !xmppConnection || !globalThis.$iq) return;
+  if (xmppMucAvatarByOccupantKey.has(key)) return;
+  if (xmppMucAvatarFetchInFlight.has(key)) return;
+  xmppMucAvatarFetchInFlight.add(key);
+  const iq = globalThis.$iq({ type: "get", to: toJid }).c("vCard", { xmlns: "vcard-temp" });
+  xmppConnection.sendIQ(
+    iq,
+    (stanza) => {
+      try {
+        const photoNode = [...stanza.getElementsByTagName("PHOTO")][0] || null;
+        const binNode = photoNode ? [...photoNode.getElementsByTagName("BINVAL")][0] : null;
+        const typeNode = photoNode ? [...photoNode.getElementsByTagName("TYPE")][0] : null;
+        const bin = xmppNodeText(binNode).trim().replace(/\s+/g, "");
+        const mimeRaw = xmppNodeText(typeNode).trim().toLowerCase();
+        if (!bin) return;
+        const sniffed = detectImageMimeFromBase64(bin);
+        const safeMime = /^image\/[a-z0-9.+-]+$/i.test(mimeRaw) ? mimeRaw : (sniffed || "image/jpeg");
+        xmppMucAvatarByOccupantKey.set(key, `data:${safeMime};base64,${bin}`);
+        const activeRoom = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
+        if (activeRoom && activeRoom === xmppBareJid(roomJid)) {
+          renderMemberList();
+          renderMessages();
+        }
+      } finally {
+        xmppMucAvatarFetchInFlight.delete(key);
+      }
+    },
+    () => {
+      xmppMucAvatarFetchInFlight.delete(key);
+    },
+    7000
+  );
+}
+
 function findXmppRoomChannelByJid(roomJid) {
   const bare = xmppBareJid(roomJid);
   if (!bare) return null;
@@ -4405,6 +4495,8 @@ function teardownXmppConnection() {
   xmppRoomMessageIndexByJid.clear();
   xmppAvatarFetchInFlight.clear();
   xmppAvatarHashByJid.clear();
+  xmppMucAvatarByOccupantKey.clear();
+  xmppMucAvatarFetchInFlight.clear();
 }
 
 function sendRelayPacket(packet) {
@@ -4932,6 +5024,7 @@ function connectRelaySocket({ force = false } = {}) {
             const account = getAccountById(occupant.accountId);
             authorJid = xmppBareJid(account?.xmppJid || "");
           }
+          if (!authorJid) maybeFetchXmppMucAvatar(roomJid, nick, from);
         }
         const inserted = applyRelayIncomingMessage({
           type: "chat",
@@ -5133,6 +5226,8 @@ function connectRelaySocket({ force = false } = {}) {
             if (occupantJid) {
               if (photoHash) xmppAvatarHashByJid.set(occupantJid, photoHash);
               maybeFetchXmppAvatarForJid(occupantJid, { photoHash });
+            } else if (nick) {
+              maybeFetchXmppMucAvatar(roomJid, nick, from);
             }
           }
           const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
@@ -5159,7 +5254,7 @@ function connectRelaySocket({ force = false } = {}) {
         }
         if (status === S.CONNECTED) {
           setRelayStatus("connected");
-          xmppConnection.send(globalThis.$pres());
+          sendCurrentXmppPresence();
           enableXmppCarbons(xmppConnection);
           const initialRoom = relayRoomForActiveConversation();
           const directPeerJid = xmppPeerJidForRelayRoom(initialRoom, current);
@@ -8498,6 +8593,21 @@ function handleSlashCommand(rawText, channel, account) {
       account.customStatus = arg.slice(0, 80);
       addSystemMessage(channel, account.customStatus ? `Status set to: ${account.customStatus}` : "Status cleared.");
     }
+    return true;
+  }
+
+  if (command === "presence") {
+    const next = normalizePresence((arg || "").trim().toLowerCase());
+    if (!arg) {
+      addSystemMessage(channel, `Presence: ${presenceLabel(account.presence || "online")}.`);
+      return true;
+    }
+    if (!["online", "idle", "dnd", "invisible"].includes((arg || "").trim().toLowerCase())) {
+      addSystemMessage(channel, "Usage: /presence <online|idle|dnd|invisible>");
+      return true;
+    }
+    setCurrentAccountPresence(next, { persist: true, rerender: true, announceXmpp: true });
+    addSystemMessage(channel, `Presence changed to ${presenceLabel(next)}.`);
     return true;
   }
 
@@ -14117,7 +14227,15 @@ function renderMessages() {
       applyAvatarStyle(avatar, author, guildId);
       applyAvatarDecoration(avatar, author);
     } else {
-      avatar.textContent = initialsForName(displayNameForMessage(message));
+      const activeRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
+      const mucAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, message.authorName || "") : "";
+      if (isRenderableAvatarUrl(mucAvatar)) {
+        avatar.style.backgroundImage = `url(${mucAvatar})`;
+        avatar.style.backgroundSize = "cover";
+        avatar.style.backgroundPosition = "center";
+      } else {
+        avatar.textContent = initialsForName(displayNameForMessage(message));
+      }
     }
     avatar.title = displayNameForMessage(message);
     messageRow.appendChild(avatar);
@@ -15008,7 +15126,14 @@ function renderMemberList() {
         applyAvatarStyle(avatar, account, server.id);
         applyAvatarDecoration(avatar, account);
       } else {
-        avatar.textContent = ((entry.nick || entry.jid || "?").toString().trim().charAt(0) || "?").toUpperCase();
+        const mucAvatar = xmppMucAvatarUrlForOccupant(roomJid, entry.nick || "");
+        if (isRenderableAvatarUrl(mucAvatar)) {
+          avatar.style.backgroundImage = `url(${mucAvatar})`;
+          avatar.style.backgroundSize = "cover";
+          avatar.style.backgroundPosition = "center";
+        } else {
+          avatar.textContent = ((entry.nick || entry.jid || "?").toString().trim().charAt(0) || "?").toUpperCase();
+        }
       }
       const dot = document.createElement("span");
       dot.className = "presence-dot presence-online";
@@ -15207,6 +15332,7 @@ function renderSelfPopout() {
     ui.selfPopoutName.appendChild(chip);
   }
   ui.selfPopoutStatus.textContent = displayStatus(account, getActiveGuild()?.id || null);
+  if (ui.selfPresenceSelect) ui.selfPresenceSelect.value = normalizePresence(account.presence || "online");
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);
   applyAvatarDecoration(ui.selfPopoutAvatar, account);
@@ -16365,6 +16491,7 @@ function syncXmppRosterIntoState(items, prefs = getPreferences(), account = getC
     if (!bare) return;
     const accountEntry = ensureAccountByXmppJid(bare, item?.name || bare.split("@")[0] || "");
     if (!accountEntry || accountEntry.id === account.id) return;
+    maybeFetchXmppAvatarForJid(bare);
     getOrCreateDmThread(account, accountEntry);
     const groups = Array.isArray(item?.groups)
       ? item.groups.map((entry) => (entry || "").toString().trim()).filter(Boolean).slice(0, 8)
@@ -18876,6 +19003,12 @@ ui.selfProfileBtn.addEventListener("click", () => {
   ui.selfMenuDialog.showModal();
 });
 
+ui.selfPresenceSelect?.addEventListener("change", () => {
+  const next = normalizePresence(ui.selfPresenceSelect?.value || "online");
+  const changed = setCurrentAccountPresence(next, { persist: true, rerender: true, announceXmpp: true });
+  if (changed) showToast(`Presence: ${presenceLabel(next)}`);
+});
+
 ui.openSettingsBtn.addEventListener("click", openSettingsScreen);
 
 ui.closeSettingsBtn.addEventListener("click", closeSettingsScreen);
@@ -19349,6 +19482,7 @@ ui.profileForm.addEventListener("submit", (event) => {
   }
 
   saveState();
+  sendCurrentXmppPresence();
   ui.profileDialog.close();
   render();
 });

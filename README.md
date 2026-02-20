@@ -32,6 +32,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
 - Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`, `/nextunread`, `/prevunread`, `/unreadcount`, `/pins`, `/unpinall`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
+- Added `/presence <online|idle|dnd|invisible>` to change online presence quickly.
+- Self profile popout now includes a presence selector (Online/Idle/DND/Invisible) and publishes presence updates to XMPP when connected.
 - Send-later workflow: `/schedule <when> | <text>`, `/scheduled`, `/unschedule <id|last|all>` (channels and DMs).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
@@ -250,6 +252,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - XMPP presence updates now refresh mapped account status/avatar (vCard fetch) for DMs and visible MUC occupants.
 - XMPP avatar fetch now attempts PEP avatar data (`urn:xmpp:avatar:data`, XEP-0084) with vCard fallback for broader profile-photo compatibility.
 - Member sidebar avatar rendering now proactively requests XMPP avatars for visible contacts/occupants to reduce missing profile photos.
+- For MUC occupants without exposed real JID, the client now also tries occupant-address vCard fetch (`room@service/nick`) and uses that avatar when available.
 - MUC detection now also treats known mapped room JIDs as rooms even when the service is not `conference.*` (improves occupant tracking for rooms like `chat.disroot.org`).
 - Multi-account guild visibility is account-scoped; account switching no longer auto-joins the active guild from another account session.
 - XMPP OOB/reference URLs and inline media links now map into richer inline embeds (including images and video).
