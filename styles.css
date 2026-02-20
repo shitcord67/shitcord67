@@ -846,6 +846,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   position: relative;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -976,7 +977,9 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message-list {
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.28rem 0 0.34rem;
+  min-width: 0;
 }
 
 .voice-stage {
@@ -1137,6 +1140,8 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   column-gap: 0.46rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .message:hover {
@@ -1168,6 +1173,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message > :not(.message-avatar) {
   grid-column: 2;
+  min-width: 0;
 }
 
 .message-avatar {
@@ -1403,6 +1409,8 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   color: #dbdee1;
   white-space: pre-wrap;
   line-height: 1.22;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .message-text a {
@@ -2274,11 +2282,13 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message-attachment {
   margin-top: 0.18rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .message-poll {
   margin-top: 0.3rem;
-  width: min(440px, 92vw);
+  width: min(440px, 100%);
   border: 1px solid #3b4050;
   border-radius: 10px;
   background: #1f232d;
@@ -2340,6 +2350,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   border-radius: 10px;
   border: 1px solid #41454f;
   display: block;
+  height: auto;
 }
 
 .message-attachment img {
@@ -2357,7 +2368,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   border: 1px solid #393d46;
   border-radius: 10px;
   padding: 0.45rem 0.55rem;
-  max-width: min(96vw, 940px);
+  max-width: min(100%, 940px);
 }
 
 .message-swf-header {
@@ -2548,7 +2559,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message-swf-player {
   width: 420px;
-  max-width: calc(100vw - 120px);
+  max-width: 100%;
   flex: 0 1 auto;
   min-height: 180px;
   background: #121317;
@@ -2582,33 +2593,36 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   font-size: 0.73rem;
   color: #aeb6c4;
   margin-bottom: 0.35rem;
-  max-width: min(620px, 94vw);
+  max-width: 100%;
   overflow-wrap: anywhere;
 }
 
 .message-html-frame {
-  width: min(540px, 92vw);
+  width: min(540px, 100%);
   height: 320px;
   border: 1px solid #3b3f48;
   border-radius: 10px;
   background: #fff;
+  max-width: 100%;
 }
 
 .message-pdf-frame {
-  width: min(620px, 94vw);
+  width: min(620px, 100%);
   height: 420px;
   border: 1px solid #3b3f48;
   border-radius: 10px;
   background: #fff;
+  max-width: 100%;
 }
 
 .message-audio {
-  width: min(440px, 92vw);
+  width: min(440px, 100%);
   display: block;
+  max-width: 100%;
 }
 
 .message-text-file {
-  width: min(620px, 94vw);
+  width: min(620px, 100%);
   max-height: 300px;
   overflow: auto;
   margin: 0;

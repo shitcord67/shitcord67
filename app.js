@@ -28,13 +28,17 @@ const GIF_PICKER_PAGE_STEP = 120;
 const EMOJI_PICKER_INITIAL_PAGE_SIZE = 180;
 const EMOJI_PICKER_PAGE_STEP = 180;
 const TENOR_PUBLIC_API_KEY = "LIVDSRZULELA";
-const TENOR_CLIENT_KEY = "shitcord67";
+const TENOR_CLIENT_KEY = "shitcord67_web";
 const TENOR_RESULTS_PAGE_SIZE = 36;
-const EMOJI_DATASET_VERSION = "16.0.0";
+const TENOR_KEY_STORAGE_KEY = "shitcord67-tenor-api-key";
+const TENOR_CLIENT_STORAGE_KEY = "shitcord67-tenor-client-key";
+const EMOJI_DATASET_VERSION = "17.0.0";
 const EMOJI_DATASET_CACHE_KEY = `shitcord67-emoji-dataset-v${EMOJI_DATASET_VERSION}`;
 const EMOJI_DATASET_SOURCES = [
   `https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJI_DATASET_VERSION}/en/compact.json`,
-  `https://unpkg.com/emojibase-data@${EMOJI_DATASET_VERSION}/en/compact.json`
+  `https://unpkg.com/emojibase-data@${EMOJI_DATASET_VERSION}/en/compact.json`,
+  "https://unicode.org/Public/emoji/17.0/emoji-test.txt",
+  "https://raw.githubusercontent.com/unicode-org/emoji/main/data/emoji-test.txt"
 ];
 const XMPP_PROVIDER_CATALOG = [
   {
@@ -216,8 +220,8 @@ const EMOJI_LIBRARY = [
 ];
 const STICKER_LIBRARY = [
   { name: "blob wave", url: "https://media.tenor.com/LrSL7XDKVbgAAAAC/pepe-wave.gif" },
-  { name: "cat vibing", url: "https://media.tenor.com/zr6rUP8r7K8AAAAC/cat-vibe.gif" },
-  { name: "ok hand", url: "https://media.tenor.com/x4hN6Q8xB0QAAAAC/okay-ok.gif" },
+  { name: "cat vibing", url: "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" },
+  { name: "ok hand", url: "https://media.giphy.com/media/111ebonMs90YLu/giphy.gif" },
   { name: "sad blob", url: "https://media.tenor.com/K7V8MDFMvxQAAAAC/blob-sad.gif" }
 ];
 const GIF_LIBRARY = [
@@ -11242,7 +11246,7 @@ function normalizeEmojiLibraryEntry(entry, source = "builtin") {
     value,
     aliases: [...new Set(aliases.map((item) => (item || "").toString().trim().toLowerCase()).filter(Boolean))].slice(0, 24),
     keywords: [...new Set(keywords.map((item) => (item || "").toString().trim().toLowerCase()).filter(Boolean))].slice(0, 32),
-    source
+    source: (entry.source || source || "builtin").toString()
   };
 }
 
@@ -11271,21 +11275,74 @@ function normalizeEmojiDatasetEntries(rawEntries) {
   return [...deduped.values()];
 }
 
+function normalizeEmojiCachedEntries(rawEntries) {
+  if (!Array.isArray(rawEntries)) return [];
+  const deduped = new Map();
+  rawEntries.forEach((entry) => {
+    const normalized = normalizeEmojiLibraryEntry(entry, "builtin");
+    if (!normalized) return;
+    if (deduped.has(normalized.value)) return;
+    deduped.set(normalized.value, normalized);
+  });
+  return [...deduped.values()];
+}
+
+function parseEmojiTestDataset(text) {
+  if (typeof text !== "string" || !text.trim()) return [];
+  const deduped = new Map();
+  text.split(/\r?\n/).forEach((line) => {
+    const clean = line.trim();
+    if (!clean || clean.startsWith("#")) return;
+    if (!/;\s*fully-qualified/.test(clean)) return;
+    const hashIndex = clean.indexOf("#");
+    if (hashIndex <= 0) return;
+    const left = clean.slice(0, hashIndex).trim();
+    const right = clean.slice(hashIndex + 1).trim();
+    const codepointHex = left.split(";")[0].trim();
+    if (!codepointHex) return;
+    const codepoints = codepointHex.split(/\s+/).map((token) => Number.parseInt(token, 16)).filter(Number.isFinite);
+    if (codepoints.length === 0) return;
+    let value = "";
+    try {
+      value = String.fromCodePoint(...codepoints);
+    } catch {
+      value = "";
+    }
+    if (!value || deduped.has(value)) return;
+    const nameMatch = right.match(/^\S+\s+E[\d.]+\s+(.+)$/);
+    const label = (nameMatch?.[1] || "").toString().trim();
+    const words = label.toLowerCase().split(/[\s,_-]+/).filter(Boolean);
+    const alias = words.slice(0, 4).join("_");
+    const normalized = normalizeEmojiLibraryEntry({
+      value,
+      name: label || value,
+      aliases: alias ? [alias] : [],
+      keywords: words.slice(0, 12)
+    }, "builtin");
+    if (!normalized) return;
+    deduped.set(value, normalized);
+  });
+  return [...deduped.values()];
+}
+
 function loadCachedEmojiDataset() {
   try {
     const raw = localStorage.getItem(EMOJI_DATASET_CACHE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.some((entry) => entry && typeof entry.value === "string")) {
+      return normalizeEmojiCachedEntries(parsed);
+    }
     return normalizeEmojiDatasetEntries(parsed);
   } catch {
     return [];
   }
 }
 
-function cacheEmojiDataset(rawEntries) {
+function cacheEmojiDataset(normalizedEntries) {
   try {
-    if (!Array.isArray(rawEntries) || rawEntries.length === 0) return;
-    localStorage.setItem(EMOJI_DATASET_CACHE_KEY, JSON.stringify(rawEntries));
+    if (!Array.isArray(normalizedEntries) || normalizedEntries.length === 0) return;
+    localStorage.setItem(EMOJI_DATASET_CACHE_KEY, JSON.stringify(normalizedEntries));
   } catch {
     // Ignore quota/storage failures.
   }
@@ -11314,8 +11371,10 @@ async function ensureEmojiLibraryLoaded({ force = false } = {}) {
           lastError = `HTTP ${response.status}`;
           continue;
         }
-        const payload = await response.json();
-        const normalized = normalizeEmojiDatasetEntries(payload);
+        const isTextDataset = /\.txt(\?|$)/i.test(source);
+        const normalized = isTextDataset
+          ? parseEmojiTestDataset(await response.text())
+          : normalizeEmojiDatasetEntries(await response.json());
         if (normalized.length === 0) {
           lastError = "Dataset was empty";
           continue;
@@ -11323,7 +11382,7 @@ async function ensureEmojiLibraryLoaded({ force = false } = {}) {
         emojiLibraryEntries = normalized;
         emojiLibraryLoaded = true;
         emojiLibraryError = "";
-        cacheEmojiDataset(payload);
+        cacheEmojiDataset(normalized);
         return emojiLibraryEntries;
       } catch (error) {
         lastError = String(error || "Request failed");
@@ -11425,12 +11484,72 @@ function appendGifPickerEntries(entries) {
   gifPickerRemoteEntries = next.slice(0, 4000);
 }
 
+function resolveTenorCredentials() {
+  let key = TENOR_PUBLIC_API_KEY;
+  let clientKey = TENOR_CLIENT_KEY;
+  let customKey = false;
+  try {
+    const storedKey = (localStorage.getItem(TENOR_KEY_STORAGE_KEY) || "").toString().trim();
+    const storedClient = (localStorage.getItem(TENOR_CLIENT_STORAGE_KEY) || "").toString().trim();
+    if (storedKey) {
+      key = storedKey;
+      customKey = true;
+    }
+    if (storedClient) clientKey = storedClient;
+  } catch {
+    // Ignore localStorage access failures.
+  }
+  return { key, clientKey, customKey };
+}
+
+function parseTenorV2Results(results) {
+  if (!Array.isArray(results)) return [];
+  return results
+    .map((item) => {
+      const formats = item?.media_formats || {};
+      const gifFormat = formats.gif || formats.tinygif || formats.mediumgif || formats.nanogif;
+      const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4 || formats.webm || formats.tinywebm;
+      const preferred = gifFormat?.url || mp4Format?.url || "";
+      if (!preferred) return null;
+      const isVideo = !gifFormat?.url && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
+      return {
+        name: (item?.content_description || item?.title || "gif").toString().trim().slice(0, 120) || "gif",
+        url: preferred,
+        preview: isVideo ? "video" : "",
+        source: "remote"
+      };
+    })
+    .filter(Boolean);
+}
+
+function parseTenorV1Results(results) {
+  if (!Array.isArray(results)) return [];
+  return results
+    .map((item) => {
+      const media = Array.isArray(item?.media) ? item.media[0] : null;
+      const formats = media && typeof media === "object" ? media : {};
+      const gifFormat = formats.gif || formats.tinygif || formats.mediumgif || formats.nanogif;
+      const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4 || formats.webm || formats.tinywebm;
+      const preferred = gifFormat?.url || mp4Format?.url || "";
+      if (!preferred) return null;
+      const isVideo = !gifFormat?.url && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
+      return {
+        name: (item?.title || item?.content_description || "gif").toString().trim().slice(0, 120) || "gif",
+        url: preferred,
+        preview: isVideo ? "video" : "",
+        source: "remote"
+      };
+    })
+    .filter(Boolean);
+}
+
 async function fetchTenorGifEntries(query = "", nextCursor = "") {
   if (typeof fetch !== "function") return { entries: [], next: "", error: "Fetch unavailable" };
-  const buildEndpoint = (mediaFilter = "") => {
+  const { key, clientKey, customKey } = resolveTenorCredentials();
+  const buildV2Endpoint = (mediaFilter = "") => {
     const endpoint = new URL(query ? "https://tenor.googleapis.com/v2/search" : "https://tenor.googleapis.com/v2/featured");
-    endpoint.searchParams.set("key", TENOR_PUBLIC_API_KEY);
-    endpoint.searchParams.set("client_key", TENOR_CLIENT_KEY);
+    endpoint.searchParams.set("key", key);
+    endpoint.searchParams.set("client_key", clientKey);
     endpoint.searchParams.set("limit", String(TENOR_RESULTS_PAGE_SIZE));
     if (mediaFilter) endpoint.searchParams.set("media_filter", mediaFilter);
     if (query) endpoint.searchParams.set("q", query);
@@ -11444,32 +11563,19 @@ async function fetchTenorGifEntries(query = "", nextCursor = "") {
     ""
   ];
   let lastError = "";
+  const handleHttpError = (status) => {
+    lastError = `HTTP ${status}`;
+    return status === 400 || status === 401 || status === 403;
+  };
   for (const mediaFilter of mediaFilterCandidates) {
     try {
-      const response = await fetch(buildEndpoint(mediaFilter).toString(), { cache: "no-store" });
+      const response = await fetch(buildV2Endpoint(mediaFilter).toString(), { cache: "no-store" });
       if (!response.ok) {
-        lastError = `HTTP ${response.status}`;
-        if (response.status === 400) continue;
+        if (handleHttpError(response.status)) continue;
         return { entries: [], next: "", error: lastError };
       }
       const payload = await response.json();
-      const results = Array.isArray(payload?.results) ? payload.results : [];
-      const entries = results
-        .map((item) => {
-          const formats = item?.media_formats || {};
-          const gifFormat = formats.gif || formats.tinygif || formats.mediumgif || formats.nanogif;
-          const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4 || formats.webm || formats.tinywebm;
-          const preferred = gifFormat?.url || mp4Format?.url || "";
-          if (!preferred) return null;
-          const isVideo = !gifFormat?.url && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
-          return {
-            name: (item?.content_description || item?.title || "gif").toString().trim().slice(0, 120) || "gif",
-            url: preferred,
-            preview: isVideo ? "video" : "",
-            source: "remote"
-          };
-        })
-        .filter(Boolean);
+      const entries = parseTenorV2Results(payload?.results);
       return {
         entries,
         next: (payload?.next || "").toString(),
@@ -11478,6 +11584,36 @@ async function fetchTenorGifEntries(query = "", nextCursor = "") {
     } catch (error) {
       lastError = String(error || "Request failed");
     }
+  }
+  try {
+    const endpoint = new URL(query ? "https://g.tenor.com/v1/search" : "https://g.tenor.com/v1/trending");
+    endpoint.searchParams.set("key", key);
+    endpoint.searchParams.set("client_key", clientKey);
+    endpoint.searchParams.set("limit", String(TENOR_RESULTS_PAGE_SIZE));
+    if (query) endpoint.searchParams.set("q", query);
+    if (nextCursor) endpoint.searchParams.set("pos", nextCursor);
+    const response = await fetch(endpoint.toString(), { cache: "no-store" });
+    if (response.ok) {
+      const payload = await response.json();
+      const entries = parseTenorV1Results(payload?.results);
+      return {
+        entries,
+        next: (payload?.next || payload?.next_cursor || "").toString(),
+        error: ""
+      };
+    }
+    lastError = `HTTP ${response.status}`;
+  } catch (error) {
+    lastError = String(error || "Request failed");
+  }
+  if (/HTTP 400|HTTP 401|HTTP 403/i.test(lastError)) {
+    return {
+      entries: [],
+      next: "",
+      error: customKey
+        ? "GIF provider rejected your Tenor API credentials."
+        : "GIF provider rejected demo Tenor credentials. Set localStorage key `shitcord67-tenor-api-key` and retry."
+    };
   }
   return { entries: [], next: "", error: lastError || "Request failed" };
 }
@@ -11511,7 +11647,7 @@ function maybeLoadMoreGifPickerEntries({ reset = false, force = false } = {}) {
       const appendedCount = Math.max(0, gifPickerRemoteEntries.length - previousCount);
       gifPickerRemoteNext = (next || "").toString();
       if (error) {
-        gifPickerRemoteError = "Could not load remote GIFs right now.";
+        gifPickerRemoteError = (error || "").toString().slice(0, 220) || "Could not load remote GIFs right now.";
         return;
       }
       if (appendedCount === 0 && !gifPickerRemoteNext) {
@@ -11884,16 +12020,6 @@ function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPicke
         if ("muted" in player) player.muted = true;
         if (typeof player.set_volume === "function") player.set_volume(0);
         if (typeof player.play === "function") player.play();
-        const pulse = window.setInterval(() => {
-          if (!host.isConnected || renderToken !== mediaPickerRenderToken) {
-            clearInterval(pulse);
-            return;
-          }
-          if ("volume" in player) player.volume = 0;
-          if ("muted" in player) player.muted = true;
-          if (typeof player.set_volume === "function") player.set_volume(0);
-          if (typeof player.play === "function") player.play();
-        }, 650);
       } catch {
         // Ignore preview sampling failures.
       }
@@ -12522,7 +12648,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
       const placeholder = document.createElement("div");
       placeholder.className = "message-swf-player";
       placeholder.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
-      runtime.host.replaceWith(placeholder);
+      runtime.host.before(placeholder);
       runtime.originHost = placeholder;
     }
     if (runtime.host.parentElement !== document.body) {
