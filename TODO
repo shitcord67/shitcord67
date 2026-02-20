@@ -19,6 +19,7 @@
 - [done] Added in-client XMPP registration dialog backed by local gateway `/register` endpoint.
 - [done] Added live XMPP roster-push handling and auto-mapped joined/seen MUC rooms into `XMPP Spaces`.
 - [done] Added bookmarks sync fallback chain: XEP-0402 pubsub (`urn:xmpp:bookmarks:1`) then legacy private XML (`storage:bookmarks`).
+- [done] Added XMPP keepalive ping support (XEP-0199): answer incoming ping IQ and send periodic session pings.
 - [done] Added `Add Friend` DM modal (username/JID) and direct XMPP one-to-one DM stanza send/receive path.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
