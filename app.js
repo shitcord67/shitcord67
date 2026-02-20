@@ -911,6 +911,7 @@ const xmppOccupantsByRoomJid = new Map();
 const xmppMamStateByRoomJid = new Map();
 const xmppMamStateByPeerJid = new Map();
 const xmppRoomMessageIndexByJid = new Map();
+const xmppDmMessageIndexByPeerJid = new Map();
 const xmppAvatarFetchInFlight = new Set();
 const xmppAvatarHashByJid = new Map();
 const xmppMucAvatarByOccupantKey = new Map();
@@ -935,6 +936,10 @@ const relayUiRefreshNeeds = {
   dms: false,
   messages: false
 };
+const attachmentTextPreviewCache = new Map();
+const attachmentTextPreviewInFlight = new Map();
+const attachmentBinaryPreviewCache = new Map();
+const attachmentBinaryPreviewInFlight = new Map();
 let lastRenderedConversationId = null;
 const relayLocalTypingState = {
   room: "",
@@ -2721,32 +2726,31 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
   const caption = overlay.querySelector(".media-lightbox__caption");
   if (!stage || !caption) return;
   stage.innerHTML = "";
-  const media = document.createElement(video ? "video" : "img");
-  media.className = "media-lightbox__media";
+  let media = null;
   if (video) {
-    media.controls = true;
-    media.autoplay = false;
-    media.playsInline = true;
-    media.preload = "metadata";
+    media = createVideoPreviewElement(mediaUrl, label || "Video", stage);
+    media.className = "media-lightbox__media";
   } else {
+    media = document.createElement("img");
+    media.className = "media-lightbox__media";
     media.alt = label || "media preview";
     media.loading = "eager";
+    media.src = mediaUrl;
+    media.addEventListener("error", () => {
+      const note = document.createElement("div");
+      note.className = "message-embed-note";
+      note.textContent = "Preview unavailable. Open in a new tab.";
+      const openLink = document.createElement("a");
+      openLink.className = "message-swf-link";
+      openLink.href = mediaUrl;
+      openLink.target = "_blank";
+      openLink.rel = "noopener noreferrer";
+      openLink.textContent = "Open media";
+      stage.innerHTML = "";
+      stage.appendChild(note);
+      stage.appendChild(openLink);
+    });
   }
-  media.src = mediaUrl;
-  media.addEventListener("error", () => {
-    const note = document.createElement("div");
-    note.className = "message-embed-note";
-    note.textContent = "Preview unavailable. Open in a new tab.";
-    const openLink = document.createElement("a");
-    openLink.className = "message-swf-link";
-    openLink.href = mediaUrl;
-    openLink.target = "_blank";
-    openLink.rel = "noopener noreferrer";
-    openLink.textContent = "Open media";
-    stage.innerHTML = "";
-    stage.appendChild(note);
-    stage.appendChild(openLink);
-  });
   stage.appendChild(media);
   caption.textContent = label || "";
   overlay.hidden = false;
@@ -3960,6 +3964,47 @@ function xmppAttachmentsFromUrls(urls) {
   return normalizeAttachments(out);
 }
 
+function xmppXhtmlNodeToInlineText(node) {
+  if (!node) return "";
+  if (node.nodeType === 3) return (node.nodeValue || "").toString();
+  const tag = ((node.nodeName || "").toString().split(":").pop() || "").toLowerCase();
+  if (tag === "br") return "\n";
+  const childText = [...(node.childNodes || [])].map((child) => xmppXhtmlNodeToInlineText(child)).join("");
+  if (tag === "strong" || tag === "b") return `**${childText}**`;
+  if (tag === "em" || tag === "i") return `*${childText}*`;
+  if (tag === "code") return `\`${childText}\``;
+  if (tag === "a") {
+    const href = (node.getAttribute?.("href") || "").toString().trim();
+    return href ? `[${childText || href}](${href})` : childText;
+  }
+  if (tag === "li") return `- ${childText}\n`;
+  if (tag === "p" || tag === "div") return `${childText}\n`;
+  return childText;
+}
+
+function xmppPreferredBodyText(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const markdownNode = [...stanza.getElementsByTagName("content")]
+    .find((node) => {
+      if (!xmppNodeHasXmlns(node, "urn:xmpp:content")) return false;
+      const type = (node.getAttribute("type") || "").toString().trim().toLowerCase();
+      return type === "text/markdown";
+    }) || null;
+  const markdownText = decodeHtmlEntities(xmppNodeText(markdownNode)).trim();
+  if (markdownText) return markdownText;
+  const htmlNode = [...stanza.getElementsByTagName("html")]
+    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/xhtml-im")) || null;
+  const xhtmlBody = htmlNode
+    ? [...htmlNode.getElementsByTagName("body")]
+      .find((node) => xmppNodeHasXmlns(node, "http://www.w3.org/1999/xhtml")) || null
+    : null;
+  if (!xhtmlBody) return "";
+  const text = xmppXhtmlNodeToInlineText(xhtmlBody)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return decodeHtmlEntities(text);
+}
+
 function xmppRoomMessageIndex(roomJid) {
   const key = xmppBareJid(roomJid);
   if (!key) return null;
@@ -3973,6 +4018,31 @@ function rememberXmppRoomMessage(roomJid, stanzaId, message) {
   const key = (stanzaId || "").toString().trim();
   if (!roomJid || !key || !message) return;
   const index = xmppRoomMessageIndex(roomJid);
+  if (!index) return;
+  index.set(key, {
+    messageId: (message.id || "").toString(),
+    authorName: displayNameForMessage(message) || "",
+    text: (message.text || "").toString().slice(0, 180)
+  });
+  if (index.size > 600) {
+    const first = index.keys().next().value;
+    if (first) index.delete(first);
+  }
+}
+
+function xmppDmMessageIndex(peerJid) {
+  const key = xmppBareJid(peerJid);
+  if (!key) return null;
+  if (!xmppDmMessageIndexByPeerJid.has(key)) {
+    xmppDmMessageIndexByPeerJid.set(key, new Map());
+  }
+  return xmppDmMessageIndexByPeerJid.get(key) || null;
+}
+
+function rememberXmppDmMessage(peerJid, stanzaId, message) {
+  const key = (stanzaId || "").toString().trim();
+  if (!peerJid || !key || !message) return;
+  const index = xmppDmMessageIndex(peerJid);
   if (!index) return;
   index.set(key, {
     messageId: (message.id || "").toString(),
@@ -4034,6 +4104,38 @@ function findXmppRoomMessageByAnyId(roomJid, messageRefId) {
   };
 }
 
+function findXmppDmMessageByAnyId(peerJid, messageRefId) {
+  const key = (messageRefId || "").toString().trim();
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer || !key) return null;
+  const index = xmppDmMessageIndex(barePeer);
+  if (index && index.has(key)) {
+    return index.get(key) || null;
+  }
+  const current = getCurrentAccount();
+  if (!current) return null;
+  const peer = getAccountByXmppJid(barePeer);
+  if (!peer || peer.id === current.id) return null;
+  const thread = state.dmThreads.find((entry) => (
+    Array.isArray(entry?.participantIds)
+    && entry.participantIds.includes(current.id)
+    && entry.participantIds.includes(peer.id)
+  )) || null;
+  if (!thread || !Array.isArray(thread.messages)) return null;
+  const matched = thread.messages.find((entry) => (
+    (entry?.id || "").toString() === key
+    || (entry?.xmppStanzaId || "").toString() === key
+    || (Array.isArray(entry?.xmppRefIds) && entry.xmppRefIds.some((ref) => (ref || "").toString() === key))
+    || ((entry?.relayId || "").toString().endsWith(`::${key}`))
+  )) || null;
+  if (!matched) return null;
+  return {
+    messageId: matched.id || "",
+    authorName: displayNameForMessage(matched),
+    text: (matched.text || "").toString().slice(0, 180)
+  };
+}
+
 function hydrateXmppRepliesForRoom(roomToken, roomJid, stanzaId, referenced) {
   if (!roomToken || !roomJid || !stanzaId || !referenced) return false;
   const targetChannel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(roomJid);
@@ -4051,7 +4153,32 @@ function hydrateXmppRepliesForRoom(roomToken, roomJid, stanzaId, referenced) {
   return changed;
 }
 
-function xmppReplyMetaFromStanza(stanza, roomJid = "") {
+function hydrateXmppRepliesForDm(peerJid, stanzaId, referenced) {
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer || !stanzaId || !referenced) return false;
+  const current = getCurrentAccount();
+  const peer = getAccountByXmppJid(barePeer);
+  if (!current || !peer || peer.id === current.id) return false;
+  const thread = state.dmThreads.find((entry) => (
+    Array.isArray(entry?.participantIds)
+    && entry.participantIds.includes(current.id)
+    && entry.participantIds.includes(peer.id)
+  )) || null;
+  if (!thread || !Array.isArray(thread.messages)) return false;
+  let changed = false;
+  thread.messages.forEach((entry) => {
+    if (!entry?.replyTo || typeof entry.replyTo !== "object") return;
+    if ((entry.replyTo.messageId || "").toString()) return;
+    if ((entry.replyTo.stanzaId || "").toString() !== stanzaId) return;
+    entry.replyTo.messageId = referenced.id || "";
+    entry.replyTo.authorName = displayNameForMessage(referenced) || entry.replyTo.authorName || "message";
+    entry.replyTo.text = (referenced.text || "").toString().slice(0, 180) || entry.replyTo.text || "XMPP reply";
+    changed = true;
+  });
+  return changed;
+}
+
+function xmppReplyMetaFromStanza(stanza, roomJid = "", peerJid = "") {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
   const replyNode = [...stanza.getElementsByTagName("reply")]
     .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:reply:0")) || null;
@@ -4059,7 +4186,9 @@ function xmppReplyMetaFromStanza(stanza, roomJid = "") {
   if (!repliedId) return null;
   const replyToJid = normalizeXmppJid(replyNode?.getAttribute("to") || "");
   const replyNick = (replyToJid.split("/")[1] || replyToJid.split("@")[0] || "").toString().trim();
-  const known = roomJid ? findXmppRoomMessageByAnyId(roomJid, repliedId) : null;
+  const known = roomJid
+    ? findXmppRoomMessageByAnyId(roomJid, repliedId)
+    : (peerJid ? findXmppDmMessageByAnyId(peerJid, repliedId) : null);
   const fallbackNode = [...stanza.getElementsByTagName("fallback")]
     .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:fallback:0") && (node.getAttribute("for") || "") === "urn:xmpp:reply:0") || null;
   const fallbackBody = fallbackNode ? fallbackNode.getElementsByTagName("body")[0] : null;
@@ -4069,6 +4198,15 @@ function xmppReplyMetaFromStanza(stanza, roomJid = "") {
   let fallbackText = "";
   if (Number.isFinite(rangeStart) && Number.isFinite(rangeEnd) && rangeEnd > rangeStart && bodyRaw) {
     fallbackText = bodyRaw.slice(rangeStart, rangeEnd).replace(/\s+/g, " ").trim();
+  }
+  if (!fallbackText && bodyRaw) {
+    const quoteLines = [];
+    bodyRaw.split(/\r?\n/).forEach((line) => {
+      const match = line.match(/^>\s?(.*)$/);
+      if (!match) return;
+      quoteLines.push((match[1] || "").trim());
+    });
+    fallbackText = quoteLines.join(" ").replace(/\s+/g, " ").trim();
   }
   const previewText = decodeHtmlEntities((known?.text || fallbackText || "XMPP reply").toString()).slice(0, 180);
   return {
@@ -4404,7 +4542,8 @@ function ensureXmppDmMamState(peerJid) {
       complete: false,
       loading: false,
       pagesLoaded: 0,
-      lastQueryId: ""
+      lastQueryId: "",
+      targetIndex: 0
     });
   }
   return xmppMamStateByPeerJid.get(barePeer) || null;
@@ -4472,6 +4611,7 @@ function requestXmppRoomHistory(roomJid, {
       if (activeRoomJid && activeRoomJid === bareRoom) {
         renderMessages();
       }
+      renderChannels();
       addXmppDebugEvent("iq", "MUC history query completed", {
         roomJid: bareRoom,
         queryId,
@@ -4494,6 +4634,7 @@ function requestXmppRoomHistory(roomJid, {
       if (activeRoomJid && activeRoomJid === bareRoom) {
         renderMessages();
       }
+      renderChannels();
       addXmppDebugEvent("iq", "MUC history query unavailable", {
         roomJid: bareRoom,
         queryId,
@@ -4515,9 +4656,10 @@ function requestXmppDirectHistory(peerJid, {
   const barePeer = xmppBareJid(peerJid);
   if (!barePeer || !xmppConnection || !globalThis.$iq) return false;
   const prefs = getPreferences();
-  const archiveTarget = xmppMamArchiveTargetJid(prefs);
   const ownBare = xmppBareJid(prefs.xmppJid || "");
-  if (!ownBare || !archiveTarget) return false;
+  const domainTarget = xmppMamArchiveTargetJid(prefs);
+  const archiveTargets = [...new Set([domainTarget, ownBare].filter(Boolean))];
+  if (!ownBare || archiveTargets.length === 0) return false;
   const mamState = ensureXmppDmMamState(barePeer);
   if (!mamState) return false;
   if (mamState.loading) return false;
@@ -4526,7 +4668,11 @@ function requestXmppDirectHistory(peerJid, {
     mamState.before = "";
     mamState.complete = false;
     mamState.pagesLoaded = 0;
+    mamState.targetIndex = 0;
   }
+  const targetIndex = Math.max(0, Math.min(archiveTargets.length - 1, Number(mamState.targetIndex) || 0));
+  const archiveTarget = archiveTargets[targetIndex] || archiveTargets[0];
+  if (!archiveTarget) return false;
   const maxRows = Math.max(10, Math.min(200, Number(limit) || XMPP_MAM_PAGE_SIZE));
   const beforeToken = mamState.before || "";
   const queryId = `mam-dm-${createId().slice(0, 8)}-${mamState.pagesLoaded + 1}`;
@@ -4550,6 +4696,8 @@ function requestXmppDirectHistory(peerJid, {
   addXmppDebugEvent("iq", "Requesting DM history", {
     peerJid: barePeer,
     target: archiveTarget,
+    targetIndex: targetIndex + 1,
+    targetCount: archiveTargets.length,
     max: maxRows,
     before: beforeToken || "(latest)",
     page: mamState.pagesLoaded + 1,
@@ -4559,6 +4707,7 @@ function requestXmppDirectHistory(peerJid, {
     iqBuilder,
     (stanza) => {
       mamState.loading = false;
+      mamState.targetIndex = targetIndex;
       const finNode = [...stanza.getElementsByTagName("fin")]
         .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
       const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
@@ -4574,6 +4723,7 @@ function requestXmppDirectHistory(peerJid, {
       if (activePeer && xmppBareJid(activePeer) === barePeer) {
         renderMessages();
       }
+      renderDmList();
       addXmppDebugEvent("iq", "DM history query completed", {
         peerJid: barePeer,
         queryId,
@@ -4591,6 +4741,20 @@ function requestXmppDirectHistory(peerJid, {
         || errorNode?.getElementsByTagName?.("service-unavailable")?.length
         || errorNode?.getElementsByTagName?.("item-not-found")?.length
       );
+      const canFallbackTarget = permanent && (targetIndex + 1) < archiveTargets.length;
+      if (canFallbackTarget) {
+        mamState.targetIndex = targetIndex + 1;
+        mamState.before = "";
+        mamState.pagesLoaded = 0;
+        mamState.complete = false;
+        addXmppDebugEvent("iq", "DM history retrying alternate archive target", {
+          peerJid: barePeer,
+          fromTarget: archiveTarget,
+          toTarget: archiveTargets[mamState.targetIndex] || ""
+        });
+        requestXmppDirectHistory(barePeer, { limit: maxRows, force: false, reason: `${reason}-fallback-target` });
+        return;
+      }
       if (permanent) mamState.complete = true;
       const activeConversation = getActiveConversation();
       const activePeer = activeConversation?.type === "dm"
@@ -4599,8 +4763,10 @@ function requestXmppDirectHistory(peerJid, {
       if (activePeer && xmppBareJid(activePeer) === barePeer) {
         renderMessages();
       }
+      renderDmList();
       addXmppDebugEvent("iq", "DM history query unavailable", {
         peerJid: barePeer,
+        target: archiveTarget,
         queryId,
         page: mamState.pagesLoaded + 1,
         reason,
@@ -4794,6 +4960,7 @@ function teardownXmppConnection() {
   xmppMamStateByRoomJid.clear();
   xmppMamStateByPeerJid.clear();
   xmppRoomMessageIndexByJid.clear();
+  xmppDmMessageIndexByPeerJid.clear();
   xmppAvatarFetchInFlight.clear();
   xmppAvatarHashByJid.clear();
   xmppMucAvatarByOccupantKey.clear();
@@ -5178,9 +5345,9 @@ function applyRelayIncomingMessage(packet) {
       const changed = mergeRelayMessageEntry(duplicate, entry);
       if (changed) saveState();
       scheduleRelayUiRefresh({
-        dms: true,
-        messages: state.viewMode === "dm" && state.activeDmId === thread.id,
-        delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+        dms: !historyMessage,
+        messages: !historyMessage && state.viewMode === "dm" && state.activeDmId === thread.id,
+        delayMs: historyMessage ? 0 : RELAY_HISTORY_RENDER_BATCH_MS
       });
       return duplicate;
     }
@@ -5189,9 +5356,9 @@ function applyRelayIncomingMessage(packet) {
     ensureDmReadState(thread);
     saveState();
     scheduleRelayUiRefresh({
-      dms: true,
-      messages: state.viewMode === "dm" && state.activeDmId === thread.id,
-      delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+      dms: !historyMessage,
+      messages: !historyMessage && state.viewMode === "dm" && state.activeDmId === thread.id,
+      delayMs: historyMessage ? 0 : RELAY_HISTORY_RENDER_BATCH_MS
     });
     return entry;
   }
@@ -5203,10 +5370,10 @@ function applyRelayIncomingMessage(packet) {
     const changed = mergeRelayMessageEntry(duplicate, entry);
     if (changed) saveState();
     scheduleRelayUiRefresh({
-      channels: true,
-      servers: true,
-      messages: state.activeChannelId === targetChannel.id,
-      delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+      channels: !historyMessage,
+      servers: !historyMessage,
+      messages: !historyMessage && state.activeChannelId === targetChannel.id,
+      delayMs: historyMessage ? 0 : RELAY_HISTORY_RENDER_BATCH_MS
     });
     return duplicate;
   }
@@ -5214,10 +5381,10 @@ function applyRelayIncomingMessage(packet) {
   else targetChannel.messages.push(entry);
   saveState();
   scheduleRelayUiRefresh({
-    channels: true,
-    servers: true,
-    messages: state.activeChannelId === targetChannel.id,
-    delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+    channels: !historyMessage,
+    servers: !historyMessage,
+    messages: !historyMessage && state.activeChannelId === targetChannel.id,
+    delayMs: historyMessage ? 0 : RELAY_HISTORY_RENDER_BATCH_MS
   });
   return entry;
 }
@@ -5337,9 +5504,10 @@ function connectRelaySocket({ force = false } = {}) {
         const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
         const hasGone = stanza.getElementsByTagName("gone").length > 0;
         const hasActive = stanza.getElementsByTagName("active").length > 0;
+        const preferredBodyText = xmppPreferredBodyText(stanza);
         const bodyNode = stanza.getElementsByTagName("body")[0] || null;
         const subjectNode = stanza.getElementsByTagName("subject")[0] || null;
-        const bodyText = decodeHtmlEntities(xmppNodeText(bodyNode)).trim();
+        const bodyText = (preferredBodyText || decodeHtmlEntities(xmppNodeText(bodyNode))).trim();
         const subjectText = decodeHtmlEntities(xmppNodeText(subjectNode)).trim();
         const encrypted = xmppHasEncryptedPayload(stanza);
         let text = bodyText;
@@ -5377,7 +5545,7 @@ function connectRelaySocket({ force = false } = {}) {
               }
             });
           }
-          const replyMeta = xmppReplyMetaFromStanza(stanza, "");
+          const replyMeta = xmppReplyMetaFromStanza(stanza, "", peerBare);
           if (!text.trim() && attachments.length === 0 && !replyMeta) return;
           const stanzaRefs = xmppStanzaReferenceIds(stanza);
           const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
@@ -5392,7 +5560,7 @@ function connectRelaySocket({ force = false } = {}) {
           const authorDisplay = ownAuthor
             ? (current.displayName || current.username)
             : (peer.displayName || peer.username);
-          applyRelayIncomingMessage({
+          const inserted = applyRelayIncomingMessage({
             type: "chat",
             room: dmRoom,
             clientId: `xmpp:${from}`,
@@ -5410,6 +5578,17 @@ function connectRelaySocket({ force = false } = {}) {
               allowSelf
             }
           });
+          if (inserted) {
+            const hydrated = stanzaRefs.some((refId) => {
+              rememberXmppDmMessage(peerBare, refId, inserted);
+              return hydrateXmppRepliesForDm(peerBare, refId, inserted);
+            });
+            if (hydrated) {
+              saveState();
+              const activeConversation = getActiveConversation();
+              if (activeConversation?.type === "dm") renderMessages();
+            }
+          }
           if (!ownAuthor) {
             maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
           }
@@ -7109,6 +7288,29 @@ function resolveMediaUrl(url) {
   } catch {
     return url;
   }
+}
+
+function mediaProxyUrl(url) {
+  const resolved = resolveMediaUrl(url);
+  if (!resolved) return "";
+  try {
+    const parsed = new URL(resolved);
+    if (!/^https?:$/i.test(parsed.protocol)) return "";
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") return resolved;
+  } catch {
+    return "";
+  }
+  return `${XMPP_LOCAL_AUTH_GATEWAY_URL}/media-proxy?url=${encodeURIComponent(resolved)}`;
+}
+
+function resolveMediaPlaybackUrl(url, { kind = "" } = {}) {
+  const resolved = resolveMediaUrl(url);
+  const normalizedKind = (kind || "").toString().toLowerCase();
+  if (!resolved) return resolved;
+  if (normalizedKind !== "video") return resolved;
+  if (!isExternalMediaUrl(resolved)) return resolved;
+  const proxied = mediaProxyUrl(resolved);
+  return proxied || resolved;
 }
 
 function mediaUrlHost(url) {
@@ -10342,7 +10544,7 @@ function appendMentionOrEmoji(target, token, context) {
 }
 
 function appendInlineRichText(target, text, context) {
-  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]{1,80}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|\[[^\]]{1,80}\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
   let lastIndex = 0;
   let match = tokenPattern.exec(text);
   while (match) {
@@ -10363,7 +10565,15 @@ function appendInlineRichText(target, text, context) {
       const strong = document.createElement("strong");
       strong.textContent = token.slice(2, -2);
       target.appendChild(strong);
+    } else if (token.startsWith("__") && token.endsWith("__")) {
+      const strong = document.createElement("strong");
+      strong.textContent = token.slice(2, -2);
+      target.appendChild(strong);
     } else if (token.startsWith("*") && token.endsWith("*")) {
+      const em = document.createElement("em");
+      em.textContent = token.slice(1, -1);
+      target.appendChild(em);
+    } else if (token.startsWith("_") && token.endsWith("_")) {
       const em = document.createElement("em");
       em.textContent = token.slice(1, -1);
       target.appendChild(em);
@@ -10414,7 +10624,66 @@ function renderMessageText(container, rawText) {
     customEmojiMap: new Map((guild?.customEmojis || []).map((emoji) => [emoji.name, emoji.url]))
   };
   const lines = decodeHtmlEntities(rawText || "").split("\n");
+  let inFence = false;
+  let fenceBuffer = [];
+  let listEl = null;
+  const flushList = () => {
+    if (!listEl) return;
+    container.appendChild(listEl);
+    listEl = null;
+  };
+  const flushFence = () => {
+    if (!inFence) return;
+    const pre = document.createElement("pre");
+    pre.className = "message-text-file";
+    pre.textContent = fenceBuffer.join("\n");
+    container.appendChild(pre);
+    inFence = false;
+    fenceBuffer = [];
+  };
   lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("```")) {
+      flushList();
+      if (inFence) {
+        flushFence();
+      } else {
+        inFence = true;
+        fenceBuffer = [];
+      }
+      if (index < lines.length - 1) container.appendChild(document.createElement("br"));
+      return;
+    }
+    if (inFence) {
+      fenceBuffer.push(line);
+      if (index === lines.length - 1) flushFence();
+      return;
+    }
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    if (headingMatch) {
+      flushList();
+      const heading = document.createElement("strong");
+      heading.className = "message-heading";
+      heading.textContent = headingMatch[2];
+      container.appendChild(heading);
+      if (index < lines.length - 1) container.appendChild(document.createElement("br"));
+      return;
+    }
+    const bulletMatch = line.match(/^\s*[-*]\s+(.+)$/);
+    const numberMatch = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (bulletMatch || numberMatch) {
+      if (!listEl || listEl.tagName.toLowerCase() !== (numberMatch ? "ol" : "ul")) {
+        flushList();
+        listEl = document.createElement(numberMatch ? "ol" : "ul");
+        listEl.className = "message-inline-list";
+      }
+      const item = document.createElement("li");
+      appendInlineRichText(item, (bulletMatch?.[1] || numberMatch?.[1] || "").toString(), context);
+      listEl.appendChild(item);
+      if (index === lines.length - 1) flushList();
+      return;
+    }
+    flushList();
     if (line.startsWith("> ")) {
       const quote = document.createElement("span");
       quote.className = "message-quote";
@@ -10425,6 +10694,8 @@ function renderMessageText(container, rawText) {
     }
     if (index < lines.length - 1) container.appendChild(document.createElement("br"));
   });
+  flushList();
+  flushFence();
 }
 
 function collectRenderableAttachments(message) {
@@ -10531,30 +10802,76 @@ function extractInlineAttachmentsFromText(text) {
   return results.slice(0, 4);
 }
 
+function getCachedAttachmentPreview(cacheMap, key) {
+  const cached = cacheMap.get(key);
+  if (!cached) return "";
+  if (cached.expiresAt <= Date.now()) {
+    cacheMap.delete(key);
+    return "";
+  }
+  return (cached.value || "").toString();
+}
+
+function setCachedAttachmentPreview(cacheMap, key, value, ttlMs = 5 * 60 * 1000) {
+  cacheMap.set(key, {
+    value: (value || "").toString(),
+    expiresAt: Date.now() + Math.max(10_000, Number(ttlMs) || (5 * 60 * 1000))
+  });
+}
+
 async function loadTextAttachmentPreview(url) {
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const text = await response.text();
-  const lines = text.replace(/\r\n/g, "\n").split("\n");
-  const clipped = lines.slice(0, 40).join("\n").slice(0, 3500);
-  const truncated = lines.length > 40 || text.length > clipped.length;
-  return `${clipped}${truncated ? "\n… (truncated)" : ""}`;
+  const key = (url || "").toString();
+  const cached = getCachedAttachmentPreview(attachmentTextPreviewCache, key);
+  if (cached) return cached;
+  if (attachmentTextPreviewInFlight.has(key)) {
+    return attachmentTextPreviewInFlight.get(key);
+  }
+  const task = (async () => {
+    const response = await fetch(url, { cache: "force-cache" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    const lines = text.replace(/\r\n/g, "\n").split("\n");
+    const clipped = lines.slice(0, 40).join("\n").slice(0, 3500);
+    const truncated = lines.length > 40 || text.length > clipped.length;
+    const preview = `${clipped}${truncated ? "\n… (truncated)" : ""}`;
+    setCachedAttachmentPreview(attachmentTextPreviewCache, key, preview);
+    return preview;
+  })().finally(() => {
+    attachmentTextPreviewInFlight.delete(key);
+  });
+  attachmentTextPreviewInFlight.set(key, task);
+  return task;
 }
 
 async function loadBinaryPreview(url, limit = 512) {
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const buffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(buffer.slice(0, Math.min(limit, buffer.byteLength)));
-  const lines = [];
-  for (let i = 0; i < bytes.length; i += 16) {
-    const chunk = bytes.slice(i, i + 16);
-    const hex = [...chunk].map((b) => b.toString(16).padStart(2, "0")).join(" ");
-    const ascii = [...chunk].map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : ".")).join("");
-    lines.push(`${i.toString(16).padStart(4, "0")}  ${hex.padEnd(47, " ")}  ${ascii}`);
+  const safeLimit = Math.max(64, Math.min(4096, Number(limit) || 512));
+  const key = `${(url || "").toString()}::${safeLimit}`;
+  const cached = getCachedAttachmentPreview(attachmentBinaryPreviewCache, key);
+  if (cached) return cached;
+  if (attachmentBinaryPreviewInFlight.has(key)) {
+    return attachmentBinaryPreviewInFlight.get(key);
   }
-  const suffix = buffer.byteLength > bytes.length ? `\n… (${buffer.byteLength - bytes.length} bytes more)` : "";
-  return lines.join("\n") + suffix;
+  const task = (async () => {
+    const response = await fetch(url, { cache: "force-cache" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer.slice(0, Math.min(safeLimit, buffer.byteLength)));
+    const lines = [];
+    for (let i = 0; i < bytes.length; i += 16) {
+      const chunk = bytes.slice(i, i + 16);
+      const hex = [...chunk].map((b) => b.toString(16).padStart(2, "0")).join(" ");
+      const ascii = [...chunk].map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : ".")).join("");
+      lines.push(`${i.toString(16).padStart(4, "0")}  ${hex.padEnd(47, " ")}  ${ascii}`);
+    }
+    const suffix = buffer.byteLength > bytes.length ? `\n… (${buffer.byteLength - bytes.length} bytes more)` : "";
+    const preview = lines.join("\n") + suffix;
+    setCachedAttachmentPreview(attachmentBinaryPreviewCache, key, preview);
+    return preview;
+  })().finally(() => {
+    attachmentBinaryPreviewInFlight.delete(key);
+  });
+  attachmentBinaryPreviewInFlight.set(key, task);
+  return task;
 }
 
 function rtfToPlainText(rtf) {
@@ -12063,6 +12380,61 @@ function attachmentTypeDisplayLabel(type, mediaUrl = "") {
   return "file";
 }
 
+function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = null) {
+  const cleanedSourceUrl = resolveMediaUrl(sourceUrl);
+  const proxyCandidate = resolveMediaPlaybackUrl(cleanedSourceUrl, { kind: "video" });
+  const candidates = [];
+  if (proxyCandidate) candidates.push(proxyCandidate);
+  if (cleanedSourceUrl && !candidates.includes(cleanedSourceUrl)) candidates.push(cleanedSourceUrl);
+  if (candidates.length === 0) candidates.push(cleanedSourceUrl || sourceUrl || "");
+  const video = document.createElement("video");
+  video.autoplay = false;
+  video.loop = false;
+  video.muted = false;
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+  let candidateIndex = 0;
+  let noteEl = null;
+  const applyCandidate = () => {
+    const candidateUrl = candidates[candidateIndex] || "";
+    const source = document.createElement("source");
+    source.src = candidateUrl;
+    const mime = inferVideoMimeType(candidateUrl) || inferVideoMimeType(attachmentName || "");
+    if (mime) source.type = mime;
+    video.innerHTML = "";
+    video.appendChild(source);
+    video.src = candidateUrl;
+    video.load();
+    if (noteEl) {
+      noteEl.remove();
+      noteEl = null;
+    }
+    if (candidateIndex > 0 && wrap) {
+      noteEl = document.createElement("div");
+      noteEl.className = "message-embed-note";
+      noteEl.textContent = "Using direct stream fallback for this video.";
+      wrap.appendChild(noteEl);
+    }
+  };
+  applyCandidate();
+  video.addEventListener("error", () => {
+    if (candidateIndex + 1 < candidates.length) {
+      candidateIndex += 1;
+      applyCandidate();
+      return;
+    }
+    if (wrap) {
+      if (wrap.querySelector(".message-embed-note")) return;
+      const note = document.createElement("div");
+      note.className = "message-embed-note";
+      note.textContent = "Video preview unavailable. Use open in new tab.";
+      wrap.appendChild(note);
+    }
+  });
+  return video;
+}
+
 function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
@@ -12428,28 +12800,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   if (type === "gif" || type === "video") {
     const videoLike = type === "video" || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
     if (videoLike) {
-      const video = document.createElement("video");
-      video.autoplay = false;
-      video.loop = false;
-      video.muted = false;
-      video.controls = true;
-      video.playsInline = true;
-      video.preload = "metadata";
-      const source = document.createElement("source");
-      source.src = mediaUrl;
-      const mime = inferVideoMimeType(mediaUrl) || inferVideoMimeType(attachment.name || "");
-      if (mime) source.type = mime;
-      video.appendChild(source);
-      video.src = mediaUrl;
-      video.load();
+      const video = createVideoPreviewElement(mediaUrl, attachment.name || "Video", wrap);
       video.addEventListener("dblclick", () => {
         openMediaLightbox({ url: mediaUrl, label: attachment.name || "Video", video: true });
-      });
-      video.addEventListener("error", () => {
-        const note = document.createElement("div");
-        note.className = "message-embed-note";
-        note.textContent = "Video preview unavailable. Use open in new tab.";
-        wrap.appendChild(note);
       });
       wrap.appendChild(video);
       const openBtn = document.createElement("a");
@@ -12683,28 +13036,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const fileLooksVideo = /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(fileName)
       || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
     if (fileLooksVideo) {
-      const video = document.createElement("video");
-      video.autoplay = false;
-      video.loop = false;
-      video.muted = false;
-      video.controls = true;
-      video.playsInline = true;
-      video.preload = "metadata";
-      const source = document.createElement("source");
-      source.src = mediaUrl;
-      const mime = inferVideoMimeType(mediaUrl) || inferVideoMimeType(fileName);
-      if (mime) source.type = mime;
-      video.appendChild(source);
-      video.src = mediaUrl;
-      video.load();
+      const video = createVideoPreviewElement(mediaUrl, attachment.name || fileName || "Video", wrap);
       video.addEventListener("dblclick", () => {
         openMediaLightbox({ url: mediaUrl, label: attachment.name || "Video", video: true });
-      });
-      video.addEventListener("error", () => {
-        const note = document.createElement("div");
-        note.className = "message-embed-note";
-        note.textContent = "Video preview unavailable. Use open in new tab.";
-        wrap.appendChild(note);
       });
       wrap.appendChild(video);
     }

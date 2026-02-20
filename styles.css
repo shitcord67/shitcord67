@@ -1114,7 +1114,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   margin: 0;
   position: relative;
   border-radius: 0;
-  padding: 0.02rem 0.82rem 0.03rem 0.58rem;
+  padding: 0.01rem 0.82rem 0.01rem 0.58rem;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   column-gap: 0.52rem;
@@ -1172,6 +1172,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message--grouped {
   padding-top: 0;
+  padding-bottom: 0;
 }
 
 .message--grouped .message-user {
@@ -1180,10 +1181,19 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message--grouped .message-head {
   gap: 0.45rem;
+  min-height: 0.72rem;
 }
 
 .message--grouped .message-time {
   opacity: 0;
+}
+
+.message--grouped .message-text {
+  margin-top: -0.02rem;
+}
+
+.message--grouped .message-reactions {
+  margin-top: 0.02rem;
 }
 
 .message--grouped:hover .message-time {
@@ -1410,6 +1420,21 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   border-left: 3px solid #4e5562;
   padding-left: 0.55rem;
   color: #c3cad5;
+}
+
+.message-heading {
+  display: inline-block;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
+}
+
+.message-inline-list {
+  margin: 0.08rem 0 0.1rem 1.1rem;
+  padding: 0;
+}
+
+.message-inline-list li {
+  margin: 0.02rem 0;
 }
 
 .inline-custom-emoji {
