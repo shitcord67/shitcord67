@@ -25,9 +25,17 @@ const MESSAGE_TEXT_STORAGE_MAX = 20000;
 const MESSAGE_TEXT_TRANSPORT_MAX = 8000;
 const GIF_PICKER_INITIAL_PAGE_SIZE = 140;
 const GIF_PICKER_PAGE_STEP = 120;
+const EMOJI_PICKER_INITIAL_PAGE_SIZE = 180;
+const EMOJI_PICKER_PAGE_STEP = 180;
 const TENOR_PUBLIC_API_KEY = "LIVDSRZULELA";
 const TENOR_CLIENT_KEY = "shitcord67";
 const TENOR_RESULTS_PAGE_SIZE = 36;
+const EMOJI_DATASET_VERSION = "16.0.0";
+const EMOJI_DATASET_CACHE_KEY = `shitcord67-emoji-dataset-v${EMOJI_DATASET_VERSION}`;
+const EMOJI_DATASET_SOURCES = [
+  `https://cdn.jsdelivr.net/npm/emojibase-data@${EMOJI_DATASET_VERSION}/en/compact.json`,
+  `https://unpkg.com/emojibase-data@${EMOJI_DATASET_VERSION}/en/compact.json`
+];
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",
@@ -871,6 +879,12 @@ let gifPickerRemoteLoading = false;
 let gifPickerRemoteError = "";
 let gifPickerRemoteQueryKey = "";
 let gifPickerRemoteRequestToken = 0;
+let emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
+let emojiLibraryEntries = [...EMOJI_LIBRARY];
+let emojiLibraryLoading = false;
+let emojiLibraryLoaded = false;
+let emojiLibraryError = "";
+let emojiLibraryLoadPromise = null;
 let gifPickerQueryDebounceTimer = null;
 let swfLibrary = [];
 const debugLogs = [];
@@ -895,6 +909,7 @@ let swfPipCollapsed = false;
 let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
+let mediaPickerScrollLoadRaf = 0;
 let pipDragState = null;
 let pipSuppressHeaderToggle = false;
 let toastHideTimer = null;
@@ -10617,9 +10632,15 @@ function setSwfQuickAudioMode(mode) {
 function refreshSwfAudioFocus(preferredKey = null) {
   const prefs = getPreferences();
   const mode = prefs.swfQuickAudioMode;
+  const runtimeConnected = (runtime) => runtime?.host instanceof HTMLElement && runtime.host.isConnected;
   if (mode === "off") {
     swfAudioFocusRuntimeKey = null;
     swfRuntimes.forEach((runtime, key) => {
+      if (!runtimeConnected(runtime)) {
+        runtime.audioSuppressed = true;
+        updateSwfAudioUi(key);
+        return;
+      }
       runtime.audioSuppressed = true;
       applySwfAudioToRuntime(key);
       updateSwfAudioUi(key);
@@ -10628,6 +10649,7 @@ function refreshSwfAudioFocus(preferredKey = null) {
   }
   const canUse = (key, runtime) => {
     if (!key || !runtime?.playing || !runtime.audioEnabled || runtime.audioPinned) return false;
+    if (!runtimeConnected(runtime)) return false;
     if (mode === "click" && !runtime.audioClickAllowed) return false;
     return true;
   };
@@ -10636,6 +10658,11 @@ function refreshSwfAudioFocus(preferredKey = null) {
     const allowSolo = canUse(swfSoloRuntimeKey, soloRuntime);
     swfAudioFocusRuntimeKey = allowSolo ? swfSoloRuntimeKey : null;
     swfRuntimes.forEach((runtime, key) => {
+      if (!runtimeConnected(runtime)) {
+        runtime.audioSuppressed = true;
+        updateSwfAudioUi(key);
+        return;
+      }
       runtime.audioSuppressed = Boolean(
         !runtime.audioPinned
         && allowSolo
@@ -10651,6 +10678,11 @@ function refreshSwfAudioFocus(preferredKey = null) {
   if (prefs.swfAudioPolicy === "multi") {
     swfAudioFocusRuntimeKey = null;
     swfRuntimes.forEach((runtime, key) => {
+      if (!runtimeConnected(runtime)) {
+        runtime.audioSuppressed = true;
+        updateSwfAudioUi(key);
+        return;
+      }
       runtime.audioSuppressed = mode === "click" ? !runtime.audioClickAllowed : false;
       applySwfAudioToRuntime(key);
       updateSwfAudioUi(key);
@@ -10670,6 +10702,11 @@ function refreshSwfAudioFocus(preferredKey = null) {
     });
     swfAudioFocusRuntimeKey = null;
     swfRuntimes.forEach((runtime, key) => {
+      if (!runtimeConnected(runtime)) {
+        runtime.audioSuppressed = true;
+        updateSwfAudioUi(key);
+        return;
+      }
       const guildKey = runtime.guildId || "__ungrouped__";
       runtime.audioSuppressed = Boolean(
         !runtime.audioPinned
@@ -10688,6 +10725,11 @@ function refreshSwfAudioFocus(preferredKey = null) {
   const centeredGlobal = pickCenteredRuntimeKey(canUse, { preferredKey });
   swfAudioFocusRuntimeKey = centeredGlobal;
   swfRuntimes.forEach((runtime, key) => {
+    if (!runtimeConnected(runtime)) {
+      runtime.audioSuppressed = true;
+      updateSwfAudioUi(key);
+      return;
+    }
     runtime.audioSuppressed = Boolean(
       !runtime.audioPinned
       && swfAudioFocusRuntimeKey
@@ -11176,13 +11218,135 @@ async function loadSwfLibrary() {
   }
 }
 
+function normalizeEmojiLibraryEntry(entry, source = "builtin") {
+  if (!entry || typeof entry !== "object") return null;
+  const value = (entry.value || entry.emoji || entry.unicode || "").toString().trim();
+  if (!value) return null;
+  const rawName = (entry.name || entry.annotation || entry.label || "").toString().trim();
+  const fallbackName = [...value].map((ch) => ch.codePointAt(0)?.toString(16).padStart(4, "0")).join("_");
+  const normalizedName = sanitizeMediaName(rawName.toLowerCase().replace(/\s+/g, "_"), `emoji_${fallbackName}`);
+  const aliases = Array.isArray(entry.aliases)
+    ? entry.aliases
+    : Array.isArray(entry.shortcodes)
+      ? entry.shortcodes
+      : typeof entry.shortcode === "string"
+        ? [entry.shortcode]
+        : [];
+  const keywords = Array.isArray(entry.keywords)
+    ? entry.keywords
+    : Array.isArray(entry.tags)
+      ? entry.tags
+      : [];
+  return {
+    name: normalizedName || `emoji_${fallbackName}`,
+    value,
+    aliases: [...new Set(aliases.map((item) => (item || "").toString().trim().toLowerCase()).filter(Boolean))].slice(0, 24),
+    keywords: [...new Set(keywords.map((item) => (item || "").toString().trim().toLowerCase()).filter(Boolean))].slice(0, 32),
+    source
+  };
+}
+
+function normalizeEmojiDatasetEntries(rawEntries) {
+  if (!Array.isArray(rawEntries)) return [];
+  const deduped = new Map();
+  const appendEntry = (entry) => {
+    const normalized = normalizeEmojiLibraryEntry(entry, "builtin");
+    if (!normalized) return;
+    if (deduped.has(normalized.value)) return;
+    deduped.set(normalized.value, normalized);
+  };
+  rawEntries.forEach((entry) => {
+    appendEntry(entry);
+    if (Array.isArray(entry?.skins)) {
+      entry.skins.forEach((skin) => {
+        appendEntry({
+          ...skin,
+          name: (entry?.annotation || entry?.name || entry?.label || "").toString() || skin?.annotation || skin?.name || "",
+          aliases: Array.isArray(entry?.shortcodes) ? entry.shortcodes : skin?.shortcodes || [],
+          keywords: Array.isArray(entry?.tags) ? entry.tags : skin?.tags || []
+        });
+      });
+    }
+  });
+  return [...deduped.values()];
+}
+
+function loadCachedEmojiDataset() {
+  try {
+    const raw = localStorage.getItem(EMOJI_DATASET_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return normalizeEmojiDatasetEntries(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function cacheEmojiDataset(rawEntries) {
+  try {
+    if (!Array.isArray(rawEntries) || rawEntries.length === 0) return;
+    localStorage.setItem(EMOJI_DATASET_CACHE_KEY, JSON.stringify(rawEntries));
+  } catch {
+    // Ignore quota/storage failures.
+  }
+}
+
+async function ensureEmojiLibraryLoaded({ force = false } = {}) {
+  if (emojiLibraryLoading && emojiLibraryLoadPromise) return emojiLibraryLoadPromise;
+  if (!force && emojiLibraryLoaded) return emojiLibraryEntries;
+  if (!force) {
+    const cached = loadCachedEmojiDataset();
+    if (cached.length > 0) {
+      emojiLibraryEntries = cached;
+      emojiLibraryLoaded = true;
+      emojiLibraryError = "";
+      return emojiLibraryEntries;
+    }
+  }
+  emojiLibraryLoading = true;
+  emojiLibraryError = "";
+  emojiLibraryLoadPromise = (async () => {
+    let lastError = "";
+    for (const source of EMOJI_DATASET_SOURCES) {
+      try {
+        const response = await fetch(source, { cache: "no-store" });
+        if (!response.ok) {
+          lastError = `HTTP ${response.status}`;
+          continue;
+        }
+        const payload = await response.json();
+        const normalized = normalizeEmojiDatasetEntries(payload);
+        if (normalized.length === 0) {
+          lastError = "Dataset was empty";
+          continue;
+        }
+        emojiLibraryEntries = normalized;
+        emojiLibraryLoaded = true;
+        emojiLibraryError = "";
+        cacheEmojiDataset(payload);
+        return emojiLibraryEntries;
+      } catch (error) {
+        lastError = String(error || "Request failed");
+      }
+    }
+    emojiLibraryLoaded = false;
+    emojiLibraryError = lastError ? `Could not load full emoji set (${lastError}).` : "Could not load full emoji set.";
+    return emojiLibraryEntries;
+  })().finally(() => {
+    emojiLibraryLoading = false;
+    emojiLibraryLoadPromise = null;
+    if (mediaPickerOpen && mediaPickerTab === "emoji") renderMediaPicker();
+  });
+  return emojiLibraryLoadPromise;
+}
+
 function mediaEntriesForActiveTab() {
   const guild = getActiveGuild();
   ensureGuildMediaCollections(guild);
   if (mediaPickerTab === "emoji") {
     const prefs = getPreferences();
     const recents = normalizeRecentEmojis(prefs.recentEmojis);
-    const builtIn = EMOJI_LIBRARY
+    const builtIn = emojiLibraryEntries
       .map((entry) => {
         const recentIndex = recents.indexOf(entry.value);
         return { ...entry, source: "builtin", recentIndex };
@@ -11258,48 +11422,67 @@ function appendGifPickerEntries(entries) {
     seen.add(key);
     next.push(normalized);
   });
-  gifPickerRemoteEntries = next.slice(0, 720);
+  gifPickerRemoteEntries = next.slice(0, 4000);
 }
 
 async function fetchTenorGifEntries(query = "", nextCursor = "") {
-  if (typeof fetch !== "function") return { entries: [], next: "" };
-  const endpoint = new URL(query ? "https://tenor.googleapis.com/v2/search" : "https://tenor.googleapis.com/v2/featured");
-  endpoint.searchParams.set("key", TENOR_PUBLIC_API_KEY);
-  endpoint.searchParams.set("client_key", TENOR_CLIENT_KEY);
-  endpoint.searchParams.set("limit", String(TENOR_RESULTS_PAGE_SIZE));
-  endpoint.searchParams.set("media_filter", "gif,mp4,tinygif,tinymp4");
-  if (query) endpoint.searchParams.set("q", query);
-  if (nextCursor) endpoint.searchParams.set("pos", nextCursor);
-  try {
-    const response = await fetch(endpoint.toString(), { cache: "no-store" });
-    if (!response.ok) return { entries: [], next: "" };
-    const payload = await response.json();
-    const results = Array.isArray(payload?.results) ? payload.results : [];
-    const entries = results
-      .map((item) => {
-        const formats = item?.media_formats || {};
-        const gifFormat = formats.gif || formats.tinygif || formats.nanogif;
-        const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4;
-        const preferred = gifFormat?.url || mp4Format?.url || "";
-        if (!preferred) return null;
-        return {
-          name: (item?.content_description || item?.title || "gif").toString().trim().slice(0, 120) || "gif",
-          url: preferred,
-          preview: gifFormat?.url ? "" : "video",
-          source: "remote"
-        };
-      })
-      .filter(Boolean);
-    return {
-      entries,
-      next: (payload?.next || "").toString()
-    };
-  } catch {
-    return { entries: [], next: "" };
+  if (typeof fetch !== "function") return { entries: [], next: "", error: "Fetch unavailable" };
+  const buildEndpoint = (mediaFilter = "") => {
+    const endpoint = new URL(query ? "https://tenor.googleapis.com/v2/search" : "https://tenor.googleapis.com/v2/featured");
+    endpoint.searchParams.set("key", TENOR_PUBLIC_API_KEY);
+    endpoint.searchParams.set("client_key", TENOR_CLIENT_KEY);
+    endpoint.searchParams.set("limit", String(TENOR_RESULTS_PAGE_SIZE));
+    if (mediaFilter) endpoint.searchParams.set("media_filter", mediaFilter);
+    if (query) endpoint.searchParams.set("q", query);
+    if (nextCursor) endpoint.searchParams.set("pos", nextCursor);
+    return endpoint;
+  };
+  const mediaFilterCandidates = [
+    "gif,tinygif,mediumgif,nanogif,mp4,tinymp4,nanomp4",
+    "gif,tinygif,mediumgif,nanogif",
+    "minimal",
+    ""
+  ];
+  let lastError = "";
+  for (const mediaFilter of mediaFilterCandidates) {
+    try {
+      const response = await fetch(buildEndpoint(mediaFilter).toString(), { cache: "no-store" });
+      if (!response.ok) {
+        lastError = `HTTP ${response.status}`;
+        if (response.status === 400) continue;
+        return { entries: [], next: "", error: lastError };
+      }
+      const payload = await response.json();
+      const results = Array.isArray(payload?.results) ? payload.results : [];
+      const entries = results
+        .map((item) => {
+          const formats = item?.media_formats || {};
+          const gifFormat = formats.gif || formats.tinygif || formats.mediumgif || formats.nanogif;
+          const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4 || formats.webm || formats.tinywebm;
+          const preferred = gifFormat?.url || mp4Format?.url || "";
+          if (!preferred) return null;
+          const isVideo = !gifFormat?.url && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
+          return {
+            name: (item?.content_description || item?.title || "gif").toString().trim().slice(0, 120) || "gif",
+            url: preferred,
+            preview: isVideo ? "video" : "",
+            source: "remote"
+          };
+        })
+        .filter(Boolean);
+      return {
+        entries,
+        next: (payload?.next || "").toString(),
+        error: ""
+      };
+    } catch (error) {
+      lastError = String(error || "Request failed");
+    }
   }
+  return { entries: [], next: "", error: lastError || "Request failed" };
 }
 
-function maybeLoadMoreGifPickerEntries({ reset = false } = {}) {
+function maybeLoadMoreGifPickerEntries({ reset = false, force = false } = {}) {
   if (mediaPickerTab !== "gif") return;
   const queryKey = gifPickerQueryKey();
   if (reset || gifPickerRemoteQueryKey !== queryKey) {
@@ -11314,15 +11497,28 @@ function maybeLoadMoreGifPickerEntries({ reset = false } = {}) {
     }
   }
   if (gifPickerRemoteLoading) return;
+  if (!force && !reset && gifPickerRemoteError && !gifPickerRemoteNext) return;
+  if (!force && !reset && !gifPickerRemoteNext && gifPickerRemoteEntries.length > 0) return;
   const requestToken = ++gifPickerRemoteRequestToken;
   gifPickerRemoteLoading = true;
+  if (force) gifPickerRemoteError = "";
   const cursor = reset ? "" : gifPickerRemoteNext;
   fetchTenorGifEntries(queryKey, cursor)
-    .then(({ entries, next }) => {
+    .then(({ entries, next, error }) => {
       if (requestToken !== gifPickerRemoteRequestToken || queryKey !== gifPickerRemoteQueryKey) return;
+      const previousCount = gifPickerRemoteEntries.length;
       appendGifPickerEntries(entries);
+      const appendedCount = Math.max(0, gifPickerRemoteEntries.length - previousCount);
       gifPickerRemoteNext = (next || "").toString();
-      gifPickerRemoteError = entries.length === 0 ? "No more GIFs from provider." : "";
+      if (error) {
+        gifPickerRemoteError = "Could not load remote GIFs right now.";
+        return;
+      }
+      if (appendedCount === 0 && !gifPickerRemoteNext) {
+        gifPickerRemoteError = "No more GIFs from provider.";
+        return;
+      }
+      gifPickerRemoteError = "";
     })
     .catch(() => {
       if (requestToken !== gifPickerRemoteRequestToken || queryKey !== gifPickerRemoteQueryKey) return;
@@ -11333,6 +11529,42 @@ function maybeLoadMoreGifPickerEntries({ reset = false } = {}) {
       gifPickerRemoteLoading = false;
       if (mediaPickerOpen && mediaPickerTab === "gif") renderMediaPicker();
     });
+}
+
+function maybeAutoloadMediaPickerOnScroll() {
+  if (!mediaPickerOpen) return;
+  if (mediaPickerTab !== "gif" && mediaPickerTab !== "emoji") return;
+  if (mediaPickerScrollLoadRaf) return;
+  mediaPickerScrollLoadRaf = requestAnimationFrame(() => {
+    mediaPickerScrollLoadRaf = 0;
+    const grid = ui.mediaGrid;
+    if (!(grid instanceof HTMLElement)) return;
+    const nearBottom = grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 220;
+    if (!nearBottom) return;
+    if (mediaPickerTab === "gif") {
+      const entries = filteredMediaEntries();
+      const visibleLimit = Math.max(GIF_PICKER_INITIAL_PAGE_SIZE, gifPickerVisibleCount);
+      if (entries.length > visibleLimit) {
+        gifPickerVisibleCount = Math.min(4000, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
+        renderMediaPicker();
+        return;
+      }
+      if (gifPickerRemoteLoading || gifPickerRemoteError) return;
+      maybeLoadMoreGifPickerEntries({ reset: false });
+      renderMediaPicker();
+      return;
+    }
+    const entries = filteredMediaEntries();
+    const visibleLimit = Math.max(EMOJI_PICKER_INITIAL_PAGE_SIZE, emojiPickerVisibleCount);
+    if (entries.length > visibleLimit) {
+      emojiPickerVisibleCount = Math.min(6000, emojiPickerVisibleCount + EMOJI_PICKER_PAGE_STEP);
+      renderMediaPicker();
+      return;
+    }
+    if (!emojiLibraryLoaded && !emojiLibraryLoading && !emojiLibraryError) {
+      void ensureEmojiLibraryLoaded();
+    }
+  });
 }
 
 function filteredMediaEntries() {
@@ -11373,6 +11605,10 @@ function closeMediaPicker() {
     clearTimeout(gifPickerQueryDebounceTimer);
     gifPickerQueryDebounceTimer = null;
   }
+  if (mediaPickerScrollLoadRaf) {
+    cancelAnimationFrame(mediaPickerScrollLoadRaf);
+    mediaPickerScrollLoadRaf = 0;
+  }
   ui.mediaPicker.classList.add("media-picker--hidden");
   renderComposerMediaButtons();
 }
@@ -11384,6 +11620,8 @@ function openMediaPicker() {
   renderMediaPicker();
   if (mediaPickerTab === "gif") {
     maybeLoadMoreGifPickerEntries({ reset: gifPickerRemoteQueryKey !== gifPickerQueryKey() });
+  } else if (mediaPickerTab === "emoji") {
+    void ensureEmojiLibraryLoaded();
   }
   renderComposerMediaButtons();
   ui.mediaSearchInput.focus();
@@ -11393,6 +11631,7 @@ function openMediaPickerWithTab(tab, { resetQuery = false } = {}) {
   if (MEDIA_TABS.includes(tab)) {
     if (mediaPickerTab !== tab) {
       gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+      emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
     }
     mediaPickerTab = tab;
     rememberMediaPickerTab(tab);
@@ -11413,6 +11652,7 @@ function warmMediaPickerRuntimes() {
   if (mediaRuntimeWarmed) return;
   mediaRuntimeWarmed = true;
   void deployMediaRuntimes();
+  void ensureEmojiLibraryLoaded();
 }
 
 function mediaPlaceholderForTab(tab) {
@@ -11443,7 +11683,7 @@ function insertTextAtCursor(text) {
 }
 
 function findEmojiEntryByValue(value) {
-  return EMOJI_LIBRARY.find((entry) => entry.value === value) || null;
+  return emojiLibraryEntries.find((entry) => entry.value === value) || null;
 }
 
 function rememberRecentEmoji(value) {
@@ -11683,9 +11923,15 @@ function renderMediaPicker() {
   if (entries.length === 0) {
     const empty = document.createElement("div");
     empty.className = "media-card--empty";
-    empty.textContent = mediaPickerTab === "swf"
-      ? "No SWFs found. Run a local server and keep swf-index.json available."
-      : "No media found for this query.";
+    if (mediaPickerTab === "swf") {
+      empty.textContent = "No SWFs found. Run a local server and keep swf-index.json available.";
+    } else if (mediaPickerTab === "emoji" && emojiLibraryLoading) {
+      empty.textContent = "Loading full emoji list…";
+    } else if (mediaPickerTab === "emoji" && emojiLibraryError) {
+      empty.textContent = emojiLibraryError;
+    } else {
+      empty.textContent = "No media found for this query.";
+    }
     ui.mediaGrid.appendChild(empty);
     return;
   }
@@ -11694,6 +11940,8 @@ function renderMediaPicker() {
     ? entries.length
     : mediaPickerTab === "gif"
       ? Math.max(GIF_PICKER_INITIAL_PAGE_SIZE, gifPickerVisibleCount)
+      : mediaPickerTab === "emoji"
+        ? Math.max(EMOJI_PICKER_INITIAL_PAGE_SIZE, emojiPickerVisibleCount)
       : 140;
   const visibleEntries = entries.slice(0, maxVisible);
   visibleEntries.forEach((entry, index) => {
@@ -11941,7 +12189,8 @@ function renderMediaPicker() {
 
   if (mediaPickerTab === "gif") {
     const hasMoreVisible = entries.length > visibleEntries.length;
-    const canLoadRemote = Boolean(gifPickerRemoteNext || gifPickerRemoteEntries.length === 0 || gifPickerRemoteError);
+    const canLoadRemote = Boolean(gifPickerRemoteNext || (gifPickerRemoteEntries.length === 0 && !gifPickerRemoteError));
+    const canRetryRemote = Boolean(gifPickerRemoteError && !gifPickerRemoteLoading);
     const footer = document.createElement("div");
     footer.className = "media-card--empty";
     footer.style.display = "grid";
@@ -11957,29 +12206,75 @@ function renderMediaPicker() {
     const loadBtn = document.createElement("button");
     loadBtn.type = "button";
     loadBtn.className = "message-action-btn";
-    loadBtn.disabled = gifPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote);
+    loadBtn.disabled = gifPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote && !canRetryRemote);
     if (hasMoreVisible) {
       loadBtn.textContent = "Show more GIFs";
     } else if (gifPickerRemoteLoading) {
       loadBtn.textContent = "Loading...";
+    } else if (canRetryRemote) {
+      loadBtn.textContent = "Retry GIF provider";
     } else {
       loadBtn.textContent = "Load more GIFs";
     }
     loadBtn.addEventListener("click", () => {
       if (hasMoreVisible) {
-        gifPickerVisibleCount = Math.min(1200, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
+        gifPickerVisibleCount = Math.min(4000, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
         renderMediaPicker();
         return;
       }
-      maybeLoadMoreGifPickerEntries({ reset: false });
+      maybeLoadMoreGifPickerEntries({ reset: false, force: canRetryRemote });
       renderMediaPicker();
     });
     footer.appendChild(info);
     footer.appendChild(loadBtn);
     ui.mediaGrid.appendChild(footer);
-    if (!gifPickerRemoteLoading && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
+    if (!gifPickerRemoteLoading && !gifPickerRemoteError && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
       maybeLoadMoreGifPickerEntries({ reset: false });
     }
+  }
+  if (mediaPickerTab === "emoji") {
+    const hasMoreVisible = entries.length > visibleEntries.length;
+    const canRetryEmojiDataset = Boolean(emojiLibraryError && !emojiLibraryLoading);
+    const canLoadEmojiDataset = Boolean(!emojiLibraryLoaded && !emojiLibraryLoading && !emojiLibraryError);
+    const footer = document.createElement("div");
+    footer.className = "media-card--empty";
+    footer.style.display = "grid";
+    footer.style.gap = "0.35rem";
+    const info = document.createElement("div");
+    if (emojiLibraryLoading) {
+      info.textContent = "Loading full emoji list...";
+    } else if (emojiLibraryError) {
+      info.textContent = emojiLibraryError;
+    } else {
+      info.textContent = `${entries.length} emojis ready.`;
+    }
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "message-action-btn";
+    loadBtn.disabled = emojiLibraryLoading || (!hasMoreVisible && !canRetryEmojiDataset && !canLoadEmojiDataset);
+    if (hasMoreVisible) {
+      loadBtn.textContent = "Show more emojis";
+    } else if (emojiLibraryLoading) {
+      loadBtn.textContent = "Loading...";
+    } else if (canRetryEmojiDataset) {
+      loadBtn.textContent = "Retry full emoji list";
+    } else if (canLoadEmojiDataset) {
+      loadBtn.textContent = "Load full emoji list";
+    } else {
+      loadBtn.textContent = "All emojis shown";
+    }
+    loadBtn.addEventListener("click", () => {
+      if (hasMoreVisible) {
+        emojiPickerVisibleCount = Math.min(6000, emojiPickerVisibleCount + EMOJI_PICKER_PAGE_STEP);
+        renderMediaPicker();
+        return;
+      }
+      void ensureEmojiLibraryLoaded({ force: true });
+      renderMediaPicker();
+    });
+    footer.appendChild(info);
+    footer.appendChild(loadBtn);
+    ui.mediaGrid.appendChild(footer);
   }
 }
 
@@ -12088,6 +12383,13 @@ function collectLiveSwfRuntimeKeys() {
         (message.attachments || []).forEach((attachment, index) => {
           if (attachment?.type === "swf") keys.add(`${message.id}:${index}`);
         });
+      });
+    });
+  });
+  state.dmThreads.forEach((thread) => {
+    (thread.messages || []).forEach((message) => {
+      (message.attachments || []).forEach((attachment, index) => {
+        if (attachment?.type === "swf") keys.add(`${message.id}:${index}`);
       });
     });
   });
@@ -12216,6 +12518,16 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     }
     runtime.pipTransitioning = true;
     runtime.inPip = true;
+    if (runtime.host.parentElement instanceof HTMLElement && runtime.host.parentElement !== document.body) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "message-swf-player";
+      placeholder.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
+      runtime.host.replaceWith(placeholder);
+      runtime.originHost = placeholder;
+    }
+    if (runtime.host.parentElement !== document.body) {
+      document.body.appendChild(runtime.host);
+    }
     runtime.pipHost = runtime.host;
     runtime.pipHost.classList.add("swf-pip-player", "message-swf-player--pip-floating");
     runtime.pipTransitioning = false;
@@ -12232,11 +12544,23 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   runtime.host.style.height = "";
   runtime.pipHost = null;
   runtime.pipTransitioning = false;
-  if (runtime.originHost instanceof HTMLElement && runtime.originHost.isConnected && runtime.originHost !== runtime.host) {
-    runtime.originHost.innerHTML = "";
-    runtime.originHost.appendChild(runtime.host);
-    runtime.host = runtime.originHost;
+  const canRestoreOrigin = runtime.originHost instanceof HTMLElement
+    && runtime.originHost.isConnected
+    && runtime.originHost !== runtime.host;
+  if (canRestoreOrigin) {
+    runtime.originHost.replaceWith(runtime.host);
+  } else if (runtime.host.parentElement === document.body) {
+    runtime.host.remove();
+    swfRuntimes.delete(runtimeKey);
+    noteSwfRuntimeEvent(runtimeKey, "destroyed");
+    removeSwfPipTab(runtimeKey);
+    if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
+    swfPendingUi.delete(runtimeKey);
+    swfPendingAudio.delete(runtimeKey);
+    refreshSwfAudioFocus();
+    return true;
   }
+  runtime.originHost = runtime.host;
   bindSwfVisibilityObserver(runtimeKey);
   removeSwfPipTab(runtimeKey);
   setSwfPlayback(runtimeKey, true, "user");
@@ -12393,6 +12717,10 @@ async function openSavedSwfFromShelf(entry) {
 function setSwfPlayback(runtimeKey, shouldPlay, reason = "system") {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player) return false;
+  if (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected) {
+    runtime.playing = Boolean(shouldPlay);
+    return false;
+  }
   if (shouldPlay && reason === "system" && !runtime.allowAutoPlay && !runtime.manualPlay) return false;
   try {
     if (shouldPlay) {
@@ -12497,6 +12825,7 @@ function updateSwfAudioUi(runtimeKey) {
 function applySwfAudioToRuntime(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player) return;
+  if (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected) return;
   const prefs = getPreferences();
   const audioEnabled = typeof runtime.audioEnabled === "boolean"
     ? runtime.audioEnabled
@@ -12518,9 +12847,6 @@ function applySwfAudioToRuntime(runtimeKey) {
     if (!shouldPauseOnSuppressed && runtime.autoPausedByMute && runtime.playing && typeof runtime.player.play === "function") {
       runtime.player.play();
       runtime.autoPausedByMute = false;
-    }
-    if (!shouldPauseOnSuppressed && runtime.playing && typeof runtime.player.play === "function") {
-      runtime.player.play();
     }
   } catch (error) {
     addDebugLog("warn", "Failed to apply SWF audio settings", { key: runtimeKey, error: String(error) });
@@ -12978,10 +13304,9 @@ function closeSwfViewerAndRestore() {
       runtime.host.setAttribute("style", runtime.restoreStyle || "");
       delete runtime.host.dataset.zoom;
       runtime.floating = false;
-    } else if (runtime.host !== runtime.originHost) {
-      runtime.originHost.innerHTML = "";
-      runtime.originHost.appendChild(runtime.player);
-      runtime.host = runtime.originHost;
+    } else if (runtime.host instanceof HTMLElement && runtime.host !== runtime.originHost) {
+      runtime.originHost.replaceWith(runtime.host);
+      runtime.originHost = runtime.host;
     }
     bindSwfVisibilityObserver(runtimeKey);
   }
@@ -15635,6 +15960,15 @@ function renderMessages() {
   const liveSwfKeys = collectLiveSwfRuntimeKeys();
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
+    if (runtime.inPip && (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected)) {
+      swfRuntimes.delete(key);
+      noteSwfRuntimeEvent(key, "destroyed");
+      removeSwfPipTab(key);
+      if (swfSoloRuntimeKey === key) swfSoloRuntimeKey = null;
+      swfPendingUi.delete(key);
+      swfPendingAudio.delete(key);
+      return;
+    }
     if (runtime.inPip || runtime.pipTransitioning) return;
     if (liveSwfKeys.has(key)) return;
     if (runtime.observer) runtime.observer.disconnect();
@@ -19580,12 +19914,15 @@ ui.mediaTabs.forEach((tabBtn) => {
     }
     if (nextTab !== mediaPickerTab) {
       gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+      emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
     }
     mediaPickerTab = nextTab;
     mediaPickerQuery = "";
     renderMediaPicker();
     if (mediaPickerTab === "gif") {
       maybeLoadMoreGifPickerEntries({ reset: true });
+    } else if (mediaPickerTab === "emoji") {
+      void ensureEmojiLibraryLoaded();
     }
     ui.mediaSearchInput.focus();
   });
@@ -19595,6 +19932,8 @@ ui.mediaSearchInput.addEventListener("input", () => {
   mediaPickerQuery = ui.mediaSearchInput.value.slice(0, 80);
   if (mediaPickerTab === "gif") {
     gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+  } else if (mediaPickerTab === "emoji") {
+    emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
   }
   renderMediaPicker();
   if (mediaPickerTab === "gif") {
@@ -19612,8 +19951,10 @@ ui.mediaSearchInput.addEventListener("keydown", (event) => {
       event.preventDefault();
       mediaPickerQuery = "";
       if (mediaPickerTab === "gif") gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+      if (mediaPickerTab === "emoji") emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
       renderMediaPicker();
       if (mediaPickerTab === "gif") maybeLoadMoreGifPickerEntries({ reset: true });
+      if (mediaPickerTab === "emoji") void ensureEmojiLibraryLoaded();
       return;
     }
     closeMediaPicker();
@@ -19672,6 +20013,10 @@ ui.mediaSearchInput.addEventListener("keydown", (event) => {
     sendMediaAttachment(first, "svg");
     closeMediaPicker();
   }
+});
+
+ui.mediaGrid.addEventListener("scroll", () => {
+  maybeAutoloadMediaPickerOnScroll();
 });
 
 ui.addMediaUrlBtn.addEventListener("click", () => {
@@ -21449,7 +21794,7 @@ document.addEventListener("keydown", (event) => {
 
 window.addEventListener("resize", () => {
   closeContextMenu();
-  closeMediaPicker();
+  if (mediaPickerOpen) renderMediaPicker();
   if (currentViewerRuntimeKey) {
     const runtime = swfRuntimes.get(currentViewerRuntimeKey);
     if (runtime?.floating) positionFloatingSwfHost(runtime);
@@ -21470,6 +21815,7 @@ document.addEventListener("scroll", closeContextMenu, true);
 
 if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", () => {
+    if (mediaPickerOpen) renderMediaPicker();
     updateSwfPipDockLayout();
     renderSwfPipDock();
   });
