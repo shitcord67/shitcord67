@@ -906,7 +906,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .message-list {
   overflow-y: auto;
-  padding: 0.9rem 0 1.1rem;
+  padding: 0.55rem 0 0.7rem;
 }
 
 .voice-stage {
@@ -1063,10 +1063,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   margin: 0;
   position: relative;
   border-radius: 0;
-  padding: 0.08rem 1rem 0.12rem 0.75rem;
+  padding: 0.03rem 0.9rem 0.05rem 0.65rem;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  column-gap: 0.7rem;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 0.58rem;
 }
 
 .message:hover {
@@ -1101,8 +1101,8 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 }
 
 .message-avatar {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #5865f2;
   background-size: cover;
@@ -1110,9 +1110,9 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   color: #fff;
   display: grid;
   place-items: center;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
 }
 
 .message-avatar--hidden {
@@ -1120,7 +1120,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 }
 
 .message--grouped {
-  padding-top: 0.03rem;
+  padding-top: 0;
 }
 
 .message--grouped .message-user {
@@ -1243,16 +1243,16 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 }
 
 .message--forum-root {
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.65rem;
 }
 
 .forum-thread-replies {
-  margin-top: 0.45rem;
+  margin-top: 0.35rem;
   margin-left: 0.55rem;
   border-left: 2px solid rgba(97, 105, 120, 0.45);
-  padding-left: 0.6rem;
+  padding-left: 0.5rem;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.24rem;
 }
 
 .message--forum-reply {
@@ -1265,8 +1265,8 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .message-head {
   display: flex;
   align-items: baseline;
-  gap: 0.55rem;
-  min-height: 1.3rem;
+  gap: 0.45rem;
+  min-height: 1.15rem;
 }
 
 .message-user {
@@ -1302,7 +1302,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin: 0.65rem 0 0.55rem;
+  margin: 0.42rem 0 0.34rem;
 }
 
 .message-day-divider__line {
@@ -1407,7 +1407,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   gap: 0.35rem;
   color: #9fa6b2;
   font-size: 0.76rem;
-  margin-bottom: 0.22rem;
+  margin-bottom: 0.14rem;
 }
 
 .message-reply strong {
@@ -1579,7 +1579,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  margin-top: 0.3rem;
+  margin-top: 0.2rem;
 }
 
 .reaction-chip {
@@ -1599,7 +1599,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .reaction-picker {
   display: flex;
   gap: 0.25rem;
-  margin-top: 0.35rem;
+  margin-top: 0.22rem;
   opacity: 0;
   transition: opacity 120ms ease;
   pointer-events: none;
@@ -2118,11 +2118,11 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 }
 
 .message-attachment {
-  margin-top: 0.45rem;
+  margin-top: 0.28rem;
 }
 
 .message-poll {
-  margin-top: 0.45rem;
+  margin-top: 0.3rem;
   width: min(440px, 92vw);
   border: 1px solid #3b4050;
   border-radius: 10px;
