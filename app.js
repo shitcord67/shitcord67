@@ -27,6 +27,8 @@ const MESSAGE_TEXT_STORAGE_MAX = 20000;
 const MESSAGE_TEXT_TRANSPORT_MAX = 8000;
 const GIF_PICKER_INITIAL_PAGE_SIZE = 140;
 const GIF_PICKER_PAGE_STEP = 120;
+const GIF_PICKER_VISIBLE_MAX = 20000;
+const GIF_PICKER_REMOTE_MAX = 20000;
 const EMOJI_PICKER_INITIAL_PAGE_SIZE = 180;
 const EMOJI_PICKER_PAGE_STEP = 180;
 const TENOR_PUBLIC_API_KEY = "LIVDSRZULELA";
@@ -230,7 +232,15 @@ const GIF_LIBRARY = [
   { name: "good morning", url: "https://media.tenor.com/6IicLfOaw1AAAAPo/tora-dora-good-morning.mp4", preview: "video" },
   { name: "k pop", url: "https://media1.giphy.com/media/v1.Y2lkPTczYjhmN2IxamQ2eHU5cmJkOXZudTVzaW92cXZleDdpbTFqZ2U1aDJ2dXA1ZTYzNiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/l1Ku4uzAQLocVQtUc/100w.gif" },
   { name: "jurassic park", url: "https://media0.giphy.com/media/v1.Y2lkPTczYjhmN2Ixaml2dmUzdjVoODVwOWVqZGM1enFocGMwb2ZnZzJudWw5bWlkenhzZyZlcD12MV9naWZzX3NlYXJjaCZjdD1n/37Fsl1eFxbhtu/100w.gif" },
-  { name: "super bowl", url: "https://media2.giphy.com/media/v1.Y2lkPTczYjhmN2IxMjRjbDEzMDdhbGdwYzhlYnlqYmZwa2dlZzVuMG5rYjhmbXVoNHphNSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/FB7yASVBqPiFy/100w.gif" }
+  { name: "super bowl", url: "https://media2.giphy.com/media/v1.Y2lkPTczYjhmN2IxMjRjbDEzMDdhbGdwYzhlYnlqYmZwa2dlZzVuMG5rYjhmbXVoNHphNSZlcD12MV9naWZzX3NlYXJjaCZjdD1n/FB7yASVBqPiFy/100w.gif" },
+  { name: "blob wave", url: "https://media.tenor.com/LrSL7XDKVbgAAAAC/pepe-wave.gif" },
+  { name: "cat vibing", url: "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" },
+  { name: "ok hand", url: "https://media.giphy.com/media/111ebonMs90YLu/giphy.gif" },
+  { name: "sad blob", url: "https://media.tenor.com/K7V8MDFMvxQAAAAC/blob-sad.gif" },
+  { name: "clapping", url: "https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif" },
+  { name: "mind blown", url: "https://media.giphy.com/media/lXu72d4iKwqek/giphy.gif" },
+  { name: "typing", url: "https://media.giphy.com/media/13HgwGsXF0aiGY/giphy.gif" },
+  { name: "thumbs up", url: "https://media.giphy.com/media/XreQmk7ETCak0/giphy.gif" }
 ];
 const SVG_LIBRARY = [
   { name: "pulse ring", url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120'%3E%3Crect width='200' height='120' fill='%231a1d25'/%3E%3Ccircle cx='100' cy='60' r='12' fill='%235865f2'%3E%3Canimate attributeName='r' values='8;42;8' dur='2.2s' repeatCount='indefinite'/%3E%3Canimate attributeName='opacity' values='1;0;1' dur='2.2s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E" },
@@ -457,6 +467,11 @@ function buildInitialState() {
     composerDrafts: {},
     scheduledMessages: [],
     savedSwfs: [],
+    gifUsage: {
+      byConversation: {},
+      byTime: {},
+      byNetwork: {}
+    },
     preferences: {
       uiScale: 100,
       theme: "discord",
@@ -482,6 +497,9 @@ function buildInitialState() {
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],
       mediaLastTab: "gif",
+      gifFavorites: [],
+      gifGroups: [],
+      gifScope: "all",
       recentEmojis: [],
       hideChannelPanel: "off",
       hideMemberPanel: "off",
@@ -1108,6 +1126,7 @@ const ui = {
   quickFileAttachBtn: document.getElementById("quickFileAttachBtn"),
   quickAttachInput: document.getElementById("quickAttachInput"),
   toggleSwfAudioBtn: document.getElementById("toggleSwfAudioBtn"),
+  toggleMediaPrivacyBtn: document.getElementById("toggleMediaPrivacyBtn"),
   composerReplyBar: document.getElementById("composerReplyBar"),
   replyPreviewText: document.getElementById("replyPreviewText"),
   cancelReplyBtn: document.getElementById("cancelReplyBtn"),
@@ -3721,9 +3740,48 @@ function normalizeRecentEmojis(value) {
   return output.slice(0, 24);
 }
 
+function normalizeGifFavorites(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const output = [];
+  value.forEach((entry) => {
+    const url = (entry || "").toString().trim();
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    output.push(url);
+  });
+  return output.slice(0, 1200);
+}
+
+function normalizeGifGroups(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry, index) => {
+      const safe = entry && typeof entry === "object" ? entry : {};
+      const id = (safe.id || `group-${index + 1}`).toString().trim().slice(0, 80);
+      const name = (safe.name || "Group").toString().trim().slice(0, 40);
+      const urls = normalizeGifFavorites(safe.urls).slice(0, 600);
+      if (!id || !name) return null;
+      return { id, name, urls };
+    })
+    .filter(Boolean)
+    .slice(0, 32);
+}
+
+function normalizeGifScope(value, groups = []) {
+  const token = (value || "").toString().trim().toLowerCase();
+  if (token === "all" || token === "favorites" || token === "chat" || token === "time" || token === "network") return token;
+  if (token.startsWith("group:")) {
+    const groupId = token.slice(6);
+    if (groups.some((group) => group.id === groupId)) return token;
+  }
+  return "all";
+}
+
 function getPreferences() {
   const defaults = buildInitialState().preferences;
   const current = state.preferences || {};
+  const gifGroups = normalizeGifGroups(current.gifGroups);
   return {
     uiScale: Number.isFinite(Number(current.uiScale)) ? Math.min(115, Math.max(90, Number(current.uiScale))) : defaults.uiScale,
     theme: normalizeTheme(current.theme),
@@ -3749,6 +3807,9 @@ function getPreferences() {
     mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
     mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
     mediaLastTab: normalizeMediaTab(current.mediaLastTab),
+    gifFavorites: normalizeGifFavorites(current.gifFavorites),
+    gifGroups,
+    gifScope: normalizeGifScope(current.gifScope, gifGroups),
     recentEmojis: normalizeRecentEmojis(current.recentEmojis),
     hideChannelPanel: normalizeToggle(current.hideChannelPanel),
     hideMemberPanel: normalizeToggle(current.hideMemberPanel),
@@ -11520,6 +11581,17 @@ function applyPreferencesToUI() {
     ui.toggleSwfAudioBtn.classList.toggle("message-form__media-btn--active", mode === "on");
     ui.toggleSwfAudioBtn.classList.toggle("message-form__media-btn--force-muted", mode === "off");
   }
+  if (ui.toggleMediaPrivacyBtn) {
+    const enabled = prefs.mediaPrivacyMode !== "off";
+    const title = enabled
+      ? "Media privacy gate ON. Click to disable."
+      : "Media privacy gate OFF. Click to enable.";
+    ui.toggleMediaPrivacyBtn.textContent = enabled ? "🛡" : "🌐";
+    ui.toggleMediaPrivacyBtn.title = title;
+    ui.toggleMediaPrivacyBtn.setAttribute("aria-label", title);
+    ui.toggleMediaPrivacyBtn.classList.toggle("message-form__media-btn--active", enabled);
+    ui.toggleMediaPrivacyBtn.classList.toggle("message-form__media-btn--force-muted", !enabled);
+  }
   swfRuntimes.forEach((runtime) => {
     runtime.audioEnabled = prefs.swfQuickAudioMode !== "off";
     if (prefs.swfQuickAudioMode === "on") runtime.audioClickAllowed = true;
@@ -12503,7 +12575,7 @@ function mediaEntriesForActiveTab() {
   }
   if (mediaPickerTab === "gif") {
     const custom = (guild?.customGifs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
-    return [...custom, ...gifPickerRemoteEntries, ...GIF_LIBRARY];
+    return dedupeGifEntries([...custom, ...GIF_LIBRARY, ...gifPickerRemoteEntries]);
   }
   if (mediaPickerTab === "sticker") {
     const custom = (guild?.customStickers || []).map((entry) => ({ ...entry, source: "guild-custom" }));
@@ -12561,7 +12633,7 @@ function appendGifPickerEntries(entries) {
     seen.add(key);
     next.push(normalized);
   });
-  gifPickerRemoteEntries = next.slice(0, 4000);
+  gifPickerRemoteEntries = next.slice(0, GIF_PICKER_REMOTE_MAX);
 }
 
 function readStoredTenorCredentials() {
@@ -12668,6 +12740,203 @@ function resolveTenorCredentials() {
   }
   if (stored.clientKey) clientKey = stored.clientKey;
   return { key, clientKey, customKey };
+}
+
+function ensureGifUsageState() {
+  if (!state.gifUsage || typeof state.gifUsage !== "object") {
+    state.gifUsage = { byConversation: {}, byTime: {}, byNetwork: {} };
+  }
+  if (!state.gifUsage.byConversation || typeof state.gifUsage.byConversation !== "object") state.gifUsage.byConversation = {};
+  if (!state.gifUsage.byTime || typeof state.gifUsage.byTime !== "object") state.gifUsage.byTime = {};
+  if (!state.gifUsage.byNetwork || typeof state.gifUsage.byNetwork !== "object") state.gifUsage.byNetwork = {};
+  return state.gifUsage;
+}
+
+function gifTimeScopeKey(date = new Date()) {
+  const hour = Number(date?.getHours?.() ?? 0);
+  if (hour >= 5 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 17) return "afternoon";
+  if (hour >= 17 && hour < 22) return "evening";
+  return "night";
+}
+
+function gifNetworkScopeKey() {
+  const connection = navigator?.connection || navigator?.mozConnection || navigator?.webkitConnection || null;
+  const type = (connection?.type || "").toString().toLowerCase();
+  const effective = (connection?.effectiveType || "").toString().toLowerCase();
+  if (!type && !effective) return "network:default";
+  return `network:${type || "unknown"}:${effective || "unknown"}`;
+}
+
+function updateGifUsageCounter(store, bucketKey, url) {
+  if (!store || typeof store !== "object") return;
+  const key = (bucketKey || "").toString().trim();
+  const gifUrl = (url || "").toString().trim();
+  if (!key || !gifUrl) return;
+  const bucket = store[key] && typeof store[key] === "object" ? store[key] : {};
+  const current = Number(bucket[gifUrl]) || 0;
+  bucket[gifUrl] = Math.min(500000, current + 1);
+  store[key] = bucket;
+}
+
+function trackGifUsage(url, conversationId = "") {
+  const gifUrl = (url || "").toString().trim();
+  if (!gifUrl) return;
+  const usage = ensureGifUsageState();
+  const convoKey = (conversationId || "").toString().trim();
+  if (convoKey) updateGifUsageCounter(usage.byConversation, convoKey, gifUrl);
+  updateGifUsageCounter(usage.byTime, gifTimeScopeKey(new Date()), gifUrl);
+  updateGifUsageCounter(usage.byNetwork, gifNetworkScopeKey(), gifUrl);
+}
+
+function gifScopeUsageUrls(scope, conversationId = "") {
+  const usage = ensureGifUsageState();
+  let bucket = {};
+  if (scope === "chat") {
+    const convoKey = (conversationId || "").toString().trim();
+    bucket = convoKey ? (usage.byConversation[convoKey] || {}) : {};
+  } else if (scope === "time") {
+    bucket = usage.byTime[gifTimeScopeKey(new Date())] || {};
+  } else if (scope === "network") {
+    bucket = usage.byNetwork[gifNetworkScopeKey()] || {};
+  } else {
+    return [];
+  }
+  return Object.entries(bucket)
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+    .map(([url]) => url)
+    .filter(Boolean);
+}
+
+function dedupeGifEntries(entries) {
+  if (!Array.isArray(entries)) return [];
+  const seen = new Set();
+  return entries.filter((entry) => {
+    const key = (entry?.url || "").toString().trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function activeGifScope() {
+  const prefs = getPreferences();
+  return normalizeGifScope(prefs.gifScope, prefs.gifGroups);
+}
+
+function updateGifScope(scope) {
+  state.preferences = getPreferences();
+  state.preferences.gifScope = normalizeGifScope(scope, state.preferences.gifGroups);
+  saveState();
+}
+
+function toggleGifFavorite(url) {
+  const gifUrl = (url || "").toString().trim();
+  if (!gifUrl) return false;
+  state.preferences = getPreferences();
+  const favorites = normalizeGifFavorites(state.preferences.gifFavorites);
+  const exists = favorites.includes(gifUrl);
+  state.preferences.gifFavorites = exists
+    ? favorites.filter((entry) => entry !== gifUrl)
+    : [gifUrl, ...favorites.filter((entry) => entry !== gifUrl)].slice(0, 1200);
+  saveState();
+  return !exists;
+}
+
+function upsertGifGroup(name) {
+  const nextName = (name || "").toString().trim().slice(0, 40);
+  if (!nextName) return null;
+  state.preferences = getPreferences();
+  const groups = normalizeGifGroups(state.preferences.gifGroups);
+  const existing = groups.find((entry) => entry.name.toLowerCase() === nextName.toLowerCase());
+  if (existing) return existing.id;
+  const id = createId();
+  groups.push({ id, name: nextName, urls: [] });
+  state.preferences.gifGroups = groups;
+  state.preferences.gifScope = `group:${id}`;
+  saveState();
+  return id;
+}
+
+function toggleGifGroupMembership(url, groupId) {
+  const gifUrl = (url || "").toString().trim();
+  const targetGroupId = (groupId || "").toString().trim();
+  if (!gifUrl || !targetGroupId) return null;
+  state.preferences = getPreferences();
+  const groups = normalizeGifGroups(state.preferences.gifGroups);
+  const nextGroups = groups.map((group) => {
+    if (group.id !== targetGroupId) return group;
+    const hasUrl = group.urls.includes(gifUrl);
+    return {
+      ...group,
+      urls: hasUrl
+        ? group.urls.filter((entry) => entry !== gifUrl)
+        : [gifUrl, ...group.urls.filter((entry) => entry !== gifUrl)].slice(0, 600)
+    };
+  });
+  state.preferences.gifGroups = nextGroups;
+  saveState();
+  const updated = nextGroups.find((entry) => entry.id === targetGroupId);
+  return updated?.urls.includes(gifUrl) || false;
+}
+
+function promptGifGroupForUrl(url) {
+  const gifUrl = (url || "").toString().trim();
+  if (!gifUrl) return false;
+  state.preferences = getPreferences();
+  const groups = normalizeGifGroups(state.preferences.gifGroups);
+  if (groups.length === 0) {
+    const createdName = prompt("Create GIF group name", "Favorites");
+    if (typeof createdName !== "string") return false;
+    const groupId = upsertGifGroup(createdName);
+    if (!groupId) return false;
+    const added = toggleGifGroupMembership(gifUrl, groupId);
+    state.preferences = getPreferences();
+    state.preferences.gifScope = `group:${groupId}`;
+    saveState();
+    return Boolean(added);
+  }
+  const defaultName = groups[0].name;
+  const selectedName = prompt("Add GIF to group (existing or new name)", defaultName);
+  if (typeof selectedName !== "string") return false;
+  const groupId = upsertGifGroup(selectedName) || groups.find((entry) => entry.name.toLowerCase() === selectedName.trim().toLowerCase())?.id || "";
+  if (!groupId) return false;
+  const added = toggleGifGroupMembership(gifUrl, groupId);
+  state.preferences = getPreferences();
+  state.preferences.gifScope = `group:${groupId}`;
+  saveState();
+  return Boolean(added);
+}
+
+function applyGifScopeToEntries(entries) {
+  const list = Array.isArray(entries) ? entries : [];
+  const prefs = getPreferences();
+  const scope = normalizeGifScope(prefs.gifScope, prefs.gifGroups);
+  const currentConversationId = getActiveConversation()?.id || "";
+  const byUrl = (entry) => (entry?.url || "").toString().trim();
+  if (scope === "all") return list;
+  if (scope === "favorites") {
+    const favorites = prefs.gifFavorites || [];
+    const rank = new Map(favorites.map((url, index) => [url, index]));
+    return list
+      .filter((entry) => rank.has(byUrl(entry)))
+      .sort((a, b) => (rank.get(byUrl(a)) || 0) - (rank.get(byUrl(b)) || 0));
+  }
+  if (scope.startsWith("group:")) {
+    const groupId = scope.slice(6);
+    const group = prefs.gifGroups.find((entry) => entry.id === groupId);
+    if (!group) return [];
+    const rank = new Map(group.urls.map((url, index) => [url, index]));
+    return list
+      .filter((entry) => rank.has(byUrl(entry)))
+      .sort((a, b) => (rank.get(byUrl(a)) || 0) - (rank.get(byUrl(b)) || 0));
+  }
+  const usageUrls = gifScopeUsageUrls(scope, currentConversationId);
+  if (usageUrls.length === 0) return [];
+  const rank = new Map(usageUrls.map((url, index) => [url, index]));
+  return list
+    .filter((entry) => rank.has(byUrl(entry)))
+    .sort((a, b) => (rank.get(byUrl(a)) || 0) - (rank.get(byUrl(b)) || 0));
 }
 
 function parseTenorV2Results(results) {
@@ -12849,10 +13118,11 @@ function maybeAutoloadMediaPickerOnScroll() {
       const entries = filteredMediaEntries();
       const visibleLimit = Math.max(GIF_PICKER_INITIAL_PAGE_SIZE, gifPickerVisibleCount);
       if (entries.length > visibleLimit) {
-        gifPickerVisibleCount = Math.min(4000, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
+        gifPickerVisibleCount = Math.min(GIF_PICKER_VISIBLE_MAX, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
         renderMediaPicker();
         return;
       }
+      if (activeGifScope() !== "all") return;
       if (gifPickerRemoteLoading || gifPickerRemoteError) return;
       maybeLoadMoreGifPickerEntries({ reset: false });
       renderMediaPicker();
@@ -12874,8 +13144,10 @@ function maybeAutoloadMediaPickerOnScroll() {
 function filteredMediaEntries() {
   const term = mediaPickerQuery.trim().toLowerCase();
   const normalizedTerm = term.replace(/^:+|:+$/g, "");
-  if (!term) return mediaEntriesForActiveTab();
-  return mediaEntriesForActiveTab().filter((entry) => {
+  let entries = mediaEntriesForActiveTab();
+  if (mediaPickerTab === "gif") entries = applyGifScopeToEntries(entries);
+  if (!term) return entries;
+  return entries.filter((entry) => {
     const name = (entry.name || "").toLowerCase();
     if (name.includes(term) || name.includes(normalizedTerm)) return true;
     if (mediaPickerTab === "emoji") {
@@ -12923,7 +13195,9 @@ function openMediaPicker() {
   rememberMediaPickerTab(mediaPickerTab);
   renderMediaPicker();
   if (mediaPickerTab === "gif") {
-    maybeLoadMoreGifPickerEntries({ reset: gifPickerRemoteQueryKey !== gifPickerQueryKey() });
+    if (activeGifScope() === "all") {
+      maybeLoadMoreGifPickerEntries({ reset: gifPickerRemoteQueryKey !== gifPickerQueryKey() });
+    }
   } else if (mediaPickerTab === "emoji") {
     void ensureEmojiLibraryLoaded();
   }
@@ -13050,6 +13324,9 @@ function sendMediaAttachment(entry, type) {
   };
   const messageBucket = conversation.type === "dm" ? conversation.thread.messages : conversation.channel.messages;
   messageBucket.push(nextMessage);
+  if (type === "gif") {
+    trackGifUsage(entry.url, conversation.id);
+  }
   if (type === "swf") {
     addDebugLog("info", "Sent SWF attachment message", { url: entry.url, name: entry.name || "" });
   }
@@ -13221,6 +13498,93 @@ function renderMediaPicker() {
   if (ui.mediaSearchInput.value !== mediaPickerQuery) {
     ui.mediaSearchInput.value = mediaPickerQuery;
   }
+  const header = ui.mediaPicker?.querySelector(".media-picker__header");
+  if (header instanceof HTMLElement) {
+    header.querySelector(".media-picker__gif-tools")?.remove();
+    if (mediaPickerTab === "gif") {
+      const prefs = getPreferences();
+      const scope = normalizeGifScope(prefs.gifScope, prefs.gifGroups);
+      const scopeRow = document.createElement("div");
+      scopeRow.className = "media-picker__gif-tools";
+      const scopeSelect = document.createElement("select");
+      scopeSelect.className = "media-picker__gif-scope";
+      const scopeOptions = [
+        { value: "all", label: "All GIFs" },
+        { value: "favorites", label: "Favorites" },
+        { value: "chat", label: "This Chat" },
+        { value: "time", label: `This ${gifTimeScopeKey(new Date())}` },
+        { value: "network", label: "This Network" }
+      ];
+      scopeOptions.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.label;
+        scopeSelect.appendChild(option);
+      });
+      prefs.gifGroups.forEach((group) => {
+        const option = document.createElement("option");
+        option.value = `group:${group.id}`;
+        option.textContent = `Group: ${group.name}`;
+        scopeSelect.appendChild(option);
+      });
+      scopeSelect.value = scope;
+      scopeSelect.addEventListener("change", () => {
+        updateGifScope(scopeSelect.value);
+        gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+        renderMediaPicker();
+      });
+      const newGroupBtn = document.createElement("button");
+      newGroupBtn.type = "button";
+      newGroupBtn.textContent = "New Group";
+      newGroupBtn.addEventListener("click", () => {
+        const nextName = prompt("New GIF group name", "Favorites");
+        if (typeof nextName !== "string") return;
+        const groupId = upsertGifGroup(nextName);
+        if (!groupId) return;
+        updateGifScope(`group:${groupId}`);
+        renderMediaPicker();
+      });
+      const renameGroupBtn = document.createElement("button");
+      renameGroupBtn.type = "button";
+      renameGroupBtn.textContent = "Rename";
+      const deleteGroupBtn = document.createElement("button");
+      deleteGroupBtn.type = "button";
+      deleteGroupBtn.textContent = "Delete";
+      const currentGroupId = scope.startsWith("group:") ? scope.slice(6) : "";
+      const currentGroup = currentGroupId
+        ? prefs.gifGroups.find((entry) => entry.id === currentGroupId)
+        : null;
+      renameGroupBtn.disabled = !currentGroup;
+      deleteGroupBtn.disabled = !currentGroup;
+      renameGroupBtn.addEventListener("click", () => {
+        if (!currentGroup) return;
+        const nextName = prompt("Rename GIF group", currentGroup.name);
+        if (typeof nextName !== "string") return;
+        state.preferences = getPreferences();
+        state.preferences.gifGroups = normalizeGifGroups(state.preferences.gifGroups).map((group) => (
+          group.id === currentGroup.id
+            ? { ...group, name: nextName.toString().trim().slice(0, 40) || group.name }
+            : group
+        ));
+        saveState();
+        renderMediaPicker();
+      });
+      deleteGroupBtn.addEventListener("click", () => {
+        if (!currentGroup) return;
+        if (!confirm(`Delete GIF group "${currentGroup.name}"?`)) return;
+        state.preferences = getPreferences();
+        state.preferences.gifGroups = normalizeGifGroups(state.preferences.gifGroups).filter((group) => group.id !== currentGroup.id);
+        state.preferences.gifScope = "all";
+        saveState();
+        renderMediaPicker();
+      });
+      scopeRow.appendChild(scopeSelect);
+      scopeRow.appendChild(newGroupBtn);
+      scopeRow.appendChild(renameGroupBtn);
+      scopeRow.appendChild(deleteGroupBtn);
+      header.appendChild(scopeRow);
+    }
+  }
   ui.mediaGrid.innerHTML = "";
   const entries = filteredMediaEntries();
   if (entries.length === 0) {
@@ -13258,10 +13622,11 @@ function renderMediaPicker() {
       && resolvedEntryUrl
       && shouldGateMediaUrl(resolvedEntryUrl)
     );
-    const card = document.createElement((useSwfCard || usePrivacyGate) ? "div" : "button");
+    const useDivCard = useSwfCard || usePrivacyGate || mediaPickerTab === "gif";
+    const card = document.createElement(useDivCard ? "div" : "button");
     if (card instanceof HTMLButtonElement) card.type = "button";
     card.className = `media-card${useSwfCard ? " media-card--swf" : ""}`;
-    if (useSwfCard) {
+    if (useSwfCard || mediaPickerTab === "gif") {
       card.tabIndex = 0;
       card.setAttribute("role", "button");
     }
@@ -13483,14 +13848,73 @@ function renderMediaPicker() {
       img.alt = entry.name || "media";
       card.appendChild(img);
     }
+    if (mediaPickerTab === "gif") {
+      const prefs = getPreferences();
+      const gifUrl = (entry?.url || "").toString().trim();
+      const quickActions = document.createElement("div");
+      quickActions.className = "media-card__quick-actions";
+      const favoriteBtn = document.createElement("button");
+      favoriteBtn.type = "button";
+      favoriteBtn.className = "media-card__quick-btn";
+      const favorited = prefs.gifFavorites.includes(gifUrl);
+      favoriteBtn.textContent = favorited ? "★" : "☆";
+      favoriteBtn.title = favorited ? "Remove from favorites" : "Add to favorites";
+      favoriteBtn.classList.toggle("is-active", favorited);
+      favoriteBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const added = toggleGifFavorite(gifUrl);
+        renderMediaPicker();
+        showToast(added ? "Added GIF to favorites." : "Removed GIF from favorites.");
+      });
+      const groupBtn = document.createElement("button");
+      groupBtn.type = "button";
+      groupBtn.className = "media-card__quick-btn";
+      const scope = activeGifScope();
+      const activeGroupId = scope.startsWith("group:") ? scope.slice(6) : "";
+      const activeGroup = activeGroupId
+        ? prefs.gifGroups.find((group) => group.id === activeGroupId)
+        : null;
+      const inActiveGroup = Boolean(activeGroup && activeGroup.urls.includes(gifUrl));
+      groupBtn.textContent = inActiveGroup ? "−" : "+";
+      groupBtn.title = activeGroup
+        ? (inActiveGroup ? `Remove from ${activeGroup.name}` : `Add to ${activeGroup.name}`)
+        : "Add to GIF group";
+      groupBtn.classList.toggle("is-active", inActiveGroup);
+      groupBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (activeGroup) {
+          const added = toggleGifGroupMembership(gifUrl, activeGroup.id);
+          renderMediaPicker();
+          showToast(added ? `Added to ${activeGroup.name}.` : `Removed from ${activeGroup.name}.`);
+          return;
+        }
+        const added = promptGifGroupForUrl(gifUrl);
+        renderMediaPicker();
+        if (added) showToast("GIF added to group.");
+      });
+      quickActions.appendChild(favoriteBtn);
+      quickActions.appendChild(groupBtn);
+      card.appendChild(quickActions);
+    }
     card.appendChild(label);
     card.addEventListener("click", () => {
       sendMediaAttachment(entry, sendType);
     });
+    if (mediaPickerTab === "gif") {
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        sendMediaAttachment(entry, sendType);
+      });
+    }
     ui.mediaGrid.appendChild(card);
   });
 
   if (mediaPickerTab === "gif") {
+    const scope = activeGifScope();
+    const scopedMode = scope !== "all";
     const hasMoreVisible = entries.length > visibleEntries.length;
     const canLoadRemote = Boolean(gifPickerRemoteNext || (gifPickerRemoteEntries.length === 0 && !gifPickerRemoteError));
     const canRetryRemote = Boolean(gifPickerRemoteError && !gifPickerRemoteLoading);
@@ -13499,7 +13923,12 @@ function renderMediaPicker() {
     footer.style.display = "grid";
     footer.style.gap = "0.35rem";
     const info = document.createElement("div");
-    if (gifPickerRemoteLoading) {
+    if (scopedMode) {
+      const label = scope.startsWith("group:")
+        ? `Group view: ${entries.length} GIF${entries.length === 1 ? "" : "s"}`
+        : `${scope.charAt(0).toUpperCase()}${scope.slice(1)} view: ${entries.length} GIF${entries.length === 1 ? "" : "s"}`;
+      info.textContent = label;
+    } else if (gifPickerRemoteLoading) {
       info.textContent = "Loading more GIFs...";
     } else if (gifPickerRemoteError) {
       info.textContent = gifPickerRemoteError;
@@ -13509,8 +13938,10 @@ function renderMediaPicker() {
     const loadBtn = document.createElement("button");
     loadBtn.type = "button";
     loadBtn.className = "message-action-btn";
-    loadBtn.disabled = gifPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote && !canRetryRemote);
-    if (hasMoreVisible) {
+    loadBtn.disabled = scopedMode || gifPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote && !canRetryRemote);
+    if (scopedMode) {
+      loadBtn.textContent = "Switch to All to load more";
+    } else if (hasMoreVisible) {
       loadBtn.textContent = "Show more GIFs";
     } else if (gifPickerRemoteLoading) {
       loadBtn.textContent = "Loading...";
@@ -13520,8 +13951,9 @@ function renderMediaPicker() {
       loadBtn.textContent = "Load more GIFs";
     }
     loadBtn.addEventListener("click", () => {
+      if (scopedMode) return;
       if (hasMoreVisible) {
-        gifPickerVisibleCount = Math.min(4000, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
+        gifPickerVisibleCount = Math.min(GIF_PICKER_VISIBLE_MAX, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
         renderMediaPicker();
         return;
       }
@@ -13531,7 +13963,7 @@ function renderMediaPicker() {
     footer.appendChild(info);
     footer.appendChild(loadBtn);
     ui.mediaGrid.appendChild(footer);
-    if (!gifPickerRemoteLoading && !gifPickerRemoteError && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
+    if (!scopedMode && !gifPickerRemoteLoading && !gifPickerRemoteError && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
       maybeLoadMoreGifPickerEntries({ reset: false });
     }
   }
@@ -15657,6 +16089,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   previewCanvas.width = 160;
   previewCanvas.height = 90;
   previewCanvas.className = "message-video-seek-preview__canvas";
+  previewCanvas.hidden = true;
   const previewTime = document.createElement("span");
   previewTime.className = "message-video-seek-preview__time";
   previewTime.textContent = "0:00";
@@ -15668,6 +16101,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   let previewVideo = null;
   let previewDisabled = false;
   let previewToken = 0;
+  let seekPointerActive = false;
 
   const seekTargetTime = () => {
     const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
@@ -15716,6 +16150,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
         if (!context) return;
         context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         context.drawImage(node, 0, 0, previewCanvas.width, previewCanvas.height);
+        previewCanvas.hidden = false;
       } catch {
         previewDisabled = true;
         previewCanvas.hidden = true;
@@ -15756,14 +16191,14 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     if (node.readyState < 1) node.load();
   };
 
-  const beginSeek = () => {
+  const beginSeek = ({ showPreview = false } = {}) => {
     if (seeking) return;
     seeking = true;
     seekStartTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
     seekWasPlaying = !video.paused && !video.ended;
     if (seekWasPlaying) video.pause();
-    preview.hidden = false;
-    requestSeekPreviewFrame(seekTargetTime());
+    preview.hidden = !showPreview;
+    if (showPreview) requestSeekPreviewFrame(seekTargetTime());
   };
 
   const finishSeek = ({ cancel = false } = {}) => {
@@ -15829,8 +16264,13 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     sync();
   });
   seek.addEventListener("input", () => {
-    beginSeek();
-    requestSeekPreviewFrame(seekTargetTime());
+    beginSeek({ showPreview: seekPointerActive });
+    if (seekPointerActive) {
+      preview.hidden = false;
+      requestSeekPreviewFrame(seekTargetTime());
+    } else {
+      preview.hidden = true;
+    }
     sync();
   });
   seek.addEventListener("change", () => {
@@ -15843,8 +16283,22 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   });
   seek.addEventListener("blur", () => {
     if (!seeking) return;
+    seekPointerActive = false;
     finishSeek({ cancel: false });
   });
+  seek.addEventListener("pointerdown", () => {
+    seekPointerActive = true;
+    if (seeking) {
+      preview.hidden = false;
+      requestSeekPreviewFrame(seekTargetTime());
+    }
+  });
+  const clearSeekPointer = () => {
+    seekPointerActive = false;
+    if (seeking) preview.hidden = true;
+  };
+  seek.addEventListener("pointerup", clearSeekPointer);
+  seek.addEventListener("pointercancel", clearSeekPointer);
   muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
     if (!video.muted && video.volume <= 0) video.volume = 0.5;
@@ -15889,7 +16343,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   ["play", "pause", "ended", "volumechange", "ratechange", "timeupdate", "loadedmetadata", "enterpictureinpicture", "leavepictureinpicture", "fullscreenchange"]
     .forEach((eventName) => video.addEventListener(eventName, sync));
   seek.addEventListener("mousemove", () => {
-    if (!seeking) return;
+    if (!seeking || !seekPointerActive) return;
     requestSeekPreviewFrame(seekTargetTime());
   });
   sync();
@@ -15922,6 +16376,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const gate = document.createElement("div");
     gate.className = "message-swf message-media-gate";
     gate.dataset.urlPinned = "off";
+    gate.dataset.urlLatched = "off";
     const top = document.createElement("div");
     top.className = "message-media-gate__top";
     const icon = document.createElement("div");
@@ -15959,6 +16414,14 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       gate.classList.toggle("is-url-pinned", !pinned);
       revealUrlBtn.classList.toggle("is-active", !pinned);
     });
+    hostRow.addEventListener("mouseenter", () => {
+      gate.dataset.urlLatched = "on";
+      gate.classList.add("is-url-latched");
+    });
+    gate.addEventListener("mouseleave", () => {
+      gate.dataset.urlLatched = "off";
+      if (gate.dataset.urlPinned !== "on") gate.classList.remove("is-url-latched");
+    });
     hostRow.appendChild(info);
     hostRow.appendChild(openUrlBtn);
     hostRow.appendChild(revealUrlBtn);
@@ -15969,7 +16432,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     armBtn.type = "button";
     armBtn.className = "message-media-gate__icon-btn";
     armBtn.textContent = "⋯";
-    armBtn.title = "Show load options";
+    armBtn.title = "Load options (Once, Trust, Copy, Gate toggle)";
     const controls = document.createElement("div");
     controls.className = "settings-inline-actions message-media-gate__controls";
     controls.hidden = true;
@@ -16039,13 +16502,18 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const allowAllBtn = document.createElement("button");
     allowAllBtn.type = "button";
     allowAllBtn.className = "message-media-gate__option";
-    allowAllBtn.textContent = "Off";
+    const privacyEnabled = getPreferences().mediaPrivacyMode !== "off";
+    allowAllBtn.textContent = privacyEnabled ? "Off" : "On";
+    allowAllBtn.title = privacyEnabled ? "Disable media privacy gate" : "Enable media privacy gate";
     allowAllBtn.addEventListener("click", () => {
       state.preferences = getPreferences();
-      state.preferences.mediaPrivacyMode = "off";
+      const nextMode = state.preferences.mediaPrivacyMode === "off" ? "safe" : "off";
+      state.preferences.mediaPrivacyMode = nextMode;
       saveState();
       renderMessages();
-      showToast("Media privacy gate disabled.");
+      applyPreferencesToUI();
+      if (mediaPickerOpen) renderMediaPicker();
+      showToast(nextMode === "off" ? "Media privacy gate disabled." : "Media privacy gate enabled.");
     });
     controls.appendChild(onceBtn);
     controls.appendChild(trustBtn);
@@ -18885,6 +19353,7 @@ function renderMessages() {
     }
     const groupedWithPrevious = !(!isDm && channel?.type === "forum") && shouldGroupMessageWithPrevious(message, previousThreadMessage);
     if (groupedWithPrevious) messageRow.classList.add("message--grouped");
+    if (groupedWithPrevious) messageRow.title = formatFullTimestamp(message.ts);
     messageRow.dataset.messageId = message.id;
     messageRow.dataset.ts = message.ts;
     messageRow.tabIndex = -1;
@@ -19854,7 +20323,10 @@ function renderMemberList() {
       return;
     }
     occupants.forEach((entry) => {
-      const account = entry.accountId ? getAccountById(entry.accountId) : null;
+      let account = entry.accountId ? getAccountById(entry.accountId) : null;
+      if (!account && entry.jid) {
+        account = ensureAccountByXmppJid(entry.jid, entry.nick || entry.jid?.split("@")[0] || "occupant");
+      }
       const row = document.createElement("button");
       row.className = "member-item";
       const avatar = document.createElement("div");
@@ -19880,9 +20352,10 @@ function renderMemberList() {
       meta.className = "member-meta";
       const label = document.createElement("span");
       label.className = "member-meta__name";
-      label.textContent = account
+      const fallbackName = account
         ? displayNameForAccount(account, server.id)
         : (entry.nick || entry.jid?.split("@")[0] || "occupant");
+      label.textContent = fallbackName;
       if (account) applyNameplateStyle(label, account);
       const status = document.createElement("small");
       status.className = "member-meta__status";
@@ -19891,9 +20364,7 @@ function renderMemberList() {
       meta.appendChild(status);
       row.appendChild(avatar);
       row.appendChild(meta);
-      if (account) {
-        row.addEventListener("click", () => openUserPopout(account));
-      }
+      row.addEventListener("click", () => openUserPopout(account, fallbackName));
       ui.memberList.appendChild(row);
     });
     return;
@@ -22635,6 +23106,17 @@ ui.toggleSwfAudioBtn.addEventListener("contextmenu", (event) => {
   setSwfQuickAudioMode("off");
 });
 
+ui.toggleMediaPrivacyBtn?.addEventListener("click", () => {
+  state.preferences = getPreferences();
+  const nextMode = state.preferences.mediaPrivacyMode === "off" ? "safe" : "off";
+  state.preferences.mediaPrivacyMode = nextMode;
+  saveState();
+  applyPreferencesToUI();
+  if (mediaPickerOpen) renderMediaPicker();
+  renderMessages();
+  showToast(nextMode === "off" ? "Media privacy gate disabled." : "Media privacy gate enabled.");
+});
+
 ui.mediaTabs.forEach((tabBtn) => {
   tabBtn.addEventListener("click", () => {
     const nextTab = tabBtn.dataset.mediaTab;
@@ -22651,7 +23133,7 @@ ui.mediaTabs.forEach((tabBtn) => {
     mediaPickerQuery = "";
     renderMediaPicker();
     if (mediaPickerTab === "gif") {
-      maybeLoadMoreGifPickerEntries({ reset: true });
+      if (activeGifScope() === "all") maybeLoadMoreGifPickerEntries({ reset: true });
     } else if (mediaPickerTab === "emoji") {
       void ensureEmojiLibraryLoaded();
     }
@@ -22671,7 +23153,7 @@ ui.mediaSearchInput.addEventListener("input", () => {
     if (gifPickerQueryDebounceTimer) clearTimeout(gifPickerQueryDebounceTimer);
     gifPickerQueryDebounceTimer = setTimeout(() => {
       gifPickerQueryDebounceTimer = null;
-      maybeLoadMoreGifPickerEntries({ reset: true });
+      if (activeGifScope() === "all") maybeLoadMoreGifPickerEntries({ reset: true });
     }, 220);
   }
 });
@@ -22684,7 +23166,7 @@ ui.mediaSearchInput.addEventListener("keydown", (event) => {
       if (mediaPickerTab === "gif") gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
       if (mediaPickerTab === "emoji") emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
       renderMediaPicker();
-      if (mediaPickerTab === "gif") maybeLoadMoreGifPickerEntries({ reset: true });
+      if (mediaPickerTab === "gif" && activeGifScope() === "all") maybeLoadMoreGifPickerEntries({ reset: true });
       if (mediaPickerTab === "emoji") void ensureEmojiLibraryLoaded();
       return;
     }
@@ -24462,6 +24944,7 @@ document.addEventListener("click", (event) => {
     const inPicker = ui.mediaPicker.contains(event.target);
     const onToggle = ui.openMediaPickerBtn.contains(event.target)
       || ui.toggleSwfAudioBtn.contains(event.target)
+      || ui.toggleMediaPrivacyBtn?.contains(event.target)
       || ui.quickFileAttachBtn.contains(event.target)
       || ui.openGifPickerBtn?.contains(event.target)
       || ui.openStickerPickerBtn?.contains(event.target)

@@ -301,14 +301,21 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Video PiP panel is now draggable and includes inline custom controls inside the PiP host.
 - Video scrubbing now shows a frame-preview tooltip, and `Esc` while scrubbing cancels back to the pre-seek position.
 - Dock mute/deafen toggles now also suppress inline video/audio element playback.
+- Seek-preview frame thumbnails now only appear during active scrub dragging.
 - Text/binary attachment previews are cached in-memory to reduce repeated network fetches and scrolling lag while browsing history.
 - Body-hosted in-chat SWF runtimes now keep header/composer above overlayed content and follow message scroll positioning more reliably.
 - Anchored in-chat SWF overlays are clipped to the message list viewport so they do not bleed over the composer area while scrolling.
+- In-chat SWF control rails/headers are layered above anchored runtimes so controls remain usable.
 - Default initial avatars now use deterministic per-user fallback colors and centered SVG initials for clearer participant lists.
 - Find dialog performance is improved via match caching/debouncing, and jump-to-message now resolves XMPP reference IDs when possible.
 - User/self profile dialogs now expose context-menu quick actions (DM, mention/insert username, copy identity fields).
 - Media privacy gate cards now use a more polished Discord-like layout with lock icon + host badge.
 - Privacy gate host row now uses compact icon actions (open/toggle URL/options), with full URL reveal on host hover or pin toggle.
+- Privacy gate URL reveal now latches while the gate card is hovered, and composer has a quick media-gate on/off toggle button.
+- GIF picker now uses a responsive grid, keeps remote results appending at the bottom, and includes larger built-in fallback GIF seed entries.
+- GIF picker now supports favorites, custom groups, and context scopes (`This Chat`, `This Time`, `This Network`).
+- XMPP room occupant rows in the member sidebar now always open a profile popout (with fallback identity when needed).
+- Grouped message rows now collapse hidden header space and expose timestamps via hover/time tooltip behavior.
 - XMPP rich body extraction now prefers `text/markdown` payloads (`urn:xmpp:content`) and basic XHTML-IM formatting when present.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
 - Candidate probing now also includes common `/ws` + trailing-slash variants and `:5281` defaults, and gateway auth/register attempts can follow HTTP redirect hops before opening the WebSocket.
