@@ -4,7 +4,19 @@ A lightweight Discord-style chat client prototype with local persistence.
 
 ![shitcord67 UI screenshot](Screenshot.png)
 
-## Run (Linux)
+XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
+
+## Run (Recommended: Desktop Electron)
+1. Install dependencies once:
+   - `npm install`
+2. Start desktop client:
+   - `npm run electron`
+   - launches Electron and starts/stops local stack automatically.
+3. Optional gateway modes:
+   - `npm run electron:with-gateway`
+   - `npm run electron:no-gateway`
+
+## Run (Linux Web)
 1. Install dependencies once:
    - `npm install`
 2. Start client + optional XMPP auth gateway with lifecycle cleanup:
@@ -19,16 +31,8 @@ A lightweight Discord-style chat client prototype with local persistence.
 4. Direct script usage (same behavior):
    - `scripts/run-client-stack.sh --help`
 
-## Desktop (Electron)
-1. Install dependencies once:
-   - `npm install`
-2. Start desktop client:
-   - `npm run electron`
-   - this launches Electron and starts/stops the local web stack automatically (`client + optional XMPP gateway`).
-3. Optional gateway modes:
-   - `npm run electron:with-gateway`
-   - `npm run electron:no-gateway`
-4. Optional env overrides:
+## Desktop Env Overrides
+1. Optional env overrides:
    - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`
 
 ## Implemented
