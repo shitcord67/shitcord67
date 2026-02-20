@@ -60,8 +60,10 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Unread + mention badges for channels and guilds, with per-account read tracking.
 - Quick channel filter input in the sidebar.
 - Discord-like media picker panel in the composer (tabs: GIFs, Stickers, Emojis, SWFs, SVGs, PDFs, Text, Docs, HTML).
+- GIF picker can load additional remote results on demand ("Load more GIFs").
 - Click-to-send media attachments from picker (GIF/sticker/SVG/SWF), including local SWF index support via `swf-index.json`.
 - Video attachments render inline with native controls and open-in-tab fallback.
+- GIF media sent as MP4/WebM now autoplay + loop inline (no video control chrome).
 - Sticker picker supports image stickers plus `.apng` and `.lottie` resources.
 - Ruffle and dotLottie runtimes are auto-loaded by the app (no manual user install flow).
 - Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.
@@ -87,9 +89,9 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - SVG attachments in chat include a direct `Download SVG` action.
 - PDF links/attachments render inline in chat with open-in-tab fallback.
 - Media picker includes dedicated `PDFs`, `Text`, and `Docs` tabs for guild-scoped resources (URL or local file import).
-- Composer `+` button opens the media picker, while `📎` opens system file upload (PDF/Text/Docs/BIN).
-- Right-click `+` opens file upload directly; right-click `📎` jumps to the PDF picker tab.
-- Composer has dedicated quick buttons for GIF, Sticker, and Emoji picker tabs.
+- Composer uses `📎` + sound controls on the left, with GIF/Sticker/Emoji quick buttons on the right.
+- Right-click `📎` jumps to the PDF picker tab.
+- Composer message limit is configurable (default 2000); click the char counter for temporary extension and double-click to set default.
 - Drag and drop or clipboard paste of supported files (`.pdf`, text, OpenDocument, RTF, `.bin`) attaches them to composer; press `Enter` to send.
 - Audio links/attachments render with native playback controls.
 - Plain-text/code links (`.txt/.md/.json/.js/.css/...`) render inline preview snippets.
