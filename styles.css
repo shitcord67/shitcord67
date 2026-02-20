@@ -620,6 +620,57 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   bottom: -2px;
 }
 
+.dm-request-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid #31343c;
+  border-radius: 7px;
+  padding: 0.34rem 0.4rem;
+  margin-bottom: 0.28rem;
+  background: #24272f;
+}
+
+.dm-request-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.dm-request-item__meta div {
+  min-width: 0;
+  display: grid;
+}
+
+.dm-request-item__meta strong {
+  font-size: 0.73rem;
+  color: #e7ebf3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-request-item__meta small {
+  font-size: 0.66rem;
+  color: #9ca5b2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-request-item__actions {
+  display: flex;
+  gap: 0.28rem;
+}
+
+.dm-request-item__actions button {
+  border-radius: 999px;
+  padding: 0.14rem 0.44rem;
+  font-size: 0.66rem;
+}
+
 .channel-badge {
   margin-left: auto;
   min-width: 1.2rem;

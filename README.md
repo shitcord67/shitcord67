@@ -220,6 +220,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Forum thread toolbar includes a `Mark all threads read` bulk action.
 - Forum channels support native tag sets and filtering (`/forumtag`, `/tagthread`) with clickable tag chips in the forum toolbar.
 - Messages that mention you (or reply to your message) now get Discord-like highlighted row styling.
+- Mention highlighting also recognizes plain name pings like `username:` (not only `@username`).
 - Keyboard shortcuts: `Alt+K` focus current search, `Ctrl+,` open settings, `Alt+D` toggle DM/guild mode.
 - External HTTP(S) media uses a privacy gate (safe mode) with two-click load options and trust rules (exact domain, `*.wildcard`, `/regex/`).
 - Media privacy gate cards now show a type-accurate label plus full URL, and the account’s own XMPP domain is auto-trusted.
@@ -237,6 +238,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Added login-time XMPP provider/registration directory modal with quick server prefill actions.
 - Added in-client XMPP registration dialog on login (uses local gateway `/register` for XEP-0077 attempt).
 - DM sidebar now supports a Discord-like `Add Friend` modal that accepts username or full XMPP JID and can send an XMPP subscription request.
+- DM sidebar now shows incoming XMPP contact requests with `Accept` / `Decline` actions and a pending-outgoing counter.
 - If `.xmpp.local.json` is accessible to the web app, login shows a local profile dropdown to prefill JID/password/server.
 - When XMPP login credentials are provided, login now validates auth/connection before entering the app and keeps user on login on failure.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
