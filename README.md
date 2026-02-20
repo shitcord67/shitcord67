@@ -89,7 +89,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - SWF link opens are configured with confirmation prompts (`openUrlMode: "confirm"`).
 - Advanced settings now include dedicated `Export SWF Saves` / `Import SWF Saves` (browser local-storage based).
 - SVG attachments in chat include a direct `Download SVG` action.
-- PDF links/attachments render inline in chat with open-in-tab fallback.
+- PDF links/attachments render inline using a custom canvas-based viewer (page + zoom controls) with open/download fallback links.
 - Media picker includes dedicated `PDFs`, `Text`, and `Docs` tabs for guild-scoped resources (URL or local file import).
 - Composer uses `📎` + sound controls on the left, with GIF/Sticker/Emoji quick buttons on the right.
 - Right-click `📎` jumps to the PDF picker tab.
@@ -100,7 +100,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - RTF attachments render as inline plain-text previews.
 - OpenDocument/Office attachments render in an inline frame with open/download fallback links.
 - Binary (`.bin`) attachments render a compact HEX preview in chat.
-- PDF attachments now always include open/download controls plus a fallback note for browsers with inline PDF viewing disabled.
+- PDF viewer controls now auto-hide until hover/focus (touch devices keep controls visible).
 - Keyboard shortcuts: `Ctrl+Shift+G/S/E` open GIF/Sticker/Emoji tabs, `Alt+O` opens PDF tab, `Alt+U` opens file attach.
 - Extra channel shortcuts: `Alt+I` opens pins, `Alt+R` marks current channel read, `Alt+N/P` jumps unread channels, `Alt+ArrowUp/Down` navigates channels.
 - Quest shortcut: `Alt+Q` shows your current quest/badge progress summary.
@@ -276,6 +276,8 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.
 - XMPP sessions now reply to `urn:xmpp:ping` IQs and send periodic keepalive pings (XEP-0199) to improve long-lived connection stability.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
+- XMPP outbound messages now include reply metadata (`urn:xmpp:reply:0`) with fallback quote ranges (`urn:xmpp:fallback:0`) when replying in DM/MUC.
+- XMPP outbound DM/MUC messages now attach `origin-id` references (`urn:xmpp:sid:0`) to improve cross-client dedupe/reply/edit targeting.
 - XMPP reply references now keep stanza reference IDs and can resolve/jump once referenced messages are loaded from archive.
 - Reply preview rows now prefer resolved referenced author/text (when available) and keep click-to-jump behavior.
 - XMPP reply resolution now indexes multiple stanza identifiers (`id`, `stanza-id`, `origin-id`) to improve cross-client reply target lookup.
@@ -293,8 +295,15 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Video embeds now try a local gateway compatibility proxy (`/media-proxy`) first for external sources, then fall back to direct stream if proxy path fails.
 - Non-GIF video attachments now include an inline control strip (play/pause, +/-10s seek, scrub bar, volume/mute, speed, PiP, fullscreen).
 - Video PiP now runs in-client (dock panel) instead of browser/OS Picture-in-Picture windows.
+- Non-GIF video embeds now hide native controls and use custom controls only.
+- SWF/video controls now auto-hide until hover/focus (touch devices keep controls visible).
 - Text/binary attachment previews are cached in-memory to reduce repeated network fetches and scrolling lag while browsing history.
 - Body-hosted in-chat SWF runtimes now keep header/composer above overlayed content and follow message scroll positioning more reliably.
+- Anchored in-chat SWF overlays are clipped to the message list viewport so they do not bleed over the composer area while scrolling.
+- Default initial avatars now use deterministic per-user fallback colors and centered SVG initials for clearer participant lists.
+- Find dialog performance is improved via match caching/debouncing, and jump-to-message now resolves XMPP reference IDs when possible.
+- User/self profile dialogs now expose context-menu quick actions (DM, mention/insert username, copy identity fields).
+- Media privacy gate cards now use a more polished Discord-like layout with lock icon + host badge.
 - XMPP rich body extraction now prefers `text/markdown` payloads (`urn:xmpp:content`) and basic XHTML-IM formatting when present.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
 - Candidate probing now also includes common `/ws` + trailing-slash variants and `:5281` defaults, and gateway auth/register attempts can follow HTTP redirect hops before opening the WebSocket.

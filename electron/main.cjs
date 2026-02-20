@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserWindow, dialog, shell, session } = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const http = require("node:http");
@@ -14,6 +14,7 @@ const GATEWAY_HOST = process.env.GATEWAY_HOST || "127.0.0.1";
 const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 8790);
 const GATEWAY_MODE = String(process.env.ELECTRON_GATEWAY_MODE || "auto").toLowerCase();
 const START_TIMEOUT_MS = Math.max(3000, Number(process.env.ELECTRON_START_TIMEOUT_MS || 20000));
+const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
 
 const CLIENT_URL = `http://${CLIENT_HOST}:${CLIENT_PORT}/`;
 
@@ -21,6 +22,7 @@ let mainWindow = null;
 let stackProcess = null;
 let stackStopTimer = null;
 let isShuttingDown = false;
+let securityHeadersInstalled = false;
 
 function log(message, extra = "") {
   const suffix = extra ? ` ${extra}` : "";
@@ -153,6 +155,20 @@ function stopStackScript() {
   }, 4000);
 }
 
+function installClientSecurityHeaders() {
+  if (securityHeadersInstalled) return;
+  securityHeadersInstalled = true;
+  const origin = new URL(CLIENT_URL).origin;
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: [`${origin}/*`] },
+    (details, callback) => {
+      const headers = details.responseHeaders ? { ...details.responseHeaders } : {};
+      headers["Content-Security-Policy"] = [CLIENT_CSP];
+      callback({ responseHeaders: headers });
+    }
+  );
+}
+
 function attachNavigationGuards(windowInstance, allowedOrigin) {
   windowInstance.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url).catch(() => {});
@@ -163,6 +179,19 @@ function attachNavigationGuards(windowInstance, allowedOrigin) {
     if (url.startsWith(allowedOrigin)) return;
     event.preventDefault();
     shell.openExternal(url).catch(() => {});
+  });
+}
+
+function attachDeveloperShortcuts(windowInstance) {
+  if (!windowInstance?.webContents) return;
+  windowInstance.webContents.on("before-input-event", (event, input) => {
+    const key = (input?.key || "").toUpperCase();
+    const wantsF12 = key === "F12";
+    const wantsCtrlShiftI = key === "I" && input.control && input.shift;
+    const wantsCmdAltI = key === "I" && input.meta && input.alt;
+    if (!wantsF12 && !wantsCtrlShiftI && !wantsCmdAltI) return;
+    event.preventDefault();
+    windowInstance.webContents.toggleDevTools();
   });
 }
 
@@ -186,6 +215,7 @@ async function createMainWindow() {
 
   const origin = new URL(CLIENT_URL).origin;
   attachNavigationGuards(browser, origin);
+  attachDeveloperShortcuts(browser);
 
   await browser.loadURL(CLIENT_URL);
 
@@ -212,6 +242,7 @@ app.on("will-quit", () => {
 
 app.whenReady().then(async () => {
   try {
+    installClientSecurityHeaders();
     startStackScript();
     await waitForClientReady(CLIENT_URL, START_TIMEOUT_MS);
     await createMainWindow();

@@ -920,9 +920,12 @@ let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
 let mediaRuntimeBootstrapped = false;
+let pdfRuntimeLoadPromise = null;
 let mediaPickerScrollLoadRaf = 0;
 let pipDragState = null;
 let pipSuppressHeaderToggle = false;
+let swfLayoutResizeObserver = null;
+let swfLayoutMutationObserver = null;
 let toastHideTimer = null;
 let composerPendingAttachment = null;
 let composerPendingAttachments = [];
@@ -943,6 +946,9 @@ let findAfterFilter = "";
 let findBeforeFilter = "";
 let findHasLinkOnly = false;
 let findSelectionIndex = 0;
+let findRenderTimer = null;
+let findMatchesCacheKey = "";
+let findMatchesCache = [];
 let pendingFindJumpMessageId = "";
 let pendingFindJumpAttempts = 0;
 let lastRenderedMessageSignature = "";
@@ -1056,6 +1062,7 @@ const ui = {
   activeChannelGlyph: document.getElementById("activeChannelGlyph"),
   activeChannelLabel: document.getElementById("activeChannelLabel"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
+  chatHeader: document.querySelector(".chat-header"),
   chatHeaderRight: document.querySelector(".chat-header__right"),
   relayHeaderBadge: document.getElementById("relayHeaderBadge"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
@@ -1076,6 +1083,8 @@ const ui = {
   swfShelf: document.getElementById("swfShelf"),
   swfShelfList: document.getElementById("swfShelfList"),
   clearSwfShelfBtn: document.getElementById("clearSwfShelfBtn"),
+  chatPanel: document.querySelector(".chat-panel"),
+  composerStack: document.querySelector(".composer-stack"),
   messageForm: document.getElementById("messageForm"),
   messageInput: document.getElementById("messageInput"),
   composerSystemNotice: document.getElementById("composerSystemNotice"),
@@ -2157,6 +2166,54 @@ function hasActiveFindSpec(spec) {
   return Boolean(spec.term || spec.author || spec.afterMs || spec.beforeMs || spec.hasLink);
 }
 
+function activeConversationFindBucket(conversation) {
+  if (!conversation) return [];
+  if (conversation.type === "dm") return conversation.thread?.messages || [];
+  return conversation.channel?.messages || [];
+}
+
+function findMatchCacheKey(conversation, spec, bucket, channelType) {
+  const list = Array.isArray(bucket) ? bucket : [];
+  const first = list[0] || null;
+  const last = list[list.length - 1] || null;
+  return [
+    conversation?.id || "",
+    conversation?.type || "",
+    channelType || "",
+    spec?.term || "",
+    spec?.author || "",
+    Number(spec?.afterMs || 0),
+    Number(spec?.beforeMs || 0),
+    spec?.hasLink ? "1" : "0",
+    list.length,
+    first?.id || "",
+    first?.editedAt || first?.ts || "",
+    last?.id || "",
+    last?.editedAt || last?.ts || ""
+  ].join("|");
+}
+
+function resetFindMatchCache() {
+  findMatchesCacheKey = "";
+  findMatchesCache = [];
+}
+
+function activeConversationHistoryState(conversation = getActiveConversation()) {
+  if (!conversation || getPreferences().relayMode !== "xmpp") return null;
+  if (conversation.type === "dm" && conversation.thread) {
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, getCurrentAccount());
+    const barePeer = xmppBareJid(peerJid);
+    if (!barePeer) return null;
+    return ensureXmppDmMamState(barePeer);
+  }
+  if (conversation.type === "channel" && conversation.channel?.xmppRoomJid) {
+    const roomJid = xmppBareJid(conversation.channel.xmppRoomJid);
+    if (!roomJid) return null;
+    return ensureXmppMamState(roomJid);
+  }
+  return null;
+}
+
 function messageHasLink(message, channelType = "text") {
   if (!message) return false;
   const text = searchableMessageText(message, channelType);
@@ -2203,15 +2260,23 @@ function getFindMatchesForConversation(conversation, query) {
   if (!conversation || !hasActiveFindSpec(spec)) return [];
   const isDm = conversation.type === "dm";
   const channelType = isDm ? "text" : (conversation.channel?.type || "text");
-  const bucket = isDm ? (conversation.thread?.messages || []) : (conversation.channel?.messages || []);
-  return bucket
-    .filter((message) => messageMatchesFindSpec(message, spec, channelType))
-    .map((message) => ({
+  const bucket = activeConversationFindBucket(conversation);
+  const cacheKey = findMatchCacheKey(conversation, spec, bucket, channelType);
+  if (cacheKey === findMatchesCacheKey) return findMatchesCache.slice();
+  const out = [];
+  for (const message of bucket) {
+    if (!messageMatchesFindSpec(message, spec, channelType)) continue;
+    out.push({
       id: message.id,
       ts: message.ts,
       author: displayNameForMessage(message),
       preview: searchableMessageText(message, channelType).replace(/\s+/g, " ").trim().slice(0, 120)
-    }));
+    });
+    if (out.length >= 900) break;
+  }
+  findMatchesCacheKey = cacheKey;
+  findMatchesCache = out;
+  return out.slice();
 }
 
 function getFindActiveMessageId() {
@@ -2254,7 +2319,6 @@ function renderFindList() {
     row.addEventListener("mouseenter", () => {
       findSelectionIndex = index;
       renderFindList();
-      renderMessages();
     });
     row.addEventListener("click", () => {
       findSelectionIndex = index;
@@ -2264,6 +2328,16 @@ function renderFindList() {
     });
     ui.findList.appendChild(row);
   });
+}
+
+function scheduleFindUiRefresh({ rerenderMessages = true, delayMs = 80 } = {}) {
+  if (findRenderTimer) clearTimeout(findRenderTimer);
+  findRenderTimer = setTimeout(() => {
+    findRenderTimer = null;
+    resetFindMatchCache();
+    renderFindList();
+    if (rerenderMessages) renderMessages();
+  }, Math.max(0, Number(delayMs) || 0));
 }
 
 function openFindDialog() {
@@ -2278,6 +2352,7 @@ function openFindDialog() {
   if (ui.findAfterInput) ui.findAfterInput.value = "";
   if (ui.findBeforeInput) ui.findBeforeInput.value = "";
   if (ui.findHasLinkInput) ui.findHasLinkInput.checked = false;
+  resetFindMatchCache();
   renderFindList();
   ui.findDialog?.showModal();
   requestAnimationFrame(() => ui.findInput?.focus());
@@ -2297,6 +2372,7 @@ function openFindDialogWithQuery(query) {
   if (ui.findAfterInput) ui.findAfterInput.value = findAfterFilter;
   if (ui.findBeforeInput) ui.findBeforeInput.value = findBeforeFilter;
   if (ui.findHasLinkInput) ui.findHasLinkInput.checked = findHasLinkOnly;
+  resetFindMatchCache();
   renderFindList();
   ui.findDialog?.showModal();
   renderMessages();
@@ -3225,9 +3301,21 @@ function formatFullTimestamp(iso) {
   });
 }
 
+function resolveMessageIdForFocus(messageId, conversation = getActiveConversation()) {
+  const raw = (messageId || "").toString().trim();
+  if (!raw || !conversation) return "";
+  const bucket = activeConversationFindBucket(conversation);
+  const direct = bucket.find((entry) => (entry?.id || "").toString() === raw) || null;
+  if (direct?.id) return direct.id;
+  const byRef = bucket.find((entry) => messageMatchesXmppReference(entry, raw)) || null;
+  if (byRef?.id) return byRef.id;
+  return "";
+}
+
 function focusMessageById(messageId) {
   if (!messageId) return false;
-  const row = ui.messageList.querySelector(`[data-message-id="${messageId}"]`);
+  const resolvedId = resolveMessageIdForFocus(messageId) || (messageId || "").toString();
+  const row = ui.messageList.querySelector(`[data-message-id="${resolvedId}"]`);
   if (!(row instanceof HTMLElement)) return false;
   row.scrollIntoView({ block: "center", behavior: "smooth" });
   row.classList.add("message--flash");
@@ -3244,10 +3332,17 @@ function focusMessageByIdWithHistory(messageId, { toastOnLoad = false } = {}) {
     pendingFindJumpAttempts = 0;
     return true;
   }
+  pendingFindJumpMessageId = (messageId || "").toString();
+  pendingFindJumpAttempts = 32;
   const started = maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "find" });
-  if (!started) return false;
-  pendingFindJumpMessageId = messageId;
-  pendingFindJumpAttempts = 8;
+  if (!started) {
+    const historyState = activeConversationHistoryState();
+    if (!historyState?.loading) {
+      pendingFindJumpMessageId = "";
+      pendingFindJumpAttempts = 0;
+      return false;
+    }
+  }
   if (toastOnLoad) showToast("Loading older messages to reach that result...");
   return true;
 }
@@ -6814,6 +6909,100 @@ function primaryXmppReferenceIdForMessage(message) {
   return refs[0] || "";
 }
 
+function xmppReplyFallbackPrefix(replyMeta) {
+  if (!replyMeta || typeof replyMeta !== "object") return "";
+  const name = decodeHtmlEntities((replyMeta.authorName || "message").toString())
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60) || "message";
+  const preview = decodeHtmlEntities((replyMeta.text || "XMPP reply").toString())
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 140) || "XMPP reply";
+  return `> ${name}: ${preview}\n\n`;
+}
+
+function buildXmppMessageBody(message, replyMeta = null) {
+  const payload = relayMessageBodyText(message);
+  if (!replyMeta?.id) {
+    return {
+      body: payload,
+      fallbackPrefixLength: 0
+    };
+  }
+  const prefix = xmppReplyFallbackPrefix(replyMeta);
+  return {
+    body: `${prefix}${payload || ""}`,
+    fallbackPrefixLength: prefix.length
+  };
+}
+
+function resolveXmppReplyMetaForDm(thread, message, account, peerJid = "") {
+  if (!thread || !message?.replyTo || typeof message.replyTo !== "object") return null;
+  const explicitRef = (message.replyTo.stanzaId || "").toString().trim();
+  const repliedMessageId = (message.replyTo.messageId || "").toString().trim();
+  const targetMessage = repliedMessageId ? findMessageInChannel(thread, repliedMessageId) : null;
+  const referenceId = explicitRef || primaryXmppReferenceIdForMessage(targetMessage);
+  if (!referenceId) return null;
+  const targetAuthorAccount = targetMessage?.userId ? getAccountById(targetMessage.userId) : null;
+  const replyToJid = normalizeXmppJid(targetAuthorAccount?.xmppJid || peerJid || "");
+  const authorName = (message.replyTo.authorName || displayNameForMessage(targetMessage) || "message").toString();
+  const previewText = (message.replyTo.text || targetMessage?.text || "XMPP reply").toString();
+  return {
+    id: referenceId,
+    to: replyToJid,
+    authorName,
+    text: previewText,
+    isOwnTarget: Boolean(targetMessage?.userId && targetMessage.userId === account?.id)
+  };
+}
+
+function resolveXmppReplyMetaForRoom(channel, message, roomJid = "") {
+  if (!channel || !message?.replyTo || typeof message.replyTo !== "object") return null;
+  const explicitRef = (message.replyTo.stanzaId || "").toString().trim();
+  const repliedMessageId = (message.replyTo.messageId || "").toString().trim();
+  const targetMessage = repliedMessageId ? findMessageInChannel(channel, repliedMessageId) : null;
+  const referenceId = explicitRef || primaryXmppReferenceIdForMessage(targetMessage);
+  if (!referenceId) return null;
+  const roomBare = xmppBareJid(roomJid);
+  const fallbackAuthor = (message.replyTo.authorName || displayNameForMessage(targetMessage) || "message").toString().trim();
+  const nick = (targetMessage?.xmppNick || fallbackAuthor).toString().replace(/\//g, " ").replace(/\s+/g, " ").trim();
+  const replyToJid = roomBare && nick ? `${roomBare}/${nick.slice(0, 96)}` : roomBare;
+  const previewText = (message.replyTo.text || targetMessage?.text || "XMPP reply").toString();
+  return {
+    id: referenceId,
+    to: replyToJid,
+    authorName: fallbackAuthor,
+    text: previewText
+  };
+}
+
+function appendXmppReplyNodes(stanza, replyMeta, fallbackPrefixLength = 0) {
+  if (!stanza || !replyMeta?.id) return stanza;
+  stanza.up();
+  const attrs = {
+    xmlns: "urn:xmpp:reply:0",
+    id: replyMeta.id
+  };
+  if (replyMeta.to) attrs.to = replyMeta.to;
+  stanza.c("reply", attrs).up();
+  if (fallbackPrefixLength > 0) {
+    stanza
+      .c("fallback", { xmlns: "urn:xmpp:fallback:0", for: "urn:xmpp:reply:0" })
+      .c("body", { start: "0", end: String(fallbackPrefixLength) })
+      .up()
+      .up();
+  }
+  return stanza;
+}
+
+function appendXmppOriginIdNode(stanza, originId) {
+  const value = (originId || "").toString().trim();
+  if (!stanza || !value) return stanza;
+  stanza.c("origin-id", { xmlns: "urn:xmpp:sid:0", id: value }).up();
+  return stanza;
+}
+
 function publishXmppMessageCorrection(conversation, message, account) {
   const prefs = getPreferences();
   if (prefs.relayMode !== "xmpp" || relayStatus !== "connected" || !xmppConnection || !globalThis.$msg) {
@@ -6823,55 +7012,67 @@ function publishXmppMessageCorrection(conversation, message, account) {
   if ((message.userId || "") !== account.id) return { ok: false, reason: "not-author" };
   const targetRefId = primaryXmppReferenceIdForMessage(message);
   if (!targetRefId) return { ok: false, reason: "missing-reference" };
-  const body = relayMessageBodyText(message);
-  if (!body) return { ok: false, reason: "empty-body" };
   const correctionStanzaId = `s67-edit-${createId().slice(0, 12)}`;
+  const correctionOriginId = `s67-origin-${createId().slice(0, 12)}`;
   const replaceNode = { xmlns: "urn:xmpp:message-correct:0", id: targetRefId };
   if (conversation.type === "dm" && conversation.thread) {
     const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
     const dmRoom = relayRoomForDmThread(conversation.thread);
     const roomJid = xmppRoomJidForToken(dmRoom, prefs);
     if (peerJid) {
+      const replyMeta = resolveXmppReplyMetaForDm(conversation.thread, message, account, peerJid);
+      const bodyPayload = buildXmppMessageBody(message, replyMeta);
+      if (!(bodyPayload.body || "").trim()) return { ok: false, reason: "empty-body" };
       const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: correctionStanzaId })
-        .c("body").t(body)
-        .up()
-        .c("replace", replaceNode)
-        .up()
-        .c("request", { xmlns: "urn:xmpp:receipts" });
+        .c("body").t(bodyPayload.body);
+      appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+      stanza.c("replace", replaceNode).up();
+      appendXmppOriginIdNode(stanza, correctionOriginId);
+      stanza.c("request", { xmlns: "urn:xmpp:receipts" });
       xmppConnection.send(stanza);
       rememberXmppPendingReceipt(correctionStanzaId, conversation.thread, message, peerJid);
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
         targetRefId,
-        correctionStanzaId
+        correctionStanzaId,
+        correctionOriginId
       ]);
       rememberXmppDmMessage(peerJid, correctionStanzaId, message);
+      rememberXmppDmMessage(peerJid, correctionOriginId, message);
       addXmppDebugEvent("message", "Sent XMPP message correction", {
         scope: "dm",
         to: peerJid,
         replaceId: targetRefId,
-        id: correctionStanzaId
+        id: correctionStanzaId,
+        originId: correctionOriginId
       });
       return { ok: true, id: correctionStanzaId, targetId: targetRefId };
     }
     if (roomJid) {
+      const replyMeta = resolveXmppReplyMetaForRoom(conversation.thread, message, roomJid);
+      const bodyPayload = buildXmppMessageBody(message, replyMeta);
+      if (!(bodyPayload.body || "").trim()) return { ok: false, reason: "empty-body" };
       const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
-        .c("body").t(body)
-        .up()
-        .c("replace", replaceNode);
+        .c("body").t(bodyPayload.body);
+      appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+      stanza.c("replace", replaceNode).up();
+      appendXmppOriginIdNode(stanza, correctionOriginId);
       xmppConnection.send(stanza);
       message.xmppStanzaId = correctionStanzaId;
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
         targetRefId,
-        correctionStanzaId
+        correctionStanzaId,
+        correctionOriginId
       ]);
       rememberXmppRoomMessage(roomJid, correctionStanzaId, message);
+      rememberXmppRoomMessage(roomJid, correctionOriginId, message);
       addXmppDebugEvent("message", "Sent XMPP message correction", {
         scope: "dm-room",
         to: roomJid,
         replaceId: targetRefId,
-        id: correctionStanzaId
+        id: correctionStanzaId,
+        originId: correctionOriginId
       });
       return { ok: true, id: correctionStanzaId, targetId: targetRefId };
     }
@@ -6885,23 +7086,30 @@ function publishXmppMessageCorrection(conversation, message, account) {
       roomJid = xmppRoomJidForToken(roomToken || relayRoomForActiveConversation(), prefs);
     }
     if (!roomJid) return { ok: false, reason: "missing-room-target" };
+    const replyMeta = resolveXmppReplyMetaForRoom(conversation.channel, message, roomJid);
+    const bodyPayload = buildXmppMessageBody(message, replyMeta);
+    if (!(bodyPayload.body || "").trim()) return { ok: false, reason: "empty-body" };
     const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
-      .c("body").t(body)
-      .up()
-      .c("replace", replaceNode);
+      .c("body").t(bodyPayload.body);
+    appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+    stanza.c("replace", replaceNode).up();
+    appendXmppOriginIdNode(stanza, correctionOriginId);
     xmppConnection.send(stanza);
     message.xmppStanzaId = correctionStanzaId;
     message.xmppRefIds = normalizeXmppRefIdsList([
       ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
       targetRefId,
-      correctionStanzaId
+      correctionStanzaId,
+      correctionOriginId
     ]);
     rememberXmppRoomMessage(roomJid, correctionStanzaId, message);
+    rememberXmppRoomMessage(roomJid, correctionOriginId, message);
     addXmppDebugEvent("message", "Sent XMPP message correction", {
       scope: "muc",
       to: roomJid,
       replaceId: targetRefId,
-      id: correctionStanzaId
+      id: correctionStanzaId,
+      originId: correctionOriginId
     });
     return { ok: true, id: correctionStanzaId, targetId: targetRefId };
   }
@@ -6924,10 +7132,25 @@ function publishRelayChannelMessage(channel, message, account) {
       return false;
     }
     joinXmppRoom(room, account);
-    const body = relayMessageBodyText(message);
-    if (!body) return false;
-    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c("body").t(body);
+    const replyMeta = resolveXmppReplyMetaForRoom(channel, message, roomJid);
+    const bodyPayload = buildXmppMessageBody(message, replyMeta);
+    if (!(bodyPayload.body || "").trim()) return false;
+    const stanzaId = `s67-${createId().slice(0, 12)}`;
+    const originId = `s67-origin-${createId().slice(0, 12)}`;
+    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
+      .c("body")
+      .t(bodyPayload.body);
+    appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+    appendXmppOriginIdNode(stanza, originId);
     xmppConnection.send(stanza);
+    message.xmppStanzaId = stanzaId;
+    message.xmppRefIds = normalizeXmppRefIdsList([
+      ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+      stanzaId,
+      originId
+    ]);
+    rememberXmppRoomMessage(roomJid, stanzaId, message);
+    rememberXmppRoomMessage(roomJid, originId, message);
     return true;
   }
   if (prefs.relayMode === "http") {
@@ -7007,21 +7230,50 @@ function publishRelayDirectMessage(thread, message, account) {
       setRelayStatus("error", "XMPP MUC service not configured.");
       return false;
     }
-    const body = relayMessageBodyText(message);
-    if (!body) return false;
     if (peerJid) {
       const stanzaId = `s67-${createId().slice(0, 12)}`;
+      const originId = `s67-origin-${createId().slice(0, 12)}`;
+      const replyMeta = resolveXmppReplyMetaForDm(thread, message, account, peerJid);
+      const bodyPayload = buildXmppMessageBody(message, replyMeta);
+      if (!(bodyPayload.body || "").trim()) return false;
       const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId })
-        .c("body").t(body)
-        .up()
-        .c("request", { xmlns: "urn:xmpp:receipts" });
+        .c("body")
+        .t(bodyPayload.body);
+      appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+      appendXmppOriginIdNode(stanza, originId);
+      stanza.c("request", { xmlns: "urn:xmpp:receipts" });
       xmppConnection.send(stanza);
       rememberXmppPendingReceipt(stanzaId, thread, message, peerJid);
+      message.xmppStanzaId = stanzaId;
+      message.xmppRefIds = normalizeXmppRefIdsList([
+        ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+        stanzaId,
+        originId
+      ]);
+      rememberXmppDmMessage(peerJid, stanzaId, message);
+      rememberXmppDmMessage(peerJid, originId, message);
       return true;
     }
     joinXmppRoom(room, account);
-    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c("body").t(body);
+    const stanzaId = `s67-${createId().slice(0, 12)}`;
+    const originId = `s67-origin-${createId().slice(0, 12)}`;
+    const replyMeta = resolveXmppReplyMetaForRoom(thread, message, roomJid);
+    const bodyPayload = buildXmppMessageBody(message, replyMeta);
+    if (!(bodyPayload.body || "").trim()) return false;
+    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
+      .c("body")
+      .t(bodyPayload.body);
+    appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+    appendXmppOriginIdNode(stanza, originId);
     xmppConnection.send(stanza);
+    message.xmppStanzaId = stanzaId;
+    message.xmppRefIds = normalizeXmppRefIdsList([
+      ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+      stanzaId,
+      originId
+    ]);
+    rememberXmppRoomMessage(roomJid, stanzaId, message);
+    rememberXmppRoomMessage(roomJid, originId, message);
     return true;
   }
   if (prefs.relayMode === "http") {
@@ -7475,8 +7727,13 @@ function applyAvatarStyle(element, account, guildId = null) {
   if (!(element instanceof HTMLElement)) return;
   const avatar = resolveAccountAvatar(account, guildId);
   element.textContent = "";
+  delete element.dataset.initial;
+  element.removeAttribute("aria-label");
   element.style.backgroundImage = "";
-  element.style.backgroundColor = avatar.color || "#57f287";
+  const resolvedColor = avatar.color || "#57f287";
+  element.style.backgroundColor = isDefaultAvatarColor(resolvedColor)
+    ? fallbackAvatarColorForAccount(account, guildId, resolvedColor)
+    : resolvedColor;
   if (isRenderableAvatarUrl(avatar.url || "")) {
     element.style.backgroundImage = `url(${avatar.url})`;
     element.style.backgroundSize = "cover";
@@ -7484,7 +7741,7 @@ function applyAvatarStyle(element, account, guildId = null) {
     return;
   }
   if (shouldUseStrictInitialAvatar(account, guildId)) {
-    element.textContent = firstAvatarInitial(displayNameForAccount(account, guildId) || account?.username || "?");
+    applyAvatarInitialGlyph(element, displayNameForAccount(account, guildId) || account?.username || "?");
   }
 }
 
@@ -11279,6 +11536,22 @@ function setSwfQuickAudioMode(mode) {
   applyPreferencesToUI();
 }
 
+function grantSwfAudioClickFocus(runtimeKey) {
+  if (!runtimeKey) return;
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime) return;
+  const prefs = getPreferences();
+  if (prefs.swfQuickAudioMode !== "click") {
+    refreshSwfAudioFocus(runtimeKey);
+    return;
+  }
+  swfRuntimes.forEach((entry) => {
+    entry.audioClickAllowed = false;
+  });
+  runtime.audioClickAllowed = true;
+  refreshSwfAudioFocus(runtimeKey);
+}
+
 function refreshSwfAudioFocus(preferredKey = null) {
   const prefs = getPreferences();
   const mode = prefs.swfQuickAudioMode;
@@ -11417,6 +11690,78 @@ function firstAvatarInitial(name) {
   if (!cleaned) return "?";
   const char = [...cleaned][0] || "?";
   return char.toUpperCase();
+}
+
+function escapeSvgText(value) {
+  return (value || "")
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function avatarInitialSvgDataUrl(initial) {
+  const safeInitial = escapeSvgText(firstAvatarInitial(initial) || "?");
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='56' text-anchor='middle' dominant-baseline='middle' font-family='Inter,Arial,sans-serif' font-size='56' font-weight='700' fill='white'>${safeInitial}</text></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+function applyAvatarInitialGlyph(element, label) {
+  if (!(element instanceof HTMLElement)) return;
+  const initial = firstAvatarInitial(label || "?");
+  element.textContent = "";
+  element.dataset.initial = initial;
+  element.setAttribute("aria-label", initial);
+  element.style.backgroundImage = avatarInitialSvgDataUrl(initial);
+  element.style.backgroundSize = "cover";
+  element.style.backgroundPosition = "center";
+}
+
+const DEFAULT_AVATAR_COLOR_PALETTE = [
+  "#5865f2",
+  "#3ba55d",
+  "#eb459e",
+  "#faa81a",
+  "#1abc9c",
+  "#ed4245",
+  "#57f287",
+  "#5d6bf9",
+  "#8e5cf6",
+  "#2d8cff",
+  "#4ecca3",
+  "#f47b67"
+];
+
+function hashString32(value) {
+  const source = (value || "").toString();
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return hash >>> 0;
+}
+
+function isDefaultAvatarColor(color) {
+  const token = (color || "").toString().trim().toLowerCase();
+  return !token || token === "#57f287";
+}
+
+function fallbackAvatarColorForSeed(seed, currentColor = "") {
+  const normalizedSeed = (seed || "").toString().trim().toLowerCase() || "avatar";
+  if (!normalizedSeed) return currentColor || "#57f287";
+  const hash = hashString32(normalizedSeed);
+  return DEFAULT_AVATAR_COLOR_PALETTE[hash % DEFAULT_AVATAR_COLOR_PALETTE.length];
+}
+
+function fallbackAvatarColorForAccount(account, guildId = null, currentColor = "") {
+  if (!account || typeof account !== "object") return currentColor || "#57f287";
+  const fallbackSeed = [
+    accountBareXmppJid(account),
+    (account.username || "").toString(),
+    (displayNameForAccount(account, guildId) || "").toString()
+  ].find((entry) => (entry || "").toString().trim()) || "avatar";
+  return fallbackAvatarColorForSeed(fallbackSeed, currentColor);
 }
 
 function shouldUseStrictInitialAvatar(account, guildId = null) {
@@ -13625,7 +13970,83 @@ function requestSwfRuntimeLayoutSync() {
   });
 }
 
+function activeMessageViewportRect() {
+  if (!(ui.messageList instanceof HTMLElement) || !ui.messageList.isConnected) return null;
+  const rect = ui.messageList.getBoundingClientRect();
+  if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height) || rect.width <= 1 || rect.height <= 1) return null;
+  let left = rect.left;
+  let top = rect.top;
+  let right = rect.right;
+  let bottom = rect.bottom;
+  const panelRect = ui.chatPanel instanceof HTMLElement ? ui.chatPanel.getBoundingClientRect() : null;
+  if (panelRect) {
+    left = Math.max(left, panelRect.left);
+    right = Math.min(right, panelRect.right);
+    top = Math.max(top, panelRect.top);
+    bottom = Math.min(bottom, panelRect.bottom);
+  }
+  const headerRect = ui.chatHeader instanceof HTMLElement ? ui.chatHeader.getBoundingClientRect() : null;
+  if (headerRect) {
+    top = Math.max(top, headerRect.bottom);
+  }
+  const composerRect = ui.composerStack instanceof HTMLElement ? ui.composerStack.getBoundingClientRect() : null;
+  if (composerRect) {
+    bottom = Math.min(bottom, composerRect.top);
+  }
+  if (!(right > left && bottom > top)) return null;
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top
+  };
+}
+
+function initializeSwfLayoutObservers() {
+  if (swfLayoutResizeObserver || swfLayoutMutationObserver) return;
+  if (typeof ResizeObserver === "function") {
+    swfLayoutResizeObserver = new ResizeObserver(() => {
+      requestSwfRuntimeLayoutSync();
+    });
+    [
+      ui.messageList,
+      ui.chatHeader,
+      ui.composerStack,
+      ui.chatPanel,
+      ui.messageForm
+    ].forEach((element) => {
+      if (element instanceof HTMLElement) swfLayoutResizeObserver.observe(element);
+    });
+  }
+  if (ui.messageList instanceof HTMLElement && typeof MutationObserver === "function") {
+    swfLayoutMutationObserver = new MutationObserver(() => {
+      requestSwfRuntimeLayoutSync();
+    });
+    swfLayoutMutationObserver.observe(ui.messageList, { childList: true, subtree: true });
+  }
+}
+
+function rectIntersection(rectA, rectB) {
+  if (!rectA || !rectB) return null;
+  const left = Math.max(rectA.left, rectB.left);
+  const top = Math.max(rectA.top, rectB.top);
+  const right = Math.min(rectA.right, rectB.right);
+  const bottom = Math.min(rectA.bottom, rectB.bottom);
+  if (right <= left || bottom <= top) return null;
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top
+  };
+}
+
 function positionSwfAnchoredRuntimeHosts() {
+  const messageViewport = activeMessageViewportRect();
   swfRuntimes.forEach((runtime, runtimeKey) => {
     if (!runtime || !shouldUseAnchoredBodySwfRuntime(runtimeKey) || runtime.inPip || runtime.floating) return;
     const host = ensureSwfRuntimeBodyHost(runtimeKey, runtime);
@@ -13641,7 +14062,17 @@ function positionSwfAnchoredRuntimeHosts() {
       return;
     }
     const rect = anchor.getBoundingClientRect();
-    const visible = Number.isFinite(rect.width)
+    const clipBounds = messageViewport ? rectIntersection(rect, messageViewport) : rect;
+    const visible = Boolean(clipBounds)
+      && Number.isFinite(clipBounds.width)
+      && Number.isFinite(clipBounds.height)
+      && clipBounds.width > 2
+      && clipBounds.height > 2
+      && clipBounds.bottom > 0
+      && clipBounds.right > 0
+      && clipBounds.top < window.innerHeight
+      && clipBounds.left < window.innerWidth;
+    const rawVisible = Number.isFinite(rect.width)
       && Number.isFinite(rect.height)
       && rect.width > 2
       && rect.height > 2
@@ -13654,14 +14085,25 @@ function positionSwfAnchoredRuntimeHosts() {
     host.style.borderColor = "";
     host.style.background = "";
     host.style.boxShadow = "";
+    host.style.clipPath = "";
+    host.style.overflow = "hidden";
     host.style.left = `${rect.left}px`;
     host.style.top = `${rect.top}px`;
     host.style.width = `${Math.max(1, rect.width)}px`;
     host.style.height = `${Math.max(1, rect.height)}px`;
-    host.style.zIndex = "12";
+    host.style.zIndex = "2";
     host.style.pointerEvents = visible ? "auto" : "none";
     host.style.opacity = visible ? "1" : "0";
     host.style.visibility = visible ? "visible" : "hidden";
+    if (messageViewport && rawVisible) {
+      const clipTop = Math.max(0, messageViewport.top - rect.top);
+      const clipRight = Math.max(0, rect.right - messageViewport.right);
+      const clipBottom = Math.max(0, rect.bottom - messageViewport.bottom);
+      const clipLeft = Math.max(0, messageViewport.left - rect.left);
+      if (clipTop > 0 || clipRight > 0 || clipBottom > 0 || clipLeft > 0) {
+        host.style.clipPath = `inset(${clipTop}px ${clipRight}px ${clipBottom}px ${clipLeft}px round 6px)`;
+      }
+    }
     runtime.parked = !visible;
     applySwfVisibilityPlayback(runtimeKey, visible);
   });
@@ -14001,10 +14443,16 @@ function setSwfPlayback(runtimeKey, shouldPlay, reason = "system") {
 
 function runtimeIsVisible(runtime) {
   if (!runtime?.host || !runtime.host.isConnected) return false;
+  if (runtime.host.style.visibility === "hidden" || runtime.host.style.opacity === "0") return false;
   const rect = runtime.host.getBoundingClientRect();
   if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return false;
   if (rect.width <= 2 || rect.height <= 2) return false;
-  return rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth;
+  if (!(rect.bottom > 0 && rect.right > 0 && rect.top < window.innerHeight && rect.left < window.innerWidth)) return false;
+  if (runtime.anchorHost instanceof HTMLElement && runtime.anchorHost.isConnected) {
+    const viewport = activeMessageViewportRect();
+    if (viewport && !rectIntersection(rect, viewport)) return false;
+  }
+  return true;
 }
 
 function runtimeDistanceToViewportCenter(runtime) {
@@ -14708,6 +15156,250 @@ function attachmentTypeDisplayLabel(type, mediaUrl = "") {
   return "file";
 }
 
+async function ensurePdfRuntimeLoaded() {
+  if (window.pdfjsLib?.getDocument) return window.pdfjsLib;
+  if (pdfRuntimeLoadPromise) return pdfRuntimeLoadPromise;
+  pdfRuntimeLoadPromise = (async () => {
+    const localCandidates = [
+      "vendor/pdfjs/pdf.min.js",
+      "vendor/pdfjs/build/pdf.min.js"
+    ];
+    for (const candidate of localCandidates) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const exists = await localRuntimeExists(candidate);
+        if (!exists) continue;
+        // eslint-disable-next-line no-await-in-loop
+        await loadScriptTag(candidate);
+        if (window.pdfjsLib?.getDocument) {
+          addDebugLog("info", "Loaded local PDF runtime", { src: candidate });
+          return window.pdfjsLib;
+        }
+      } catch (error) {
+        addDebugLog("warn", "Local PDF runtime candidate failed", { src: candidate, error: String(error) });
+      }
+    }
+    const remoteCandidates = [
+      "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js",
+      "https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"
+    ];
+    for (const candidate of remoteCandidates) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await loadScriptTag(candidate);
+        if (window.pdfjsLib?.getDocument) {
+          addDebugLog("info", "Loaded CDN PDF runtime", { src: candidate });
+          return window.pdfjsLib;
+        }
+      } catch (error) {
+        addDebugLog("warn", "CDN PDF runtime candidate failed", { src: candidate, error: String(error) });
+      }
+    }
+    throw new Error("PDF runtime unavailable");
+  })().catch((error) => {
+    addDebugLog("warn", "Failed to load custom PDF runtime", { error: String(error) });
+    return null;
+  }).finally(() => {
+    pdfRuntimeLoadPromise = null;
+  });
+  return pdfRuntimeLoadPromise;
+}
+
+function clampPdfZoom(value) {
+  return Math.max(0.45, Math.min(3.25, Number(value) || 1));
+}
+
+function createPdfPreviewElement(sourceUrl, attachmentName = "PDF") {
+  const pdfUrl = resolveMediaUrl(sourceUrl);
+  const shell = document.createElement("div");
+  shell.className = "message-pdf-viewer";
+  const controls = document.createElement("div");
+  controls.className = "message-pdf-controls";
+  const prevBtn = document.createElement("button");
+  prevBtn.type = "button";
+  prevBtn.textContent = "←";
+  prevBtn.title = "Previous page";
+  const nextBtn = document.createElement("button");
+  nextBtn.type = "button";
+  nextBtn.textContent = "→";
+  nextBtn.title = "Next page";
+  const pageLabel = document.createElement("span");
+  pageLabel.className = "message-pdf-controls__page";
+  pageLabel.textContent = "Page 0 / 0";
+  const zoomOutBtn = document.createElement("button");
+  zoomOutBtn.type = "button";
+  zoomOutBtn.textContent = "−";
+  zoomOutBtn.title = "Zoom out";
+  const zoomFitBtn = document.createElement("button");
+  zoomFitBtn.type = "button";
+  zoomFitBtn.textContent = "Fit";
+  zoomFitBtn.title = "Fit width";
+  const zoomInBtn = document.createElement("button");
+  zoomInBtn.type = "button";
+  zoomInBtn.textContent = "+";
+  zoomInBtn.title = "Zoom in";
+  controls.appendChild(prevBtn);
+  controls.appendChild(nextBtn);
+  controls.appendChild(pageLabel);
+  controls.appendChild(zoomOutBtn);
+  controls.appendChild(zoomFitBtn);
+  controls.appendChild(zoomInBtn);
+  shell.appendChild(controls);
+
+  const viewport = document.createElement("div");
+  viewport.className = "message-pdf-viewport";
+  const canvas = document.createElement("canvas");
+  canvas.className = "message-pdf-canvas";
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", `${attachmentName} preview`);
+  const status = document.createElement("div");
+  status.className = "message-pdf-status";
+  status.textContent = "Loading PDF preview…";
+  viewport.appendChild(canvas);
+  viewport.appendChild(status);
+  shell.appendChild(viewport);
+
+  const state = {
+    document: null,
+    page: 1,
+    zoom: 1,
+    fitWidth: true,
+    renderingToken: 0,
+    rendering: false
+  };
+
+  const setStatus = (text = "", { tone = "info" } = {}) => {
+    const hasText = Boolean((text || "").trim());
+    status.textContent = text;
+    status.hidden = !hasText;
+    status.dataset.tone = tone;
+  };
+
+  const updateControls = () => {
+    const pages = state.document?.numPages || 0;
+    pageLabel.textContent = pages > 0 ? `Page ${state.page} / ${pages}` : "Page 0 / 0";
+    prevBtn.disabled = !state.document || state.page <= 1 || state.rendering;
+    nextBtn.disabled = !state.document || state.page >= pages || state.rendering;
+    zoomOutBtn.disabled = !state.document || state.rendering;
+    zoomInBtn.disabled = !state.document || state.rendering;
+    zoomFitBtn.disabled = !state.document || state.rendering;
+    zoomFitBtn.classList.toggle("is-active", Boolean(state.fitWidth));
+  };
+
+  const currentScaleForViewport = (baseViewport) => {
+    if (!state.fitWidth || !Number.isFinite(baseViewport?.width) || baseViewport.width <= 0) {
+      return clampPdfZoom(state.zoom);
+    }
+    const available = Math.max(220, viewport.clientWidth - 18);
+    return clampPdfZoom(available / baseViewport.width);
+  };
+
+  const renderCurrentPage = async () => {
+    const doc = state.document;
+    if (!doc) return;
+    const page = Math.max(1, Math.min(doc.numPages, state.page));
+    state.page = page;
+    state.rendering = true;
+    const token = ++state.renderingToken;
+    updateControls();
+    setStatus("Rendering page…");
+    try {
+      const pageProxy = await doc.getPage(page);
+      if (token !== state.renderingToken) return;
+      const baseViewport = pageProxy.getViewport({ scale: 1 });
+      const targetScale = currentScaleForViewport(baseViewport);
+      if (!state.fitWidth) state.zoom = targetScale;
+      const targetViewport = pageProxy.getViewport({ scale: targetScale });
+      const ratio = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width = Math.max(1, Math.floor(targetViewport.width * ratio));
+      canvas.height = Math.max(1, Math.floor(targetViewport.height * ratio));
+      canvas.style.width = `${Math.max(1, Math.floor(targetViewport.width))}px`;
+      canvas.style.height = `${Math.max(1, Math.floor(targetViewport.height))}px`;
+      const context = canvas.getContext("2d", { alpha: false });
+      if (!context) throw new Error("Canvas context unavailable");
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, targetViewport.width, targetViewport.height);
+      const renderTask = pageProxy.render({
+        canvasContext: context,
+        viewport: targetViewport
+      });
+      await renderTask.promise;
+      if (token !== state.renderingToken) return;
+      setStatus("");
+    } catch (error) {
+      if (token !== state.renderingToken) return;
+      setStatus("Could not render this PDF page.", { tone: "error" });
+      addDebugLog("warn", "PDF page render failed", { url: pdfUrl, error: String(error) });
+    } finally {
+      if (token === state.renderingToken) {
+        state.rendering = false;
+        updateControls();
+      }
+    }
+  };
+
+  const queueRender = () => {
+    void renderCurrentPage();
+  };
+
+  prevBtn.addEventListener("click", () => {
+    if (!state.document || state.page <= 1) return;
+    state.page -= 1;
+    queueRender();
+  });
+  nextBtn.addEventListener("click", () => {
+    if (!state.document || state.page >= state.document.numPages) return;
+    state.page += 1;
+    queueRender();
+  });
+  zoomOutBtn.addEventListener("click", () => {
+    state.fitWidth = false;
+    state.zoom = clampPdfZoom(state.zoom / 1.12);
+    queueRender();
+  });
+  zoomInBtn.addEventListener("click", () => {
+    state.fitWidth = false;
+    state.zoom = clampPdfZoom(state.zoom * 1.12);
+    queueRender();
+  });
+  zoomFitBtn.addEventListener("click", () => {
+    state.fitWidth = true;
+    queueRender();
+  });
+
+  void ensurePdfRuntimeLoaded()
+    .then(async (pdfjs) => {
+      if (!pdfjs?.getDocument) {
+        setStatus("Custom PDF renderer unavailable. Use open/download.", { tone: "error" });
+        updateControls();
+        return;
+      }
+      setStatus("Loading PDF document…");
+      updateControls();
+      const loadTask = pdfjs.getDocument({
+        url: pdfUrl,
+        disableWorker: true,
+        isEvalSupported: false,
+        withCredentials: false
+      });
+      const documentProxy = await loadTask.promise;
+      state.document = documentProxy;
+      state.page = 1;
+      state.zoom = 1;
+      state.fitWidth = true;
+      updateControls();
+      await renderCurrentPage();
+    })
+    .catch((error) => {
+      setStatus("Could not load PDF preview.", { tone: "error" });
+      updateControls();
+      addDebugLog("warn", "PDF document load failed", { url: pdfUrl, error: String(error) });
+    });
+
+  updateControls();
+  return shell;
+}
+
 function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = null, options = {}) {
   const opts = options && typeof options === "object" ? options : {};
   const animatedLoop = Boolean(opts.animatedLoop);
@@ -14722,7 +15414,7 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   video.autoplay = animatedLoop;
   video.loop = animatedLoop;
   video.muted = animatedLoop;
-  video.controls = !animatedLoop;
+  video.controls = false;
   video.playsInline = true;
   video.preload = "metadata";
   let candidateIndex = 0;
@@ -14972,12 +15664,20 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const host = mediaUrlHost(mediaUrl) || "external host";
     const kind = attachmentTypeDisplayLabel(type, mediaUrl);
     const gate = document.createElement("div");
-    gate.className = "message-swf";
+    gate.className = "message-swf message-media-gate";
+    const icon = document.createElement("div");
+    icon.className = "message-media-gate__icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" focusable="false" aria-hidden="true">
+        <path fill="currentColor" d="M12 2a4 4 0 0 0-4 4v2H7a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-8a3 3 0 0 0-3-3h-1V6a4 4 0 0 0-4-4Zm-2 6V6a2 2 0 1 1 4 0v2h-4Zm2 4a2 2 0 0 1 1 3.732V18h-2v-2.268A2 2 0 0 1 12 12Z"/>
+      </svg>
+    `;
     const title = document.createElement("strong");
     title.textContent = `External ${kind} hidden`;
     const info = document.createElement("div");
-    info.className = "message-swf-meta";
-    info.textContent = `Host: ${host}`;
+    info.className = "message-swf-meta message-media-gate__host";
+    info.textContent = host;
     const urlNote = document.createElement("div");
     urlNote.className = "message-embed-note";
     urlNote.textContent = mediaUrl;
@@ -15072,6 +15772,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       controls.hidden = !controls.hidden;
       armBtn.textContent = controls.hidden ? "Show load options" : "Hide load options";
     });
+    gate.appendChild(icon);
     gate.appendChild(title);
     gate.appendChild(info);
     gate.appendChild(urlNote);
@@ -15201,14 +15902,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       const runtime = swfRuntimes.get(swfKey);
       if (!runtime) return;
       setSwfPlayback(swfKey, true, "user");
-      const prefs = getPreferences();
-      if (prefs.swfQuickAudioMode === "click") {
-        swfRuntimes.forEach((entry) => {
-          entry.audioClickAllowed = false;
-        });
-        runtime.audioClickAllowed = true;
-      }
-      if (runtime.audioEnabled) refreshSwfAudioFocus(swfKey);
+      if (runtime.audioEnabled) grantSwfAudioClickFocus(swfKey);
     });
     const audioToggleBtn = document.createElement("button");
     audioToggleBtn.type = "button";
@@ -15225,6 +15919,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       audioToggleBtn.title = `${audioEnabled ? "Mute SWF audio" : "Unmute SWF audio"}. Right-click to pin (skip auto-mute).`;
       audioToggleBtn.setAttribute("aria-label", `${audioEnabled ? "Mute SWF audio" : "Unmute SWF audio"}. Right-click to pin (skip auto-mute).`);
       updateSwfRuntimeAudio(swfKey, { enabled: audioEnabled });
+      if (audioEnabled) grantSwfAudioClickFocus(swfKey);
     });
     audioToggleBtn.addEventListener("contextmenu", (event) => {
       event.preventDefault();
@@ -15247,6 +15942,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     audioSlider.setAttribute("aria-label", "SWF volume");
     audioSlider.addEventListener("input", () => {
       updateSwfRuntimeAudio(swfKey, { volume: Number(audioSlider.value) });
+      grantSwfAudioClickFocus(swfKey);
     });
     const jumpBtn = document.createElement("button");
     jumpBtn.type = "button";
@@ -15306,6 +16002,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       const runtime = swfKey ? swfRuntimes.get(swfKey) : null;
       if (runtime) {
         setSwfPlayback(swfKey, true, "user");
+        grantSwfAudioClickFocus(swfKey);
       } else {
         attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
       }
@@ -15529,14 +16226,10 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   if (type === "pdf") {
     const note = document.createElement("div");
     note.className = "message-embed-note";
-    note.textContent = "If the PDF preview is blank, your browser PDF viewer may be disabled. Use open/download.";
+    note.textContent = "Custom PDF preview with page and zoom controls.";
     wrap.appendChild(note);
-    const frame = document.createElement("iframe");
-    frame.className = "message-pdf-frame";
-    frame.loading = "lazy";
-    frame.referrerPolicy = "no-referrer";
-    frame.src = mediaUrl;
-    wrap.appendChild(frame);
+    const viewer = createPdfPreviewElement(mediaUrl, attachment.name || "PDF");
+    wrap.appendChild(viewer);
     const openBtn = document.createElement("a");
     openBtn.className = "message-swf-link";
     openBtn.href = mediaUrl;
@@ -16020,7 +16713,8 @@ function renderDmList() {
         if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
         applyAvatarStyle(avatar, account, null);
       } else {
-        avatar.textContent = firstAvatarInitial(entry.name || entry.jid || "?");
+        avatar.style.backgroundColor = fallbackAvatarColorForSeed(entry.name || entry.jid || "");
+        applyAvatarInitialGlyph(avatar, entry.name || entry.jid || "?");
       }
       left.appendChild(avatar);
       const textWrap = document.createElement("div");
@@ -16626,6 +17320,54 @@ function openUserPopout(account, fallbackName = "Unknown") {
   if (ui.userDmInput) ui.userDmInput.value = "";
   if (account?.id && current && account.id !== current.id && ui.userDmInput) ui.userDmInput.focus();
   ui.userPopoutDialog.showModal();
+}
+
+function mentionAccountInComposer(account) {
+  if (!account?.username || !(ui.messageInput instanceof HTMLTextAreaElement)) return false;
+  const conversation = getActiveConversation();
+  if (!conversation) return false;
+  const prefix = ui.messageInput.value.trim();
+  ui.messageInput.value = trimTextForConversation(`${prefix ? `${prefix} ` : ""}@${account.username} `, conversation);
+  setComposerDraft(conversation.id, ui.messageInput.value);
+  resizeComposerInput();
+  ui.messageInput.focus();
+  return true;
+}
+
+function openProfileContextMenu(event, account, { self = false } = {}) {
+  if (!(event instanceof MouseEvent) || !account) return;
+  const current = getCurrentAccount();
+  const inDm = getViewMode() === "dm";
+  const jid = accountBareXmppJid(account);
+  openContextMenu(event, [
+    { label: "View Profile", action: () => openUserPopout(account) },
+    {
+      label: "Open DM",
+      disabled: !current || account.id === current.id,
+      action: () => {
+        if (!current || account.id === current.id) return;
+        ui.userPopoutDialog?.close?.();
+        ui.selfMenuDialog?.close?.();
+        openDmWithAccount(account);
+      }
+    },
+    {
+      label: inDm || self ? "Insert Username" : "Mention in Composer",
+      disabled: !current || account.id === current.id,
+      action: () => {
+        mentionAccountInComposer(account);
+      }
+    },
+    {
+      label: "Copy",
+      submenu: [
+        { label: "Display Name", action: () => copyText(displayNameForAccount(account, null) || account.username || "") },
+        { label: "Username", action: () => copyText(account.username || "") },
+        { label: "User ID", action: () => copyText(account.id || "") },
+        { label: "XMPP JID", disabled: !jid, action: () => copyText(jid || "") }
+      ]
+    }
+  ]);
 }
 
 function forumMessageParts(message) {
@@ -17893,7 +18635,8 @@ function renderMessages() {
         avatar.style.backgroundSize = "cover";
         avatar.style.backgroundPosition = "center";
       } else {
-        avatar.textContent = firstAvatarInitial(displayNameForMessage(message));
+        avatar.style.backgroundColor = fallbackAvatarColorForSeed(displayNameForMessage(message));
+        applyAvatarInitialGlyph(avatar, displayNameForMessage(message));
       }
     }
     avatar.title = displayNameForMessage(message);
@@ -18486,11 +19229,19 @@ function renderMessages() {
     if (focusMessageById(pendingFindJumpMessageId)) {
       pendingFindJumpMessageId = "";
       pendingFindJumpAttempts = 0;
-    } else if (pendingFindJumpAttempts > 0) {
-      pendingFindJumpAttempts -= 1;
-      maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "find" });
     } else {
-      pendingFindJumpMessageId = "";
+      const started = maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "find" });
+      const historyState = activeConversationHistoryState();
+      if (started) {
+        pendingFindJumpAttempts = Math.max(0, pendingFindJumpAttempts - 1);
+      } else if (historyState?.loading) {
+        // Keep waiting while a MAM page is in-flight.
+      } else if (historyState?.complete || pendingFindJumpAttempts <= 0) {
+        pendingFindJumpMessageId = "";
+        pendingFindJumpAttempts = 0;
+      } else {
+        pendingFindJumpAttempts = Math.max(0, pendingFindJumpAttempts - 1);
+      }
     }
   }
   lastRenderedMessageSignature = messageSignature;
@@ -22308,32 +23059,27 @@ ui.contextMenu?.addEventListener("contextmenu", (event) => {
 ui.findInput?.addEventListener("input", () => {
   findQuery = ui.findInput.value.slice(0, 120);
   findSelectionIndex = 0;
-  renderFindList();
-  renderMessages();
+  scheduleFindUiRefresh({ rerenderMessages: true, delayMs: 70 });
 });
 ui.findAuthorInput?.addEventListener("input", () => {
   findAuthorFilter = ui.findAuthorInput.value.slice(0, 32);
   findSelectionIndex = 0;
-  renderFindList();
-  renderMessages();
+  scheduleFindUiRefresh({ rerenderMessages: true, delayMs: 70 });
 });
 ui.findAfterInput?.addEventListener("input", () => {
   findAfterFilter = ui.findAfterInput.value;
   findSelectionIndex = 0;
-  renderFindList();
-  renderMessages();
+  scheduleFindUiRefresh({ rerenderMessages: true, delayMs: 70 });
 });
 ui.findBeforeInput?.addEventListener("input", () => {
   findBeforeFilter = ui.findBeforeInput.value;
   findSelectionIndex = 0;
-  renderFindList();
-  renderMessages();
+  scheduleFindUiRefresh({ rerenderMessages: true, delayMs: 70 });
 });
 ui.findHasLinkInput?.addEventListener("change", () => {
   findHasLinkOnly = Boolean(ui.findHasLinkInput.checked);
   findSelectionIndex = 0;
-  renderFindList();
-  renderMessages();
+  scheduleFindUiRefresh({ rerenderMessages: true, delayMs: 0 });
 });
 ui.findInput?.addEventListener("keydown", (event) => {
   if (event.key === "ArrowDown") {
@@ -22373,6 +23119,11 @@ ui.findDialog?.addEventListener("close", () => {
   if (ui.findAfterInput) ui.findAfterInput.value = "";
   if (ui.findBeforeInput) ui.findBeforeInput.value = "";
   if (ui.findHasLinkInput) ui.findHasLinkInput.checked = false;
+  if (findRenderTimer) {
+    clearTimeout(findRenderTimer);
+    findRenderTimer = null;
+  }
+  resetFindMatchCache();
   renderFindList();
   renderMessages();
 });
@@ -22472,6 +23223,16 @@ ui.swfViewerDialog.addEventListener("close", () => {
 });
 ui.userPopoutDialog.addEventListener("close", () => {
   selectedUserPopoutId = null;
+});
+ui.userPopoutDialog.addEventListener("contextmenu", (event) => {
+  const account = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
+  if (!account) return;
+  openProfileContextMenu(event, account, { self: false });
+});
+ui.selfMenuDialog?.addEventListener("contextmenu", (event) => {
+  const account = getCurrentAccount();
+  if (!account) return;
+  openProfileContextMenu(event, account, { self: true });
 });
 
 ui.openRolesBtn.addEventListener("click", () => {
@@ -23583,6 +24344,12 @@ if (window.visualViewport) {
 ui.messageList?.addEventListener("scroll", () => {
   requestSwfRuntimeLayoutSync();
 });
+ui.messageList?.addEventListener("load", (event) => {
+  if (!(event.target instanceof HTMLElement)) return;
+  if (!event.target.closest(".message")) return;
+  requestSwfRuntimeLayoutSync();
+}, true);
+initializeSwfLayoutObservers();
 
 document.addEventListener("fullscreenchange", () => {
   if (document.fullscreenElement) {

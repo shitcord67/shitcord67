@@ -21,10 +21,10 @@ Status labels:
 | XEP-0280 | Message Carbons | Partial | Client requests carbons and processes carbon forwarded stanzas. |
 | XEP-0297 | Stanza Forwarding | Partial | Forwarded stanzas are consumed for MAM/carbons handling. |
 | XEP-0313 | Message Archive Management (MAM) | Partial | Loads archived history for MUC and DM, with pagination support. |
-| XEP-0359 | Unique and Stable Stanza IDs | Partial | Uses stanza IDs/reference IDs for dedupe and reply matching when available. |
+| XEP-0359 | Unique and Stable Stanza IDs | Partial | Uses stanza IDs/reference IDs for dedupe and reply matching; outbound XMPP sends now include `origin-id` hints. |
 | XEP-0308 | Last Message Correction | Partial | Incoming `replace` corrections (`urn:xmpp:message-correct:0`) update matching DM/MUC messages, and local edits attempt to publish correction stanzas when a reference ID is known. |
 | XEP-0402 | PEP Native Bookmarks | Partial | Reads modern bookmarks via PubSub, with legacy fallback. |
-| XEP-0461 | Message Replies | Partial | Parses reply metadata and tries to resolve reply target IDs/text. |
+| XEP-0461 | Message Replies | Partial | Parses incoming reply metadata and now also publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |
 | XEP-0428 | Fallback Indication | Partial | Consumes fallback ranges to clean reply fallback text for `XEP-0461` messages. |
 | XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`). |
 | XEP-0048 | Bookmarks (legacy) | Partial | Legacy bookmark storage fallback is supported. |
