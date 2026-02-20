@@ -4176,6 +4176,84 @@ function xmppReceiptReceivedId(stanza) {
   return (node?.getAttribute("id") || "").toString().trim();
 }
 
+function xmppMessageCorrectionTargetId(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const node = [...stanza.getElementsByTagName("replace")]
+    .find((entry) => xmppNodeHasXmlns(entry, "urn:xmpp:message-correct:0")) || null;
+  return (node?.getAttribute("id") || "").toString().trim();
+}
+
+function messageMatchesXmppReference(message, referenceId) {
+  const key = (referenceId || "").toString().trim();
+  if (!message || !key) return false;
+  if ((message.id || "").toString() === key) return true;
+  if ((message.xmppStanzaId || "").toString() === key) return true;
+  if (Array.isArray(message.xmppRefIds) && message.xmppRefIds.some((ref) => (ref || "").toString() === key)) return true;
+  if ((message.relayId || "").toString().endsWith(`::${key}`)) return true;
+  return false;
+}
+
+function applyXmppCorrectionToMessageEntry(target, {
+  text = "",
+  attachments = [],
+  timestamp = "",
+  editorUserId = "",
+  editorName = "",
+  stanzaId = "",
+  stanzaRefs = []
+} = {}) {
+  if (!target) return { handled: false, changed: false };
+  let contentChanged = false;
+  let metaChanged = false;
+  const nextText = clampMessageTextForStorage((text || "").toString());
+  if (nextText.trim() && nextText !== (target.text || "").toString()) {
+    if (!Array.isArray(target.editHistory)) target.editHistory = [];
+    target.editHistory.unshift({
+      editedAt: Number.isFinite(Date.parse(timestamp || "")) ? new Date(timestamp).toISOString() : new Date().toISOString(),
+      editorUserId: editorUserId || target.userId || "",
+      editorName: editorName || displayNameForMessage(target) || "xmpp",
+      previousText: (target.text || "").toString()
+    });
+    if (target.editHistory.length > 25) target.editHistory = target.editHistory.slice(0, 25);
+    target.text = nextText;
+    contentChanged = true;
+  }
+  const currentAttachments = normalizeAttachments(target.attachments);
+  const nextAttachments = normalizeAttachments(attachments);
+  const attachmentSignature = (items) => items
+    .map((entry) => `${entry.type || ""}|${entry.url || ""}|${entry.name || ""}|${entry.format || ""}`)
+    .join("||");
+  if (nextAttachments.length > 0 && attachmentSignature(nextAttachments) !== attachmentSignature(currentAttachments)) {
+    target.attachments = nextAttachments;
+    contentChanged = true;
+  }
+  const mergedRefIds = normalizeXmppRefIdsList([
+    ...normalizeXmppRefIdsList(target.xmppRefIds),
+    ...normalizeXmppRefIdsList(stanzaRefs),
+    stanzaId
+  ]);
+  const currentRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
+  if (mergedRefIds.length !== currentRefIds.length || mergedRefIds.some((entry, index) => entry !== currentRefIds[index])) {
+    target.xmppRefIds = mergedRefIds;
+    metaChanged = true;
+  }
+  if (stanzaId && (target.xmppStanzaId || "").toString() !== stanzaId) {
+    target.xmppStanzaId = stanzaId;
+    metaChanged = true;
+  }
+  if (contentChanged) {
+    target.editedAt = Number.isFinite(Date.parse(timestamp || "")) ? new Date(timestamp).toISOString() : new Date().toISOString();
+    target.editedByUserId = editorUserId || target.userId || "";
+    target.editedByName = editorName || displayNameForMessage(target) || "xmpp";
+    target.editedByStaff = false;
+  }
+  return {
+    handled: true,
+    changed: contentChanged || metaChanged,
+    contentChanged
+  };
+}
+
 function trimXmppPendingReceiptMap(limit = 600) {
   const max = Math.max(64, Number(limit) || 600);
   while (xmppPendingReceiptByStanzaId.size > max) {
@@ -4463,6 +4541,71 @@ function findXmppDmMessageByAnyId(peerJid, messageRefId) {
     messageId: matched.id || "",
     authorName: displayNameForMessage(matched),
     text: (matched.text || "").toString().slice(0, 180)
+  };
+}
+
+function findXmppDmThreadByPeerJid(peerJid) {
+  const barePeer = xmppBareJid(peerJid);
+  const current = getCurrentAccount();
+  const peer = getAccountByXmppJid(barePeer);
+  if (!barePeer || !current || !peer || peer.id === current.id) return null;
+  return state.dmThreads.find((entry) => (
+    Array.isArray(entry?.participantIds)
+    && entry.participantIds.includes(current.id)
+    && entry.participantIds.includes(peer.id)
+  )) || null;
+}
+
+function applyXmppDmMessageCorrection(peerJid, targetRefId, payload = {}) {
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer || !targetRefId) return { handled: false, changed: false, contentChanged: false, thread: null };
+  const thread = findXmppDmThreadByPeerJid(barePeer);
+  if (!thread || !Array.isArray(thread.messages)) return { handled: false, changed: false, contentChanged: false, thread: null };
+  const mapped = findXmppDmMessageByAnyId(barePeer, targetRefId);
+  const target = thread.messages.find((entry) => (
+    messageMatchesXmppReference(entry, targetRefId)
+    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
+  )) || null;
+  if (!target) return { handled: false, changed: false, contentChanged: false, thread };
+  const applied = applyXmppCorrectionToMessageEntry(target, payload);
+  const trackedRefs = normalizeXmppRefIdsList([
+    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+    target.xmppStanzaId || "",
+    targetRefId,
+    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+    payload?.stanzaId || ""
+  ]);
+  trackedRefs.forEach((refId) => rememberXmppDmMessage(barePeer, refId, target));
+  return {
+    ...applied,
+    thread
+  };
+}
+
+function applyXmppRoomMessageCorrection(roomJid, targetRefId, payload = {}) {
+  const bareRoom = xmppBareJid(roomJid);
+  if (!bareRoom || !targetRefId) return { handled: false, changed: false, contentChanged: false, channel: null };
+  const roomToken = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
+  const channel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(bareRoom);
+  if (!channel || !Array.isArray(channel.messages)) return { handled: false, changed: false, contentChanged: false, channel: null };
+  const mapped = findXmppRoomMessageByAnyId(bareRoom, targetRefId);
+  const target = channel.messages.find((entry) => (
+    messageMatchesXmppReference(entry, targetRefId)
+    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
+  )) || null;
+  if (!target) return { handled: false, changed: false, contentChanged: false, channel };
+  const applied = applyXmppCorrectionToMessageEntry(target, payload);
+  const trackedRefs = normalizeXmppRefIdsList([
+    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+    target.xmppStanzaId || "",
+    targetRefId,
+    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+    payload?.stanzaId || ""
+  ]);
+  trackedRefs.forEach((refId) => rememberXmppRoomMessage(bareRoom, refId, target));
+  return {
+    ...applied,
+    channel
   };
 }
 
@@ -5478,6 +5621,11 @@ function mergeRelayMessageEntry(target, incoming) {
     target.xmppNick = incoming.xmppNick;
     changed = true;
   }
+  const incomingStanzaId = (incoming.xmppStanzaId || "").toString().trim();
+  if (incomingStanzaId && incomingStanzaId !== (target.xmppStanzaId || "").toString().trim()) {
+    target.xmppStanzaId = incomingStanzaId;
+    changed = true;
+  }
   const targetRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
   const incomingRefIds = normalizeXmppRefIdsList(incoming.xmppRefIds);
   if (incomingRefIds.length > 0) {
@@ -5869,6 +6017,8 @@ function connectRelaySocket({ force = false } = {}) {
         const receiptRequest = xmppReceiptRequestNode(stanza);
         const receiptReceivedId = xmppReceiptReceivedId(stanza);
         const stanzaMessageId = (stanza.getAttribute("id") || "").toString().trim();
+        const stanzaRefs = xmppStanzaReferenceIds(stanza);
+        const correctionTargetId = xmppMessageCorrectionTargetId(stanza);
         if (isDirectLike) {
           const toBare = xmppBareJid(stanza.getAttribute("to") || "");
           const ownAuthor = Boolean(allowSelf && ownBare && bareFrom === ownBare);
@@ -5914,9 +6064,42 @@ function connectRelaySocket({ force = false } = {}) {
               }
             });
           }
+          if (correctionTargetId && (text.trim() || attachments.length > 0)) {
+            const correctionResult = applyXmppDmMessageCorrection(peerBare, correctionTargetId, {
+              text,
+              attachments,
+              timestamp,
+              editorUserId: ownAuthor ? current.id : peer.id,
+              editorName: ownAuthor
+                ? (current.displayName || current.username)
+                : (peer.displayName || peer.username),
+              stanzaId: stanzaMessageId,
+              stanzaRefs
+            });
+            if (correctionResult.handled) {
+              if (correctionResult.changed) {
+                saveState();
+                if (correctionResult.contentChanged) renderDmList();
+                const activeConversation = getActiveConversation();
+                if (activeConversation?.type === "dm" && activeConversation.thread?.id === correctionResult.thread?.id) {
+                  renderMessages();
+                }
+              }
+              addXmppDebugEvent("message", "Applied XMPP message correction", {
+                scope: "dm",
+                from: peerBare,
+                replaceId: correctionTargetId,
+                id: stanzaMessageId || "",
+                changed: correctionResult.changed
+              });
+              if (!ownAuthor) {
+                maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
+              }
+              return;
+            }
+          }
           const replyMeta = xmppReplyMetaFromStanza(stanza, "", peerBare);
           if (!text.trim() && attachments.length === 0 && !replyMeta) return;
-          const stanzaRefs = xmppStanzaReferenceIds(stanza);
           const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
             from,
             ts: timestamp,
@@ -5994,9 +6177,40 @@ function connectRelaySocket({ force = false } = {}) {
             }
           });
         }
+        if (correctionTargetId && (text.trim() || attachments.length > 0)) {
+          const correctionResult = applyXmppRoomMessageCorrection(roomJid, correctionTargetId, {
+            text,
+            attachments,
+            timestamp,
+            editorUserId: "",
+            editorName: nick || roomJid.split("@")[0] || "xmpp",
+            stanzaId: stanzaMessageId,
+            stanzaRefs
+          });
+          if (correctionResult.handled) {
+            if (correctionResult.changed) {
+              saveState();
+              renderChannels();
+              const activeConversation = getActiveConversation();
+              if (activeConversation?.type === "channel" && activeConversation.channel?.id === correctionResult.channel?.id) {
+                renderMessages();
+              } else {
+                renderServers();
+              }
+            }
+            addXmppDebugEvent("message", "Applied XMPP message correction", {
+              scope: "muc",
+              from: roomJid,
+              replaceId: correctionTargetId,
+              id: stanzaMessageId || "",
+              changed: correctionResult.changed
+            });
+            if (roomJid && nick) maybeFetchXmppMucAvatar(roomJid, nick, from);
+            return;
+          }
+        }
         const replyMeta = xmppReplyMetaFromStanza(stanza, roomJid);
         if (!text.trim() && attachments.length === 0 && !replyMeta) return;
-        const stanzaRefs = xmppStanzaReferenceIds(stanza);
         const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
           from,
           ts: timestamp,
@@ -6584,6 +6798,108 @@ function xmppSyntheticMessageId({ from = "", ts = "", text = "", attachments = [
     hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
   }
   return `xmpp-syn-${(hash >>> 0).toString(16)}`;
+}
+
+function primaryXmppReferenceIdForMessage(message) {
+  if (!message || typeof message !== "object") return "";
+  const explicit = (message.xmppStanzaId || "").toString().trim();
+  if (explicit) return explicit;
+  const refs = normalizeXmppRefIdsList(message.xmppRefIds);
+  return refs[0] || "";
+}
+
+function publishXmppMessageCorrection(conversation, message, account) {
+  const prefs = getPreferences();
+  if (prefs.relayMode !== "xmpp" || relayStatus !== "connected" || !xmppConnection || !globalThis.$msg) {
+    return { ok: false, reason: "xmpp-offline" };
+  }
+  if (!conversation || !message || !account) return { ok: false, reason: "invalid-args" };
+  if ((message.userId || "") !== account.id) return { ok: false, reason: "not-author" };
+  const targetRefId = primaryXmppReferenceIdForMessage(message);
+  if (!targetRefId) return { ok: false, reason: "missing-reference" };
+  const body = relayMessageBodyText(message);
+  if (!body) return { ok: false, reason: "empty-body" };
+  const correctionStanzaId = `s67-edit-${createId().slice(0, 12)}`;
+  const replaceNode = { xmlns: "urn:xmpp:message-correct:0", id: targetRefId };
+  if (conversation.type === "dm" && conversation.thread) {
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
+    const dmRoom = relayRoomForDmThread(conversation.thread);
+    const roomJid = xmppRoomJidForToken(dmRoom, prefs);
+    if (peerJid) {
+      const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: correctionStanzaId })
+        .c("body").t(body)
+        .up()
+        .c("replace", replaceNode)
+        .up()
+        .c("request", { xmlns: "urn:xmpp:receipts" });
+      xmppConnection.send(stanza);
+      rememberXmppPendingReceipt(correctionStanzaId, conversation.thread, message, peerJid);
+      message.xmppRefIds = normalizeXmppRefIdsList([
+        ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+        targetRefId,
+        correctionStanzaId
+      ]);
+      rememberXmppDmMessage(peerJid, correctionStanzaId, message);
+      addXmppDebugEvent("message", "Sent XMPP message correction", {
+        scope: "dm",
+        to: peerJid,
+        replaceId: targetRefId,
+        id: correctionStanzaId
+      });
+      return { ok: true, id: correctionStanzaId, targetId: targetRefId };
+    }
+    if (roomJid) {
+      const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
+        .c("body").t(body)
+        .up()
+        .c("replace", replaceNode);
+      xmppConnection.send(stanza);
+      message.xmppStanzaId = correctionStanzaId;
+      message.xmppRefIds = normalizeXmppRefIdsList([
+        ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+        targetRefId,
+        correctionStanzaId
+      ]);
+      rememberXmppRoomMessage(roomJid, correctionStanzaId, message);
+      addXmppDebugEvent("message", "Sent XMPP message correction", {
+        scope: "dm-room",
+        to: roomJid,
+        replaceId: targetRefId,
+        id: correctionStanzaId
+      });
+      return { ok: true, id: correctionStanzaId, targetId: targetRefId };
+    }
+    return { ok: false, reason: "missing-dm-target" };
+  }
+  if (conversation.type === "channel" && conversation.channel) {
+    if (!isXmppBackedChannel(conversation.channel)) return { ok: false, reason: "not-xmpp-channel" };
+    let roomJid = xmppBareJid(conversation.channel.xmppRoomJid || "");
+    if (!roomJid) {
+      const roomToken = (conversation.channel.relayRoomToken || "").toString().trim();
+      roomJid = xmppRoomJidForToken(roomToken || relayRoomForActiveConversation(), prefs);
+    }
+    if (!roomJid) return { ok: false, reason: "missing-room-target" };
+    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
+      .c("body").t(body)
+      .up()
+      .c("replace", replaceNode);
+    xmppConnection.send(stanza);
+    message.xmppStanzaId = correctionStanzaId;
+    message.xmppRefIds = normalizeXmppRefIdsList([
+      ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+      targetRefId,
+      correctionStanzaId
+    ]);
+    rememberXmppRoomMessage(roomJid, correctionStanzaId, message);
+    addXmppDebugEvent("message", "Sent XMPP message correction", {
+      scope: "muc",
+      to: roomJid,
+      replaceId: targetRefId,
+      id: correctionStanzaId
+    });
+    return { ok: true, id: correctionStanzaId, targetId: targetRefId };
+  }
+  return { ok: false, reason: "unsupported-conversation" };
 }
 
 function publishRelayChannelMessage(channel, message, account) {
@@ -14294,8 +14610,12 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
 function formatVideoTimeLabel(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const total = Math.floor(seconds);
-  const mins = Math.floor(total / 60);
+  const hours = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
   const secs = total % 60;
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
@@ -14305,8 +14625,24 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
   row.className = "message-video-controls";
   const playBtn = document.createElement("button");
   playBtn.type = "button";
-  playBtn.textContent = "⏯";
+  playBtn.textContent = "▶";
   playBtn.title = "Play/Pause";
+  const backBtn = document.createElement("button");
+  backBtn.type = "button";
+  backBtn.textContent = "↺10";
+  backBtn.title = "Seek back 10s";
+  const forwardBtn = document.createElement("button");
+  forwardBtn.type = "button";
+  forwardBtn.textContent = "10↻";
+  forwardBtn.title = "Seek forward 10s";
+  const seek = document.createElement("input");
+  seek.type = "range";
+  seek.min = "0";
+  seek.max = "1000";
+  seek.step = "1";
+  seek.value = "0";
+  seek.className = "message-video-controls__seek";
+  seek.title = "Seek";
   const muteBtn = document.createElement("button");
   muteBtn.type = "button";
   muteBtn.textContent = "🔊";
@@ -14337,9 +14673,15 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
   pipBtn.textContent = "PiP";
   pipBtn.title = "Picture in Picture";
   pipBtn.hidden = !document.pictureInPictureEnabled || typeof video.requestPictureInPicture !== "function";
+  const fullscreenBtn = document.createElement("button");
+  fullscreenBtn.type = "button";
+  fullscreenBtn.textContent = "⛶";
+  fullscreenBtn.title = "Fullscreen";
+  let seeking = false;
 
   const sync = () => {
     playBtn.classList.toggle("is-active", !video.paused && !video.ended);
+    playBtn.textContent = video.paused || video.ended ? "▶" : "⏸";
     muteBtn.textContent = video.muted || video.volume <= 0 ? "🔇" : "🔊";
     volume.value = String(Math.round((video.muted ? 0 : video.volume) * 100));
     const rate = Number(video.playbackRate || 1);
@@ -14351,8 +14693,19 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
       speed.appendChild(option);
     }
     speed.value = String(rate);
-    time.textContent = `${formatVideoTimeLabel(video.currentTime)} / ${formatVideoTimeLabel(video.duration)}`;
+    const hasDuration = Number.isFinite(video.duration) && video.duration > 0;
+    const currentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    if (hasDuration && !seeking) {
+      const ratio = Math.max(0, Math.min(1, currentTime / video.duration));
+      seek.value = String(Math.round(ratio * 1000));
+    }
+    seek.disabled = !hasDuration;
+    const shownCurrent = seeking && hasDuration
+      ? (Number(seek.value) / 1000) * video.duration
+      : currentTime;
+    time.textContent = `${formatVideoTimeLabel(shownCurrent)} / ${formatVideoTimeLabel(video.duration)}`;
     pipBtn.classList.toggle("is-active", document.pictureInPictureElement === video);
+    fullscreenBtn.classList.toggle("is-active", document.fullscreenElement === video);
   };
 
   playBtn.addEventListener("click", () => {
@@ -14361,6 +14714,30 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
     } else {
       video.pause();
     }
+  });
+  backBtn.addEventListener("click", () => {
+    const next = Math.max(0, (Number.isFinite(video.currentTime) ? video.currentTime : 0) - 10);
+    video.currentTime = next;
+    sync();
+  });
+  forwardBtn.addEventListener("click", () => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Number.POSITIVE_INFINITY;
+    const next = Math.min(duration, (Number.isFinite(video.currentTime) ? video.currentTime : 0) + 10);
+    video.currentTime = Number.isFinite(next) ? next : video.currentTime;
+    sync();
+  });
+  seek.addEventListener("input", () => {
+    seeking = true;
+    sync();
+  });
+  seek.addEventListener("change", () => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+    if (duration > 0) {
+      const ratio = Math.max(0, Math.min(1, Number(seek.value) / 1000));
+      video.currentTime = ratio * duration;
+    }
+    seeking = false;
+    sync();
   });
   muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
@@ -14392,17 +14769,34 @@ function createVideoControlStrip(video, { label = "Video" } = {}) {
       sync();
     }
   });
+  fullscreenBtn.addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement === video && document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (typeof video.requestFullscreen === "function") {
+        await video.requestFullscreen();
+      }
+    } catch (error) {
+      addDebugLog("warn", "Video fullscreen toggle failed", { label, error: String(error) });
+    } finally {
+      sync();
+    }
+  });
 
-  ["play", "pause", "ended", "volumechange", "ratechange", "timeupdate", "loadedmetadata", "enterpictureinpicture", "leavepictureinpicture"]
+  ["play", "pause", "ended", "volumechange", "ratechange", "timeupdate", "loadedmetadata", "enterpictureinpicture", "leavepictureinpicture", "fullscreenchange"]
     .forEach((eventName) => video.addEventListener(eventName, sync));
   sync();
 
   row.appendChild(playBtn);
+  row.appendChild(backBtn);
+  row.appendChild(forwardBtn);
+  row.appendChild(seek);
+  row.appendChild(time);
   row.appendChild(muteBtn);
   row.appendChild(volume);
   row.appendChild(speed);
-  row.appendChild(time);
   row.appendChild(pipBtn);
+  row.appendChild(fullscreenBtn);
   return row;
 }
 
@@ -22155,7 +22549,8 @@ ui.messageEditForm.addEventListener("submit", (event) => {
     return;
   }
   const previousText = (scopedMessage.text || "").toString();
-  if (previousText !== nextText) {
+  const textChanged = previousText !== nextText;
+  if (textChanged) {
     if (!Array.isArray(scopedMessage.editHistory)) scopedMessage.editHistory = [];
     scopedMessage.editHistory.unshift({
       editedAt: new Date().toISOString(),
@@ -22170,6 +22565,15 @@ ui.messageEditForm.addEventListener("submit", (event) => {
   scopedMessage.editedByUserId = editor.id;
   scopedMessage.editedByName = editor.username;
   scopedMessage.editedByStaff = Boolean(!isDmConversation && canManage && scopedMessage.userId && scopedMessage.userId !== editor.id);
+  if (textChanged && scopedConversation && scopedMessage.userId === editor.id) {
+    const correction = publishXmppMessageCorrection(scopedConversation, scopedMessage, editor);
+    if (!correction.ok && correction.reason === "missing-reference") {
+      addXmppDebugEvent("warn", "Skipped XMPP correction sync: missing stanza reference", {
+        conversationId: scopedConversation.id,
+        messageId: scopedMessage.id
+      });
+    }
+  }
   saveState();
   messageEditTarget = null;
   ui.messageEditDialog.close();
