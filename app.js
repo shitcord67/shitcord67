@@ -918,6 +918,16 @@ let relayReconnectTimer = null;
 const relaySeenMessageIds = new Set();
 const relayTypingByRoom = new Map();
 let relayTypingSweepTimer = null;
+const RELAY_HISTORY_RENDER_BATCH_MS = 90;
+const MESSAGE_LIST_NEAR_BOTTOM_PX = 44;
+let relayUiRefreshTimer = null;
+const relayUiRefreshNeeds = {
+  servers: false,
+  channels: false,
+  dms: false,
+  messages: false
+};
+let lastRenderedConversationId = null;
 const relayLocalTypingState = {
   room: "",
   active: false,
@@ -2574,20 +2584,26 @@ function ensureMediaLightbox() {
   overlay = document.createElement("div");
   overlay.id = "mediaLightbox";
   overlay.className = "media-lightbox";
+  overlay.tabIndex = -1;
   overlay.hidden = true;
   overlay.innerHTML = [
     "<button type=\"button\" class=\"media-lightbox__close\" aria-label=\"Close\">✕</button>",
     "<div class=\"media-lightbox__stage\"></div>",
     "<div class=\"media-lightbox__caption\"></div>"
   ].join("");
+  const closeBtn = overlay.querySelector(".media-lightbox__close");
+  closeBtn?.addEventListener("click", () => {
+    closeMediaLightbox();
+  });
   overlay.addEventListener("click", (event) => {
     if (!(event.target instanceof HTMLElement)) return;
-    if (event.target.closest(".media-lightbox__stage video")) return;
     if (event.target.closest(".media-lightbox__close")) {
       closeMediaLightbox();
       return;
     }
-    closeMediaLightbox();
+    if (event.target === overlay || event.target.classList.contains("media-lightbox__stage")) {
+      closeMediaLightbox();
+    }
   });
   document.body.appendChild(overlay);
   return overlay;
@@ -2604,6 +2620,7 @@ function closeMediaLightbox() {
 
 function openMediaLightbox({ url, label = "", video = false } = {}) {
   if (!url) return;
+  const mediaUrl = resolveMediaUrl(url);
   const overlay = ensureMediaLightbox();
   const stage = overlay.querySelector(".media-lightbox__stage");
   const caption = overlay.querySelector(".media-lightbox__caption");
@@ -2615,13 +2632,30 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
     media.autoplay = false;
     media.playsInline = true;
     media.preload = "metadata";
+  } else {
+    media.alt = label || "media preview";
+    media.loading = "eager";
   }
-  media.src = url;
-  media.alt = label || "media preview";
+  media.src = mediaUrl;
+  media.addEventListener("error", () => {
+    const note = document.createElement("div");
+    note.className = "message-embed-note";
+    note.textContent = "Preview unavailable. Open in a new tab.";
+    const openLink = document.createElement("a");
+    openLink.className = "message-swf-link";
+    openLink.href = mediaUrl;
+    openLink.target = "_blank";
+    openLink.rel = "noopener noreferrer";
+    openLink.textContent = "Open media";
+    stage.innerHTML = "";
+    stage.appendChild(note);
+    stage.appendChild(openLink);
+  });
   stage.appendChild(media);
   caption.textContent = label || "";
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
+  overlay.focus({ preventScroll: true });
 }
 
 function mentionInComposer(account) {
@@ -4208,6 +4242,94 @@ function insertMessageByTimestamp(bucket, message) {
   bucket.splice(insertAt, 0, message);
 }
 
+function scheduleRelayUiRefresh({
+  servers = false,
+  channels = false,
+  dms = false,
+  messages = false,
+  delayMs = 0
+} = {}) {
+  relayUiRefreshNeeds.servers = relayUiRefreshNeeds.servers || servers;
+  relayUiRefreshNeeds.channels = relayUiRefreshNeeds.channels || channels;
+  relayUiRefreshNeeds.dms = relayUiRefreshNeeds.dms || dms;
+  relayUiRefreshNeeds.messages = relayUiRefreshNeeds.messages || messages;
+  if (relayUiRefreshTimer) return;
+  const waitMs = Math.max(0, Number(delayMs) || 0);
+  relayUiRefreshTimer = window.setTimeout(() => {
+    relayUiRefreshTimer = null;
+    const pending = {
+      servers: relayUiRefreshNeeds.servers,
+      channels: relayUiRefreshNeeds.channels,
+      dms: relayUiRefreshNeeds.dms,
+      messages: relayUiRefreshNeeds.messages
+    };
+    relayUiRefreshNeeds.servers = false;
+    relayUiRefreshNeeds.channels = false;
+    relayUiRefreshNeeds.dms = false;
+    relayUiRefreshNeeds.messages = false;
+    if (pending.servers) renderServers();
+    if (pending.dms) renderDmList();
+    if (pending.channels) renderChannels();
+    if (pending.messages) renderMessages();
+  }, waitMs);
+}
+
+function mergeRelayMessageEntry(target, incoming) {
+  if (!target || !incoming) return false;
+  let changed = false;
+  const incomingText = (incoming.text || "").toString();
+  if (!(target.text || "").toString().trim() && incomingText.trim()) {
+    target.text = incomingText;
+    changed = true;
+  }
+  if (!target.replyTo && incoming.replyTo) {
+    target.replyTo = incoming.replyTo;
+    changed = true;
+  }
+  const currentAttachments = normalizeAttachments(target.attachments);
+  const mergedAttachments = normalizeAttachments([
+    ...currentAttachments,
+    ...normalizeAttachments(incoming.attachments)
+  ]);
+  if (mergedAttachments.length !== currentAttachments.length) {
+    target.attachments = mergedAttachments;
+    changed = true;
+  }
+  const targetTs = toTimestampMs(target.ts);
+  const incomingTs = toTimestampMs(incoming.ts);
+  if (Number.isFinite(incomingTs) && (!Number.isFinite(targetTs) || incomingTs < targetTs)) {
+    target.ts = incoming.ts;
+    changed = true;
+  }
+  return changed;
+}
+
+function findDuplicateRelayMessage(bucket, candidate, { history = false } = {}) {
+  if (!Array.isArray(bucket) || !candidate) return null;
+  if (candidate.relayId) {
+    const direct = bucket.find((entry) => (entry?.relayId || "") === candidate.relayId) || null;
+    if (direct) return direct;
+  }
+  if (!history) return null;
+  const candidateTs = toTimestampMs(candidate.ts);
+  const candidateText = (candidate.text || "").toString().trim();
+  const candidateReplyId = (candidate.replyTo?.messageId || "").toString();
+  const candidateAttachment = normalizeAttachments(candidate.attachments)[0]?.url || "";
+  for (let i = bucket.length - 1; i >= 0; i -= 1) {
+    const entry = bucket[i];
+    if (!entry || entry.userId !== candidate.userId) continue;
+    const entryTs = toTimestampMs(entry.ts);
+    if (Number.isFinite(candidateTs) && Number.isFinite(entryTs) && Math.abs(candidateTs - entryTs) > 5000) continue;
+    if ((entry.text || "").toString().trim() !== candidateText) continue;
+    const entryReplyId = (entry.replyTo?.messageId || "").toString();
+    if (entryReplyId !== candidateReplyId) continue;
+    const entryAttachment = normalizeAttachments(entry.attachments)[0]?.url || "";
+    if (entryAttachment !== candidateAttachment) continue;
+    return entry;
+  }
+  return null;
+}
+
 function applyRelayIncomingMessage(packet) {
   const current = getCurrentAccount();
   if (!current) return null;
@@ -4222,15 +4344,21 @@ function applyRelayIncomingMessage(packet) {
     const theirs = normalizeUsername(remoteMessage.authorUsername || "");
     if (mine && theirs && mine === theirs) return null;
   }
-  const relayId = `${remoteClientId}:${(remoteMessage.id || createId()).toString()}`;
+  const remoteMessageId = (remoteMessage.id || "").toString().trim();
+  const remoteAuthorJid = xmppBareJid(remoteMessage.authorJid || "");
+  const relayId = `${remoteClientId}:${(remoteMessageId || createId()).toString()}`;
+  const xmppStableRelayId = remoteClientId.startsWith("xmpp:") && remoteMessageId
+    ? `xmpp-stable:${room}:${(remoteAuthorJid || normalizeUsername(remoteMessage.authorUsername || "") || remoteClientId).toLowerCase()}::${remoteMessageId}`
+    : "";
   if (relaySeenMessageIds.has(relayId)) return null;
+  if (xmppStableRelayId && relaySeenMessageIds.has(xmppStableRelayId)) return null;
   relaySeenMessageIds.add(relayId);
+  if (xmppStableRelayId) relaySeenMessageIds.add(xmppStableRelayId);
   if (relaySeenMessageIds.size > 280) {
     const first = relaySeenMessageIds.values().next().value;
     relaySeenMessageIds.delete(first);
   }
   const username = normalizeUsername(remoteMessage.authorUsername || `relay_${remoteClientId.slice(0, 6)}`) || `relay_${remoteClientId.slice(0, 6)}`;
-  const remoteAuthorJid = xmppBareJid(remoteMessage.authorJid || "");
   let remoteAccount = remoteAuthorJid
     ? ensureAccountByXmppJid(remoteAuthorJid, remoteMessage.authorDisplay || remoteMessage.authorUsername || remoteAuthorJid.split("@")[0] || "")
     : getAccountByUsername(username);
@@ -4265,23 +4393,52 @@ function applyRelayIncomingMessage(packet) {
   if (room.startsWith("dm:")) {
     const thread = getOrCreateDmThread(current, remoteAccount);
     if (!thread) return null;
+    const duplicate = findDuplicateRelayMessage(thread.messages, entry, { history: historyMessage });
+    if (duplicate) {
+      const changed = mergeRelayMessageEntry(duplicate, entry);
+      if (changed) saveState();
+      scheduleRelayUiRefresh({
+        dms: true,
+        messages: state.viewMode === "dm" && state.activeDmId === thread.id,
+        delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+      });
+      return duplicate;
+    }
     if (historyMessage) insertMessageByTimestamp(thread.messages, entry);
     else thread.messages.push(entry);
     ensureDmReadState(thread);
     saveState();
-    renderDmList();
-    if (state.viewMode === "dm" && state.activeDmId === thread.id) renderMessages();
+    scheduleRelayUiRefresh({
+      dms: true,
+      messages: state.viewMode === "dm" && state.activeDmId === thread.id,
+      delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+    });
     return entry;
   }
   const targetChannel = findRelayTargetChannelByRoom(room) || resolveRelayTargetChannel();
   if (!targetChannel || targetChannel.type === "voice" || targetChannel.type === "stage") return null;
   ensureChannelReadState(targetChannel);
+  const duplicate = findDuplicateRelayMessage(targetChannel.messages, entry, { history: historyMessage });
+  if (duplicate) {
+    const changed = mergeRelayMessageEntry(duplicate, entry);
+    if (changed) saveState();
+    scheduleRelayUiRefresh({
+      channels: true,
+      servers: true,
+      messages: state.activeChannelId === targetChannel.id,
+      delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+    });
+    return duplicate;
+  }
   if (historyMessage) insertMessageByTimestamp(targetChannel.messages, entry);
   else targetChannel.messages.push(entry);
   saveState();
-  renderChannels();
-  renderServers();
-  if (state.activeChannelId === targetChannel.id) renderMessages();
+  scheduleRelayUiRefresh({
+    channels: true,
+    servers: true,
+    messages: state.activeChannelId === targetChannel.id,
+    delayMs: historyMessage ? RELAY_HISTORY_RENDER_BATCH_MS : 0
+  });
   return entry;
 }
 
@@ -9338,6 +9495,35 @@ function renderMessageText(container, rawText) {
   });
 }
 
+function collectRenderableAttachments(message) {
+  return normalizeAttachments([
+    ...normalizeAttachments(message?.attachments),
+    ...extractInlineAttachmentsFromText(message?.text || "")
+  ]);
+}
+
+function stripInlineAttachmentUrlsFromText(text, attachments = []) {
+  const raw = (text || "").toString();
+  if (!raw) return "";
+  if (!Array.isArray(attachments) || attachments.length === 0) return raw;
+  const attachmentUrls = new Set(
+    attachments
+      .map((entry) => (entry?.url || "").toString().trim())
+      .filter(Boolean)
+  );
+  if (attachmentUrls.size === 0) return raw;
+  const stripped = raw.replace(/https?:\/\/\S+/gi, (token) => {
+    const cleaned = token.replace(/[),.!?]+$/, "");
+    if (!cleaned || !attachmentUrls.has(cleaned)) return token;
+    const suffix = token.slice(cleaned.length);
+    return /^[),.!?]+$/.test(suffix) ? suffix : "";
+  });
+  return stripped
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+}
+
 function extractImageUrl(text) {
   if (!text) return null;
   const matches = text.match(/https?:\/\/\S+/gi);
@@ -12257,6 +12443,41 @@ function updateJumpToBottomButton() {
   ui.jumpToBottomBtn.classList.remove("jump-to-bottom--hidden");
 }
 
+function isMessageListNearBottom(thresholdPx = MESSAGE_LIST_NEAR_BOTTOM_PX) {
+  const list = ui.messageList;
+  if (!list) return true;
+  const threshold = Math.max(0, Number(thresholdPx) || MESSAGE_LIST_NEAR_BOTTOM_PX);
+  const distance = list.scrollHeight - list.scrollTop - list.clientHeight;
+  return distance <= threshold;
+}
+
+function captureMessageListAnchor() {
+  const list = ui.messageList;
+  if (!list) return null;
+  const listRect = list.getBoundingClientRect();
+  const rows = [...list.querySelectorAll(".message[data-message-id]")];
+  for (const row of rows) {
+    if (!(row instanceof HTMLElement)) continue;
+    const rect = row.getBoundingClientRect();
+    if (rect.bottom < listRect.top + 2) continue;
+    return {
+      messageId: (row.dataset.messageId || "").toString(),
+      offsetTop: rect.top - listRect.top
+    };
+  }
+  return null;
+}
+
+function restoreMessageListAnchor(anchor) {
+  if (!anchor?.messageId) return false;
+  const row = ui.messageList.querySelector(`[data-message-id="${anchor.messageId}"]`);
+  if (!(row instanceof HTMLElement)) return false;
+  const listRect = ui.messageList.getBoundingClientRect();
+  const rect = row.getBoundingClientRect();
+  ui.messageList.scrollTop += (rect.top - listRect.top) - (Number(anchor.offsetTop) || 0);
+  return true;
+}
+
 function openUserPopout(account, fallbackName = "Unknown") {
   const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
   const displayName = account ? displayNameForAccount(account, guildId) : fallbackName;
@@ -12502,6 +12723,8 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     postRow.appendChild(head);
 
     const { title, body } = forumMessageParts(post);
+    const postAttachments = collectRenderableAttachments(post);
+    const postBodyText = stripInlineAttachmentUrlsFromText(body, postAttachments);
     const forumTitle = document.createElement("div");
     forumTitle.className = "forum-post-title";
     forumTitle.textContent = "";
@@ -12531,10 +12754,10 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     }
     postRow.appendChild(forumTitle);
 
-    if (body) {
+    if (postBodyText.trim()) {
       const text = document.createElement("div");
       text.className = "message-text";
-      renderMessageText(text, body);
+      renderMessageText(text, postBodyText);
       postRow.appendChild(text);
     }
     renderMessagePoll(postRow, post, {
@@ -12547,10 +12770,6 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       }
     });
 
-    const postAttachments = normalizeAttachments([
-      ...normalizeAttachments(post.attachments),
-      ...extractInlineAttachmentsFromText(post.text)
-    ]);
     postAttachments.forEach((attachment, index) => {
       renderMessageAttachment(postRow, attachment, { swfKey: `${post.id}:${index}` });
     });
@@ -12681,10 +12900,14 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
           replyRow.appendChild(replyLine);
         }
 
-        const replyText = document.createElement("div");
-        replyText.className = "message-text";
-        renderMessageText(replyText, replyMessage.text || "");
-        replyRow.appendChild(replyText);
+        const replyAttachments = collectRenderableAttachments(replyMessage);
+        const renderedReplyText = stripInlineAttachmentUrlsFromText(replyMessage.text || "", replyAttachments);
+        if (renderedReplyText.trim()) {
+          const replyText = document.createElement("div");
+          replyText.className = "message-text";
+          renderMessageText(replyText, renderedReplyText);
+          replyRow.appendChild(replyText);
+        }
         renderMessagePoll(replyRow, replyMessage, {
           currentUser,
           isDm: false,
@@ -12695,10 +12918,6 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
           }
         });
 
-        const replyAttachments = normalizeAttachments([
-          ...normalizeAttachments(replyMessage.attachments),
-          ...extractInlineAttachmentsFromText(replyMessage.text)
-        ]);
         replyAttachments.forEach((attachment, index) => {
           renderMessageAttachment(replyRow, attachment, { swfKey: `${replyMessage.id}:${index}` });
         });
@@ -13249,6 +13468,12 @@ function renderMessages() {
   syncRelayRoomForActiveConversation();
   renderMemberList();
   const conversationId = conversation?.id || null;
+  const sameConversationAsBefore = Boolean(conversationId && lastRenderedConversationId === conversationId);
+  const shouldAutoScrollToBottom = !sameConversationAsBefore || isMessageListNearBottom();
+  const preservedScrollAnchor = sameConversationAsBefore && !shouldAutoScrollToBottom
+    ? captureMessageListAnchor()
+    : null;
+  lastRenderedConversationId = conversationId || null;
   syncComposerDraftConversation(conversationId);
   const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
   const activeFindId = getFindActiveMessageId();
@@ -13604,6 +13829,7 @@ function renderMessages() {
 
     let forumTitle = null;
     let renderedText = message.text;
+    const attachments = collectRenderableAttachments(message);
     if (!isDm && channel?.type === "forum") {
       const [firstLine, ...rest] = (message.text || "").split("\n");
       forumTitle = document.createElement("div");
@@ -13612,26 +13838,10 @@ function renderMessages() {
       const body = rest.join("\n").trim();
       renderedText = body || firstLine || "";
     }
+    const renderedTextWithoutMediaLinks = stripInlineAttachmentUrlsFromText(renderedText, attachments);
     const text = document.createElement("div");
     text.className = "message-text";
-    renderMessageText(text, renderedText);
-
-    const imageUrl = extractImageUrl(message.text);
-    let imagePreview = null;
-    if (imageUrl) {
-      imagePreview = document.createElement("img");
-      imagePreview.className = "message-image-preview";
-      imagePreview.src = imageUrl;
-      imagePreview.alt = "shared image";
-      imagePreview.loading = "lazy";
-      imagePreview.addEventListener("click", () => {
-        openMediaLightbox({ url: imageUrl, label: "Shared image" });
-      });
-    }
-    const attachments = normalizeAttachments([
-      ...normalizeAttachments(message.attachments),
-      ...extractInlineAttachmentsFromText(message.text)
-    ]);
+    renderMessageText(text, renderedTextWithoutMediaLinks);
 
     let pinIndicator = null;
     if (message.pinned) {
@@ -13804,7 +14014,9 @@ function renderMessages() {
     if (pinIndicator) messageRow.appendChild(pinIndicator);
     if (forumTitle) messageRow.appendChild(forumTitle);
     messageRow.appendChild(actionBar);
-    messageRow.appendChild(text);
+    if (renderedTextWithoutMediaLinks.trim()) {
+      messageRow.appendChild(text);
+    }
     renderMessagePoll(messageRow, message, {
       currentUser,
       isDm,
@@ -13815,7 +14027,6 @@ function renderMessages() {
       }
     });
     ui.messageList.appendChild(messageRow);
-    if (imagePreview) messageRow.appendChild(imagePreview);
     attachments.forEach((attachment, index) => {
       renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
     });
@@ -14024,9 +14235,14 @@ function renderMessages() {
     });
   });
 
-  if (isDm && unreadDividerEl) {
+  let didPositionScroll = false;
+  if (isDm && unreadDividerEl && !sameConversationAsBefore) {
     unreadDividerEl.scrollIntoView({ block: "center" });
-  } else {
+    didPositionScroll = true;
+  } else if (!shouldAutoScrollToBottom && preservedScrollAnchor) {
+    didPositionScroll = restoreMessageListAnchor(preservedScrollAnchor);
+  }
+  if (!didPositionScroll && shouldAutoScrollToBottom) {
     ui.messageList.scrollTop = ui.messageList.scrollHeight;
   }
   const hashRef = parseHashMessageReference();
@@ -14097,10 +14313,14 @@ function appendMessageRowLite(channel, message) {
   }
   head.appendChild(time);
   messageRow.appendChild(head);
+  const attachments = collectRenderableAttachments(message);
+  const renderedText = stripInlineAttachmentUrlsFromText(message.text, attachments);
   const text = document.createElement("div");
   text.className = "message-text";
-  renderMessageText(text, message.text);
-  messageRow.appendChild(text);
+  renderMessageText(text, renderedText);
+  if (renderedText.trim()) {
+    messageRow.appendChild(text);
+  }
   renderMessagePoll(messageRow, message, {
     currentUser,
     isDm,
@@ -14110,10 +14330,6 @@ function appendMessageRowLite(channel, message) {
       renderMessages();
     }
   });
-  const attachments = normalizeAttachments([
-    ...normalizeAttachments(message.attachments),
-    ...extractInlineAttachmentsFromText(message.text)
-  ]);
   attachments.forEach((attachment, index) => {
     renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
   });

@@ -102,6 +102,10 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Guild channels with unread messages show a sticky unread banner with quick `Mark read` and `Jump` actions.
 - Chat header includes `Next Unread` with live unread-channel count and quick jump behavior.
 - Added floating `Jump to present` button when scrolled up, including count of messages below viewport.
+- Message list rendering now preserves scroll position while history is still arriving, reducing flicker and forced auto-scroll.
+- Relay/XMPP history UI updates are batched to avoid repeated full rerenders during room sync.
+- Inline media URLs that are rendered as attachments are de-duplicated from message text (no extra duplicate image link line).
+- Media lightbox now supports robust close behavior (close button/backdrop/Escape) with preview-failure fallback links.
 - Collapsible sidebars: header buttons toggle channel/member panels, with persisted visibility state.
 - Sidebar layout shortcuts: `Ctrl+Shift+B` toggles channels, `Ctrl+Shift+M` toggles members.
 - Quick composer focus shortcut: `Ctrl+Shift+L`.
