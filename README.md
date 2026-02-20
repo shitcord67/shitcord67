@@ -88,6 +88,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Find shortcut: `Ctrl+F` (or `Cmd+F`) opens "Find in conversation" with hit highlighting and jump.
 - Find dialog supports Discord-like scoped filters: `From user`, `After`, `Before`, and `Has link` (also parseable in `/find` via `from:`, `after:YYYY-MM-DD`, `before:YYYY-MM-DD`, `has:link`).
 - Find navigation shortcuts: `F3` / `Shift+F3` and `Ctrl+G` / `Shift+Ctrl+G` jump between matches.
+- Find result jumps now trigger incremental XMPP history paging when the target message is not loaded yet.
 - Channel reorder shortcut: `Ctrl+Alt+ArrowUp/Down` moves active channel (manage channels permission).
 - Channel quick-jump shortcuts: `Alt+Home`/`Alt+End` jump to first/last channel.
 - Quick creation shortcuts: `Ctrl+Shift+N` opens create-channel, `Ctrl+Shift+D` opens new-DM prompt.
@@ -218,6 +219,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 - Messages that mention you (or reply to your message) now get Discord-like highlighted row styling.
 - Keyboard shortcuts: `Alt+K` focus current search, `Ctrl+,` open settings, `Alt+D` toggle DM/guild mode.
 - External HTTP(S) media uses a privacy gate (safe mode) with two-click load options and trust rules (exact domain, `*.wildcard`, `/regex/`).
+- Media privacy gate cards now show a type-accurate label plus full URL, and the account’s own XMPP domain is auto-trusted.
 - Collaborative `shared` messages can be created with `/note` and edited by members.
 - Message edits keep a history trail; moderator edits are labeled as `edited by staff`.
 - Popouts/dialogs close by clicking outside the card content.
@@ -242,8 +244,11 @@ A lightweight Discord-style chat client prototype with local persistence.
 - XMPP room history loading now keeps a per-room MAM cursor (`RSM before`) so older pages can be fetched progressively instead of preloading everything at room-open time.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
+- XMPP reply references now keep stanza reference IDs and can resolve/jump once referenced messages are loaded from archive.
 - XMPP presence updates now refresh mapped account status/avatar (vCard fetch) for DMs and visible MUC occupants.
+- XMPP avatar fetch now attempts PEP avatar data (`urn:xmpp:avatar:data`, XEP-0084) with vCard fallback for broader profile-photo compatibility.
 - XMPP OOB/reference URLs and inline media links now map into richer inline embeds (including images and video).
+- Unknown file attachments from XMPP OOB/reference URLs now render as generic file cards with open/download actions.
 - XMPP WebSocket discovery now first checks provider-published `.well-known/host-meta(.json)` WebSocket links (XEP-0156), then falls back to known provider overrides and common endpoint candidates (`api.<domain>/ws`, `<domain>/xmpp-websocket`, `ws.<domain>/xmpp-websocket`, etc.).
 - Candidate probing now also includes common `/ws` + trailing-slash variants and `:5281` defaults, and gateway auth/register attempts can follow HTTP redirect hops before opening the WebSocket.
 - Bookmarks sync now tries modern pubsub bookmarks (`urn:xmpp:bookmarks:1`, XEP-0402) before legacy private XML storage (`storage:bookmarks`).
