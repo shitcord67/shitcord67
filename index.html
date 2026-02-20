@@ -329,11 +329,12 @@
             <h3>GIF Provider (Tenor)</h3>
             <p>Use your own Tenor API key if demo credentials stop loading GIFs.</p>
             <label for="tenorApiKeyInput">Tenor API key</label>
-            <input id="tenorApiKeyInput" type="text" maxlength="180" placeholder="Paste your Tenor API key" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <input id="tenorApiKeyInput" type="password" maxlength="180" placeholder="Paste your Tenor API key" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <label for="tenorClientKeyInput">Tenor client key (optional)</label>
             <input id="tenorClientKeyInput" type="text" maxlength="120" placeholder="Example: myapp_web" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <p id="tenorCredentialsStatus">Using built-in demo Tenor credentials.</p>
             <div class="settings-inline-actions">
+              <button id="toggleTenorApiKeyBtn" type="button" aria-pressed="false">Show API Key</button>
               <button id="testTenorCredentialsBtn" type="button">Test Tenor</button>
               <button id="clearTenorCredentialsBtn" type="button">Clear Tenor Keys</button>
             </div>

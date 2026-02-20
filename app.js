@@ -883,6 +883,7 @@ let gifPickerRemoteLoading = false;
 let gifPickerRemoteError = "";
 let gifPickerRemoteQueryKey = "";
 let gifPickerRemoteRequestToken = 0;
+let tenorApiKeyVisible = false;
 let emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
 let emojiLibraryEntries = [...EMOJI_LIBRARY];
 let emojiLibraryLoading = false;
@@ -1252,6 +1253,7 @@ const ui = {
   tenorApiKeyInput: document.getElementById("tenorApiKeyInput"),
   tenorClientKeyInput: document.getElementById("tenorClientKeyInput"),
   tenorCredentialsStatus: document.getElementById("tenorCredentialsStatus"),
+  toggleTenorApiKeyBtn: document.getElementById("toggleTenorApiKeyBtn"),
   testTenorCredentialsBtn: document.getElementById("testTenorCredentialsBtn"),
   clearTenorCredentialsBtn: document.getElementById("clearTenorCredentialsBtn"),
   relayModeInput: document.getElementById("relayModeInput"),
@@ -11539,8 +11541,18 @@ function setTenorCredentialsStatus(message, tone = "") {
   else delete ui.tenorCredentialsStatus.dataset.tone;
 }
 
+function setTenorApiKeyVisibility(visible) {
+  tenorApiKeyVisible = Boolean(visible);
+  if (ui.tenorApiKeyInput) ui.tenorApiKeyInput.type = tenorApiKeyVisible ? "text" : "password";
+  if (ui.toggleTenorApiKeyBtn) {
+    ui.toggleTenorApiKeyBtn.textContent = tenorApiKeyVisible ? "Hide API Key" : "Show API Key";
+    ui.toggleTenorApiKeyBtn.setAttribute("aria-pressed", tenorApiKeyVisible ? "true" : "false");
+  }
+}
+
 function renderTenorCredentialSettings() {
   const stored = readStoredTenorCredentials();
+  setTenorApiKeyVisibility(false);
   if (ui.tenorApiKeyInput) ui.tenorApiKeyInput.value = stored.key;
   if (ui.tenorClientKeyInput) ui.tenorClientKeyInput.value = stored.clientKey;
   if (!stored.readable) {
@@ -21411,6 +21423,10 @@ ui.advancedForm.addEventListener("submit", (event) => {
   renderRelayStatusOutput();
   refreshSwfAudioFocus();
   render();
+});
+
+ui.toggleTenorApiKeyBtn?.addEventListener("click", () => {
+  setTenorApiKeyVisibility(!tenorApiKeyVisible);
 });
 
 ui.clearTenorCredentialsBtn?.addEventListener("click", () => {
