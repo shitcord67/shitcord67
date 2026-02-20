@@ -909,11 +909,13 @@ const xmppRoomByJid = new Map();
 const xmppRosterByJid = new Map();
 const xmppOccupantsByRoomJid = new Map();
 const xmppMamStateByRoomJid = new Map();
+const xmppMamStateByPeerJid = new Map();
 const xmppRoomMessageIndexByJid = new Map();
 const xmppAvatarFetchInFlight = new Set();
 const xmppAvatarHashByJid = new Map();
 const xmppMucAvatarByOccupantKey = new Map();
 const xmppMucAvatarFetchInFlight = new Set();
+const xmppKnownMucOccupantJidByKey = new Map();
 const xmppIncomingContactRequestsByJid = new Map();
 const xmppOutgoingContactRequestsByJid = new Map();
 let relayStatus = "disconnected";
@@ -3993,13 +3995,13 @@ function xmppStanzaReferenceIds(stanza) {
     seen.add(key);
     out.push(key);
   };
-  push(stanza.getAttribute?.("id") || "");
   [...stanza.getElementsByTagName("stanza-id")].forEach((node) => {
     push(node.getAttribute?.("id") || "");
   });
   [...stanza.getElementsByTagName("origin-id")].forEach((node) => {
     push(node.getAttribute?.("id") || "");
   });
+  push(stanza.getAttribute?.("id") || "");
   return out;
 }
 
@@ -4021,6 +4023,7 @@ function findXmppRoomMessageByAnyId(roomJid, messageRefId) {
   const matched = channel.messages.find((entry) => (
     (entry?.id || "").toString() === key
     || (entry?.xmppStanzaId || "").toString() === key
+    || (Array.isArray(entry?.xmppRefIds) && entry.xmppRefIds.some((ref) => (ref || "").toString() === key))
     || ((entry?.relayId || "").toString().endsWith(`::${key}`))
   )) || null;
   if (!matched) return null;
@@ -4202,6 +4205,58 @@ function xmppMucOccupantAvatarKey(roomJid, nick = "") {
   return `${bareRoom}|${nickValue}`;
 }
 
+function xmppKnownMucOccupantKey(roomJid, nick = "") {
+  return xmppMucOccupantAvatarKey(roomJid, nick);
+}
+
+function rememberKnownXmppMucOccupantJid(roomJid, nick = "", jid = "") {
+  const key = xmppKnownMucOccupantKey(roomJid, nick);
+  const bareJid = xmppBareJid(jid);
+  if (!key || !bareJid) return false;
+  const previous = xmppKnownMucOccupantJidByKey.get(key) || "";
+  if (previous && previous === bareJid) return false;
+  xmppKnownMucOccupantJidByKey.set(key, bareJid);
+  return true;
+}
+
+function knownXmppMucOccupantJid(roomJid, nick = "") {
+  const key = xmppKnownMucOccupantKey(roomJid, nick);
+  if (!key) return "";
+  return (xmppKnownMucOccupantJidByKey.get(key) || "").toString();
+}
+
+function inferXmppAuthorJidFromRoomHistory(roomJid, nick = "") {
+  const bareRoom = xmppBareJid(roomJid);
+  const nickValue = (nick || "").toString().trim().toLowerCase();
+  if (!bareRoom || !nickValue) return "";
+  const mapped = knownXmppMucOccupantJid(bareRoom, nickValue);
+  if (mapped) return mapped;
+  const channel = findXmppRoomChannelByJid(bareRoom);
+  if (!channel || !Array.isArray(channel.messages)) return "";
+  for (let i = channel.messages.length - 1; i >= 0; i -= 1) {
+    const entry = channel.messages[i];
+    if (!entry || !entry.userId) continue;
+    if ((entry.xmppNick || "").toString().trim().toLowerCase() !== nickValue) continue;
+    const account = getAccountById(entry.userId);
+    const accountJid = xmppBareJid(account?.xmppJid || "");
+    if (!accountJid) continue;
+    rememberKnownXmppMucOccupantJid(bareRoom, nickValue, accountJid);
+    return accountJid;
+  }
+  return "";
+}
+
+function xmppAvatarUrlForKnownRoomNick(roomJid, nick = "", guildId = null) {
+  const authorJid = inferXmppAuthorJidFromRoomHistory(roomJid, nick);
+  if (!authorJid) return "";
+  const account = getAccountByXmppJid(authorJid);
+  if (!account) return "";
+  const avatar = resolveAccountAvatar(account, guildId);
+  if (isRenderableAvatarUrl(avatar.url || "")) return avatar.url;
+  maybeFetchXmppAvatarForJid(authorJid);
+  return "";
+}
+
 function xmppMucAvatarUrlForOccupant(roomJid, nick = "") {
   const key = xmppMucOccupantAvatarKey(roomJid, nick);
   if (!key) return "";
@@ -4340,6 +4395,26 @@ function ensureXmppMamState(roomJid) {
   return xmppMamStateByRoomJid.get(bareRoom) || null;
 }
 
+function ensureXmppDmMamState(peerJid) {
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer) return null;
+  if (!xmppMamStateByPeerJid.has(barePeer)) {
+    xmppMamStateByPeerJid.set(barePeer, {
+      before: "",
+      complete: false,
+      loading: false,
+      pagesLoaded: 0,
+      lastQueryId: ""
+    });
+  }
+  return xmppMamStateByPeerJid.get(barePeer) || null;
+}
+
+function xmppMamArchiveTargetJid(prefs = getPreferences()) {
+  const domain = xmppDomainFromJid(prefs.xmppJid || "");
+  return domain || "";
+}
+
 function requestXmppRoomHistory(roomJid, {
   limit = XMPP_MAM_PAGE_SIZE,
   force = false,
@@ -4421,6 +4496,111 @@ function requestXmppRoomHistory(roomJid, {
       }
       addXmppDebugEvent("iq", "MUC history query unavailable", {
         roomJid: bareRoom,
+        queryId,
+        page: mamState.pagesLoaded + 1,
+        reason,
+        permanent
+      });
+    },
+    9000
+  );
+  return true;
+}
+
+function requestXmppDirectHistory(peerJid, {
+  limit = XMPP_MAM_PAGE_SIZE,
+  force = false,
+  reason = "manual"
+} = {}) {
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer || !xmppConnection || !globalThis.$iq) return false;
+  const prefs = getPreferences();
+  const archiveTarget = xmppMamArchiveTargetJid(prefs);
+  const ownBare = xmppBareJid(prefs.xmppJid || "");
+  if (!ownBare || !archiveTarget) return false;
+  const mamState = ensureXmppDmMamState(barePeer);
+  if (!mamState) return false;
+  if (mamState.loading) return false;
+  if (!force && mamState.complete) return false;
+  if (force) {
+    mamState.before = "";
+    mamState.complete = false;
+    mamState.pagesLoaded = 0;
+  }
+  const maxRows = Math.max(10, Math.min(200, Number(limit) || XMPP_MAM_PAGE_SIZE));
+  const beforeToken = mamState.before || "";
+  const queryId = `mam-dm-${createId().slice(0, 8)}-${mamState.pagesLoaded + 1}`;
+  mamState.loading = true;
+  mamState.lastQueryId = queryId;
+  const iqBuilder = globalThis.$iq({ type: "set", to: archiveTarget })
+    .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
+    .c("x", { xmlns: "jabber:x:data", type: "submit" })
+    .c("field", { var: "FORM_TYPE" })
+    .c("value").t(XMPP_MAM_NAMESPACE).up().up()
+    .c("field", { var: "with" })
+    .c("value").t(barePeer).up().up()
+    .up()
+    .c("set", { xmlns: "http://jabber.org/protocol/rsm" })
+    .c("max").t(String(maxRows)).up();
+  if (!beforeToken) {
+    iqBuilder.c("before");
+  } else {
+    iqBuilder.c("before").t(beforeToken);
+  }
+  addXmppDebugEvent("iq", "Requesting DM history", {
+    peerJid: barePeer,
+    target: archiveTarget,
+    max: maxRows,
+    before: beforeToken || "(latest)",
+    page: mamState.pagesLoaded + 1,
+    reason
+  });
+  xmppConnection.sendIQ(
+    iqBuilder,
+    (stanza) => {
+      mamState.loading = false;
+      const finNode = [...stanza.getElementsByTagName("fin")]
+        .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
+      const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
+      const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
+      const firstId = xmppNodeText(firstNode).trim();
+      mamState.pagesLoaded += 1;
+      if (firstId) mamState.before = firstId;
+      if (complete || !firstId) mamState.complete = true;
+      const activeConversation = getActiveConversation();
+      const activePeer = activeConversation?.type === "dm"
+        ? xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount())
+        : "";
+      if (activePeer && xmppBareJid(activePeer) === barePeer) {
+        renderMessages();
+      }
+      addXmppDebugEvent("iq", "DM history query completed", {
+        peerJid: barePeer,
+        queryId,
+        page: mamState.pagesLoaded,
+        complete: mamState.complete,
+        first: firstId || "",
+        canLoadMore: !mamState.complete
+      });
+    },
+    (stanza) => {
+      mamState.loading = false;
+      const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
+      const permanent = Boolean(
+        errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
+        || errorNode?.getElementsByTagName?.("service-unavailable")?.length
+        || errorNode?.getElementsByTagName?.("item-not-found")?.length
+      );
+      if (permanent) mamState.complete = true;
+      const activeConversation = getActiveConversation();
+      const activePeer = activeConversation?.type === "dm"
+        ? xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount())
+        : "";
+      if (activePeer && xmppBareJid(activePeer) === barePeer) {
+        renderMessages();
+      }
+      addXmppDebugEvent("iq", "DM history query unavailable", {
+        peerJid: barePeer,
         queryId,
         page: mamState.pagesLoaded + 1,
         reason,
@@ -4612,11 +4792,13 @@ function teardownXmppConnection() {
   xmppRoomByJid.clear();
   xmppOccupantsByRoomJid.clear();
   xmppMamStateByRoomJid.clear();
+  xmppMamStateByPeerJid.clear();
   xmppRoomMessageIndexByJid.clear();
   xmppAvatarFetchInFlight.clear();
   xmppAvatarHashByJid.clear();
   xmppMucAvatarByOccupantKey.clear();
   xmppMucAvatarFetchInFlight.clear();
+  xmppKnownMucOccupantJidByKey.clear();
   xmppIncomingContactRequestsByJid.clear();
   xmppOutgoingContactRequestsByJid.clear();
 }
@@ -4755,12 +4937,41 @@ function scheduleRelayUiRefresh({
   }, waitMs);
 }
 
+function normalizeXmppRefIdsList(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const out = [];
+  value.forEach((entry) => {
+    const token = (entry || "").toString().trim();
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    out.push(token);
+  });
+  return out.slice(0, 6);
+}
+
+function xmppRefIdsOverlap(idsA, idsB) {
+  if (!Array.isArray(idsA) || !Array.isArray(idsB) || idsA.length === 0 || idsB.length === 0) return false;
+  const setA = new Set(idsA.map((entry) => (entry || "").toString().trim()).filter(Boolean));
+  if (setA.size === 0) return false;
+  return idsB.some((entry) => setA.has((entry || "").toString().trim()));
+}
+
 function mergeRelayMessageEntry(target, incoming) {
   if (!target || !incoming) return false;
   let changed = false;
   if (!(target.xmppNick || "").toString().trim() && (incoming.xmppNick || "").toString().trim()) {
     target.xmppNick = incoming.xmppNick;
     changed = true;
+  }
+  const targetRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
+  const incomingRefIds = normalizeXmppRefIdsList(incoming.xmppRefIds);
+  if (incomingRefIds.length > 0) {
+    const mergedRefIds = normalizeXmppRefIdsList([...targetRefIds, ...incomingRefIds]);
+    if (mergedRefIds.length !== targetRefIds.length) {
+      target.xmppRefIds = mergedRefIds;
+      changed = true;
+    }
   }
   const incomingText = (incoming.text || "").toString();
   if (!(target.text || "").toString().trim() && incomingText.trim()) {
@@ -4822,14 +5033,43 @@ function mergeRelayMessageEntry(target, incoming) {
 
 function findDuplicateRelayMessage(bucket, candidate, { history = false } = {}) {
   if (!Array.isArray(bucket) || !candidate) return null;
+  if (candidate.xmppStanzaId) {
+    const byStanzaId = bucket.find((entry) => (entry?.xmppStanzaId || "") === candidate.xmppStanzaId) || null;
+    if (byStanzaId) return byStanzaId;
+  }
+  const candidateRefIds = normalizeXmppRefIdsList(candidate.xmppRefIds);
+  if (candidateRefIds.length > 0) {
+    const byRef = bucket.find((entry) => xmppRefIdsOverlap(candidateRefIds, normalizeXmppRefIdsList(entry?.xmppRefIds))) || null;
+    if (byRef) return byRef;
+  }
   if (candidate.relayId) {
     const direct = bucket.find((entry) => (entry?.relayId || "") === candidate.relayId) || null;
     if (direct) return direct;
   }
-  if (!history) return null;
+  if (!history) {
+    if (!candidate.xmppStanzaId && candidateRefIds.length === 0) return null;
+    const candidateTs = toTimestampMs(candidate.ts);
+    const candidateText = (candidate.text || "").toString().trim();
+    const candidateAttachment = normalizeAttachments(candidate.attachments)[0]?.url || "";
+    for (let i = bucket.length - 1; i >= 0; i -= 1) {
+      const entry = bucket[i];
+      if (!entry || entry.userId !== candidate.userId) continue;
+      if ((entry.text || "").toString().trim() !== candidateText) continue;
+      const entryAttachment = normalizeAttachments(entry.attachments)[0]?.url || "";
+      if (entryAttachment !== candidateAttachment) continue;
+      const entryTs = toTimestampMs(entry.ts);
+      if (Number.isFinite(candidateTs) && Number.isFinite(entryTs) && Math.abs(candidateTs - entryTs) > 8000) continue;
+      return entry;
+    }
+    return null;
+  }
   const candidateTs = toTimestampMs(candidate.ts);
   const candidateText = (candidate.text || "").toString().trim();
-  const candidateReplyId = (candidate.replyTo?.messageId || "").toString();
+  const candidateReplyId = (
+    candidate.replyTo?.messageId
+    || candidate.replyTo?.stanzaId
+    || ""
+  ).toString();
   const candidateAttachment = normalizeAttachments(candidate.attachments)[0]?.url || "";
   for (let i = bucket.length - 1; i >= 0; i -= 1) {
     const entry = bucket[i];
@@ -4837,8 +5077,12 @@ function findDuplicateRelayMessage(bucket, candidate, { history = false } = {}) 
     const entryTs = toTimestampMs(entry.ts);
     if (Number.isFinite(candidateTs) && Number.isFinite(entryTs) && Math.abs(candidateTs - entryTs) > 5000) continue;
     if ((entry.text || "").toString().trim() !== candidateText) continue;
-    const entryReplyId = (entry.replyTo?.messageId || "").toString();
-    if (entryReplyId !== candidateReplyId) continue;
+    const entryReplyId = (
+      entry.replyTo?.messageId
+      || entry.replyTo?.stanzaId
+      || ""
+    ).toString();
+    if (candidateReplyId && entryReplyId && entryReplyId !== candidateReplyId) continue;
     const entryAttachment = normalizeAttachments(entry.attachments)[0]?.url || "";
     if (entryAttachment !== candidateAttachment) continue;
     return entry;
@@ -4861,6 +5105,10 @@ function applyRelayIncomingMessage(packet) {
     if (mine && theirs && mine === theirs) return null;
   }
   const remoteMessageId = (remoteMessage.id || "").toString().trim();
+  const remoteXmppRefIds = normalizeXmppRefIdsList([
+    ...(Array.isArray(remoteMessage.xmppRefIds) ? remoteMessage.xmppRefIds : []),
+    remoteMessageId
+  ]);
   const remoteAuthorJid = xmppBareJid(remoteMessage.authorJid || "");
   const relayId = `${remoteClientId}:${(remoteMessageId || createId()).toString()}`;
   const xmppStableRelayId = remoteClientId.startsWith("xmpp:") && remoteMessageId
@@ -4872,10 +5120,14 @@ function applyRelayIncomingMessage(packet) {
   if (relaySeenMessageIds.has(relayId)) return null;
   if (xmppStableRelayId && relaySeenMessageIds.has(xmppStableRelayId)) return null;
   if (xmppRoomStableId && relaySeenMessageIds.has(xmppRoomStableId)) return null;
+  if (remoteXmppRefIds.some((entry) => relaySeenMessageIds.has(`xmpp-ref:${room}:${entry}`))) return null;
   relaySeenMessageIds.add(relayId);
   if (xmppStableRelayId) relaySeenMessageIds.add(xmppStableRelayId);
   if (xmppRoomStableId) relaySeenMessageIds.add(xmppRoomStableId);
-  if (relaySeenMessageIds.size > 280) {
+  remoteXmppRefIds.forEach((entry) => {
+    relaySeenMessageIds.add(`xmpp-ref:${room}:${entry}`);
+  });
+  if (relaySeenMessageIds.size > 800) {
     const first = relaySeenMessageIds.values().next().value;
     relaySeenMessageIds.delete(first);
   }
@@ -4908,6 +5160,7 @@ function applyRelayIncomingMessage(packet) {
     id: createId(),
     relayId,
     xmppStanzaId: remoteClientId.startsWith("xmpp:") ? remoteMessageId : "",
+    xmppRefIds: remoteClientId.startsWith("xmpp:") ? remoteXmppRefIds : [],
     xmppNick: remoteClientId.startsWith("xmpp:") ? (remoteMessage.authorDisplay || remoteMessage.authorUsername || "") : "",
     userId: remoteAccount.id,
     authorName: "",
@@ -5099,8 +5352,14 @@ function connectRelaySocket({ force = false } = {}) {
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         const attachments = xmppAttachmentsFromUrls(xmppExtractOobUrls(stanza));
         if (isDirectLike) {
-          if (!bareFrom || (ownBare && bareFrom === ownBare)) return;
-          const peer = ensureAccountByXmppJid(bareFrom, nick || bareFrom.split("@")[0] || "");
+          const toBare = xmppBareJid(stanza.getAttribute("to") || "");
+          const ownAuthor = Boolean(allowSelf && ownBare && bareFrom === ownBare);
+          const peerBare = ownAuthor
+            ? (toBare && toBare !== ownBare ? toBare : "")
+            : bareFrom;
+          if (!peerBare) return;
+          const peerLabel = peerBare.split("@")[0] || nick || "";
+          const peer = ensureAccountByXmppJid(peerBare, peerLabel);
           if (!peer || peer.id === current.id) return;
           const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
           if (!dmRoom) return;
@@ -5120,6 +5379,7 @@ function connectRelaySocket({ force = false } = {}) {
           }
           const replyMeta = xmppReplyMetaFromStanza(stanza, "");
           if (!text.trim() && attachments.length === 0 && !replyMeta) return;
+          const stanzaRefs = xmppStanzaReferenceIds(stanza);
           const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
             from,
             ts: timestamp,
@@ -5127,6 +5387,11 @@ function connectRelaySocket({ force = false } = {}) {
             attachments,
             replyId: replyMeta?.stanzaId || ""
           });
+          const authorJid = ownAuthor ? ownBare : peerBare;
+          const authorUsername = ownAuthor ? current.username : peer.username;
+          const authorDisplay = ownAuthor
+            ? (current.displayName || current.username)
+            : (peer.displayName || peer.username);
           applyRelayIncomingMessage({
             type: "chat",
             room: dmRoom,
@@ -5135,16 +5400,19 @@ function connectRelaySocket({ force = false } = {}) {
               id: xmppMessageId,
               text,
               ts: timestamp,
-              authorUsername: peer.username,
-              authorDisplay: peer.displayName || peer.username,
-              authorJid: bareFrom,
+              authorUsername,
+              authorDisplay,
+              authorJid,
+              xmppRefIds: stanzaRefs,
               attachments,
               replyTo: replyMeta,
               history,
               allowSelf
             }
           });
-          maybeFetchXmppAvatarForJid(bareFrom, { photoHash: xmppPresencePhotoHash(stanza) });
+          if (!ownAuthor) {
+            maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
+          }
           return;
         }
         const roomJid = bareFrom;
@@ -5180,6 +5448,7 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const replyMeta = xmppReplyMetaFromStanza(stanza, roomJid);
         if (!text.trim() && attachments.length === 0 && !replyMeta) return;
+        const stanzaRefs = xmppStanzaReferenceIds(stanza);
         const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
           from,
           ts: timestamp,
@@ -5197,6 +5466,12 @@ function connectRelaySocket({ force = false } = {}) {
           }
           if (!authorJid) maybeFetchXmppMucAvatar(roomJid, nick, from);
         }
+        if (!authorJid && roomJid && nick) {
+          authorJid = inferXmppAuthorJidFromRoomHistory(roomJid, nick);
+        }
+        if (authorJid && roomJid && nick) {
+          rememberKnownXmppMucOccupantJid(roomJid, nick, authorJid);
+        }
         const inserted = applyRelayIncomingMessage({
           type: "chat",
           room: roomToken,
@@ -5208,6 +5483,7 @@ function connectRelaySocket({ force = false } = {}) {
             authorUsername: nick || roomJid.split("@")[0] || "xmpp",
             authorDisplay: nick || "",
             authorJid,
+            xmppRefIds: stanzaRefs,
             attachments,
             replyTo: replyMeta,
             history,
@@ -5417,6 +5693,7 @@ function connectRelaySocket({ force = false } = {}) {
               affiliation
             });
             if (occupantJid) {
+              rememberKnownXmppMucOccupantJid(roomJid, nick, occupantJid);
               if (photoHash) xmppAvatarHashByJid.set(occupantJid, photoHash);
               maybeFetchXmppAvatarForJid(occupantJid, { photoHash });
             } else if (nick) {
@@ -5457,6 +5734,10 @@ function connectRelaySocket({ force = false } = {}) {
               room: initialRoom,
               peerJid: directPeerJid
             });
+            const dmMamState = ensureXmppDmMamState(directPeerJid);
+            if (dmMamState && dmMamState.pagesLoaded === 0 && !dmMamState.loading) {
+              requestXmppDirectHistory(directPeerJid, { reason: "connect" });
+            }
           }
           Promise.allSettled([
             fetchXmppRoster(xmppConnection),
@@ -5645,6 +5926,10 @@ function syncRelayRoomForActiveConversation() {
     if (!nextRoom || nextRoom === relayJoinedRoom) return;
     const directPeerJid = xmppPeerJidForRelayRoom(nextRoom, getCurrentAccount());
     if (directPeerJid) {
+      const dmMamState = ensureXmppDmMamState(directPeerJid);
+      if (dmMamState && dmMamState.pagesLoaded === 0 && !dmMamState.loading) {
+        requestXmppDirectHistory(directPeerJid, { reason: "switch" });
+      }
       relayJoinedRoom = nextRoom;
       return;
     }
@@ -5667,17 +5952,33 @@ function maybeLoadOlderXmppHistoryForActiveConversation({ trigger = "scroll", fo
   const prefs = getPreferences();
   if (prefs.relayMode !== "xmpp") return false;
   const conversation = getActiveConversation();
-  if (!conversation || conversation.type !== "channel" || !conversation.channel?.xmppRoomJid) return false;
-  const roomJid = xmppBareJid(conversation.channel.xmppRoomJid);
-  if (!roomJid) return false;
-  const mamState = ensureXmppMamState(roomJid);
-  if (!mamState) return false;
-  if (mamState.loading) return false;
-  if (!force && mamState.complete) return false;
-  if (!force && trigger === "scroll" && ui.messageList.scrollTop > 96) return false;
-  const started = requestXmppRoomHistory(roomJid, { reason: trigger, force });
-  if (started) renderMessages();
-  return started;
+  if (!conversation) return false;
+  if (conversation.type === "channel" && conversation.channel?.xmppRoomJid) {
+    const roomJid = xmppBareJid(conversation.channel.xmppRoomJid);
+    if (!roomJid) return false;
+    const mamState = ensureXmppMamState(roomJid);
+    if (!mamState) return false;
+    if (mamState.loading) return false;
+    if (!force && mamState.complete) return false;
+    if (!force && trigger === "scroll" && ui.messageList.scrollTop > 96) return false;
+    const started = requestXmppRoomHistory(roomJid, { reason: trigger, force });
+    if (started) renderMessages();
+    return started;
+  }
+  if (conversation.type === "dm" && conversation.thread) {
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, getCurrentAccount());
+    const barePeer = xmppBareJid(peerJid);
+    if (!barePeer) return false;
+    const mamState = ensureXmppDmMamState(barePeer);
+    if (!mamState) return false;
+    if (mamState.loading) return false;
+    if (!force && mamState.complete) return false;
+    if (!force && trigger === "scroll" && ui.messageList.scrollTop > 96) return false;
+    const started = requestXmppDirectHistory(barePeer, { reason: trigger, force });
+    if (started) renderMessages();
+    return started;
+  }
+  return false;
 }
 
 function relayMessageBodyText(message) {
@@ -14484,9 +14785,15 @@ function renderMessages() {
     divider.appendChild(jumpBtn);
     ui.messageList.appendChild(divider);
   }
-  if (!isDm && channel?.xmppRoomJid && getPreferences().relayMode === "xmpp") {
-    const roomJid = xmppBareJid(channel.xmppRoomJid);
-    const mamState = roomJid ? ensureXmppMamState(roomJid) : null;
+  if (getPreferences().relayMode === "xmpp") {
+    let mamState = null;
+    if (!isDm && channel?.xmppRoomJid) {
+      const roomJid = xmppBareJid(channel.xmppRoomJid);
+      mamState = roomJid ? ensureXmppMamState(roomJid) : null;
+    } else if (isDm && dmThread) {
+      const peerJid = xmppPeerJidForDmThread(dmThread, getCurrentAccount());
+      mamState = peerJid ? ensureXmppDmMamState(peerJid) : null;
+    }
     if (mamState) {
       const control = document.createElement("div");
       control.className = "xmpp-history-control";
@@ -14561,26 +14868,28 @@ function renderMessages() {
     const author = message.userId ? getAccountById(message.userId) : null;
     if (author?.xmppJid) maybeFetchXmppAvatarForJid(author.xmppJid);
     const guildId = !isDm ? getActiveGuild()?.id || null : null;
+    const activeRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
+    const nickHint = (message.xmppNick || message.authorName || displayNameForMessage(message) || "").toString();
     if (author) {
       applyAvatarStyle(avatar, author, guildId);
       applyAvatarDecoration(avatar, author);
       const appliedAvatar = resolveAccountAvatar(author, guildId);
       if (!isRenderableAvatarUrl(appliedAvatar.url || "")) {
-        const activeRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
-        const nickHint = (message.xmppNick || message.authorName || displayNameForMessage(message) || "").toString();
         const mucAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, nickHint) : "";
-        if (isRenderableAvatarUrl(mucAvatar)) {
-          avatar.style.backgroundImage = `url(${mucAvatar})`;
+        const knownAvatar = !mucAvatar && activeRoomJid ? xmppAvatarUrlForKnownRoomNick(activeRoomJid, nickHint, guildId) : "";
+        const fallbackAvatar = mucAvatar || knownAvatar;
+        if (isRenderableAvatarUrl(fallbackAvatar)) {
+          avatar.style.backgroundImage = `url(${fallbackAvatar})`;
           avatar.style.backgroundSize = "cover";
           avatar.style.backgroundPosition = "center";
         }
       }
     } else {
-      const activeRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
-      const nickHint = (message.xmppNick || message.authorName || displayNameForMessage(message) || "").toString();
       const mucAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, nickHint) : "";
-      if (isRenderableAvatarUrl(mucAvatar)) {
-        avatar.style.backgroundImage = `url(${mucAvatar})`;
+      const knownAvatar = !mucAvatar && activeRoomJid ? xmppAvatarUrlForKnownRoomNick(activeRoomJid, nickHint, guildId) : "";
+      const fallbackAvatar = mucAvatar || knownAvatar;
+      if (isRenderableAvatarUrl(fallbackAvatar)) {
+        avatar.style.backgroundImage = `url(${fallbackAvatar})`;
         avatar.style.backgroundSize = "cover";
         avatar.style.backgroundPosition = "center";
       } else {
@@ -16637,6 +16946,12 @@ function xmppUserLabelFromJid(jid, fallback = "") {
   const domainSafe = domain.replace(/[^a-z0-9.-]/g, "").replace(/[.]/g, "_");
   const seed = [localSafe, domainSafe].filter(Boolean).join("_") || fallback || "xmpp_user";
   return normalizeUsername(seed).slice(0, 24);
+}
+
+function getAccountByXmppJid(jid) {
+  const bare = xmppBareJid(jid);
+  if (!bare) return null;
+  return state.accounts.find((account) => xmppBareJid(account?.xmppJid || "") === bare) || null;
 }
 
 function ensureAccountByXmppJid(jid, displayName = "") {
