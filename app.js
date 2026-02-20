@@ -489,6 +489,7 @@ function buildInitialState() {
       collapseGuildSection: "off",
       lastChannelByGuild: {},
       swfPipPosition: null,
+      videoPipPosition: null,
       relayMode: "local",
       relayUrl: "ws://localhost:8787",
       relayRoom: "",
@@ -3770,6 +3771,13 @@ function getPreferences() {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
           top: Number.isFinite(Number(current.swfPipPosition.top)) ? Math.max(0, Number(current.swfPipPosition.top)) : null,
           manual: Boolean(current.swfPipPosition.manual)
+        }
+      : null,
+    videoPipPosition: current.videoPipPosition && typeof current.videoPipPosition === "object"
+      ? {
+          left: Number.isFinite(Number(current.videoPipPosition.left)) ? Math.max(0, Number(current.videoPipPosition.left)) : null,
+          top: Number.isFinite(Number(current.videoPipPosition.top)) ? Math.max(0, Number(current.videoPipPosition.top)) : null,
+          manual: Boolean(current.videoPipPosition.manual)
         }
       : null
   };
@@ -11426,6 +11434,43 @@ function renderQuestBadges(container, accountId) {
   container.appendChild(wrap);
 }
 
+function mediaAudioSuppressedByPreferences(prefs = getPreferences()) {
+  if (!prefs || typeof prefs !== "object") return false;
+  return prefs.mute === "on" || prefs.deafen === "on";
+}
+
+function applyMediaElementAudioPreferences(media, prefs = getPreferences()) {
+  if (!(media instanceof HTMLMediaElement)) return;
+  const suppressed = mediaAudioSuppressedByPreferences(prefs);
+  const forceMuted = media instanceof HTMLVideoElement && media.dataset.forceMuted === "1";
+  if (suppressed) {
+    if (media.dataset.prefSuppressed !== "1") {
+      media.dataset.prefPrevMuted = media.muted ? "1" : "0";
+    }
+    media.dataset.prefSuppressed = "1";
+    media.muted = true;
+    return;
+  }
+  if (media.dataset.prefSuppressed === "1") {
+    const prevMuted = media.dataset.prefPrevMuted === "1";
+    delete media.dataset.prefSuppressed;
+    delete media.dataset.prefPrevMuted;
+    media.muted = forceMuted ? true : prevMuted;
+    return;
+  }
+  if (forceMuted) media.muted = true;
+}
+
+function applyMediaAudioPreferences(prefs = getPreferences()) {
+  document.querySelectorAll("video, audio").forEach((node) => {
+    if (node instanceof HTMLMediaElement) applyMediaElementAudioPreferences(node, prefs);
+  });
+  videoPipRuntimes.forEach((runtime) => {
+    if (runtime?.video instanceof HTMLVideoElement) applyMediaElementAudioPreferences(runtime.video, prefs);
+    if (runtime?.syncControls instanceof Function) runtime.syncControls();
+  });
+}
+
 function applyPreferencesToUI() {
   const prefs = getPreferences();
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
@@ -11480,6 +11525,7 @@ function applyPreferencesToUI() {
     if (prefs.swfQuickAudioMode === "on") runtime.audioClickAllowed = true;
   });
   applySwfAudioToAllRuntimes();
+  applyMediaAudioPreferences(prefs);
   refreshHeaderActionButtonLabels();
   resizeComposerInput();
 }
@@ -11576,6 +11622,31 @@ function refreshSwfAudioFocus(preferredKey = null) {
     if (mode === "click" && !runtime.audioClickAllowed) return false;
     return true;
   };
+  if (mode === "click") {
+    let hasClickFocus = false;
+    swfRuntimes.forEach((runtime) => {
+      if (hasClickFocus) return;
+      if (!runtimeConnected(runtime)) return;
+      if (!runtime?.playing || !runtime.audioEnabled) return;
+      if (!runtime.audioClickAllowed) return;
+      hasClickFocus = true;
+    });
+    if (!hasClickFocus) {
+      const fallback = pickCenteredRuntimeKey((key, runtime) => (
+        Boolean(key)
+        && runtimeConnected(runtime)
+        && runtime?.playing
+        && runtime.audioEnabled
+      ), { preferredKey });
+      if (fallback) {
+        swfRuntimes.forEach((entry) => {
+          entry.audioClickAllowed = false;
+        });
+        const focused = swfRuntimes.get(fallback);
+        if (focused) focused.audioClickAllowed = true;
+      }
+    }
+  }
   if (swfSoloRuntimeKey) {
     const soloRuntime = swfRuntimes.get(swfSoloRuntimeKey);
     const allowSolo = canUse(swfSoloRuntimeKey, soloRuntime);
@@ -13655,6 +13726,7 @@ function ensureVideoPipRuntime(runtimeKey, { video = null, label = "" } = {}) {
       video: null,
       controlsEl: null,
       syncControls: null,
+      controlsHome: null,
       anchorHost: null,
       label: "",
       inPip: false
@@ -13666,11 +13738,22 @@ function ensureVideoPipRuntime(runtimeKey, { video = null, label = "" } = {}) {
   return runtime;
 }
 
+function restoreVideoRuntimeControls(runtime) {
+  if (!runtime?.controlsEl || !(runtime.controlsEl instanceof HTMLElement)) return;
+  runtime.controlsEl.classList.remove("message-video-controls--pip");
+  const home = runtime.controlsHome;
+  if (!(home instanceof HTMLElement) || !home.isConnected) return;
+  if (!home.contains(runtime.controlsEl)) home.appendChild(runtime.controlsEl);
+}
+
 function destroyVideoPipRuntime(runtimeKey, { force = false } = {}) {
   const runtime = videoPipRuntimes.get(runtimeKey);
   if (!runtime) return false;
   if (!force && runtime.inPip) return false;
-  if (runtime.controlsEl instanceof HTMLElement) runtime.controlsEl.remove();
+  if (runtime.controlsEl instanceof HTMLElement) {
+    restoreVideoRuntimeControls(runtime);
+    runtime.controlsEl.remove();
+  }
   if (runtime.video instanceof HTMLVideoElement) {
     runtime.video.classList.remove("message-video--pip-floating");
     runtime.video.style.left = "";
@@ -13697,6 +13780,7 @@ function renderVideoPipDock() {
     if (ui.videoPipTitle) ui.videoPipTitle.textContent = "Video PiP";
     videoPipActiveKey = null;
     videoPipRuntimes.forEach((entry) => {
+      restoreVideoRuntimeControls(entry);
       if (entry?.syncControls instanceof Function) entry.syncControls();
     });
     return;
@@ -13704,14 +13788,37 @@ function renderVideoPipDock() {
   if (ui.videoPipTitle) ui.videoPipTitle.textContent = runtime.label || "Video";
   ui.videoPipHost.appendChild(runtime.video);
   runtime.video.classList.add("message-video--pip-floating");
+  if (runtime.controlsEl instanceof HTMLElement) {
+    runtime.controlsEl.classList.add("message-video-controls--pip");
+    ui.videoPipHost.appendChild(runtime.controlsEl);
+  }
   updateVideoPipDockLayout();
   videoPipRuntimes.forEach((entry) => {
+    if (entry?.key !== runtime.key) restoreVideoRuntimeControls(entry);
     if (entry?.syncControls instanceof Function) entry.syncControls();
   });
 }
 
 function updateVideoPipDockLayout() {
   if (!(ui.videoPipDock instanceof HTMLElement) || ui.videoPipDock.classList.contains("video-pip--hidden")) return;
+  if (pipDragState?.dragging && pipDragState.target === "video") return;
+  const prefs = getPreferences();
+  if (
+    prefs.videoPipPosition?.manual
+    && Number.isFinite(prefs.videoPipPosition.left)
+    && Number.isFinite(prefs.videoPipPosition.top)
+  ) {
+    const manualRect = ui.videoPipDock.getBoundingClientRect();
+    const manualWidth = manualRect.width || 420;
+    const manualHeight = manualRect.height || 280;
+    const manualLeft = Math.max(8, Math.min(window.innerWidth - manualWidth - 8, prefs.videoPipPosition.left));
+    const manualTop = Math.max(8, Math.min(window.innerHeight - manualHeight - 8, prefs.videoPipPosition.top));
+    ui.videoPipDock.style.left = `${Math.round(manualLeft)}px`;
+    ui.videoPipDock.style.top = `${Math.round(manualTop)}px`;
+    ui.videoPipDock.style.right = "auto";
+    ui.videoPipDock.style.bottom = "auto";
+    return;
+  }
   const rect = ui.videoPipDock.getBoundingClientRect();
   const width = rect.width || 420;
   const height = rect.height || 280;
@@ -13756,6 +13863,7 @@ function setVideoRuntimePip(runtimeKey, enabled) {
     runtime.anchorHost.innerHTML = "";
     runtime.anchorHost.appendChild(runtime.video);
   }
+  restoreVideoRuntimeControls(runtime);
   if (videoPipActiveKey === runtimeKey) videoPipActiveKey = null;
   renderVideoPipDock();
   return true;
@@ -14347,7 +14455,7 @@ function positionSwfPipRuntimeHosts() {
 
 function updateSwfPipDockLayout() {
   if (!(ui.swfPipDock instanceof HTMLElement)) return;
-  if (pipDragState?.dragging) return;
+  if (pipDragState?.dragging && pipDragState.target === "swf") return;
   const prefs = getPreferences();
   if (
     prefs.swfPipPosition?.manual
@@ -15414,6 +15522,7 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   video.autoplay = animatedLoop;
   video.loop = animatedLoop;
   video.muted = animatedLoop;
+  video.dataset.forceMuted = animatedLoop ? "1" : "0";
   video.controls = false;
   video.playsInline = true;
   video.preload = "metadata";
@@ -15441,6 +15550,15 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
     }
   };
   applyCandidate();
+  if (!animatedLoop) {
+    video.addEventListener("click", () => {
+      if (video.paused || video.ended) {
+        void video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }
   video.addEventListener("error", () => {
     if (candidateIndex + 1 < candidates.length) {
       candidateIndex += 1;
@@ -15455,6 +15573,7 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
       wrap.appendChild(note);
     }
   });
+  applyMediaElementAudioPreferences(video, getPreferences());
   return video;
 }
 
@@ -15531,9 +15650,137 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   fullscreenBtn.type = "button";
   fullscreenBtn.textContent = "⛶";
   fullscreenBtn.title = "Fullscreen";
+  const preview = document.createElement("div");
+  preview.className = "message-video-seek-preview";
+  preview.hidden = true;
+  const previewCanvas = document.createElement("canvas");
+  previewCanvas.width = 160;
+  previewCanvas.height = 90;
+  previewCanvas.className = "message-video-seek-preview__canvas";
+  const previewTime = document.createElement("span");
+  previewTime.className = "message-video-seek-preview__time";
+  previewTime.textContent = "0:00";
+  preview.appendChild(previewCanvas);
+  preview.appendChild(previewTime);
   let seeking = false;
+  let seekStartTime = 0;
+  let seekWasPlaying = false;
+  let previewVideo = null;
+  let previewDisabled = false;
+  let previewToken = 0;
+
+  const seekTargetTime = () => {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+    if (duration <= 0) return 0;
+    const ratio = Math.max(0, Math.min(1, Number(seek.value) / 1000));
+    return ratio * duration;
+  };
+
+  const positionSeekPreview = () => {
+    const ratio = Math.max(0, Math.min(1, Number(seek.value) / 1000));
+    const usable = Math.max(0, seek.clientWidth - 10);
+    const x = seek.offsetLeft + 5 + usable * ratio;
+    preview.style.left = `${Math.round(x)}px`;
+  };
+
+  const sourceForPreview = () => {
+    const explicit = (video.currentSrc || "").toString().trim();
+    if (explicit) return explicit;
+    const source = video.querySelector("source");
+    const candidate = (source?.src || video.src || "").toString().trim();
+    return candidate;
+  };
+
+  const ensurePreviewVideo = () => {
+    if (previewDisabled) return null;
+    if (previewVideo instanceof HTMLVideoElement) return previewVideo;
+    const src = sourceForPreview();
+    if (!src) {
+      previewDisabled = true;
+      return null;
+    }
+    const node = document.createElement("video");
+    node.preload = "metadata";
+    node.muted = true;
+    node.playsInline = true;
+    node.src = src;
+    node.addEventListener("error", () => {
+      previewDisabled = true;
+      previewCanvas.hidden = true;
+    });
+    node.addEventListener("seeked", () => {
+      if (previewDisabled) return;
+      if (!Number.isFinite(node.videoWidth) || !Number.isFinite(node.videoHeight) || node.videoWidth <= 1 || node.videoHeight <= 1) return;
+      try {
+        const context = previewCanvas.getContext("2d");
+        if (!context) return;
+        context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        context.drawImage(node, 0, 0, previewCanvas.width, previewCanvas.height);
+      } catch {
+        previewDisabled = true;
+        previewCanvas.hidden = true;
+      }
+    });
+    previewVideo = node;
+    return previewVideo;
+  };
+
+  const requestSeekPreviewFrame = (timeSeconds) => {
+    if (!Number.isFinite(timeSeconds)) return;
+    previewTime.textContent = formatVideoTimeLabel(timeSeconds);
+    positionSeekPreview();
+    if (previewDisabled) return;
+    const node = ensurePreviewVideo();
+    if (!(node instanceof HTMLVideoElement)) return;
+    const duration = Number.isFinite(video.duration) && video.duration > 0
+      ? video.duration
+      : (Number.isFinite(node.duration) && node.duration > 0 ? node.duration : 0);
+    const safeTarget = duration > 0
+      ? Math.max(0, Math.min(Math.max(0, duration - 0.05), timeSeconds))
+      : Math.max(0, timeSeconds);
+    const token = ++previewToken;
+    const seekPreviewNode = () => {
+      if (token !== previewToken) return;
+      try {
+        node.currentTime = safeTarget;
+      } catch {
+        previewDisabled = true;
+        previewCanvas.hidden = true;
+      }
+    };
+    if (Number.isFinite(node.duration) && node.duration > 0) {
+      seekPreviewNode();
+      return;
+    }
+    node.addEventListener("loadedmetadata", seekPreviewNode, { once: true });
+    if (node.readyState < 1) node.load();
+  };
+
+  const beginSeek = () => {
+    if (seeking) return;
+    seeking = true;
+    seekStartTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    seekWasPlaying = !video.paused && !video.ended;
+    if (seekWasPlaying) video.pause();
+    preview.hidden = false;
+    requestSeekPreviewFrame(seekTargetTime());
+  };
+
+  const finishSeek = ({ cancel = false } = {}) => {
+    if (!seeking) return;
+    const nextTime = cancel ? seekStartTime : seekTargetTime();
+    if (Number.isFinite(nextTime)) video.currentTime = Math.max(0, nextTime);
+    seeking = false;
+    preview.hidden = true;
+    if (!cancel && seekWasPlaying) {
+      void video.play().catch(() => {});
+    }
+    seekWasPlaying = false;
+    sync();
+  };
 
   const sync = () => {
+    applyMediaElementAudioPreferences(video, getPreferences());
     playBtn.classList.toggle("is-active", !video.paused && !video.ended);
     playBtn.textContent = video.paused || video.ended ? "▶" : "⏸";
     muteBtn.textContent = video.muted || video.volume <= 0 ? "🔇" : "🔊";
@@ -15582,17 +15829,21 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     sync();
   });
   seek.addEventListener("input", () => {
-    seeking = true;
+    beginSeek();
+    requestSeekPreviewFrame(seekTargetTime());
     sync();
   });
   seek.addEventListener("change", () => {
-    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
-    if (duration > 0) {
-      const ratio = Math.max(0, Math.min(1, Number(seek.value) / 1000));
-      video.currentTime = ratio * duration;
-    }
-    seeking = false;
-    sync();
+    finishSeek({ cancel: false });
+  });
+  seek.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !seeking) return;
+    event.preventDefault();
+    finishSeek({ cancel: true });
+  });
+  seek.addEventListener("blur", () => {
+    if (!seeking) return;
+    finishSeek({ cancel: false });
   });
   muteBtn.addEventListener("click", () => {
     video.muted = !video.muted;
@@ -15637,6 +15888,10 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
 
   ["play", "pause", "ended", "volumechange", "ratechange", "timeupdate", "loadedmetadata", "enterpictureinpicture", "leavepictureinpicture", "fullscreenchange"]
     .forEach((eventName) => video.addEventListener(eventName, sync));
+  seek.addEventListener("mousemove", () => {
+    if (!seeking) return;
+    requestSeekPreviewFrame(seekTargetTime());
+  });
   sync();
   row.__sync = sync;
 
@@ -15650,6 +15905,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   row.appendChild(speed);
   row.appendChild(pipBtn);
   row.appendChild(fullscreenBtn);
+  row.appendChild(preview);
   return row;
 }
 
@@ -15665,6 +15921,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const kind = attachmentTypeDisplayLabel(type, mediaUrl);
     const gate = document.createElement("div");
     gate.className = "message-swf message-media-gate";
+    gate.dataset.urlPinned = "off";
+    const top = document.createElement("div");
+    top.className = "message-media-gate__top";
     const icon = document.createElement("div");
     icon.className = "message-media-gate__icon";
     icon.setAttribute("aria-hidden", "true");
@@ -15673,38 +15932,60 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
         <path fill="currentColor" d="M12 2a4 4 0 0 0-4 4v2H7a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-8a3 3 0 0 0-3-3h-1V6a4 4 0 0 0-4-4Zm-2 6V6a2 2 0 1 1 4 0v2h-4Zm2 4a2 2 0 0 1 1 3.732V18h-2v-2.268A2 2 0 0 1 12 12Z"/>
       </svg>
     `;
+    const textWrap = document.createElement("div");
+    textWrap.className = "message-media-gate__text";
     const title = document.createElement("strong");
     title.textContent = `External ${kind} hidden`;
+    const hostRow = document.createElement("div");
+    hostRow.className = "message-media-gate__host-row";
     const info = document.createElement("div");
     info.className = "message-swf-meta message-media-gate__host";
     info.textContent = host;
+    const openUrlBtn = document.createElement("a");
+    openUrlBtn.className = "message-media-gate__icon-btn";
+    openUrlBtn.href = mediaUrl;
+    openUrlBtn.target = "_blank";
+    openUrlBtn.rel = "noopener noreferrer";
+    openUrlBtn.title = "Open URL in new tab";
+    openUrlBtn.textContent = "↗";
+    const revealUrlBtn = document.createElement("button");
+    revealUrlBtn.type = "button";
+    revealUrlBtn.className = "message-media-gate__icon-btn";
+    revealUrlBtn.title = "Toggle full URL";
+    revealUrlBtn.textContent = "⌗";
+    revealUrlBtn.addEventListener("click", () => {
+      const pinned = gate.dataset.urlPinned === "on";
+      gate.dataset.urlPinned = pinned ? "off" : "on";
+      gate.classList.toggle("is-url-pinned", !pinned);
+      revealUrlBtn.classList.toggle("is-active", !pinned);
+    });
+    hostRow.appendChild(info);
+    hostRow.appendChild(openUrlBtn);
+    hostRow.appendChild(revealUrlBtn);
     const urlNote = document.createElement("div");
-    urlNote.className = "message-embed-note";
+    urlNote.className = "message-embed-note message-media-gate__url";
     urlNote.textContent = mediaUrl;
-    const openUrl = document.createElement("a");
-    openUrl.className = "message-swf-link";
-    openUrl.href = mediaUrl;
-    openUrl.target = "_blank";
-    openUrl.rel = "noopener noreferrer";
-    openUrl.textContent = "Open URL in new tab";
     const armBtn = document.createElement("button");
     armBtn.type = "button";
-    armBtn.className = "message-swf-top-btn";
-    armBtn.textContent = "Show load options";
+    armBtn.className = "message-media-gate__icon-btn";
+    armBtn.textContent = "⋯";
+    armBtn.title = "Show load options";
     const controls = document.createElement("div");
-    controls.className = "settings-inline-actions";
+    controls.className = "settings-inline-actions message-media-gate__controls";
     controls.hidden = true;
     const onceBtn = document.createElement("button");
     onceBtn.type = "button";
-    onceBtn.textContent = "Load once";
+    onceBtn.className = "message-media-gate__option";
+    onceBtn.textContent = "Once";
     onceBtn.addEventListener("click", () => {
       mediaAllowOnceUrls.add(mediaUrl);
       renderMessages();
     });
     const trustBtn = document.createElement("button");
     trustBtn.type = "button";
+    trustBtn.className = "message-media-gate__option";
     const trustRule = suggestSubdomainTrustRule(host);
-    trustBtn.textContent = trustRule.startsWith("*.") ? "Trust domain + subdomains" : "Trust host";
+    trustBtn.textContent = trustRule.startsWith("*.") ? "Trust+" : "Trust";
     trustBtn.title = trustRule || host;
     trustBtn.addEventListener("click", () => {
       const added = addMediaTrustRule(trustRule || host);
@@ -15718,7 +15999,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     });
     const trustSubdomainBtn = document.createElement("button");
     trustSubdomainBtn.type = "button";
-    trustSubdomainBtn.textContent = "Trust subdomain";
+    trustSubdomainBtn.className = "message-media-gate__option";
+    trustSubdomainBtn.textContent = "Sub";
     trustSubdomainBtn.title = `Trust only ${host}`;
     trustSubdomainBtn.addEventListener("click", () => {
       const added = addMediaTrustRule(host);
@@ -15732,7 +16014,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     });
     const customRuleBtn = document.createElement("button");
     customRuleBtn.type = "button";
-    customRuleBtn.textContent = "Add custom rule";
+    customRuleBtn.className = "message-media-gate__option";
+    customRuleBtn.textContent = "Rule";
     customRuleBtn.addEventListener("click", () => {
       const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
       if (typeof nextRule !== "string") return;
@@ -15747,14 +16030,16 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     });
     const copyUrlBtn = document.createElement("button");
     copyUrlBtn.type = "button";
-    copyUrlBtn.textContent = "Copy URL";
+    copyUrlBtn.className = "message-media-gate__option";
+    copyUrlBtn.textContent = "Copy";
     copyUrlBtn.addEventListener("click", async () => {
       const copied = await copyText(mediaUrl);
       showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
     });
     const allowAllBtn = document.createElement("button");
     allowAllBtn.type = "button";
-    allowAllBtn.textContent = "Disable privacy gate";
+    allowAllBtn.className = "message-media-gate__option";
+    allowAllBtn.textContent = "Off";
     allowAllBtn.addEventListener("click", () => {
       state.preferences = getPreferences();
       state.preferences.mediaPrivacyMode = "off";
@@ -15770,14 +16055,15 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controls.appendChild(allowAllBtn);
     armBtn.addEventListener("click", () => {
       controls.hidden = !controls.hidden;
-      armBtn.textContent = controls.hidden ? "Show load options" : "Hide load options";
+      armBtn.classList.toggle("is-active", !controls.hidden);
     });
-    gate.appendChild(icon);
-    gate.appendChild(title);
-    gate.appendChild(info);
-    gate.appendChild(urlNote);
-    gate.appendChild(openUrl);
-    gate.appendChild(armBtn);
+    textWrap.appendChild(title);
+    textWrap.appendChild(hostRow);
+    textWrap.appendChild(urlNote);
+    top.appendChild(icon);
+    top.appendChild(textWrap);
+    top.appendChild(armBtn);
+    gate.appendChild(top);
     gate.appendChild(controls);
     wrap.appendChild(gate);
     container.appendChild(wrap);
@@ -16130,8 +16416,14 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
               ? runtime.controlsEl.__sync
               : null;
           }
+          runtime.controlsHome = wrap;
           if (runtime.controlsEl instanceof HTMLElement) {
-            wrap.appendChild(runtime.controlsEl);
+            if (runtime.inPip && videoPipActiveKey === runtime.key) {
+              runtime.controlsEl.classList.add("message-video-controls--pip");
+            } else {
+              runtime.controlsEl.classList.remove("message-video-controls--pip");
+              if (!wrap.contains(runtime.controlsEl)) wrap.appendChild(runtime.controlsEl);
+            }
             if (runtime.syncControls instanceof Function) runtime.syncControls();
           }
         }
@@ -16253,6 +16545,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     audio.preload = "none";
     audio.src = mediaUrl;
     audio.className = "message-audio";
+    applyMediaElementAudioPreferences(audio, getPreferences());
     wrap.appendChild(audio);
     const openBtn = document.createElement("a");
     openBtn.className = "message-swf-link";
@@ -23143,20 +23436,28 @@ ui.videoPipCloseBtn?.addEventListener("click", () => {
 });
 
 const swfPipHeader = ui.swfPipDock.querySelector(".swf-pip__header");
+const videoPipHeader = ui.videoPipDock?.querySelector(".video-pip__header");
+
+function beginPipDrag(event, target, dockElement) {
+  if (!(dockElement instanceof HTMLElement)) return;
+  if (event.button !== 0) return;
+  if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+  const dockRect = dockElement.getBoundingClientRect();
+  pipDragState = {
+    dragging: true,
+    target,
+    startX: event.clientX,
+    startY: event.clientY,
+    offsetX: event.clientX - dockRect.left,
+    offsetY: event.clientY - dockRect.top,
+    moved: false
+  };
+  event.preventDefault();
+}
+
 if (swfPipHeader) {
   swfPipHeader.addEventListener("mousedown", (event) => {
-    if (event.button !== 0) return;
-    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
-    const dockRect = ui.swfPipDock.getBoundingClientRect();
-    pipDragState = {
-      dragging: true,
-      startX: event.clientX,
-      startY: event.clientY,
-      offsetX: event.clientX - dockRect.left,
-      offsetY: event.clientY - dockRect.top,
-      moved: false
-    };
-    event.preventDefault();
+    beginPipDrag(event, "swf", ui.swfPipDock);
   });
   swfPipHeader.addEventListener("click", (event) => {
     if (event.target instanceof HTMLElement && event.target.closest("button")) return;
@@ -23169,33 +23470,52 @@ if (swfPipHeader) {
   });
 }
 
+if (videoPipHeader) {
+  videoPipHeader.addEventListener("mousedown", (event) => {
+    beginPipDrag(event, "video", ui.videoPipDock);
+  });
+}
+
 document.addEventListener("mousemove", (event) => {
   if (!pipDragState?.dragging) return;
+  const targetDock = pipDragState.target === "video" ? ui.videoPipDock : ui.swfPipDock;
+  if (!(targetDock instanceof HTMLElement)) return;
   const moveDistance = Math.hypot(event.clientX - pipDragState.startX, event.clientY - pipDragState.startY);
   if (moveDistance > 10) pipDragState.moved = true;
-  const dockRect = ui.swfPipDock.getBoundingClientRect();
+  const dockRect = targetDock.getBoundingClientRect();
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
   const maxTop = composerRect
     ? Math.max(8, composerRect.top - dockRect.height - 8)
     : Math.max(8, window.innerHeight - dockRect.height - 8);
   const nextLeft = Math.max(8, Math.min(window.innerWidth - dockRect.width - 8, event.clientX - pipDragState.offsetX));
   const nextTop = Math.max(8, Math.min(maxTop, event.clientY - pipDragState.offsetY));
-  ui.swfPipDock.style.left = `${Math.round(nextLeft)}px`;
-  ui.swfPipDock.style.top = `${Math.round(nextTop)}px`;
-  ui.swfPipDock.style.right = "auto";
-  ui.swfPipDock.style.bottom = "auto";
-  positionSwfPipRuntimeHosts();
-  updateVideoPipDockLayout();
+  targetDock.style.left = `${Math.round(nextLeft)}px`;
+  targetDock.style.top = `${Math.round(nextTop)}px`;
+  targetDock.style.right = "auto";
+  targetDock.style.bottom = "auto";
+  if (pipDragState.target === "swf") {
+    positionSwfPipRuntimeHosts();
+    updateVideoPipDockLayout();
+  }
 });
 
 document.addEventListener("mouseup", () => {
   if (!pipDragState?.dragging) return;
-  if (pipDragState.moved) pipSuppressHeaderToggle = true;
+  const dragTarget = pipDragState.target || "swf";
+  if (dragTarget === "swf" && pipDragState.moved) pipSuppressHeaderToggle = true;
   pipDragState.dragging = false;
-  const rect = ui.swfPipDock.getBoundingClientRect();
   state.preferences = getPreferences();
-  state.preferences.swfPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top), manual: true };
+  const dock = dragTarget === "video" ? ui.videoPipDock : ui.swfPipDock;
+  if (dock instanceof HTMLElement) {
+    const rect = dock.getBoundingClientRect();
+    if (dragTarget === "video") {
+      state.preferences.videoPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top), manual: true };
+    } else {
+      state.preferences.swfPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top), manual: true };
+    }
+  }
   saveState();
+  pipDragState = null;
 });
 ui.clearSwfShelfBtn.addEventListener("click", () => {
   state.savedSwfs = [];
