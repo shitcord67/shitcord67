@@ -2418,6 +2418,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   color: #aeb6c4;
   margin-bottom: 0.35rem;
   max-width: min(620px, 94vw);
+  overflow-wrap: anywhere;
 }
 
 .message-html-frame {

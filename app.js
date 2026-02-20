@@ -889,6 +889,8 @@ let findAfterFilter = "";
 let findBeforeFilter = "";
 let findHasLinkOnly = false;
 let findSelectionIndex = 0;
+let pendingFindJumpMessageId = "";
+let pendingFindJumpAttempts = 0;
 let cosmeticsTab = "decor";
 let pinsSearchTerm = "";
 let pinsSortMode = "latest";
@@ -2031,7 +2033,7 @@ function renderFindList() {
       findSelectionIndex = index;
       renderFindList();
       renderMessages();
-      focusMessageById(entry.id);
+      focusMessageByIdWithHistory(entry.id, { toastOnLoad: true });
     });
     ui.findList.appendChild(row);
   });
@@ -2082,7 +2084,7 @@ function moveFindSelection(delta) {
   findSelectionIndex = (findSelectionIndex + delta + matches.length) % matches.length;
   renderFindList();
   renderMessages();
-  focusMessageById(matches[findSelectionIndex].id);
+  focusMessageByIdWithHistory(matches[findSelectionIndex].id, { toastOnLoad: false });
 }
 
 function markConversationUnreadFromMessage(conversation, messageId, accountId) {
@@ -2949,6 +2951,36 @@ function focusMessageById(messageId) {
   return true;
 }
 
+function focusMessageByIdWithHistory(messageId, { toastOnLoad = false } = {}) {
+  if (!messageId) return false;
+  if (focusMessageById(messageId)) {
+    pendingFindJumpMessageId = "";
+    pendingFindJumpAttempts = 0;
+    return true;
+  }
+  const started = maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "find" });
+  if (!started) return false;
+  pendingFindJumpMessageId = messageId;
+  pendingFindJumpAttempts = 8;
+  if (toastOnLoad) showToast("Loading older messages to reach that result...");
+  return true;
+}
+
+function resolveReplyTargetMessageId(replyTo, channel = null) {
+  if (!replyTo || typeof replyTo !== "object") return "";
+  const directId = (replyTo.messageId || "").toString().trim();
+  if (directId) return directId;
+  const stanzaId = (replyTo.stanzaId || "").toString().trim();
+  const roomJid = xmppBareJid(channel?.xmppRoomJid || "");
+  if (!stanzaId || !roomJid) return "";
+  const mapped = findXmppRoomMessageByStanzaId(roomJid, stanzaId);
+  if (!mapped?.messageId) return "";
+  replyTo.messageId = mapped.messageId;
+  if (!replyTo.authorName && mapped.authorName) replyTo.authorName = mapped.authorName;
+  if ((!replyTo.text || replyTo.text === "XMPP reply") && mapped.text) replyTo.text = mapped.text;
+  return mapped.messageId;
+}
+
 function buildMessagePermalink(conversationId, messageId) {
   const origin = window.location.origin === "null" ? "" : window.location.origin;
   const base = `${origin}${window.location.pathname}`;
@@ -3710,6 +3742,25 @@ function xmppNodeText(node) {
   return (node.textContent || "").toString();
 }
 
+function decodeHtmlEntities(text) {
+  const raw = (text || "").toString();
+  if (!raw || !/&(?:[a-z][a-z0-9]+|#\d+|#x[a-f0-9]+);/i.test(raw)) return raw;
+  const area = document.createElement("textarea");
+  area.innerHTML = raw;
+  return area.value || raw;
+}
+
+function detectImageMimeFromBase64(bin) {
+  const value = (bin || "").toString().trim();
+  if (!value) return "";
+  if (value.startsWith("iVBORw0KGgo")) return "image/png";
+  if (value.startsWith("/9j/")) return "image/jpeg";
+  if (value.startsWith("R0lGOD")) return "image/gif";
+  if (value.startsWith("UklGR")) return "image/webp";
+  if (value.startsWith("PHN2Zy") || value.startsWith("PD94bWwg") || value.startsWith("PCFET0NU")) return "image/svg+xml";
+  return "";
+}
+
 function xmppStanzaDelayTimestamp(stanza, fallbackTs = "") {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return fallbackTs || new Date().toISOString();
   const delayNode = [...stanza.getElementsByTagName("delay")]
@@ -3751,8 +3802,7 @@ function xmppAttachmentsFromUrls(urls) {
   urls.forEach((url) => {
     const clean = (url || "").toString().trim();
     if (!clean) return;
-    const type = inferAttachmentTypeFromUrl(clean);
-    if (!type) return;
+    const type = inferAttachmentTypeFromUrl(clean) || "file";
     out.push({
       type,
       url: clean,
@@ -3796,6 +3846,23 @@ function findXmppRoomMessageByStanzaId(roomJid, stanzaId) {
   return index.get(key) || null;
 }
 
+function hydrateXmppRepliesForRoom(roomToken, roomJid, stanzaId, referenced) {
+  if (!roomToken || !roomJid || !stanzaId || !referenced) return false;
+  const targetChannel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(roomJid);
+  if (!targetChannel || !Array.isArray(targetChannel.messages)) return false;
+  let changed = false;
+  targetChannel.messages.forEach((entry) => {
+    if (!entry?.replyTo || typeof entry.replyTo !== "object") return;
+    if ((entry.replyTo.messageId || "").toString()) return;
+    if ((entry.replyTo.stanzaId || "").toString() !== stanzaId) return;
+    entry.replyTo.messageId = referenced.id || "";
+    entry.replyTo.authorName = displayNameForMessage(referenced) || entry.replyTo.authorName || "message";
+    entry.replyTo.text = (referenced.text || "").toString().slice(0, 180) || entry.replyTo.text || "XMPP reply";
+    changed = true;
+  });
+  return changed;
+}
+
 function xmppReplyMetaFromStanza(stanza, roomJid = "") {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
   const replyNode = [...stanza.getElementsByTagName("reply")]
@@ -3804,6 +3871,7 @@ function xmppReplyMetaFromStanza(stanza, roomJid = "") {
   if (!repliedId) return null;
   const known = roomJid ? findXmppRoomMessageByStanzaId(roomJid, repliedId) : null;
   return {
+    stanzaId: repliedId,
     messageId: (known?.messageId || "").toString(),
     authorName: (known?.authorName || "message").toString().slice(0, 60),
     text: (known?.text || "XMPP reply").toString().slice(0, 180)
@@ -3829,40 +3897,77 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
   if (requestedHash && currentHash && requestedHash === currentHash && account.avatarUrl) return;
   if (xmppAvatarFetchInFlight.has(bare)) return;
   xmppAvatarFetchInFlight.add(bare);
-  const iq = globalThis.$iq({ type: "get", to: bare }).c("vCard", { xmlns: "vcard-temp" });
-  xmppConnection.sendIQ(
-    iq,
-    (stanza) => {
-      try {
-        const photoNode = [...stanza.getElementsByTagName("PHOTO")][0] || null;
-        const binNode = photoNode ? [...photoNode.getElementsByTagName("BINVAL")][0] : null;
-        const typeNode = photoNode ? [...photoNode.getElementsByTagName("TYPE")][0] : null;
-        const bin = xmppNodeText(binNode).trim().replace(/\s+/g, "");
-        const mime = xmppNodeText(typeNode).trim().toLowerCase();
-        if (bin) {
-          const safeMime = /^image\/[a-z0-9.+-]+$/i.test(mime) ? mime : "image/jpeg";
-          account.avatarUrl = `data:${safeMime};base64,${bin}`;
-          if (requestedHash) {
-            xmppAvatarHashByJid.set(bare, requestedHash);
-          } else if (!currentHash) {
-            xmppAvatarHashByJid.set(bare, "vcard");
+  const applyAvatar = (bin, mime = "", hashMarker = "") => {
+    const cleanBin = (bin || "").toString().trim().replace(/\s+/g, "");
+    if (!cleanBin) return false;
+    const sniffedMime = detectImageMimeFromBase64(cleanBin);
+    const safeMime = /^image\/[a-z0-9.+-]+$/i.test((mime || "").toString())
+      ? mime.toLowerCase()
+      : (sniffedMime || "image/jpeg");
+    account.avatarUrl = `data:${safeMime};base64,${cleanBin}`;
+    if (hashMarker) xmppAvatarHashByJid.set(bare, hashMarker);
+    saveState();
+    renderDmList();
+    renderMemberList();
+    renderMessages();
+    return true;
+  };
+  const fetchVCardAvatar = () => {
+    const iq = globalThis.$iq({ type: "get", to: bare }).c("vCard", { xmlns: "vcard-temp" });
+    xmppConnection.sendIQ(
+      iq,
+      (stanza) => {
+        try {
+          const photoNode = [...stanza.getElementsByTagName("PHOTO")][0] || null;
+          const binNode = photoNode ? [...photoNode.getElementsByTagName("BINVAL")][0] : null;
+          const typeNode = photoNode ? [...photoNode.getElementsByTagName("TYPE")][0] : null;
+          const bin = xmppNodeText(binNode).trim().replace(/\s+/g, "");
+          const mime = xmppNodeText(typeNode).trim().toLowerCase();
+          if (applyAvatar(bin, mime, requestedHash || currentHash || "vcard")) {
+            if (!requestedHash && !currentHash) xmppAvatarHashByJid.set(bare, "vcard");
           }
-          saveState();
-          renderDmList();
-          renderMemberList();
-          renderMessages();
+        } catch {
+          // Ignore malformed vCard payloads.
+        } finally {
+          xmppAvatarFetchInFlight.delete(bare);
         }
-      } catch {
-        // Ignore malformed vCard payloads.
-      } finally {
+      },
+      () => {
         xmppAvatarFetchInFlight.delete(bare);
-      }
-    },
-    () => {
-      xmppAvatarFetchInFlight.delete(bare);
-    },
-    7000
-  );
+      },
+      7000
+    );
+  };
+  if (requestedHash) {
+    const pepIq = globalThis.$iq({ type: "get", to: bare })
+      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+      .c("items", { node: "urn:xmpp:avatar:data" })
+      .c("item", { id: requestedHash });
+    xmppConnection.sendIQ(
+      pepIq,
+      (stanza) => {
+        try {
+          const dataNode = [...stanza.getElementsByTagName("data")]
+            .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:avatar:data")) || null;
+          const bin = xmppNodeText(dataNode).trim().replace(/\s+/g, "");
+          const ok = applyAvatar(bin, "", requestedHash);
+          if (ok) {
+            xmppAvatarFetchInFlight.delete(bare);
+            return;
+          }
+        } catch {
+          // Fall back to vCard below.
+        }
+        fetchVCardAvatar();
+      },
+      () => {
+        fetchVCardAvatar();
+      },
+      7000
+    );
+    return;
+  }
+  fetchVCardAvatar();
 }
 
 function xmppPresencePhotoHash(stanza) {
@@ -3879,6 +3984,17 @@ function xmppMucMessageAuthorJid(stanza) {
     .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/muc#user")) || null;
   const itemNode = mucUserNode ? mucUserNode.getElementsByTagName("item")[0] : null;
   return xmppBareJid(itemNode?.getAttribute("jid") || "");
+}
+
+function xmppMucOccupantByNick(roomJid, nick = "") {
+  const bareRoom = xmppBareJid(roomJid);
+  const nickValue = (nick || "").toString().trim().toLowerCase();
+  if (!bareRoom || !nickValue) return null;
+  const occupants = xmppOccupantsByRoomJid.get(bareRoom);
+  if (!occupants || occupants.size === 0) return null;
+  return [...occupants.values()].find((entry) => (
+    (entry?.nick || "").toString().trim().toLowerCase() === nickValue
+  )) || null;
 }
 
 function findXmppRoomChannelByJid(roomJid) {
@@ -4349,6 +4465,16 @@ function mergeRelayMessageEntry(target, incoming) {
   if (!target.replyTo && incoming.replyTo) {
     target.replyTo = incoming.replyTo;
     changed = true;
+  } else if (target.replyTo && incoming.replyTo) {
+    const hadMessageId = Boolean((target.replyTo.messageId || "").toString().trim());
+    const incomingMessageId = (incoming.replyTo.messageId || "").toString().trim();
+    if (!hadMessageId && incomingMessageId) {
+      target.replyTo.messageId = incomingMessageId;
+      target.replyTo.authorName = incoming.replyTo.authorName || target.replyTo.authorName || "";
+      target.replyTo.text = incoming.replyTo.text || target.replyTo.text || "";
+      if (!target.replyTo.stanzaId && incoming.replyTo.stanzaId) target.replyTo.stanzaId = incoming.replyTo.stanzaId;
+      changed = true;
+    }
   }
   const currentAttachments = normalizeAttachments(target.attachments);
   const mergedAttachments = normalizeAttachments([
@@ -4431,15 +4557,16 @@ function applyRelayIncomingMessage(packet) {
     state.accounts.push(remoteAccount);
   }
   if (remoteMessage.authorDisplay) {
-    remoteAccount.displayName = remoteMessage.authorDisplay.toString().slice(0, 32) || remoteAccount.displayName;
+    remoteAccount.displayName = decodeHtmlEntities(remoteMessage.authorDisplay.toString()).slice(0, 32) || remoteAccount.displayName;
   }
   if (remoteAuthorJid) remoteAccount.xmppJid = remoteAuthorJid;
   const historyMessage = remoteMessage.history === true;
   const replyMeta = remoteMessage.replyTo && typeof remoteMessage.replyTo === "object"
     ? {
+        stanzaId: (remoteMessage.replyTo.stanzaId || "").toString().slice(0, 96),
         messageId: (remoteMessage.replyTo.messageId || "").toString().slice(0, 64),
-        authorName: (remoteMessage.replyTo.authorName || "").toString().slice(0, 60),
-        text: (remoteMessage.replyTo.text || "").toString().slice(0, 180),
+        authorName: decodeHtmlEntities((remoteMessage.replyTo.authorName || "").toString()).slice(0, 60),
+        text: decodeHtmlEntities((remoteMessage.replyTo.text || "").toString()).slice(0, 180),
         threadId: (remoteMessage.replyTo.threadId || "").toString().slice(0, 64) || null
       }
     : null;
@@ -4448,7 +4575,7 @@ function applyRelayIncomingMessage(packet) {
     relayId,
     userId: remoteAccount.id,
     authorName: "",
-    text: (remoteMessage.text || "").toString().slice(0, 400),
+    text: decodeHtmlEntities((remoteMessage.text || "").toString()).slice(0, 400),
     ts: Number.isFinite(Date.parse(remoteMessage.ts || "")) ? new Date(remoteMessage.ts).toISOString() : new Date().toISOString(),
     reactions: [],
     attachments: normalizeAttachments(Array.isArray(remoteMessage.attachments) ? remoteMessage.attachments.slice(0, 6) : []),
@@ -4623,8 +4750,8 @@ function connectRelaySocket({ force = false } = {}) {
         const hasActive = stanza.getElementsByTagName("active").length > 0;
         const bodyNode = stanza.getElementsByTagName("body")[0] || null;
         const subjectNode = stanza.getElementsByTagName("subject")[0] || null;
-        const bodyText = xmppNodeText(bodyNode).trim();
-        const subjectText = xmppNodeText(subjectNode).trim();
+        const bodyText = decodeHtmlEntities(xmppNodeText(bodyNode)).trim();
+        const subjectText = decodeHtmlEntities(xmppNodeText(subjectNode)).trim();
         const encrypted = xmppHasEncryptedPayload(stanza);
         let text = bodyText;
         if (!text && subjectText) {
@@ -4710,7 +4837,15 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const replyMeta = xmppReplyMetaFromStanza(stanza, roomJid);
         if (!text.trim() && attachments.length === 0 && !replyMeta) return;
-        const authorJid = xmppMucMessageAuthorJid(stanza);
+        let authorJid = xmppMucMessageAuthorJid(stanza);
+        if (!authorJid && roomJid && nick) {
+          const occupant = xmppMucOccupantByNick(roomJid, nick);
+          if (occupant?.jid) authorJid = xmppBareJid(occupant.jid);
+          if (!authorJid && occupant?.accountId) {
+            const account = getAccountById(occupant.accountId);
+            authorJid = xmppBareJid(account?.xmppJid || "");
+          }
+        }
         const inserted = applyRelayIncomingMessage({
           type: "chat",
           room: roomToken,
@@ -4730,7 +4865,13 @@ function connectRelaySocket({ force = false } = {}) {
         });
         if (inserted && roomJid) {
           const stableId = xmppStanzaStableId(stanza);
-          if (stableId) rememberXmppRoomMessage(roomJid, stableId, inserted);
+          if (stableId) {
+            rememberXmppRoomMessage(roomJid, stableId, inserted);
+            if (hydrateXmppRepliesForRoom(roomToken, roomJid, stableId, inserted)) {
+              saveState();
+              if (state.activeChannelId === findXmppRoomChannelByJid(roomJid)?.id) renderMessages();
+            }
+          }
         }
         if (authorJid) {
           const photoHash = xmppPresencePhotoHash(stanza);
@@ -6007,7 +6148,7 @@ function normalizeReactions(reactions) {
 
 function normalizeAttachments(attachments) {
   if (!Array.isArray(attachments)) return [];
-  const allowedTypes = new Set(["gif", "video", "sticker", "svg", "swf", "html", "pdf", "audio", "text", "odf", "rtf", "bin"]);
+  const allowedTypes = new Set(["gif", "video", "sticker", "svg", "swf", "html", "pdf", "audio", "text", "odf", "rtf", "bin", "file"]);
   const allowedFormats = new Set(["image", "dotlottie", "apng"]);
   const seen = new Set();
   return attachments
@@ -6319,6 +6460,10 @@ function isTrustedMediaUrl(url) {
   const host = mediaUrlHost(url);
   if (!host) return false;
   const prefs = getPreferences();
+  const accountDomain = xmppDomainFromJid(prefs.xmppJid || "");
+  if (accountDomain && (host === accountDomain || host.endsWith(`.${accountDomain}`))) {
+    return true;
+  }
   return prefs.mediaTrustRules.some((rule) => doesMediaRuleMatchHost(rule, host));
 }
 
@@ -9640,6 +9785,7 @@ function inferAttachmentTypeFromUrl(url) {
   if (has(/\.lottie(\?|$|&|#)/i)) return "sticker";
   if (has(/\.(mp4|webm|mov|m4v|ogv|m3u8)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(mp4|webm|mov|m4v|ogv|m3u8)(?:[&#]|$)/i)) return "video";
   if (has(/\.(png|jpe?g|gif|webp|bmp|avif|heic|heif|jfif)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(png|jpe?g|gif|webp|bmp|avif|heic|heif)(?:[&#]|$)/i)) return "gif";
+  if (has(/\/[^/?#]+\.[a-z0-9]{1,12}(\?|$|&|#)/i)) return "file";
   return null;
 }
 
@@ -11182,6 +11328,25 @@ function closeSwfViewerAndRestore() {
   if (ui.swfViewerDialog.open) ui.swfViewerDialog.close();
 }
 
+function attachmentTypeDisplayLabel(type, mediaUrl = "") {
+  const normalized = (inferAttachmentTypeFromUrl(mediaUrl) || type || "file").toLowerCase();
+  if (normalized === "gif") {
+    return /\.gif(\?|$|#|&)/i.test(mediaUrl) ? "GIF" : "image";
+  }
+  if (normalized === "video") return "video";
+  if (normalized === "audio") return "audio";
+  if (normalized === "pdf") return "PDF";
+  if (normalized === "html") return "HTML";
+  if (normalized === "svg") return "SVG";
+  if (normalized === "text") return "text file";
+  if (normalized === "odf") return "document";
+  if (normalized === "rtf") return "RTF";
+  if (normalized === "bin") return "binary file";
+  if (normalized === "sticker") return "sticker";
+  if (normalized === "swf") return "SWF";
+  return "file";
+}
+
 function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
@@ -11191,13 +11356,23 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
 
   if (type !== "swf" && shouldGateMediaUrl(mediaUrl)) {
     const host = mediaUrlHost(mediaUrl) || "external host";
+    const kind = attachmentTypeDisplayLabel(type, mediaUrl);
     const gate = document.createElement("div");
     gate.className = "message-swf";
     const title = document.createElement("strong");
-    title.textContent = `External ${type.toUpperCase()} hidden`;
+    title.textContent = `External ${kind} hidden`;
     const info = document.createElement("div");
     info.className = "message-swf-meta";
     info.textContent = `Host: ${host}`;
+    const urlNote = document.createElement("div");
+    urlNote.className = "message-embed-note";
+    urlNote.textContent = mediaUrl;
+    const openUrl = document.createElement("a");
+    openUrl.className = "message-swf-link";
+    openUrl.href = mediaUrl;
+    openUrl.target = "_blank";
+    openUrl.rel = "noopener noreferrer";
+    openUrl.textContent = "Open URL in new tab";
     const armBtn = document.createElement("button");
     armBtn.type = "button";
     armBtn.className = "message-swf-top-btn";
@@ -11240,6 +11415,13 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       showToast(`Added trust rule: ${nextRule}`);
       renderMessages();
     });
+    const copyUrlBtn = document.createElement("button");
+    copyUrlBtn.type = "button";
+    copyUrlBtn.textContent = "Copy URL";
+    copyUrlBtn.addEventListener("click", async () => {
+      const copied = await copyText(mediaUrl);
+      showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
+    });
     const allowAllBtn = document.createElement("button");
     allowAllBtn.type = "button";
     allowAllBtn.textContent = "Disable privacy gate";
@@ -11253,6 +11435,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controls.appendChild(onceBtn);
     controls.appendChild(trustBtn);
     controls.appendChild(customRuleBtn);
+    controls.appendChild(copyUrlBtn);
     controls.appendChild(allowAllBtn);
     armBtn.addEventListener("click", () => {
       controls.hidden = !controls.hidden;
@@ -11260,6 +11443,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     });
     gate.appendChild(title);
     gate.appendChild(info);
+    gate.appendChild(urlNote);
+    gate.appendChild(openUrl);
     gate.appendChild(armBtn);
     gate.appendChild(controls);
     wrap.appendChild(gate);
@@ -11768,6 +11953,28 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       .catch(() => {
         pre.textContent = "Could not load HEX preview.";
       });
+    return;
+  }
+
+  if (type === "file") {
+    const note = document.createElement("div");
+    note.className = "message-embed-note";
+    note.textContent = attachment.name || mediaUrl.split("/").pop() || "Attached file";
+    wrap.appendChild(note);
+    const openBtn = document.createElement("a");
+    openBtn.className = "message-swf-link";
+    openBtn.href = mediaUrl;
+    openBtn.target = "_blank";
+    openBtn.rel = "noopener noreferrer";
+    openBtn.textContent = "Open file";
+    wrap.appendChild(openBtn);
+    const downloadBtn = document.createElement("a");
+    downloadBtn.className = "message-swf-link";
+    downloadBtn.href = mediaUrl;
+    downloadBtn.download = attachment.name || mediaUrl.split("/").pop() || "download";
+    downloadBtn.textContent = "Download file";
+    wrap.appendChild(downloadBtn);
+    container.appendChild(wrap);
     return;
   }
 
@@ -12971,11 +13178,15 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
           replyLine.appendChild(replyName);
           replyLine.appendChild(document.createTextNode(": "));
           replyLine.appendChild(replyText);
-          if (replyMessage.replyTo.messageId) {
+          const targetReplyId = resolveReplyTargetMessageId(replyMessage.replyTo, channel);
+          if (targetReplyId) {
+            replyText.textContent = replyMessage.replyTo.text?.trim()?.slice(0, 90) || replyText.textContent;
+          }
+          if (targetReplyId) {
             replyLine.title = "Jump to referenced message";
             replyLine.classList.add("message-reply--jump");
             replyLine.addEventListener("click", () => {
-              const ok = focusMessageById(replyMessage.replyTo.messageId);
+              const ok = focusMessageByIdWithHistory(targetReplyId, { toastOnLoad: true });
               if (!ok) showToast("Referenced message is not visible in this view.");
             });
           }
@@ -13802,6 +14013,7 @@ function renderMessages() {
     const avatar = document.createElement("div");
     avatar.className = `message-avatar ${groupedWithPrevious ? "message-avatar--hidden" : ""}`;
     const author = message.userId ? getAccountById(message.userId) : null;
+    if (author?.xmppJid) maybeFetchXmppAvatarForJid(author.xmppJid);
     const guildId = !isDm ? getActiveGuild()?.id || null : null;
     if (author) {
       applyAvatarStyle(avatar, author, guildId);
@@ -13971,11 +14183,15 @@ function renderMessages() {
       replyLine.appendChild(replyName);
       replyLine.appendChild(document.createTextNode(": "));
       replyLine.appendChild(replyText);
-      if (message.replyTo.messageId) {
+      const targetReplyId = resolveReplyTargetMessageId(message.replyTo, channel);
+      if (targetReplyId) {
+        replyText.textContent = message.replyTo.text?.trim()?.slice(0, 90) || replyText.textContent;
+      }
+      if (targetReplyId) {
         replyLine.title = "Jump to referenced message";
         replyLine.classList.add("message-reply--jump");
         replyLine.addEventListener("click", () => {
-          const ok = focusMessageById(message.replyTo.messageId);
+          const ok = focusMessageByIdWithHistory(targetReplyId, { toastOnLoad: true });
           if (!ok) showToast("Referenced message is not visible in this view.");
         });
       }
@@ -14359,6 +14575,17 @@ function renderMessages() {
   if (hashRef && hashRef.conversationId === conversationId) {
     focusMessageById(hashRef.messageId);
   }
+  if (pendingFindJumpMessageId) {
+    if (focusMessageById(pendingFindJumpMessageId)) {
+      pendingFindJumpMessageId = "";
+      pendingFindJumpAttempts = 0;
+    } else if (pendingFindJumpAttempts > 0) {
+      pendingFindJumpAttempts -= 1;
+      maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "find" });
+    } else {
+      pendingFindJumpMessageId = "";
+    }
+  }
   updateJumpToBottomButton();
   const didMarkRead = isDm ? markDmRead(dmThread, currentAccount?.id) : markChannelRead(channel, currentAccount?.id);
   if (currentAccount && didMarkRead) {
@@ -14391,6 +14618,7 @@ function appendMessageRowLite(channel, message) {
   userButton.className = "message-user";
   userButton.textContent = displayNameForMessage(message);
   const author = message.userId ? getAccountById(message.userId) : null;
+  if (author?.xmppJid) maybeFetchXmppAvatarForJid(author.xmppJid);
   if (author) applyNameplateStyle(userButton, author);
   userButton.addEventListener("click", () => {
     openUserPopout(author, message.authorName || "Unknown");
@@ -15818,19 +16046,20 @@ function xmppUserLabelFromJid(jid, fallback = "") {
 
 function ensureAccountByXmppJid(jid, displayName = "") {
   const bare = normalizeXmppJid(jid).toLowerCase();
+  const normalizedDisplayName = decodeHtmlEntities((displayName || "").toString()).slice(0, 32);
   if (!bare) return null;
   const mapped = xmppRosterByJid.get(bare);
   if (mapped) {
     const account = getAccountById(mapped.accountId);
     if (account) {
-      if (displayName) account.displayName = displayName.toString().slice(0, 32) || account.displayName;
+      if (normalizedDisplayName) account.displayName = normalizedDisplayName || account.displayName;
       account.xmppJid = bare;
       return account;
     }
   }
   const existing = state.accounts.find((account) => normalizeXmppJid(account.xmppJid || "").toLowerCase() === bare) || null;
   if (existing) {
-    if (displayName) existing.displayName = displayName.toString().slice(0, 32) || existing.displayName;
+    if (normalizedDisplayName) existing.displayName = normalizedDisplayName || existing.displayName;
     existing.xmppJid = bare;
     xmppRosterByJid.set(bare, { accountId: existing.id, groups: [] });
     return existing;
@@ -15838,12 +16067,12 @@ function ensureAccountByXmppJid(jid, displayName = "") {
   const username = xmppUserLabelFromJid(bare, bare.split("@")[0] || "xmpp");
   let account = getAccountByUsername(username);
   if (!account) {
-    account = createAccount(username, displayName || bare.split("@")[0] || username);
+    account = createAccount(username, normalizedDisplayName || bare.split("@")[0] || username);
     account.xmppJid = bare;
     state.accounts.push(account);
   } else {
     account.xmppJid = bare;
-    if (displayName) account.displayName = displayName.toString().slice(0, 32) || account.displayName;
+    if (normalizedDisplayName) account.displayName = normalizedDisplayName || account.displayName;
   }
   xmppRosterByJid.set(bare, { accountId: account.id, groups: [] });
   return account;
