@@ -1492,6 +1492,37 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   margin-left: 0.2rem;
 }
 
+.xmpp-history-control {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: 0.1rem 0 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(40, 47, 61, 0.9);
+  border: 1px solid #495068;
+  color: #cfd6e4;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.28rem 0.5rem;
+}
+
+.xmpp-history-control button {
+  background: #3a4f8f;
+  color: #edf2ff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+}
+
+.xmpp-history-control--done {
+  opacity: 0.82;
+}
+
 .jump-to-bottom {
   position: absolute;
   right: 1rem;
