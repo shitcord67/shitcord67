@@ -17,6 +17,8 @@ const XMPP_ENABLE_BROWSER_HOST_META_FALLBACK = false;
 const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_MAM_NAMESPACE = "urn:xmpp:mam:2";
 const XMPP_MAM_PAGE_SIZE = 120;
+const XMPP_PING_INTERVAL_MS = 45000;
+const XMPP_PING_TIMEOUT_MS = 12000;
 const MESSAGE_CHAR_LIMIT_MIN = 200;
 const MESSAGE_CHAR_LIMIT_DEFAULT = 2000;
 const MESSAGE_CHAR_LIMIT_MAX = 20000;
@@ -953,6 +955,9 @@ let xmppConnection = null;
 let xmppRuntimeReady = false;
 let xmppLoadingPromise = null;
 let xmppRuntimeLastError = "";
+let xmppPingTimer = null;
+let xmppPingOutstandingId = "";
+let xmppPingOutstandingAt = 0;
 const xmppWsDiscoveryCache = new Map();
 const xmppRoomByJid = new Map();
 const xmppRosterByJid = new Map();
@@ -4067,6 +4072,56 @@ function xmppNodeText(node) {
   return (node.textContent || "").toString();
 }
 
+function clearXmppPingLoop() {
+  if (xmppPingTimer) {
+    clearInterval(xmppPingTimer);
+    xmppPingTimer = null;
+  }
+  xmppPingOutstandingId = "";
+  xmppPingOutstandingAt = 0;
+}
+
+function sendXmppPing(connection = xmppConnection, { timeoutMs = XMPP_PING_TIMEOUT_MS } = {}) {
+  if (!connection || typeof connection.sendIQ !== "function" || !globalThis.$iq) return false;
+  if (xmppPingOutstandingId) return true;
+  const id = `s67-ping-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
+  xmppPingOutstandingId = id;
+  xmppPingOutstandingAt = Date.now();
+  const pingIq = globalThis.$iq({ type: "get", id }).c("ping", { xmlns: "urn:xmpp:ping" });
+  connection.sendIQ(
+    pingIq,
+    () => {
+      if (xmppPingOutstandingId !== id) return;
+      xmppPingOutstandingId = "";
+      xmppPingOutstandingAt = 0;
+    },
+    (errorStanza) => {
+      if (xmppPingOutstandingId !== id) return;
+      xmppPingOutstandingId = "";
+      xmppPingOutstandingAt = 0;
+      addXmppDebugEvent("warn", "XMPP ping failed", {
+        id,
+        error: trimXmppRaw(xmppSerializePayload(errorStanza))
+      });
+    },
+    timeoutMs
+  );
+  return true;
+}
+
+function startXmppPingLoop(connection = xmppConnection) {
+  clearXmppPingLoop();
+  if (!connection || typeof connection.sendIQ !== "function" || !globalThis.$iq) return;
+  xmppPingTimer = setInterval(() => {
+    if (!xmppConnection || connection !== xmppConnection) {
+      clearXmppPingLoop();
+      return;
+    }
+    if (relayStatus !== "connected") return;
+    sendXmppPing(connection);
+  }, XMPP_PING_INTERVAL_MS);
+}
+
 function decodeHtmlEntities(text) {
   const raw = (text || "").toString();
   if (!raw) return raw;
@@ -5220,6 +5275,7 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
 
 function teardownXmppConnection() {
   addXmppDebugEvent("connect", "Tearing down XMPP connection");
+  clearXmppPingLoop();
   if (xmppConnection) {
     try {
       xmppConnection.disconnect();
@@ -6013,6 +6069,24 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "message", null, null, null);
       xmppConnection.addHandler((stanza) => {
         try {
+          const pingNode = [...stanza.getElementsByTagName("ping")]
+            .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:ping")) || null;
+          if (!pingNode) return true;
+          const id = stanza.getAttribute("id") || "";
+          const from = stanza.getAttribute("from") || "";
+          if (id && globalThis.$iq) {
+            const resultAttrs = { type: "result", id };
+            if (from) resultAttrs.to = from;
+            xmppConnection.send(globalThis.$iq(resultAttrs));
+          }
+          addXmppDebugEvent("iq", "Handled XMPP ping", { from, id });
+        } catch {
+          addXmppDebugEvent("error", "XMPP ping handler failed");
+        }
+        return true;
+      }, null, "iq", "get", null, null);
+      xmppConnection.addHandler((stanza) => {
+        try {
           const type = (stanza?.getAttribute("type") || "").toLowerCase();
           if (type !== "set") return true;
           const query = [...stanza.getElementsByTagName("query")]
@@ -6190,10 +6264,12 @@ function connectRelaySocket({ force = false } = {}) {
         const statusName = Object.entries(S || {}).find(([, value]) => value === status)?.[0] || String(status);
         addXmppDebugEvent("connect", "Relay status callback", { status: statusName, wsUrl, jid });
         if (status === S.CONNECTING) {
+          clearXmppPingLoop();
           setRelayStatus("connecting");
           return;
         }
         if (status === S.AUTHENTICATING) {
+          clearXmppPingLoop();
           setRelayStatus("connecting", "Authenticating");
           return;
         }
@@ -6201,6 +6277,7 @@ function connectRelaySocket({ force = false } = {}) {
           setRelayStatus("connected");
           sendCurrentXmppPresence();
           enableXmppCarbons(xmppConnection);
+          startXmppPingLoop(xmppConnection);
           const initialRoom = relayRoomForActiveConversation();
           const directPeerJid = xmppPeerJidForRelayRoom(initialRoom, current);
           if (directPeerJid) {
@@ -6264,6 +6341,7 @@ function connectRelaySocket({ force = false } = {}) {
           return;
         }
         if (status === S.DISCONNECTED) {
+          clearXmppPingLoop();
           xmppConnection = null;
           if (relayManualDisconnect) {
             setRelayStatus("disconnected");
@@ -6274,6 +6352,7 @@ function connectRelaySocket({ force = false } = {}) {
           return;
         }
         if (status === S.AUTHFAIL) {
+          clearXmppPingLoop();
           addXmppDebugEvent("error", "Relay auth failed; auto-reconnect suppressed after AUTHFAIL", {
             wsUrl,
             jid
@@ -6282,6 +6361,7 @@ function connectRelaySocket({ force = false } = {}) {
           return;
         }
         if (status === S.CONNFAIL || status === S.ERROR) {
+          clearXmppPingLoop();
           addXmppDebugEvent("error", "Relay connect/auth failed", {
             status: statusName,
             wsUrl,
@@ -12843,6 +12923,7 @@ function collectLiveSwfRuntimeKeys() {
 function shouldPreserveSwfRuntime(runtimeKey, runtime, liveSwfKeys = null) {
   if (!runtime) return false;
   if (runtime.keepAlive === true) return true;
+  if (runtime.pendingPip === true) return true;
   if (runtime.inPip || runtime.pipTransitioning || runtime.parked) return true;
   if (swfPipTabs.includes(runtimeKey)) return true;
   if (liveSwfKeys instanceof Set && liveSwfKeys.has(runtimeKey)) return true;
@@ -12874,6 +12955,40 @@ function ensurePreservedSwfRuntimeHost(runtimeKey, runtime, reason = "preserve")
   runtime.pipTransitioning = false;
   runtime.parked = true;
   addDebugLog("warn", "Preserved SWF runtime by parking detached host", { key: runtimeKey, reason });
+  return true;
+}
+
+function destroySwfRuntime(runtimeKey, {
+  force = false,
+  removeHost = true,
+  reason = "cleanup",
+  liveSwfKeys = null
+} = {}) {
+  if (!runtimeKey) return false;
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime) return false;
+  if (!force && shouldPreserveSwfRuntime(runtimeKey, runtime, liveSwfKeys)) {
+    ensurePreservedSwfRuntimeHost(runtimeKey, runtime, reason);
+    addDebugLog("warn", "Skipped SWF runtime destroy because runtime is preserved", {
+      key: runtimeKey,
+      reason
+    });
+    return false;
+  }
+  if (runtime.observer) {
+    runtime.observer.disconnect();
+    runtime.observer = null;
+  }
+  if (removeHost && runtime.host instanceof HTMLElement) runtime.host.remove();
+  swfRuntimes.delete(runtimeKey);
+  noteSwfRuntimeEvent(runtimeKey, "destroyed");
+  removeSwfPipTab(runtimeKey);
+  if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
+  swfPendingUi.delete(runtimeKey);
+  swfPendingAudio.delete(runtimeKey);
+  refreshSwfRuntimeHealthUi(runtimeKey);
+  refreshSwfAudioFocus();
+  addDebugLog("info", "Destroyed SWF runtime", { key: runtimeKey, reason, force });
   return true;
 }
 
@@ -13051,6 +13166,12 @@ function recoverDetachedSwfPipHost(runtimeKey) {
   return true;
 }
 
+function shouldAvoidSwfPipReparent(runtime) {
+  if (!runtime?.player || !(runtime.player instanceof HTMLElement)) return false;
+  if (typeof runtime.player.ruffle === "function") return true;
+  return runtime.player.tagName?.toLowerCase() === "ruffle-player";
+}
+
 function setSwfRuntimePip(runtimeKey, enabled) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player) return false;
@@ -13082,20 +13203,27 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     }
     runtime.pipTransitioning = true;
     runtime.inPip = true;
-    if (
-      runtime.host.parentElement instanceof HTMLElement
-      && runtime.host.parentElement !== document.body
-      && !runtime.parked
-      && runtime.host.parentElement.id !== "swfRuntimeParkingLot"
-    ) {
-      const placeholder = document.createElement("div");
-      placeholder.className = "message-swf-player";
-      placeholder.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
-      runtime.host.before(placeholder);
-      runtime.originHost = placeholder;
-    }
-    if (runtime.host.parentElement !== document.body) {
-      document.body.appendChild(runtime.host);
+    const avoidReparent = shouldAvoidSwfPipReparent(runtime);
+    if (!avoidReparent) {
+      if (
+        runtime.host.parentElement instanceof HTMLElement
+        && runtime.host.parentElement !== document.body
+        && !runtime.parked
+        && runtime.host.parentElement.id !== "swfRuntimeParkingLot"
+      ) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "message-swf-player";
+        placeholder.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
+        runtime.host.before(placeholder);
+        runtime.originHost = placeholder;
+      }
+      if (runtime.host.parentElement !== document.body) {
+        document.body.appendChild(runtime.host);
+      }
+    } else {
+      // Ruffle tears down when disconnected; keep the live host in place and float it via CSS.
+      runtime.originHost = runtime.host;
+      addDebugLog("info", "Using no-reparent SWF PiP mode for runtime", { key: runtimeKey });
     }
     runtime.pipHost = runtime.host;
     runtime.parked = false;
@@ -13153,15 +13281,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
       addDebugLog("warn", "Recovered SWF runtime after PiP close with fallback parking host", { key: runtimeKey });
     }
     if (!parked) {
-      if (!shouldPreserveSwfRuntime(runtimeKey, runtime)) {
-        runtime.host.remove();
-        swfRuntimes.delete(runtimeKey);
-        noteSwfRuntimeEvent(runtimeKey, "destroyed");
-        swfPendingUi.delete(runtimeKey);
-        swfPendingAudio.delete(runtimeKey);
-      } else {
-        ensurePreservedSwfRuntimeHost(runtimeKey, runtime, "pip-disable-fallback");
-      }
+      destroySwfRuntime(runtimeKey, { reason: "pip-disable-fallback", removeHost: true });
     }
     refreshSwfAudioFocus();
     return true;
@@ -13605,12 +13725,20 @@ async function openSwfFullscreen(runtimeKey, hostElement, attachment) {
 async function ensureSwfRuntimeReadyForPip(runtimeKey, hostElement, attachment) {
   if (!runtimeKey) return null;
   let runtime = swfRuntimes.get(runtimeKey);
+  if (runtime) {
+    runtime.keepAlive = true;
+    runtime.pendingPip = true;
+  }
   if (runtime?.player instanceof HTMLElement && !runtime.loading) return runtime;
   if (!(hostElement instanceof HTMLElement) || !attachment) return runtime || null;
   attachRufflePlayer(hostElement, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey });
   for (let attempt = 0; attempt < 90; attempt += 1) {
     await nextFrame();
     runtime = swfRuntimes.get(runtimeKey);
+    if (runtime) {
+      runtime.keepAlive = true;
+      runtime.pendingPip = true;
+    }
     if (runtime?.player instanceof HTMLElement && !runtime.loading) return runtime;
   }
   return runtime || null;
@@ -13629,12 +13757,7 @@ function resetSwfRuntime(runtimeKey, hostElement, attachment) {
   }
   if (runtime?.observer) runtime.observer.disconnect();
   if (runtimeKey) {
-    swfRuntimes.delete(runtimeKey);
-    noteSwfRuntimeEvent(runtimeKey, "destroyed");
-    removeSwfPipTab(runtimeKey);
-    if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
-    refreshSwfAudioFocus();
-    refreshSwfRuntimeHealthUi(runtimeKey);
+    destroySwfRuntime(runtimeKey, { force: true, reason: "user-reset", removeHost: false });
   }
   if (hostElement) {
     hostElement.innerHTML = "";
@@ -13768,20 +13891,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         if (!runtimeKey) return false;
         const runtime = swfRuntimes.get(runtimeKey);
         if (!runtime || runtime.player !== player || !runtime.loading) return false;
-        if (shouldPreserveSwfRuntime(runtimeKey, runtime)) return false;
-        if (runtime.observer) {
-          runtime.observer.disconnect();
-          runtime.observer = null;
-        }
-        swfRuntimes.delete(runtimeKey);
-        noteSwfRuntimeEvent(runtimeKey, "destroyed");
-        removeSwfPipTab(runtimeKey);
-        if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
-        swfPendingUi.delete(runtimeKey);
-        swfPendingAudio.delete(runtimeKey);
-        refreshSwfRuntimeHealthUi(runtimeKey);
-        refreshSwfAudioFocus();
-        return true;
+        return destroySwfRuntime(runtimeKey, { reason: "load-detached", removeHost: true });
       };
       let loadState = resolveLoadState();
       let mounted = loadState.host instanceof HTMLElement
@@ -13873,17 +13983,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             runtime.pendingPip = false;
           }
           if (!failedState.preserved) {
-            if (runtime?.observer) {
-              runtime.observer.disconnect();
-              runtime.observer = null;
-            }
-            swfRuntimes.delete(runtimeKey);
-            noteSwfRuntimeEvent(runtimeKey, "destroyed");
-            removeSwfPipTab(runtimeKey);
-            if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
-            swfPendingUi.delete(runtimeKey);
-            swfPendingAudio.delete(runtimeKey);
-            refreshSwfAudioFocus();
+            destroySwfRuntime(runtimeKey, { reason: "load-failed", removeHost: false });
           } else {
             if (runtime) ensurePreservedSwfRuntimeHost(runtimeKey, runtime, "load-failed");
             addDebugLog("warn", "Preserved SWF runtime after load failure because runtime is pinned/parked", { key: runtimeKey });
@@ -16681,34 +16781,18 @@ function renderMessages() {
     if (runtime.inPip && (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected)) {
       const recovered = recoverDetachedSwfPipHost(key);
       if (!recovered) {
-        if (shouldPreserveSwfRuntime(key, runtime, liveSwfKeys)) {
-          ensurePreservedSwfRuntimeHost(key, runtime, "render-pip-detach");
-          addDebugLog("warn", "Keeping SWF runtime after PiP host detach to avoid teardown", { key });
-          return;
-        }
-        swfRuntimes.delete(key);
-        noteSwfRuntimeEvent(key, "destroyed");
-        removeSwfPipTab(key);
-        if (swfSoloRuntimeKey === key) swfSoloRuntimeKey = null;
-        swfPendingUi.delete(key);
-        swfPendingAudio.delete(key);
+        const destroyed = destroySwfRuntime(key, {
+          reason: "render-pip-detach",
+          removeHost: true,
+          liveSwfKeys
+        });
+        if (!destroyed) addDebugLog("warn", "Keeping SWF runtime after PiP host detach to avoid teardown", { key });
       }
       return;
     }
     if (runtime.inPip || runtime.pipTransitioning) return;
     if (liveSwfKeys.has(key)) return;
-    if (shouldPreserveSwfRuntime(key, runtime, liveSwfKeys)) {
-      ensurePreservedSwfRuntimeHost(key, runtime, "render-preserve");
-      return;
-    }
-    if (runtime.observer) runtime.observer.disconnect();
-    if (runtime.host instanceof HTMLElement) runtime.host.remove();
-    swfRuntimes.delete(key);
-    noteSwfRuntimeEvent(key, "destroyed");
-    removeSwfPipTab(key);
-    if (swfSoloRuntimeKey === key) swfSoloRuntimeKey = null;
-    swfPendingUi.delete(key);
-    swfPendingAudio.delete(key);
+    destroySwfRuntime(key, { reason: "render-prune", removeHost: true, liveSwfKeys });
   });
   refreshSwfAudioFocus();
   ui.messageList.innerHTML = "";
