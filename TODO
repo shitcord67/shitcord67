@@ -258,6 +258,10 @@
 - [done] Added `/decor [emoji|clear]` command (with DM parity)
 - [done] Added `/nameplate [url|data:image/svg+xml|clear]` command (with DM parity)
 - [done] Added `Alt+Q` shortcut to show quest progress quickly
+- [done] Header actions now auto-switch to compact icon mode in tighter window sizes.
+- [done] SWF PiP runtime lifecycle hardened: detached PiP hosts are recovered, and PiP off now parks/re-attaches runtimes instead of destroying them.
+- [done] Media runtime bootstrap hardened with local-first probes and multi-CDN fallback for Ruffle/dotLottie.
+- [done] Added XEP-0184 DM delivery receipts (request + received ack handling with sent/delivered badges).
 - [done] Added `Quest Stats` action in self profile menu
 - [done] Added `Copy -> Guild Tag` option in message/member user context menus
 - [done] Added profile editor live identity preview card (banner/avatar/nameplate/tag/effect)

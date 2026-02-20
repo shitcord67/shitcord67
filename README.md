@@ -66,6 +66,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - GIF media sent as MP4/WebM now autoplay + loop inline (no video control chrome).
 - Sticker picker supports image stickers plus `.apng` and `.lottie` resources.
 - Ruffle and dotLottie runtimes are auto-loaded by the app (no manual user install flow).
+- Media runtime bootstrap now tries local bundled paths first and then multiple CDN fallbacks for higher load reliability.
 - Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.
 - Debug Console in Advanced settings (runtime status + recent media/ruffle logs).
 - Message context menu can copy payload as JSON or Matrix-style XML.
@@ -83,6 +84,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Advanced SWF options include default autoplay/paused mode, pause-on-auto-mute behavior, and optional collapsible VU details.
 - SWF top controls are in the header row (save, play/pause, fullscreen, reset, resize, optimal size, solo focus, PiP).
 - Tabbed SWF PiP dock lets you keep selected SWFs open while switching guilds/channels.
+- SWF PiP now parks/reattaches live runtimes instead of destroying them when the original chat host is gone.
 - SWF picker now supports muted Ruffle previews with lightweight sampled frame playback.
 - SWF link opens are configured with confirmation prompts (`openUrlMode: "confirm"`).
 - Advanced settings now include dedicated `Export SWF Saves` / `Import SWF Saves` (browser local-storage based).
@@ -185,6 +187,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Header now includes a direct `Mark Read` action and live pinned-message count on the `Pins` button.
 - Header now includes a direct `Find` action button for conversation search.
 - Discord-like visual tuning pass applied (font stack, channel row states, header controls, message spacing, member-list hover treatment).
+- Header action buttons now auto-switch to compact icon mode in tighter window sizes to reduce hidden controls.
 - Message rows were compacted further (reduced vertical padding/line-height) to cut extra blank space above/below content.
 - Composer input bar now uses compact Discord-style action sizing with arrow send button treatment.
 - Composer has a quick SWF audio toggle button (`🔇`/`🔊`) next to the media `+` button.
@@ -261,6 +264,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - When XMPP login credentials are provided, login now validates auth/connection before entering the app and keeps user on login on failure.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
 - XMPP DM threads now use direct `chat` stanzas to peer JIDs (not only MUC mapping), so one-to-one messaging works for JID-backed DM contacts.
+- XMPP DM sends now request delivery receipts (`urn:xmpp:receipts`) and show sent/delivered status for outbound DM messages.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
 - DM MAM now retries alternate archive targets (`domain` then own bare JID) for broader server compatibility when archive queries fail on the first target.

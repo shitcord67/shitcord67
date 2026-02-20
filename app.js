@@ -914,6 +914,7 @@ let swfPipCollapsed = false;
 let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
+let mediaRuntimeBootstrapped = false;
 let mediaPickerScrollLoadRaf = 0;
 let pipDragState = null;
 let pipSuppressHeaderToggle = false;
@@ -960,6 +961,7 @@ const xmppMamStateByRoomJid = new Map();
 const xmppMamStateByPeerJid = new Map();
 const xmppRoomMessageIndexByJid = new Map();
 const xmppDmMessageIndexByPeerJid = new Map();
+const xmppPendingReceiptByStanzaId = new Map();
 const xmppAvatarFetchInFlight = new Set();
 const xmppAvatarHashByJid = new Map();
 const xmppMucAvatarByOccupantKey = new Map();
@@ -1347,6 +1349,63 @@ const ui = {
 };
 
 if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
+
+const HEADER_ACTION_BUTTONS = [
+  { key: "openFindBtn", icon: "🔍", fallback: "Find" },
+  { key: "markChannelReadBtn", icon: "✓", fallback: "Mark Read" },
+  { key: "nextUnreadBtn", icon: "⤓", fallback: "Next Unread" },
+  { key: "openChannelSettingsBtn", icon: "⚙", fallback: "Channel" },
+  { key: "openPinsBtn", icon: "📌", fallback: "Pins" },
+  { key: "openRolesBtn", icon: "🛡", fallback: "Roles" },
+  { key: "openShortcutsBtn", icon: "⌨", fallback: "Shortcuts" },
+  { key: "toggleChannelPanelBtn", icon: "🧭", fallback: "Channels" },
+  { key: "toggleMemberPanelBtn", icon: "👥", fallback: "Members" },
+  { key: "toggleSwfShelfBtn", icon: "📼", fallback: "SWF Shelf" },
+  { key: "editTopicBtn", icon: "✎", fallback: "Edit Topic" }
+];
+
+function headerActionsShouldUseIconMode() {
+  const compactWidth = window.innerWidth <= 1280;
+  const compactHeight = window.innerHeight <= 680 && window.innerWidth <= 1500;
+  return compactWidth || compactHeight;
+}
+
+function setHeaderActionButtonLabel(buttonOrKey, label) {
+  const button = typeof buttonOrKey === "string"
+    ? ui[buttonOrKey]
+    : buttonOrKey;
+  if (!(button instanceof HTMLButtonElement)) return;
+  const next = (label || "").toString().trim();
+  if (next) button.dataset.fullLabel = next;
+  if (button.isConnected) refreshHeaderActionButtonLabels();
+}
+
+function refreshHeaderActionButtonLabels() {
+  const iconMode = headerActionsShouldUseIconMode();
+  HEADER_ACTION_BUTTONS.forEach((entry) => {
+    const button = ui[entry.key];
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (!button.dataset.baseTitle) button.dataset.baseTitle = button.title || "";
+    if (!button.dataset.fullLabel) {
+      const seed = (button.textContent || "").toString().trim();
+      button.dataset.fullLabel = seed || entry.fallback;
+    }
+    const fullLabel = (button.dataset.fullLabel || entry.fallback).toString();
+    if (iconMode) {
+      button.textContent = entry.icon;
+      button.classList.add("chat-topic-edit--icon");
+      button.title = fullLabel;
+      button.setAttribute("aria-label", fullLabel);
+      return;
+    }
+    button.textContent = fullLabel;
+    button.classList.remove("chat-topic-edit--icon");
+    const baseTitle = (button.dataset.baseTitle || "").toString();
+    const title = baseTitle || fullLabel;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+  });
+}
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -4034,6 +4093,78 @@ function xmppStanzaDelayTimestamp(stanza, fallbackTs = "") {
   return parsed.toISOString();
 }
 
+function xmppReceiptRequestNode(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  return [...stanza.getElementsByTagName("request")]
+    .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:receipts")) || null;
+}
+
+function xmppReceiptReceivedId(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const node = [...stanza.getElementsByTagName("received")]
+    .find((entry) => xmppNodeHasXmlns(entry, "urn:xmpp:receipts")) || null;
+  return (node?.getAttribute("id") || "").toString().trim();
+}
+
+function trimXmppPendingReceiptMap(limit = 600) {
+  const max = Math.max(64, Number(limit) || 600);
+  while (xmppPendingReceiptByStanzaId.size > max) {
+    const oldest = xmppPendingReceiptByStanzaId.keys().next().value;
+    if (!oldest) break;
+    xmppPendingReceiptByStanzaId.delete(oldest);
+  }
+}
+
+function rememberXmppPendingReceipt(stanzaId, thread, message, peerJid = "") {
+  const key = (stanzaId || "").toString().trim();
+  if (!key || !thread?.id || !message?.id) return;
+  message.xmppStanzaId = key;
+  message.xmppDeliveryState = "sent";
+  message.xmppDeliveryAt = "";
+  xmppPendingReceiptByStanzaId.set(key, {
+    threadId: thread.id,
+    messageId: message.id,
+    peerJid: xmppBareJid(peerJid),
+    sentAt: Date.now()
+  });
+  trimXmppPendingReceiptMap();
+}
+
+function markXmppMessageDeliveredByReceipt(stanzaId, peerJid = "") {
+  const key = (stanzaId || "").toString().trim();
+  if (!key) return false;
+  const normalizedPeer = xmppBareJid(peerJid);
+  let targetMessage = null;
+  let targetThread = null;
+  const pending = xmppPendingReceiptByStanzaId.get(key);
+  if (pending?.threadId && pending?.messageId) {
+    const scopedThread = state.dmThreads.find((entry) => entry.id === pending.threadId) || null;
+    const scopedMessage = scopedThread ? findMessageInChannel(scopedThread, pending.messageId) : null;
+    if (scopedMessage) {
+      targetThread = scopedThread;
+      targetMessage = scopedMessage;
+    }
+  }
+  if (!targetMessage) {
+    for (const thread of state.dmThreads) {
+      const hasPeer = !normalizedPeer
+        || thread.participantIds.some((id) => xmppBareJid(getAccountById(id)?.xmppJid || "") === normalizedPeer);
+      if (!hasPeer) continue;
+      const found = (thread.messages || []).find((message) => (message.xmppStanzaId || "").toString() === key);
+      if (found) {
+        targetThread = thread;
+        targetMessage = found;
+        break;
+      }
+    }
+  }
+  xmppPendingReceiptByStanzaId.delete(key);
+  if (!targetMessage || !targetThread) return false;
+  targetMessage.xmppDeliveryState = "delivered";
+  targetMessage.xmppDeliveryAt = new Date().toISOString();
+  return true;
+}
+
 function xmppExtractOobUrls(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
   const urls = [];
@@ -5170,6 +5301,7 @@ function disconnectRelaySocket({ manual = true } = {}) {
   }
   relaySocket = null;
   teardownXmppConnection();
+  xmppPendingReceiptByStanzaId.clear();
   clearRelayTypingState();
   setRelayStatus("disconnected");
 }
@@ -5648,6 +5780,9 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         const attachments = xmppAttachmentsFromUrls(xmppExtractOobUrls(stanza));
+        const receiptRequest = xmppReceiptRequestNode(stanza);
+        const receiptReceivedId = xmppReceiptReceivedId(stanza);
+        const stanzaMessageId = (stanza.getAttribute("id") || "").toString().trim();
         if (isDirectLike) {
           const toBare = xmppBareJid(stanza.getAttribute("to") || "");
           const ownAuthor = Boolean(allowSelf && ownBare && bareFrom === ownBare);
@@ -5660,6 +5795,25 @@ function connectRelaySocket({ force = false } = {}) {
           if (!peer || peer.id === current.id) return;
           const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
           if (!dmRoom) return;
+          if (!ownAuthor && receiptRequest && stanzaMessageId && xmppConnection) {
+            const receiptAck = globalThis.$msg({ to: peerBare, type: "chat" })
+              .c("received", { xmlns: "urn:xmpp:receipts", id: stanzaMessageId });
+            xmppConnection.send(receiptAck);
+            addXmppDebugEvent("message", "Sent XMPP delivery receipt", { to: peerBare, id: stanzaMessageId });
+          }
+          if (receiptReceivedId) {
+            const updated = markXmppMessageDeliveredByReceipt(receiptReceivedId, peerBare);
+            if (updated) {
+              saveState();
+              const activeConversation = getActiveConversation();
+              if (activeConversation?.type === "dm") renderMessages();
+            }
+            addXmppDebugEvent("message", "Received XMPP delivery receipt", {
+              from: peerBare,
+              id: receiptReceivedId,
+              matched: updated
+            });
+          }
           if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
             applyRelayIncomingTyping({
               type: "typing",
@@ -6424,8 +6578,13 @@ function publishRelayDirectMessage(thread, message, account) {
     const body = relayMessageBodyText(message);
     if (!body) return false;
     if (peerJid) {
-      const stanza = globalThis.$msg({ to: peerJid, type: "chat" }).c("body").t(body);
+      const stanzaId = `s67-${createId().slice(0, 12)}`;
+      const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId })
+        .c("body").t(body)
+        .up()
+        .c("request", { xmlns: "urn:xmpp:receipts" });
       xmppConnection.send(stanza);
+      rememberXmppPendingReceipt(stanzaId, thread, message, peerJid);
       return true;
     }
     joinXmppRoom(room, account);
@@ -7386,59 +7545,88 @@ async function localRuntimeExists(src) {
 }
 
 async function deployMediaRuntimes() {
-  const allowLocalRuntime = new URLSearchParams(window.location.search).get("localRuntime") === "1";
   let shouldRerender = false;
-  if (allowLocalRuntime) {
+  const localRuffleCandidates = [
+    "vendor/ruffle/ruffle.js",
+    "node_modules/@ruffle-rs/ruffle/ruffle.js",
+    "ruffle/ruffle.js"
+  ];
+  for (const candidate of localRuffleCandidates) {
+    if (window.RufflePlayer?.newest) break;
     try {
-      const hasLocalRuffle = await localRuntimeExists("ruffle/ruffle.js");
-      if (hasLocalRuffle) {
-        await loadScriptTag("ruffle/ruffle.js");
-        shouldRerender = true;
-        addDebugLog("info", "Loaded local Ruffle runtime", { src: "ruffle/ruffle.js" });
-      } else {
-        addDebugLog("info", "Local Ruffle runtime not found, using CDN fallback");
-      }
-    } catch {
-      addDebugLog("warn", "Local Ruffle runtime probe failed, using CDN fallback");
+      // eslint-disable-next-line no-await-in-loop
+      const exists = await localRuntimeExists(candidate);
+      if (!exists) continue;
+      // eslint-disable-next-line no-await-in-loop
+      await loadScriptTag(candidate);
+      shouldRerender = true;
+      addDebugLog("info", "Loaded local Ruffle runtime", { src: candidate });
+      break;
+    } catch (error) {
+      addDebugLog("warn", "Local Ruffle runtime candidate failed", { src: candidate, error: String(error) });
     }
-  } else {
-    addDebugLog("info", "Skipping local Ruffle runtime probe (use ?localRuntime=1 to enable)");
   }
   if (!window.RufflePlayer?.newest) {
-    try {
-      await loadScriptTag("https://unpkg.com/@ruffle-rs/ruffle");
-      shouldRerender = true;
-      addDebugLog("info", "Loaded CDN Ruffle runtime", { src: "https://unpkg.com/@ruffle-rs/ruffle" });
-    } catch {
-      addDebugLog("warn", "Failed to load Ruffle runtime (local and CDN)");
-      // SWF fallback card remains available.
+    const remoteRuffleCandidates = [
+      "https://unpkg.com/@ruffle-rs/ruffle",
+      "https://cdn.jsdelivr.net/npm/@ruffle-rs/ruffle"
+    ];
+    for (const candidate of remoteRuffleCandidates) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await loadScriptTag(candidate);
+        shouldRerender = true;
+        addDebugLog("info", "Loaded CDN Ruffle runtime", { src: candidate });
+        break;
+      } catch (error) {
+        addDebugLog("warn", "CDN Ruffle runtime candidate failed", { src: candidate, error: String(error) });
+      }
     }
   }
-  if (allowLocalRuntime) {
+  if (!window.RufflePlayer?.newest) {
+    addDebugLog("warn", "Failed to load Ruffle runtime (local + CDN fallbacks)");
+    // SWF fallback card remains available.
+  }
+  const localDotLottieCandidates = [
+    "vendor/dotlottie/dotlottie-player.mjs",
+    "node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs",
+    "dotlottie/dotlottie-player.mjs"
+  ];
+  for (const candidate of localDotLottieCandidates) {
+    if (typeof customElements !== "undefined" && customElements.get("dotlottie-player")) break;
     try {
-      const hasLocalDotLottie = await localRuntimeExists("dotlottie/dotlottie-player.mjs");
-      if (hasLocalDotLottie) {
-        await loadScriptTag("dotlottie/dotlottie-player.mjs", "module");
-        shouldRerender = true;
-        addDebugLog("info", "Loaded local dotLottie runtime", { src: "dotlottie/dotlottie-player.mjs" });
-      } else {
-        addDebugLog("info", "Local dotLottie runtime not found, using CDN fallback");
-      }
-    } catch {
-      addDebugLog("warn", "Local dotLottie runtime probe failed, using CDN fallback");
+      // eslint-disable-next-line no-await-in-loop
+      const exists = await localRuntimeExists(candidate);
+      if (!exists) continue;
+      // eslint-disable-next-line no-await-in-loop
+      await loadScriptTag(candidate, "module");
+      shouldRerender = true;
+      addDebugLog("info", "Loaded local dotLottie runtime", { src: candidate });
+      break;
+    } catch (error) {
+      addDebugLog("warn", "Local dotLottie runtime candidate failed", { src: candidate, error: String(error) });
     }
-  } else {
-    addDebugLog("info", "Skipping local dotLottie runtime probe (use ?localRuntime=1 to enable)");
   }
   if (!(typeof customElements !== "undefined" && customElements.get("dotlottie-player"))) {
-    try {
-      await loadScriptTag("https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs", "module");
-      shouldRerender = true;
-      addDebugLog("info", "Loaded CDN dotLottie runtime", { src: "https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" });
-    } catch {
-      addDebugLog("warn", "Failed to load dotLottie runtime (local and CDN)");
-      // dotLottie falls back to link/file preview behavior.
+    const remoteDotLottieCandidates = [
+      "https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs",
+      "https://cdn.jsdelivr.net/npm/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs"
+    ];
+    for (const candidate of remoteDotLottieCandidates) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await loadScriptTag(candidate, "module");
+        shouldRerender = true;
+        addDebugLog("info", "Loaded CDN dotLottie runtime", { src: candidate });
+        break;
+      } catch (error) {
+        addDebugLog("warn", "CDN dotLottie runtime candidate failed", { src: candidate, error: String(error) });
+      }
     }
+  }
+  if (!(typeof customElements !== "undefined" && customElements.get("dotlottie-player"))) {
+    addDebugLog("warn", "Failed to load dotLottie runtime (local + CDN fallbacks)");
+    // dotLottie falls back to link/file preview behavior.
   }
   if (shouldRerender && state.currentAccountId) {
     renderMessages();
@@ -10555,12 +10743,12 @@ function applyPreferencesToUI() {
   if (ui.toggleChannelPanelBtn) {
     const hidden = prefs.hideChannelPanel === "on";
     ui.toggleChannelPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
-    ui.toggleChannelPanelBtn.textContent = hidden ? "Channels Off" : "Channels";
+    setHeaderActionButtonLabel(ui.toggleChannelPanelBtn, hidden ? "Channels Off" : "Channels");
   }
   if (ui.toggleMemberPanelBtn) {
     const hidden = prefs.hideMemberPanel === "on";
     ui.toggleMemberPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
-    ui.toggleMemberPanelBtn.textContent = hidden ? "Members Off" : "Members";
+    setHeaderActionButtonLabel(ui.toggleMemberPanelBtn, hidden ? "Members Off" : "Members");
   }
   if (ui.toggleDmSectionBtn) {
     const collapsed = prefs.collapseDmSection === "on";
@@ -10593,6 +10781,7 @@ function applyPreferencesToUI() {
     if (prefs.swfQuickAudioMode === "on") runtime.audioClickAllowed = true;
   });
   applySwfAudioToAllRuntimes();
+  refreshHeaderActionButtonLabels();
   resizeComposerInput();
 }
 
@@ -11887,10 +12076,19 @@ function toggleMediaPicker() {
   }
 }
 
-function warmMediaPickerRuntimes() {
-  if (mediaRuntimeWarmed) return;
-  mediaRuntimeWarmed = true;
+function ensureMediaRuntimeBootstrapped() {
+  if (mediaRuntimeBootstrapped) return;
+  mediaRuntimeBootstrapped = true;
   void deployMediaRuntimes();
+}
+
+function warmMediaPickerRuntimes() {
+  if (!mediaRuntimeWarmed) {
+    mediaRuntimeWarmed = true;
+    ensureMediaRuntimeBootstrapped();
+  } else if (!window.RufflePlayer?.newest || !(typeof customElements !== "undefined" && customElements.get("dotlottie-player"))) {
+    void deployMediaRuntimes();
+  }
   void ensureEmojiLibraryLoaded();
 }
 
@@ -12728,26 +12926,106 @@ function attachExistingSwfRuntime(runtimeKey, hostElement) {
   }
   runtime.host = liveHost;
   runtime.originHost = liveHost;
-  bindSwfVisibilityObserver(runtimeKey);
+  runtime.parked = false;
+  liveHost.classList.remove("message-swf-player--parked");
+  if (!runtime.inPip) bindSwfVisibilityObserver(runtimeKey);
   return liveHost;
+}
+
+function ensureSwfRuntimeParkingLot() {
+  let lot = document.getElementById("swfRuntimeParkingLot");
+  if (lot instanceof HTMLElement) return lot;
+  lot = document.createElement("div");
+  lot.id = "swfRuntimeParkingLot";
+  lot.setAttribute("aria-hidden", "true");
+  lot.style.position = "fixed";
+  lot.style.left = "-20000px";
+  lot.style.top = "-20000px";
+  lot.style.width = "1px";
+  lot.style.height = "1px";
+  lot.style.opacity = "0";
+  lot.style.pointerEvents = "none";
+  lot.style.overflow = "hidden";
+  document.body.appendChild(lot);
+  return lot;
+}
+
+function parkSwfRuntimeHost(runtimeKey) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.player || !(runtime.host instanceof HTMLElement)) return false;
+  if (runtime.observer) {
+    runtime.observer.disconnect();
+    runtime.observer = null;
+  }
+  const lot = ensureSwfRuntimeParkingLot();
+  runtime.host.classList.remove("swf-pip-player", "message-swf-player--pip-floating");
+  runtime.host.classList.add("message-swf-player--parked");
+  lot.appendChild(runtime.host);
+  runtime.inPip = false;
+  runtime.pipHost = null;
+  runtime.pipTransitioning = false;
+  runtime.parked = true;
+  setSwfPlayback(runtimeKey, false, "system");
+  addDebugLog("info", "Parked SWF runtime host for later reattach", { key: runtimeKey });
+  return true;
+}
+
+function recoverDetachedSwfPipHost(runtimeKey) {
+  const runtime = swfRuntimes.get(runtimeKey);
+  if (!runtime?.player || !(runtime.player instanceof HTMLElement)) return false;
+  let host = runtime.host instanceof HTMLElement ? runtime.host : null;
+  if (!host) {
+    host = document.createElement("div");
+    host.className = "message-swf-player";
+  }
+  if (!host.classList.contains("message-swf-player")) host.classList.add("message-swf-player");
+  if (!host.contains(runtime.player)) {
+    host.innerHTML = "";
+    host.appendChild(runtime.player);
+  }
+  if (!host.isConnected || host.parentElement !== document.body) {
+    document.body.appendChild(host);
+  }
+  host.classList.remove("message-swf-player--parked");
+  host.classList.add("swf-pip-player", "message-swf-player--pip-floating");
+  runtime.host = host;
+  runtime.pipHost = host;
+  runtime.inPip = true;
+  runtime.pipTransitioning = false;
+  runtime.parked = false;
+  addDebugLog("warn", "Recovered detached SWF PiP runtime host", { key: runtimeKey });
+  return true;
 }
 
 function setSwfRuntimePip(runtimeKey, enabled) {
   const runtime = swfRuntimes.get(runtimeKey);
-  if (!runtime?.player || !(runtime.host instanceof HTMLElement)) return false;
+  if (!runtime?.player) return false;
+  if (!(runtime.host instanceof HTMLElement)) {
+    const host = document.createElement("div");
+    host.className = "message-swf-player";
+    host.appendChild(runtime.player);
+    runtime.host = host;
+    runtime.originHost = host;
+  }
   if (enabled) {
     if (runtime.observer) {
       runtime.observer.disconnect();
       runtime.observer = null;
     }
     if (runtime.inPip) {
+      if (!runtime.host.isConnected && !recoverDetachedSwfPipHost(runtimeKey)) return false;
       activateSwfPipTab(runtimeKey);
       setSwfPlayback(runtimeKey, true, "user");
       return true;
     }
     runtime.pipTransitioning = true;
     runtime.inPip = true;
-    if (runtime.host.parentElement instanceof HTMLElement && runtime.host.parentElement !== document.body) {
+    if (
+      runtime.host.parentElement instanceof HTMLElement
+      && runtime.host.parentElement !== document.body
+      && !runtime.parked
+      && runtime.host.parentElement.id !== "swfRuntimeParkingLot"
+    ) {
       const placeholder = document.createElement("div");
       placeholder.className = "message-swf-player";
       placeholder.innerHTML = "<div class=\"channel-empty\">Running in PiP tab.</div>";
@@ -12758,6 +13036,8 @@ function setSwfRuntimePip(runtimeKey, enabled) {
       document.body.appendChild(runtime.host);
     }
     runtime.pipHost = runtime.host;
+    runtime.parked = false;
+    runtime.host.classList.remove("message-swf-player--parked");
     runtime.pipHost.classList.add("swf-pip-player", "message-swf-player--pip-floating");
     runtime.pipTransitioning = false;
     activateSwfPipTab(runtimeKey);
@@ -12778,14 +13058,18 @@ function setSwfRuntimePip(runtimeKey, enabled) {
     && runtime.originHost !== runtime.host;
   if (canRestoreOrigin) {
     runtime.originHost.replaceWith(runtime.host);
+    runtime.parked = false;
   } else if (runtime.host.parentElement === document.body) {
-    runtime.host.remove();
-    swfRuntimes.delete(runtimeKey);
-    noteSwfRuntimeEvent(runtimeKey, "destroyed");
+    const parked = parkSwfRuntimeHost(runtimeKey);
     removeSwfPipTab(runtimeKey);
     if (swfSoloRuntimeKey === runtimeKey) swfSoloRuntimeKey = null;
-    swfPendingUi.delete(runtimeKey);
-    swfPendingAudio.delete(runtimeKey);
+    if (!parked) {
+      runtime.host.remove();
+      swfRuntimes.delete(runtimeKey);
+      noteSwfRuntimeEvent(runtimeKey, "destroyed");
+      swfPendingUi.delete(runtimeKey);
+      swfPendingAudio.delete(runtimeKey);
+    }
     refreshSwfAudioFocus();
     return true;
   }
@@ -12847,6 +13131,9 @@ function positionSwfPipRuntimeHosts() {
   swfPipTabs.forEach((runtimeKey) => {
     const runtime = swfRuntimes.get(runtimeKey);
     if (!runtime?.pipHost) return;
+    if (!runtime.pipHost.isConnected) {
+      if (!recoverDetachedSwfPipHost(runtimeKey)) return;
+    }
     const visible = (
       runtimeKey === swfPipActiveKey
       && !ui.swfPipDock.classList.contains("swf-pip--hidden")
@@ -13338,6 +13625,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         inPip: existingRuntime.inPip === true,
         pipHost: existingRuntime.pipHost || null,
         pipTransitioning: existingRuntime.pipTransitioning === true,
+        parked: existingRuntime.parked === true,
         loading: true,
         audioEnabled: getPreferences().swfAudio === "on",
         audioVolume: getPreferences().swfVolume,
@@ -15799,7 +16087,7 @@ function renderDmHome() {
   ui.messageInput.placeholder = "Pick a DM to start chatting";
   if (ui.markChannelReadBtn) ui.markChannelReadBtn.hidden = true;
   if (ui.nextUnreadBtn) ui.nextUnreadBtn.hidden = true;
-  if (ui.openPinsBtn) ui.openPinsBtn.textContent = "Pins";
+  if (ui.openPinsBtn) setHeaderActionButtonLabel(ui.openPinsBtn, "Pins");
   if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = true;
   ui.messageList.innerHTML = "";
   const shell = document.createElement("section");
@@ -16190,12 +16478,15 @@ function renderMessages() {
   swfRuntimes.forEach((runtime, key) => {
     if (key === currentViewerRuntimeKey) return;
     if (runtime.inPip && (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected)) {
-      swfRuntimes.delete(key);
-      noteSwfRuntimeEvent(key, "destroyed");
-      removeSwfPipTab(key);
-      if (swfSoloRuntimeKey === key) swfSoloRuntimeKey = null;
-      swfPendingUi.delete(key);
-      swfPendingAudio.delete(key);
+      const recovered = recoverDetachedSwfPipHost(key);
+      if (!recovered) {
+        swfRuntimes.delete(key);
+        noteSwfRuntimeEvent(key, "destroyed");
+        removeSwfPipTab(key);
+        if (swfSoloRuntimeKey === key) swfSoloRuntimeKey = null;
+        swfPendingUi.delete(key);
+        swfPendingAudio.delete(key);
+      }
       return;
     }
     if (runtime.inPip || runtime.pipTransitioning) return;
@@ -16288,7 +16579,10 @@ function renderMessages() {
   const guildUnreadChannels = !isDm ? listUnreadGuildChannels(getActiveGuild(), currentAccount) : [];
   const channelPinnedCount = !isDm ? messageBucket.filter((message) => message.pinned).length : 0;
   if (ui.openPinsBtn) {
-    ui.openPinsBtn.textContent = channelPinnedCount > 0 ? `Pins (${channelPinnedCount})` : "Pins";
+    setHeaderActionButtonLabel(
+      ui.openPinsBtn,
+      channelPinnedCount > 0 ? `Pins (${channelPinnedCount})` : "Pins"
+    );
   }
   if (ui.markChannelReadBtn) {
     ui.markChannelReadBtn.hidden = false;
@@ -16296,22 +16590,25 @@ function renderMessages() {
     ui.markChannelReadBtn.disabled = !currentAccount || !canMark;
     ui.markChannelReadBtn.classList.toggle("chat-topic-edit--active", canMark);
     if (isDm && dmUnreadStats.unread > 0) {
-      ui.markChannelReadBtn.textContent = `Mark DM Read (${dmUnreadStats.unread > 99 ? "99+" : dmUnreadStats.unread})`;
+      setHeaderActionButtonLabel(ui.markChannelReadBtn, `Mark DM Read (${dmUnreadStats.unread > 99 ? "99+" : dmUnreadStats.unread})`);
     } else if (!isDm && unreadStats.unread > 0) {
-      ui.markChannelReadBtn.textContent = `Mark Read (${unreadStats.unread > 99 ? "99+" : unreadStats.unread})`;
+      setHeaderActionButtonLabel(ui.markChannelReadBtn, `Mark Read (${unreadStats.unread > 99 ? "99+" : unreadStats.unread})`);
     } else if (isDm) {
-      ui.markChannelReadBtn.textContent = "Mark DM Read";
+      setHeaderActionButtonLabel(ui.markChannelReadBtn, "Mark DM Read");
     } else {
-      ui.markChannelReadBtn.textContent = "Mark Read";
+      setHeaderActionButtonLabel(ui.markChannelReadBtn, "Mark Read");
     }
   }
   if (ui.nextUnreadBtn) {
     ui.nextUnreadBtn.hidden = isDm;
     ui.nextUnreadBtn.disabled = isDm || guildUnreadChannels.length === 0;
     ui.nextUnreadBtn.classList.toggle("chat-topic-edit--active", !isDm && guildUnreadChannels.length > 0);
-    ui.nextUnreadBtn.textContent = guildUnreadChannels.length > 0
-      ? `Next Unread (${guildUnreadChannels.length > 99 ? "99+" : guildUnreadChannels.length})`
-      : "Next Unread";
+    setHeaderActionButtonLabel(
+      ui.nextUnreadBtn,
+      guildUnreadChannels.length > 0
+        ? `Next Unread (${guildUnreadChannels.length > 99 ? "99+" : guildUnreadChannels.length})`
+        : "Next Unread"
+    );
   }
   const channelSlowmode = !isDm ? getChannelSlowmodeSeconds(channel) : 0;
   if (!isDm && channelSlowmode > 0) {
@@ -16585,6 +16882,23 @@ function renderMessages() {
         showToast(copied ? "Timestamp copied." : "Failed to copy timestamp.", { tone: copied ? "info" : "error" });
       });
     });
+    let deliveryBadge = null;
+    if (isDm && currentAccount?.id && message.userId === currentAccount.id) {
+      const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
+      if (deliveryState === "sent" || deliveryState === "delivered") {
+        deliveryBadge = document.createElement("span");
+        deliveryBadge.className = `message-delivery message-delivery--${deliveryState}`;
+        if (deliveryState === "delivered") {
+          deliveryBadge.textContent = "✓✓";
+          deliveryBadge.title = message.xmppDeliveryAt
+            ? `Delivered at ${formatFullTimestamp(message.xmppDeliveryAt)}`
+            : "Delivered";
+        } else {
+          deliveryBadge.textContent = "✓";
+          deliveryBadge.title = "Sent (waiting for delivery receipt)";
+        }
+      }
+    }
     let editedBadge = null;
     if (message.editedAt) {
       editedBadge = document.createElement("span");
@@ -16800,6 +17114,7 @@ function renderMessages() {
     head.appendChild(userButton);
     if (userTagButton) head.appendChild(userTagButton);
     head.appendChild(time);
+    if (deliveryBadge) head.appendChild(deliveryBadge);
     if (collaborativeBadge) head.appendChild(collaborativeBadge);
     if (editedBadge) head.appendChild(editedBadge);
     messageRow.appendChild(head);
@@ -17054,6 +17369,7 @@ function renderMessages() {
     }
   }
   lastRenderedMessageSignature = messageSignature;
+  refreshHeaderActionButtonLabels();
   updateJumpToBottomButton();
   const didMarkRead = isDm ? markDmRead(dmThread, currentAccount?.id) : markChannelRead(channel, currentAccount?.id);
   if (currentAccount && didMarkRead) {
@@ -17118,6 +17434,18 @@ function appendMessageRowLite(channel, message) {
     head.appendChild(tagChip);
   }
   head.appendChild(time);
+  if (isDm && currentUser?.id && message.userId === currentUser.id) {
+    const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
+    if (deliveryState === "sent" || deliveryState === "delivered") {
+      const deliveryBadge = document.createElement("span");
+      deliveryBadge.className = `message-delivery message-delivery--${deliveryState}`;
+      deliveryBadge.textContent = deliveryState === "delivered" ? "✓✓" : "✓";
+      deliveryBadge.title = deliveryState === "delivered"
+        ? (message.xmppDeliveryAt ? `Delivered at ${formatFullTimestamp(message.xmppDeliveryAt)}` : "Delivered")
+        : "Sent (waiting for delivery receipt)";
+      head.appendChild(deliveryBadge);
+    }
+  }
   messageRow.appendChild(head);
   const attachments = collectRenderableAttachments(message);
   const renderedText = stripInlineAttachmentUrlsFromText(message.text, attachments);
@@ -17796,6 +18124,7 @@ function render() {
     clearComposerPendingAttachment();
     return;
   }
+  ensureMediaRuntimeBootstrapped();
   if (ensureActiveGuildForCurrentAccount()) {
     saveState();
   }
@@ -17820,6 +18149,7 @@ function render() {
   renderReplyComposer();
   renderSlashSuggestions();
   renderComposerMeta();
+  refreshHeaderActionButtonLabels();
   updateDocumentTitle();
   if (mediaPickerOpen) renderMediaPicker();
   if (ui.cosmeticsDialog?.open) renderCosmeticsDialog();
@@ -22066,6 +22396,7 @@ document.addEventListener("keydown", (event) => {
 
 window.addEventListener("resize", () => {
   closeContextMenu();
+  refreshHeaderActionButtonLabels();
   if (mediaPickerOpen) renderMediaPicker();
   if (currentViewerRuntimeKey) {
     const runtime = swfRuntimes.get(currentViewerRuntimeKey);
@@ -22087,6 +22418,7 @@ document.addEventListener("scroll", closeContextMenu, true);
 
 if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", () => {
+    refreshHeaderActionButtonLabels();
     if (mediaPickerOpen) renderMediaPicker();
     updateSwfPipDockLayout();
     renderSwfPipDock();
@@ -22543,7 +22875,7 @@ runScheduledDispatch();
 ensureScheduledDispatchTimer();
 safeRender("startup");
 loadSwfLibrary();
-deployMediaRuntimes();
+ensureMediaRuntimeBootstrapped();
 if (state.currentAccountId && ["ws", "http", "xmpp"].includes(getPreferences().relayMode) && getPreferences().relayAutoConnect === "on") {
   connectRelaySocket();
 }
