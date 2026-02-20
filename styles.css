@@ -2378,6 +2378,16 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   background: rgba(155, 127, 31, 0.25);
 }
 
+.message-swf-runtime-health {
+  font-size: 0.64rem;
+  color: #adb6c5;
+  border: 1px solid #353b47;
+  border-radius: 999px;
+  padding: 0.08rem 0.42rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .message-swf-save-icon {
   background: #343840;
   color: #d5dbe4;

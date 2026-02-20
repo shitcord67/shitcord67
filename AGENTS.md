@@ -24,6 +24,7 @@ These instructions are project-local continuity notes for future LLM instances.
 - Continue implementing practical XEPs where useful for UX parity.
 - Favor broad compatibility and cross-platform behavior.
 - Keep credentials in local ignored files when needed for testing.
+- Keep `SUPPORTED_XEPS.md` updated when XMPP capability changes.
 
 ## Content and Naming Constraints
 - Keep naming independent from external reference projects.
