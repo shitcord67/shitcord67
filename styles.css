@@ -3836,6 +3836,20 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.78rem;
 }
 
+#tenorCredentialsStatus {
+  margin: 0.45rem 0 0.2rem;
+  color: #b7c1d7;
+  font-size: 0.78rem;
+}
+
+#tenorCredentialsStatus[data-tone="ok"] {
+  color: #9ee2a2;
+}
+
+#tenorCredentialsStatus[data-tone="error"] {
+  color: #ffacaf;
+}
+
 body[data-developer-mode="on"]::before {
   content: "DEV MODE";
   position: fixed;
