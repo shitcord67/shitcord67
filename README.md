@@ -76,13 +76,13 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - SWF message actions are grouped under a dedicated `SWF` submenu (open viewer/fullscreen/reset/save/copy URL/download).
 - SWFs auto-start in chat muted and are paused/resumed based on viewport visibility.
 - SWF controls include `Play`, `Pause`, `FullScreen`, `Reset` (with confirmation), `Resize`, and `Optimal Size`.
-- Per-SWF audio controls are shown on the left side of each SWF player (speaker toggle + vertical volume slider).
+- Per-SWF audio controls are shown below each SWF player (speaker toggle + horizontal volume slider).
 - SWF cards include a top-right `💾` save icon in the filename row for quick save-to-shelf.
 - SWF cards show a live audio status badge (`Audio Active`, `Suppressed`, `Muted`), and right-clicking the speaker pins audio to skip auto-mute.
 - Advanced settings include SWF audio policy options: single-audio or multi-audio, with global or per-guild focus scope.
 - SWF audio focus prefers the SWF nearest the center of the viewport, with fullscreen SWFs prioritized.
 - Advanced SWF options include default autoplay/paused mode, pause-on-auto-mute behavior, and optional collapsible VU details.
-- SWF top controls are in the header row (save, play/pause, fullscreen, reset, resize, optimal size, solo focus, PiP).
+- SWF runtime controls are rendered below the player (save, play/pause, fullscreen, reset, resize, optimal size, solo focus, PiP).
 - Tabbed SWF PiP dock lets you keep selected SWFs open while switching guilds/channels.
 - SWF PiP now parks/reattaches live runtimes instead of destroying them when the original chat host is gone.
 - SWF picker now supports muted Ruffle previews with lightweight sampled frame playback.
@@ -296,13 +296,17 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Non-GIF video attachments now include an inline control strip (play/pause, +/-10s seek, scrub bar, volume/mute, speed, PiP, fullscreen).
 - Video PiP now runs in-client (dock panel) instead of browser/OS Picture-in-Picture windows.
 - Non-GIF video embeds now hide native controls and use custom controls only.
+- GIF-like inline videos now expose a hover-menu with controls for pause/resume, reset, frame step back/forward, and once/infinite loop mode.
 - SWF/video controls now auto-hide until hover/focus (touch devices keep controls visible).
 - Hidden media controls now collapse without reserving layout space until revealed.
-- Video PiP panel is now draggable and includes inline custom controls inside the PiP host.
+- Video PiP panel is draggable and now relies on native video controls (custom control strip stays in-message only).
+- SWF PiP dock now includes quick play/mute/reset/fullscreen/remove controls for the active PiP tab.
+- PiP overlays are promoted to a top z-layer so SWF/Video PiP content remains above dock/composer UI.
 - Video scrubbing now shows a frame-preview tooltip, and `Esc` while scrubbing cancels back to the pre-seek position.
 - Dock mute/deafen toggles now also suppress inline video/audio element playback.
 - Seek-preview frame thumbnails now only appear during active scrub dragging.
 - Text/binary attachment previews are cached in-memory to reduce repeated network fetches and scrolling lag while browsing history.
+- Text/Markdown preview fetches now request only a leading byte range first, which makes first paint noticeably faster on larger files.
 - Body-hosted in-chat SWF runtimes now keep header/composer above overlayed content and follow message scroll positioning more reliably.
 - Anchored in-chat SWF overlays are clipped to the message list viewport so they do not bleed over the composer area while scrolling.
 - In-chat SWF control rails/headers are layered above anchored runtimes so controls remain usable.
@@ -310,7 +314,8 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Find dialog performance is improved via match caching/debouncing, and jump-to-message now resolves XMPP reference IDs when possible.
 - User/self profile dialogs now expose context-menu quick actions (DM, mention/insert username, copy identity fields).
 - Media privacy gate cards now use a more polished Discord-like layout with lock icon + host badge.
-- Privacy gate host row now uses compact icon actions (open/toggle URL/options), with full URL reveal on host hover or pin toggle.
+- Privacy gate card actions are always visible (no separate "Load options" step), and `Once` loads immediately.
+- Privacy gate URL reveal still supports hover/pin toggling, and link-open actions route through in-client browser windows in Electron.
 - Privacy gate URL reveal now latches while the gate card is hovered, and composer has a quick media-gate on/off toggle button.
 - GIF picker now uses a responsive grid, keeps remote results appending at the bottom, and includes larger built-in fallback GIF seed entries.
 - GIF picker now supports favorites, custom groups, and context scopes (`This Chat`, `This Time`, `This Network`).
