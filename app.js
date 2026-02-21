@@ -26,6 +26,7 @@ const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
 const XMPP_HTTP_UPLOAD_MAX_BYTES = 24 * 1024 * 1024;
 const XMPP_MAM_PAGE_SIZE = 120;
+const XMPP_MAM_LOADING_STALE_MS = 18000;
 const XMPP_PING_INTERVAL_MS = 45000;
 const XMPP_PING_TIMEOUT_MS = 12000;
 const MESSAGE_CHAR_LIMIT_MIN = 200;
@@ -6174,6 +6175,7 @@ function ensureXmppMamState(roomJid) {
       before: "",
       complete: false,
       loading: false,
+      loadingSince: 0,
       pagesLoaded: 0,
       lastQueryId: ""
     });
@@ -6189,12 +6191,45 @@ function ensureXmppDmMamState(peerJid) {
       before: "",
       complete: false,
       loading: false,
+      loadingSince: 0,
       pagesLoaded: 0,
       lastQueryId: "",
       targetIndex: 0
     });
   }
   return xmppMamStateByPeerJid.get(barePeer) || null;
+}
+
+function beginXmppMamLoading(mamState, queryId = "") {
+  if (!mamState) return;
+  mamState.loading = true;
+  mamState.loadingSince = Date.now();
+  mamState.lastQueryId = queryId;
+}
+
+function endXmppMamLoading(mamState) {
+  if (!mamState) return;
+  mamState.loading = false;
+  mamState.loadingSince = 0;
+}
+
+function recoverStaleXmppMamLoading(mamState, details = {}) {
+  if (!mamState || !mamState.loading) return false;
+  const startedAt = Number(mamState.loadingSince) || 0;
+  if (!startedAt) {
+    mamState.loadingSince = Date.now();
+    return false;
+  }
+  const ageMs = Date.now() - startedAt;
+  if (ageMs < XMPP_MAM_LOADING_STALE_MS) return false;
+  const queryId = (mamState.lastQueryId || "").toString();
+  endXmppMamLoading(mamState);
+  addXmppDebugEvent("iq", "Recovered stale MAM loading state", {
+    ...details,
+    ageMs,
+    queryId
+  });
+  return true;
 }
 
 function xmppMamArchiveTargetJid(prefs = getPreferences()) {
@@ -6211,6 +6246,7 @@ function requestXmppRoomHistory(roomJid, {
   if (!bareRoom || !xmppConnection || !globalThis.$iq) return false;
   const mamState = ensureXmppMamState(bareRoom);
   if (!mamState) return false;
+  recoverStaleXmppMamLoading(mamState, { scope: "muc", roomJid: bareRoom, reason: `${reason}-precheck` });
   if (mamState.loading) return false;
   if (!force && mamState.complete) return false;
   if (force) {
@@ -6221,8 +6257,7 @@ function requestXmppRoomHistory(roomJid, {
   const maxRows = Math.max(10, Math.min(200, Number(limit) || XMPP_MAM_PAGE_SIZE));
   const beforeToken = mamState.before || "";
   const queryId = `mam-${createId().slice(0, 8)}-${mamState.pagesLoaded + 1}`;
-  mamState.loading = true;
-  mamState.lastQueryId = queryId;
+  beginXmppMamLoading(mamState, queryId);
   const iqBuilder = globalThis.$iq({ type: "set", to: bareRoom })
     .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
     .c("x", { xmlns: "jabber:x:data", type: "submit" })
@@ -6243,56 +6278,67 @@ function requestXmppRoomHistory(roomJid, {
     page: mamState.pagesLoaded + 1,
     reason
   });
-  xmppConnection.sendIQ(
-    iqBuilder,
-    (stanza) => {
-      mamState.loading = false;
-      const finNode = [...stanza.getElementsByTagName("fin")]
-        .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
-      const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
-      const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
-      const firstId = xmppNodeText(firstNode).trim();
-      mamState.pagesLoaded += 1;
-      if (firstId) mamState.before = firstId;
-      if (complete || !firstId) mamState.complete = true;
-      const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
-      if (activeRoomJid && activeRoomJid === bareRoom) {
-        renderMessages();
-      }
-      renderChannels();
-      addXmppDebugEvent("iq", "MUC history query completed", {
-        roomJid: bareRoom,
-        queryId,
-        page: mamState.pagesLoaded,
-        complete: mamState.complete,
-        first: firstId || "",
-        canLoadMore: !mamState.complete
-      });
-    },
-    (stanza) => {
-      mamState.loading = false;
-      const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
-      const permanent = Boolean(
-        errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
-        || errorNode?.getElementsByTagName?.("service-unavailable")?.length
-        || errorNode?.getElementsByTagName?.("item-not-found")?.length
-      );
-      if (permanent) mamState.complete = true;
-      const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
-      if (activeRoomJid && activeRoomJid === bareRoom) {
-        renderMessages();
-      }
-      renderChannels();
-      addXmppDebugEvent("iq", "MUC history query unavailable", {
-        roomJid: bareRoom,
-        queryId,
-        page: mamState.pagesLoaded + 1,
-        reason,
-        permanent
-      });
-    },
-    9000
-  );
+  try {
+    xmppConnection.sendIQ(
+      iqBuilder,
+      (stanza) => {
+        endXmppMamLoading(mamState);
+        const finNode = [...stanza.getElementsByTagName("fin")]
+          .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
+        const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
+        const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
+        const firstId = xmppNodeText(firstNode).trim();
+        mamState.pagesLoaded += 1;
+        if (firstId) mamState.before = firstId;
+        if (complete || !firstId) mamState.complete = true;
+        const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
+        if (activeRoomJid && activeRoomJid === bareRoom) {
+          renderMessages();
+        }
+        renderChannels();
+        addXmppDebugEvent("iq", "MUC history query completed", {
+          roomJid: bareRoom,
+          queryId,
+          page: mamState.pagesLoaded,
+          complete: mamState.complete,
+          first: firstId || "",
+          canLoadMore: !mamState.complete
+        });
+      },
+      (stanza) => {
+        endXmppMamLoading(mamState);
+        const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
+        const permanent = Boolean(
+          errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
+          || errorNode?.getElementsByTagName?.("service-unavailable")?.length
+          || errorNode?.getElementsByTagName?.("item-not-found")?.length
+        );
+        if (permanent) mamState.complete = true;
+        const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
+        if (activeRoomJid && activeRoomJid === bareRoom) {
+          renderMessages();
+        }
+        renderChannels();
+        addXmppDebugEvent("iq", "MUC history query unavailable", {
+          roomJid: bareRoom,
+          queryId,
+          page: mamState.pagesLoaded + 1,
+          reason,
+          permanent
+        });
+      },
+      9000
+    );
+  } catch (error) {
+    endXmppMamLoading(mamState);
+    addXmppDebugEvent("error", "Failed to send MUC history query", {
+      roomJid: bareRoom,
+      queryId,
+      reason,
+      error: String(error?.message || error || "unknown")
+    });
+    return false;
+  }
   return true;
 }
 
@@ -6310,6 +6356,7 @@ function requestXmppDirectHistory(peerJid, {
   if (!ownBare || archiveTargets.length === 0) return false;
   const mamState = ensureXmppDmMamState(barePeer);
   if (!mamState) return false;
+  recoverStaleXmppMamLoading(mamState, { scope: "dm", peerJid: barePeer, reason: `${reason}-precheck` });
   if (mamState.loading) return false;
   if (!force && mamState.complete) return false;
   if (force) {
@@ -6324,8 +6371,7 @@ function requestXmppDirectHistory(peerJid, {
   const maxRows = Math.max(10, Math.min(200, Number(limit) || XMPP_MAM_PAGE_SIZE));
   const beforeToken = mamState.before || "";
   const queryId = `mam-dm-${createId().slice(0, 8)}-${mamState.pagesLoaded + 1}`;
-  mamState.loading = true;
-  mamState.lastQueryId = queryId;
+  beginXmppMamLoading(mamState, queryId);
   const iqBuilder = globalThis.$iq({ type: "set", to: archiveTarget })
     .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
     .c("x", { xmlns: "jabber:x:data", type: "submit" })
@@ -6351,78 +6397,90 @@ function requestXmppDirectHistory(peerJid, {
     page: mamState.pagesLoaded + 1,
     reason
   });
-  xmppConnection.sendIQ(
-    iqBuilder,
-    (stanza) => {
-      mamState.loading = false;
-      mamState.targetIndex = targetIndex;
-      const finNode = [...stanza.getElementsByTagName("fin")]
-        .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
-      const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
-      const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
-      const firstId = xmppNodeText(firstNode).trim();
-      mamState.pagesLoaded += 1;
-      if (firstId) mamState.before = firstId;
-      if (complete || !firstId) mamState.complete = true;
-      const activeConversation = getActiveConversation();
-      const activePeer = activeConversation?.type === "dm"
-        ? xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount())
-        : "";
-      if (activePeer && xmppBareJid(activePeer) === barePeer) {
-        renderMessages();
-      }
-      renderDmList();
-      addXmppDebugEvent("iq", "DM history query completed", {
-        peerJid: barePeer,
-        queryId,
-        page: mamState.pagesLoaded,
-        complete: mamState.complete,
-        first: firstId || "",
-        canLoadMore: !mamState.complete
-      });
-    },
-    (stanza) => {
-      mamState.loading = false;
-      const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
-      const permanent = Boolean(
-        errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
-        || errorNode?.getElementsByTagName?.("service-unavailable")?.length
-        || errorNode?.getElementsByTagName?.("item-not-found")?.length
-      );
-      const canFallbackTarget = permanent && (targetIndex + 1) < archiveTargets.length;
-      if (canFallbackTarget) {
-        mamState.targetIndex = targetIndex + 1;
-        mamState.before = "";
-        mamState.pagesLoaded = 0;
-        mamState.complete = false;
-        addXmppDebugEvent("iq", "DM history retrying alternate archive target", {
+  try {
+    xmppConnection.sendIQ(
+      iqBuilder,
+      (stanza) => {
+        endXmppMamLoading(mamState);
+        mamState.targetIndex = targetIndex;
+        const finNode = [...stanza.getElementsByTagName("fin")]
+          .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
+        const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
+        const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
+        const firstId = xmppNodeText(firstNode).trim();
+        mamState.pagesLoaded += 1;
+        if (firstId) mamState.before = firstId;
+        if (complete || !firstId) mamState.complete = true;
+        const activeConversation = getActiveConversation();
+        const activePeer = activeConversation?.type === "dm"
+          ? xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount())
+          : "";
+        if (activePeer && xmppBareJid(activePeer) === barePeer) {
+          renderMessages();
+        }
+        renderDmList();
+        addXmppDebugEvent("iq", "DM history query completed", {
           peerJid: barePeer,
-          fromTarget: archiveTarget,
-          toTarget: archiveTargets[mamState.targetIndex] || ""
+          queryId,
+          page: mamState.pagesLoaded,
+          complete: mamState.complete,
+          first: firstId || "",
+          canLoadMore: !mamState.complete
         });
-        requestXmppDirectHistory(barePeer, { limit: maxRows, force: false, reason: `${reason}-fallback-target` });
-        return;
-      }
-      if (permanent) mamState.complete = true;
-      const activeConversation = getActiveConversation();
-      const activePeer = activeConversation?.type === "dm"
-        ? xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount())
-        : "";
-      if (activePeer && xmppBareJid(activePeer) === barePeer) {
-        renderMessages();
-      }
-      renderDmList();
-      addXmppDebugEvent("iq", "DM history query unavailable", {
-        peerJid: barePeer,
-        target: archiveTarget,
-        queryId,
-        page: mamState.pagesLoaded + 1,
-        reason,
-        permanent
-      });
-    },
-    9000
-  );
+      },
+      (stanza) => {
+        endXmppMamLoading(mamState);
+        const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
+        const permanent = Boolean(
+          errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
+          || errorNode?.getElementsByTagName?.("service-unavailable")?.length
+          || errorNode?.getElementsByTagName?.("item-not-found")?.length
+        );
+        const canFallbackTarget = permanent && (targetIndex + 1) < archiveTargets.length;
+        if (canFallbackTarget) {
+          mamState.targetIndex = targetIndex + 1;
+          mamState.before = "";
+          mamState.pagesLoaded = 0;
+          mamState.complete = false;
+          addXmppDebugEvent("iq", "DM history retrying alternate archive target", {
+            peerJid: barePeer,
+            fromTarget: archiveTarget,
+            toTarget: archiveTargets[mamState.targetIndex] || ""
+          });
+          requestXmppDirectHistory(barePeer, { limit: maxRows, force: false, reason: `${reason}-fallback-target` });
+          return;
+        }
+        if (permanent) mamState.complete = true;
+        const activeConversation = getActiveConversation();
+        const activePeer = activeConversation?.type === "dm"
+          ? xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount())
+          : "";
+        if (activePeer && xmppBareJid(activePeer) === barePeer) {
+          renderMessages();
+        }
+        renderDmList();
+        addXmppDebugEvent("iq", "DM history query unavailable", {
+          peerJid: barePeer,
+          target: archiveTarget,
+          queryId,
+          page: mamState.pagesLoaded + 1,
+          reason,
+          permanent
+        });
+      },
+      9000
+    );
+  } catch (error) {
+    endXmppMamLoading(mamState);
+    addXmppDebugEvent("error", "Failed to send DM history query", {
+      peerJid: barePeer,
+      target: archiveTarget,
+      queryId,
+      reason,
+      error: String(error?.message || error || "unknown")
+    });
+    return false;
+  }
   return true;
 }
 
@@ -8176,6 +8234,7 @@ function maybeLoadOlderXmppHistoryForActiveConversation({ trigger = "scroll", fo
     if (!roomJid) return false;
     const mamState = ensureXmppMamState(roomJid);
     if (!mamState) return false;
+    recoverStaleXmppMamLoading(mamState, { scope: "muc", roomJid, reason: `${trigger}-active-conversation` });
     if (mamState.loading) return false;
     if (!force && mamState.complete) return false;
     if (!force && trigger === "scroll" && ui.messageList.scrollTop > 96) return false;
@@ -8189,6 +8248,7 @@ function maybeLoadOlderXmppHistoryForActiveConversation({ trigger = "scroll", fo
     if (!barePeer) return false;
     const mamState = ensureXmppDmMamState(barePeer);
     if (!mamState) return false;
+    recoverStaleXmppMamLoading(mamState, { scope: "dm", peerJid: barePeer, reason: `${trigger}-active-conversation` });
     if (mamState.loading) return false;
     if (!force && mamState.complete) return false;
     if (!force && trigger === "scroll" && ui.messageList.scrollTop > 96) return false;
@@ -21801,14 +21861,21 @@ function renderMessages() {
   }
   if (getPreferences().relayMode === "xmpp") {
     let mamState = null;
+    let mamScope = "";
+    let mamTarget = "";
     if (!isDm && channel?.xmppRoomJid) {
       const roomJid = xmppBareJid(channel.xmppRoomJid);
+      mamScope = "muc";
+      mamTarget = roomJid;
       mamState = roomJid ? ensureXmppMamState(roomJid) : null;
     } else if (isDm && dmThread) {
       const peerJid = xmppPeerJidForDmThread(dmThread, getCurrentAccount());
+      mamScope = "dm";
+      mamTarget = xmppBareJid(peerJid);
       mamState = peerJid ? ensureXmppDmMamState(peerJid) : null;
     }
     if (mamState) {
+      recoverStaleXmppMamLoading(mamState, { scope: mamScope, target: mamTarget || "", reason: "render" });
       const xmppConnected = Boolean(xmppConnection && relayStatus === "connected");
       const shouldRenderHistoryControl = Boolean(
         xmppConnected
