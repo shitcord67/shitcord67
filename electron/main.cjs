@@ -26,7 +26,6 @@ let activeClientPort = CLIENT_PORT;
 let activeGatewayPort = GATEWAY_PORT;
 let lastStackExitCode = null;
 let lastStackExitSignal = null;
-const externalWindows = new Set();
 
 function clientUrl(port = activeClientPort) {
   return `http://${CLIENT_HOST}:${port}/`;
@@ -198,7 +197,7 @@ function installClientSecurityHeaders() {
 }
 
 function attachNavigationGuards(windowInstance, allowedOrigin) {
-  const openExternalInApp = (url) => {
+  const routeExternalToRenderer = (url) => {
     let target;
     try {
       target = new URL(url);
@@ -206,50 +205,25 @@ function attachNavigationGuards(windowInstance, allowedOrigin) {
       return;
     }
     if (target.protocol !== "http:" && target.protocol !== "https:") return;
-    const externalWindow = new BrowserWindow({
-      width: 1180,
-      height: 800,
-      minWidth: 640,
-      minHeight: 480,
-      title: target.hostname || "External URL",
-      autoHideMenuBar: true,
-      backgroundColor: "#101217",
-      parent: windowInstance || undefined,
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true
-      }
-    });
-    externalWindows.add(externalWindow);
-    externalWindow.on("closed", () => {
-      externalWindows.delete(externalWindow);
-    });
-    externalWindow.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
-      try {
-        const next = new URL(nextUrl);
-        if (next.protocol !== "http:" && next.protocol !== "https:") return { action: "deny" };
-        externalWindow.loadURL(next.toString()).catch(() => {});
-      } catch {
-        // Ignore malformed URLs.
-      }
-      return { action: "deny" };
-    });
-    externalWindow.loadURL(target.toString()).catch((error) => {
-      log("failed to open URL in in-app browser", String(error?.message || error));
-      if (!externalWindow.isDestroyed()) externalWindow.close();
+    const serialized = JSON.stringify(target.toString());
+    if (windowInstance?.isDestroyed?.()) return;
+    windowInstance.webContents.executeJavaScript(
+      `window.dispatchEvent(new CustomEvent("s67-open-external-url", { detail: ${serialized} }));`,
+      true
+    ).catch((error) => {
+      log("failed to dispatch external URL request to renderer", String(error?.message || error));
     });
   };
 
   windowInstance.webContents.setWindowOpenHandler(({ url }) => {
-    openExternalInApp(url);
+    routeExternalToRenderer(url);
     return { action: "deny" };
   });
 
   windowInstance.webContents.on("will-navigate", (event, url) => {
     if (url.startsWith(allowedOrigin) || url.startsWith("data:") || url.startsWith("about:blank")) return;
     event.preventDefault();
-    openExternalInApp(url);
+    routeExternalToRenderer(url);
   });
 }
 
