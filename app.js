@@ -924,6 +924,7 @@ let swfShelfOpen = false;
 let currentViewerSwf = null;
 let currentViewerRuntimeKey = null;
 let fullscreenRuntimeKey = null;
+let fullscreenRuntimeWasPlaying = false;
 let swfAudioFocusRuntimeKey = null;
 let swfSoloRuntimeKey = null;
 const swfRuntimes = new Map();
@@ -936,6 +937,7 @@ let swfPipManuallyHidden = false;
 let swfPipCollapsed = false;
 const videoPipRuntimes = new Map();
 let videoPipActiveKey = null;
+let videoPipCollapsed = false;
 let swfAnchorLayoutRaf = 0;
 let swfPreviewBootstrapInFlight = false;
 let mediaPickerRenderToken = 0;
@@ -945,8 +947,11 @@ let pdfRuntimeLoadPromise = null;
 let mediaPickerScrollLoadRaf = 0;
 let pipDragState = null;
 let pipSuppressHeaderToggle = false;
+let videoPipSuppressHeaderToggle = false;
 let swfLayoutResizeObserver = null;
 let swfLayoutMutationObserver = null;
+let swfPipDockResizeObserver = null;
+let videoPipDockResizeObserver = null;
 let toastHideTimer = null;
 let composerPendingAttachment = null;
 let composerPendingAttachments = [];
@@ -1734,12 +1739,125 @@ function markDmRead(thread, accountId) {
   return true;
 }
 
+function dmParticipantIdentityTokenByAccount(account) {
+  if (!account || typeof account !== "object") return "";
+  const bareJid = xmppBareJid(account.xmppJid || "");
+  if (bareJid) return `xmpp:${bareJid}`;
+  const username = normalizeUsername(account.username || "");
+  if (username) return `user:${username}`;
+  const id = (account.id || "").toString().trim();
+  return id ? `id:${id}` : "";
+}
+
+function dmParticipantIdentityTokenById(accountId) {
+  const account = getAccountById(accountId);
+  if (account) return dmParticipantIdentityTokenByAccount(account);
+  const id = (accountId || "").toString().trim();
+  return id ? `id:${id}` : "";
+}
+
+function dmThreadIdentityKeyFromParticipantIds(participantIds) {
+  if (!Array.isArray(participantIds) || participantIds.length === 0) return "";
+  const tokens = participantIds
+    .map((id) => dmParticipantIdentityTokenById(id))
+    .filter(Boolean)
+    .sort();
+  if (tokens.length < 2) return "";
+  return tokens.join("|");
+}
+
+function dmThreadIdentityKeyFromAccounts(accountA, accountB) {
+  const tokens = [dmParticipantIdentityTokenByAccount(accountA), dmParticipantIdentityTokenByAccount(accountB)]
+    .filter(Boolean)
+    .sort();
+  if (tokens.length < 2) return "";
+  return tokens.join("|");
+}
+
+function mergeDmThreads(target, source) {
+  if (!target || !source || target === source) return false;
+  let changed = false;
+  const targetParticipants = Array.isArray(target.participantIds) ? target.participantIds.filter(Boolean) : [];
+  const sourceParticipants = Array.isArray(source.participantIds) ? source.participantIds.filter(Boolean) : [];
+  const mergedParticipants = [...new Set([...targetParticipants, ...sourceParticipants])].slice(0, 2);
+  if (mergedParticipants.length > 0 && mergedParticipants.join("|") !== targetParticipants.join("|")) {
+    target.participantIds = mergedParticipants;
+    changed = true;
+  }
+  ensureDmReadState(target);
+  ensureDmReadState(source);
+  Object.entries(source.readState || {}).forEach(([accountId, ts]) => {
+    const currentMs = toTimestampMs(target.readState?.[accountId]);
+    const incomingMs = toTimestampMs(ts);
+    if (!Number.isFinite(incomingMs)) return;
+    if (!Number.isFinite(currentMs) || incomingMs > currentMs) {
+      target.readState[accountId] = new Date(incomingMs).toISOString();
+      changed = true;
+    }
+  });
+  const targetMessages = Array.isArray(target.messages) ? target.messages : [];
+  if (!Array.isArray(target.messages)) {
+    target.messages = targetMessages;
+    changed = true;
+  }
+  const sourceMessages = Array.isArray(source.messages) ? source.messages : [];
+  sourceMessages.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const duplicate = findDuplicateRelayMessage(targetMessages, entry, { history: true });
+    if (duplicate) {
+      if (mergeRelayMessageEntry(duplicate, entry)) changed = true;
+      return;
+    }
+    insertMessageByTimestamp(targetMessages, entry);
+    changed = true;
+  });
+  return changed;
+}
+
+function dedupeDmThreads() {
+  if (!Array.isArray(state.dmThreads) || state.dmThreads.length <= 1) return false;
+  let changed = false;
+  let nextActiveDmId = state.activeDmId;
+  const byIdentity = new Map();
+  const unique = [];
+  state.dmThreads.forEach((thread) => {
+    if (!thread || typeof thread !== "object") return;
+    const key = dmThreadIdentityKeyFromParticipantIds(thread.participantIds) || `id:${thread.id || createId()}`;
+    const existing = byIdentity.get(key);
+    if (!existing) {
+      byIdentity.set(key, thread);
+      unique.push(thread);
+      return;
+    }
+    const merged = mergeDmThreads(existing, thread);
+    changed = changed || merged || existing !== thread;
+    if (nextActiveDmId === thread.id) nextActiveDmId = existing.id;
+  });
+  if (!changed) return false;
+  state.dmThreads = unique;
+  if (nextActiveDmId && !state.dmThreads.some((thread) => thread.id === nextActiveDmId)) {
+    nextActiveDmId = state.dmThreads[0]?.id || null;
+  }
+  state.activeDmId = nextActiveDmId || null;
+  return true;
+}
+
 function getOrCreateDmThread(accountA, accountB) {
   if (!accountA?.id || !accountB?.id || accountA.id === accountB.id) return null;
+  const identityKey = dmThreadIdentityKeyFromAccounts(accountA, accountB);
   let thread = state.dmThreads.find((entry) => {
     if (!Array.isArray(entry.participantIds)) return false;
     return entry.participantIds.includes(accountA.id) && entry.participantIds.includes(accountB.id);
   });
+  if (!thread && identityKey) {
+    thread = state.dmThreads.find((entry) => dmThreadIdentityKeyFromParticipantIds(entry?.participantIds) === identityKey) || null;
+    if (thread) {
+      const nextParticipants = [accountA.id, accountB.id];
+      if (!thread.participantIds.includes(accountA.id) || !thread.participantIds.includes(accountB.id)) {
+        thread.participantIds = nextParticipants;
+      }
+    }
+  }
   if (thread) return thread;
   thread = {
     id: createId(),
@@ -1751,6 +1869,14 @@ function getOrCreateDmThread(accountA, accountB) {
     messages: []
   };
   state.dmThreads.unshift(thread);
+  if (dedupeDmThreads()) {
+    const existingById = state.dmThreads.find((entry) => entry.id === thread.id) || null;
+    if (existingById) return existingById;
+    if (identityKey) {
+      const existingByIdentity = state.dmThreads.find((entry) => dmThreadIdentityKeyFromParticipantIds(entry?.participantIds) === identityKey) || null;
+      if (existingByIdentity) return existingByIdentity;
+    }
+  }
   return thread;
 }
 
@@ -7086,15 +7212,58 @@ function maybeLoadOlderXmppHistoryForActiveConversation({ trigger = "scroll", fo
   return false;
 }
 
+function normalizeRelayTransportAttachmentUrl(rawUrl) {
+  const resolved = resolveMediaUrl((rawUrl || "").toString().trim());
+  if (!resolved) return "";
+  return /^https?:\/\//i.test(resolved) ? resolved : "";
+}
+
+function relayTransportAttachments(attachments, { limit = 4, urlMax = 640 } = {}) {
+  const safeLimit = Math.max(1, Math.min(8, Number(limit) || 4));
+  const safeUrlMax = Math.max(120, Math.min(4096, Number(urlMax) || 640));
+  return normalizeAttachments(Array.isArray(attachments) ? attachments : [])
+    .map((entry) => {
+      const resolvedUrl = normalizeRelayTransportAttachmentUrl(entry?.url || "");
+      if (!resolvedUrl) return null;
+      return {
+        type: (entry.type || "file").toString().slice(0, 16),
+        url: resolvedUrl.slice(0, safeUrlMax),
+        name: (entry.name || "file").toString().slice(0, 80),
+        format: (entry.format || "image").toString().slice(0, 24)
+      };
+    })
+    .filter(Boolean)
+    .slice(0, safeLimit);
+}
+
+function relayUnshareableAttachmentCount(attachments) {
+  const items = normalizeAttachments(Array.isArray(attachments) ? attachments : []);
+  if (items.length === 0) return 0;
+  return items.reduce((count, entry) => (
+    normalizeRelayTransportAttachmentUrl(entry?.url || "") ? count : count + 1
+  ), 0);
+}
+
+function relayLocalAttachmentNotice(count) {
+  const safeCount = Math.max(0, Number(count) || 0);
+  if (safeCount <= 0) return "";
+  return `[${safeCount} local attachment${safeCount === 1 ? "" : "s"} not shareable over relay]`;
+}
+
+function relayTransportPacketText(message) {
+  const text = trimTextForTransport(message?.text || "");
+  const notice = relayLocalAttachmentNotice(relayUnshareableAttachmentCount(message?.attachments));
+  return [text, notice].filter(Boolean).join("\n");
+}
+
 function relayMessageBodyText(message) {
   const text = trimTextForTransport(message?.text || "");
-  const links = (Array.isArray(message?.attachments) ? message.attachments : [])
-    .filter((entry) => entry && typeof entry === "object" && entry.url)
-    .slice(0, 3)
-    .map((entry) => (entry.url || "").toString().slice(0, 640))
+  const links = relayTransportAttachments(message?.attachments, { limit: 3, urlMax: 640 })
+    .map((entry) => entry.url)
     .filter(Boolean);
-  if (links.length === 0) return text;
-  return [text, ...links].filter(Boolean).join("\n");
+  const localNotice = relayLocalAttachmentNotice(relayUnshareableAttachmentCount(message?.attachments));
+  if (links.length === 0 && !localNotice) return text;
+  return [text, ...links, localNotice].filter(Boolean).join("\n");
 }
 
 function xmppStanzaStableId(stanza) {
@@ -7382,19 +7551,11 @@ function publishRelayChannelMessage(channel, message, account) {
       channelName: channel.name || "",
       message: {
         id: message.id,
-        text: trimTextForTransport(message.text || ""),
+        text: relayTransportPacketText(message),
         ts: message.ts || new Date().toISOString(),
         authorUsername: account.username,
         authorDisplay: displayNameForAccount(account, guild?.id || null),
-        attachments: (Array.isArray(message.attachments) ? message.attachments : [])
-          .filter((entry) => entry && typeof entry === "object" && entry.url)
-          .slice(0, 4)
-          .map((entry) => ({
-            type: (entry.type || "image").toString().slice(0, 16),
-            url: (entry.url || "").toString().slice(0, 640),
-            name: (entry.name || "file").toString().slice(0, 80),
-            format: (entry.format || "image").toString().slice(0, 24)
-          }))
+        attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
       }
     };
     fetch(endpoint.toString(), {
@@ -7416,19 +7577,11 @@ function publishRelayChannelMessage(channel, message, account) {
     channelName: channel.name || "",
     message: {
       id: message.id,
-      text: trimTextForTransport(message.text || ""),
+      text: relayTransportPacketText(message),
       ts: message.ts || new Date().toISOString(),
       authorUsername: account.username,
       authorDisplay: displayNameForAccount(account, guild?.id || null),
-      attachments: (Array.isArray(message.attachments) ? message.attachments : [])
-        .filter((entry) => entry && typeof entry === "object" && entry.url)
-        .slice(0, 4)
-        .map((entry) => ({
-          type: (entry.type || "image").toString().slice(0, 16),
-          url: (entry.url || "").toString().slice(0, 640),
-          name: (entry.name || "file").toString().slice(0, 80),
-          format: (entry.format || "image").toString().slice(0, 24)
-        }))
+      attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
     }
   });
 }
@@ -7508,11 +7661,11 @@ function publishRelayDirectMessage(thread, message, account) {
         channelName: "dm",
         message: {
           id: message.id,
-          text: trimTextForTransport(message.text || ""),
+          text: relayTransportPacketText(message),
           ts: message.ts || new Date().toISOString(),
           authorUsername: account.username,
           authorDisplay: account.displayName || account.username,
-          attachments: (Array.isArray(message.attachments) ? message.attachments : []).slice(0, 4)
+          attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
         }
       })
     }).catch(() => {
@@ -7530,11 +7683,11 @@ function publishRelayDirectMessage(thread, message, account) {
     channelName: "dm",
     message: {
       id: message.id,
-      text: trimTextForTransport(message.text || ""),
+      text: relayTransportPacketText(message),
       ts: message.ts || new Date().toISOString(),
       authorUsername: account.username,
       authorDisplay: account.displayName || account.username,
-      attachments: (Array.isArray(message.attachments) ? message.attachments : []).slice(0, 4)
+      attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
     }
   });
 }
@@ -12418,6 +12571,38 @@ function extractInlineAttachmentsFromText(text) {
   return results.slice(0, 4);
 }
 
+function decodeDataUrlPreviewBytes(url, limit = 65536) {
+  const safeLimit = Math.max(64, Math.min(524288, Number(limit) || 65536));
+  const raw = (url || "").toString();
+  const match = raw.match(/^data:([^,]*?),(.*)$/is);
+  if (!match) return null;
+  const meta = (match[1] || "").toLowerCase();
+  const payload = (match[2] || "").trim();
+  if (!payload) return new Uint8Array();
+  if (meta.includes(";base64")) {
+    const clean = payload.replace(/\s+/g, "");
+    const charsNeeded = Math.max(4, Math.ceil(safeLimit / 3) * 4);
+    const sliced = clean.slice(0, charsNeeded);
+    let padded = sliced;
+    while (padded.length % 4 !== 0) padded += "=";
+    try {
+      const binary = atob(padded);
+      const length = Math.min(binary.length, safeLimit);
+      const bytes = new Uint8Array(length);
+      for (let index = 0; index < length; index += 1) bytes[index] = binary.charCodeAt(index);
+      return bytes;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const decoded = decodeURIComponent(payload.replace(/\+/g, "%20"));
+    return new TextEncoder().encode(decoded).slice(0, safeLimit);
+  } catch {
+    return null;
+  }
+}
+
 function getCachedAttachmentPreview(cacheMap, key) {
   const cached = cacheMap.get(key);
   if (!cached) return "";
@@ -12441,6 +12626,16 @@ async function loadTextAttachmentPreview(url) {
   if (cached) return cached;
   if (attachmentTextPreviewInFlight.has(key)) {
     return attachmentTextPreviewInFlight.get(key);
+  }
+  const inlineBytes = decodeDataUrlPreviewBytes(url, 70_000);
+  if (inlineBytes instanceof Uint8Array) {
+    const text = new TextDecoder().decode(inlineBytes);
+    const lines = text.replace(/\r\n/g, "\n").split("\n");
+    const clipped = lines.slice(0, 40).join("\n").slice(0, 3500);
+    const truncated = lines.length > 40 || text.length > clipped.length;
+    const preview = `${clipped}${truncated ? "\n… (truncated)" : ""}`;
+    setCachedAttachmentPreview(attachmentTextPreviewCache, key, preview, 30 * 60 * 1000);
+    return preview;
   }
   const task = (async () => {
     const response = await fetch(url, {
@@ -12470,6 +12665,19 @@ async function loadBinaryPreview(url, limit = 512) {
   if (cached) return cached;
   if (attachmentBinaryPreviewInFlight.has(key)) {
     return attachmentBinaryPreviewInFlight.get(key);
+  }
+  const inlineBytes = decodeDataUrlPreviewBytes(url, safeLimit);
+  if (inlineBytes instanceof Uint8Array) {
+    const lines = [];
+    for (let i = 0; i < inlineBytes.length; i += 16) {
+      const chunk = inlineBytes.slice(i, i + 16);
+      const hex = [...chunk].map((b) => b.toString(16).padStart(2, "0")).join(" ");
+      const ascii = [...chunk].map((b) => (b >= 32 && b <= 126 ? String.fromCharCode(b) : ".")).join("");
+      lines.push(`${i.toString(16).padStart(4, "0")}  ${hex.padEnd(47, " ")}  ${ascii}`);
+    }
+    const preview = lines.join("\n");
+    setCachedAttachmentPreview(attachmentBinaryPreviewCache, key, preview);
+    return preview;
   }
   const task = (async () => {
     const response = await fetch(url, { cache: "force-cache" });
@@ -13816,6 +14024,7 @@ function renderMediaPicker() {
     const card = document.createElement(useDivCard ? "div" : "button");
     if (card instanceof HTMLButtonElement) card.type = "button";
     card.className = `media-card${useSwfCard ? " media-card--swf" : ""}`;
+    if (mediaPickerTab === "gif") card.classList.add("media-card--gif");
     if (useSwfCard || mediaPickerTab === "gif") {
       card.tabIndex = 0;
       card.setAttribute("role", "button");
@@ -14404,6 +14613,7 @@ function renderVideoPipDock() {
   const runtime = videoPipActiveKey ? videoPipRuntimes.get(videoPipActiveKey) : null;
   const hasActive = Boolean(runtime?.inPip && runtime.video instanceof HTMLVideoElement);
   ui.videoPipDock.classList.toggle("video-pip--hidden", !hasActive);
+  ui.videoPipDock.classList.toggle("video-pip--collapsed", Boolean(videoPipCollapsed));
   ui.videoPipHost.innerHTML = "";
   if (!hasActive) {
     if (ui.videoPipTitle) ui.videoPipTitle.textContent = "Video PiP";
@@ -14428,6 +14638,28 @@ function renderVideoPipDock() {
   });
 }
 
+function clampPipDockAboveComposer(dockElement) {
+  if (!(dockElement instanceof HTMLElement) || !dockElement.isConnected) return false;
+  const rect = dockElement.getBoundingClientRect();
+  if (!(Number.isFinite(rect.width) && Number.isFinite(rect.height) && rect.width > 1 && rect.height > 1)) return false;
+  const margin = 8;
+  const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+  const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  const maxTopByViewport = window.innerHeight - rect.height - margin;
+  const maxTopByComposer = composerRect
+    ? composerRect.top - rect.height - margin
+    : maxTopByViewport;
+  const maxTop = Math.max(margin, Math.min(maxTopByViewport, maxTopByComposer));
+  const nextLeft = Math.max(margin, Math.min(maxLeft, rect.left));
+  const nextTop = Math.max(margin, Math.min(maxTop, rect.top));
+  if (Math.abs(nextLeft - rect.left) < 0.5 && Math.abs(nextTop - rect.top) < 0.5) return false;
+  dockElement.style.left = `${Math.round(nextLeft)}px`;
+  dockElement.style.top = `${Math.round(nextTop)}px`;
+  dockElement.style.right = "auto";
+  dockElement.style.bottom = "auto";
+  return true;
+}
+
 function updateVideoPipDockLayout() {
   if (!(ui.videoPipDock instanceof HTMLElement) || ui.videoPipDock.classList.contains("video-pip--hidden")) return;
   if (pipDragState?.dragging && pipDragState.target === "video") return;
@@ -14446,6 +14678,7 @@ function updateVideoPipDockLayout() {
     ui.videoPipDock.style.top = `${Math.round(manualTop)}px`;
     ui.videoPipDock.style.right = "auto";
     ui.videoPipDock.style.bottom = "auto";
+    clampPipDockAboveComposer(ui.videoPipDock);
     return;
   }
   const rect = ui.videoPipDock.getBoundingClientRect();
@@ -14469,6 +14702,7 @@ function updateVideoPipDockLayout() {
   ui.videoPipDock.style.top = `${Math.round(top)}px`;
   ui.videoPipDock.style.right = "auto";
   ui.videoPipDock.style.bottom = "auto";
+  clampPipDockAboveComposer(ui.videoPipDock);
 }
 
 function setVideoRuntimePip(runtimeKey, enabled) {
@@ -14788,6 +15022,26 @@ function initializeSwfLayoutObservers() {
   }
 }
 
+function initializePipDockResizeObservers() {
+  if (typeof ResizeObserver !== "function") return;
+  if (!swfPipDockResizeObserver && ui.swfPipDock instanceof HTMLElement) {
+    swfPipDockResizeObserver = new ResizeObserver(() => {
+      clampPipDockAboveComposer(ui.swfPipDock);
+      requestSwfRuntimeLayoutSync();
+      updateVideoPipDockLayout();
+    });
+    swfPipDockResizeObserver.observe(ui.swfPipDock);
+  }
+  if (!videoPipDockResizeObserver && ui.videoPipDock instanceof HTMLElement) {
+    videoPipDockResizeObserver = new ResizeObserver(() => {
+      clampPipDockAboveComposer(ui.videoPipDock);
+      updateVideoPipDockLayout();
+      requestSwfRuntimeLayoutSync();
+    });
+    videoPipDockResizeObserver.observe(ui.videoPipDock);
+  }
+}
+
 function rectIntersection(rectA, rectB) {
   if (!rectA || !rectB) return null;
   const left = Math.max(rectA.left, rectB.left);
@@ -14964,6 +15218,7 @@ function recoverDetachedSwfPipHost(runtimeKey) {
 function setSwfRuntimePip(runtimeKey, enabled) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player) return false;
+  setSwfRuntimeHoverState(runtimeKey, false);
   const host = ensureSwfRuntimeBodyHost(runtimeKey, runtime) || runtime.host;
   if (!(host instanceof HTMLElement)) return false;
   runtime.host = host;
@@ -15199,6 +15454,7 @@ function updateSwfPipDockLayout() {
     ui.swfPipDock.style.top = `${Math.round(top)}px`;
     ui.swfPipDock.style.right = "auto";
     ui.swfPipDock.style.bottom = "auto";
+    clampPipDockAboveComposer(ui.swfPipDock);
     return;
   }
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
@@ -15208,6 +15464,7 @@ function updateSwfPipDockLayout() {
     ui.swfPipDock.style.top = `${Math.max(10, window.innerHeight - 420)}px`;
     ui.swfPipDock.style.right = "auto";
     ui.swfPipDock.style.bottom = "auto";
+    clampPipDockAboveComposer(ui.swfPipDock);
     return;
   }
   const maxHeight = Math.max(140, composerRect.top - 12);
@@ -15222,6 +15479,7 @@ function updateSwfPipDockLayout() {
   ui.swfPipDock.style.top = `${Math.round(top)}px`;
   ui.swfPipDock.style.right = "auto";
   ui.swfPipDock.style.bottom = "auto";
+  clampPipDockAboveComposer(ui.swfPipDock);
 }
 
 async function openSavedSwfFromShelf(entry) {
@@ -17445,7 +17703,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     } else {
       const img = document.createElement("img");
       img.src = mediaUrl;
-      img.loading = "lazy";
+      img.loading = "eager";
       img.alt = attachment.name || "GIF";
       img.addEventListener("click", () => {
         openMediaLightbox({ url: mediaUrl, label: attachment.name || "GIF" });
@@ -17486,7 +17744,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   if (type === "svg") {
     const img = document.createElement("img");
     img.src = mediaUrl;
-    img.loading = "lazy";
+    img.loading = "eager";
     img.alt = attachment.name || "SVG";
     img.addEventListener("click", () => {
       openMediaLightbox({ url: mediaUrl, label: attachment.name || "SVG" });
@@ -17692,7 +17950,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
 
   const img = document.createElement("img");
   img.src = mediaUrl;
-  img.loading = "lazy";
+  img.loading = "eager";
   img.alt = attachment.name || type.toUpperCase();
   img.addEventListener("click", () => {
     openMediaLightbox({ url: mediaUrl, label: attachment.name || type.toUpperCase() });
@@ -24647,6 +24905,16 @@ if (videoPipHeader) {
   videoPipHeader.addEventListener("pointerdown", (event) => {
     beginPipDrag(event, "video", ui.videoPipDock);
   });
+  videoPipHeader.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+    if (videoPipSuppressHeaderToggle) {
+      videoPipSuppressHeaderToggle = false;
+      return;
+    }
+    videoPipCollapsed = !videoPipCollapsed;
+    renderVideoPipDock();
+    requestSwfRuntimeLayoutSync();
+  });
 }
 
 const handlePipDragMove = (event) => {
@@ -24676,10 +24944,12 @@ const finishPipDrag = () => {
   if (!pipDragState?.dragging) return;
   const dragTarget = pipDragState.target || "swf";
   if (dragTarget === "swf" && pipDragState.moved) pipSuppressHeaderToggle = true;
+  if (dragTarget === "video" && pipDragState.moved) videoPipSuppressHeaderToggle = true;
   pipDragState.dragging = false;
   state.preferences = getPreferences();
   const dock = dragTarget === "video" ? ui.videoPipDock : ui.swfPipDock;
   if (dock instanceof HTMLElement) {
+    clampPipDockAboveComposer(dock);
     const rect = dock.getBoundingClientRect();
     if (dragTarget === "video") {
       state.preferences.videoPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top), manual: true };
@@ -25851,6 +26121,7 @@ ui.messageList?.addEventListener("load", (event) => {
   requestSwfRuntimeLayoutSync();
 }, true);
 initializeSwfLayoutObservers();
+initializePipDockResizeObservers();
 
 document.addEventListener("fullscreenchange", () => {
   if (document.fullscreenElement) {
@@ -25859,12 +26130,19 @@ document.addEventListener("fullscreenchange", () => {
       if (runtime.host === document.fullscreenElement) foundKey = key;
     });
     fullscreenRuntimeKey = foundKey;
-    if (foundKey) setSwfPlayback(foundKey, true, "user");
+    if (foundKey) {
+      const runtime = swfRuntimes.get(foundKey);
+      fullscreenRuntimeWasPlaying = Boolean(runtime?.playing);
+      setSwfPlayback(foundKey, true, "user");
+    } else {
+      fullscreenRuntimeWasPlaying = false;
+    }
     return;
   }
   if (!fullscreenRuntimeKey) return;
-  setSwfPlayback(fullscreenRuntimeKey, false, "system");
+  setSwfPlayback(fullscreenRuntimeKey, fullscreenRuntimeWasPlaying, "system");
   fullscreenRuntimeKey = null;
+  fullscreenRuntimeWasPlaying = false;
 });
 
 document.addEventListener("keydown", (event) => {
@@ -26292,6 +26570,7 @@ document.addEventListener("focusin", (event) => {
 });
 
 mediaPickerTab = getPreferences().mediaLastTab;
+if (dedupeDmThreads()) saveState();
 hardenInputAutocompleteNoise();
 renderComposerMediaButtons();
 runScheduledDispatch();
