@@ -1024,6 +1024,9 @@ const xmppMamStateByPeerJid = new Map();
 const xmppRoomMessageIndexByJid = new Map();
 const xmppDmMessageIndexByPeerJid = new Map();
 const xmppPendingReceiptByStanzaId = new Map();
+const xmppLocalSentRefIdSeenAt = new Map();
+const XMPP_LOCAL_SENT_REF_TTL_MS = 6 * 60 * 60 * 1000;
+const XMPP_LOCAL_SENT_REF_MAX = 1600;
 const xmppAvatarFetchInFlight = new Set();
 const xmppAvatarHashByJid = new Map();
 const xmppAvatarMissingByJid = new Set();
@@ -1750,10 +1753,23 @@ function ensureDmReadState(thread) {
   thread.readState = {};
 }
 
+function newestMessageTimestampIso(messages = []) {
+  if (!Array.isArray(messages) || messages.length === 0) return new Date().toISOString();
+  let newestMs = 0;
+  messages.forEach((message) => {
+    const ms = toTimestampMs(message?.ts || "");
+    if (ms > newestMs) newestMs = ms;
+  });
+  if (newestMs > 0) return new Date(newestMs).toISOString();
+  const fallbackMs = toTimestampMs(messages[messages.length - 1]?.ts || "");
+  if (fallbackMs > 0) return new Date(fallbackMs).toISOString();
+  return new Date().toISOString();
+}
+
 function markDmRead(thread, accountId) {
   if (!thread || !accountId) return false;
   ensureDmReadState(thread);
-  const newestTs = thread.messages[thread.messages.length - 1]?.ts || new Date().toISOString();
+  const newestTs = newestMessageTimestampIso(thread.messages);
   const currentMs = toTimestampMs(thread.readState[accountId]);
   const nextMs = toTimestampMs(newestTs);
   if (nextMs <= currentMs) return false;
@@ -2199,7 +2215,7 @@ function ensureChannelReadState(channel) {
 function markChannelRead(channel, accountId) {
   if (!channel || !accountId) return false;
   ensureChannelReadState(channel);
-  const newestTs = channel.messages[channel.messages.length - 1]?.ts || new Date().toISOString();
+  const newestTs = newestMessageTimestampIso(channel.messages);
   const currentMs = toTimestampMs(channel.readState[accountId]);
   const nextMs = toTimestampMs(newestTs);
   if (nextMs <= currentMs) return false;
@@ -5782,6 +5798,16 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
     renderDmList();
     renderMemberList();
     renderMessages();
+    if (ui.selfMenuDialog?.open) renderSelfPopout();
+    if (ui.userPopoutDialog?.open) {
+      const selected = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
+      const fallbackName = ui.userPopoutName?.textContent || "Unknown";
+      renderUserPopout(selected, fallbackName, {
+        focusQuickDm: false,
+        resetQuickDmInput: false,
+        refreshPrivateFields: false
+      });
+    }
     return true;
   };
   const markMissingAvatar = () => {
@@ -5792,6 +5818,16 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
     renderDmList();
     renderMemberList();
     renderMessages();
+    if (ui.selfMenuDialog?.open) renderSelfPopout();
+    if (ui.userPopoutDialog?.open) {
+      const selected = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
+      const fallbackName = ui.userPopoutName?.textContent || "Unknown";
+      renderUserPopout(selected, fallbackName, {
+        focusQuickDm: false,
+        resetQuickDmInput: false,
+        refreshPrivateFields: false
+      });
+    }
   };
   const fetchVCardAvatar = () => {
     const iq = globalThis.$iq({ type: "get", to: bare }).c("vCard", { xmlns: "vcard-temp" });
@@ -6883,6 +6919,41 @@ function normalizeXmppRefIdsList(value) {
   return out.slice(0, 6);
 }
 
+function trimXmppLocalSentRefs(now = Date.now()) {
+  const ttl = Math.max(30_000, Number(XMPP_LOCAL_SENT_REF_TTL_MS) || (6 * 60 * 60 * 1000));
+  for (const [refId, seenAt] of xmppLocalSentRefIdSeenAt.entries()) {
+    if (now - seenAt > ttl) xmppLocalSentRefIdSeenAt.delete(refId);
+  }
+  while (xmppLocalSentRefIdSeenAt.size > XMPP_LOCAL_SENT_REF_MAX) {
+    const oldest = xmppLocalSentRefIdSeenAt.keys().next().value;
+    if (!oldest) break;
+    xmppLocalSentRefIdSeenAt.delete(oldest);
+  }
+}
+
+function rememberXmppLocalSentRefs(refIds = []) {
+  if (!Array.isArray(refIds) || refIds.length === 0) return;
+  const now = Date.now();
+  refIds.forEach((rawRefId) => {
+    const refId = (rawRefId || "").toString().trim();
+    if (!refId) return;
+    xmppLocalSentRefIdSeenAt.set(refId, now);
+  });
+  trimXmppLocalSentRefs(now);
+}
+
+function isXmppLocalSentRefId(refId) {
+  const key = (refId || "").toString().trim();
+  if (!key) return false;
+  const seenAt = xmppLocalSentRefIdSeenAt.get(key);
+  if (!Number.isFinite(seenAt)) return false;
+  if (Date.now() - seenAt > XMPP_LOCAL_SENT_REF_TTL_MS) {
+    xmppLocalSentRefIdSeenAt.delete(key);
+    return false;
+  }
+  return true;
+}
+
 function xmppRefIdsOverlap(idsA, idsB) {
   if (!Array.isArray(idsA) || !Array.isArray(idsB) || idsA.length === 0 || idsB.length === 0) return false;
   const setA = new Set(idsA.map((entry) => (entry || "").toString().trim()).filter(Boolean));
@@ -7300,7 +7371,13 @@ function connectRelaySocket({ force = false } = {}) {
         const hasSubjectNode = Boolean(subjectNode);
         if (isDirectLike) {
           const toBare = xmppBareJid(stanza.getAttribute("to") || "");
-          const ownAuthor = Boolean(allowSelf && ownBare && bareFrom === ownBare);
+          const stanzaLooksLocal = [stanzaMessageId, ...stanzaRefs].some((refId) => isXmppLocalSentRefId(refId));
+          const ownByDirection = Boolean(allowSelf && ownBare && toBare && toBare !== ownBare);
+          const ownAuthor = Boolean(
+            (ownBare && bareFrom === ownBare)
+            || ownByDirection
+            || (allowSelf && ownBare && stanzaLooksLocal)
+          );
           const peerBare = ownAuthor
             ? (toBare && toBare !== ownBare ? toBare : "")
             : bareFrom;
@@ -8382,6 +8459,20 @@ function primaryXmppReferenceIdForMessage(message) {
   return refs[0] || "";
 }
 
+function preferredXmppDmReferenceIdForMessage(message) {
+  if (!message || typeof message !== "object") return "";
+  const refs = normalizeXmppRefIdsList(message.xmppRefIds);
+  const stanzaId = (message.xmppStanzaId || "").toString().trim();
+  const fallback = primaryXmppReferenceIdForMessage(message);
+  const preferred = refs.find((refId) => refId && refId !== stanzaId) || "";
+  return preferred || fallback;
+}
+
+function preferredXmppReferenceIdForConversationMessage(conversation, message) {
+  if (conversation?.type === "dm") return preferredXmppDmReferenceIdForMessage(message);
+  return primaryXmppReferenceIdForMessage(message);
+}
+
 function xmppReplyFallbackPrefix(replyMeta) {
   if (!replyMeta || typeof replyMeta !== "object") return "";
   const name = decodeHtmlEntities((replyMeta.authorName || "message").toString())
@@ -8415,7 +8506,7 @@ function resolveXmppReplyMetaForDm(thread, message, account, peerJid = "") {
   const explicitRef = (message.replyTo.stanzaId || "").toString().trim();
   const repliedMessageId = (message.replyTo.messageId || "").toString().trim();
   const targetMessage = repliedMessageId ? findMessageInChannel(thread, repliedMessageId) : null;
-  const referenceId = explicitRef || primaryXmppReferenceIdForMessage(targetMessage);
+  const referenceId = explicitRef || preferredXmppDmReferenceIdForMessage(targetMessage);
   if (!referenceId) return null;
   const targetAuthorAccount = targetMessage?.userId ? getAccountById(targetMessage.userId) : null;
   const replyToJid = normalizeXmppJid(targetAuthorAccount?.xmppJid || peerJid || "");
@@ -8881,7 +8972,7 @@ function publishXmppMessageReaction(conversation, message, account) {
     return { ok: false, reason: "xmpp-offline" };
   }
   if (!conversation || !message || !account?.id) return { ok: false, reason: "invalid-args" };
-  const targetRefId = primaryXmppReferenceIdForMessage(message);
+  const targetRefId = preferredXmppReferenceIdForConversationMessage(conversation, message);
   if (!targetRefId) return { ok: false, reason: "missing-reference" };
   const emojiSet = xmppReactionEmojisForActor(message, account.id);
   const reactionStanzaId = `s67-react-${createId().slice(0, 12)}`;
@@ -8895,6 +8986,7 @@ function publishXmppMessageReaction(conversation, message, account) {
       appendXmppReactionsNode(stanza, targetRefId, emojiSet);
       appendXmppOriginIdNode(stanza, reactionOriginId);
       xmppConnection.send(stanza);
+      rememberXmppLocalSentRefs([reactionStanzaId, reactionOriginId]);
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
         targetRefId,
@@ -8918,6 +9010,7 @@ function publishXmppMessageReaction(conversation, message, account) {
       appendXmppReactionsNode(stanza, targetRefId, emojiSet);
       appendXmppOriginIdNode(stanza, reactionOriginId);
       xmppConnection.send(stanza);
+      rememberXmppLocalSentRefs([reactionStanzaId, reactionOriginId]);
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
         targetRefId,
@@ -8950,6 +9043,7 @@ function publishXmppMessageReaction(conversation, message, account) {
     appendXmppReactionsNode(stanza, targetRefId, emojiSet);
     appendXmppOriginIdNode(stanza, reactionOriginId);
     xmppConnection.send(stanza);
+    rememberXmppLocalSentRefs([reactionStanzaId, reactionOriginId]);
     message.xmppRefIds = normalizeXmppRefIdsList([
       ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
       targetRefId,
@@ -8978,7 +9072,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
   }
   if (!conversation || !message || !account) return { ok: false, reason: "invalid-args" };
   if ((message.userId || "") !== account.id) return { ok: false, reason: "not-author" };
-  const targetRefId = primaryXmppReferenceIdForMessage(message);
+  const targetRefId = preferredXmppReferenceIdForConversationMessage(conversation, message);
   if (!targetRefId) return { ok: false, reason: "missing-reference" };
   const correctionStanzaId = `s67-edit-${createId().slice(0, 12)}`;
   const correctionOriginId = `s67-origin-${createId().slice(0, 12)}`;
@@ -9000,6 +9094,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
       appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
       stanza.c("request", { xmlns: "urn:xmpp:receipts" });
       xmppConnection.send(stanza);
+      rememberXmppLocalSentRefs([correctionStanzaId, correctionOriginId]);
       rememberXmppPendingReceipt(correctionStanzaId, conversation.thread, message, peerJid);
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
@@ -9030,6 +9125,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
       appendXmppOriginIdNode(stanza, correctionOriginId);
       appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
       xmppConnection.send(stanza);
+      rememberXmppLocalSentRefs([correctionStanzaId, correctionOriginId]);
       message.xmppStanzaId = correctionStanzaId;
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
@@ -9069,6 +9165,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
     appendXmppOriginIdNode(stanza, correctionOriginId);
     appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
     xmppConnection.send(stanza);
+    rememberXmppLocalSentRefs([correctionStanzaId, correctionOriginId]);
     message.xmppStanzaId = correctionStanzaId;
     message.xmppRefIds = normalizeXmppRefIdsList([
       ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
@@ -9121,6 +9218,7 @@ function publishRelayChannelMessage(channel, message, account) {
       appendXmppOriginIdNode(stanza, originId);
       appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
       xmppConnection.send(stanza);
+      rememberXmppLocalSentRefs([stanzaId, originId]);
       message.xmppStanzaId = stanzaId;
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
@@ -9215,6 +9313,7 @@ function publishRelayDirectMessage(thread, message, account) {
         appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
         stanza.c("request", { xmlns: "urn:xmpp:receipts" });
         xmppConnection.send(stanza);
+        rememberXmppLocalSentRefs([stanzaId, originId]);
         rememberXmppPendingReceipt(stanzaId, thread, message, peerJid);
         message.xmppStanzaId = stanzaId;
         message.xmppRefIds = normalizeXmppRefIdsList([
@@ -9239,6 +9338,7 @@ function publishRelayDirectMessage(thread, message, account) {
       appendXmppOriginIdNode(stanza, originId);
       appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
       xmppConnection.send(stanza);
+      rememberXmppLocalSentRefs([stanzaId, originId]);
       message.xmppStanzaId = stanzaId;
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
@@ -19954,13 +20054,19 @@ function renderServers() {
   }
   const dmStats = getTotalDmUnreadStats(currentAccount);
   if (ui.serverBrandBadge) {
-    const count = dmStats.mentions;
+    const mentionCount = Math.max(0, Number(dmStats.mentions) || 0);
+    const unreadCount = Math.max(0, Number(dmStats.unread) || 0);
+    const count = mentionCount > 0 ? mentionCount : unreadCount;
     if (count > 0) {
       ui.serverBrandBadge.hidden = false;
+      ui.serverBrandBadge.classList.toggle("server-brand__badge--mention", mentionCount > 0);
       ui.serverBrandBadge.textContent = count > 99 ? "99+" : String(count);
-      ui.serverBrandBadge.title = `${dmStats.mentions} DM mention${dmStats.mentions === 1 ? "" : "s"}`;
+      ui.serverBrandBadge.title = mentionCount > 0
+        ? `${mentionCount} DM mention${mentionCount === 1 ? "" : "s"}`
+        : `${unreadCount} unread DM message${unreadCount === 1 ? "" : "s"}`;
     } else {
       ui.serverBrandBadge.hidden = true;
+      ui.serverBrandBadge.classList.remove("server-brand__badge--mention");
       ui.serverBrandBadge.textContent = "";
       ui.serverBrandBadge.title = "";
     }
@@ -20821,12 +20927,15 @@ function restoreMessageListAnchor(anchor) {
   return true;
 }
 
-function openUserPopout(account, fallbackName = "Unknown") {
+function renderUserPopout(
+  account,
+  fallbackName = "Unknown",
+  { focusQuickDm = false, resetQuickDmInput = false, refreshPrivateFields = true } = {}
+) {
   const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
   const displayName = account ? displayNameForAccount(account, guildId) : fallbackName;
   const bio = account?.bio?.trim() || "No bio yet.";
   const current = getCurrentAccount();
-  selectedUserPopoutId = account?.id || null;
 
   ui.userPopoutName.textContent = displayName;
   const activeServer = getActiveConversation()?.type === "channel" ? getActiveServer() : null;
@@ -20846,23 +20955,38 @@ function openUserPopout(account, fallbackName = "Unknown") {
   }
   ui.userPopoutStatus.textContent = account ? displayStatus(account, guildId) : "Offline";
   ui.userPopoutBio.textContent = bio;
+  if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
   applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
   applyAvatarDecoration(ui.userPopoutAvatar, account);
+  const resolvedAvatarUrl = account ? resolveAccountAvatar(account, guildId).url : "";
+  if (!isRenderableAvatarUrl(resolvedAvatarUrl)) {
+    if (!account) {
+      ui.userPopoutAvatar.style.backgroundColor = fallbackAvatarColorForSeed(displayName || fallbackName || "user");
+    }
+    applyAvatarInitialGlyph(ui.userPopoutAvatar, displayName || fallbackName || account?.username || "?");
+  }
   applyBannerStyle(ui.userPopoutBanner, resolveAccountBanner(account, guildId));
   ui.userPopoutDialog.classList.remove("profile-effect-aurora", "profile-effect-flame", "profile-effect-ocean");
   const userEffect = accountProfileEffect(account);
   if (userEffect !== "none") ui.userPopoutDialog.classList.add(`profile-effect-${userEffect}`);
   renderRoleChips(ui.userPopoutRoles, account?.id);
   renderQuestBadges(ui.userPopoutRoles, account?.id);
-  if (ui.userNoteInput) {
+  if (refreshPrivateFields && ui.userNoteInput) {
     ui.userNoteInput.value = current && selectedUserPopoutId ? getUserNote(current.id, selectedUserPopoutId) : "";
     ui.userNoteInput.disabled = !selectedUserPopoutId;
   }
   if (ui.userStartDmBtn) ui.userStartDmBtn.disabled = !account?.id || account.id === current?.id;
-  if (ui.userSaveNoteBtn) ui.userSaveNoteBtn.disabled = !selectedUserPopoutId || !current;
-  if (ui.userSendDmBtn) ui.userSendDmBtn.disabled = !account?.id || account.id === current?.id || !current;
-  if (ui.userDmInput) ui.userDmInput.value = "";
-  if (account?.id && current && account.id !== current.id && ui.userDmInput) ui.userDmInput.focus();
+  if (refreshPrivateFields && ui.userSaveNoteBtn) ui.userSaveNoteBtn.disabled = !selectedUserPopoutId || !current;
+  if (refreshPrivateFields && ui.userSendDmBtn) ui.userSendDmBtn.disabled = !account?.id || account.id === current?.id || !current;
+  if (refreshPrivateFields && ui.userDmInput && resetQuickDmInput) ui.userDmInput.value = "";
+  if (refreshPrivateFields && focusQuickDm && account?.id && current && account.id !== current.id && ui.userDmInput) {
+    ui.userDmInput.focus();
+  }
+}
+
+function openUserPopout(account, fallbackName = "Unknown") {
+  selectedUserPopoutId = account?.id || null;
+  renderUserPopout(account, fallbackName, { focusQuickDm: true, resetQuickDmInput: true });
   ui.userPopoutDialog.showModal();
 }
 

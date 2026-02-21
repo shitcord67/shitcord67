@@ -51,3 +51,41 @@ I noticed that when I'm resizing Ruffle in-chat that it flickers a lot. Can't yo
 A previous LLM tried this: XMPP HTTP upload (so local attachments become real links), OOB attachment stanza metadata, and the
   missing CSS fixes (privacy-gate spacing, lightbox actions/confirm styling, composer attachment thumbnails). Then I’ll run syntax
   checks.
+
+## 2026-02-21T02:52:29Z
+Great. Then I noticed I can't properly react to messages by using the three emojis from the message hover menu. They don't seem to get added on click. Also I noticed that e.g. when controls for an SWF or video are shown and then I try to reach the message hover menu that stuff can jump around cause the message hover menu is displayed a bit above the message (basically in the next above message), so maybe move it a bit further down? Then can you make the video dock resize properly like the SWF PiP. In fact, why aren't you reusing code from the SWF PiP for the video dock? Aren't they basically the same? Also are reactions actually properly implemented and using XMPP? Cause in a chat I see "/me retracted a previous message, but it's unsupported by your client." Then is displaying "Load older messages" all the time really necessary? Then can't you display the proper room/group/chat/space title/name at the top? And the description below. Then I think the button to hide channels makes everything shift to the right which is a heavy UX bug. Feel free to implement more
+
+## 2026-02-21T03:21:31Z
+
+Okay. why is it now that I don't seem to see DMs anymore? "Loading older messages..." is the only thing I see in direct message XMPP chats...
+
+## 2026-02-21T03:22:03Z
+Okay. why is it now that I don't seem to see DMs anymore? "Loading older messages..." is the only thing I see in direct message XMPP chats...
+
+## ${ts}
+Btw. when there are HTML files in chat, why is a save prompt dialog popping up the moment I open a chat without me having clicked anything to download the HTML? Also can you make sure that the video and SWF embeds are starting a bit higher in the message and that the open controls do not close while I'm over the message hover menu to e.g. select a reaction? Also why are the reactions not working? Also why are the GIFs in the GIF picker not having a minimum height and width Please never display them below 100x100 size.
+
+## 2026-02-21T03:31:41Z
+Btw. when there are HTML files in chat, why is a save prompt dialog popping up the moment I open a chat without me having clicked anything to download the HTML? Also can you make sure that the video and SWF embeds are starting a bit higher in the message and that the open controls do not close while I'm over the message hover menu to e.g. select a reaction? Also why are the reactions not working? Also why are the GIFs in the GIF picker not having a minimum height and width Please never display them below 100x100 size.
+
+## 2026-02-21T03:53:16Z
+￼app.js:19564 An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+￼app.js:19564 An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing.
+￼ruffle_web.js:2149 INFO web￼/src/lib.rs:1379 Ruffle WASM module has been initialized
+￼ruffle:1 New Ruffle instance created (Version: 0.2.0-nightly.2026.2.20 | WebAssembly extensions: ON | Used renderer: wgpu-webgl)
+￼ruffle:1 Loading SWF file ￼https://xmpp.pimux.de/file_share/019c7e13-8554-7443-bbb2-d95ca3c24e57/precious_thing.swf
+￼127.0.0.1/:1 Access to fetch at '\''￼https://xmpp.pimux.de/file_share/019c7e13-8554-7443-bbb2-d95ca3c24e57/precious_thing.swf'\'' from origin '\''￼http://127.0.0.1:38080'\'' has been blocked by CORS policy: The '\''Access-Control-Allow-Origin'\'' header has a value '\''￼http://127.0.0.1:8081'\'' that is not equal to the supplied origin. Have the server send the header with a valid value, or, if an opaque response serves your needs, set the request's mode to '\''no-cors'\'' to fetch the resource with CORS disabled.
+￼xmpp.pimux.de/file_s…recious_thing.swf:1 ￼
+ Failed to load resource: net::ERR_FAILED
+￼ruffle_web.js:2149 ERROR web￼/src/lib.rs:1269 Unable to lock Ruffle core
+￼ruffle:1 Ruffle instance destroyed.
+￼ruffle_web.js:2149 ERROR web￼/src/navigator.rs:477 Asynchronous error occurred: Could not fetch: "Got JS error" Wtf why do I get this now? Also when I hover over a reaction, can you show me who reacted? Also why do I see two reactions when only I reacted? Also are reactions properly synced via XMPP? Also then for the GIF picker, why don't I get the privacy gate-like options and just GIF and video hidden message? Also why is the room/space/group description not displayed below the room/space/group title?
+
+## 2026-02-21T04:09:47Z
+Looks like it works now again? Anyways, why are reactions I apply are still not getting send to other people – looks like I get at least their reactions – and why do I see 2 reactions for DM channels when I only reacted once? Feel free to add more stuff you deem worth adding
+
+## 2026-02-21T05:10:52+01:00
+- Prompt: Also I noticed that when I click on a user profile that I don't see the avatar displayed there.
+
+## 2026-02-21T05:12:44+01:00
+- Prompt: Then what I also noticed is that there is always a red notification bubble at the shitcord67 logo. But it should only be present when I actually got messages or (new) mentions.

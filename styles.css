@@ -341,13 +341,17 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   height: 1.05rem;
   padding: 0 0.2rem;
   border-radius: 999px;
-  background: #da373c;
+  background: #4f6df2;
   color: #fff;
   font-size: 0.62rem;
   font-weight: 800;
   display: grid;
   place-items: center;
   box-shadow: 0 0 0 2px var(--bg-dark);
+}
+
+.server-brand__badge.server-brand__badge--mention {
+  background: #da373c;
 }
 
 .server-list {
