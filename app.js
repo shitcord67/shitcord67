@@ -1115,6 +1115,7 @@ const ui = {
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelGlyph: document.getElementById("activeChannelGlyph"),
   activeChannelLabel: document.getElementById("activeChannelLabel"),
+  activeChannelDescription: document.getElementById("activeChannelDescription"),
   activeChannelTopic: document.getElementById("activeChannelTopic"),
   chatHeader: document.querySelector(".chat-header"),
   chatHeaderRight: document.querySelector(".chat-header__right"),
@@ -5407,12 +5408,13 @@ function applyXmppRoomReactionUpdate(roomJid, targetRefId, payload = {}) {
     || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
   )) || null;
   if (!target) return { handled: false, changed: false, channel };
-  const aliasActorId = (payload.aliasActorId || "").toString().trim();
+  const canonicalActorId = canonicalXmppRoomReactionActorId(bareRoom, payload.actorUserId || "");
+  const aliasActorId = canonicalXmppRoomReactionActorId(bareRoom, payload.aliasActorId || "");
   let aliasChanged = false;
-  if (aliasActorId && aliasActorId !== (payload.actorUserId || "").toString().trim()) {
+  if (aliasActorId && aliasActorId !== canonicalActorId) {
     aliasChanged = applyXmppReactionsForActor(target, aliasActorId, []).changed;
   }
-  const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+  const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis);
   const mergedRefIds = normalizeXmppRefIdsList([
     ...normalizeXmppRefIdsList(target.xmppRefIds),
     ...normalizeXmppRefIdsList(payload.stanzaRefs),
@@ -5588,12 +5590,18 @@ function applyXmppReactionFallback(targetRefId, payload = {}) {
       if (!channel || !Array.isArray(channel.messages)) continue;
       const target = channel.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
       if (!target) continue;
-      const aliasActorId = (payload.aliasActorId || "").toString().trim();
+      const roomJid = xmppBareJid(channel.xmppRoomJid || "");
+      const canonicalActorId = roomJid
+        ? canonicalXmppRoomReactionActorId(roomJid, payload.actorUserId || "")
+        : (payload.actorUserId || "").toString().trim();
+      const aliasActorId = roomJid
+        ? canonicalXmppRoomReactionActorId(roomJid, payload.aliasActorId || "")
+        : (payload.aliasActorId || "").toString().trim();
       let aliasChanged = false;
-      if (aliasActorId && aliasActorId !== (payload.actorUserId || "").toString().trim()) {
+      if (aliasActorId && aliasActorId !== canonicalActorId) {
         aliasChanged = applyXmppReactionsForActor(target, aliasActorId, []).changed;
       }
-      const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+      const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis);
       return {
         handled: true,
         changed: Boolean(applied.changed || aliasChanged),
@@ -5948,6 +5956,37 @@ function resolveXmppRoomActorUserId(roomJid, nick = "", stanza = null) {
   rememberKnownXmppMucOccupantJid(bareRoom, nickValue, actorJid);
   const actorAccount = ensureAccountByXmppJid(actorJid, nickValue || actorJid.split("@")[0] || "");
   return actorAccount?.id || "";
+}
+
+function parseXmppRoomAliasActorId(actorUserId = "") {
+  const token = (actorUserId || "").toString().trim();
+  if (!token.toLowerCase().startsWith("xmpp-room:")) return null;
+  const raw = token.slice("xmpp-room:".length);
+  const slashIndex = raw.indexOf("/");
+  if (slashIndex <= 0) return null;
+  const roomJid = xmppBareJid(raw.slice(0, slashIndex));
+  let nick = raw.slice(slashIndex + 1).trim();
+  try {
+    nick = decodeURIComponent(nick);
+  } catch {
+    // Keep undecoded nick if URI decoding fails.
+  }
+  nick = nick.trim();
+  if (!roomJid || !nick) return null;
+  return { roomJid, nick };
+}
+
+function canonicalXmppRoomReactionActorId(roomJid, actorUserId = "") {
+  const actorId = (actorUserId || "").toString().trim();
+  if (!actorId) return "";
+  const parsedAlias = parseXmppRoomAliasActorId(actorId);
+  if (!parsedAlias) return actorId;
+  const bareRoom = xmppBareJid(roomJid || "");
+  const effectiveRoom = bareRoom || parsedAlias.roomJid;
+  if (!effectiveRoom) return actorId;
+  if (bareRoom && parsedAlias.roomJid !== bareRoom) return actorId;
+  const resolved = resolveXmppRoomActorUserId(effectiveRoom, parsedAlias.nick, null);
+  return resolved || actorId;
 }
 
 function xmppAvatarUrlForKnownRoomNick(roomJid, nick = "", guildId = null) {
@@ -9583,12 +9622,20 @@ function channelHeaderGlyph(channel, mode = "channel") {
   return "#";
 }
 
-function setActiveChannelHeader(label, glyph = "#", title = "") {
+function setActiveChannelDescription(text) {
+  const nextText = (text || "").toString().trim();
+  if (!ui.activeChannelDescription) return;
+  ui.activeChannelDescription.textContent = nextText;
+  ui.activeChannelDescription.classList.toggle("chat-channel-description--empty", !nextText);
+}
+
+function setActiveChannelHeader(label, glyph = "#", title = "", description = "") {
   if (ui.activeChannelLabel) ui.activeChannelLabel.textContent = label || "";
   if (ui.activeChannelGlyph) ui.activeChannelGlyph.textContent = glyph || "#";
   if (ui.activeChannelName) {
     ui.activeChannelName.title = title || label || "";
   }
+  setActiveChannelDescription(description);
 }
 
 function setActiveChannelTopic(text) {
@@ -10007,13 +10054,73 @@ async function applyProfileAvatarFile(file) {
 
 function normalizeReactions(reactions) {
   if (!Array.isArray(reactions)) return [];
-  return reactions
-    .filter((item) => item && typeof item.emoji === "string")
-    .map((item) => ({
-      emoji: item.emoji,
-      userIds: Array.isArray(item.userIds) ? item.userIds : []
-    }))
-    .filter((item) => item.userIds.length > 0);
+  const byEmoji = new Map();
+  reactions.forEach((item) => {
+    const emoji = (item?.emoji || "").toString();
+    if (!emoji) return;
+    if (!byEmoji.has(emoji)) {
+      byEmoji.set(emoji, { emoji, userIds: [] });
+    }
+    const row = byEmoji.get(emoji);
+    const seen = new Set(row.userIds);
+    const sourceIds = Array.isArray(item?.userIds) ? item.userIds : [];
+    sourceIds.forEach((rawId) => {
+      const actorId = (rawId || "").toString().trim();
+      if (!actorId || seen.has(actorId)) return;
+      seen.add(actorId);
+      row.userIds.push(actorId);
+    });
+  });
+  return [...byEmoji.values()].filter((entry) => entry.userIds.length > 0);
+}
+
+function canonicalReactionActorIdForConversation(actorUserId, conversation = null) {
+  const actorId = (actorUserId || "").toString().trim();
+  if (!actorId) return "";
+  if (!conversation || conversation.type !== "channel" || !conversation.channel) return actorId;
+  const roomJid = xmppBareJid(conversation.channel.xmppRoomJid || "");
+  if (!roomJid) return actorId;
+  return canonicalXmppRoomReactionActorId(roomJid, actorId) || actorId;
+}
+
+function normalizeReactionsForConversation(reactions, conversation = null) {
+  const normalized = normalizeReactions(reactions);
+  if (!conversation) return normalized;
+  const rows = normalized.map((entry) => ({
+    emoji: entry.emoji,
+    userIds: []
+  }));
+  normalized.forEach((entry, index) => {
+    const row = rows[index];
+    const seen = new Set();
+    entry.userIds.forEach((actorId) => {
+      const canonical = canonicalReactionActorIdForConversation(actorId, conversation);
+      if (!canonical || seen.has(canonical)) return;
+      seen.add(canonical);
+      row.userIds.push(canonical);
+    });
+  });
+  return normalizeReactions(rows);
+}
+
+function reactionDisplayNameForActorId(actorUserId, { conversation = null, guildId = null } = {}) {
+  const actorId = canonicalReactionActorIdForConversation(actorUserId, conversation) || (actorUserId || "").toString().trim();
+  if (!actorId) return "Unknown";
+  const account = getAccountById(actorId);
+  if (account) return displayNameForAccount(account, guildId);
+  const alias = parseXmppRoomAliasActorId(actorId);
+  if (alias?.nick) return alias.nick;
+  return actorId;
+}
+
+function normalizeMessageReactionsForConversation(message, conversation = null) {
+  if (!message || typeof message !== "object") return false;
+  const before = xmppReactionSignature(message.reactions);
+  const next = normalizeReactionsForConversation(message.reactions, conversation);
+  const after = xmppReactionSignature(next);
+  if (before === after) return false;
+  message.reactions = next;
+  return true;
 }
 
 function normalizeAttachments(attachments) {
@@ -10341,7 +10448,7 @@ function resolveMediaPlaybackUrl(url, { kind = "" } = {}) {
   const resolved = resolveMediaUrl(url);
   const normalizedKind = (kind || "").toString().toLowerCase();
   if (!resolved) return resolved;
-  if (normalizedKind !== "video") return resolved;
+  if (!["video", "swf"].includes(normalizedKind)) return resolved;
   if (!isExternalMediaUrl(resolved)) return resolved;
   const proxied = mediaProxyUrl(resolved);
   return proxied || resolved;
@@ -10668,9 +10775,21 @@ function toggleReaction(message, emoji, userId) {
 
 function toggleMessageReactionForCurrentConversation(conversation, message, emoji, account = getCurrentAccount()) {
   if (!conversation || !message || !emoji || !account?.id) return false;
+  const normalizedChanged = normalizeMessageReactionsForConversation(message, conversation);
   const changed = toggleReaction(message, emoji, account.id);
-  if (!changed) return false;
-  publishXmppMessageReaction(conversation, message, account);
+  if (!changed && !normalizedChanged) return false;
+  if (changed) {
+    const publishResult = publishXmppMessageReaction(conversation, message, account);
+    const prefs = getPreferences();
+    if (
+      prefs.relayMode === "xmpp"
+      && publishResult
+      && publishResult.ok === false
+      && !["not-xmpp-channel", "xmpp-offline"].includes((publishResult.reason || "").toString())
+    ) {
+      showToast(`Reaction sync issue: ${publishResult.reason || "unknown"}.`, { tone: "error" });
+    }
+  }
   saveState();
   renderMessages();
   return true;
@@ -15759,7 +15878,7 @@ function renderMediaPicker() {
       actions.className = "media-card__gate-actions";
       const onceBtn = document.createElement("button");
       onceBtn.type = "button";
-      onceBtn.textContent = "Load preview";
+      onceBtn.textContent = "Once";
       onceBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -15785,7 +15904,7 @@ function renderMediaPicker() {
       });
       const trustSubdomainBtn = document.createElement("button");
       trustSubdomainBtn.type = "button";
-      trustSubdomainBtn.textContent = "Trust subdomain";
+      trustSubdomainBtn.textContent = "Trust sub";
       trustSubdomainBtn.title = hostLabel ? `Trust only ${hostLabel}` : "Trust only this host";
       trustSubdomainBtn.addEventListener("click", (event) => {
         event.preventDefault();
@@ -15798,6 +15917,42 @@ function renderMediaPicker() {
         if (added) saveState();
         renderMediaPicker();
       });
+      const customRuleBtn = document.createElement("button");
+      customRuleBtn.type = "button";
+      customRuleBtn.textContent = "Rule";
+      customRuleBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const host = mediaUrlHost(resolvedEntryUrl) || "";
+        if (!host) return;
+        const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
+        if (typeof nextRule !== "string") return;
+        const added = addMediaTrustRule(nextRule);
+        if (added) {
+          saveState();
+          showToast(`Added trust rule: ${nextRule}`);
+        } else {
+          showToast("Rule already exists or invalid.");
+        }
+        renderMediaPicker();
+      });
+      const copyUrlBtn = document.createElement("button");
+      copyUrlBtn.type = "button";
+      copyUrlBtn.textContent = "Copy";
+      copyUrlBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const copied = await copyText(resolvedEntryUrl);
+        showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
+      });
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.textContent = "Open";
+      openBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openExternalUrlInClient(resolvedEntryUrl);
+      });
       const sendBtn = document.createElement("button");
       sendBtn.type = "button";
       sendBtn.textContent = "Send";
@@ -15806,7 +15961,7 @@ function renderMediaPicker() {
         event.stopPropagation();
         sendMediaAttachment(entry, sendType);
       });
-      actions.append(onceBtn, trustBtn, trustSubdomainBtn, sendBtn);
+      actions.append(onceBtn, trustBtn, trustSubdomainBtn, customRuleBtn, copyUrlBtn, openBtn, sendBtn);
       card.append(preview, label, meta, urlNote, actions);
       ui.mediaGrid.appendChild(card);
       return;
@@ -17751,7 +17906,8 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       refreshSwfRuntimeHealthUi(runtimeKey);
       requestSwfRuntimeLayoutSync();
     }
-    const urlCandidates = [mediaUrl];
+    const proxyCandidate = resolveMediaPlaybackUrl(mediaUrl, { kind: "swf" });
+    const urlCandidates = [...new Set([proxyCandidate, mediaUrl].filter(Boolean))];
     try {
       const decoded = decodeURI(mediaUrl);
       if (!urlCandidates.includes(decoded)) urlCandidates.push(decoded);
@@ -17851,10 +18007,14 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       }
       if (!loaded) {
         const failedState = resolveLoadState();
+        const corsHint = isExternalMediaUrl(mediaUrl)
+          ? " External host may be blocking CORS for this app origin."
+          : "";
+        const failureText = `Ruffle could not load this SWF.${corsHint} Open Debug Console for details.`;
         if (failedState.host instanceof HTMLElement && failedState.host.isConnected) {
-          failedState.host.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+          failedState.host.textContent = failureText;
         } else if (playerWrap instanceof HTMLElement && playerWrap.isConnected) {
-          playerWrap.textContent = "Ruffle could not load this SWF. Open Debug Console for details.";
+          playerWrap.textContent = failureText;
         }
         if (runtimeKey) {
           const runtime = swfRuntimes.get(runtimeKey);
@@ -19537,7 +19697,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     frame.className = "message-html-frame";
     frame.loading = "lazy";
     frame.referrerPolicy = "no-referrer";
-    frame.sandbox = "allow-same-origin allow-scripts allow-forms allow-popups";
+    frame.sandbox = "allow-scripts allow-forms allow-popups";
     frame.src = "about:blank";
     frame.hidden = true;
     wrap.appendChild(frame);
@@ -21335,7 +21495,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
 
 function renderDmHome() {
   const current = getCurrentAccount();
-  setActiveChannelHeader("Friends", "@", "Friends");
+  setActiveChannelHeader("Friends", "@", "Friends", "Direct messages");
   setActiveChannelTopic("Direct Messages");
   ui.messageInput.placeholder = "Pick a DM to start chatting";
   if (ui.markChannelReadBtn) ui.markChannelReadBtn.hidden = true;
@@ -21768,7 +21928,7 @@ function renderMessages() {
     const peer = peerId ? getAccountById(peerId) : null;
     const peerPrimary = peer ? dmPrimaryLabelForAccount(peer) : "dm";
     const peerSecondary = peer ? dmSecondaryLabelForAccount(peer) : "@dm";
-    setActiveChannelHeader(peerPrimary, "@", peerSecondary);
+    setActiveChannelHeader(peerPrimary, "@", peerSecondary, peerSecondary);
     setActiveChannelTopic("Direct Message");
     ui.messageInput.placeholder = peer ? `Message ${peerPrimary}` : "Message DM";
   } else {
@@ -21783,7 +21943,7 @@ function renderMessages() {
         renderChannels();
         return;
       }
-      setActiveChannelHeader("no-access", "#", "No accessible channels");
+      setActiveChannelHeader("no-access", "#", "No accessible channels", "No accessible channels");
       setActiveChannelTopic("You do not have access to view channels in this guild.");
       ui.messageList.innerHTML = "";
       const empty = document.createElement("div");
@@ -21806,8 +21966,14 @@ function renderMessages() {
     const channelHeaderTopic = channel && isXmppBackedChannel(channel)
       ? (xmppChannelDescription(channel) || channel?.topic?.trim() || "")
       : (channel?.topic?.trim() || "");
-    setActiveChannelHeader(channelHeaderLabel, channelHeaderGlyph(channel, "channel"), channelHeaderReference);
-    setActiveChannelTopic(channelHeaderTopic);
+    const xmppBacked = Boolean(channel && isXmppBackedChannel(channel));
+    setActiveChannelHeader(
+      channelHeaderLabel,
+      channelHeaderGlyph(channel, "channel"),
+      channelHeaderReference,
+      xmppBacked ? channelHeaderTopic : ""
+    );
+    setActiveChannelTopic(xmppBacked ? "" : channelHeaderTopic);
     if (channel?.type === "forum") {
       ui.messageInput.placeholder = channel ? `New post in ${channelTypePrefix(channel)} ${channel.name} (title on first line)` : "No channel selected";
     } else if (channel?.type === "announcement") {
@@ -21911,7 +22077,15 @@ function renderMessages() {
     const baseTopic = channel && isXmppBackedChannel(channel)
       ? (xmppChannelDescription(channel) || channel?.topic?.trim() || "")
       : (channel?.topic?.trim() || "");
-    setActiveChannelTopic(baseTopic ? `${baseTopic} · ${formatSlowmodeLabel(channelSlowmode)}` : `${formatSlowmodeLabel(channelSlowmode)}`);
+    const slowmodeText = baseTopic
+      ? `${baseTopic} · ${formatSlowmodeLabel(channelSlowmode)}`
+      : `${formatSlowmodeLabel(channelSlowmode)}`;
+    if (channel && isXmppBackedChannel(channel)) {
+      setActiveChannelDescription(slowmodeText);
+      setActiveChannelTopic("");
+    } else {
+      setActiveChannelTopic(slowmodeText);
+    }
   }
   let unreadDividerMessageId = null;
   if (currentAccount && isDm && dmThread) {
@@ -22404,12 +22578,19 @@ function renderMessages() {
 
     const reactions = document.createElement("div");
     reactions.className = "message-reactions";
-    const normalizedReactions = normalizeReactions(message.reactions);
+    const normalizedReactions = normalizeReactionsForConversation(message.reactions, conversation);
     normalizedReactions.forEach((item) => {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = `reaction-chip ${currentUser && item.userIds.includes(currentUser.id) ? "active" : ""}`;
       chip.textContent = `${item.emoji} ${item.userIds.length}`;
+      const reactorNames = [...new Set(item.userIds
+        .map((actorId) => reactionDisplayNameForActorId(actorId, { conversation, guildId }))
+        .filter(Boolean))];
+      const shownNames = reactorNames.slice(0, 8);
+      chip.title = shownNames.length > 0
+        ? `Reacted by: ${shownNames.join(", ")}${reactorNames.length > shownNames.length ? ", …" : ""}`
+        : `React with ${item.emoji}`;
       chip.disabled = !canReact;
       if (currentUser && canReact) {
         chip.addEventListener("click", () => {

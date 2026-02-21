@@ -873,9 +873,14 @@ body[data-hide-channel-panel="on"] .chat-panel {
   margin: 0;
   font-size: 0.97rem;
   font-weight: 800;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "glyph label"
+    "glyph description";
   align-items: center;
-  gap: 0.38rem;
+  column-gap: 0.38rem;
+  row-gap: 0.06rem;
   min-width: 0;
   flex: 0 1 auto;
 }
@@ -885,17 +890,38 @@ body[data-hide-channel-panel="on"] .chat-panel {
 }
 
 .chat-channel-glyph {
+  grid-area: glyph;
   color: #a2a8b4;
   font-size: 1rem;
   line-height: 1;
+  align-self: start;
+  margin-top: 0.08rem;
 }
 
 #activeChannelLabel {
+  grid-area: label;
   min-width: 0;
-  max-width: 220px;
+  max-width: min(38vw, 420px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.chat-channel-description {
+  grid-area: description;
+  color: #9ea6b3;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.15;
+  min-width: 0;
+  max-width: min(42vw, 520px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-channel-description--empty {
+  display: none;
 }
 
 .chat-header__right {
