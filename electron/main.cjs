@@ -15,15 +15,22 @@ const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 8790);
 const GATEWAY_MODE = String(process.env.ELECTRON_GATEWAY_MODE || "auto").toLowerCase();
 const START_TIMEOUT_MS = Math.max(3000, Number(process.env.ELECTRON_START_TIMEOUT_MS || 20000));
 const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
-
-const CLIENT_URL = `http://${CLIENT_HOST}:${CLIENT_PORT}/`;
+const CLIENT_PORT_FALLBACKS = [18080, 8081, 38080, 18081];
 
 let mainWindow = null;
 let stackProcess = null;
 let stackStopTimer = null;
 let isShuttingDown = false;
 let securityHeadersInstalled = false;
+let activeClientPort = CLIENT_PORT;
+let activeGatewayPort = GATEWAY_PORT;
+let lastStackExitCode = null;
+let lastStackExitSignal = null;
 const externalWindows = new Set();
+
+function clientUrl(port = activeClientPort) {
+  return `http://${CLIENT_HOST}:${port}/`;
+}
 
 function log(message, extra = "") {
   const suffix = extra ? ` ${extra}` : "";
@@ -84,6 +91,9 @@ function checkUrlReady(url, timeoutMs = 1200) {
 async function waitForClientReady(url, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
+    if (stackProcess === null && Number.isInteger(lastStackExitCode) && lastStackExitCode !== 0) {
+      throw new Error(`Local stack exited early (code=${lastStackExitCode}, signal=${lastStackExitSignal || "none"}).`);
+    }
     // eslint-disable-next-line no-await-in-loop
     const ok = await checkUrlReady(url);
     if (ok) return;
@@ -93,29 +103,36 @@ async function waitForClientReady(url, timeoutMs) {
   throw new Error(`Client server did not become reachable at ${url} within ${timeoutMs}ms.`);
 }
 
-function startStackScript() {
+function startStackScript({
+  clientPort = activeClientPort,
+  gatewayPort = activeGatewayPort
+} = {}) {
   if (!fs.existsSync(STACK_SCRIPT)) {
     throw new Error(`Missing stack launcher: ${STACK_SCRIPT}`);
   }
   if (!isGatewayModeValid(GATEWAY_MODE)) {
     throw new Error(`Invalid ELECTRON_GATEWAY_MODE: ${GATEWAY_MODE}. Expected auto|on|off.`);
   }
+  activeClientPort = Math.max(1, Number(clientPort) || CLIENT_PORT);
+  activeGatewayPort = Math.max(1, Number(gatewayPort) || GATEWAY_PORT);
+  lastStackExitCode = null;
+  lastStackExitSignal = null;
 
   const args = [
     STACK_SCRIPT,
     "--client-host",
     CLIENT_HOST,
     "--client-port",
-    String(CLIENT_PORT),
+    String(activeClientPort),
     "--gateway-host",
     GATEWAY_HOST,
     "--gateway-port",
-    String(GATEWAY_PORT),
+    String(activeGatewayPort),
     "--gateway-mode",
     GATEWAY_MODE
   ];
 
-  log("starting local stack", `(client=${CLIENT_HOST}:${CLIENT_PORT}, gateway=${GATEWAY_HOST}:${GATEWAY_PORT}, mode=${GATEWAY_MODE})`);
+  log("starting local stack", `(client=${CLIENT_HOST}:${activeClientPort}, gateway=${GATEWAY_HOST}:${activeGatewayPort}, mode=${GATEWAY_MODE})`);
   stackProcess = spawn("bash", args, {
     cwd: ROOT_DIR,
     env: process.env,
@@ -135,6 +152,8 @@ function startStackScript() {
   stackProcess.on("exit", (code, signal) => {
     const info = `code=${code ?? "null"} signal=${signal ?? "none"}`;
     log("stack exited", info);
+    lastStackExitCode = typeof code === "number" ? code : null;
+    lastStackExitSignal = signal || null;
     stackProcess = null;
     if (!isShuttingDown && code !== 0 && mainWindow) {
       dialog.showErrorBox(
@@ -168,9 +187,8 @@ function stopStackScript() {
 function installClientSecurityHeaders() {
   if (securityHeadersInstalled) return;
   securityHeadersInstalled = true;
-  const origin = new URL(CLIENT_URL).origin;
   session.defaultSession.webRequest.onHeadersReceived(
-    { urls: [`${origin}/*`] },
+    { urls: [`http://${CLIENT_HOST}/*`] },
     (details, callback) => {
       const headers = details.responseHeaders ? { ...details.responseHeaders } : {};
       headers["Content-Security-Policy"] = [CLIENT_CSP];
@@ -266,13 +284,14 @@ async function createMainWindow({ startupWarning = "" } = {}) {
 
   mainWindow = browser;
 
-  const origin = new URL(CLIENT_URL).origin;
+  const activeClientUrl = clientUrl();
+  const origin = new URL(activeClientUrl).origin;
   attachNavigationGuards(browser, origin);
   attachDeveloperShortcuts(browser);
 
   let loadedClient = false;
   try {
-    await browser.loadURL(CLIENT_URL);
+    await browser.loadURL(activeClientUrl);
     loadedClient = true;
   } catch (error) {
     log("client load failed", String(error?.message || error));
@@ -280,16 +299,16 @@ async function createMainWindow({ startupWarning = "" } = {}) {
   if (!loadedClient) {
     const warningText = startupWarning
       ? `${startupWarning}\n\nThe app opened, but the local client URL is unavailable.`
-      : `Could not load ${CLIENT_URL}.`;
+      : `Could not load ${activeClientUrl}.`;
     const fallbackHtml = [
       "<!doctype html><html><head><meta charset=\"utf-8\" />",
       "<title>shitcord67 Startup Notice</title>",
       "<style>body{margin:0;font-family:ui-sans-serif,system-ui,sans-serif;background:#111319;color:#dde3ef;display:grid;place-items:center;min-height:100vh}main{max-width:760px;padding:24px}h1{margin:0 0 12px;font-size:1.25rem}p,pre{line-height:1.45}pre{background:#181c25;border:1px solid #2a3140;border-radius:8px;padding:12px;white-space:pre-wrap}a{color:#9cb5ff}button{margin-top:10px;padding:8px 12px;border-radius:8px;border:1px solid #3a4357;background:#202634;color:#eef2ff;cursor:pointer}</style>",
       "</head><body><main>",
       "<h1>Desktop window opened, but backend is unavailable</h1>",
-      `<p>Expected URL: <a href="${escapeHtml(CLIENT_URL)}">${escapeHtml(CLIENT_URL)}</a></p>`,
+      `<p>Expected URL: <a href="${escapeHtml(activeClientUrl)}">${escapeHtml(activeClientUrl)}</a></p>`,
       `<pre>${escapeHtml(warningText)}</pre>`,
-      "<button onclick=\"location.href='" + escapeHtml(CLIENT_URL) + "'\">Retry loading app</button>",
+      "<button onclick=\"location.href='" + escapeHtml(activeClientUrl) + "'\">Retry loading app</button>",
       "</main></body></html>"
     ].join("");
     const fallbackUrl = `data:text/html;charset=utf-8,${encodeURIComponent(fallbackHtml)}`;
@@ -317,12 +336,53 @@ app.on("will-quit", () => {
   stopStackScript();
 });
 
+function buildClientPortCandidates(primaryPort) {
+  const normalizedPrimary = Math.max(1, Number(primaryPort) || 8080);
+  const deduped = [normalizedPrimary, ...CLIENT_PORT_FALLBACKS]
+    .map((value) => Math.max(1, Number(value) || 0))
+    .filter((value, index, array) => value > 0 && array.indexOf(value) === index);
+  return deduped;
+}
+
+async function startClientStackWithFallback() {
+  const candidates = buildClientPortCandidates(CLIENT_PORT);
+  let lastError = "";
+  for (const candidatePort of candidates) {
+    try {
+      if (candidatePort !== CLIENT_PORT) {
+        log("retrying local stack on fallback port", `${CLIENT_HOST}:${candidatePort}`);
+      }
+      startStackScript({ clientPort: candidatePort, gatewayPort: GATEWAY_PORT });
+      await waitForClientReady(clientUrl(candidatePort), START_TIMEOUT_MS);
+      if (candidatePort !== CLIENT_PORT) {
+        return {
+          recovered: true,
+          warning: `Primary client port ${CLIENT_PORT} was unavailable; switched to ${candidatePort}.`
+        };
+      }
+      return { recovered: false, warning: "" };
+    } catch (error) {
+      lastError = String(error?.message || error || "unknown error");
+      log("startup attempt failed", `port=${candidatePort} error=${lastError}`);
+      stopStackScript();
+      // Small pause to avoid tight retry loops and let process cleanup settle.
+      // eslint-disable-next-line no-await-in-loop
+      await wait(200);
+    }
+  }
+  throw new Error(
+    `Could not start local client stack on any candidate port (${candidates.join(", ")}). Last error: ${lastError || "unknown error"}.`
+  );
+}
+
 app.whenReady().then(async () => {
   let startupWarning = "";
+  let startupRecovered = false;
   try {
     installClientSecurityHeaders();
-    startStackScript();
-    await waitForClientReady(CLIENT_URL, START_TIMEOUT_MS);
+    const result = await startClientStackWithFallback();
+    startupRecovered = Boolean(result.recovered);
+    startupWarning = (result.warning || "").toString();
   } catch (error) {
     startupWarning = String(error?.message || error || "unknown error");
     log("startup warning", startupWarning);
@@ -330,10 +390,10 @@ app.whenReady().then(async () => {
 
   try {
     await createMainWindow({ startupWarning });
-    if (startupWarning) {
+    if (startupWarning && !startupRecovered) {
       dialog.showErrorBox(
         "Desktop stack warning",
-        `${startupWarning}\n\nThe desktop window was opened anyway. Verify that ${CLIENT_URL} is reachable.`
+        `${startupWarning}\n\nThe desktop window was opened anyway. Verify that ${clientUrl()} is reachable.`
       );
     }
   } catch (error) {
