@@ -4,6 +4,23 @@ A lightweight Discord-style chat client prototype with local persistence.
 
 ![shitcord67 UI screenshot](Screenshot.png)
 
+Note: substantial parts of this codebase are LLM-assisted/generated and then reviewed/refined in-repo.
+
+## Quick Start (Electron)
+1. Install dependencies:
+   - `npm install`
+2. Launch desktop client:
+   - `npm run electron`
+
+## Build Standalone Desktop Binary
+1. Install dependencies:
+   - `npm install`
+2. Package app into a self-contained desktop folder:
+   - `npx @electron/packager . shitcord67 --platform=linux --arch=x64 --out=dist --overwrite`
+3. Run packaged binary:
+   - `dist/shitcord67-linux-x64/shitcord67`
+4. For Windows/macOS builds, change `--platform`/`--arch` accordingly.
+
 XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 
 ## Run (Recommended: Desktop Electron)
@@ -12,6 +29,9 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 2. Start desktop client:
    - `npm run electron`
    - launches Electron and starts/stops local stack automatically.
+   - if startup warns that port `8080` is listening but not responding, free it first:
+     - `lsof -nP -iTCP:8080 -sTCP:LISTEN`
+     - `kill <PID>`
 3. Optional gateway modes:
    - `npm run electron:with-gateway`
    - `npm run electron:no-gateway`

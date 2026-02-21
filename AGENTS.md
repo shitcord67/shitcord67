@@ -7,6 +7,11 @@ These instructions are project-local continuity notes for future LLM instances.
 - Minimize back-and-forth questions; ask only when a decision is truly ambiguous or high-risk.
 - Keep running with follow-up improvements after tests pass.
 
+## Continuity Logging
+- First action after receiving a new user prompt: append the full prompt text to `CONTINUITY_LOG.md` with a timestamp.
+- Treat `CONTINUITY_LOG.md` as a handoff journal for future LLM instances when context/token limits are hit.
+- Keep entries append-only; never rewrite prior prompt entries.
+
 ## Git and Change Flow
 - It is explicitly allowed to add/update local `TODO` entries during implementation.
 - It is explicitly allowed to commit incremental local changes without extra confirmation.
