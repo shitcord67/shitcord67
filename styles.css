@@ -850,6 +850,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   overflow: hidden;
 }
 
+body[data-hide-channel-panel="on"] .chat-panel {
+  grid-column: 2;
+}
+
 .chat-header {
   border-bottom: 1px solid #232428;
   padding: 0.35rem 0.8rem;
@@ -1705,7 +1709,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .message-actions {
   position: absolute;
   right: 1rem;
-  top: -0.62rem;
+  top: 0.14rem;
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -4923,6 +4927,10 @@ body[data-debug-overlay="on"] .chat-panel {
 @media (max-width: 760px) {
   #chatScreen.screen--active {
     grid-template-columns: 72px 1fr;
+  }
+
+  .chat-panel {
+    grid-column: 2;
   }
 
   .channel-panel {
