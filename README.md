@@ -29,6 +29,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 2. Start desktop client:
    - `npm run electron`
    - launches Electron and starts/stops local stack automatically.
+   - if `8080` is stale/non-responsive, Electron auto-retries fallback ports (`18080`, `8081`, `38080`, `18081`).
    - if startup warns that port `8080` is listening but not responding, free it first:
      - `lsof -nP -iTCP:8080 -sTCP:LISTEN`
      - `kill <PID>`
