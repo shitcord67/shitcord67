@@ -25,6 +25,11 @@ const MESSAGE_CHAR_LIMIT_MAX = 20000;
 const MESSAGE_CHAR_LIMIT_TEMP_BUMP = 2000;
 const MESSAGE_TEXT_STORAGE_MAX = 20000;
 const MESSAGE_TEXT_TRANSPORT_MAX = 8000;
+const PIP_RESIZE_EDGES = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+const PIP_MIN_SIZE = {
+  swf: { width: 280, height: 180 },
+  video: { width: 260, height: 160 }
+};
 const GIF_PICKER_INITIAL_PAGE_SIZE = 140;
 const GIF_PICKER_PAGE_STEP = 120;
 const GIF_PICKER_VISIBLE_MAX = 20000;
@@ -508,6 +513,8 @@ function buildInitialState() {
       lastChannelByGuild: {},
       swfPipPosition: null,
       videoPipPosition: null,
+      swfPipSize: null,
+      videoPipSize: null,
       relayMode: "local",
       relayUrl: "ws://localhost:8787",
       relayRoom: "",
@@ -946,12 +953,14 @@ let mediaRuntimeBootstrapped = false;
 let pdfRuntimeLoadPromise = null;
 let mediaPickerScrollLoadRaf = 0;
 let pipDragState = null;
+let pipResizeState = null;
 let pipSuppressHeaderToggle = false;
 let videoPipSuppressHeaderToggle = false;
 let swfLayoutResizeObserver = null;
 let swfLayoutMutationObserver = null;
 let swfPipDockResizeObserver = null;
 let videoPipDockResizeObserver = null;
+const nativeWindowOpen = typeof window.open === "function" ? window.open.bind(window) : null;
 let toastHideTimer = null;
 let composerPendingAttachment = null;
 let composerPendingAttachments = [];
@@ -3109,6 +3118,7 @@ function ensureMediaLightbox() {
     if (target.closest("[data-lightbox-close=\"1\"]")) return false;
     if (target.closest(".media-lightbox__media")) return true;
     if (target.closest(".message-swf-link")) return true;
+    if (target.closest(".external-link-gate")) return true;
     return false;
   };
   overlay.addEventListener("click", (event) => {
@@ -3173,15 +3183,96 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
   overlay.focus({ preventScroll: true });
 }
 
+function showExternalLinkPrompt(targetUrl) {
+  const overlay = ensureMediaLightbox();
+  const stage = overlay.querySelector(".media-lightbox__stage");
+  const caption = overlay.querySelector(".media-lightbox__caption");
+  if (!stage || !caption) return;
+  stage.innerHTML = "";
+  const gate = document.createElement("div");
+  gate.className = "external-link-gate";
+  const title = document.createElement("strong");
+  title.textContent = "Open external link?";
+  const preview = document.createElement("code");
+  preview.className = "external-link-gate__url";
+  preview.textContent = targetUrl;
+  const actions = document.createElement("div");
+  actions.className = "external-link-gate__actions";
+  const openEmbeddedBtn = document.createElement("button");
+  openEmbeddedBtn.type = "button";
+  openEmbeddedBtn.textContent = "Open Here";
+  openEmbeddedBtn.addEventListener("click", () => {
+    stage.innerHTML = "";
+    const frame = document.createElement("iframe");
+    frame.className = "media-lightbox__media media-lightbox__media--frame";
+    frame.src = targetUrl;
+    frame.loading = "eager";
+    frame.referrerPolicy = "no-referrer";
+    frame.allow = "fullscreen";
+    const controls = document.createElement("div");
+    controls.className = "external-link-gate__actions";
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copy URL";
+    copyBtn.addEventListener("click", async () => {
+      const copied = await copyText(targetUrl);
+      showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
+    });
+    const backBtn = document.createElement("button");
+    backBtn.type = "button";
+    backBtn.textContent = "Back";
+    backBtn.addEventListener("click", () => {
+      showExternalLinkPrompt(targetUrl);
+    });
+    controls.appendChild(copyBtn);
+    controls.appendChild(backBtn);
+    stage.appendChild(frame);
+    stage.appendChild(controls);
+    caption.textContent = targetUrl;
+  });
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy URL";
+  copyBtn.addEventListener("click", async () => {
+    const copied = await copyText(targetUrl);
+    showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
+  });
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => closeMediaLightbox());
+  actions.appendChild(openEmbeddedBtn);
+  actions.appendChild(copyBtn);
+  actions.appendChild(cancelBtn);
+  gate.appendChild(title);
+  gate.appendChild(preview);
+  gate.appendChild(actions);
+  stage.appendChild(gate);
+  caption.textContent = "External link request";
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  overlay.focus({ preventScroll: true });
+}
+
 function openExternalUrlInClient(rawUrl) {
   const targetUrl = resolveMediaUrl((rawUrl || "").toString().trim());
   if (!/^https?:\/\//i.test(targetUrl)) return;
-  try {
-    window.open(targetUrl, "_blank", "noopener,noreferrer");
-  } catch {
-    // Ignore blocked popup/navigation failures.
-  }
+  showExternalLinkPrompt(targetUrl);
 }
+
+if (nativeWindowOpen && window.__s67ExternalOpenProxy !== true) {
+  window.__s67ExternalOpenProxy = true;
+  window.open = (url) => {
+    openExternalUrlInClient(url || "");
+    return null;
+  };
+}
+
+window.addEventListener("s67-open-external-url", (event) => {
+  const requestedUrl = (event?.detail || "").toString();
+  if (!requestedUrl) return;
+  openExternalUrlInClient(requestedUrl);
+});
 
 function mentionInComposer(account) {
   if (!account) return;
@@ -3392,6 +3483,23 @@ function ensureServerOwnerRole(server, accountId) {
   return true;
 }
 
+function pruneSyntheticOwnerRoles(server) {
+  if (!server || !Array.isArray(server.roles) || !server.memberRoles || typeof server.memberRoles !== "object") return false;
+  const ownerRoleIds = server.roles
+    .filter((role) => (role?.name || "").toString().trim().toLowerCase() === "owner")
+    .map((role) => role.id)
+    .filter(Boolean);
+  if (ownerRoleIds.length === 0) return false;
+  const ownerSet = new Set(ownerRoleIds);
+  const previousCount = server.roles.length;
+  server.roles = server.roles.filter((role) => !ownerSet.has(role?.id));
+  Object.keys(server.memberRoles).forEach((memberId) => {
+    if (!Array.isArray(server.memberRoles[memberId])) return;
+    server.memberRoles[memberId] = server.memberRoles[memberId].filter((roleId) => !ownerSet.has(roleId));
+  });
+  return server.roles.length !== previousCount;
+}
+
 function ensureCurrentUserInActiveServer() {
   const account = getCurrentAccount();
   const server = getActiveServer();
@@ -3424,7 +3532,9 @@ function ensureCurrentUserInActiveServer() {
     server.memberIds.push(account.id);
     changed = true;
   }
-  if (ensureServerOwnerRole(server, account.id)) {
+  if (isXmppBackedGuild(server)) {
+    if (pruneSyntheticOwnerRoles(server)) changed = true;
+  } else if (ensureServerOwnerRole(server, account.id)) {
     changed = true;
   }
   server.channels.forEach((channel) => {
@@ -3990,6 +4100,18 @@ function getPreferences() {
           left: Number.isFinite(Number(current.videoPipPosition.left)) ? Math.max(0, Number(current.videoPipPosition.left)) : null,
           top: Number.isFinite(Number(current.videoPipPosition.top)) ? Math.max(0, Number(current.videoPipPosition.top)) : null,
           manual: Boolean(current.videoPipPosition.manual)
+        }
+      : null,
+    swfPipSize: current.swfPipSize && typeof current.swfPipSize === "object"
+      ? {
+          width: Number.isFinite(Number(current.swfPipSize.width)) ? Math.max(180, Number(current.swfPipSize.width)) : null,
+          height: Number.isFinite(Number(current.swfPipSize.height)) ? Math.max(120, Number(current.swfPipSize.height)) : null
+        }
+      : null,
+    videoPipSize: current.videoPipSize && typeof current.videoPipSize === "object"
+      ? {
+          width: Number.isFinite(Number(current.videoPipSize.width)) ? Math.max(180, Number(current.videoPipSize.width)) : null,
+          height: Number.isFinite(Number(current.videoPipSize.height)) ? Math.max(120, Number(current.videoPipSize.height)) : null
         }
       : null
   };
@@ -4927,6 +5049,74 @@ function applyXmppRoomMessageCorrection(roomJid, targetRefId, payload = {}) {
   return {
     ...applied,
     channel
+  };
+}
+
+function applyXmppCorrectionFallback(targetRefId, payload = {}) {
+  const key = (targetRefId || "").toString().trim();
+  if (!key) return {
+    handled: false,
+    changed: false,
+    contentChanged: false,
+    scope: "",
+    thread: null,
+    channel: null
+  };
+  for (const thread of state.dmThreads) {
+    if (!thread || !Array.isArray(thread.messages)) continue;
+    const target = thread.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
+    if (!target) continue;
+    const applied = applyXmppCorrectionToMessageEntry(target, payload);
+    const current = getCurrentAccount();
+    const participantIds = Array.isArray(thread.participantIds) ? thread.participantIds : [];
+    const peerId = participantIds.find((id) => id && id !== current?.id) || "";
+    const peerJid = xmppBareJid(getAccountById(peerId)?.xmppJid || "");
+    const trackedRefs = normalizeXmppRefIdsList([
+      ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+      target.xmppStanzaId || "",
+      key,
+      ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+      payload?.stanzaId || ""
+    ]);
+    if (peerJid) trackedRefs.forEach((refId) => rememberXmppDmMessage(peerJid, refId, target));
+    return {
+      ...applied,
+      scope: "dm",
+      thread,
+      channel: null
+    };
+  }
+  for (const guild of state.guilds) {
+    const channels = Array.isArray(guild?.channels) ? guild.channels : [];
+    for (const channel of channels) {
+      if (!channel || !Array.isArray(channel.messages)) continue;
+      const target = channel.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
+      if (!target) continue;
+      const applied = applyXmppCorrectionToMessageEntry(target, payload);
+      const roomJid = xmppBareJid(channel.xmppRoomJid || "");
+      const trackedRefs = normalizeXmppRefIdsList([
+        ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+        target.xmppStanzaId || "",
+        key,
+        ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+        payload?.stanzaId || ""
+      ]);
+      if (roomJid) trackedRefs.forEach((refId) => rememberXmppRoomMessage(roomJid, refId, target));
+      return {
+        ...applied,
+        scope: "muc",
+        thread: null,
+        channel
+      };
+    }
+  }
+  return {
+    handled: false,
+    changed: false,
+    contentChanged: false,
+    scope: "",
+    thread: null,
+    channel: null
   };
 }
 
@@ -6486,8 +6676,8 @@ function connectRelaySocket({ force = false } = {}) {
               }
             });
           }
-          if (correctionTargetId && (text.trim() || attachments.length > 0)) {
-            const correctionResult = applyXmppDmMessageCorrection(peerBare, correctionTargetId, {
+          if (correctionTargetId) {
+            const correctionPayload = {
               text,
               attachments,
               timestamp,
@@ -6497,28 +6687,41 @@ function connectRelaySocket({ force = false } = {}) {
                 : (peer.displayName || peer.username),
               stanzaId: stanzaMessageId,
               stanzaRefs
-            });
-            if (correctionResult.handled) {
-              if (correctionResult.changed) {
+            };
+            const correctionResult = applyXmppDmMessageCorrection(peerBare, correctionTargetId, correctionPayload);
+            const fallbackResult = correctionResult.handled
+              ? correctionResult
+              : applyXmppCorrectionFallback(correctionTargetId, correctionPayload);
+            if (fallbackResult.handled) {
+              const resultScope = fallbackResult.scope || "dm";
+              const targetThreadId = fallbackResult.thread?.id || correctionResult.thread?.id || "";
+              if (fallbackResult.changed) {
                 saveState();
-                if (correctionResult.contentChanged) renderDmList();
+                if (fallbackResult.contentChanged) renderDmList();
                 const activeConversation = getActiveConversation();
-                if (activeConversation?.type === "dm" && activeConversation.thread?.id === correctionResult.thread?.id) {
+                if (activeConversation?.type === "dm" && activeConversation.thread?.id === targetThreadId) {
                   renderMessages();
                 }
               }
               addXmppDebugEvent("message", "Applied XMPP message correction", {
-                scope: "dm",
+                scope: resultScope,
                 from: peerBare,
                 replaceId: correctionTargetId,
                 id: stanzaMessageId || "",
-                changed: correctionResult.changed
+                changed: fallbackResult.changed
               });
               if (!ownAuthor) {
                 maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
               }
               return;
             }
+            addXmppDebugEvent("message", "Ignored unmatched XMPP message correction", {
+              scope: "dm",
+              from: peerBare,
+              replaceId: correctionTargetId,
+              id: stanzaMessageId || ""
+            });
+            return;
           }
           const replyMeta = xmppReplyMetaFromStanza(stanza, "", peerBare);
           if (!text.trim() && attachments.length === 0 && !replyMeta) return;
@@ -6599,8 +6802,8 @@ function connectRelaySocket({ force = false } = {}) {
             }
           });
         }
-        if (correctionTargetId && (text.trim() || attachments.length > 0)) {
-          const correctionResult = applyXmppRoomMessageCorrection(roomJid, correctionTargetId, {
+        if (correctionTargetId) {
+          const correctionPayload = {
             text,
             attachments,
             timestamp,
@@ -6608,28 +6811,40 @@ function connectRelaySocket({ force = false } = {}) {
             editorName: nick || roomJid.split("@")[0] || "xmpp",
             stanzaId: stanzaMessageId,
             stanzaRefs
-          });
-          if (correctionResult.handled) {
-            if (correctionResult.changed) {
+          };
+          const correctionResult = applyXmppRoomMessageCorrection(roomJid, correctionTargetId, correctionPayload);
+          const fallbackResult = correctionResult.handled
+            ? correctionResult
+            : applyXmppCorrectionFallback(correctionTargetId, correctionPayload);
+          if (fallbackResult.handled) {
+            const targetChannelId = fallbackResult.channel?.id || correctionResult.channel?.id || "";
+            if (fallbackResult.changed) {
               saveState();
               renderChannels();
               const activeConversation = getActiveConversation();
-              if (activeConversation?.type === "channel" && activeConversation.channel?.id === correctionResult.channel?.id) {
+              if (activeConversation?.type === "channel" && activeConversation.channel?.id === targetChannelId) {
                 renderMessages();
               } else {
                 renderServers();
               }
             }
             addXmppDebugEvent("message", "Applied XMPP message correction", {
-              scope: "muc",
+              scope: fallbackResult.scope || "muc",
               from: roomJid,
               replaceId: correctionTargetId,
               id: stanzaMessageId || "",
-              changed: correctionResult.changed
+              changed: fallbackResult.changed
             });
             if (roomJid && nick) maybeFetchXmppMucAvatar(roomJid, nick, from);
             return;
           }
+          addXmppDebugEvent("message", "Ignored unmatched XMPP message correction", {
+            scope: "muc",
+            from: roomJid,
+            replaceId: correctionTargetId,
+            id: stanzaMessageId || ""
+          });
+          return;
         }
         const replyMeta = xmppReplyMetaFromStanza(stanza, roomJid);
         if (!text.trim() && attachments.length === 0 && !replyMeta) return;
@@ -14664,6 +14879,13 @@ function updateVideoPipDockLayout() {
   if (!(ui.videoPipDock instanceof HTMLElement) || ui.videoPipDock.classList.contains("video-pip--hidden")) return;
   if (pipDragState?.dragging && pipDragState.target === "video") return;
   const prefs = getPreferences();
+  const storedSize = prefs.videoPipSize && typeof prefs.videoPipSize === "object" ? prefs.videoPipSize : null;
+  if (Number.isFinite(storedSize?.width) && storedSize.width > 0) {
+    ui.videoPipDock.style.width = `${Math.round(storedSize.width)}px`;
+  }
+  if (Number.isFinite(storedSize?.height) && storedSize.height > 0) {
+    ui.videoPipDock.style.height = `${Math.round(storedSize.height)}px`;
+  }
   if (
     prefs.videoPipPosition?.manual
     && Number.isFinite(prefs.videoPipPosition.left)
@@ -15420,10 +15642,10 @@ function positionSwfPipRuntimeHosts() {
       runtime.pipHost.style.borderColor = "";
       runtime.pipHost.style.background = "";
       runtime.pipHost.style.boxShadow = "";
-      runtime.pipHost.style.left = `${Math.max(8, pipRect.left)}px`;
-      runtime.pipHost.style.top = `${Math.max(8, pipRect.top)}px`;
-      runtime.pipHost.style.width = `${Math.max(260, pipRect.width)}px`;
-      runtime.pipHost.style.height = `${Math.max(180, pipRect.height)}px`;
+      runtime.pipHost.style.left = `${pipRect.left}px`;
+      runtime.pipHost.style.top = `${pipRect.top}px`;
+      runtime.pipHost.style.width = `${Math.max(1, pipRect.width)}px`;
+      runtime.pipHost.style.height = `${Math.max(1, pipRect.height)}px`;
     } else {
       runtime.pipHost.style.borderColor = "transparent";
       runtime.pipHost.style.background = "transparent";
@@ -15440,6 +15662,13 @@ function updateSwfPipDockLayout() {
   if (!(ui.swfPipDock instanceof HTMLElement)) return;
   if (pipDragState?.dragging && pipDragState.target === "swf") return;
   const prefs = getPreferences();
+  const storedSize = prefs.swfPipSize && typeof prefs.swfPipSize === "object" ? prefs.swfPipSize : null;
+  if (Number.isFinite(storedSize?.width) && storedSize.width > 0) {
+    ui.swfPipDock.style.width = `${Math.round(storedSize.width)}px`;
+  }
+  if (Number.isFinite(storedSize?.height) && storedSize.height > 0) {
+    ui.swfPipDock.style.height = `${Math.round(storedSize.height)}px`;
+  }
   if (
     prefs.swfPipPosition?.manual
     && Number.isFinite(prefs.swfPipPosition.left)
@@ -17211,16 +17440,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       setUrlLatched(false);
     });
     hostRow.appendChild(info);
-    const gateModeBtn = document.createElement("button");
-    gateModeBtn.type = "button";
-    gateModeBtn.className = "message-media-gate__icon-btn";
-    const syncGateModeButton = () => {
-      const enabled = getPreferences().mediaPrivacyMode !== "off";
-      gateModeBtn.textContent = enabled ? "Off" : "On";
-      gateModeBtn.title = enabled ? "Disable media privacy gate" : "Enable media privacy gate";
-      gateModeBtn.classList.toggle("is-active", enabled);
-    };
-    syncGateModeButton();
     const urlNote = document.createElement("div");
     urlNote.className = "message-embed-note message-media-gate__url";
     urlNote.textContent = mediaUrl;
@@ -17300,19 +17519,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       const copied = await copyText(mediaUrl);
       showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
     });
-    gateModeBtn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      state.preferences = getPreferences();
-      const nextMode = state.preferences.mediaPrivacyMode === "off" ? "safe" : "off";
-      state.preferences.mediaPrivacyMode = nextMode;
-      saveState();
-      renderMessages();
-      applyPreferencesToUI();
-      if (mediaPickerOpen) renderMediaPicker();
-      showToast(nextMode === "off" ? "Media privacy gate disabled." : "Media privacy gate enabled.");
-      syncGateModeButton();
-    });
     controls.appendChild(onceBtn);
     controls.appendChild(trustBtn);
     controls.appendChild(trustSubdomainBtn);
@@ -17320,7 +17526,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controls.appendChild(copyUrlBtn);
     iconRow.appendChild(openUrlBtn);
     iconRow.appendChild(revealUrlBtn);
-    iconRow.appendChild(gateModeBtn);
     hostRow.appendChild(iconRow);
     textWrap.appendChild(title);
     textWrap.appendChild(hostRow);
@@ -18005,13 +18210,11 @@ function renderServers() {
   }
   const dmStats = getTotalDmUnreadStats(currentAccount);
   if (ui.serverBrandBadge) {
-    const count = dmStats.mentions > 0 ? dmStats.mentions : dmStats.unread;
+    const count = dmStats.mentions;
     if (count > 0) {
       ui.serverBrandBadge.hidden = false;
       ui.serverBrandBadge.textContent = count > 99 ? "99+" : String(count);
-      ui.serverBrandBadge.title = dmStats.mentions > 0
-        ? `${dmStats.mentions} DM mention${dmStats.mentions === 1 ? "" : "s"}`
-        : `${dmStats.unread} unread DM${dmStats.unread === 1 ? "" : "s"}`;
+      ui.serverBrandBadge.title = `${dmStats.mentions} DM mention${dmStats.mentions === 1 ? "" : "s"}`;
     } else {
       ui.serverBrandBadge.hidden = true;
       ui.serverBrandBadge.textContent = "";
@@ -18036,12 +18239,10 @@ function renderServers() {
     if (showXmppWarning && !xmppBackedGuild) {
       button.title = [button.title, "Not mapped from XMPP"].filter(Boolean).join(" • ");
     }
-    if (guildStats.unread > 0) {
+    if (guildStats.mentions > 0) {
       const dot = document.createElement("span");
-      dot.className = `server-unread-pill ${guildStats.mentions > 0 ? "server-unread-pill--mention" : ""}`;
-      if (guildStats.mentions > 0) {
-        dot.textContent = guildStats.mentions > 9 ? "9+" : String(guildStats.mentions);
-      }
+      dot.className = "server-unread-pill server-unread-pill--mention";
+      dot.textContent = guildStats.mentions > 99 ? "99+" : String(guildStats.mentions);
       button.appendChild(dot);
     }
     button.addEventListener("click", () => {
@@ -18050,6 +18251,8 @@ function renderServers() {
     button.addEventListener("contextmenu", (event) => {
       const currentUser = getCurrentAccount();
       const guildNotifMode = getGuildNotificationMode(server.id);
+      const canManageChannels = Boolean(currentUser && hasServerPermission(server, currentUser.id, "manageChannels"));
+      const canDeleteGuild = Boolean(currentUser && hasServerPermission(server, currentUser.id, "administrator") && state.guilds.length > 1);
       openContextMenu(event, [
         {
           label: "Open Guild",
@@ -18066,16 +18269,20 @@ function renderServers() {
             { label: "Guild Link", action: () => copyText(buildChannelPermalink(server.id, getFirstOpenableChannelIdForGuild(server) || "")) }
           ]
         },
-        {
-          label: "Rename Guild",
-          disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
-          action: () => renameGuildById(server.id)
-        },
-        {
-          label: "Guild Settings",
-          disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
-          action: () => openGuildSettingsDialog(server)
-        },
+        ...(
+          canManageChannels
+            ? [
+              {
+                label: "Rename Guild",
+                action: () => renameGuildById(server.id)
+              },
+              {
+                label: "Guild Settings",
+                action: () => openGuildSettingsDialog(server)
+              }
+            ]
+            : []
+        ),
         {
           label: "Create Folder With Guild",
           action: () => {
@@ -18113,17 +18320,22 @@ function renderServers() {
             renderServers();
           }
         },
-        {
-          label: "Create Channel",
-          disabled: !currentUser || !hasServerPermission(server, currentUser.id, "manageChannels"),
-          action: () => {
-            state.activeGuildId = server.id;
-            state.activeChannelId = getFirstOpenableChannelIdForGuild(server);
-            ui.channelNameInput.value = "";
-            ui.channelTypeInput.value = "text";
-            ui.createChannelDialog.showModal();
-          }
-        },
+        ...(
+          canManageChannels
+            ? [
+              {
+                label: "Create Channel",
+                action: () => {
+                  state.activeGuildId = server.id;
+                  state.activeChannelId = getFirstOpenableChannelIdForGuild(server);
+                  ui.channelNameInput.value = "";
+                  ui.channelTypeInput.value = "text";
+                  ui.createChannelDialog.showModal();
+                }
+              }
+            ]
+            : []
+        ),
         {
           label: "Mark Guild Read",
           disabled: !currentUser || getGuildUnreadStats(server, currentUser).unread === 0,
@@ -18170,12 +18382,17 @@ function renderServers() {
             renderSettingsScreen();
           }
         },
-        {
-          label: "Delete Guild",
-          danger: true,
-          disabled: state.guilds.length <= 1 || !currentUser || !hasServerPermission(server, currentUser.id, "administrator"),
-          action: () => deleteGuildById(server.id)
-        }
+        ...(
+          canDeleteGuild
+            ? [
+              {
+                label: "Delete Guild",
+                danger: true,
+                action: () => deleteGuildById(server.id)
+              }
+            ]
+            : []
+        )
       ]);
     });
     ui.serverList.appendChild(button);
@@ -20152,28 +20369,26 @@ function renderMessages() {
       mamState = peerJid ? ensureXmppDmMamState(peerJid) : null;
     }
     if (mamState) {
-      const control = document.createElement("div");
-      control.className = "xmpp-history-control";
-      if (!xmppConnection || relayStatus !== "connected") {
-        control.classList.add("xmpp-history-control--done");
-        control.textContent = "Connect XMPP to load history.";
-      } else if (mamState.complete) {
-        control.classList.add("xmpp-history-control--done");
-        control.textContent = mamState.pagesLoaded > 0
-          ? "Start of available message history."
-          : "No archived history available.";
-      } else if (mamState.loading) {
-        control.textContent = "Loading older messages...";
-      } else {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = mamState.pagesLoaded > 0 ? "Load older messages" : "Load recent history";
-        button.addEventListener("click", () => {
-          maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "button" });
-        });
-        control.appendChild(button);
+      const shouldRenderHistoryControl = Boolean(mamState.loading || !mamState.complete);
+      if (shouldRenderHistoryControl) {
+        const control = document.createElement("div");
+        control.className = "xmpp-history-control";
+        if (!xmppConnection || relayStatus !== "connected") {
+          control.classList.add("xmpp-history-control--done");
+          control.textContent = "Connect XMPP to load history.";
+        } else if (mamState.loading) {
+          control.textContent = "Loading older messages...";
+        } else {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = mamState.pagesLoaded > 0 ? "Load older messages" : "Load recent history";
+          button.addEventListener("click", () => {
+            maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "button" });
+          });
+          control.appendChild(button);
+        }
+        ui.messageList.appendChild(control);
       }
-      ui.messageList.appendChild(control);
     }
   }
 
@@ -20666,17 +20881,22 @@ function renderMessages() {
           label: "Poll",
           disabled: !poll,
           submenu: [
-            {
-              label: poll?.closed ? "Reopen Poll" : "Close Poll",
-              disabled: !canManagePollMessage(message, { isDm, canManageMessages, currentUser }),
-              action: () => {
-                const next = normalizePoll(message.poll);
-                if (!next) return;
-                message.poll = { ...next, closed: !next.closed };
-                saveState();
-                renderMessages();
-              }
-            },
+            ...(
+              canManagePollMessage(message, { isDm, canManageMessages, currentUser })
+                ? [
+                  {
+                    label: poll?.closed ? "Reopen Poll" : "Close Poll",
+                    action: () => {
+                      const next = normalizePoll(message.poll);
+                      if (!next) return;
+                      message.poll = { ...next, closed: !next.closed };
+                      saveState();
+                      renderMessages();
+                    }
+                  }
+                ]
+                : []
+            ),
             {
               label: "Copy Poll Results",
               disabled: !poll,
@@ -20704,18 +20924,23 @@ function renderMessages() {
             { label: "XML", action: () => copyText(serializeMessageAsXml(message)) }
           ]
         },
-        {
-          label: message.pinned ? "Unpin Message" : "Pin Message",
-          disabled: isDm || !(currentUser && (message.userId === currentUser.id || canManageMessages)),
-          action: () => {
-            const scopedChannel = findChannelById(channel.id);
-            const scopedMessage = findMessageInChannel(scopedChannel, message.id);
-            if (!scopedChannel || !scopedMessage) return;
-            scopedMessage.pinned = !scopedMessage.pinned;
-            saveState();
-            renderMessages();
-          }
-        },
+        ...(
+          isDm || !(currentUser && (message.userId === currentUser.id || canManageMessages))
+            ? []
+            : [
+              {
+                label: message.pinned ? "Unpin Message" : "Pin Message",
+                action: () => {
+                  const scopedChannel = findChannelById(channel.id);
+                  const scopedMessage = findMessageInChannel(scopedChannel, message.id);
+                  if (!scopedChannel || !scopedMessage) return;
+                  scopedMessage.pinned = !scopedMessage.pinned;
+                  saveState();
+                  renderMessages();
+                }
+              }
+            ]
+        ),
         {
           label: "Mark Unread From Here",
           disabled: !currentAccount?.id,
@@ -20728,11 +20953,16 @@ function renderMessages() {
             renderMessages();
           }
         },
-        {
-          label: message.collaborative ? "Edit Shared Message" : "Edit Message",
-          disabled: !canEditMessage,
-          action: () => openMessageEditor(conversationId, message.id, message.text)
-        },
+        ...(
+          canEditMessage
+            ? [
+              {
+                label: message.collaborative ? "Edit Shared Message" : "Edit Message",
+                action: () => openMessageEditor(conversationId, message.id, message.text)
+              }
+            ]
+            : []
+        ),
         {
           label: "View Edit History",
           disabled: messageEditHistory(message).length === 0,
@@ -20740,22 +20970,27 @@ function renderMessages() {
             alert(formatMessageEditHistory(message));
           }
         },
-        {
-          label: "Delete Message",
-          danger: true,
-          disabled: !(isOwnMessage || canManageMessages),
-          action: () => {
-            if (isDm && dmThread) {
-              dmThread.messages = dmThread.messages.filter((entry) => entry.id !== message.id);
-            } else {
-              const scopedChannel = findChannelById(channel.id);
-              if (!scopedChannel) return;
-              scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
-            }
-            saveState();
-            renderMessages();
-          }
-        }
+        ...(
+          isOwnMessage || canManageMessages
+            ? [
+              {
+                label: "Delete Message",
+                danger: true,
+                action: () => {
+                  if (isDm && dmThread) {
+                    dmThread.messages = dmThread.messages.filter((entry) => entry.id !== message.id);
+                  } else {
+                    const scopedChannel = findChannelById(channel.id);
+                    if (!scopedChannel) return;
+                    scopedChannel.messages = scopedChannel.messages.filter((entry) => entry.id !== message.id);
+                  }
+                  saveState();
+                  renderMessages();
+                }
+              }
+            ]
+            : []
+        )
       ];
       if (firstSwfAttachment) {
         menuItems.splice(2, 0, {
@@ -21294,35 +21529,116 @@ function renderMemberList() {
     return;
   }
 
-  const online = [];
-  const offline = [];
-
+  const visibleMembers = [];
+  const roleSortOrder = new Map();
+  getServerRoles(server).forEach((role, index) => {
+    const key = (role?.name || "").toString().trim().toLowerCase();
+    if (!key || key === "@everyone") return;
+    roleSortOrder.set(key, index);
+  });
+  const platformHintsForMember = (account) => {
+    const out = [];
+    const seen = new Set();
+    const add = (value) => {
+      const token = (value || "").toString().trim().toLowerCase();
+      if (!token || seen.has(token)) return;
+      seen.add(token);
+      out.push(token);
+    };
+    const addGuess = (value) => {
+      const token = (value || "").toString().trim().toLowerCase();
+      if (!token) return;
+      if (/(android|ios|mobile|iphone|ipad)/.test(token)) add("mobile");
+      if (/(web|browser|chrome|firefox|safari|edge)/.test(token)) add("web");
+      if (/(desktop|linux|windows|mac|electron|pc)/.test(token)) add("desktop");
+    };
+    add(account?.clientPlatform);
+    if (Array.isArray(account?.clientPlatforms)) {
+      account.clientPlatforms.forEach((entry) => add(entry));
+    }
+    if (account?.mobile) add("mobile");
+    if (account?.web) add("web");
+    if (account?.desktop) add("desktop");
+    addGuess(account?.statusClient);
+    addGuess(account?.client);
+    const resource = (normalizeXmppJid(account?.xmppJid || "").split("/")[1] || "").toLowerCase();
+    if (resource) addGuess(resource);
+    return out.filter((entry) => entry === "mobile" || entry === "web" || entry === "desktop");
+  };
+  const automationTagForMember = (account) => {
+    if (!account || typeof account !== "object") return "";
+    if (account.isApp || account.app === true || account.type === "app") return "APP";
+    if (account.isBot || account.bot === true || account.type === "bot") return "BOT";
+    if (/\bbot\b/i.test((account.username || "").toString())) return "BOT";
+    return "";
+  };
+  const appendMemberDecorators = (nameWrap, account) => {
+    const decorators = document.createElement("span");
+    decorators.className = "member-meta__decorators";
+    const automationTag = automationTagForMember(account);
+    if (automationTag) {
+      const chip = document.createElement("span");
+      chip.className = "member-meta__badge";
+      chip.textContent = automationTag;
+      decorators.appendChild(chip);
+    }
+    platformHintsForMember(account).forEach((platform) => {
+      const icon = document.createElement("span");
+      icon.className = "member-meta__platform";
+      icon.title = platform;
+      if (platform === "mobile") icon.textContent = "📱";
+      if (platform === "web") icon.textContent = "🌐";
+      if (platform === "desktop") icon.textContent = "🖥";
+      decorators.appendChild(icon);
+    });
+    if (decorators.childElementCount > 0) {
+      nameWrap.appendChild(decorators);
+    }
+  };
   server.memberIds.forEach((memberId) => {
     const account = getAccountById(memberId);
     if (!account) return;
     if (!matchesMemberFilter(account, server.id)) return;
-    if (normalizePresence(account.presence) === "invisible") {
-      offline.push(account);
-    } else {
-      online.push(account);
-    }
+    visibleMembers.push(account);
   });
+  const onlineCount = visibleMembers.filter((account) => normalizePresence(account.presence) !== "invisible").length;
+  const offlineCount = visibleMembers.length - onlineCount;
+  if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `Members — ${visibleMembers.length}`;
+  if (visibleMembers.length > 0) {
+    const summary = document.createElement("div");
+    summary.className = "member-list-summary";
+    summary.innerHTML = [
+      `<span class="member-list-summary__item"><strong>${onlineCount}</strong> online</span>`,
+      `<span class="member-list-summary__item"><strong>${offlineCount}</strong> offline</span>`
+    ].join("");
+    ui.memberList.appendChild(summary);
+  }
 
-  const sortByName = (a, b) => displayNameForAccount(a, server.id).localeCompare(displayNameForAccount(b, server.id));
-  online.sort(sortByName);
-  offline.sort(sortByName);
-
-  const groups = [];
-  if (presenceFilter !== "offline") groups.push({ title: `Online — ${online.length}`, items: online });
-  if (presenceFilter !== "online") groups.push({ title: `Offline — ${offline.length}`, items: offline });
-  if (ui.memberPanelTitle) ui.memberPanelTitle.textContent = `Members — ${online.length + offline.length}`;
-
-  groups.forEach((group) => {
+  const groupedMembers = new Map();
+  visibleMembers.forEach((account) => {
+    const topRoleName = getMemberTopRoleName(server, account.id) || "Members";
+    const groupKey = topRoleName.toLowerCase();
+    if (!groupedMembers.has(groupKey)) {
+      const roleIndex = roleSortOrder.has(groupKey) ? roleSortOrder.get(groupKey) : Number.MAX_SAFE_INTEGER;
+      groupedMembers.set(groupKey, { name: topRoleName, items: [], order: roleIndex });
+    }
+    groupedMembers.get(groupKey).items.push(account);
+  });
+  const sortedGroups = [...groupedMembers.values()].sort((a, b) => {
+    if (a.order !== b.order) return a.order - b.order;
+    return a.name.localeCompare(b.name);
+  });
+  sortedGroups.forEach((group) => {
+    group.items.sort((a, b) => {
+      const aOnline = normalizePresence(a.presence) !== "invisible" ? 1 : 0;
+      const bOnline = normalizePresence(b.presence) !== "invisible" ? 1 : 0;
+      if (aOnline !== bOnline) return bOnline - aOnline;
+      return displayNameForAccount(a, server.id).localeCompare(displayNameForAccount(b, server.id));
+    });
     const title = document.createElement("div");
     title.className = "member-group-title";
-    title.textContent = group.title;
+    title.textContent = `${group.name} — ${group.items.length}`;
     ui.memberList.appendChild(title);
-
     group.items.forEach((account) => {
       const row = document.createElement("button");
       row.className = "member-item";
@@ -21345,6 +21661,7 @@ function renderMemberList() {
       applyNameplateStyle(label, account);
       const roleColor = getMemberTopRoleColor(server, account.id);
       if (roleColor) label.style.color = roleColor;
+      appendMemberDecorators(label, account);
       const tag = accountGuildTag(account);
       if (tag) {
         const tagChip = document.createElement("span");
@@ -21363,13 +21680,6 @@ function renderMemberList() {
       status.className = "member-meta__status";
       status.textContent = displayStatus(account, server.id);
       meta.appendChild(label);
-      const topRole = getMemberTopRoleName(server, account.id);
-      if (topRole) {
-        const roleTag = document.createElement("span");
-        roleTag.className = "member-meta__role";
-        roleTag.textContent = topRole;
-        meta.appendChild(roleTag);
-      }
       meta.appendChild(status);
 
       row.appendChild(avatar);
@@ -21411,7 +21721,7 @@ function renderMemberList() {
       ui.memberList.appendChild(row);
     });
   });
-  if (online.length + offline.length === 0) {
+  if (visibleMembers.length === 0) {
     const empty = document.createElement("div");
     empty.className = "channel-empty";
     empty.textContent = "No members match your filter.";
@@ -24865,6 +25175,7 @@ const videoPipHeader = ui.videoPipDock?.querySelector(".video-pip__header");
 
 function beginPipDrag(event, target, dockElement) {
   if (!(dockElement instanceof HTMLElement)) return;
+  if (pipResizeState?.resizing) return;
   if (event.button !== 0) return;
   if (event.target instanceof HTMLElement && event.target.closest("button")) return;
   const dockRect = dockElement.getBoundingClientRect();
@@ -24878,6 +25189,60 @@ function beginPipDrag(event, target, dockElement) {
     moved: false
   };
   event.preventDefault();
+}
+
+function beginPipResize(event, target, dockElement, edge = "") {
+  if (!(dockElement instanceof HTMLElement) || !edge) return;
+  if (event.button !== 0) return;
+  const rect = dockElement.getBoundingClientRect();
+  pipResizeState = {
+    resizing: true,
+    target,
+    edge,
+    startX: event.clientX,
+    startY: event.clientY,
+    startLeft: rect.left,
+    startTop: rect.top,
+    startWidth: rect.width,
+    startHeight: rect.height
+  };
+  pipDragState = null;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function ensurePipResizeHandles(target, dockElement) {
+  if (!(dockElement instanceof HTMLElement) || dockElement.dataset.resizeHandlesBound === "on") return;
+  PIP_RESIZE_EDGES.forEach((edge) => {
+    const handle = document.createElement("div");
+    handle.className = `pip-resize-handle pip-resize-handle--${edge}`;
+    handle.dataset.edge = edge;
+    handle.addEventListener("pointerdown", (event) => {
+      beginPipResize(event, target, dockElement, edge);
+    });
+    handle.addEventListener("mousedown", (event) => {
+      beginPipResize(event, target, dockElement, edge);
+    });
+    dockElement.appendChild(handle);
+  });
+  dockElement.dataset.resizeHandlesBound = "on";
+}
+
+function clampPipBoundsForRect(target, left, top, width, height) {
+  const minSize = PIP_MIN_SIZE[target] || PIP_MIN_SIZE.swf;
+  const nextWidth = Math.max(minSize.width, width);
+  const nextHeight = Math.max(minSize.height, height);
+  const maxLeft = Math.max(8, window.innerWidth - nextWidth - 8);
+  const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  const maxTop = composerRect
+    ? Math.max(8, composerRect.top - nextHeight - 8)
+    : Math.max(8, window.innerHeight - nextHeight - 8);
+  return {
+    left: Math.max(8, Math.min(maxLeft, left)),
+    top: Math.max(8, Math.min(maxTop, top)),
+    width: Math.min(nextWidth, Math.max(180, window.innerWidth - 16)),
+    height: Math.min(nextHeight, Math.max(120, window.innerHeight - 16))
+  };
 }
 
 if (swfPipHeader) {
@@ -24917,7 +25282,11 @@ if (videoPipHeader) {
   });
 }
 
+ensurePipResizeHandles("swf", ui.swfPipDock);
+ensurePipResizeHandles("video", ui.videoPipDock);
+
 const handlePipDragMove = (event) => {
+  if (pipResizeState?.resizing) return;
   if (!pipDragState?.dragging) return;
   const targetDock = pipDragState.target === "video" ? ui.videoPipDock : ui.swfPipDock;
   if (!(targetDock instanceof HTMLElement)) return;
@@ -24940,7 +25309,60 @@ const handlePipDragMove = (event) => {
   }
 };
 
+const handlePipResizeMove = (event) => {
+  if (!pipResizeState?.resizing) return;
+  event.preventDefault();
+  const targetDock = pipResizeState.target === "video" ? ui.videoPipDock : ui.swfPipDock;
+  if (!(targetDock instanceof HTMLElement)) return;
+  const edge = (pipResizeState.edge || "").toLowerCase();
+  const deltaX = event.clientX - pipResizeState.startX;
+  const deltaY = event.clientY - pipResizeState.startY;
+  const minSize = PIP_MIN_SIZE[pipResizeState.target] || PIP_MIN_SIZE.swf;
+  let nextLeft = pipResizeState.startLeft;
+  let nextTop = pipResizeState.startTop;
+  let nextWidth = pipResizeState.startWidth;
+  let nextHeight = pipResizeState.startHeight;
+
+  if (edge.includes("e")) {
+    nextWidth = pipResizeState.startWidth + deltaX;
+  }
+  if (edge.includes("s")) {
+    nextHeight = pipResizeState.startHeight + deltaY;
+  }
+  if (edge.includes("w")) {
+    nextWidth = pipResizeState.startWidth - deltaX;
+    nextLeft = pipResizeState.startLeft + deltaX;
+    if (nextWidth < minSize.width) {
+      nextLeft -= (minSize.width - nextWidth);
+      nextWidth = minSize.width;
+    }
+  }
+  if (edge.includes("n")) {
+    nextHeight = pipResizeState.startHeight - deltaY;
+    nextTop = pipResizeState.startTop + deltaY;
+    if (nextHeight < minSize.height) {
+      nextTop -= (minSize.height - nextHeight);
+      nextHeight = minSize.height;
+    }
+  }
+
+  const clamped = clampPipBoundsForRect(pipResizeState.target, nextLeft, nextTop, nextWidth, nextHeight);
+  targetDock.style.left = `${Math.round(clamped.left)}px`;
+  targetDock.style.top = `${Math.round(clamped.top)}px`;
+  targetDock.style.width = `${Math.round(clamped.width)}px`;
+  targetDock.style.height = `${Math.round(clamped.height)}px`;
+  targetDock.style.right = "auto";
+  targetDock.style.bottom = "auto";
+  if (pipResizeState.target === "swf") {
+    positionSwfPipRuntimeHosts();
+    updateVideoPipDockLayout();
+  } else {
+    requestSwfRuntimeLayoutSync();
+  }
+};
+
 const finishPipDrag = () => {
+  if (pipResizeState?.resizing) return;
   if (!pipDragState?.dragging) return;
   const dragTarget = pipDragState.target || "swf";
   if (dragTarget === "swf" && pipDragState.moved) pipSuppressHeaderToggle = true;
@@ -24961,11 +25383,37 @@ const finishPipDrag = () => {
   pipDragState = null;
 };
 
+const finishPipResize = () => {
+  if (!pipResizeState?.resizing) return;
+  const target = pipResizeState.target || "swf";
+  const dock = target === "video" ? ui.videoPipDock : ui.swfPipDock;
+  pipResizeState.resizing = false;
+  if (dock instanceof HTMLElement) {
+    clampPipDockAboveComposer(dock);
+    const rect = dock.getBoundingClientRect();
+    state.preferences = getPreferences();
+    if (target === "video") {
+      state.preferences.videoPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top), manual: true };
+      state.preferences.videoPipSize = { width: Math.round(rect.width), height: Math.round(rect.height) };
+    } else {
+      state.preferences.swfPipPosition = { left: Math.round(rect.left), top: Math.round(rect.top), manual: true };
+      state.preferences.swfPipSize = { width: Math.round(rect.width), height: Math.round(rect.height) };
+    }
+    saveState();
+  }
+  pipResizeState = null;
+};
+
 document.addEventListener("mousemove", handlePipDragMove);
 document.addEventListener("pointermove", handlePipDragMove);
+document.addEventListener("mousemove", handlePipResizeMove);
+document.addEventListener("pointermove", handlePipResizeMove);
 document.addEventListener("mouseup", finishPipDrag);
 document.addEventListener("pointerup", finishPipDrag);
 document.addEventListener("pointercancel", finishPipDrag);
+document.addEventListener("mouseup", finishPipResize);
+document.addEventListener("pointerup", finishPipResize);
+document.addEventListener("pointercancel", finishPipResize);
 ui.clearSwfShelfBtn.addEventListener("click", () => {
   state.savedSwfs = [];
   saveState();
@@ -25920,6 +26368,19 @@ document.addEventListener("click", (event) => {
     if (!inPicker && !onToggle) closeMediaPicker();
   }
 });
+
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const anchor = target.closest("a[href]");
+  if (!(anchor instanceof HTMLAnchorElement)) return;
+  if (anchor.hasAttribute("download")) return;
+  const href = (anchor.getAttribute("href") || "").trim();
+  if (!/^https?:\/\//i.test(href)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openExternalUrlInClient(href);
+}, true);
 
 function maybeHandleComposerDrop(event) {
   if (!state.currentAccountId) return false;

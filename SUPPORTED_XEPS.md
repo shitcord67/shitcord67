@@ -38,6 +38,7 @@ Status labels:
 | XEP-0444 | Message Reactions | Planned | Local UI reactions exist, but no full XEP-0444 stanza interoperability yet. |
 | XEP-0363 | HTTP File Upload | Planned | Attachments are handled as links/OOB; no integrated HTTP upload workflow yet. |
 | XEP-0084 | User Avatar | Planned | Avatar PubSub (`urn:xmpp:avatar:*`) read path is incomplete. |
+| Draft (vendor) | Profile Decor / Nameplates (`urn:shitcord67:profile:decor:0`) | Planned | Candidate extension for nameplate URLs, role-color hints, and client platform flags. See `XEP_DRAFT_NAMEPLATES.md`. |
 
 ## Notes
 
