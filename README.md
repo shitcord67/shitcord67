@@ -299,6 +299,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
 - XMPP outbound messages now include reply metadata (`urn:xmpp:reply:0`) with fallback quote ranges (`urn:xmpp:fallback:0`) when replying in DM/MUC.
 - XMPP outbound DM/MUC messages now attach `origin-id` references (`urn:xmpp:sid:0`) to improve cross-client dedupe/reply/edit targeting.
+- XMPP outbound DM/MUC messages now attempt HTTP Upload (`urn:xmpp:http:upload:0`) for local attachments and include OOB/reference attachment metadata (`jabber:x:oob`, `urn:xmpp:reference:0`) when URLs are shareable.
 - XMPP reply references now keep stanza reference IDs and can resolve/jump once referenced messages are loaded from archive.
 - Reply preview rows now prefer resolved referenced author/text (when available) and keep click-to-jump behavior.
 - XMPP reply resolution now indexes multiple stanza identifiers (`id`, `stanza-id`, `origin-id`) to improve cross-client reply target lookup.

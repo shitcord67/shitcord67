@@ -16,6 +16,12 @@ const XMPP_LOCAL_AUTH_GATEWAY_URL = "http://localhost:8790";
 const XMPP_ENABLE_BROWSER_HOST_META_FALLBACK = false;
 const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_MAM_NAMESPACE = "urn:xmpp:mam:2";
+const XMPP_HTTP_UPLOAD_NAMESPACE = "urn:xmpp:http:upload:0";
+const XMPP_HTTP_UPLOAD_LEGACY_NAMESPACE = "urn:xmpp:http:upload";
+const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
+const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
+const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
+const XMPP_HTTP_UPLOAD_MAX_BYTES = 24 * 1024 * 1024;
 const XMPP_MAM_PAGE_SIZE = 120;
 const XMPP_PING_INTERVAL_MS = 45000;
 const XMPP_PING_TIMEOUT_MS = 12000;
@@ -1017,6 +1023,8 @@ const xmppPendingReceiptByStanzaId = new Map();
 const xmppAvatarFetchInFlight = new Set();
 const xmppAvatarHashByJid = new Map();
 const xmppAvatarMissingByJid = new Set();
+const xmppHttpUploadServiceCache = new Map();
+const xmppHttpUploadDiscoveryInFlight = new Map();
 const xmppMucAvatarByOccupantKey = new Map();
 const xmppMucAvatarFetchInFlight = new Set();
 const xmppKnownMucOccupantJidByKey = new Map();
@@ -3117,8 +3125,10 @@ function ensureMediaLightbox() {
     if (!(target instanceof HTMLElement)) return false;
     if (target.closest("[data-lightbox-close=\"1\"]")) return false;
     if (target.closest(".media-lightbox__media")) return true;
+    if (target.closest(".media-lightbox__actions")) return true;
     if (target.closest(".message-swf-link")) return true;
     if (target.closest(".external-link-gate")) return true;
+    if (target.closest(".in-app-confirm")) return true;
     return false;
   };
   overlay.addEventListener("click", (event) => {
@@ -3143,6 +3153,109 @@ function closeMediaLightbox() {
   document.body.style.removeProperty("overflow");
 }
 
+function lightboxDownloadNameFromLabel(label = "", fallbackExt = "bin") {
+  const ext = (fallbackExt || "bin").toString().replace(/^\./, "").toLowerCase() || "bin";
+  const base = (label || "media")
+    .toString()
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .slice(0, 64)
+    || "media";
+  if (/\.[a-z0-9]{1,8}$/i.test(base)) return base;
+  return `${base}.${ext}`;
+}
+
+function triggerMediaDownload(url, filename = "media.bin") {
+  const href = resolveMediaUrl((url || "").toString().trim());
+  if (!href) return;
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = filename || "media.bin";
+  anchor.rel = "noopener noreferrer";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function bindMediaPreviewContextMenu(target, {
+  url = "",
+  label = "media",
+  fallbackExt = "bin"
+} = {}) {
+  if (!(target instanceof HTMLElement)) return;
+  const mediaUrl = resolveMediaUrl(url);
+  if (!mediaUrl) return;
+  target.addEventListener("contextmenu", (event) => {
+    openContextMenu(event, [
+      {
+        label: "Copy Media URL",
+        action: () => copyText(mediaUrl)
+      },
+      {
+        label: "Download Media",
+        action: () => {
+          triggerMediaDownload(mediaUrl, lightboxDownloadNameFromLabel(label, fallbackExt));
+        }
+      }
+    ]);
+  });
+}
+
+function showInAppConfirmDialog({
+  title = "Confirm action",
+  message = "",
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  danger = false
+} = {}) {
+  return new Promise((resolve) => {
+    const overlay = ensureMediaLightbox();
+    const stage = overlay.querySelector(".media-lightbox__stage");
+    const caption = overlay.querySelector(".media-lightbox__caption");
+    if (!stage || !caption) {
+      resolve(false);
+      return;
+    }
+    stage.innerHTML = "";
+    const card = document.createElement("div");
+    card.className = "in-app-confirm";
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    const body = document.createElement("div");
+    body.className = "in-app-confirm__body";
+    body.textContent = message || "";
+    const actions = document.createElement("div");
+    actions.className = "in-app-confirm__actions";
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.textContent = confirmLabel;
+    if (danger) confirmBtn.classList.add("is-danger");
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.textContent = cancelLabel;
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      closeMediaLightbox();
+      resolve(Boolean(result));
+    };
+    confirmBtn.addEventListener("click", () => finish(true));
+    cancelBtn.addEventListener("click", () => finish(false));
+    actions.appendChild(confirmBtn);
+    actions.appendChild(cancelBtn);
+    card.appendChild(heading);
+    if (message) card.appendChild(body);
+    card.appendChild(actions);
+    stage.appendChild(card);
+    caption.textContent = "Confirmation";
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    overlay.focus({ preventScroll: true });
+  });
+}
+
 function openMediaLightbox({ url, label = "", video = false } = {}) {
   if (!url) return;
   const mediaUrl = resolveMediaUrl(url);
@@ -3152,9 +3265,16 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
   if (!stage || !caption) return;
   stage.innerHTML = "";
   let media = null;
+  const normalizedLabel = (label || "").toString().trim() || "media";
+  const fallbackExt = video ? "mp4" : "png";
   if (video) {
     media = createVideoPreviewElement(mediaUrl, label || "Video", stage);
     media.className = "media-lightbox__media";
+    bindMediaPreviewContextMenu(media, {
+      url: mediaUrl,
+      label: normalizedLabel,
+      fallbackExt
+    });
   } else {
     media = document.createElement("img");
     media.className = "media-lightbox__media";
@@ -3175,8 +3295,34 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
       stage.appendChild(note);
       stage.appendChild(openLink);
     });
+    bindMediaPreviewContextMenu(media, {
+      url: mediaUrl,
+      label: normalizedLabel,
+      fallbackExt: /\.svg(\?|#|$)/i.test(mediaUrl) ? "svg" : fallbackExt
+    });
   }
   stage.appendChild(media);
+  const actions = document.createElement("div");
+  actions.className = "media-lightbox__actions";
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy URL";
+  copyBtn.addEventListener("click", async () => {
+    const copied = await copyText(mediaUrl);
+    showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
+  });
+  const downloadBtn = document.createElement("button");
+  downloadBtn.type = "button";
+  downloadBtn.textContent = "Download";
+  downloadBtn.addEventListener("click", () => {
+    const resolvedExt = /\.svg(\?|#|$)/i.test(mediaUrl)
+      ? "svg"
+      : fallbackExt;
+    triggerMediaDownload(mediaUrl, lightboxDownloadNameFromLabel(normalizedLabel, resolvedExt));
+  });
+  actions.appendChild(copyBtn);
+  actions.appendChild(downloadBtn);
+  stage.appendChild(actions);
   caption.textContent = label || "";
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
@@ -4756,45 +4902,71 @@ function markXmppMessageDeliveredByReceipt(stanzaId, peerJid = "") {
   return true;
 }
 
-function xmppExtractOobUrls(stanza) {
+function xmppExtractOobAttachments(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
-  const urls = [];
+  const out = [];
   const seen = new Set();
+  const upsert = (entry = {}) => {
+    const url = (entry.url || "").toString().trim();
+    if (!/^https?:\/\//i.test(url)) return;
+    const key = url.toLowerCase();
+    if (seen.has(key)) {
+      const existing = out.find((item) => (item.url || "").toLowerCase() === key) || null;
+      if (existing && !existing.name && entry.name) existing.name = entry.name;
+      return;
+    }
+    seen.add(key);
+    out.push({
+      url,
+      name: (entry.name || "").toString().trim().slice(0, 120)
+    });
+  };
   [...stanza.getElementsByTagName("x")]
     .filter((node) => xmppNodeHasXmlns(node, "jabber:x:oob"))
     .forEach((node) => {
       const urlNode = node.getElementsByTagName("url")[0] || null;
-      const value = xmppNodeText(urlNode).trim();
-      if (!value || seen.has(value)) return;
-      seen.add(value);
-      urls.push(value);
+      const descNode = node.getElementsByTagName("desc")[0] || null;
+      upsert({
+        url: xmppNodeText(urlNode),
+        name: xmppNodeText(descNode)
+      });
     });
   [...stanza.getElementsByTagName("reference")]
     .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
     .forEach((node) => {
-      const uri = (node.getAttribute("uri") || "").toString().trim();
-      if (!uri || !/^https?:\/\//i.test(uri) || seen.has(uri)) return;
-      seen.add(uri);
-      urls.push(uri);
+      upsert({
+        url: node.getAttribute("uri") || "",
+        name: node.getAttribute("name") || ""
+      });
     });
-  return urls.slice(0, 6);
+  return out.slice(0, 6);
 }
 
-function xmppAttachmentsFromUrls(urls) {
-  if (!Array.isArray(urls) || urls.length === 0) return [];
+function xmppExtractOobUrls(stanza) {
+  return xmppExtractOobAttachments(stanza).map((entry) => entry.url);
+}
+
+function xmppAttachmentsFromOobEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return [];
   const out = [];
-  urls.forEach((url) => {
-    const clean = (url || "").toString().trim();
+  entries.forEach((entry) => {
+    const clean = (typeof entry === "string" ? entry : entry?.url || "").toString().trim();
     if (!clean) return;
     const type = inferAttachmentTypeFromUrl(clean) || "file";
+    const preferredName = typeof entry === "string" ? "" : (entry?.name || "").toString().trim();
     out.push({
       type,
       url: clean,
-      name: clean.split("/").pop() || clean,
+      name: preferredName || clean.split("/").pop() || clean,
       format: inferAttachmentFormat(type, clean)
     });
   });
   return normalizeAttachments(out);
+}
+
+function xmppAttachmentsFromUrls(urls) {
+  const entries = Array.isArray(urls) ? urls.map((url) => ({ url })) : [];
+  return xmppAttachmentsFromOobEntries(entries);
 }
 
 function xmppXhtmlNodeToInlineText(node) {
@@ -6625,7 +6797,7 @@ function connectRelaySocket({ force = false } = {}) {
           text = "[Encrypted XMPP message (OMEMO/PGP) — decryption is not available in this client yet]";
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
-        const attachments = xmppAttachmentsFromUrls(xmppExtractOobUrls(stanza));
+        const attachments = xmppAttachmentsFromOobEntries(xmppExtractOobAttachments(stanza));
         const receiptRequest = xmppReceiptRequestNode(stanza);
         const receiptReceivedId = xmppReceiptReceivedId(stanza);
         const stanzaMessageId = (stanza.getAttribute("id") || "").toString().trim();
@@ -7579,9 +7751,16 @@ function resolveXmppReplyMetaForRoom(channel, message, roomJid = "") {
   };
 }
 
+function xmppEnsureBuilderAtMessageNode(stanza) {
+  if (!stanza || typeof stanza.up !== "function") return stanza;
+  const currentNodeName = (stanza?.node?.nodeName || "").toString().toLowerCase();
+  if (currentNodeName && currentNodeName !== "message") stanza.up();
+  return stanza;
+}
+
 function appendXmppReplyNodes(stanza, replyMeta, fallbackPrefixLength = 0) {
   if (!stanza || !replyMeta?.id) return stanza;
-  stanza.up();
+  xmppEnsureBuilderAtMessageNode(stanza);
   const attrs = {
     xmlns: "urn:xmpp:reply:0",
     id: replyMeta.id
@@ -7601,8 +7780,383 @@ function appendXmppReplyNodes(stanza, replyMeta, fallbackPrefixLength = 0) {
 function appendXmppOriginIdNode(stanza, originId) {
   const value = (originId || "").toString().trim();
   if (!stanza || !value) return stanza;
+  xmppEnsureBuilderAtMessageNode(stanza);
   stanza.c("origin-id", { xmlns: "urn:xmpp:sid:0", id: value }).up();
   return stanza;
+}
+
+function xmppShareableAttachmentsForStanza(message, { limit = 6, urlMax = 2048 } = {}) {
+  return relayTransportAttachments(message?.attachments, {
+    limit: Math.max(1, Math.min(8, Number(limit) || 6)),
+    urlMax: Math.max(200, Math.min(4096, Number(urlMax) || 2048))
+  });
+}
+
+function appendXmppAttachmentMetadataNodes(stanza, attachments = []) {
+  if (!stanza) return stanza;
+  const items = normalizeAttachments(attachments).filter((entry) => /^https?:\/\//i.test((entry?.url || "").toString()));
+  if (items.length === 0) return stanza;
+  xmppEnsureBuilderAtMessageNode(stanza);
+  items.forEach((entry) => {
+    const url = (entry.url || "").toString().trim();
+    if (!url) return;
+    const desc = (entry.name || `${entry.type || "file"} attachment`).toString().trim().slice(0, 180);
+    stanza
+      .c("x", { xmlns: "jabber:x:oob" })
+      .c("url")
+      .t(url)
+      .up();
+    if (desc) stanza.c("desc").t(desc).up();
+    stanza.up();
+    stanza
+      .c("reference", {
+        xmlns: "urn:xmpp:reference:0",
+        type: "data",
+        uri: url,
+        name: desc.slice(0, 120)
+      })
+      .up();
+  });
+  return stanza;
+}
+
+function xmppSendIqPromise(connection, iqBuilder, timeoutMs = 7000) {
+  return new Promise((resolve, reject) => {
+    if (!connection || typeof connection.sendIQ !== "function") {
+      reject(new Error("XMPP IQ unavailable"));
+      return;
+    }
+    connection.sendIQ(
+      iqBuilder,
+      (stanza) => resolve(stanza),
+      (errorStanza) => reject(errorStanza || new Error("XMPP IQ failed")),
+      Math.max(2000, Number(timeoutMs) || 7000)
+    );
+  });
+}
+
+function xmppParseMaxUploadBytesFromDiscoInfo(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return 0;
+  const fields = [...stanza.getElementsByTagName("field")]
+    .filter((node) => ((node.getAttribute("var") || "").toString().trim().toLowerCase() === "max-file-size"));
+  for (const field of fields) {
+    const valueNode = field.getElementsByTagName("value")[0] || null;
+    const parsed = Number((xmppNodeText(valueNode) || "").toString().trim());
+    if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  }
+  return 0;
+}
+
+async function xmppFetchDiscoInfo(jid, connection = xmppConnection) {
+  if (!jid || !connection || !globalThis.$iq) throw new Error("XMPP discovery unavailable");
+  const stanza = await xmppSendIqPromise(
+    connection,
+    globalThis.$iq({ type: "get", to: jid }).c("query", { xmlns: "http://jabber.org/protocol/disco#info" }),
+    7000
+  );
+  const features = new Set(
+    [...stanza.getElementsByTagName("feature")]
+      .map((node) => (node.getAttribute("var") || "").toString().trim())
+      .filter(Boolean)
+  );
+  const maxFileSize = xmppParseMaxUploadBytesFromDiscoInfo(stanza);
+  return { features, maxFileSize };
+}
+
+async function discoverXmppHttpUploadService({ connection = xmppConnection, prefs = getPreferences(), force = false } = {}) {
+  if (!connection || !globalThis.$iq) return null;
+  const domain = xmppDomainFromJid(prefs?.xmppJid || "");
+  if (!domain) return null;
+  const cacheKey = domain.toLowerCase();
+  const now = Date.now();
+  const cached = xmppHttpUploadServiceCache.get(cacheKey);
+  if (!force && cached && cached.expiresAt > now) {
+    if (!cached.serviceJid || !cached.namespace) return null;
+    return {
+      serviceJid: cached.serviceJid,
+      namespace: cached.namespace,
+      maxFileSize: cached.maxFileSize
+    };
+  }
+  if (!force && xmppHttpUploadDiscoveryInFlight.has(cacheKey)) {
+    return xmppHttpUploadDiscoveryInFlight.get(cacheKey);
+  }
+  const task = (async () => {
+    const candidates = new Set([domain, `upload.${domain}`]);
+    try {
+      const itemsStanza = await xmppSendIqPromise(
+        connection,
+        globalThis.$iq({ type: "get", to: domain }).c("query", { xmlns: "http://jabber.org/protocol/disco#items" }),
+        7000
+      );
+      [...itemsStanza.getElementsByTagName("item")].forEach((node) => {
+        const jid = xmppBareJid(node.getAttribute("jid") || "");
+        if (jid) candidates.add(jid);
+      });
+    } catch {
+      // Domain-level item discovery is optional; continue with known candidates.
+    }
+    const ordered = [...candidates]
+      .map((jid) => xmppBareJid(jid))
+      .filter(Boolean);
+    for (const jid of ordered) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const info = await xmppFetchDiscoInfo(jid, connection);
+        const namespace = info.features.has(XMPP_HTTP_UPLOAD_NAMESPACE)
+          ? XMPP_HTTP_UPLOAD_NAMESPACE
+          : (info.features.has(XMPP_HTTP_UPLOAD_LEGACY_NAMESPACE) ? XMPP_HTTP_UPLOAD_LEGACY_NAMESPACE : "");
+        if (!namespace) continue;
+        return {
+          serviceJid: jid,
+          namespace,
+          maxFileSize: Math.max(0, Number(info.maxFileSize) || 0)
+        };
+      } catch {
+        // Try next candidate.
+      }
+    }
+    return null;
+  })()
+    .then((result) => {
+      const ttl = result
+        ? XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS
+        : Math.max(90_000, Math.floor(XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS / 4));
+      xmppHttpUploadServiceCache.set(cacheKey, {
+        serviceJid: result?.serviceJid || "",
+        namespace: result?.namespace || "",
+        maxFileSize: result?.maxFileSize || 0,
+        expiresAt: Date.now() + ttl
+      });
+      return result;
+    })
+    .finally(() => {
+      xmppHttpUploadDiscoveryInFlight.delete(cacheKey);
+    });
+  xmppHttpUploadDiscoveryInFlight.set(cacheKey, task);
+  return task;
+}
+
+function xmppAttachmentDefaultExtension(type = "", mime = "", currentName = "") {
+  const normalizedType = (type || "").toString().toLowerCase();
+  const normalizedMime = (mime || "").toString().toLowerCase();
+  const normalizedName = (currentName || "").toString().toLowerCase();
+  if (/\.[a-z0-9]{1,12}$/i.test(normalizedName)) return "";
+  if (normalizedType === "pdf" || normalizedMime.includes("pdf")) return "pdf";
+  if (normalizedType === "svg" || normalizedMime.includes("svg")) return "svg";
+  if (normalizedType === "swf" || normalizedMime.includes("shockwave-flash")) return "swf";
+  if (normalizedType === "audio") return "mp3";
+  if (normalizedType === "video") return "mp4";
+  if (normalizedType === "text" || normalizedType === "rtf" || normalizedMime.startsWith("text/")) return "txt";
+  if (normalizedType === "odf") return "odt";
+  if (normalizedType === "html" || normalizedMime.includes("html")) return "html";
+  if (normalizedType === "bin") return "bin";
+  if (normalizedType === "gif" || normalizedType === "sticker") return "png";
+  return "bin";
+}
+
+function xmppAttachmentDefaultMimeType(type = "", format = "", fallbackName = "") {
+  const normalizedType = (type || "").toString().toLowerCase();
+  const normalizedFormat = (format || "").toString().toLowerCase();
+  const lowerName = (fallbackName || "").toString().toLowerCase();
+  if (normalizedType === "pdf" || /\.pdf$/i.test(lowerName)) return "application/pdf";
+  if (normalizedType === "svg" || /\.svg$/i.test(lowerName)) return "image/svg+xml";
+  if (normalizedType === "swf" || /\.swf$/i.test(lowerName)) return "application/x-shockwave-flash";
+  if (normalizedType === "audio") return "audio/mpeg";
+  if (normalizedType === "video") return inferVideoMimeType(lowerName) || "video/mp4";
+  if (normalizedType === "text") return "text/plain";
+  if (normalizedType === "rtf") return "application/rtf";
+  if (normalizedType === "odf") return "application/vnd.oasis.opendocument.text";
+  if (normalizedType === "html") return "text/html";
+  if (normalizedType === "bin") return "application/octet-stream";
+  if (normalizedType === "sticker" && normalizedFormat === "dotlottie") return "application/zip";
+  return "image/png";
+}
+
+function xmppSafeUploadFileName(name = "", type = "", mime = "") {
+  const raw = (name || "").toString().trim().slice(0, 120);
+  const cleanedBase = (raw || `${type || "attachment"}-${Date.now().toString(36)}`)
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/^\.+/, "")
+    .trim()
+    .slice(0, 100) || `attachment-${Date.now().toString(36)}`;
+  const ext = xmppAttachmentDefaultExtension(type, mime, cleanedBase);
+  return ext && !/\.[a-z0-9]{1,12}$/i.test(cleanedBase)
+    ? `${cleanedBase}.${ext}`
+    : cleanedBase;
+}
+
+async function xmppAttachmentPayloadFromEntry(entry) {
+  const sourceUrl = resolveMediaUrl((entry?.url || "").toString().trim());
+  if (!sourceUrl || /^https?:\/\//i.test(sourceUrl)) return null;
+  const response = await fetch(sourceUrl, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Attachment fetch failed (${response.status})`);
+  const blob = await response.blob();
+  const fallbackMime = xmppAttachmentDefaultMimeType(entry?.type || "", entry?.format || "", entry?.name || sourceUrl);
+  const contentType = (blob.type || fallbackMime || "application/octet-stream").toString();
+  const fileName = xmppSafeUploadFileName(entry?.name || "", entry?.type || "", contentType);
+  return {
+    blob,
+    size: Number(blob.size) || 0,
+    contentType,
+    fileName
+  };
+}
+
+async function xmppHttpUploadRequestSlot(serviceInfo, payload, connection = xmppConnection) {
+  if (!serviceInfo?.serviceJid || !serviceInfo.namespace || !payload) throw new Error("Missing upload slot request data");
+  if (!globalThis.$iq) throw new Error("XMPP IQ builder unavailable");
+  const requestAttrs = {
+    xmlns: serviceInfo.namespace,
+    filename: payload.fileName,
+    size: String(Math.max(0, Math.floor(Number(payload.size) || 0)))
+  };
+  if (payload.contentType) requestAttrs["content-type"] = payload.contentType;
+  const slotStanza = await xmppSendIqPromise(
+    connection,
+    globalThis.$iq({ type: "get", to: serviceInfo.serviceJid }).c("request", requestAttrs),
+    XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS
+  );
+  const slotNode = [...slotStanza.getElementsByTagName("slot")]
+    .find((node) => xmppNodeHasXmlns(node, serviceInfo.namespace))
+    || slotStanza.getElementsByTagName("slot")[0]
+    || null;
+  const putNode = slotNode ? slotNode.getElementsByTagName("put")[0] : null;
+  const getNode = slotNode ? slotNode.getElementsByTagName("get")[0] : null;
+  const putUrl = (putNode?.getAttribute("url") || "").toString().trim();
+  const getUrl = (getNode?.getAttribute("url") || "").toString().trim();
+  if (!/^https?:\/\//i.test(putUrl) || !/^https?:\/\//i.test(getUrl)) {
+    throw new Error("XMPP upload slot missing PUT/GET URLs");
+  }
+  const headers = {};
+  if (putNode) {
+    [...putNode.getElementsByTagName("header")].forEach((node) => {
+      const name = (node.getAttribute("name") || "").toString().trim();
+      const value = xmppNodeText(node).trim();
+      if (!name || !value || headers[name]) return;
+      headers[name] = value;
+    });
+  }
+  return { putUrl, getUrl, headers };
+}
+
+async function xmppHttpUploadPutFile(slot, payload) {
+  if (!slot?.putUrl || !payload?.blob) throw new Error("Missing upload PUT payload");
+  const headers = {};
+  Object.entries(slot.headers || {}).forEach(([name, value]) => {
+    const safeName = (name || "").toString().trim();
+    const safeValue = (value || "").toString().trim();
+    if (!safeName || !safeValue) return;
+    const lower = safeName.toLowerCase();
+    if (["host", "origin", "content-length", "cookie"].includes(lower)) return;
+    headers[safeName] = safeValue;
+  });
+  if (!Object.keys(headers).some((key) => key.toLowerCase() === "content-type") && payload.contentType) {
+    headers["Content-Type"] = payload.contentType;
+  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS);
+  try {
+    const response = await fetch(slot.putUrl, {
+      method: "PUT",
+      headers,
+      body: payload.blob,
+      signal: controller.signal
+    });
+    if (response.type === "opaque") return true;
+    if (!response.ok) throw new Error(`Upload PUT failed (${response.status})`);
+    return true;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function attachmentSignatureForXmppUpload(attachments) {
+  return normalizeAttachments(attachments)
+    .map((entry) => `${entry.type}|${entry.url}|${entry.name}|${entry.format}`)
+    .join("||");
+}
+
+async function xmppPrepareMessageAttachmentsForUpload(message, { conversationId = "" } = {}) {
+  const currentAttachments = normalizeAttachments(message?.attachments);
+  if (currentAttachments.length === 0) return currentAttachments;
+  const hasLocal = currentAttachments.some((entry) => !normalizeRelayTransportAttachmentUrl(entry?.url || ""));
+  if (!hasLocal) return currentAttachments;
+  const serviceInfo = await discoverXmppHttpUploadService();
+  if (!serviceInfo) {
+    addXmppDebugEvent("message", "XMPP HTTP upload unavailable; sending local attachment notice only", {
+      localAttachmentCount: relayUnshareableAttachmentCount(currentAttachments)
+    });
+    return currentAttachments;
+  }
+  const maxByService = Math.max(0, Number(serviceInfo.maxFileSize) || 0);
+  const hardLimit = maxByService > 0
+    ? Math.min(XMPP_HTTP_UPLOAD_MAX_BYTES, maxByService)
+    : XMPP_HTTP_UPLOAD_MAX_BYTES;
+  const updated = [];
+  let uploadedCount = 0;
+  let failedCount = 0;
+  for (const entry of currentAttachments) {
+    const remoteUrl = normalizeRelayTransportAttachmentUrl(entry?.url || "");
+    if (remoteUrl) {
+      updated.push(entry);
+      continue;
+    }
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const payload = await xmppAttachmentPayloadFromEntry(entry);
+      if (!payload) {
+        updated.push(entry);
+        continue;
+      }
+      if (payload.size <= 0 || payload.size > hardLimit) {
+        failedCount += 1;
+        updated.push(entry);
+        addXmppDebugEvent("warn", "Skipped XMPP HTTP upload for attachment size limit", {
+          name: entry?.name || "",
+          bytes: payload.size,
+          hardLimit
+        });
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const slot = await xmppHttpUploadRequestSlot(serviceInfo, payload);
+      // eslint-disable-next-line no-await-in-loop
+      await xmppHttpUploadPutFile(slot, payload);
+      const uploadedType = inferAttachmentTypeFromUrl(slot.getUrl) || entry.type || "file";
+      updated.push({
+        type: uploadedType,
+        url: slot.getUrl,
+        name: payload.fileName,
+        format: entry.format || inferAttachmentFormat(uploadedType, slot.getUrl)
+      });
+      uploadedCount += 1;
+    } catch (error) {
+      failedCount += 1;
+      updated.push(entry);
+      addXmppDebugEvent("error", "XMPP HTTP upload failed for attachment", {
+        name: entry?.name || "",
+        error: String(error?.message || error)
+      });
+    }
+  }
+  const normalizedUpdated = normalizeAttachments(updated);
+  const changed = attachmentSignatureForXmppUpload(normalizedUpdated) !== attachmentSignatureForXmppUpload(currentAttachments);
+  if (changed && message && typeof message === "object") {
+    message.attachments = normalizedUpdated;
+    saveState();
+    const activeConversation = getActiveConversation();
+    if (conversationId && activeConversation?.id === conversationId) renderMessages();
+  }
+  if (uploadedCount > 0) {
+    if (failedCount > 0) {
+      showToast(`${uploadedCount} attachment${uploadedCount === 1 ? "" : "s"} uploaded over XMPP (${failedCount} failed).`, { tone: "info" });
+    } else {
+      showToast(uploadedCount === 1 ? "Attachment uploaded over XMPP." : `${uploadedCount} attachments uploaded over XMPP.`, { tone: "info" });
+    }
+  }
+  return normalizedUpdated;
 }
 
 function publishXmppMessageCorrection(conversation, message, account) {
@@ -7625,11 +8179,13 @@ function publishXmppMessageCorrection(conversation, message, account) {
       const replyMeta = resolveXmppReplyMetaForDm(conversation.thread, message, account, peerJid);
       const bodyPayload = buildXmppMessageBody(message, replyMeta);
       if (!(bodyPayload.body || "").trim()) return { ok: false, reason: "empty-body" };
+      const xmppAttachments = xmppShareableAttachmentsForStanza(message);
       const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: correctionStanzaId })
         .c("body").t(bodyPayload.body);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       stanza.c("replace", replaceNode).up();
       appendXmppOriginIdNode(stanza, correctionOriginId);
+      appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
       stanza.c("request", { xmlns: "urn:xmpp:receipts" });
       xmppConnection.send(stanza);
       rememberXmppPendingReceipt(correctionStanzaId, conversation.thread, message, peerJid);
@@ -7654,11 +8210,13 @@ function publishXmppMessageCorrection(conversation, message, account) {
       const replyMeta = resolveXmppReplyMetaForRoom(conversation.thread, message, roomJid);
       const bodyPayload = buildXmppMessageBody(message, replyMeta);
       if (!(bodyPayload.body || "").trim()) return { ok: false, reason: "empty-body" };
+      const xmppAttachments = xmppShareableAttachmentsForStanza(message);
       const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
         .c("body").t(bodyPayload.body);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       stanza.c("replace", replaceNode).up();
       appendXmppOriginIdNode(stanza, correctionOriginId);
+      appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
       xmppConnection.send(stanza);
       message.xmppStanzaId = correctionStanzaId;
       message.xmppRefIds = normalizeXmppRefIdsList([
@@ -7691,11 +8249,13 @@ function publishXmppMessageCorrection(conversation, message, account) {
     const replyMeta = resolveXmppReplyMetaForRoom(conversation.channel, message, roomJid);
     const bodyPayload = buildXmppMessageBody(message, replyMeta);
     if (!(bodyPayload.body || "").trim()) return { ok: false, reason: "empty-body" };
+    const xmppAttachments = xmppShareableAttachmentsForStanza(message);
     const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
       .c("body").t(bodyPayload.body);
     appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
     stanza.c("replace", replaceNode).up();
     appendXmppOriginIdNode(stanza, correctionOriginId);
+    appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
     xmppConnection.send(stanza);
     message.xmppStanzaId = correctionStanzaId;
     message.xmppRefIds = normalizeXmppRefIdsList([
@@ -7734,25 +8294,35 @@ function publishRelayChannelMessage(channel, message, account) {
       return false;
     }
     joinXmppRoom(room, account);
-    const replyMeta = resolveXmppReplyMetaForRoom(channel, message, roomJid);
-    const bodyPayload = buildXmppMessageBody(message, replyMeta);
-    if (!(bodyPayload.body || "").trim()) return false;
-    const stanzaId = `s67-${createId().slice(0, 12)}`;
-    const originId = `s67-origin-${createId().slice(0, 12)}`;
-    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
-      .c("body")
-      .t(bodyPayload.body);
-    appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
-    appendXmppOriginIdNode(stanza, originId);
-    xmppConnection.send(stanza);
-    message.xmppStanzaId = stanzaId;
-    message.xmppRefIds = normalizeXmppRefIdsList([
-      ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
-      stanzaId,
-      originId
-    ]);
-    rememberXmppRoomMessage(roomJid, stanzaId, message);
-    rememberXmppRoomMessage(roomJid, originId, message);
+    void (async () => {
+      await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: channel.id || "" });
+      if (!xmppConnection || relayStatus !== "connected") return;
+      const replyMeta = resolveXmppReplyMetaForRoom(channel, message, roomJid);
+      const bodyPayload = buildXmppMessageBody(message, replyMeta);
+      if (!(bodyPayload.body || "").trim()) return;
+      const stanzaId = `s67-${createId().slice(0, 12)}`;
+      const originId = `s67-origin-${createId().slice(0, 12)}`;
+      const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
+        .c("body")
+        .t(bodyPayload.body);
+      appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+      appendXmppOriginIdNode(stanza, originId);
+      appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+      xmppConnection.send(stanza);
+      message.xmppStanzaId = stanzaId;
+      message.xmppRefIds = normalizeXmppRefIdsList([
+        ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+        stanzaId,
+        originId
+      ]);
+      rememberXmppRoomMessage(roomJid, stanzaId, message);
+      rememberXmppRoomMessage(roomJid, originId, message);
+    })().catch((error) => {
+      addXmppDebugEvent("error", "Failed to publish XMPP room message", {
+        roomJid,
+        error: String(error?.message || error)
+      });
+    });
     return true;
   }
   if (prefs.relayMode === "http") {
@@ -7816,50 +8386,62 @@ function publishRelayDirectMessage(thread, message, account) {
       setRelayStatus("error", "XMPP MUC service not configured.");
       return false;
     }
-    if (peerJid) {
+    void (async () => {
+      await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: thread.id || "" });
+      if (!xmppConnection || relayStatus !== "connected") return;
+      if (peerJid) {
+        const stanzaId = `s67-${createId().slice(0, 12)}`;
+        const originId = `s67-origin-${createId().slice(0, 12)}`;
+        const replyMeta = resolveXmppReplyMetaForDm(thread, message, account, peerJid);
+        const bodyPayload = buildXmppMessageBody(message, replyMeta);
+        if (!(bodyPayload.body || "").trim()) return;
+        const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId })
+          .c("body")
+          .t(bodyPayload.body);
+        appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+        appendXmppOriginIdNode(stanza, originId);
+        appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+        stanza.c("request", { xmlns: "urn:xmpp:receipts" });
+        xmppConnection.send(stanza);
+        rememberXmppPendingReceipt(stanzaId, thread, message, peerJid);
+        message.xmppStanzaId = stanzaId;
+        message.xmppRefIds = normalizeXmppRefIdsList([
+          ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+          stanzaId,
+          originId
+        ]);
+        rememberXmppDmMessage(peerJid, stanzaId, message);
+        rememberXmppDmMessage(peerJid, originId, message);
+        return;
+      }
+      joinXmppRoom(room, account);
       const stanzaId = `s67-${createId().slice(0, 12)}`;
       const originId = `s67-origin-${createId().slice(0, 12)}`;
-      const replyMeta = resolveXmppReplyMetaForDm(thread, message, account, peerJid);
+      const replyMeta = resolveXmppReplyMetaForRoom(thread, message, roomJid);
       const bodyPayload = buildXmppMessageBody(message, replyMeta);
-      if (!(bodyPayload.body || "").trim()) return false;
-      const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId })
+      if (!(bodyPayload.body || "").trim()) return;
+      const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
         .c("body")
         .t(bodyPayload.body);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       appendXmppOriginIdNode(stanza, originId);
-      stanza.c("request", { xmlns: "urn:xmpp:receipts" });
+      appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
       xmppConnection.send(stanza);
-      rememberXmppPendingReceipt(stanzaId, thread, message, peerJid);
       message.xmppStanzaId = stanzaId;
       message.xmppRefIds = normalizeXmppRefIdsList([
         ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
         stanzaId,
         originId
       ]);
-      rememberXmppDmMessage(peerJid, stanzaId, message);
-      rememberXmppDmMessage(peerJid, originId, message);
-      return true;
-    }
-    joinXmppRoom(room, account);
-    const stanzaId = `s67-${createId().slice(0, 12)}`;
-    const originId = `s67-origin-${createId().slice(0, 12)}`;
-    const replyMeta = resolveXmppReplyMetaForRoom(thread, message, roomJid);
-    const bodyPayload = buildXmppMessageBody(message, replyMeta);
-    if (!(bodyPayload.body || "").trim()) return false;
-    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
-      .c("body")
-      .t(bodyPayload.body);
-    appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
-    appendXmppOriginIdNode(stanza, originId);
-    xmppConnection.send(stanza);
-    message.xmppStanzaId = stanzaId;
-    message.xmppRefIds = normalizeXmppRefIdsList([
-      ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
-      stanzaId,
-      originId
-    ]);
-    rememberXmppRoomMessage(roomJid, stanzaId, message);
-    rememberXmppRoomMessage(roomJid, originId, message);
+      rememberXmppRoomMessage(roomJid, stanzaId, message);
+      rememberXmppRoomMessage(roomJid, originId, message);
+    })().catch((error) => {
+      addXmppDebugEvent("error", "Failed to publish XMPP direct message", {
+        peerJid: peerJid || "",
+        roomJid: roomJid || "",
+        error: String(error?.message || error)
+      });
+    });
     return true;
   }
   if (prefs.relayMode === "http") {
@@ -8471,11 +9053,53 @@ function renderComposerAttachmentList() {
     row.type = "button";
     row.className = "composer-attachment-chip";
     row.title = composerAttachmentPreviewLabel(entry);
+    const thumb = document.createElement("span");
+    thumb.className = "composer-attachment-chip__thumb";
+    const visualType = (entry?.type || "").toString().toLowerCase();
+    const visualUrl = resolveMediaUrl((entry?.url || "").toString());
+    const canPreviewImage = ["gif", "svg", "sticker"].includes(visualType);
+    const canPreviewVideo = visualType === "video";
+    if (canPreviewVideo && visualUrl) {
+      const video = document.createElement("video");
+      video.src = visualUrl;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.loop = true;
+      video.setAttribute("aria-hidden", "true");
+      video.addEventListener("loadeddata", () => {
+        void video.play().catch(() => {});
+      }, { once: true });
+      thumb.appendChild(video);
+    } else if (canPreviewImage && visualUrl) {
+      const img = document.createElement("img");
+      img.src = visualUrl;
+      img.alt = "";
+      img.loading = "eager";
+      img.setAttribute("aria-hidden", "true");
+      thumb.appendChild(img);
+    } else {
+      const icon = document.createElement("span");
+      icon.className = "composer-attachment-chip__icon";
+      const iconByType = {
+        audio: "♪",
+        swf: "📼",
+        pdf: "📄",
+        text: "TXT",
+        html: "</>",
+        odf: "DOC",
+        rtf: "RTF",
+        bin: "BIN"
+      };
+      icon.textContent = iconByType[visualType] || "FILE";
+      thumb.appendChild(icon);
+    }
     const label = document.createElement("span");
-    label.textContent = `${index === 0 ? "• " : ""}${entry.name || "file"}`;
+    label.textContent = entry.name || "file";
     const remove = document.createElement("span");
     remove.className = "composer-attachment-chip__remove";
     remove.textContent = "✕";
+    row.appendChild(thumb);
     row.appendChild(label);
     row.appendChild(remove);
     row.addEventListener("click", () => {
@@ -15298,7 +15922,25 @@ function positionSwfAnchoredRuntimeHosts() {
       applySwfVisibilityPlayback(runtimeKey, false);
       return;
     }
-    const rect = anchor.getBoundingClientRect();
+    let rect = anchor.getBoundingClientRect();
+    const liveResizeActive = host.classList.contains("message-swf-player--resizable");
+    if (liveResizeActive) {
+      const liveRect = host.getBoundingClientRect();
+      if (Number.isFinite(liveRect.height) && liveRect.height > 2) {
+        const nextHeight = Math.round(Math.max(150, liveRect.height));
+        if (Math.abs((rect.height || 0) - nextHeight) > 1) {
+          anchor.style.minHeight = `${nextHeight}px`;
+          anchor.style.height = `${nextHeight}px`;
+          anchor.dataset.swfLiveSize = "on";
+          rect = anchor.getBoundingClientRect();
+        }
+      }
+    } else if (anchor.dataset.swfLiveSize === "on") {
+      anchor.dataset.swfLiveSize = "off";
+      anchor.style.removeProperty("height");
+      anchor.style.removeProperty("min-height");
+      rect = anchor.getBoundingClientRect();
+    }
     const clipBounds = messageViewport ? rectIntersection(rect, messageViewport) : rect;
     const visible = Boolean(clipBounds)
       && Number.isFinite(clipBounds.width)
@@ -15593,7 +16235,7 @@ function renderSwfPipDockControls(runtimeKey = "") {
       ? runtime.host
       : (runtime.pipHost instanceof HTMLElement ? runtime.pipHost : runtime.originHost);
     if (!(host instanceof HTMLElement)) return;
-    resetSwfRuntime(runtimeKey, host, swfAttachment);
+    void resetSwfRuntime(runtimeKey, host, swfAttachment);
     renderSwfPipDockControls(runtimeKey);
   });
   const fullscreenBtn = makeButton("⛶", "Fullscreen SWF", () => {
@@ -15638,6 +16280,7 @@ function positionSwfPipRuntimeHosts() {
     runtime.pipHost.style.pointerEvents = visible ? "auto" : "none";
     runtime.pipHost.style.opacity = visible ? "1" : "0";
     runtime.pipHost.style.visibility = visible ? "visible" : "hidden";
+    runtime.pipHost.style.zIndex = visible ? "9210" : "1";
     if (visible) {
       runtime.pipHost.style.borderColor = "";
       runtime.pipHost.style.background = "";
@@ -16045,8 +16688,15 @@ async function ensureSwfRuntimeReadyForPip(runtimeKey, hostElement, attachment) 
   return runtime || null;
 }
 
-function resetSwfRuntime(runtimeKey, hostElement, attachment) {
-  if (!confirm("Reset this SWF to the beginning?")) return;
+async function resetSwfRuntime(runtimeKey, hostElement, attachment) {
+  const confirmed = await showInAppConfirmDialog({
+    title: "Reset SWF?",
+    message: "Reset this SWF to the beginning?",
+    confirmLabel: "Reset",
+    cancelLabel: "Cancel",
+    danger: true
+  });
+  if (!confirmed) return;
   const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
   if (runtimeKey && runtime) {
     swfPendingUi.set(runtimeKey, {
@@ -16149,7 +16799,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           scale: "showAll",
           forceScale: true,
           letterbox: "on",
-          openUrlMode: "confirm"
+          openUrlMode: "allow"
         };
       } catch {
         // Ignore config API failures and fall back to load options.
@@ -17359,6 +18009,34 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   const mediaUrl = resolveMediaUrl(attachment.url);
   const wrap = document.createElement("div");
   wrap.className = `message-attachment message-attachment--${type}`;
+  const bindAttachmentContextMenu = (
+    target,
+    {
+      downloadExt = "bin",
+      downloadName = attachment.name || "",
+      allowDownload = true
+    } = {}
+  ) => {
+    if (!(target instanceof HTMLElement) || !mediaUrl) return;
+    target.addEventListener("contextmenu", (event) => {
+      const items = [
+        {
+          label: "Copy Attachment URL",
+          action: () => copyText(mediaUrl)
+        }
+      ];
+      if (allowDownload) {
+        items.push({
+          label: "Download Attachment",
+          action: () => {
+            const baseName = downloadName || attachment.name || type || "attachment";
+            triggerMediaDownload(mediaUrl, lightboxDownloadNameFromLabel(baseName, downloadExt));
+          }
+        });
+      }
+      openContextMenu(event, items);
+    });
+  };
 
   if (type !== "swf" && shouldGateMediaUrl(mediaUrl)) {
     const host = mediaUrlHost(mediaUrl) || "external host";
@@ -17775,7 +18453,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       }
     });
     resetBtn.addEventListener("click", () => {
-      resetSwfRuntime(swfKey, playerWrap, attachment);
+      void resetSwfRuntime(swfKey, playerWrap, attachment);
     });
     soloBtn.addEventListener("click", () => {
       if (!swfKey) return;
@@ -17833,6 +18511,10 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
         video.addEventListener("dblclick", () => {
           openMediaLightbox({ url: mediaUrl, label, video: true });
         });
+        bindAttachmentContextMenu(video, {
+          downloadExt: "mp4",
+          downloadName: label
+        });
         wrap.appendChild(video);
         const gifControls = createGifControlStrip(video, { label, mediaUrl });
         const gifMenuBtn = document.createElement("button");
@@ -17863,6 +18545,10 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
           );
           video.addEventListener("dblclick", () => {
             openMediaLightbox({ url: mediaUrl, label, video: true });
+          });
+          bindAttachmentContextMenu(video, {
+            downloadExt: "mp4",
+            downloadName: label
           });
           runtime = ensureVideoPipRuntime(runtimeKey, { video, label });
         } else {
@@ -17897,13 +18583,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
             if (runtime.syncControls instanceof Function) runtime.syncControls();
           }
         }
-        const openBtn = document.createElement("a");
-        openBtn.className = "message-swf-link";
-        openBtn.href = mediaUrl;
-        openBtn.target = "_blank";
-        openBtn.rel = "noopener noreferrer";
-        openBtn.textContent = "Open video in new tab";
-        wrap.appendChild(openBtn);
       }
     } else {
       const img = document.createElement("img");
@@ -17912,6 +18591,10 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       img.alt = attachment.name || "GIF";
       img.addEventListener("click", () => {
         openMediaLightbox({ url: mediaUrl, label: attachment.name || "GIF" });
+      });
+      bindAttachmentContextMenu(img, {
+        downloadExt: "gif",
+        downloadName: attachment.name || "gif"
       });
       wrap.appendChild(img);
     }
@@ -17954,14 +18637,11 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     img.addEventListener("click", () => {
       openMediaLightbox({ url: mediaUrl, label: attachment.name || "SVG" });
     });
+    bindAttachmentContextMenu(img, {
+      downloadExt: "svg",
+      downloadName: attachment.name || "image"
+    });
     wrap.appendChild(img);
-    const downloadBtn = document.createElement("a");
-    downloadBtn.className = "message-swf-link";
-    downloadBtn.href = mediaUrl;
-    const baseName = (attachment.name || "image").replace(/\.[a-z0-9]+$/i, "");
-    downloadBtn.download = `${baseName}.svg`;
-    downloadBtn.textContent = "Download SVG";
-    wrap.appendChild(downloadBtn);
     container.appendChild(wrap);
     return;
   }
@@ -18159,6 +18839,10 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   img.alt = attachment.name || type.toUpperCase();
   img.addEventListener("click", () => {
     openMediaLightbox({ url: mediaUrl, label: attachment.name || type.toUpperCase() });
+  });
+  bindAttachmentContextMenu(img, {
+    downloadExt: type === "svg" ? "svg" : "png",
+    downloadName: attachment.name || type.toUpperCase()
   });
   wrap.appendChild(img);
   container.appendChild(wrap);
@@ -20369,14 +21053,12 @@ function renderMessages() {
       mamState = peerJid ? ensureXmppDmMamState(peerJid) : null;
     }
     if (mamState) {
-      const shouldRenderHistoryControl = Boolean(mamState.loading || !mamState.complete);
+      const xmppConnected = Boolean(xmppConnection && relayStatus === "connected");
+      const shouldRenderHistoryControl = Boolean(xmppConnected && (mamState.loading || !mamState.complete));
       if (shouldRenderHistoryControl) {
         const control = document.createElement("div");
         control.className = "xmpp-history-control";
-        if (!xmppConnection || relayStatus !== "connected") {
-          control.classList.add("xmpp-history-control--done");
-          control.textContent = "Connect XMPP to load history.";
-        } else if (mamState.loading) {
+        if (mamState.loading) {
           control.textContent = "Loading older messages...";
         } else {
           const button = document.createElement("button");
@@ -21020,7 +21702,7 @@ function renderMessages() {
                 const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
                 const host = runtime?.host || messageRow.querySelector(".message-attachment--swf .message-swf-player");
                 if (!host) return;
-                resetSwfRuntime(runtimeKey, host, firstSwfAttachment);
+                void resetSwfRuntime(runtimeKey, host, firstSwfAttachment);
               }
             },
             {
