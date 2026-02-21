@@ -18,6 +18,9 @@ const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_MAM_NAMESPACE = "urn:xmpp:mam:2";
 const XMPP_HTTP_UPLOAD_NAMESPACE = "urn:xmpp:http:upload:0";
 const XMPP_HTTP_UPLOAD_LEGACY_NAMESPACE = "urn:xmpp:http:upload";
+const XMPP_REACTIONS_NAMESPACE = "urn:xmpp:reactions:0";
+const XMPP_MESSAGE_RETRACT_NAMESPACE = "urn:xmpp:message-retract:1";
+const XMPP_FASTEN_NAMESPACE = "urn:xmpp:fasten:0";
 const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
 const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
@@ -4772,6 +4775,38 @@ function xmppMessageCorrectionTargetId(stanza) {
   return (node?.getAttribute("id") || "").toString().trim();
 }
 
+function xmppMessageRetractionTargetId(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const directNode = [...stanza.getElementsByTagName("retract")]
+    .find((entry) => xmppNodeHasXmlns(entry, XMPP_MESSAGE_RETRACT_NAMESPACE)) || null;
+  const directId = (directNode?.getAttribute("id") || "").toString().trim();
+  if (directId) return directId;
+  const applyNode = [...stanza.getElementsByTagName("apply-to")]
+    .find((entry) => xmppNodeHasXmlns(entry, XMPP_FASTEN_NAMESPACE)) || null;
+  if (!applyNode) return "";
+  const hasRetract = [...applyNode.getElementsByTagName("retract")]
+    .some((entry) => xmppNodeHasXmlns(entry, XMPP_MESSAGE_RETRACT_NAMESPACE));
+  if (!hasRetract) return "";
+  return (applyNode.getAttribute("id") || "").toString().trim();
+}
+
+function xmppReactionPayloadFromStanza(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const reactionNode = [...stanza.getElementsByTagName("reactions")]
+    .find((entry) => xmppNodeHasXmlns(entry, XMPP_REACTIONS_NAMESPACE)) || null;
+  if (!reactionNode) return null;
+  const targetId = (reactionNode.getAttribute("id") || "").toString().trim();
+  if (!targetId) return null;
+  const emojis = [...reactionNode.getElementsByTagName("reaction")]
+    .map((entry) => xmppNodeText(entry).trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  return {
+    targetId,
+    emojis
+  };
+}
+
 function messageMatchesXmppReference(message, referenceId) {
   const key = (referenceId || "").toString().trim();
   if (!message || !key) return false;
@@ -4814,6 +4849,103 @@ function applyXmppCorrectionToMessageEntry(target, {
     .join("||");
   if (nextAttachments.length > 0 && attachmentSignature(nextAttachments) !== attachmentSignature(currentAttachments)) {
     target.attachments = nextAttachments;
+    contentChanged = true;
+  }
+  const mergedRefIds = normalizeXmppRefIdsList([
+    ...normalizeXmppRefIdsList(target.xmppRefIds),
+    ...normalizeXmppRefIdsList(stanzaRefs),
+    stanzaId
+  ]);
+  const currentRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
+  if (mergedRefIds.length !== currentRefIds.length || mergedRefIds.some((entry, index) => entry !== currentRefIds[index])) {
+    target.xmppRefIds = mergedRefIds;
+    metaChanged = true;
+  }
+  if (stanzaId && (target.xmppStanzaId || "").toString() !== stanzaId) {
+    target.xmppStanzaId = stanzaId;
+    metaChanged = true;
+  }
+  if (contentChanged) {
+    target.editedAt = Number.isFinite(Date.parse(timestamp || "")) ? new Date(timestamp).toISOString() : new Date().toISOString();
+    target.editedByUserId = editorUserId || target.userId || "";
+    target.editedByName = editorName || displayNameForMessage(target) || "xmpp";
+    target.editedByStaff = false;
+  }
+  return {
+    handled: true,
+    changed: contentChanged || metaChanged,
+    contentChanged
+  };
+}
+
+function applyXmppReactionsForActor(target, actorUserId, emojis = []) {
+  const actorId = (actorUserId || "").toString().trim();
+  if (!target || !actorId) return { handled: false, changed: false };
+  const normalized = [...new Set(
+    (Array.isArray(emojis) ? emojis : [])
+      .map((emoji) => (emoji || "").toString().trim())
+      .filter(Boolean)
+  )].slice(0, 8);
+  const before = normalizeReactions(target.reactions)
+    .map((entry) => `${entry.emoji}|${entry.userIds.join(",")}`)
+    .join("||");
+  let next = normalizeReactions(target.reactions)
+    .map((entry) => ({
+      emoji: entry.emoji,
+      userIds: entry.userIds.filter((id) => (id || "").toString() !== actorId)
+    }))
+    .filter((entry) => entry.userIds.length > 0);
+  normalized.forEach((emoji) => {
+    let row = next.find((entry) => entry.emoji === emoji);
+    if (!row) {
+      row = { emoji, userIds: [] };
+      next.push(row);
+    }
+    if (!row.userIds.includes(actorId)) row.userIds.push(actorId);
+  });
+  target.reactions = next;
+  const after = normalizeReactions(target.reactions)
+    .map((entry) => `${entry.emoji}|${entry.userIds.join(",")}`)
+    .join("||");
+  return {
+    handled: true,
+    changed: before !== after
+  };
+}
+
+function applyXmppRetractionToMessageEntry(target, {
+  timestamp = "",
+  editorUserId = "",
+  editorName = "",
+  stanzaId = "",
+  stanzaRefs = []
+} = {}) {
+  if (!target) return { handled: false, changed: false, contentChanged: false };
+  const retractedText = "[Message retracted]";
+  let contentChanged = false;
+  let metaChanged = false;
+  const previousText = (target.text || "").toString();
+  const previousAttachments = normalizeAttachments(target.attachments);
+  const previousReactions = normalizeReactions(target.reactions);
+  if (previousText !== retractedText || target.retracted !== true) {
+    if (!Array.isArray(target.editHistory)) target.editHistory = [];
+    target.editHistory.unshift({
+      editedAt: Number.isFinite(Date.parse(timestamp || "")) ? new Date(timestamp).toISOString() : new Date().toISOString(),
+      editorUserId: editorUserId || target.userId || "",
+      editorName: editorName || displayNameForMessage(target) || "xmpp",
+      previousText
+    });
+    if (target.editHistory.length > 25) target.editHistory = target.editHistory.slice(0, 25);
+    target.text = retractedText;
+    target.retracted = true;
+    contentChanged = true;
+  }
+  if (previousAttachments.length > 0) {
+    target.attachments = [];
+    contentChanged = true;
+  }
+  if (previousReactions.length > 0) {
+    target.reactions = [];
     contentChanged = true;
   }
   const mergedRefIds = normalizeXmppRefIdsList([
@@ -5224,6 +5356,141 @@ function applyXmppRoomMessageCorrection(roomJid, targetRefId, payload = {}) {
   };
 }
 
+function applyXmppDmReactionUpdate(peerJid, targetRefId, payload = {}) {
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer || !targetRefId) return { handled: false, changed: false, thread: null };
+  const thread = findXmppDmThreadByPeerJid(barePeer);
+  if (!thread || !Array.isArray(thread.messages)) return { handled: false, changed: false, thread: null };
+  const mapped = findXmppDmMessageByAnyId(barePeer, targetRefId);
+  const target = thread.messages.find((entry) => (
+    messageMatchesXmppReference(entry, targetRefId)
+    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
+  )) || null;
+  if (!target) return { handled: false, changed: false, thread };
+  const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+  const mergedRefIds = normalizeXmppRefIdsList([
+    ...normalizeXmppRefIdsList(target.xmppRefIds),
+    ...normalizeXmppRefIdsList(payload.stanzaRefs),
+    payload.stanzaId || ""
+  ]);
+  const currentRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
+  let metaChanged = false;
+  if (mergedRefIds.length !== currentRefIds.length || mergedRefIds.some((entry, index) => entry !== currentRefIds[index])) {
+    target.xmppRefIds = mergedRefIds;
+    metaChanged = true;
+  }
+  const trackedRefs = normalizeXmppRefIdsList([
+    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+    target.xmppStanzaId || "",
+    targetRefId,
+    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+    payload?.stanzaId || ""
+  ]);
+  trackedRefs.forEach((refId) => rememberXmppDmMessage(barePeer, refId, target));
+  return {
+    handled: true,
+    changed: Boolean(applied.changed || metaChanged),
+    thread
+  };
+}
+
+function applyXmppRoomReactionUpdate(roomJid, targetRefId, payload = {}) {
+  const bareRoom = xmppBareJid(roomJid);
+  if (!bareRoom || !targetRefId) return { handled: false, changed: false, channel: null };
+  const roomToken = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
+  const channel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(bareRoom);
+  if (!channel || !Array.isArray(channel.messages)) return { handled: false, changed: false, channel: null };
+  const mapped = findXmppRoomMessageByAnyId(bareRoom, targetRefId);
+  const target = channel.messages.find((entry) => (
+    messageMatchesXmppReference(entry, targetRefId)
+    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
+  )) || null;
+  if (!target) return { handled: false, changed: false, channel };
+  const aliasActorId = (payload.aliasActorId || "").toString().trim();
+  let aliasChanged = false;
+  if (aliasActorId && aliasActorId !== (payload.actorUserId || "").toString().trim()) {
+    aliasChanged = applyXmppReactionsForActor(target, aliasActorId, []).changed;
+  }
+  const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+  const mergedRefIds = normalizeXmppRefIdsList([
+    ...normalizeXmppRefIdsList(target.xmppRefIds),
+    ...normalizeXmppRefIdsList(payload.stanzaRefs),
+    payload.stanzaId || ""
+  ]);
+  const currentRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
+  let metaChanged = false;
+  if (mergedRefIds.length !== currentRefIds.length || mergedRefIds.some((entry, index) => entry !== currentRefIds[index])) {
+    target.xmppRefIds = mergedRefIds;
+    metaChanged = true;
+  }
+  const trackedRefs = normalizeXmppRefIdsList([
+    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+    target.xmppStanzaId || "",
+    targetRefId,
+    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+    payload?.stanzaId || ""
+  ]);
+  trackedRefs.forEach((refId) => rememberXmppRoomMessage(bareRoom, refId, target));
+  return {
+    handled: true,
+    changed: Boolean(applied.changed || metaChanged || aliasChanged),
+    channel
+  };
+}
+
+function applyXmppDmMessageRetraction(peerJid, targetRefId, payload = {}) {
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer || !targetRefId) return { handled: false, changed: false, contentChanged: false, thread: null };
+  const thread = findXmppDmThreadByPeerJid(barePeer);
+  if (!thread || !Array.isArray(thread.messages)) return { handled: false, changed: false, contentChanged: false, thread: null };
+  const mapped = findXmppDmMessageByAnyId(barePeer, targetRefId);
+  const target = thread.messages.find((entry) => (
+    messageMatchesXmppReference(entry, targetRefId)
+    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
+  )) || null;
+  if (!target) return { handled: false, changed: false, contentChanged: false, thread };
+  const applied = applyXmppRetractionToMessageEntry(target, payload);
+  const trackedRefs = normalizeXmppRefIdsList([
+    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+    target.xmppStanzaId || "",
+    targetRefId,
+    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+    payload?.stanzaId || ""
+  ]);
+  trackedRefs.forEach((refId) => rememberXmppDmMessage(barePeer, refId, target));
+  return {
+    ...applied,
+    thread
+  };
+}
+
+function applyXmppRoomMessageRetraction(roomJid, targetRefId, payload = {}) {
+  const bareRoom = xmppBareJid(roomJid);
+  if (!bareRoom || !targetRefId) return { handled: false, changed: false, contentChanged: false, channel: null };
+  const roomToken = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
+  const channel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(bareRoom);
+  if (!channel || !Array.isArray(channel.messages)) return { handled: false, changed: false, contentChanged: false, channel: null };
+  const mapped = findXmppRoomMessageByAnyId(bareRoom, targetRefId);
+  const target = channel.messages.find((entry) => (
+    messageMatchesXmppReference(entry, targetRefId)
+    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
+  )) || null;
+  if (!target) return { handled: false, changed: false, contentChanged: false, channel };
+  const applied = applyXmppRetractionToMessageEntry(target, payload);
+  const trackedRefs = normalizeXmppRefIdsList([
+    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
+    target.xmppStanzaId || "",
+    targetRefId,
+    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
+    payload?.stanzaId || ""
+  ]);
+  trackedRefs.forEach((refId) => rememberXmppRoomMessage(bareRoom, refId, target));
+  return {
+    ...applied,
+    channel
+  };
+}
+
 function applyXmppCorrectionFallback(targetRefId, payload = {}) {
   const key = (targetRefId || "").toString().trim();
   if (!key) return {
@@ -5274,6 +5541,105 @@ function applyXmppCorrectionFallback(targetRefId, payload = {}) {
         payload?.stanzaId || ""
       ]);
       if (roomJid) trackedRefs.forEach((refId) => rememberXmppRoomMessage(roomJid, refId, target));
+      return {
+        ...applied,
+        scope: "muc",
+        thread: null,
+        channel
+      };
+    }
+  }
+  return {
+    handled: false,
+    changed: false,
+    contentChanged: false,
+    scope: "",
+    thread: null,
+    channel: null
+  };
+}
+
+function applyXmppReactionFallback(targetRefId, payload = {}) {
+  const key = (targetRefId || "").toString().trim();
+  if (!key) return {
+    handled: false,
+    changed: false,
+    scope: "",
+    thread: null,
+    channel: null
+  };
+  for (const thread of state.dmThreads) {
+    if (!thread || !Array.isArray(thread.messages)) continue;
+    const target = thread.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
+    if (!target) continue;
+    const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+    return {
+      handled: true,
+      changed: Boolean(applied.changed),
+      scope: "dm",
+      thread,
+      channel: null
+    };
+  }
+  for (const guild of state.guilds) {
+    const channels = Array.isArray(guild?.channels) ? guild.channels : [];
+    for (const channel of channels) {
+      if (!channel || !Array.isArray(channel.messages)) continue;
+      const target = channel.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
+      if (!target) continue;
+      const aliasActorId = (payload.aliasActorId || "").toString().trim();
+      let aliasChanged = false;
+      if (aliasActorId && aliasActorId !== (payload.actorUserId || "").toString().trim()) {
+        aliasChanged = applyXmppReactionsForActor(target, aliasActorId, []).changed;
+      }
+      const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+      return {
+        handled: true,
+        changed: Boolean(applied.changed || aliasChanged),
+        scope: "muc",
+        thread: null,
+        channel
+      };
+    }
+  }
+  return {
+    handled: false,
+    changed: false,
+    scope: "",
+    thread: null,
+    channel: null
+  };
+}
+
+function applyXmppRetractionFallback(targetRefId, payload = {}) {
+  const key = (targetRefId || "").toString().trim();
+  if (!key) return {
+    handled: false,
+    changed: false,
+    contentChanged: false,
+    scope: "",
+    thread: null,
+    channel: null
+  };
+  for (const thread of state.dmThreads) {
+    if (!thread || !Array.isArray(thread.messages)) continue;
+    const target = thread.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
+    if (!target) continue;
+    const applied = applyXmppRetractionToMessageEntry(target, payload);
+    return {
+      ...applied,
+      scope: "dm",
+      thread,
+      channel: null
+    };
+  }
+  for (const guild of state.guilds) {
+    const channels = Array.isArray(guild?.channels) ? guild.channels : [];
+    for (const channel of channels) {
+      if (!channel || !Array.isArray(channel.messages)) continue;
+      const target = channel.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
+      if (!target) continue;
+      const applied = applyXmppRetractionToMessageEntry(target, payload);
       return {
         ...applied,
         scope: "muc",
@@ -5552,6 +5918,35 @@ function inferXmppAuthorJidFromRoomHistory(roomJid, nick = "") {
     return accountJid;
   }
   return "";
+}
+
+function resolveXmppRoomActorUserId(roomJid, nick = "", stanza = null) {
+  const bareRoom = xmppBareJid(roomJid);
+  const nickValue = (nick || "").toString().trim();
+  if (!bareRoom || !nickValue) return "";
+  const current = getCurrentAccount();
+  const joinState = xmppMucJoinStateByRoomJid.get(bareRoom) || {};
+  if (
+    current?.id
+    && joinState.nick
+    && joinState.nick.toString().trim().toLowerCase() === nickValue.toLowerCase()
+  ) {
+    return current.id;
+  }
+  let actorJid = xmppMucMessageAuthorJid(stanza);
+  if (!actorJid) {
+    const occupant = xmppMucOccupantByNick(bareRoom, nickValue);
+    if (occupant?.jid) actorJid = xmppBareJid(occupant.jid);
+    if (!actorJid && occupant?.accountId) {
+      const account = getAccountById(occupant.accountId);
+      actorJid = xmppBareJid(account?.xmppJid || "");
+    }
+  }
+  if (!actorJid) actorJid = inferXmppAuthorJidFromRoomHistory(bareRoom, nickValue);
+  if (!actorJid) return "";
+  rememberKnownXmppMucOccupantJid(bareRoom, nickValue, actorJid);
+  const actorAccount = ensureAccountByXmppJid(actorJid, nickValue || actorJid.split("@")[0] || "");
+  return actorAccount?.id || "";
 }
 
 function xmppAvatarUrlForKnownRoomNick(roomJid, nick = "", guildId = null) {
@@ -6803,6 +7198,9 @@ function connectRelaySocket({ force = false } = {}) {
         const stanzaMessageId = (stanza.getAttribute("id") || "").toString().trim();
         const stanzaRefs = xmppStanzaReferenceIds(stanza);
         const correctionTargetId = xmppMessageCorrectionTargetId(stanza);
+        const retractionTargetId = xmppMessageRetractionTargetId(stanza);
+        const reactionPayload = xmppReactionPayloadFromStanza(stanza);
+        const hasSubjectNode = Boolean(subjectNode);
         if (isDirectLike) {
           const toBare = xmppBareJid(stanza.getAttribute("to") || "");
           const ownAuthor = Boolean(allowSelf && ownBare && bareFrom === ownBare);
@@ -6847,6 +7245,92 @@ function connectRelaySocket({ force = false } = {}) {
                 authorDisplay: peer.displayName || peer.username
               }
             });
+          }
+          if (reactionPayload) {
+            const reactionUpdate = {
+              actorUserId: ownAuthor ? current.id : peer.id,
+              emojis: reactionPayload.emojis,
+              stanzaId: stanzaMessageId,
+              stanzaRefs
+            };
+            const reactionResult = applyXmppDmReactionUpdate(peerBare, reactionPayload.targetId, reactionUpdate);
+            const fallbackResult = reactionResult.handled
+              ? reactionResult
+              : applyXmppReactionFallback(reactionPayload.targetId, reactionUpdate);
+            if (fallbackResult.handled) {
+              const targetThreadId = fallbackResult.thread?.id || reactionResult.thread?.id || "";
+              if (fallbackResult.changed) {
+                saveState();
+                renderDmList();
+                const activeConversation = getActiveConversation();
+                if (activeConversation?.type === "dm" && activeConversation.thread?.id === targetThreadId) {
+                  renderMessages();
+                }
+              }
+              addXmppDebugEvent("message", "Applied XMPP message reactions", {
+                scope: fallbackResult.scope || "dm",
+                from: peerBare,
+                targetId: reactionPayload.targetId,
+                id: stanzaMessageId || "",
+                emojis: reactionPayload.emojis,
+                changed: fallbackResult.changed
+              });
+              if (!ownAuthor) {
+                maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
+              }
+              return;
+            }
+            addXmppDebugEvent("message", "Ignored unmatched XMPP message reactions", {
+              scope: "dm",
+              from: peerBare,
+              targetId: reactionPayload.targetId,
+              id: stanzaMessageId || ""
+            });
+            return;
+          }
+          if (retractionTargetId) {
+            const retractionPayload = {
+              timestamp,
+              editorUserId: ownAuthor ? current.id : peer.id,
+              editorName: ownAuthor
+                ? (current.displayName || current.username)
+                : (peer.displayName || peer.username),
+              stanzaId: stanzaMessageId,
+              stanzaRefs
+            };
+            const retractionResult = applyXmppDmMessageRetraction(peerBare, retractionTargetId, retractionPayload);
+            const fallbackResult = retractionResult.handled
+              ? retractionResult
+              : applyXmppRetractionFallback(retractionTargetId, retractionPayload);
+            if (fallbackResult.handled) {
+              const targetThreadId = fallbackResult.thread?.id || retractionResult.thread?.id || "";
+              if (fallbackResult.changed) {
+                saveState();
+                if (fallbackResult.contentChanged) renderDmList();
+                const activeConversation = getActiveConversation();
+                if (activeConversation?.type === "dm" && activeConversation.thread?.id === targetThreadId) {
+                  renderMessages();
+                }
+              }
+              addXmppDebugEvent("message", "Applied XMPP message retraction", {
+                scope: fallbackResult.scope || "dm",
+                from: peerBare,
+                targetId: retractionTargetId,
+                id: stanzaMessageId || "",
+                changed: fallbackResult.changed
+              });
+              if (!ownAuthor) {
+                maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
+              }
+              return;
+            }
+            addXmppDebugEvent("message", "Ignored unmatched XMPP message retraction", {
+              scope: "dm",
+              from: peerBare,
+              targetId: retractionTargetId,
+              id: stanzaMessageId || ""
+            });
+            return;
           }
           if (correctionTargetId) {
             const correctionPayload = {
@@ -6973,6 +7457,122 @@ function connectRelaySocket({ force = false } = {}) {
               authorDisplay: nick || ""
             }
           });
+        }
+        if (
+          hasSubjectNode
+          && !bodyText
+          && attachments.length === 0
+          && !reactionPayload
+          && !retractionTargetId
+          && !correctionTargetId
+        ) {
+          const topicResult = applyXmppRoomTopicFromSubject(roomJid, subjectText);
+          if (topicResult.changed) {
+            saveState();
+            renderChannels();
+            const activeConversation = getActiveConversation();
+            if (activeConversation?.type === "channel" && activeConversation.channel?.id === topicResult.channel?.id) {
+              renderMessages();
+            } else {
+              renderServers();
+            }
+          }
+          addXmppDebugEvent("message", "Applied XMPP room subject update", {
+            roomJid,
+            changed: topicResult.changed,
+            subject: subjectText || ""
+          });
+          return;
+        }
+        if (reactionPayload) {
+          const fallbackActorId = roomJid && nick
+            ? `xmpp-room:${roomJid}/${nick.toLowerCase()}`
+            : "";
+          let actorUserId = resolveXmppRoomActorUserId(roomJid, nick, stanza) || "";
+          if (!actorUserId) actorUserId = fallbackActorId;
+          const reactionUpdate = {
+            actorUserId,
+            aliasActorId: fallbackActorId && actorUserId !== fallbackActorId ? fallbackActorId : "",
+            emojis: reactionPayload.emojis,
+            stanzaId: stanzaMessageId,
+            stanzaRefs
+          };
+          const reactionResult = applyXmppRoomReactionUpdate(roomJid, reactionPayload.targetId, reactionUpdate);
+          const fallbackResult = reactionResult.handled
+            ? reactionResult
+            : applyXmppReactionFallback(reactionPayload.targetId, reactionUpdate);
+          if (fallbackResult.handled) {
+            const targetChannelId = fallbackResult.channel?.id || reactionResult.channel?.id || "";
+            if (fallbackResult.changed) {
+              saveState();
+              renderChannels();
+              const activeConversation = getActiveConversation();
+              if (activeConversation?.type === "channel" && activeConversation.channel?.id === targetChannelId) {
+                renderMessages();
+              } else {
+                renderServers();
+              }
+            }
+            addXmppDebugEvent("message", "Applied XMPP message reactions", {
+              scope: fallbackResult.scope || "muc",
+              from: roomJid,
+              targetId: reactionPayload.targetId,
+              id: stanzaMessageId || "",
+              emojis: reactionPayload.emojis,
+              changed: fallbackResult.changed
+            });
+            if (roomJid && nick) maybeFetchXmppMucAvatar(roomJid, nick, from);
+            return;
+          }
+          addXmppDebugEvent("message", "Ignored unmatched XMPP message reactions", {
+            scope: "muc",
+            from: roomJid,
+            targetId: reactionPayload.targetId,
+            id: stanzaMessageId || ""
+          });
+          return;
+        }
+        if (retractionTargetId) {
+          const retractionPayload = {
+            timestamp,
+            editorUserId: "",
+            editorName: nick || roomJid.split("@")[0] || "xmpp",
+            stanzaId: stanzaMessageId,
+            stanzaRefs
+          };
+          const retractionResult = applyXmppRoomMessageRetraction(roomJid, retractionTargetId, retractionPayload);
+          const fallbackResult = retractionResult.handled
+            ? retractionResult
+            : applyXmppRetractionFallback(retractionTargetId, retractionPayload);
+          if (fallbackResult.handled) {
+            const targetChannelId = fallbackResult.channel?.id || retractionResult.channel?.id || "";
+            if (fallbackResult.changed) {
+              saveState();
+              renderChannels();
+              const activeConversation = getActiveConversation();
+              if (activeConversation?.type === "channel" && activeConversation.channel?.id === targetChannelId) {
+                renderMessages();
+              } else {
+                renderServers();
+              }
+            }
+            addXmppDebugEvent("message", "Applied XMPP message retraction", {
+              scope: fallbackResult.scope || "muc",
+              from: roomJid,
+              targetId: retractionTargetId,
+              id: stanzaMessageId || "",
+              changed: fallbackResult.changed
+            });
+            if (roomJid && nick) maybeFetchXmppMucAvatar(roomJid, nick, from);
+            return;
+          }
+          addXmppDebugEvent("message", "Ignored unmatched XMPP message retraction", {
+            scope: "muc",
+            from: roomJid,
+            targetId: retractionTargetId,
+            id: stanzaMessageId || ""
+          });
+          return;
         }
         if (correctionTargetId) {
           const correctionPayload = {
@@ -7785,6 +8385,23 @@ function appendXmppOriginIdNode(stanza, originId) {
   return stanza;
 }
 
+function appendXmppReactionsNode(stanza, targetRefId, emojis = []) {
+  const refId = (targetRefId || "").toString().trim();
+  if (!stanza || !refId) return stanza;
+  xmppEnsureBuilderAtMessageNode(stanza);
+  stanza.c("reactions", { xmlns: XMPP_REACTIONS_NAMESPACE, id: refId });
+  const normalized = [...new Set(
+    (Array.isArray(emojis) ? emojis : [])
+      .map((emoji) => (emoji || "").toString().trim())
+      .filter(Boolean)
+  )].slice(0, 8);
+  normalized.forEach((emoji) => {
+    stanza.c("reaction").t(emoji).up();
+  });
+  stanza.up();
+  return stanza;
+}
+
 function xmppShareableAttachmentsForStanza(message, { limit = 6, urlMax = 2048 } = {}) {
   return relayTransportAttachments(message?.attachments, {
     limit: Math.max(1, Math.min(8, Number(limit) || 6)),
@@ -8157,6 +8774,102 @@ async function xmppPrepareMessageAttachmentsForUpload(message, { conversationId 
     }
   }
   return normalizedUpdated;
+}
+
+function publishXmppMessageReaction(conversation, message, account) {
+  const prefs = getPreferences();
+  if (prefs.relayMode !== "xmpp" || relayStatus !== "connected" || !xmppConnection || !globalThis.$msg) {
+    return { ok: false, reason: "xmpp-offline" };
+  }
+  if (!conversation || !message || !account?.id) return { ok: false, reason: "invalid-args" };
+  const targetRefId = primaryXmppReferenceIdForMessage(message);
+  if (!targetRefId) return { ok: false, reason: "missing-reference" };
+  const emojiSet = xmppReactionEmojisForActor(message, account.id);
+  const reactionStanzaId = `s67-react-${createId().slice(0, 12)}`;
+  const reactionOriginId = `s67-origin-${createId().slice(0, 12)}`;
+  if (conversation.type === "dm" && conversation.thread) {
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
+    const dmRoom = relayRoomForDmThread(conversation.thread);
+    const roomJid = xmppRoomJidForToken(dmRoom, prefs);
+    if (peerJid) {
+      const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: reactionStanzaId });
+      appendXmppReactionsNode(stanza, targetRefId, emojiSet);
+      appendXmppOriginIdNode(stanza, reactionOriginId);
+      xmppConnection.send(stanza);
+      message.xmppRefIds = normalizeXmppRefIdsList([
+        ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+        targetRefId,
+        reactionStanzaId,
+        reactionOriginId
+      ]);
+      rememberXmppDmMessage(peerJid, reactionStanzaId, message);
+      rememberXmppDmMessage(peerJid, reactionOriginId, message);
+      addXmppDebugEvent("message", "Sent XMPP message reactions", {
+        scope: "dm",
+        to: peerJid,
+        targetId: targetRefId,
+        emojis: emojiSet,
+        id: reactionStanzaId,
+        originId: reactionOriginId
+      });
+      return { ok: true, id: reactionStanzaId, targetId: targetRefId };
+    }
+    if (roomJid) {
+      const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: reactionStanzaId });
+      appendXmppReactionsNode(stanza, targetRefId, emojiSet);
+      appendXmppOriginIdNode(stanza, reactionOriginId);
+      xmppConnection.send(stanza);
+      message.xmppRefIds = normalizeXmppRefIdsList([
+        ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+        targetRefId,
+        reactionStanzaId,
+        reactionOriginId
+      ]);
+      rememberXmppRoomMessage(roomJid, reactionStanzaId, message);
+      rememberXmppRoomMessage(roomJid, reactionOriginId, message);
+      addXmppDebugEvent("message", "Sent XMPP message reactions", {
+        scope: "dm-room",
+        to: roomJid,
+        targetId: targetRefId,
+        emojis: emojiSet,
+        id: reactionStanzaId,
+        originId: reactionOriginId
+      });
+      return { ok: true, id: reactionStanzaId, targetId: targetRefId };
+    }
+    return { ok: false, reason: "missing-dm-target" };
+  }
+  if (conversation.type === "channel" && conversation.channel) {
+    if (!isXmppBackedChannel(conversation.channel)) return { ok: false, reason: "not-xmpp-channel" };
+    let roomJid = xmppBareJid(conversation.channel.xmppRoomJid || "");
+    if (!roomJid) {
+      const roomToken = (conversation.channel.relayRoomToken || "").toString().trim();
+      roomJid = xmppRoomJidForToken(roomToken || relayRoomForActiveConversation(), prefs);
+    }
+    if (!roomJid) return { ok: false, reason: "missing-room-target" };
+    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: reactionStanzaId });
+    appendXmppReactionsNode(stanza, targetRefId, emojiSet);
+    appendXmppOriginIdNode(stanza, reactionOriginId);
+    xmppConnection.send(stanza);
+    message.xmppRefIds = normalizeXmppRefIdsList([
+      ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+      targetRefId,
+      reactionStanzaId,
+      reactionOriginId
+    ]);
+    rememberXmppRoomMessage(roomJid, reactionStanzaId, message);
+    rememberXmppRoomMessage(roomJid, reactionOriginId, message);
+    addXmppDebugEvent("message", "Sent XMPP message reactions", {
+      scope: "muc",
+      to: roomJid,
+      targetId: targetRefId,
+      emojis: emojiSet,
+      id: reactionStanzaId,
+      originId: reactionOriginId
+    });
+    return { ok: true, id: reactionStanzaId, targetId: targetRefId };
+  }
+  return { ok: false, reason: "unsupported-conversation" };
 }
 
 function publishXmppMessageCorrection(conversation, message, account) {
@@ -9856,14 +10569,32 @@ function serializeMessageAsXml(message) {
   ].join("\n");
 }
 
+function xmppReactionSignature(reactions) {
+  return normalizeReactions(reactions)
+    .map((entry) => `${entry.emoji}|${entry.userIds.join(",")}`)
+    .join("||");
+}
+
+function xmppReactionEmojisForActor(message, actorUserId = "") {
+  const actorId = (actorUserId || "").toString().trim();
+  if (!actorId || !message) return [];
+  return normalizeReactions(message.reactions)
+    .filter((entry) => entry.userIds.includes(actorId))
+    .map((entry) => (entry.emoji || "").toString().trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
 function toggleReaction(message, emoji, userId) {
+  if (!message || !emoji || !userId) return false;
+  const before = xmppReactionSignature(message.reactions);
   if (emoji) rememberRecentEmoji(emoji);
   message.reactions = normalizeReactions(message.reactions);
   let reaction = message.reactions.find((item) => item.emoji === emoji);
   if (!reaction) {
     reaction = { emoji, userIds: [userId] };
     message.reactions.push(reaction);
-    return;
+    return before !== xmppReactionSignature(message.reactions);
   }
   const idx = reaction.userIds.indexOf(userId);
   if (idx === -1) {
@@ -9872,6 +10603,17 @@ function toggleReaction(message, emoji, userId) {
     reaction.userIds.splice(idx, 1);
   }
   message.reactions = message.reactions.filter((item) => item.userIds.length > 0);
+  return before !== xmppReactionSignature(message.reactions);
+}
+
+function toggleMessageReactionForCurrentConversation(conversation, message, emoji, account = getCurrentAccount()) {
+  if (!conversation || !message || !emoji || !account?.id) return false;
+  const changed = toggleReaction(message, emoji, account.id);
+  if (!changed) return false;
+  publishXmppMessageReaction(conversation, message, account);
+  saveState();
+  renderMessages();
+  return true;
 }
 
 function parsePollFromCommandArg(arg) {
@@ -15502,6 +16244,7 @@ function clampPipDockAboveComposer(dockElement) {
 function updateVideoPipDockLayout() {
   if (!(ui.videoPipDock instanceof HTMLElement) || ui.videoPipDock.classList.contains("video-pip--hidden")) return;
   if (pipDragState?.dragging && pipDragState.target === "video") return;
+  if (pipResizeState?.resizing && pipResizeState.target === "video") return;
   const prefs = getPreferences();
   const storedSize = prefs.videoPipSize && typeof prefs.videoPipSize === "object" ? prefs.videoPipSize : null;
   if (Number.isFinite(storedSize?.width) && storedSize.width > 0) {
@@ -15880,8 +16623,8 @@ function initializePipDockResizeObservers() {
   }
   if (!videoPipDockResizeObserver && ui.videoPipDock instanceof HTMLElement) {
     videoPipDockResizeObserver = new ResizeObserver(() => {
+      if (pipResizeState?.resizing && pipResizeState.target === "video") return;
       clampPipDockAboveComposer(ui.videoPipDock);
-      updateVideoPipDockLayout();
       requestSwfRuntimeLayoutSync();
     });
     videoPipDockResizeObserver.observe(ui.videoPipDock);
@@ -20893,8 +21636,19 @@ function renderMessages() {
       renderComposerMeta();
       return;
     }
-    setActiveChannelHeader(channel ? channel.name : "none", channelHeaderGlyph(channel, "channel"), channel ? `#${channel.name}` : "#none");
-    setActiveChannelTopic(channel?.topic?.trim() || "");
+    const channelHeaderLabel = channel && isXmppBackedChannel(channel)
+      ? (xmppChannelDisplayName(channel) || channel.name || "none")
+      : (channel ? channel.name : "none");
+    const channelHeaderReference = channel
+      ? (isXmppBackedChannel(channel)
+          ? (xmppBareJid(channel.xmppRoomJid || "") || `#${channel.name}`)
+          : `#${channel.name}`)
+      : "#none";
+    const channelHeaderTopic = channel && isXmppBackedChannel(channel)
+      ? (xmppChannelDescription(channel) || channel?.topic?.trim() || "")
+      : (channel?.topic?.trim() || "");
+    setActiveChannelHeader(channelHeaderLabel, channelHeaderGlyph(channel, "channel"), channelHeaderReference);
+    setActiveChannelTopic(channelHeaderTopic);
     if (channel?.type === "forum") {
       ui.messageInput.placeholder = channel ? `New post in ${channelTypePrefix(channel)} ${channel.name} (title on first line)` : "No channel selected";
     } else if (channel?.type === "announcement") {
@@ -20995,7 +21749,9 @@ function renderMessages() {
   }
   const channelSlowmode = !isDm ? getChannelSlowmodeSeconds(channel) : 0;
   if (!isDm && channelSlowmode > 0) {
-    const baseTopic = channel?.topic?.trim() || "";
+    const baseTopic = channel && isXmppBackedChannel(channel)
+      ? (xmppChannelDescription(channel) || channel?.topic?.trim() || "")
+      : (channel?.topic?.trim() || "");
     setActiveChannelTopic(baseTopic ? `${baseTopic} · ${formatSlowmodeLabel(channelSlowmode)}` : `${formatSlowmodeLabel(channelSlowmode)}`);
   }
   let unreadDividerMessageId = null;
@@ -21054,7 +21810,10 @@ function renderMessages() {
     }
     if (mamState) {
       const xmppConnected = Boolean(xmppConnection && relayStatus === "connected");
-      const shouldRenderHistoryControl = Boolean(xmppConnected && (mamState.loading || !mamState.complete));
+      const shouldRenderHistoryControl = Boolean(
+        xmppConnected
+        && (mamState.loading || (mamState.pagesLoaded === 0 && !mamState.complete))
+      );
       if (shouldRenderHistoryControl) {
         const control = document.createElement("div");
         control.className = "xmpp-history-control";
@@ -21372,9 +22131,7 @@ function renderMessages() {
         reactionBtn.textContent = emoji;
         reactionBtn.title = `React with ${emoji}`;
         reactionBtn.addEventListener("click", () => {
-          toggleReaction(message, emoji, currentUser.id);
-          saveState();
-          renderMessages();
+          toggleMessageReactionForCurrentConversation(conversation, message, emoji, currentUser);
         });
         reactionQuick.appendChild(reactionBtn);
       });
@@ -21389,9 +22146,7 @@ function renderMessages() {
           emojiOnly: true,
           onEmojiSelect: (emoji) => {
             if (!emoji) return;
-            toggleReaction(message, emoji, currentUser.id);
-            saveState();
-            renderMessages();
+            toggleMessageReactionForCurrentConversation(conversation, message, emoji, currentUser);
           }
         });
       });
@@ -21491,9 +22246,7 @@ function renderMessages() {
       chip.disabled = !canReact;
       if (currentUser && canReact) {
         chip.addEventListener("click", () => {
-          toggleReaction(message, item.emoji, currentUser.id);
-          saveState();
-          renderMessages();
+          toggleMessageReactionForCurrentConversation(conversation, message, item.emoji, currentUser);
         });
       }
       reactions.appendChild(chip);
@@ -23535,7 +24288,8 @@ function ensureXmppSpacesGuild(prefs = getPreferences(), account = getCurrentAcc
 }
 
 function upsertXmppRoomChannel(roomJid, {
-  roomName = "",
+  roomName = null,
+  roomDescription = null,
   roomToken = "",
   prefs = getPreferences(),
   account = getCurrentAccount(),
@@ -23548,7 +24302,16 @@ function upsertXmppRoomChannel(roomJid, {
   let changed = false;
   let created = false;
   const roomNode = normalizedRoomJid.split("@")[0] || "space";
-  const desiredName = sanitizeChannelName((roomName || roomNode).toString(), "space");
+  const normalizedRoomName = roomName == null
+    ? ""
+    : decodeHtmlEntities((roomName || "").toString()).replace(/\s+/g, " ").trim().slice(0, 90);
+  const normalizedRoomDescription = roomDescription == null
+    ? ""
+    : decodeHtmlEntities((roomDescription || "").toString()).replace(/\s+/g, " ").trim().slice(0, 240);
+  const incomingNameIsFallback = !normalizedRoomName
+    || sanitizeChannelName(normalizedRoomName, "space") === sanitizeChannelName(roomNode, "space");
+  const desiredDisplayName = normalizedRoomName || roomNode;
+  const desiredName = sanitizeChannelName(desiredDisplayName, "space");
   const desiredToken = (roomToken || `xmpp:${normalizedRoomJid}`).toString().trim() || `xmpp:${normalizedRoomJid}`;
   let channel = guild.channels.find((entry) => normalizeXmppJid(entry?.xmppRoomJid || "").toLowerCase() === normalizedRoomJid) || null;
   if (!channel && desiredToken) {
@@ -23559,7 +24322,7 @@ function upsertXmppRoomChannel(roomJid, {
       id: createId(),
       name: desiredName,
       type: "text",
-      topic: `XMPP MUC ${normalizedRoomJid}`,
+      topic: normalizedRoomDescription || `XMPP room ${normalizedRoomJid}`,
       forumTags: [],
       permissionOverrides: {},
       voiceState: createVoiceState(),
@@ -23567,6 +24330,8 @@ function upsertXmppRoomChannel(roomJid, {
       slowmodeSec: 0,
       slowmodeState: {},
       messages: [],
+      xmppRoomName: desiredDisplayName,
+      xmppRoomDescription: normalizedRoomDescription,
       xmppRoomJid: normalizedRoomJid,
       relayRoomToken: desiredToken
     };
@@ -23574,9 +24339,41 @@ function upsertXmppRoomChannel(roomJid, {
     changed = true;
     created = true;
   } else {
-    if (desiredName && channel.name !== desiredName) {
-      channel.name = desiredName;
+    const currentDisplayName = decodeHtmlEntities((channel.xmppRoomName || "").toString()).replace(/\s+/g, " ").trim();
+    const shouldUpdateDisplayName = normalizedRoomName
+      && (!incomingNameIsFallback || !currentDisplayName);
+    if (shouldUpdateDisplayName && currentDisplayName !== normalizedRoomName) {
+      channel.xmppRoomName = normalizedRoomName;
       changed = true;
+    }
+    if (!channel.xmppRoomName) {
+      channel.xmppRoomName = currentDisplayName || desiredDisplayName;
+      changed = true;
+    }
+    const expectedName = sanitizeChannelName((channel.xmppRoomName || channel.name || desiredDisplayName).toString(), "space");
+    if (expectedName && channel.name !== expectedName) {
+      channel.name = expectedName;
+      changed = true;
+    }
+    if (roomDescription != null) {
+      const previousDescription = decodeHtmlEntities((channel.xmppRoomDescription || "").toString()).replace(/\s+/g, " ").trim();
+      if (previousDescription !== normalizedRoomDescription) {
+        channel.xmppRoomDescription = normalizedRoomDescription;
+        changed = true;
+      }
+      const topic = decodeHtmlEntities((channel.topic || "").toString()).replace(/\s+/g, " ").trim();
+      const generatedTopic = /^xmpp (?:muc|room) /i.test(topic);
+      if (normalizedRoomDescription && (generatedTopic || topic === previousDescription)) {
+        if (topic !== normalizedRoomDescription) {
+          channel.topic = normalizedRoomDescription;
+          changed = true;
+        }
+      } else if (!normalizedRoomDescription && (generatedTopic || topic === previousDescription)) {
+        if (channel.topic) {
+          channel.topic = "";
+          changed = true;
+        }
+      }
     }
     if (channel.xmppRoomJid !== normalizedRoomJid) {
       channel.xmppRoomJid = normalizedRoomJid;
@@ -23596,6 +24393,41 @@ function upsertXmppRoomChannel(roomJid, {
   }
   if (changed && persist) saveState();
   return { channel, created, changed };
+}
+
+function xmppChannelDisplayName(channel) {
+  if (!channel || !isXmppBackedChannel(channel)) return "";
+  const explicit = decodeHtmlEntities((channel.xmppRoomName || "").toString()).replace(/\s+/g, " ").trim();
+  if (explicit) return explicit.slice(0, 90);
+  const roomJid = xmppBareJid(channel.xmppRoomJid || "");
+  if (roomJid) return (roomJid.split("@")[0] || "").slice(0, 90);
+  return "";
+}
+
+function xmppChannelDescription(channel) {
+  if (!channel || !isXmppBackedChannel(channel)) return "";
+  const description = decodeHtmlEntities((channel.xmppRoomDescription || "").toString()).replace(/\s+/g, " ").trim();
+  if (description) return description.slice(0, 240);
+  return "";
+}
+
+function applyXmppRoomTopicFromSubject(roomJid, subject = "") {
+  const bareRoom = xmppBareJid(roomJid);
+  if (!bareRoom) return { changed: false, channel: null };
+  const roomToken = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
+  const channel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(bareRoom);
+  if (!channel) return { changed: false, channel: null };
+  const updated = upsertXmppRoomChannel(bareRoom, {
+    roomDescription: subject,
+    roomToken,
+    prefs: getPreferences(),
+    account: getCurrentAccount(),
+    persist: false
+  });
+  return {
+    changed: Boolean(updated.changed),
+    channel: updated.channel || channel
+  };
 }
 
 function upsertXmppSpaceChannels(bookmarks, prefs = getPreferences(), account = getCurrentAccount()) {
