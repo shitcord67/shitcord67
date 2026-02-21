@@ -81,6 +81,7 @@
 - Build `local-json` adapter first (file-backed or websocket-backed).
 - Add XMPP adapter skeleton (MUC rooms mapped to guild/channel abstraction).
 - Add Matrix adapter skeleton (space/room mapping).
+- Add IRC adapter skeleton (channel mapping, nick/presence approximation, bridgeable message send/receive path).
 
 ## Existing ideas to revisit
 - If possible make it Discord-API or discord.js compatible.
@@ -300,7 +301,7 @@ https://discord.js.org/docs/packages/discord.js/main
 - Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.
 - Ideally also same for Matrix
-- IRC?
+- IRC? (Start implementing IRC stuff and then build up to IRCv3 stuff, also show IRC version used)
 - chesspark used XMPP for chess... investigate about that and maybe we can offer something like it too, lol
 - Make shitcord67 functionality use more XMPP XEPs (https://xmpp.org/extensions/)
 - Custom (hopefully not spammy) XMPP events/messages/extension in case existing XEPs don't cover stuff other users should see (e.g. maybe the user-defined nametags that use SVG and SMIL?)

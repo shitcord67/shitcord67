@@ -51,6 +51,20 @@ is_port_listening() {
   return 1
 }
 
+is_http_responding() {
+  local url="$1"
+  if command_exists curl; then
+    curl -fsS --max-time 2 --output /dev/null "$url" >/dev/null 2>&1
+    return $?
+  fi
+  if command_exists wget; then
+    wget -q --spider --timeout=2 "$url" >/dev/null 2>&1
+    return $?
+  fi
+  # If neither client exists, fall back to optimistic reuse/start behavior.
+  return 0
+}
+
 start_bg() {
   local name="$1"
   shift
@@ -171,8 +185,24 @@ if ! command_exists python3; then
   exit 1
 fi
 
+if command_exists node; then
+  if ! node "${ROOT_DIR}/scripts/sync-strophe-runtime.mjs"; then
+    echo "[run-client-stack] warning: runtime sync failed; media runtime fallbacks may be unavailable." >&2
+  fi
+else
+  echo "[run-client-stack] warning: node is unavailable, skipping runtime sync." >&2
+fi
+
+CLIENT_URL="http://${CLIENT_HOST}:${CLIENT_PORT}/"
+
 if is_port_listening "${CLIENT_PORT}"; then
-  echo "[run-client-stack] client server port ${CLIENT_PORT} already in use, reusing existing server."
+  if is_http_responding "${CLIENT_URL}"; then
+    echo "[run-client-stack] client server port ${CLIENT_PORT} already in use, reusing existing server."
+  else
+    echo "[run-client-stack] client server port ${CLIENT_PORT} is listening but ${CLIENT_URL} is not responding." >&2
+    echo "[run-client-stack] refusing stale reuse; stop the process on port ${CLIENT_PORT} or pick another CLIENT_PORT." >&2
+    exit 1
+  fi
 else
   start_bg "client-server" python3 -m http.server "${CLIENT_PORT}" --bind "${CLIENT_HOST}" --directory "${ROOT_DIR}"
 fi
@@ -191,7 +221,7 @@ else
   echo "[run-client-stack] gateway disabled (mode=${GATEWAY_MODE})."
 fi
 
-echo "[run-client-stack] client: http://${CLIENT_HOST}:${CLIENT_PORT}"
+echo "[run-client-stack] client: ${CLIENT_URL}"
 if should_start_gateway; then
   echo "[run-client-stack] gateway: http://${GATEWAY_HOST}:${GATEWAY_PORT}"
 fi

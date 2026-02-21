@@ -35,6 +35,15 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function isGatewayModeValid(mode) {
   return mode === "auto" || mode === "on" || mode === "off";
 }
@@ -220,7 +229,7 @@ function attachNavigationGuards(windowInstance, allowedOrigin) {
   });
 
   windowInstance.webContents.on("will-navigate", (event, url) => {
-    if (url.startsWith(allowedOrigin)) return;
+    if (url.startsWith(allowedOrigin) || url.startsWith("data:") || url.startsWith("about:blank")) return;
     event.preventDefault();
     openExternalInApp(url);
   });
@@ -239,7 +248,7 @@ function attachDeveloperShortcuts(windowInstance) {
   });
 }
 
-async function createMainWindow() {
+async function createMainWindow({ startupWarning = "" } = {}) {
   const browser = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -261,7 +270,31 @@ async function createMainWindow() {
   attachNavigationGuards(browser, origin);
   attachDeveloperShortcuts(browser);
 
-  await browser.loadURL(CLIENT_URL);
+  let loadedClient = false;
+  try {
+    await browser.loadURL(CLIENT_URL);
+    loadedClient = true;
+  } catch (error) {
+    log("client load failed", String(error?.message || error));
+  }
+  if (!loadedClient) {
+    const warningText = startupWarning
+      ? `${startupWarning}\n\nThe app opened, but the local client URL is unavailable.`
+      : `Could not load ${CLIENT_URL}.`;
+    const fallbackHtml = [
+      "<!doctype html><html><head><meta charset=\"utf-8\" />",
+      "<title>shitcord67 Startup Notice</title>",
+      "<style>body{margin:0;font-family:ui-sans-serif,system-ui,sans-serif;background:#111319;color:#dde3ef;display:grid;place-items:center;min-height:100vh}main{max-width:760px;padding:24px}h1{margin:0 0 12px;font-size:1.25rem}p,pre{line-height:1.45}pre{background:#181c25;border:1px solid #2a3140;border-radius:8px;padding:12px;white-space:pre-wrap}a{color:#9cb5ff}button{margin-top:10px;padding:8px 12px;border-radius:8px;border:1px solid #3a4357;background:#202634;color:#eef2ff;cursor:pointer}</style>",
+      "</head><body><main>",
+      "<h1>Desktop window opened, but backend is unavailable</h1>",
+      `<p>Expected URL: <a href="${escapeHtml(CLIENT_URL)}">${escapeHtml(CLIENT_URL)}</a></p>`,
+      `<pre>${escapeHtml(warningText)}</pre>`,
+      "<button onclick=\"location.href='" + escapeHtml(CLIENT_URL) + "'\">Retry loading app</button>",
+      "</main></body></html>"
+    ].join("");
+    const fallbackUrl = `data:text/html;charset=utf-8,${encodeURIComponent(fallbackHtml)}`;
+    await browser.loadURL(fallbackUrl);
+  }
 
   browser.on("closed", () => {
     if (mainWindow === browser) mainWindow = null;
@@ -285,15 +318,28 @@ app.on("will-quit", () => {
 });
 
 app.whenReady().then(async () => {
+  let startupWarning = "";
   try {
     installClientSecurityHeaders();
     startStackScript();
     await waitForClientReady(CLIENT_URL, START_TIMEOUT_MS);
-    await createMainWindow();
+  } catch (error) {
+    startupWarning = String(error?.message || error || "unknown error");
+    log("startup warning", startupWarning);
+  }
+
+  try {
+    await createMainWindow({ startupWarning });
+    if (startupWarning) {
+      dialog.showErrorBox(
+        "Desktop stack warning",
+        `${startupWarning}\n\nThe desktop window was opened anyway. Verify that ${CLIENT_URL} is reachable.`
+      );
+    }
   } catch (error) {
     const message = String(error?.message || error || "unknown error");
     log("startup failed", message);
-    dialog.showErrorBox("Failed to start desktop client", message);
+    dialog.showErrorBox("Failed to open desktop window", message);
     isShuttingDown = true;
     stopStackScript();
     app.quit();
