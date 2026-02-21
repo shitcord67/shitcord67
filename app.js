@@ -12712,6 +12712,35 @@ function openShortcutsDialog() {
   ui.shortcutsDialog?.showModal();
 }
 
+function bindMessageActionHoverState(messageRow, actionBar) {
+  if (!(messageRow instanceof HTMLElement) || !(actionBar instanceof HTMLElement)) return;
+  const setLocked = (locked) => {
+    messageRow.classList.toggle("message--actions-hover", Boolean(locked));
+  };
+  actionBar.addEventListener("pointerenter", () => {
+    setLocked(true);
+  });
+  actionBar.addEventListener("pointerleave", (event) => {
+    const next = event.relatedTarget;
+    if (next instanceof Node && actionBar.contains(next)) return;
+    if (actionBar.matches(":focus-within")) return;
+    setLocked(false);
+  });
+  actionBar.addEventListener("focusin", () => {
+    setLocked(true);
+  });
+  actionBar.addEventListener("focusout", (event) => {
+    const next = event.relatedTarget;
+    if (next instanceof Node && actionBar.contains(next)) return;
+    if (actionBar.matches(":hover")) return;
+    setLocked(false);
+  });
+  messageRow.addEventListener("mouseleave", () => {
+    if (actionBar.matches(":hover") || actionBar.matches(":focus-within")) return;
+    setLocked(false);
+  });
+}
+
 function quickSwitchHaystackForItem(item) {
   return [
     item.label || "",
@@ -16543,10 +16572,59 @@ function activeConversationHasLiveSwfRuntime(messageBucket = []) {
   return false;
 }
 
+function mixRenderSignatureHash(hash, value) {
+  const token = (value || "").toString();
+  let mixed = Number(hash) >>> 0;
+  for (let index = 0; index < token.length; index += 1) {
+    mixed ^= token.charCodeAt(index);
+    mixed = Math.imul(mixed, 16777619);
+  }
+  return mixed >>> 0;
+}
+
+function conversationRenderDigest(messageBucket) {
+  const list = Array.isArray(messageBucket) ? messageBucket : [];
+  let hash = 2166136261;
+  list.forEach((message) => {
+    if (!message || typeof message !== "object") {
+      hash = mixRenderSignatureHash(hash, "null-message");
+      return;
+    }
+    hash = mixRenderSignatureHash(hash, message.id || "");
+    hash = mixRenderSignatureHash(hash, message.editedAt || "");
+    hash = mixRenderSignatureHash(hash, message.ts || "");
+    hash = mixRenderSignatureHash(hash, message.retracted ? "1" : "0");
+    hash = mixRenderSignatureHash(hash, message.pinned ? "1" : "0");
+    const reactions = normalizeReactions(message.reactions);
+    hash = mixRenderSignatureHash(hash, String(reactions.length));
+    reactions.forEach((entry) => {
+      hash = mixRenderSignatureHash(hash, entry.emoji || "");
+      hash = mixRenderSignatureHash(hash, (Array.isArray(entry.userIds) ? entry.userIds : []).join(","));
+    });
+    const attachments = normalizeAttachments(message.attachments);
+    hash = mixRenderSignatureHash(hash, String(attachments.length));
+    attachments.forEach((entry) => {
+      hash = mixRenderSignatureHash(hash, entry.type || "");
+      hash = mixRenderSignatureHash(hash, entry.url || "");
+    });
+    const poll = normalizePoll(message.poll);
+    hash = mixRenderSignatureHash(hash, poll ? "1" : "0");
+    if (poll) {
+      hash = mixRenderSignatureHash(hash, poll.closed ? "1" : "0");
+      poll.options.forEach((option) => {
+        hash = mixRenderSignatureHash(hash, option.id || "");
+        hash = mixRenderSignatureHash(hash, (Array.isArray(option.voterIds) ? option.voterIds : []).join(","));
+      });
+    }
+  });
+  return hash.toString(36);
+}
+
 function conversationRenderSignature(conversationId, messageBucket, activeFindId = "") {
   const list = Array.isArray(messageBucket) ? messageBucket : [];
   const first = list[0] || null;
   const last = list[list.length - 1] || null;
+  const digest = conversationRenderDigest(list);
   return [
     conversationId || "",
     list.length,
@@ -16554,6 +16632,7 @@ function conversationRenderSignature(conversationId, messageBucket, activeFindId
     first?.editedAt || first?.ts || "",
     last?.id || "",
     last?.editedAt || last?.ts || "",
+    digest,
     activeFindId || ""
   ].join("|");
 }
@@ -19450,13 +19529,31 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   }
 
   if (type === "html") {
+    const note = document.createElement("div");
+    note.className = "message-embed-note";
+    note.textContent = "HTML preview is disabled until you click load, to avoid auto-download prompts.";
+    wrap.appendChild(note);
     const frame = document.createElement("iframe");
     frame.className = "message-html-frame";
     frame.loading = "lazy";
     frame.referrerPolicy = "no-referrer";
-    frame.sandbox = "allow-same-origin allow-scripts allow-forms allow-popups allow-downloads";
-    frame.src = mediaUrl;
+    frame.sandbox = "allow-same-origin allow-scripts allow-forms allow-popups";
+    frame.src = "about:blank";
+    frame.hidden = true;
     wrap.appendChild(frame);
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "message-attachment-action";
+    loadBtn.textContent = "Load HTML preview";
+    loadBtn.addEventListener("click", () => {
+      if (frame.dataset.loaded === "on") return;
+      frame.dataset.loaded = "on";
+      frame.hidden = false;
+      frame.src = mediaUrl;
+      loadBtn.disabled = true;
+      loadBtn.textContent = "HTML preview loaded";
+    });
+    wrap.appendChild(loadBtn);
     const openBtn = document.createElement("a");
     openBtn.className = "message-swf-link";
     openBtn.href = mediaUrl;
@@ -20948,6 +21045,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       renderChannels();
     });
     postActions.appendChild(markReadBtn);
+    bindMessageActionHoverState(postRow, postActions);
     postRow.appendChild(postActions);
 
     const threadReadMs = toTimestampMs(getForumThreadReadTimestamp(channel?.id, post.id));
@@ -21088,6 +21186,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
           renderMessages();
         });
         replyActions.appendChild(replyUnreadBtn);
+        bindMessageActionHoverState(replyRow, replyActions);
         replyRow.appendChild(replyActions);
         replyRow.addEventListener("contextmenu", (event) => {
           openContextMenu(event, [
@@ -22301,6 +22400,7 @@ function renderMessages() {
       });
       actionBar.appendChild(deleteBtn);
     }
+    bindMessageActionHoverState(messageRow, actionBar);
 
     const reactions = document.createElement("div");
     reactions.className = "message-reactions";
