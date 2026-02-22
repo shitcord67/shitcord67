@@ -272,3 +272,6 @@ Or better, please ask me if I want to clean before build...
 
 ## 2026-02-22T21:23:40Z
 I think there should actually be a build script in the root directory of the project.
+
+## 2026-02-22T21:24:38Z
+Also can you note more clear in the README that an LLM writes all the code, forget about the review part.

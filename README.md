@@ -4,7 +4,7 @@ A lightweight Discord-style chat client prototype with local persistence.
 
 ![shitcord67 UI screenshot](Screenshot.png)
 
-Note: substantial parts of this codebase are LLM-assisted/generated and then reviewed/refined in-repo.
+Note: all code in this repository is written by an LLM.
 
 ## Quick Start (Electron)
 1. Install dependencies:
