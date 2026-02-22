@@ -29,9 +29,9 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 2. Start desktop client:
    - `npm run electron`
    - launches Electron and starts/stops local stack automatically.
-   - if `8080` is stale/non-responsive, Electron auto-retries fallback ports (`18080`, `8081`, `38080`, `18081`).
-   - if startup warns that port `8080` is listening but not responding, free it first:
-     - `lsof -nP -iTCP:8080 -sTCP:LISTEN`
+   - if `8080` is stale/non-responsive, Electron auto-retries fixed fallbacks (`18080`, `8081`, `38080`, `18081`) and then additional OS-assigned free ports.
+   - if startup warns that a port is listening but not responding, free it first:
+     - `lsof -nP -iTCP:<PORT> -sTCP:LISTEN`
      - `kill <PID>`
 3. Optional gateway modes:
    - `npm run electron:with-gateway`
@@ -54,7 +54,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 
 ## Desktop Env Overrides
 1. Optional env overrides:
-   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`
+   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`
 
 ## Implemented
 - Login by username (creates/switches local accounts).

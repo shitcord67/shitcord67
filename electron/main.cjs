@@ -3,6 +3,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const http = require("node:http");
 const https = require("node:https");
+const net = require("node:net");
 const path = require("node:path");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
@@ -14,6 +15,7 @@ const GATEWAY_HOST = process.env.GATEWAY_HOST || "127.0.0.1";
 const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 8790);
 const GATEWAY_MODE = String(process.env.ELECTRON_GATEWAY_MODE || "auto").toLowerCase();
 const START_TIMEOUT_MS = Math.max(3000, Number(process.env.ELECTRON_START_TIMEOUT_MS || 20000));
+const DYNAMIC_PORT_ATTEMPTS = Math.max(0, Number(process.env.ELECTRON_DYNAMIC_PORT_ATTEMPTS || 12));
 const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
 const CLIENT_PORT_FALLBACKS = [18080, 8081, 38080, 18081];
 
@@ -312,14 +314,60 @@ app.on("will-quit", () => {
 
 function buildClientPortCandidates(primaryPort) {
   const normalizedPrimary = Math.max(1, Number(primaryPort) || 8080);
-  const deduped = [normalizedPrimary, ...CLIENT_PORT_FALLBACKS]
+  return [normalizedPrimary, ...CLIENT_PORT_FALLBACKS]
     .map((value) => Math.max(1, Number(value) || 0))
     .filter((value, index, array) => value > 0 && array.indexOf(value) === index);
-  return deduped;
+}
+
+function reserveEphemeralPort(host) {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.unref();
+
+    probe.on("error", (error) => {
+      reject(error);
+    });
+
+    probe.listen({ host, port: 0, exclusive: true }, () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? Number(address.port) : 0;
+      probe.close((closeError) => {
+        if (closeError) {
+          reject(closeError);
+          return;
+        }
+        if (port > 0) {
+          resolve(port);
+          return;
+        }
+        reject(new Error("Failed to reserve ephemeral client port."));
+      });
+    });
+  });
+}
+
+async function buildExpandedClientPortCandidates(primaryPort) {
+  const candidates = buildClientPortCandidates(primaryPort);
+  if (DYNAMIC_PORT_ATTEMPTS <= 0) return candidates;
+
+  const seen = new Set(candidates);
+  for (let i = 0; i < DYNAMIC_PORT_ATTEMPTS; i += 1) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const port = await reserveEphemeralPort(CLIENT_HOST);
+      if (seen.has(port)) continue;
+      seen.add(port);
+      candidates.push(port);
+    } catch {
+      break;
+    }
+  }
+
+  return candidates;
 }
 
 async function startClientStackWithFallback() {
-  const candidates = buildClientPortCandidates(CLIENT_PORT);
+  const candidates = await buildExpandedClientPortCandidates(CLIENT_PORT);
   let lastError = "";
   for (const candidatePort of candidates) {
     try {

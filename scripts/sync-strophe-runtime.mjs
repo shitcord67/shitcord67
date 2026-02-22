@@ -7,15 +7,19 @@ const source = resolve(root, "node_modules/strophe.js/dist/strophe.umd.min.js");
 const target = resolve(root, "vendor/strophe.umd.min.js");
 
 if (!existsSync(source)) {
+  if (!existsSync(target)) {
+    // eslint-disable-next-line no-console
+    console.error(`strophe runtime source missing: ${source}`);
+    process.exit(1);
+  }
   // eslint-disable-next-line no-console
-  console.error(`strophe runtime source missing: ${source}`);
-  process.exit(1);
+  console.log(`strophe runtime source missing; keeping existing bundled runtime: ${target}`);
+} else {
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(source, target);
+  // eslint-disable-next-line no-console
+  console.log(`synced strophe runtime -> ${target}`);
 }
-
-mkdirSync(dirname(target), { recursive: true });
-copyFileSync(source, target);
-// eslint-disable-next-line no-console
-console.log(`synced strophe runtime -> ${target}`);
 
 const optionalCopies = [
   {

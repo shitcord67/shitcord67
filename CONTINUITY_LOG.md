@@ -158,3 +158,55 @@ Error: ENOENT: no such file or directory, uv_cwd
 
 Node.js v20.19.6
 Can you fix this?
+[2026-02-22T02:24:40+01:00] USER PROMPT:
+Desktop window opened, but backend is unavailable
+Expected URL: http://127.0.0.1:18081/
+
+Could not start local client stack on any candidate port (8080, 18080, 8081, 38080, 18081). Last error: Local stack exited early (code=1, signal=none)..
+
+The app opened, but the local client URL is unavailable.
+￼Retry loading app
+[2026-02-22T02:25:03+01:00] USER PROMPT:
+[electron] starting local stack (client=127.0.0.1:8080, gateway=127.0.0.1:8790, mode=auto)
+[electron] stack stderr: strophe runtime source missing: /home/duda/discord-lookalike-flash/node_modules/strophe.js/dist/strophe.umd.min.js
+[electron] stack stderr: [run-client-stack] warning: runtime sync failed; media runtime fallbacks may be unavailable.
+[electron] stack stderr: [run-client-stack] client server port 8080 is listening but http://127.0.0.1:8080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 8080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=8080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:18080
+[electron] starting local stack (client=127.0.0.1:18080, gateway=127.0.0.1:8790, mode=auto)
+[electron] stack stderr: strophe runtime source missing: /home/duda/discord-lookalike-flash/node_modules/strophe.js/dist/strophe.umd.min.js
+[electron] stack stderr: [run-client-stack] warning: runtime sync failed; media runtime fallbacks may be unavailable.
+[electron] stack stderr: [run-client-stack] client server port 18080 is listening but http://127.0.0.1:18080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 18080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=18080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:8081
+[electron] starting local stack (client=127.0.0.1:8081, gateway=127.0.0.1:8790, mode=auto)
+[electron] stack stderr: strophe runtime source missing: /home/duda/discord-lookalike-flash/node_modules/strophe.js/dist/strophe.umd.min.js
+[electron] stack stderr: [run-client-stack] warning: runtime sync failed; media runtime fallbacks may be unavailable.
+[electron] stack stderr: [run-client-stack] client server port 8081 is listening but http://127.0.0.1:8081/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 8081 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=8081 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:38080
+[electron] starting local stack (client=127.0.0.1:38080, gateway=127.0.0.1:8790, mode=auto)
+[electron] stack stderr: strophe runtime source missing: /home/duda/discord-lookalike-flash/node_modules/strophe.js/dist/strophe.umd.min.js
+[electron] stack stderr: [run-client-stack] warning: runtime sync failed; media runtime fallbacks may be unavailable.
+[electron] stack stderr: [run-client-stack] client server port 38080 is listening but http://127.0.0.1:38080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 38080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=38080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:18081
+[electron] starting local stack (client=127.0.0.1:18081, gateway=127.0.0.1:8790, mode=auto)
+[electron] stack stderr: strophe runtime source missing: /home/duda/discord-lookalike-flash/node_modules/strophe.js/dist/strophe.umd.min.js
+[electron] stack stderr: [run-client-stack] warning: runtime sync failed; media runtime fallbacks may be unavailable.
+[electron] stack stderr: [run-client-stack] client server port 18081 is listening but http://127.0.0.1:18081/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 18081 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=18081 error=Local stack exited early (code=1, signal=none).
+[electron] startup warning Could not start local client stack on any candidate port (8080, 18080, 8081, 38080, 18081). Last error: Local stack exited early (code=1, signal=none)..
+(node:859895) electron: Failed to load URL: http://127.0.0.1:18081/ with error: ERR_EMPTY_RESPONSE
+(Use `electron --trace-warnings ...` to show where the warning was created)
+[electron] client load failed ERR_EMPTY_RESPONSE (-324) loading 'http://127.0.0.1:18081/'
