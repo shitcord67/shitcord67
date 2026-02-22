@@ -20,6 +20,7 @@ const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com http
 const CLIENT_PORT_FALLBACKS = [18080, 8081, 38080, 18081];
 const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
 const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "tmp").toLowerCase();
+const PACKAGED_LINUX_RUNTIME_DIR = String(process.env.S67_PACKAGED_LINUX_RUNTIME_DIR || "").trim();
 
 function resolveShmMode(rawMode) {
   if (rawMode === "shm") return "shm";
@@ -27,9 +28,31 @@ function resolveShmMode(rawMode) {
   return "tmp";
 }
 
+function resolveWritableRuntimeDir() {
+  const home = process.env.HOME || process.env.USERPROFILE || "";
+  const candidates = [
+    PACKAGED_LINUX_RUNTIME_DIR,
+    home ? path.join(home, ".cache", "shitcord67", "runtime") : "",
+    home ? path.join(home, ".local", "state", "shitcord67", "runtime") : "",
+    path.join(process.cwd(), ".shitcord67-runtime")
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      fs.mkdirSync(candidate, { recursive: true });
+      fs.accessSync(candidate, fs.constants.W_OK | fs.constants.X_OK);
+      return candidate;
+    } catch {
+      // try next path
+    }
+  }
+  return "";
+}
+
 if (process.platform === "linux" && app.isPackaged) {
   const effectiveShmMode = resolveShmMode(PACKAGED_LINUX_SHM_MODE);
   const disableSandbox = PACKAGED_LINUX_SANDBOX_MODE !== "on";
+  const runtimeDir = resolveWritableRuntimeDir();
 
   if (PACKAGED_LINUX_SANDBOX_MODE !== "on") {
     // Packaged Linux binaries often fail to launch in restricted environments unless sandboxing is disabled.
@@ -39,9 +62,16 @@ if (process.platform === "linux" && app.isPackaged) {
   if (effectiveShmMode === "tmp") {
     // Force Chromium to use /tmp for shared memory in packaged Linux builds.
     app.commandLine.appendSwitch("disable-dev-shm-usage");
+    if (runtimeDir) {
+      process.env.TMPDIR = runtimeDir;
+      process.env.TMP = runtimeDir;
+      process.env.TEMP = runtimeDir;
+    }
   }
   // eslint-disable-next-line no-console
-  console.log(`[electron] packaged linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${effectiveShmMode}`);
+  console.log(
+    `[electron] packaged linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${effectiveShmMode} runtimeTmp=${runtimeDir || "unresolved"}`
+  );
 }
 
 let mainWindow = null;

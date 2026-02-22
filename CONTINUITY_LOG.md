@@ -727,3 +727,23 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
 [electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 00:00:01] "GET / HTTP/1.1" 200 -
 [electron] client load failed ERR_FAILED (-2) loading 'http://127.0.0.1:41329/'
 Trace/Breakpoint ausgelöst(Speicherabzug geschrieben) dist/electron/shitcord67-linux-x64/shitcord67
+
+## 2026-02-22T23:25:20Z
+nj failed: No such process (3)
+[1000896:0223/002453.924678:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1000896:0223/002453.934783:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.L8umUI failed: No such process (3)
+[1000896:0223/002453.934819:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1000896:0223/002453.944941:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.dIZVHY failed: No such process (3)
+[1000896:0223/002453.944986:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1000896:0223/002453.955094:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.eTRc0S failed: No such process (3)
+[1000896:0223/002453.955134:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1000896:0223/002453.965234:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.2xUFGM failed: No such process (3)
+[1000896:0223/002453.965267:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1000896:0223/002453.975393:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.KhvFqg failed: No such process (3)
+[1000896:0223/002453.975440:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1000896:0223/002453.985574:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.diN3fy failed: No such process (3)
+[1000896:0223/002453.985636:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1000896:0223/002453.995773:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.exs69Q failed: No such process (3)
+[1000896:0223/002453.995825:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+^C[electron] stopping local stack
+[electron] [run-client-stack] shutting down...

@@ -100,7 +100,7 @@ Notes:
 
 ## Desktop Env Overrides
 1. Optional env overrides:
-   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`, `S67_PACKAGED_LINUX_SANDBOX` (`on` to force sandbox in packaged Linux builds; default is `off`), `S67_PACKAGED_LINUX_SHM_MODE` (`tmp` default, `shm` to force `/dev/shm`)
+   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`, `S67_PACKAGED_LINUX_SANDBOX` (`on` to force sandbox in packaged Linux builds; default is `off`), `S67_PACKAGED_LINUX_SHM_MODE` (`tmp` default, `shm` to force `/dev/shm`), `S67_PACKAGED_LINUX_RUNTIME_DIR` (optional writable directory for packaged Linux temp/shared runtime files)
 
 ## Implemented
 - Login by username (creates/switches local accounts).
