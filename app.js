@@ -10603,6 +10603,7 @@ function isLikelyRichTextLink(value) {
     /^https?:\/\//i.test(token)
     || /^mailto:[^\s]+$/i.test(token)
     || /^xmpp:[^\s]+$/i.test(token)
+    || /^s67cmd:[^\s]+$/i.test(token)
   );
 }
 
@@ -10610,6 +10611,57 @@ function sanitizeRichTextHref(value) {
   const token = (value || "").toString().trim();
   if (!isLikelyRichTextLink(token)) return "";
   return token;
+}
+
+function isInlineCommandHref(value) {
+  return /^s67cmd:/i.test((value || "").toString().trim());
+}
+
+function normalizeSlashCommandInvocation(rawValue) {
+  let value = decodeHtmlEntities((rawValue || "").toString()).trim();
+  if (!value) return "";
+  if (isInlineCommandHref(value)) {
+    value = value.replace(/^s67cmd:/i, "");
+    try {
+      value = decodeURIComponent(value);
+    } catch {
+      // Keep undecoded payload when malformed.
+    }
+    value = value.trim();
+  }
+  if (!value) return "";
+  if (!value.startsWith("/")) value = `/${value}`;
+  const commandName = value.slice(1).split(/\s+/)[0].toLowerCase();
+  if (!commandName) return "";
+  if (!SLASH_COMMANDS.some((entry) => entry.name === commandName)) return "";
+  return value;
+}
+
+function invokeInlineCommand(rawValue, { submit = false } = {}) {
+  const commandText = normalizeSlashCommandInvocation(rawValue);
+  if (!commandText) return false;
+  const account = getCurrentAccount();
+  const conversation = getActiveConversation();
+  if (!account || !conversation || !(ui.messageInput instanceof HTMLTextAreaElement)) {
+    showToast("Open a conversation first.", { tone: "error" });
+    return false;
+  }
+  const nextComposerText = submit || /\s/.test(commandText.slice(1))
+    ? commandText
+    : `${commandText} `;
+  ui.messageInput.value = trimTextForConversation(nextComposerText, conversation);
+  const caret = ui.messageInput.value.length;
+  ui.messageInput.setSelectionRange(caret, caret);
+  resizeComposerInput();
+  setComposerDraft(conversation.id, ui.messageInput.value);
+  queueComposerDraftSave();
+  renderSlashSuggestions();
+  renderComposerMeta();
+  ui.messageInput.focus();
+  if (submit) {
+    ui.messageForm.requestSubmit();
+  }
+  return true;
 }
 
 function isLikelyImageDataUrl(value) {
@@ -15483,8 +15535,28 @@ function appendMentionOrEmoji(target, token, context) {
   target.appendChild(document.createTextNode(token));
 }
 
+function appendInlineCommandChip(target, label, invocation, { submit = false, title = "" } = {}) {
+  const normalized = normalizeSlashCommandInvocation(invocation);
+  if (!normalized) return false;
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "inline-command-chip";
+  chip.textContent = label;
+  chip.title = title || (submit
+    ? "Run command. Shift+click inserts only."
+    : "Insert command. Shift+click runs immediately.");
+  chip.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const shouldSubmit = submit ? !event.shiftKey : event.shiftKey;
+    invokeInlineCommand(normalized, { submit: shouldSubmit });
+  });
+  target.appendChild(chip);
+  return true;
+}
+
 function appendInlineRichText(target, text, context) {
-  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:)[^\s)]+\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:)[^\s)]+\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:)[^\s)]+\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:|s67cmd:)[^\s)]+\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|s67cmd:[^\s]+|\/[a-z][a-z0-9-]{1,31}\b|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
   let lastIndex = 0;
   let match = tokenPattern.exec(text);
   while (match) {
@@ -15563,16 +15635,32 @@ function appendInlineRichText(target, text, context) {
         target.appendChild(document.createTextNode(token));
       }
     } else if (token.startsWith("[") && token.includes("](") && token.endsWith(")")) {
-      const parts = token.match(/^\[([^\]]{1,80})\]\(((?:https?:\/\/|mailto:|xmpp:)[^\s)]+)\)$/i);
+      const parts = token.match(/^\[([^\]]{1,80})\]\(((?:https?:\/\/|mailto:|xmpp:|s67cmd:)[^\s)]+)\)$/i);
       const href = sanitizeRichTextHref(parts?.[2] || "");
       if (parts && href) {
-        const link = document.createElement("a");
-        link.href = href;
-        link.textContent = parts[1];
-        link.target = "_blank";
-        link.rel = "noreferrer noopener";
-        target.appendChild(link);
+        if (isInlineCommandHref(href)) {
+          const label = parts[1] || normalizeSlashCommandInvocation(href) || "Run command";
+          if (!appendInlineCommandChip(target, label, href, { submit: true })) {
+            target.appendChild(document.createTextNode(token));
+          }
+        } else {
+          const link = document.createElement("a");
+          link.href = href;
+          link.textContent = parts[1];
+          link.target = "_blank";
+          link.rel = "noreferrer noopener";
+          target.appendChild(link);
+        }
       } else {
+        target.appendChild(document.createTextNode(token));
+      }
+    } else if (isInlineCommandHref(token)) {
+      const label = normalizeSlashCommandInvocation(token) || token;
+      if (!appendInlineCommandChip(target, label, token, { submit: true })) {
+        target.appendChild(document.createTextNode(token));
+      }
+    } else if (/^\/[a-z][a-z0-9-]{1,31}$/i.test(token)) {
+      if (!appendInlineCommandChip(target, token, token, { submit: false })) {
         target.appendChild(document.createTextNode(token));
       }
     } else if (isLikelyRichTextLink(token)) {

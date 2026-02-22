@@ -200,6 +200,8 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Emoji recents are persisted and prioritized in picker ordering.
 - Using emoji in picker/reactions updates recent emoji history.
 - Spoiler formatting with `||text||` now renders as click-to-reveal hidden text.
+- Inline slash-command tokens in message text now render as clickable command chips (`/help` inserts in composer; `Shift+click` runs instantly).
+- Markdown `s67cmd:` links now render as clickable command chips for bot-style inline actions (example: `[Roll](s67cmd:/roll)`).
 - New `/spoiler <text>` slash command sends spoiler-formatted messages quickly.
 - New `/poll <question> | <option1> | <option2> ...` slash command creates Telegram-style quick polls.
 - Poll cards support live voting, selected-state highlighting, unique voter counts, and close/reopen controls.

@@ -1543,6 +1543,24 @@ body[data-hide-channel-panel="on"] .chat-panel {
   color: #7fb2ff;
 }
 
+.inline-command-chip {
+  background: rgba(82, 103, 236, 0.22);
+  color: #dfe6ff;
+  border: 1px solid rgba(121, 142, 255, 0.5);
+  border-radius: 999px;
+  padding: 0.02rem 0.42rem;
+  margin: 0 0.08rem;
+  font-size: 0.69rem;
+  font-weight: 750;
+  line-height: 1.2;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
+.inline-command-chip:hover {
+  background: rgba(94, 116, 255, 0.34);
+}
+
 .message-text code {
   background: #1f222a;
   border: 1px solid #363b46;
