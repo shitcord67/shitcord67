@@ -220,3 +220,5 @@ Yeah and also add the selection for stored user accounts back as well
 Eh please do not include a dropdown to select transport mode. Instead just use XMPP per default for now and have
   a dropdown for .xmpp.local.js. Please add entries for kazue@xmpp.jp with password kazuekazue and
   derberg@pimux.de with password my>!H7V7=H<>aD>Y
+[2026-02-22T04:19:06+01:00] USER PROMPT:
+Eh, well. .json is correct, not .js SORRY

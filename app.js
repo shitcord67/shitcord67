@@ -25464,7 +25464,7 @@ function renderLocalXmppProfileSelect() {
   ui.loginLocalProfileSelect.innerHTML = "";
   const defaultOption = document.createElement("option");
   defaultOption.value = "";
-  defaultOption.textContent = "Select profile from .xmpp.local.json/.js";
+  defaultOption.textContent = "Select profile from .xmpp.local.json";
   ui.loginLocalProfileSelect.appendChild(defaultOption);
   if (!Array.isArray(loginLocalXmppProfiles) || loginLocalXmppProfiles.length === 0) {
     ui.loginLocalProfileWrap.hidden = true;
@@ -25493,7 +25493,7 @@ function applyLocalXmppProfileById(profileId) {
 }
 
 async function loadLocalXmppProfiles() {
-  const candidates = [".xmpp.local.json", ".xmpp.local.js", "./.xmpp.local.json", "./.xmpp.local.js"];
+  const candidates = [".xmpp.local.json", "./.xmpp.local.json"];
   for (const path of candidates) {
     try {
       // Try to load local secret profiles if static server exposes dotfiles.
