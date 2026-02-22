@@ -18,6 +18,13 @@ const START_TIMEOUT_MS = Math.max(3000, Number(process.env.ELECTRON_START_TIMEOU
 const DYNAMIC_PORT_ATTEMPTS = Math.max(0, Number(process.env.ELECTRON_DYNAMIC_PORT_ATTEMPTS || 12));
 const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
 const CLIENT_PORT_FALLBACKS = [18080, 8081, 38080, 18081];
+const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
+
+if (process.platform === "linux" && app.isPackaged && PACKAGED_LINUX_SANDBOX_MODE !== "on") {
+  // Packaged Linux binaries often fail to launch in restricted environments unless sandboxing is disabled.
+  app.commandLine.appendSwitch("no-sandbox");
+  app.commandLine.appendSwitch("disable-setuid-sandbox");
+}
 
 let mainWindow = null;
 let stackProcess = null;

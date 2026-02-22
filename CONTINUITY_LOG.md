@@ -278,3 +278,57 @@ Also can you note more clear in the README that an LLM writes all the code, forg
 
 ## 2026-02-22T21:25:00Z
 And please commit the TODOs alwayss, lol
+
+## 2026-02-22T21:49:57Z
+Ok to proceed? (y) 
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@electron/packager@19.0.5',
+npm WARN EBADENGINE   required: { node: '>= 22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@electron/asar@4.0.1',
+npm WARN EBADENGINE   required: { node: '>=22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@electron/get@4.0.2',
+npm WARN EBADENGINE   required: { node: '>=22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@electron/notarize@3.1.1',
+npm WARN EBADENGINE   required: { node: '>= 22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@electron/osx-sign@2.3.0',
+npm WARN EBADENGINE   required: { node: '>=22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@electron/universal@3.0.2',
+npm WARN EBADENGINE   required: { node: '>=22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: '@electron/windows-sign@2.0.2',
+npm WARN EBADENGINE   required: { node: '>=22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'galactus@2.0.2',
+npm WARN EBADENGINE   required: { node: '>=22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN EBADENGINE Unsupported engine {
+npm WARN EBADENGINE   package: 'flora-colossus@3.0.2',
+npm WARN EBADENGINE   required: { node: '>=22.12.0' },
+npm WARN EBADENGINE   current: { node: 'v20.19.6', npm: '7.6.3' }
+npm WARN EBADENGINE }
+npm WARN deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm WARN deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.
+npm WARN deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+## 2026-02-22T21:50:54Z
+dist/electron/shitcord67-linux-x64/shitcord67 but the window doesn't open?

@@ -16,7 +16,7 @@ Note: all code in this repository is written by an LLM.
 1. Install dependencies:
    - `npm install`
 2. Package app into a self-contained desktop folder:
-   - `npx @electron/packager . shitcord67 --platform=linux --arch=x64 --out=dist --overwrite`
+   - `npx @electron/packager . shitcord67 --platform=linux --arch=x64 --asar=false --out=dist --overwrite`
 3. Run packaged binary:
    - `dist/shitcord67-linux-x64/shitcord67`
 4. For Windows/macOS builds, change `--platform`/`--arch` accordingly.
@@ -100,7 +100,7 @@ Notes:
 
 ## Desktop Env Overrides
 1. Optional env overrides:
-   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`
+   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`, `S67_PACKAGED_LINUX_SANDBOX` (`on` to force sandbox in packaged Linux builds; default is `off`)
 
 ## Implemented
 - Login by username (creates/switches local accounts).

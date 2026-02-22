@@ -129,6 +129,7 @@ build_electron() {
     npx @electron/packager . shitcord67 \
       --platform="${electron_platform}" \
       --arch="${electron_arch}" \
+      --asar=false \
       --out="${DIST_DIR}/electron" \
       --overwrite
   )
