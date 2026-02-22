@@ -2,7 +2,6 @@
   "appId": "com.shitcord67.client",
   "appName": "shitcord67",
   "webDir": ".mobile-web",
-  "bundledWebRuntime": false,
   "server": {
     "cleartext": true
   }

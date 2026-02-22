@@ -65,11 +65,15 @@ This project now supports Android using the same `index.html` + `app.js` + `styl
    - `npm run mobile:android:open`
 5. After web code changes, resync Android project:
    - `npm run mobile:android:sync`
+6. Optional CLI build (debug APK):
+   - `cd android && GRADLE_USER_HOME=$PWD/.gradle-local ./gradlew assembleDebug`
+   - output: `android/app/build/outputs/apk/debug/app-debug.apk`
 
 Notes:
 - Mobile web assets are generated into `.mobile-web/` from root shared assets.
 - Keep platform-specific code minimal: Android shell lives under `android/`, app logic stays in shared web files.
 - HTTP content is allowed for compatibility with existing media/gateway flows (`server.cleartext: true` in `capacitor.config.json`).
+- This setup is pinned to Capacitor 6 for Java 17 compatibility.
 
 ## Desktop Env Overrides
 1. Optional env overrides:
