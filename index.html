@@ -21,6 +21,12 @@
         <h1>Welcome back</h1>
         <p>Sign in with a username or XMPP credentials to continue to shitcord67</p>
         <form id="loginForm" autocomplete="off">
+          <div id="loginStoredAccountWrap" class="login-local-profile" hidden>
+            <label for="loginStoredAccountSelect">Stored account</label>
+            <select id="loginStoredAccountSelect">
+              <option value="">Select saved account</option>
+            </select>
+          </div>
           <div id="loginLocalProfileWrap" class="login-local-profile" hidden>
             <label for="loginLocalProfileSelect">Local XMPP profile</label>
             <select id="loginLocalProfileSelect">
@@ -29,6 +35,14 @@
           </div>
           <label for="loginUsername">Username or XMPP JID</label>
           <input id="loginUsername" type="text" maxlength="120" placeholder="username or user@example.com" required autocomplete="off" autocapitalize="off" spellcheck="false" />
+          <label for="loginTransportMode">Transport mode</label>
+          <select id="loginTransportMode">
+            <option value="local">Shitcord local</option>
+            <option value="http">HTTP relay (SSE)</option>
+            <option value="ws">WebSocket relay</option>
+            <option value="xmpp">XMPP</option>
+            <option value="off">Off</option>
+          </select>
           <label for="loginPassword">Password (optional)</label>
           <input id="loginPassword" type="password" maxlength="120" autocomplete="off" autocapitalize="off" spellcheck="false" />
           <label for="loginXmppServer">XMPP WebSocket server (optional)</label>

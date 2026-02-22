@@ -214,3 +214,5 @@ The app opened, but the local client URL is unavailable.
 So did you remove IRC, Matrix and Shitcord support then?
 [2026-02-22T02:31:03+01:00] USER PROMPT:
 So then why can't I select between them on the login screen?
+[2026-02-22T03:17:42+01:00] USER PROMPT:
+Yeah and also add the selection for stored user accounts back as well
