@@ -2,7 +2,7 @@
   "name": "discord-lookalike-flash",
   "version": "1.0.0",
   "description": "A lightweight Discord-style chat client prototype with local persistence.",
-  "main": "app.js",
+  "main": "electron/main.cjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev:stack": "bash scripts/run-client-stack.sh",

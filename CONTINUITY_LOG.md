@@ -332,3 +332,229 @@ npm WARN deprecated glob@11.1.0: Old versions of glob are not supported, and con
 
 ## 2026-02-22T21:50:54Z
 dist/electron/shitcord67-linux-x64/shitcord67 but the window doesn't open?
+
+## 2026-02-22T22:40:08Z
+23:30:42 ~/shitcord67:$ ./build.sh electron
+[build-platform] Clean before build? [Y/n] 
+[build-platform] clean step enabled
+[build-platform] packaging electron app (linux/x64)
+Packaging app for platform linux x64 using electron v35.7.5
+WARNING: asar parameter set to an invalid value (false), ignoring and disabling asar
+Wrote new app to: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+[build-platform] electron output: dist/electron
+doesn't open the app vs: 23:38:08 ~/shitcord67:$ npm run electron
+
+> discord-lookalike-flash@1.0.0 electron
+> electron electron/main.cjs
+
+
+(electron:846174): Gtk-WARNING **: 23:38:15.011: Theme parsing error: gtk.css:63:28: The :prelight pseudo-class is deprecated. Use :hover instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.011: Theme parsing error: gtk.css:73:35: The :prelight pseudo-class is deprecated. Use :hover instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk.css:115:31: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk.css:116:24: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk.css:145:27: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk.css:146:29: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk.css:166:34: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk.css:187:34: The :inconsistent pseudo-class is deprecated. Use :indeterminate instead.
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk-dark.css:52:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.012: Theme parsing error: gtk-dark.css:106:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:210:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:334:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:359:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:392:31: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:561:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:569:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:606:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:614:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:667:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:673:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.013: Theme parsing error: gtk-dark.css:690:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.014: Theme parsing error: gtk-dark.css:1119:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.016: Theme parsing error: gtk-dark.css:2113:42: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.016: Theme parsing error: gtk-dark.css:2123:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.016: Theme parsing error: gtk-dark.css:2126:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.016: Theme parsing error: gtk-dark.css:2303:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.017: Theme parsing error: gtk-dark.css:2557:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.017: Theme parsing error: gtk-dark.css:2560:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.017: Theme parsing error: gtk-dark.css:2566:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.017: Theme parsing error: gtk-dark.css:2581:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.017: Theme parsing error: gtk-dark.css:2585:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.018: Theme parsing error: gtk-dark.css:3209:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.018: Theme parsing error: gtk-dark.css:3278:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.018: Theme parsing error: gtk-dark.css:3279:37: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.019: Theme parsing error: gtk-dark.css:3410:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.019: Theme parsing error: gtk-dark.css:3496:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.019: Theme parsing error: gtk-dark.css:3507:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.019: Theme parsing error: gtk-dark.css:3981:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.019: Theme parsing error: gtk-dark.css:3987:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.019: Theme parsing error: gtk-dark.css:4015:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.020: Theme parsing error: gtk-dark.css:4498:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.020: Theme parsing error: gtk-dark.css:4665:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.020: Theme parsing error: gtk-dark.css:4755:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.021: Theme parsing error: gtk-dark.css:5262:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.021: Theme parsing error: gtk-dark.css:5342:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.021: Theme parsing error: gtk-dark.css:5348:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.021: Theme parsing error: gtk-dark.css:5365:30: Invalid number for alpha value
+[electron] starting local stack (client=127.0.0.1:8080, gateway=127.0.0.1:8790, mode=auto)
+
+(electron:846174): Gtk-WARNING **: 23:38:15.111: Theme parsing error: gtk.css:52:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:106:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:210:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:334:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:359:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:392:31: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:561:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:569:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:606:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:614:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:667:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:673:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.112: Theme parsing error: gtk.css:690:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.113: Theme parsing error: gtk.css:1119:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2113:42: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2123:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2126:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2303:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2557:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2560:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2566:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2581:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.115: Theme parsing error: gtk.css:2585:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.116: Theme parsing error: gtk.css:3209:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.116: Theme parsing error: gtk.css:3278:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.116: Theme parsing error: gtk.css:3279:37: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.116: Theme parsing error: gtk.css:3410:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.116: Theme parsing error: gtk.css:3496:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.116: Theme parsing error: gtk.css:3507:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.117: Theme parsing error: gtk.css:3981:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.117: Theme parsing error: gtk.css:3987:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.117: Theme parsing error: gtk.css:4015:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.118: Theme parsing error: gtk.css:4498:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.119: Theme parsing error: gtk.css:4665:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.119: Theme parsing error: gtk.css:4755:41: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.120: Theme parsing error: gtk.css:5262:30: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.120: Theme parsing error: gtk.css:5342:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.120: Theme parsing error: gtk.css:5348:38: Invalid number for alpha value
+
+(electron:846174): Gtk-WARNING **: 23:38:15.120: Theme parsing error: gtk.css:5365:30: Invalid number for alpha value
+[electron] synced strophe runtime -> /home/duda/shitcord67/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 8080 is listening but http://127.0.0.1:8080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 8080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=8080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:18080
+[electron] starting local stack (client=127.0.0.1:18080, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 18080 is listening but http://127.0.0.1:18080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 18080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=18080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:8081
+[electron] starting local stack (client=127.0.0.1:8081, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] [run-client-stack] started client-server (pid 846350)
+[electron] [run-client-stack] xmpp gateway port 8790 already in use, reusing existing gateway.
+[run-client-stack] client: http://127.0.0.1:8081/
+[run-client-stack] gateway: http://127.0.0.1:8790
+[run-client-stack] press Ctrl+C to stop.
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] "GET / HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] "GET / HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] "GET /styles.css HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] "GET /app.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] code 404, message File not found
+127.0.0.1 - - [22/Feb/2026 23:38:16] "GET /vendor/ruffle/ruffle.js HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] "GET /swf-index.json HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] "GET /vendor/strophe.umd.min.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [22/Feb/2026 23:38:16] code 404, message File not found
+127.0.0.1 - - [22/Feb/2026 23:38:16] "GET /vendor/dotlottie/dotlottie-player.mjs HTTP/1.1" 404 -
+[electron] stopping local stack
+[electron] stopping local stack
