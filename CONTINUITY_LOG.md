@@ -558,3 +558,110 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/node_modules/@d
 127.0.0.1 - - [22/Feb/2026 23:38:16] "GET /vendor/dotlottie/dotlottie-player.mjs HTTP/1.1" 404 -
 [electron] stopping local stack
 [electron] stopping local stack
+
+## 2026-02-22T22:50:31Z
+Btw. can you also tag Commit 45f3347 as version 1?
+
+## 2026-02-22T22:51:37Z
+23:46:19 ~/shitcord67:$ dist/electron/shitcord67-linux-x64/shitcord67 
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:63:28: The :prelight pseudo-class is deprecated. Use :hover instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:73:35: The :prelight pseudo-class is deprecated. Use :hover instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:115:31: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:116:24: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:145:27: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:146:29: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:166:34: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk.css:187:34: The :inconsistent pseudo-class is deprecated. Use :indeterminate instead.
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk-dark.css:52:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.586: Theme parsing error: gtk-dark.css:106:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:210:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:334:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:359:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:392:31: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:561:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:569:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:606:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:614:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:667:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:673:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.587: Theme parsing error: gtk-dark.css:690:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.588: Theme parsing error: gtk-dark.css:1119:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.590: Theme parsing error: gtk-dark.css:2113:42: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.590: Theme parsing error: gtk-dark.css:2123:41: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.590: Theme parsing error: gtk-dark.css:2126:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.590: Theme parsing error: gtk-dark.css:2303:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.591: Theme parsing error: gtk-dark.css:2557:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.591: Theme parsing error: gtk-dark.css:2560:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.591: Theme parsing error: gtk-dark.css:2566:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.591: Theme parsing error: gtk-dark.css:2581:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.591: Theme parsing error: gtk-dark.css:2585:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.592: Theme parsing error: gtk-dark.css:3209:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.592: Theme parsing error: gtk-dark.css:3278:41: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.592: Theme parsing error: gtk-dark.css:3279:37: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.592: Theme parsing error: gtk-dark.css:3410:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.592: Theme parsing error: gtk-dark.css:3496:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.592: Theme parsing error: gtk-dark.css:3507:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.593: Theme parsing error: gtk-dark.css:3981:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.593: Theme parsing error: gtk-dark.css:3987:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.593: Theme parsing error: gtk-dark.css:4015:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.593: Theme parsing error: gtk-dark.css:4498:41: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.594: Theme parsing error: gtk-dark.css:4665:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.594: Theme parsing error: gtk-dark.css:4755:41: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.594: Theme parsing error: gtk-dark.css:5262:30: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.594: Theme parsing error: gtk-dark.css:5342:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.594: Theme parsing error: gtk-dark.css:5348:38: Invalid number for alpha value
+
+(shitcord67:887061): Gtk-WARNING **: 23:50:18.595: Theme parsing error: gtk-dark.css:5365:30: Invalid number for alpha value
+[electron] starting local stack (client=127.0.0.1:8080, gateway=127.0.0.1:8790, mode=auto)
+...
+[887376:0222/235020.394269:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.RTaBxj failed: No such process (3)
+[887376:0222/235020.394339:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[887376:0222/235020.394358:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[electron] client load failed ERR_FAILED (-2) loading 'http://127.0.0.1:38080/'
+Trace/Breakpoint ausgelöst(Speicherabzug geschrieben) dist/electron/shitcord67-linux-x64/shitcord67

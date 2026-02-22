@@ -19,11 +19,29 @@ const DYNAMIC_PORT_ATTEMPTS = Math.max(0, Number(process.env.ELECTRON_DYNAMIC_PO
 const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
 const CLIENT_PORT_FALLBACKS = [18080, 8081, 38080, 18081];
 const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
+const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "auto").toLowerCase();
 
-if (process.platform === "linux" && app.isPackaged && PACKAGED_LINUX_SANDBOX_MODE !== "on") {
-  // Packaged Linux binaries often fail to launch in restricted environments unless sandboxing is disabled.
-  app.commandLine.appendSwitch("no-sandbox");
-  app.commandLine.appendSwitch("disable-setuid-sandbox");
+function canUseDevShm() {
+  try {
+    fs.accessSync("/dev/shm", fs.constants.W_OK | fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (process.platform === "linux" && app.isPackaged) {
+  if (PACKAGED_LINUX_SANDBOX_MODE !== "on") {
+    // Packaged Linux binaries often fail to launch in restricted environments unless sandboxing is disabled.
+    app.commandLine.appendSwitch("no-sandbox");
+    app.commandLine.appendSwitch("disable-setuid-sandbox");
+  }
+  const disableDevShm = PACKAGED_LINUX_SHM_MODE === "tmp"
+    || (PACKAGED_LINUX_SHM_MODE !== "shm" && !canUseDevShm());
+  if (disableDevShm) {
+    // Force Chromium to use /tmp for shared memory if /dev/shm is unavailable.
+    app.commandLine.appendSwitch("disable-dev-shm-usage");
+  }
 }
 
 let mainWindow = null;
