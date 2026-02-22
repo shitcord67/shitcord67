@@ -269,3 +269,6 @@ Can you create me a build script which lets me choose the platform? electron, we
 
 ## 2026-02-22T21:06:30Z
 Or better, please ask me if I want to clean before build...
+
+## 2026-02-22T21:23:40Z
+I think there should actually be a build script in the root directory of the project.

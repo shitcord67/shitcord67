@@ -24,6 +24,7 @@ Note: substantial parts of this codebase are LLM-assisted/generated and then rev
 ## Unified Platform Build Script
 Use a single script for `web`, `electron`, or `android` builds:
 
+- `./build.sh <web|electron|android>`
 - `npm run build:platform -- <web|electron|android>`
 
 Behavior:
