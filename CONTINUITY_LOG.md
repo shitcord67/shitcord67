@@ -275,3 +275,6 @@ I think there should actually be a build script in the root directory of the pro
 
 ## 2026-02-22T21:24:38Z
 Also can you note more clear in the README that an LLM writes all the code, forget about the review part.
+
+## 2026-02-22T21:25:00Z
+And please commit the TODOs alwayss, lol

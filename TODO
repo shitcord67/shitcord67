@@ -314,3 +314,5 @@ https://discord.js.org/docs/packages/discord.js/main
 - Later when support for displaying chats from multiple accounts is displayed, we might use both somehow at the same time, but it's complicated
 - In-app image editor could add a "Edited with shitcord67" watermark looking like the "SHOT ON POCOPHONE" watermark, lol
 - Option to import Telegram/Whatsapp sticker packs
+- Implement something like syncplay (up-to-date fork https://github.com/asozialesnetzwerk/Pyncslay/) / Watchtogether to watch e.g. anime with other people
+- shitcord67 for other platforms (Android, 3DS, terminal TUI)
