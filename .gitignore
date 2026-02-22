@@ -3,3 +3,7 @@ SVGscreenshots/
 node_modules/
 .env.local
 .xmpp.local.json
+.mobile-web/
+android/.gradle/
+android/local.properties
+android/.idea/

@@ -9,6 +9,11 @@
     "electron": "electron electron/main.cjs",
     "electron:no-gateway": "ELECTRON_GATEWAY_MODE=off electron electron/main.cjs",
     "electron:with-gateway": "ELECTRON_GATEWAY_MODE=on electron electron/main.cjs",
+    "mobile:build:web": "node scripts/build-mobile-web.mjs",
+    "mobile:cap:sync": "npm run mobile:build:web && npx cap sync",
+    "mobile:android:init": "npm run mobile:build:web && npx cap add android",
+    "mobile:android:sync": "npm run mobile:build:web && npx cap sync android",
+    "mobile:android:open": "npm run mobile:android:sync && npx cap open android",
     "sync:xmpp-runtime": "node scripts/sync-strophe-runtime.mjs",
     "xmpp:auth-gateway": "node scripts/xmpp-auth-gateway.mjs",
     "postinstall": "node scripts/sync-strophe-runtime.mjs"
@@ -26,6 +31,9 @@
   },
   "homepage": "https://github.com/shitcord67/shitcord67#readme",
   "dependencies": {
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^7.5.0",
+    "@capacitor/core": "^8.1.0",
     "@xmpp/client": "^0.14.0",
     "@xmpp/debug": "^0.14.0",
     "strophe.js": "^1.6.2",

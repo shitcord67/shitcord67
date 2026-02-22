@@ -257,3 +257,9 @@ I noticed that the privacy gate is broken (nothing happens on button click), the
 
 ## 2026-02-22T19:27:35Z
 After I allowed a file via privacy gate then immiadetly show it. Then I noticed adding URLs doesn't work in the file picker; no dialog shows up to enter one... Then the Sticker picker still has no enforced sticker display size...
+
+## 2026-02-22T20:27:24Z
+Btw. can't you use github's gh command to create releases? Cause then I would like you to create a release on what is currently remote master.
+
+## 2026-02-22T20:32:54Z
+Then can you try to create an Android client now? Ideally there should be one codebase and from that I can create clients for several platforms with minimal added code for them.

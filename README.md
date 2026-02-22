@@ -52,6 +52,25 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 4. Direct script usage (same behavior):
    - `scripts/run-client-stack.sh --help`
 
+## Run (Android, Shared Codebase via Capacitor)
+This project now supports Android using the same `index.html` + `app.js` + `styles.css` codebase.
+
+1. Install dependencies:
+   - `npm install`
+2. Build shared web assets for mobile wrapper:
+   - `npm run mobile:build:web`
+3. Initialize Android project (first time only):
+   - `npm run mobile:android:init`
+4. Open Android Studio project:
+   - `npm run mobile:android:open`
+5. After web code changes, resync Android project:
+   - `npm run mobile:android:sync`
+
+Notes:
+- Mobile web assets are generated into `.mobile-web/` from root shared assets.
+- Keep platform-specific code minimal: Android shell lives under `android/`, app logic stays in shared web files.
+- HTTP content is allowed for compatibility with existing media/gateway flows (`server.cleartext: true` in `capacitor.config.json`).
+
 ## Desktop Env Overrides
 1. Optional env overrides:
    - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`
