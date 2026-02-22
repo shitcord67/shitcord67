@@ -628,6 +628,7 @@ function createAccount(username, displayName = "") {
     customStatusExpiresAt: null,
     avatarDecoration: "",
     guildTag: "",
+    guildTagGuildId: "",
     profileEffect: "none",
     profileNameplateSvg: "",
     ownedCosmetics: {
@@ -646,6 +647,11 @@ function normalizeOwnedCosmetics(raw) {
     nameplate: Array.isArray(safe.nameplate) ? [...new Set(safe.nameplate.map((id) => (id || "").toString()).filter(Boolean))] : [],
     effect: Array.isArray(safe.effect) ? [...new Set(safe.effect.map((id) => (id || "").toString()).filter(Boolean))] : []
   };
+}
+
+function normalizeGuildTagGuildId(raw) {
+  const token = (raw || "").toString().trim();
+  return token.slice(0, 64);
 }
 
 function normalizeCosmeticPurchases(raw) {
@@ -737,6 +743,7 @@ function migrateState(raw) {
       customStatusExpiresAt: account?.customStatusExpiresAt || null,
       avatarDecoration: (account?.avatarDecoration || "").toString().slice(0, 4),
       guildTag: (account?.guildTag || "").toString().trim().slice(0, 8),
+      guildTagGuildId: normalizeGuildTagGuildId(account?.guildTagGuildId),
       profileEffect: normalizeProfileEffect(account?.profileEffect),
       profileNameplateSvg: (account?.profileNameplateSvg || "").toString().slice(0, 280),
       ownedCosmetics: normalizeOwnedCosmetics(account?.ownedCosmetics),
@@ -866,6 +873,7 @@ function migrateState(raw) {
       account.avatarColor = (raw.profile.avatarColor || "#57f287").toString();
       account.avatarDecoration = (raw.profile.avatarDecoration || "").toString().slice(0, 4);
       account.guildTag = (raw.profile.guildTag || "").toString().trim().slice(0, 8);
+      account.guildTagGuildId = normalizeGuildTagGuildId(raw.profile.guildTagGuildId);
       account.profileEffect = normalizeProfileEffect(raw.profile.profileEffect);
       account.profileNameplateSvg = (raw.profile.profileNameplateSvg || "").toString().slice(0, 280);
     }
@@ -1536,6 +1544,15 @@ const ui = {
   cosmeticsGrid: document.getElementById("cosmeticsGrid"),
   cosmeticsCloseBtn: document.getElementById("cosmeticsCloseBtn"),
   cosmeticsTabs: [...document.querySelectorAll("[data-cosmetics-tab]")],
+  guildTagInfoDialog: document.getElementById("guildTagInfoDialog"),
+  guildTagInfoTag: document.getElementById("guildTagInfoTag"),
+  guildTagInfoAccount: document.getElementById("guildTagInfoAccount"),
+  guildTagInfoGuildName: document.getElementById("guildTagInfoGuildName"),
+  guildTagInfoMeta: document.getElementById("guildTagInfoMeta"),
+  guildTagInfoDescription: document.getElementById("guildTagInfoDescription"),
+  guildTagInfoOwner: document.getElementById("guildTagInfoOwner"),
+  guildTagInfoAccent: document.getElementById("guildTagInfoAccent"),
+  guildTagInfoCloseBtn: document.getElementById("guildTagInfoCloseBtn"),
   swfPipDock: document.getElementById("swfPipDock"),
   swfPipTabs: document.getElementById("swfPipTabs"),
   swfPipControls: document.getElementById("swfPipControls"),
@@ -10431,6 +10448,24 @@ function accountGuildTag(account) {
   return (account?.guildTag || "").toString().trim().slice(0, 8);
 }
 
+function resolveGuildTagGuild(account) {
+  if (!account) return null;
+  const explicitId = normalizeGuildTagGuildId(account.guildTagGuildId);
+  if (explicitId) {
+    const explicitGuild = state.guilds.find((guild) => guild.id === explicitId) || null;
+    if (explicitGuild) return explicitGuild;
+  }
+  const memberGuilds = state.guilds.filter((guild) => Array.isArray(guild.memberIds) && guild.memberIds.includes(account.id));
+  const activeGuild = getActiveGuild();
+  if (activeGuild && memberGuilds.some((guild) => guild.id === activeGuild.id)) return activeGuild;
+  const tagToken = accountGuildTag(account).toLowerCase();
+  if (tagToken) {
+    const matched = memberGuilds.find((guild) => (guild.name || "").toLowerCase().replace(/\s+/g, "").includes(tagToken));
+    if (matched) return matched;
+  }
+  return memberGuilds[0] || null;
+}
+
 function accountProfileEffect(account) {
   return normalizeProfileEffect(account?.profileEffect);
 }
@@ -10447,11 +10482,40 @@ function showGuildTagInfo(account) {
   if (!account) return;
   const tag = accountGuildTag(account);
   if (!tag) return;
-  const guild = getActiveGuild();
-  const details = guild
-    ? `${tag} · ${guild.name}`
-    : `${tag} · no active guild`;
-  showToast(details);
+  const guild = resolveGuildTagGuild(account);
+  if (!ui.guildTagInfoDialog) {
+    const fallback = guild ? `${tag} · ${guild.name}` : `${tag} · no linked guild`;
+    showToast(fallback);
+    return;
+  }
+  const owner = guild?.ownerId ? getAccountById(guild.ownerId) : null;
+  const linkedGuildName = guild?.name || "No linked guild";
+  const tagOwnerName = displayNameForAccount(account, guild?.id || null);
+  if (ui.guildTagInfoTag) ui.guildTagInfoTag.textContent = tag;
+  if (ui.guildTagInfoAccount) ui.guildTagInfoAccount.textContent = `Tag owner: ${tagOwnerName}`;
+  if (ui.guildTagInfoGuildName) ui.guildTagInfoGuildName.textContent = linkedGuildName;
+  if (ui.guildTagInfoMeta) {
+    if (guild) {
+      const memberCount = Array.isArray(guild.memberIds) ? guild.memberIds.length : 0;
+      const channelCount = Array.isArray(guild.channels) ? guild.channels.length : 0;
+      ui.guildTagInfoMeta.textContent = `${memberCount} member${memberCount === 1 ? "" : "s"} · ${channelCount} channel${channelCount === 1 ? "" : "s"}`;
+    } else {
+      ui.guildTagInfoMeta.textContent = "Tag is not linked to a visible guild yet.";
+    }
+  }
+  if (ui.guildTagInfoDescription) {
+    ui.guildTagInfoDescription.textContent = guild?.description?.trim() || "No guild description.";
+  }
+  if (ui.guildTagInfoOwner) {
+    ui.guildTagInfoOwner.textContent = owner
+      ? `Owner: ${displayNameForAccount(owner, guild?.id || null)}`
+      : "Owner: unknown";
+  }
+  if (ui.guildTagInfoAccent) {
+    ui.guildTagInfoAccent.style.background = guild?.accentColor || "#5865f2";
+    ui.guildTagInfoAccent.title = guild?.accentColor || "Default accent";
+  }
+  if (!ui.guildTagInfoDialog.open) ui.guildTagInfoDialog.showModal();
 }
 
 function channelTypePrefix(channel) {
@@ -13709,10 +13773,13 @@ function handleSlashCommand(rawText, channel, account) {
     }
     if (rawTag.toLowerCase() === "clear") {
       account.guildTag = "";
+      account.guildTagGuildId = "";
       addSystemMessage(channel, "Guild tag cleared.");
       return true;
     }
     account.guildTag = rawTag.slice(0, 8).toUpperCase();
+    const activeGuild = getActiveGuild();
+    account.guildTagGuildId = activeGuild && activeGuild.memberIds.includes(account.id) ? activeGuild.id : "";
     addSystemMessage(channel, `Guild tag set to: ${account.guildTag}`);
     return true;
   }
@@ -28039,12 +28106,15 @@ ui.messageForm.addEventListener("submit", (event) => {
       }
       if (rawTag.toLowerCase() === "clear") {
         account.guildTag = "";
+        account.guildTagGuildId = "";
         saveState();
         render();
         showToast("Guild tag cleared.");
         return;
       }
       account.guildTag = rawTag.slice(0, 8).toUpperCase();
+      const activeGuild = getActiveGuild();
+      account.guildTagGuildId = activeGuild && activeGuild.memberIds.includes(account.id) ? activeGuild.id : "";
       saveState();
       render();
       showToast(`Guild tag set to: ${account.guildTag}`);
@@ -30295,6 +30365,7 @@ ui.cosmeticsCloseBtn?.addEventListener("click", () => ui.cosmeticsDialog?.close(
 ui.cosmeticsDialog?.addEventListener("close", () => {
   clearCosmeticsFeaturedRefreshTimer();
 });
+ui.guildTagInfoCloseBtn?.addEventListener("click", () => ui.guildTagInfoDialog?.close());
 
 ui.profileAvatarUploadBtn.addEventListener("click", () => {
   ui.profileAvatarFileInput.click();
@@ -30365,7 +30436,6 @@ ui.profileForm.addEventListener("submit", (event) => {
   account.customStatus = ui.profileStatusInput.value.trim().slice(0, 80);
   account.customStatusEmoji = ui.profileStatusEmojiInput.value.trim().slice(0, 4);
   account.avatarDecoration = ui.profileAvatarDecorationInput.value.trim().slice(0, 4);
-  account.guildTag = ui.profileGuildTagInput.value.trim().slice(0, 8).toUpperCase();
   account.profileEffect = normalizeProfileEffect(ui.profileEffectInput.value);
   account.profileNameplateSvg = ui.profileNameplateSvgInput.value.trim().slice(0, 280);
   account.customStatusExpiresAt = account.customStatus
@@ -30377,6 +30447,16 @@ ui.profileForm.addEventListener("submit", (event) => {
   account.avatarColor = ui.profileAvatarInput.value.trim() || "#57f287";
   const avatarUrl = ui.profileAvatarUrlInput.value.trim();
   account.avatarUrl = isRenderableAvatarUrl(avatarUrl) ? avatarUrl : "";
+  const prevGuildTag = account.guildTag || "";
+  const nextGuildTag = ui.profileGuildTagInput.value.trim().slice(0, 8).toUpperCase();
+  account.guildTag = nextGuildTag;
+  if (!nextGuildTag) {
+    account.guildTagGuildId = "";
+  } else if (guild && Array.isArray(guild.memberIds) && guild.memberIds.includes(account.id)) {
+    account.guildTagGuildId = guild.id;
+  } else if (nextGuildTag !== prevGuildTag) {
+    account.guildTagGuildId = "";
+  }
   if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
   if (guild) {
     const guildNickname = ui.profileGuildNicknameInput.value.trim().slice(0, 32);
@@ -30467,6 +30547,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.debugDialog,
   ui.xmppConsoleDialog,
   ui.cosmeticsDialog,
+  ui.guildTagInfoDialog,
   ui.swfViewerDialog
 ].forEach(wireDialogBackdropClose);
 

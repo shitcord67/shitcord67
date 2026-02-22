@@ -257,6 +257,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Cosmetics shop now includes rotating seasonal featured bundles with live countdown timers and discounted bundle pricing.
 - Guild tag is now copyable from user/member context menus and visible in more name surfaces.
 - Profile editor now includes a live identity preview card and one-click "Clear Identity Extras".
+- Guild-tag chips now open a small guild profile pop-up (tag owner, guild name, member/channel counts, owner, accent, description).
 - Slash cosmetics commands: `/shop [decor|nameplate|effect]` and `/inventory`.
 - Click usernames in chat to open profile popouts.
 - Click members in the right sidebar to open profile popouts.
