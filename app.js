@@ -1125,8 +1125,12 @@ let pendingFindJumpAttempts = 0;
 let lastRenderedMessageSignature = "";
 let userPopoutXmppNeedsRefresh = false;
 let selfPopoutXmppNeedsRefresh = false;
+let userPopoutAvatarHint = "";
 let cosmeticsTab = "decor";
 let cosmeticsFeaturedRefreshTimer = null;
+let userProfileExtendedTab = "guilds";
+let userProfileExtendedAccountId = null;
+let userProfileExtendedAvatarHint = "";
 let pinsSearchTerm = "";
 let pinsSortMode = "latest";
 let loginLocalXmppProfiles = [];
@@ -1421,6 +1425,15 @@ const ui = {
   userStartDmBtn: document.getElementById("userStartDmBtn"),
   userSendDmBtn: document.getElementById("userSendDmBtn"),
   userSaveNoteBtn: document.getElementById("userSaveNoteBtn"),
+  userProfileExtendedDialog: document.getElementById("userProfileExtendedDialog"),
+  userProfileExtendedAvatarBtn: document.getElementById("userProfileExtendedAvatarBtn"),
+  userProfileExtendedAvatar: document.getElementById("userProfileExtendedAvatar"),
+  userProfileExtendedName: document.getElementById("userProfileExtendedName"),
+  userProfileExtendedStatus: document.getElementById("userProfileExtendedStatus"),
+  userProfileExtendedTabs: [...document.querySelectorAll("[data-profile-extended-tab]")],
+  userProfileExtendedGuildsPanel: document.getElementById("userProfileExtendedGuildsPanel"),
+  userProfileExtendedFriendsPanel: document.getElementById("userProfileExtendedFriendsPanel"),
+  userProfileExtendedCloseBtn: document.getElementById("userProfileExtendedCloseBtn"),
   accountSwitchDialog: document.getElementById("accountSwitchDialog"),
   accountSwitchForm: document.getElementById("accountSwitchForm"),
   accountList: document.getElementById("accountList"),
@@ -10672,6 +10685,35 @@ function isRenderableAvatarUrl(value) {
   return isLikelyUrl(value) || isLikelyImageDataUrl(value);
 }
 
+function normalizeRenderableAvatarUrl(value) {
+  const raw = (value || "").toString().trim();
+  if (!isRenderableAvatarUrl(raw)) return "";
+  return resolveMediaUrl(raw);
+}
+
+function extractUrlFromBackgroundImageValue(value) {
+  const raw = (value || "").toString().trim();
+  if (!raw || raw === "none") return "";
+  const match = raw.match(/url\((['"]?)(.*?)\1\)/i);
+  if (!match) return "";
+  const candidate = decodeHtmlEntities((match[2] || "").toString().trim());
+  if (!candidate) return "";
+  if (!isRenderableAvatarUrl(candidate)) return "";
+  return resolveMediaUrl(candidate);
+}
+
+function avatarUrlHintFromElement(element) {
+  if (!(element instanceof HTMLElement)) return "";
+  const inlineValue = extractUrlFromBackgroundImageValue(element.style.backgroundImage || "");
+  if (inlineValue) return inlineValue;
+  try {
+    const computedValue = getComputedStyle(element).backgroundImage || "";
+    return extractUrlFromBackgroundImageValue(computedValue);
+  } catch {
+    return "";
+  }
+}
+
 function applyBannerStyle(element, bannerValue) {
   const value = (bannerValue || "").trim();
   if (!value) {
@@ -11466,6 +11508,24 @@ function suggestSubdomainTrustRule(host) {
   return `*.${domain}`;
 }
 
+function normalizeMediaPrivacyUrl(url) {
+  const resolved = resolveMediaUrl(url);
+  try {
+    const parsed = new URL(resolved, window.location.href);
+    parsed.hash = "";
+    return parsed.href;
+  } catch {
+    return resolved;
+  }
+}
+
+function allowMediaUrlOnce(url) {
+  const normalized = normalizeMediaPrivacyUrl(url);
+  if (normalized) mediaAllowOnceUrls.add(normalized);
+  const resolved = resolveMediaUrl(url);
+  if (resolved && resolved !== normalized) mediaAllowOnceUrls.add(resolved);
+}
+
 function isExternalMediaUrl(url) {
   try {
     const resolved = new URL(url, window.location.href);
@@ -11493,8 +11553,9 @@ function doesMediaRuleMatchHost(rule, host) {
 }
 
 function isTrustedMediaUrl(url) {
-  if (mediaAllowOnceUrls.has(url)) return true;
-  const host = mediaUrlHost(url);
+  const normalized = normalizeMediaPrivacyUrl(url);
+  if (mediaAllowOnceUrls.has(normalized) || mediaAllowOnceUrls.has(url)) return true;
+  const host = mediaUrlHost(normalized);
   if (!host) return false;
   const prefs = getPreferences();
   const accountDomain = xmppDomainFromJid(prefs.xmppJid || "");
@@ -11505,10 +11566,11 @@ function isTrustedMediaUrl(url) {
 }
 
 function shouldGateMediaUrl(url) {
+  const normalized = normalizeMediaPrivacyUrl(url);
   const prefs = getPreferences();
   if (prefs.mediaPrivacyMode === "off") return false;
-  if (!isExternalMediaUrl(url)) return false;
-  return !isTrustedMediaUrl(url);
+  if (!isExternalMediaUrl(normalized)) return false;
+  return !isTrustedMediaUrl(normalized);
 }
 
 function addMediaTrustRule(rule) {
@@ -17523,6 +17585,7 @@ function renderMediaPicker() {
     if (card instanceof HTMLButtonElement) card.type = "button";
     card.className = `media-card${useSwfCard ? " media-card--swf" : ""}`;
     if (mediaPickerTab === "gif") card.classList.add("media-card--gif");
+    if (mediaPickerTab === "sticker") card.classList.add("media-card--sticker");
     if (useSwfCard || mediaPickerTab === "gif") {
       card.tabIndex = 0;
       card.setAttribute("role", "button");
@@ -17591,7 +17654,8 @@ function renderMediaPicker() {
       onceBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        mediaAllowOnceUrls.add(resolvedEntryUrl);
+        allowMediaUrlOnce(resolvedEntryUrl);
+        showToast("Allowed once for this URL.");
         renderMediaPicker();
       });
       const trustBtn = document.createElement("button");
@@ -17599,11 +17663,15 @@ function renderMediaPicker() {
       const domainRule = suggestSubdomainTrustRule(hostLabel);
       trustBtn.textContent = domainRule.startsWith("*.") ? "Trust domain + subdomains" : "Trust host";
       trustBtn.title = domainRule || hostLabel || "";
+      trustBtn.disabled = !hostLabel;
       trustBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const host = mediaUrlHost(resolvedEntryUrl) || "";
-        if (!host) return;
+        if (!host) {
+          showToast("Could not detect media host for trust rule.", { tone: "error" });
+          return;
+        }
         const trustRule = suggestSubdomainTrustRule(host) || host;
         const added = addMediaTrustRule(trustRule);
         if (added) showToast(`Trusted: ${trustRule}`);
@@ -17615,11 +17683,15 @@ function renderMediaPicker() {
       trustSubdomainBtn.type = "button";
       trustSubdomainBtn.textContent = "Trust sub";
       trustSubdomainBtn.title = hostLabel ? `Trust only ${hostLabel}` : "Trust only this host";
+      trustSubdomainBtn.disabled = !hostLabel;
       trustSubdomainBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const host = mediaUrlHost(resolvedEntryUrl) || "";
-        if (!host) return;
+        if (!host) {
+          showToast("Could not detect media host for trust rule.", { tone: "error" });
+          return;
+        }
         const added = addMediaTrustRule(host);
         if (added) showToast(`Trusted subdomain: ${host}`);
         else showToast(`Already trusted: ${host}`);
@@ -17629,11 +17701,15 @@ function renderMediaPicker() {
       const customRuleBtn = document.createElement("button");
       customRuleBtn.type = "button";
       customRuleBtn.textContent = "Rule";
+      customRuleBtn.disabled = !hostLabel;
       customRuleBtn.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         const host = mediaUrlHost(resolvedEntryUrl) || "";
-        if (!host) return;
+        if (!host) {
+          showToast("Could not detect media host for custom rule.", { tone: "error" });
+          return;
+        }
         const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
         if (typeof nextRule !== "string") return;
         const added = addMediaTrustRule(nextRule);
@@ -17853,6 +17929,7 @@ function renderMediaPicker() {
   });
 
   if (mediaPickerTab === "gif") {
+    const privacyModeOff = getPreferences().mediaPrivacyMode === "off";
     const scope = activeGifScope();
     const scopedMode = scope !== "all";
     const hasMoreVisible = entries.length > visibleEntries.length;
@@ -17901,6 +17978,24 @@ function renderMediaPicker() {
       renderMediaPicker();
     });
     footer.appendChild(info);
+    if (privacyModeOff) {
+      const gateHint = document.createElement("small");
+      gateHint.textContent = "Privacy gate is currently off for GIFs.";
+      const gateEnableBtn = document.createElement("button");
+      gateEnableBtn.type = "button";
+      gateEnableBtn.className = "message-action-btn";
+      gateEnableBtn.textContent = "Enable Privacy Gate";
+      gateEnableBtn.addEventListener("click", () => {
+        state.preferences = getPreferences();
+        state.preferences.mediaPrivacyMode = "safe";
+        saveState();
+        applyPreferencesToUI();
+        renderMediaPicker();
+        showToast("Media privacy gate enabled.");
+      });
+      footer.appendChild(gateHint);
+      footer.appendChild(gateEnableBtn);
+    }
     footer.appendChild(loadBtn);
     ui.mediaGrid.appendChild(footer);
     if (!scopedMode && !gifPickerRemoteLoading && !gifPickerRemoteError && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
@@ -17908,6 +18003,7 @@ function renderMediaPicker() {
     }
   }
   if (mediaPickerTab === "sticker") {
+    const privacyModeOff = getPreferences().mediaPrivacyMode === "off";
     const hasMoreVisible = entries.length > visibleEntries.length;
     const canLoadRemote = Boolean(
       stickerPickerRemoteNext || (stickerPickerRemoteEntries.length === 0 && !stickerPickerRemoteError)
@@ -17951,6 +18047,24 @@ function renderMediaPicker() {
       renderMediaPicker();
     });
     footer.appendChild(info);
+    if (privacyModeOff) {
+      const gateHint = document.createElement("small");
+      gateHint.textContent = "Privacy gate is currently off for stickers.";
+      const gateEnableBtn = document.createElement("button");
+      gateEnableBtn.type = "button";
+      gateEnableBtn.className = "message-action-btn";
+      gateEnableBtn.textContent = "Enable Privacy Gate";
+      gateEnableBtn.addEventListener("click", () => {
+        state.preferences = getPreferences();
+        state.preferences.mediaPrivacyMode = "safe";
+        saveState();
+        applyPreferencesToUI();
+        renderMediaPicker();
+        showToast("Media privacy gate enabled.");
+      });
+      footer.appendChild(gateHint);
+      footer.appendChild(gateEnableBtn);
+    }
     footer.appendChild(loadBtn);
     ui.mediaGrid.appendChild(footer);
     if (!stickerPickerRemoteLoading && !stickerPickerRemoteError && visibleEntries.length < stickerPickerVisibleCount && canLoadRemote) {
@@ -21230,7 +21344,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   };
 
   if (type !== "swf" && shouldGateMediaUrl(mediaUrl)) {
-    const host = mediaUrlHost(mediaUrl) || "external host";
+    const host = mediaUrlHost(mediaUrl);
+    const hostLabel = host || "external host";
     const kind = attachmentTypeDisplayLabel(type, mediaUrl);
     const gate = document.createElement("div");
     gate.className = "message-swf message-media-gate";
@@ -21254,7 +21369,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     hostRow.className = "message-media-gate__host-row";
     const info = document.createElement("div");
     info.className = "message-swf-meta message-media-gate__host";
-    info.textContent = host;
+    info.textContent = hostLabel;
     const iconRow = document.createElement("div");
     iconRow.className = "message-media-gate__icon-row";
     const openUrlBtn = document.createElement("button");
@@ -21322,7 +21437,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     onceBtn.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      mediaAllowOnceUrls.add(mediaUrl);
+      allowMediaUrlOnce(mediaUrl);
+      showToast("Allowed once for this URL.");
       renderMessages();
     });
     const trustBtn = document.createElement("button");
@@ -21330,10 +21446,15 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     trustBtn.className = "message-media-gate__option";
     const trustRule = suggestSubdomainTrustRule(host);
     trustBtn.textContent = trustRule.startsWith("*.") ? "Trust+" : "Trust";
-    trustBtn.title = trustRule || host;
+    trustBtn.title = trustRule || hostLabel;
+    trustBtn.disabled = !host;
     trustBtn.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (!host) {
+        showToast("Could not detect media host for trust rule.", { tone: "error" });
+        return;
+      }
       const added = addMediaTrustRule(trustRule || host);
       if (added) {
         saveState();
@@ -21347,10 +21468,15 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     trustSubdomainBtn.type = "button";
     trustSubdomainBtn.className = "message-media-gate__option";
     trustSubdomainBtn.textContent = "Sub";
-    trustSubdomainBtn.title = `Trust only ${host}`;
+    trustSubdomainBtn.title = host ? `Trust only ${host}` : "Host unavailable";
+    trustSubdomainBtn.disabled = !host;
     trustSubdomainBtn.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (!host) {
+        showToast("Could not detect media host for trust rule.", { tone: "error" });
+        return;
+      }
       const added = addMediaTrustRule(host);
       if (added) {
         saveState();
@@ -21364,9 +21490,14 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     customRuleBtn.type = "button";
     customRuleBtn.className = "message-media-gate__option";
     customRuleBtn.textContent = "Rule";
+    customRuleBtn.disabled = !host;
     customRuleBtn.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (!host) {
+        showToast("Could not detect media host for custom rule.", { tone: "error" });
+        return;
+      }
       const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
       if (typeof nextRule !== "string") return;
       const added = addMediaTrustRule(nextRule);
@@ -23021,8 +23152,14 @@ function restoreMessageListAnchor(anchor) {
 function renderUserPopout(
   account,
   fallbackName = "Unknown",
-  { focusQuickDm = false, resetQuickDmInput = false, refreshPrivateFields = true } = {}
+  {
+    focusQuickDm = false,
+    resetQuickDmInput = false,
+    refreshPrivateFields = true,
+    avatarUrlHint = userPopoutAvatarHint
+  } = {}
 ) {
+  userPopoutAvatarHint = normalizeRenderableAvatarUrl(avatarUrlHint);
   const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
   const displayName = account ? displayNameForAccount(account, guildId) : fallbackName;
   const bio = account?.bio?.trim() || "No bio yet.";
@@ -23065,15 +23202,42 @@ function renderUserPopout(
   schedulePopoutPresenceRefresh();
   ui.userPopoutBio.textContent = bio;
   if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
+  const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
+  const nickHint = displayName || account?.username || fallbackName || "";
+  const messageAvatarHint = account?.id
+    ? avatarUrlHintFromElement(ui.messageList?.querySelector?.(`.message[data-user-id="${account.id}"] .message-avatar`) || null)
+    : "";
+  const roomAvatar = activeRoomJid ? xmppMucAvatarUrlForOccupant(activeRoomJid, nickHint) : "";
+  const knownNickAvatar = !roomAvatar && activeRoomJid
+    ? xmppAvatarUrlForKnownRoomNick(activeRoomJid, nickHint, guildId)
+    : "";
+  const bestFallbackAvatar = [
+    normalizeRenderableAvatarUrl(avatarUrlHint),
+    messageAvatarHint,
+    roomAvatar,
+    knownNickAvatar
+  ].find((entry) => isRenderableAvatarUrl(entry));
   applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
   applyAvatarDecoration(ui.userPopoutAvatar, account);
   const resolvedAvatarUrl = account ? resolveAccountAvatar(account, guildId).url : "";
   if (!isRenderableAvatarUrl(resolvedAvatarUrl)) {
-    if (!account) {
+    if (bestFallbackAvatar) {
+      ui.userPopoutAvatar.style.backgroundImage = `url(${bestFallbackAvatar})`;
+      ui.userPopoutAvatar.style.backgroundSize = "cover";
+      ui.userPopoutAvatar.style.backgroundPosition = "center";
+    } else if (!account) {
       ui.userPopoutAvatar.style.backgroundColor = fallbackAvatarColorForSeed(displayName || fallbackName || "user");
+      applyAvatarInitialGlyph(ui.userPopoutAvatar, displayName || fallbackName || account?.username || "?");
+    } else {
+      applyAvatarInitialGlyph(ui.userPopoutAvatar, displayName || fallbackName || account?.username || "?");
     }
-    applyAvatarInitialGlyph(ui.userPopoutAvatar, displayName || fallbackName || account?.username || "?");
   }
+  ui.userPopoutAvatar.classList.add("profile-preview__avatar--interactive");
+  ui.userPopoutAvatar.title = account?.id
+    ? "Open extended profile (shared guilds/friends)"
+    : "No account details available";
+  ui.userPopoutAvatar.setAttribute("role", "button");
+  ui.userPopoutAvatar.tabIndex = account?.id ? 0 : -1;
   applyBannerStyle(ui.userPopoutBanner, resolveAccountBanner(account, guildId));
   ui.userPopoutDialog.classList.remove("profile-effect-aurora", "profile-effect-flame", "profile-effect-ocean");
   const userEffect = accountProfileEffect(account);
@@ -23093,11 +23257,176 @@ function renderUserPopout(
   }
 }
 
-function openUserPopout(account, fallbackName = "Unknown") {
+function openUserPopout(account, fallbackName = "Unknown", { avatarUrlHint = "" } = {}) {
   selectedUserPopoutId = account?.id || null;
-  renderUserPopout(account, fallbackName, { focusQuickDm: true, resetQuickDmInput: true });
+  userPopoutAvatarHint = normalizeRenderableAvatarUrl(avatarUrlHint);
+  renderUserPopout(account, fallbackName, {
+    focusQuickDm: true,
+    resetQuickDmInput: true,
+    avatarUrlHint: userPopoutAvatarHint
+  });
   ui.userPopoutDialog.showModal();
   schedulePopoutPresenceRefresh();
+}
+
+function sharedGuildsBetweenAccounts(accountAId, accountBId) {
+  if (!accountAId || !accountBId) return [];
+  return state.guilds.filter((guild) => (
+    Array.isArray(guild.memberIds)
+    && guild.memberIds.includes(accountAId)
+    && guild.memberIds.includes(accountBId)
+  ));
+}
+
+function dmPeerIdsForAccount(accountId) {
+  const peers = new Set();
+  if (!accountId) return peers;
+  state.dmThreads.forEach((thread) => {
+    if (!Array.isArray(thread?.participantIds) || !thread.participantIds.includes(accountId)) return;
+    thread.participantIds.forEach((id) => {
+      if (id && id !== accountId) peers.add(id);
+    });
+  });
+  return peers;
+}
+
+function sharedFriendAccountsBetweenAccounts(accountAId, accountBId) {
+  const aPeers = dmPeerIdsForAccount(accountAId);
+  const bPeers = dmPeerIdsForAccount(accountBId);
+  const shared = [];
+  aPeers.forEach((candidateId) => {
+    if (!bPeers.has(candidateId)) return;
+    if (candidateId === accountAId || candidateId === accountBId) return;
+    const account = getAccountById(candidateId);
+    if (account) shared.push(account);
+  });
+  return shared.sort((left, right) => displayNameForAccount(left).localeCompare(displayNameForAccount(right)));
+}
+
+function renderUserProfileExtendedDialog() {
+  const current = getCurrentAccount();
+  const account = userProfileExtendedAccountId ? getAccountById(userProfileExtendedAccountId) : null;
+  if (!current || !account || !ui.userProfileExtendedDialog?.open) return;
+  const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
+  const displayName = displayNameForAccount(account, guildId);
+  if (ui.userProfileExtendedName) ui.userProfileExtendedName.textContent = displayName;
+  if (ui.userProfileExtendedStatus) ui.userProfileExtendedStatus.textContent = displayStatus(account, guildId);
+  if (ui.userProfileExtendedAvatar) {
+    applyAvatarStyle(ui.userProfileExtendedAvatar, account, guildId);
+    applyAvatarDecoration(ui.userProfileExtendedAvatar, account);
+    const accountAvatar = resolveAccountAvatar(account, guildId).url;
+    if (!isRenderableAvatarUrl(accountAvatar)) {
+      const fallbackAvatar = [
+        normalizeRenderableAvatarUrl(userProfileExtendedAvatarHint),
+        avatarUrlHintFromElement(ui.userPopoutAvatar)
+      ].find((entry) => isRenderableAvatarUrl(entry));
+      if (fallbackAvatar) {
+        ui.userProfileExtendedAvatar.style.backgroundImage = `url(${fallbackAvatar})`;
+        ui.userProfileExtendedAvatar.style.backgroundSize = "cover";
+        ui.userProfileExtendedAvatar.style.backgroundPosition = "center";
+      } else {
+        applyAvatarInitialGlyph(ui.userProfileExtendedAvatar, displayName || account.username || "?");
+      }
+    }
+  }
+  ui.userProfileExtendedTabs.forEach((button) => {
+    const active = button.dataset.profileExtendedTab === userProfileExtendedTab;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  const sharedGuilds = sharedGuildsBetweenAccounts(current.id, account.id);
+  const sharedFriends = sharedFriendAccountsBetweenAccounts(current.id, account.id);
+  if (ui.userProfileExtendedGuildsPanel) {
+    ui.userProfileExtendedGuildsPanel.hidden = userProfileExtendedTab !== "guilds";
+    ui.userProfileExtendedGuildsPanel.innerHTML = "";
+    if (sharedGuilds.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "channel-empty";
+      empty.textContent = "No shared guilds.";
+      ui.userProfileExtendedGuildsPanel.appendChild(empty);
+    } else {
+      sharedGuilds.forEach((guild) => {
+        const row = document.createElement("div");
+        row.className = "profile-extended__row";
+        const color = document.createElement("span");
+        color.className = "profile-extended__swatch";
+        color.style.background = guild.accentColor || "#5865f2";
+        const text = document.createElement("div");
+        text.className = "profile-extended__row-text";
+        const name = document.createElement("strong");
+        name.textContent = guild.name || "Guild";
+        const meta = document.createElement("small");
+        const memberCount = Array.isArray(guild.memberIds) ? guild.memberIds.length : 0;
+        meta.textContent = `${memberCount} member${memberCount === 1 ? "" : "s"}`;
+        text.appendChild(name);
+        text.appendChild(meta);
+        row.appendChild(color);
+        row.appendChild(text);
+        ui.userProfileExtendedGuildsPanel.appendChild(row);
+      });
+    }
+  }
+  if (ui.userProfileExtendedFriendsPanel) {
+    ui.userProfileExtendedFriendsPanel.hidden = userProfileExtendedTab !== "friends";
+    ui.userProfileExtendedFriendsPanel.innerHTML = "";
+    if (sharedFriends.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "channel-empty";
+      empty.textContent = "No shared friends.";
+      ui.userProfileExtendedFriendsPanel.appendChild(empty);
+    } else {
+      sharedFriends.forEach((friend) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "profile-extended__friend";
+        const avatar = document.createElement("div");
+        avatar.className = "profile-extended__friend-avatar";
+        applyAvatarStyle(avatar, friend, null);
+        applyAvatarDecoration(avatar, friend);
+        const text = document.createElement("span");
+        text.className = "profile-extended__row-text";
+        const name = document.createElement("strong");
+        name.textContent = displayNameForAccount(friend, null);
+        const meta = document.createElement("small");
+        meta.textContent = displayStatus(friend, null);
+        text.appendChild(name);
+        text.appendChild(meta);
+        row.appendChild(avatar);
+        row.appendChild(text);
+        row.addEventListener("click", () => {
+          if (ui.userProfileExtendedDialog?.open) ui.userProfileExtendedDialog.close();
+          openUserPopout(friend);
+        });
+        ui.userProfileExtendedFriendsPanel.appendChild(row);
+      });
+    }
+  }
+}
+
+function openUserProfileExtendedDialog(account, { avatarUrlHint = "" } = {}) {
+  if (!account?.id || !ui.userProfileExtendedDialog) return;
+  userProfileExtendedAccountId = account.id;
+  userProfileExtendedAvatarHint = normalizeRenderableAvatarUrl(avatarUrlHint);
+  userProfileExtendedTab = "guilds";
+  if (!ui.userProfileExtendedDialog.open) ui.userProfileExtendedDialog.showModal();
+  renderUserProfileExtendedDialog();
+}
+
+function openExtendedProfileAvatarLightbox() {
+  const account = userProfileExtendedAccountId ? getAccountById(userProfileExtendedAccountId) : null;
+  if (!account) return;
+  const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
+  const displayName = displayNameForAccount(account, guildId);
+  const avatarUrl = [
+    resolveAccountAvatar(account, guildId).url,
+    userProfileExtendedAvatarHint,
+    avatarUrlHintFromElement(ui.userProfileExtendedAvatar)
+  ].find((entry) => isRenderableAvatarUrl(entry));
+  if (!avatarUrl) {
+    showToast("No avatar image available for this user.", { tone: "error" });
+    return;
+  }
+  showMediaLightbox(avatarUrl, `${displayName} avatar`, { kind: "image" });
 }
 
 function mentionAccountInComposer(account) {
@@ -24451,6 +24780,7 @@ function renderMessages() {
     if (groupedWithPrevious) messageRow.title = formatFullTimestamp(message.ts);
     messageRow.dataset.messageId = message.id;
     messageRow.dataset.ts = message.ts;
+    if (message.userId) messageRow.dataset.userId = message.userId;
     messageRow.tabIndex = -1;
     messageRow.addEventListener("mousedown", () => {
       messageRow.focus({ preventScroll: true });
@@ -24497,6 +24827,18 @@ function renderMessages() {
       }
     }
     avatar.title = displayNameForMessage(message);
+    avatar.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const authorAccount = message.userId ? getAccountById(message.userId) : null;
+      openUserPopout(authorAccount, message.authorName || "Unknown", {
+        avatarUrlHint: avatarUrlHintFromElement(avatar)
+      });
+    });
+    avatar.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
     messageRow.appendChild(avatar);
 
     const head = document.createElement("div");
@@ -29705,7 +30047,14 @@ ui.swfViewerDialog.addEventListener("close", () => {
 ui.userPopoutDialog.addEventListener("close", () => {
   selectedUserPopoutId = null;
   userPopoutXmppNeedsRefresh = false;
+  userPopoutAvatarHint = "";
+  if (ui.userProfileExtendedDialog?.open) ui.userProfileExtendedDialog.close();
   schedulePopoutPresenceRefresh();
+});
+ui.userProfileExtendedDialog?.addEventListener("close", () => {
+  userProfileExtendedAccountId = null;
+  userProfileExtendedAvatarHint = "";
+  userProfileExtendedTab = "guilds";
 });
 ui.userPopoutDialog.addEventListener("contextmenu", (event) => {
   const account = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
@@ -30432,11 +30781,42 @@ ui.userDmInput.addEventListener("keydown", (event) => {
   ui.userSendDmBtn.click();
 });
 
+ui.userPopoutAvatar?.addEventListener("click", () => {
+  const account = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
+  if (!account) return;
+  openUserProfileExtendedDialog(account, {
+    avatarUrlHint: avatarUrlHintFromElement(ui.userPopoutAvatar)
+  });
+});
+
+ui.userPopoutAvatar?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  ui.userPopoutAvatar?.click();
+});
+
 ui.userSaveNoteBtn.addEventListener("click", () => {
   const current = getCurrentAccount();
   if (!current || !selectedUserPopoutId) return;
   setUserNote(current.id, selectedUserPopoutId, ui.userNoteInput.value);
   saveState();
+});
+
+ui.userProfileExtendedTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const next = (tab.dataset.profileExtendedTab || "").toString();
+    if (!["guilds", "friends"].includes(next)) return;
+    userProfileExtendedTab = next;
+    renderUserProfileExtendedDialog();
+  });
+});
+
+ui.userProfileExtendedAvatarBtn?.addEventListener("click", () => {
+  openExtendedProfileAvatarLightbox();
+});
+
+ui.userProfileExtendedCloseBtn?.addEventListener("click", () => {
+  ui.userProfileExtendedDialog?.close();
 });
 
 ui.profileCancel.addEventListener("click", () => ui.profileDialog.close());
@@ -30628,6 +31008,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.quickSwitchDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
+  ui.userProfileExtendedDialog,
   ui.accountSwitchDialog,
   ui.addFriendDialog,
   ui.xmppProviderDialog,

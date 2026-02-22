@@ -766,6 +766,29 @@
     </div>
   </dialog>
 
+  <dialog id="userProfileExtendedDialog" class="modal profile-extended">
+    <div class="profile-extended__card">
+      <div class="profile-extended__hero">
+        <button id="userProfileExtendedAvatarBtn" type="button" class="profile-extended__avatar-btn" title="Open avatar image">
+          <div id="userProfileExtendedAvatar" class="profile-preview__avatar"></div>
+        </button>
+        <div class="profile-extended__hero-meta">
+          <h3 id="userProfileExtendedName">User</h3>
+          <p id="userProfileExtendedStatus">Online</p>
+        </div>
+      </div>
+      <div class="profile-extended__tabs" role="tablist" aria-label="Extended profile sections">
+        <button type="button" data-profile-extended-tab="guilds" class="active" aria-selected="true">Shared Guilds</button>
+        <button type="button" data-profile-extended-tab="friends" aria-selected="false">Shared Friends</button>
+      </div>
+      <div id="userProfileExtendedGuildsPanel" class="profile-extended__panel"></div>
+      <div id="userProfileExtendedFriendsPanel" class="profile-extended__panel" hidden></div>
+      <div class="modal-actions">
+        <button id="userProfileExtendedCloseBtn" type="button">Close</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="rolesDialog" class="modal">
     <form id="rolesForm" class="modal-form" method="dialog">
       <h3>Guild Roles</h3>
