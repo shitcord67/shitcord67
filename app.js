@@ -23,6 +23,7 @@ const XMPP_MESSAGE_RETRACT_NAMESPACE = "urn:xmpp:message-retract:1";
 const XMPP_FASTEN_NAMESPACE = "urn:xmpp:fasten:0";
 const XMPP_CHAT_MARKERS_NAMESPACE = "urn:xmpp:chat-markers:0";
 const XMPP_CSI_NAMESPACE = "urn:xmpp:csi:0";
+const XMPP_IDLE_NAMESPACE = "urn:xmpp:idle:1";
 const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
 const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
@@ -553,6 +554,8 @@ function createAccount(username, displayName = "") {
     avatarUrl: "",
     guildProfiles: {},
     presence: "online",
+    xmppIdleSince: "",
+    xmppLastActiveAt: "",
     customStatus: "",
     customStatusEmoji: "",
     customStatusExpiresAt: null,
@@ -629,6 +632,8 @@ function migrateState(raw) {
     raw.accounts = raw.accounts.map((account) => ({
       ...account,
       guildProfiles: account && typeof account.guildProfiles === "object" ? { ...account.guildProfiles } : {},
+      xmppIdleSince: Number.isFinite(Date.parse(account?.xmppIdleSince || "")) ? new Date(account.xmppIdleSince).toISOString() : "",
+      xmppLastActiveAt: Number.isFinite(Date.parse(account?.xmppLastActiveAt || "")) ? new Date(account.xmppLastActiveAt).toISOString() : "",
       customStatusEmoji: (account?.customStatusEmoji || "").toString().slice(0, 4),
       customStatusExpiresAt: account?.customStatusExpiresAt || null,
       avatarDecoration: (account?.avatarDecoration || "").toString().slice(0, 4),
@@ -1861,6 +1866,32 @@ function formatRelativeTimeAgoShort(iso) {
   return formatTime(iso);
 }
 
+function accountXmppLastActiveTimestamp(account, fallbackIso = "") {
+  const candidates = [
+    account?.xmppLastActiveAt || "",
+    account?.xmppIdleSince || "",
+    fallbackIso || ""
+  ]
+    .map((value) => {
+      const ms = toTimestampMs(value);
+      if (!ms) return null;
+      return new Date(ms).toISOString();
+    })
+    .filter(Boolean);
+  if (candidates.length === 0) return "";
+  let newest = candidates[0];
+  let newestMs = toTimestampMs(newest);
+  for (let i = 1; i < candidates.length; i += 1) {
+    const candidate = candidates[i];
+    const candidateMs = toTimestampMs(candidate);
+    if (candidateMs > newestMs) {
+      newest = candidate;
+      newestMs = candidateMs;
+    }
+  }
+  return newest;
+}
+
 function dmHeaderStatusMeta(thread, accountId, { typingSummary = "" } = {}) {
   const summary = (typingSummary || "").toString().trim();
   if (summary) return { text: summary, needsRefresh: false };
@@ -1877,9 +1908,9 @@ function dmHeaderStatusMeta(thread, accountId, { typingSummary = "" } = {}) {
     if (presenceText) parts.push(presenceText);
   }
   let needsRefresh = false;
-  if (presence === "invisible") {
+  if (presence === "idle" || presence === "invisible") {
     const lastIncomingTs = latestIncomingDmMessageTimestamp(thread, accountId);
-    const relative = formatRelativeTimeAgoShort(lastIncomingTs);
+    const relative = formatRelativeTimeAgoShort(accountXmppLastActiveTimestamp(peer, lastIncomingTs));
     if (relative) {
       parts.push(`Last active ${relative}`);
       needsRefresh = true;
@@ -6159,6 +6190,16 @@ function xmppPresencePhotoHash(stanza) {
   return xmppNodeText(photoNode).trim();
 }
 
+function xmppPresenceIdleSince(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const node = [...stanza.getElementsByTagName("idle")]
+    .find((entry) => xmppNodeHasXmlns(entry, XMPP_IDLE_NAMESPACE)) || null;
+  const since = (node?.getAttribute("since") || "").toString().trim();
+  const stampMs = toTimestampMs(since);
+  if (!stampMs) return "";
+  return new Date(stampMs).toISOString();
+}
+
 function xmppMucMessageAuthorJid(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
   const mucUserNode = [...stanza.getElementsByTagName("x")]
@@ -8340,10 +8381,53 @@ function connectRelaySocket({ force = false } = {}) {
             );
             if (!account) return true;
             const showNode = stanza.getElementsByTagName("show")[0] || null;
+            const idleSince = xmppPresenceIdleSince(stanza);
             const nextPresence = type === "unavailable" ? "invisible" : xmppPresenceShowToPresence(showNode);
             const previousPresence = normalizePresence(account.presence || "online");
-            if (nextPresence !== previousPresence) {
+            const previousIdleSince = toTimestampMs(account.xmppIdleSince || "")
+              ? new Date(toTimestampMs(account.xmppIdleSince || "")).toISOString()
+              : "";
+            const previousLastActiveAt = toTimestampMs(account.xmppLastActiveAt || "")
+              ? new Date(toTimestampMs(account.xmppLastActiveAt || "")).toISOString()
+              : "";
+            const nowIso = new Date().toISOString();
+            const idleMs = toTimestampMs(idleSince);
+            const previousIdleMs = toTimestampMs(previousIdleSince);
+            const previousLastActiveMs = toTimestampMs(previousLastActiveAt);
+            let nextIdleSince = "";
+            let nextLastActiveAt = previousLastActiveAt;
+            if (type === "unavailable") {
+              nextIdleSince = "";
+              if (!nextLastActiveAt) {
+                nextLastActiveAt = idleSince || previousIdleSince || nowIso;
+              } else if (idleMs > previousLastActiveMs) {
+                nextLastActiveAt = idleSince;
+              } else if (previousIdleMs > previousLastActiveMs) {
+                nextLastActiveAt = previousIdleSince;
+              }
+            } else if (idleSince) {
+              nextIdleSince = idleSince;
+              if (!nextLastActiveAt || idleMs > previousLastActiveMs) {
+                nextLastActiveAt = idleSince;
+              }
+            } else {
+              nextIdleSince = "";
+              const becameAvailable = nextPresence !== "invisible" && previousPresence === "invisible";
+              const presenceChanged = nextPresence !== previousPresence;
+              if (becameAvailable || !nextLastActiveAt || (previousIdleSince && !idleSince) || presenceChanged) {
+                nextLastActiveAt = nowIso;
+              }
+            }
+            const presenceChanged = nextPresence !== previousPresence;
+            const idleChanged = nextIdleSince !== previousIdleSince || nextLastActiveAt !== previousLastActiveAt;
+            if (presenceChanged) {
               account.presence = nextPresence;
+            }
+            if (idleChanged) {
+              account.xmppIdleSince = nextIdleSince;
+              account.xmppLastActiveAt = nextLastActiveAt;
+            }
+            if (presenceChanged || idleChanged) {
               renderDmList();
               renderMemberList();
               renderMessages();
@@ -8354,7 +8438,9 @@ function connectRelaySocket({ force = false } = {}) {
             addXmppDebugEvent("presence", "Peer presence updated", {
               jid: roomJid,
               type: type || "available",
-              presence: nextPresence
+              presence: nextPresence,
+              idleSince,
+              lastActiveAt: account.xmppLastActiveAt || ""
             });
             return true;
           }
@@ -20808,12 +20894,22 @@ function renderDmList() {
     const peer = peerId ? getAccountById(peerId) : null;
     const button = document.createElement("button");
     button.className = `channel-item channel-item--dm ${state.activeDmId === thread.id ? "active" : ""}`;
+    const peerPresence = normalizePresence(peer?.presence || "online");
+    const threadLastIncomingTs = latestIncomingDmMessageTimestamp(thread, currentAccount.id);
+    const peerLastActiveTs = accountXmppLastActiveTimestamp(peer, threadLastIncomingTs);
+    if (peer && (peerPresence === "idle" || peerPresence === "invisible")) {
+      const relative = formatRelativeTimeAgoShort(peerLastActiveTs);
+      if (relative) {
+        const prefix = peerPresence === "idle" ? "Idle" : "Offline";
+        button.title = `${prefix} · Last active ${relative}`;
+      }
+    }
     const avatar = document.createElement("div");
     avatar.className = "channel-dm-avatar";
     if (peer) {
       applyAvatarStyle(avatar, peer, null);
       const dot = document.createElement("span");
-      dot.className = `presence-dot presence-${normalizePresence(peer.presence)}`;
+      dot.className = `presence-dot presence-${peerPresence}`;
       avatar.appendChild(dot);
     } else {
       avatar.textContent = "?";
@@ -25988,6 +26084,8 @@ function createOrSwitchAccount(usernameInput, options = {}) {
     state.accounts.push(account);
   } else {
     if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+    if (typeof account.xmppIdleSince !== "string") account.xmppIdleSince = "";
+    if (typeof account.xmppLastActiveAt !== "string") account.xmppLastActiveAt = "";
     if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
     if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
     ensureAccountCosmetics(account);

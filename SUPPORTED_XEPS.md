@@ -17,6 +17,7 @@ Status labels:
 | XEP-0184 | Message Delivery Receipts | Partial | Direct-message sends now request receipts and mark outbound DM messages as delivered when receipts arrive. Groupchat receipts are not tracked. |
 | XEP-0333 | Chat Markers | Partial | DM sends now include `markable` hints, inbound markable DMs receive `received` markers, incoming `displayed`/`acknowledged` markers upgrade outbound DM status to read, and local DM read updates publish `displayed` markers. |
 | XEP-0199 | XMPP Ping | Implemented | Replies to incoming ping IQs and sends periodic keepalive pings on active XMPP sessions. |
+| XEP-0319 | Last User Interaction in Presence | Partial | Parses incoming `<idle xmlns='urn:xmpp:idle:1' since='...'>` hints and uses them for DM peer `Last active` metadata when available. |
 | XEP-0352 | Client State Indication | Partial | Detects CSI feature support from stream features and sends `active`/`inactive` hints based on app focus/visibility while connected. |
 | XEP-0153 | vCard-Based Avatars | Partial | Reads `vcard-temp:x:update` and fetches avatar via vCard. Publish/update from client is not implemented. |
 | XEP-0203 | Delayed Delivery | Partial | Delay stamps are parsed and used for timeline ordering. |

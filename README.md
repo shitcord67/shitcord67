@@ -289,7 +289,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP DM read-state now also uses chat markers (`urn:xmpp:chat-markers:0`, XEP-0333): outbound direct messages are marked `markable`, inbound markable DMs now receive `received` markers, incoming `displayed` markers mark your sent DMs as read, and opening/reading a DM publishes `displayed` markers back to peers.
 - DM threads now show a Discord-like tail receipt: the latest read outbound DM message gets a small peer-avatar `Seen` indicator.
 - DM composer meta now includes a live status line in 1:1 chats (typing + delivery/read summary such as `Seen 14:32`).
-- DM header topic now updates live with peer status (custom status/presence and offline `Last active` hints; typing state overrides while active).
+- DM header topic now updates live with peer status (custom status/presence and idle/offline `Last active` hints; typing state overrides while active).
 - DM sidebar previews now show outbound delivery hints (`✓`, `✓✓`, `✓✓ Read`) for your latest sent message in each thread.
 - XMPP message edits now use Last Message Correction (`urn:xmpp:message-correct:0`, XEP-0308): incoming `replace` stanzas patch existing DM/MUC messages, and local edits publish correction stanzas when stanza references are known.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
@@ -302,6 +302,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.
 - XMPP sessions now reply to `urn:xmpp:ping` IQs and send periodic keepalive pings (XEP-0199) to improve long-lived connection stability.
 - XMPP sessions now detect CSI support (`urn:xmpp:csi:0`, XEP-0352) and publish `active`/`inactive` client-state hints on focus/visibility changes.
+- XMPP presence handling now parses idle interaction hints (`urn:xmpp:idle:1`, XEP-0319) and uses them for DM peer `Last active` status when available.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
 - XMPP outbound messages now include reply metadata (`urn:xmpp:reply:0`) with fallback quote ranges (`urn:xmpp:fallback:0`) when replying in DM/MUC.
 - XMPP outbound DM/MUC messages now attach `origin-id` references (`urn:xmpp:sid:0`) to improve cross-client dedupe/reply/edit targeting.
