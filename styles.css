@@ -601,9 +601,48 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .channel-item__preview {
   color: #9ca5b2;
   font-size: 0.68rem;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.channel-item__preview-prefix {
+  color: #aab3c0;
+  flex: 0 0 auto;
+}
+
+.channel-item__preview-text {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dm-delivery-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #4b5160;
+  color: #aeb6c5;
+  padding: 0.06rem 0.32rem;
+  font-size: 0.61rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  background: rgba(36, 40, 50, 0.7);
+}
+
+.dm-delivery-pill--delivered {
+  border-color: #4d7d66;
+  color: #8ccaa7;
+}
+
+.dm-delivery-pill--read {
+  border-color: #4a6994;
+  color: #9fcbff;
+  font-weight: 600;
 }
 
 .channel-dm-avatar {
@@ -4372,6 +4411,13 @@ body[data-compact-members="on"] .member-item {
 
 .profile-preview__body p + p {
   margin-top: 0.45rem;
+}
+
+.profile-preview__presence-meta {
+  margin-top: 0.25rem;
+  color: #9eabbe;
+  font-size: 0.68rem;
+  letter-spacing: 0.01em;
 }
 
 .profile-preview__body label {

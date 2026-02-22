@@ -1280,6 +1280,7 @@ const ui = {
   selfPopoutAvatar: document.getElementById("selfPopoutAvatar"),
   selfPopoutName: document.getElementById("selfPopoutName"),
   selfPopoutStatus: document.getElementById("selfPopoutStatus"),
+  selfPopoutXmppMeta: document.getElementById("selfPopoutXmppMeta"),
   selfPresenceSelect: document.getElementById("selfPresenceSelect"),
   selfPopoutBio: document.getElementById("selfPopoutBio"),
   selfPopoutRoles: document.getElementById("selfPopoutRoles"),
@@ -1293,6 +1294,7 @@ const ui = {
   userPopoutAvatar: document.getElementById("userPopoutAvatar"),
   userPopoutName: document.getElementById("userPopoutName"),
   userPopoutStatus: document.getElementById("userPopoutStatus"),
+  userPopoutXmppMeta: document.getElementById("userPopoutXmppMeta"),
   userPopoutBio: document.getElementById("userPopoutBio"),
   userPopoutRoles: document.getElementById("userPopoutRoles"),
   userNoteInput: document.getElementById("userNoteInput"),
@@ -1831,12 +1833,35 @@ function formatDmDeliverySummaryForComposer(thread, accountId) {
   return "";
 }
 
-function formatDmDeliveryPrefixForList(message) {
+function dmDeliveryBadgeMetaForList(message) {
   const deliveryState = (message?.xmppDeliveryState || "").toString().toLowerCase();
-  if (deliveryState === "read") return "✓✓ Read";
-  if (deliveryState === "delivered") return "✓✓";
-  if (deliveryState === "sent") return "✓";
-  return "";
+  if (deliveryState === "read") {
+    const stamp = (message?.xmppReadAt || message?.xmppDeliveryAt || "").toString().trim();
+    return {
+      state: "read",
+      label: "Read",
+      prefix: "✓✓ Read",
+      title: stamp ? `Read ${formatFullTimestamp(stamp)}` : "Read by peer"
+    };
+  }
+  if (deliveryState === "delivered") {
+    const stamp = (message?.xmppDeliveryAt || "").toString().trim();
+    return {
+      state: "delivered",
+      label: "✓✓",
+      prefix: "✓✓",
+      title: stamp ? `Delivered ${formatFullTimestamp(stamp)}` : "Delivered"
+    };
+  }
+  if (deliveryState === "sent") {
+    return {
+      state: "sent",
+      label: "✓",
+      prefix: "✓",
+      title: "Sent (waiting for delivery receipt)"
+    };
+  }
+  return null;
 }
 
 function latestIncomingDmMessageTimestamp(thread, accountId) {
@@ -1890,6 +1915,49 @@ function accountXmppLastActiveTimestamp(account, fallbackIso = "") {
     }
   }
   return newest;
+}
+
+function accountXmppPresenceMeta(account, { fallbackLastActive = "" } = {}) {
+  const bareJid = accountBareXmppJid(account);
+  if (!bareJid) {
+    return { text: "", title: "", needsRefresh: false };
+  }
+  const presence = normalizePresence(account?.presence || "online");
+  const idleSince = toTimestampMs(account?.xmppIdleSince || "")
+    ? new Date(toTimestampMs(account.xmppIdleSince || "")).toISOString()
+    : "";
+  const lastActive = accountXmppLastActiveTimestamp(account, fallbackLastActive || "");
+  const parts = [`XMPP ${bareJid}`];
+  const titleParts = [`JID ${bareJid}`];
+  let needsRefresh = false;
+  if (presence === "idle") {
+    const source = idleSince || lastActive;
+    const relative = formatRelativeTimeAgoShort(source);
+    if (relative) {
+      parts.push(`Idle ${relative}`);
+      needsRefresh = true;
+    } else {
+      parts.push("Idle");
+    }
+    if (source) titleParts.push(`Idle since ${formatFullTimestamp(source)}`);
+  } else if (presence === "invisible") {
+    const relative = formatRelativeTimeAgoShort(lastActive);
+    if (relative) {
+      parts.push(`Last active ${relative}`);
+      needsRefresh = true;
+    } else {
+      parts.push("Offline");
+    }
+    if (lastActive) titleParts.push(`Last active ${formatFullTimestamp(lastActive)}`);
+  } else {
+    parts.push(presenceLabel(presence));
+    if (lastActive) titleParts.push(`Last active ${formatFullTimestamp(lastActive)}`);
+  }
+  return {
+    text: parts.join(" · "),
+    title: titleParts.join(" · "),
+    needsRefresh
+  };
 }
 
 function dmHeaderStatusMeta(thread, accountId, { typingSummary = "" } = {}) {
@@ -20929,15 +20997,28 @@ function renderDmList() {
     } else {
       const ownLastMessage = (lastMessage.userId || "").toString() === (currentAccount.id || "").toString();
       const sender = ownLastMessage ? "You" : (peer ? dmPrimaryLabelForAccount(peer) : "Unknown");
-      const deliveryPrefix = ownLastMessage ? formatDmDeliveryPrefixForList(lastMessage) : "";
-      const senderLabel = deliveryPrefix ? `${sender} ${deliveryPrefix}` : sender;
+      const deliveryMeta = ownLastMessage ? dmDeliveryBadgeMetaForList(lastMessage) : null;
+      const senderLabel = deliveryMeta ? `${sender} ${deliveryMeta.prefix}` : sender;
       const text = (lastMessage.text || "").replace(/\s+/g, " ").trim();
-      const rawPreview = `${senderLabel}: ${text || "(attachment)"}`;
-      preview.textContent = rawPreview.slice(0, 72);
-      if (deliveryPrefix === "✓✓ Read" && lastMessage.xmppReadAt) {
-        preview.title = `${rawPreview} · Read ${formatFullTimestamp(lastMessage.xmppReadAt)}`;
-      } else if (deliveryPrefix === "✓✓" && lastMessage.xmppDeliveryAt) {
-        preview.title = `${rawPreview} · Delivered ${formatFullTimestamp(lastMessage.xmppDeliveryAt)}`;
+      const bodyText = text || "(attachment)";
+      const rawPreview = `${senderLabel}: ${bodyText}`;
+      const prefix = document.createElement("span");
+      prefix.className = "channel-item__preview-prefix";
+      prefix.textContent = `${sender}:`;
+      preview.appendChild(prefix);
+      if (deliveryMeta) {
+        const deliveryBadge = document.createElement("span");
+        deliveryBadge.className = `dm-delivery-pill dm-delivery-pill--${deliveryMeta.state}`;
+        deliveryBadge.textContent = deliveryMeta.label;
+        if (deliveryMeta.title) deliveryBadge.title = deliveryMeta.title;
+        preview.appendChild(deliveryBadge);
+      }
+      const body = document.createElement("span");
+      body.className = "channel-item__preview-text";
+      body.textContent = bodyText;
+      preview.appendChild(body);
+      if (deliveryMeta?.title) {
+        preview.title = `${rawPreview} · ${deliveryMeta.title}`;
       } else if (rawPreview.length > 72) {
         preview.title = rawPreview;
       }
@@ -21464,6 +21545,20 @@ function renderUserPopout(
     ui.userPopoutName.appendChild(chip);
   }
   ui.userPopoutStatus.textContent = account ? displayStatus(account, guildId) : "Offline";
+  if (ui.userPopoutXmppMeta) {
+    const dmThread = account?.id && current?.id
+      ? state.dmThreads.find((thread) => (
+          Array.isArray(thread?.participantIds)
+          && thread.participantIds.includes(account.id)
+          && thread.participantIds.includes(current.id)
+        )) || null
+      : null;
+    const fallbackLastActive = dmThread ? latestIncomingDmMessageTimestamp(dmThread, current.id) : "";
+    const xmppMeta = accountXmppPresenceMeta(account, { fallbackLastActive });
+    ui.userPopoutXmppMeta.textContent = xmppMeta.text;
+    ui.userPopoutXmppMeta.hidden = !xmppMeta.text;
+    ui.userPopoutXmppMeta.title = xmppMeta.title || "";
+  }
   ui.userPopoutBio.textContent = bio;
   if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
   applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
@@ -24236,6 +24331,12 @@ function renderSelfPopout() {
     ui.selfPopoutName.appendChild(chip);
   }
   ui.selfPopoutStatus.textContent = displayStatus(account, getActiveGuild()?.id || null);
+  if (ui.selfPopoutXmppMeta) {
+    const xmppMeta = accountXmppPresenceMeta(account, { fallbackLastActive: account?.xmppLastActiveAt || "" });
+    ui.selfPopoutXmppMeta.textContent = xmppMeta.text;
+    ui.selfPopoutXmppMeta.hidden = !xmppMeta.text;
+    ui.selfPopoutXmppMeta.title = xmppMeta.title || "";
+  }
   if (ui.selfPresenceSelect) ui.selfPresenceSelect.value = normalizePresence(account.presence || "online");
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);

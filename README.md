@@ -290,7 +290,8 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - DM threads now show a Discord-like tail receipt: the latest read outbound DM message gets a small peer-avatar `Seen` indicator.
 - DM composer meta now includes a live status line in 1:1 chats (typing + delivery/read summary such as `Seen 14:32`).
 - DM header topic now updates live with peer status (custom status/presence and idle/offline `Last active` hints; typing state overrides while active).
-- DM sidebar previews now show outbound delivery hints (`✓`, `✓✓`, `✓✓ Read`) for your latest sent message in each thread.
+- DM sidebar previews now show outbound delivery hints (`✓`, `✓✓`, `Read`) as compact chips for your latest sent message in each thread.
+- Self/user profile popouts now surface XMPP presence metadata (linked JID and idle/last-active hints when available).
 - XMPP message edits now use Last Message Correction (`urn:xmpp:message-correct:0`, XEP-0308): incoming `replace` stanzas patch existing DM/MUC messages, and local edits publish correction stanzas when stanza references are known.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
