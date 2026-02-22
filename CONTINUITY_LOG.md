@@ -665,3 +665,65 @@ Btw. can you also tag Commit 45f3347 as version 1?
 [887376:0222/235020.394358:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
 [electron] client load failed ERR_FAILED (-2) loading 'http://127.0.0.1:38080/'
 Trace/Breakpoint ausgelöst(Speicherabzug geschrieben) dist/electron/shitcord67-linux-x64/shitcord67
+
+## 2026-02-22T23:01:00Z
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 8080 is listening but http://127.0.0.1:8080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 8080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=8080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:18080
+[electron] starting local stack (client=127.0.0.1:18080, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 18080 is listening but http://127.0.0.1:18080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 18080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=18080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:8081
+[electron] starting local stack (client=127.0.0.1:8081, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 8081 is listening but http://127.0.0.1:8081/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 8081 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=8081 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:38080
+[electron] starting local stack (client=127.0.0.1:38080, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 38080 is listening but http://127.0.0.1:38080/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 38080 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=38080 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:18081
+[electron] starting local stack (client=127.0.0.1:18081, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 18081 is listening but http://127.0.0.1:18081/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 18081 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=18081 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:41329
+[electron] starting local stack (client=127.0.0.1:41329, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] [run-client-stack] started client-server (pid 919062)
+[electron] [run-client-stack] xmpp gateway port 8790 already in use, reusing existing gateway.
+[run-client-stack] client: http://127.0.0.1:41329/
+[run-client-stack] gateway: http://127.0.0.1:8790
+[electron] [run-client-stack] press Ctrl+C to stop.
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 00:00:01] "GET / HTTP/1.1" 200 -
+[919075:0223/000001.791403:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.XGjshY failed: No such process (3)
+[919075:0223/000001.791479:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[919075:0223/000001.791506:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 00:00:01] "GET / HTTP/1.1" 200 -
+[electron] client load failed ERR_FAILED (-2) loading 'http://127.0.0.1:41329/'
+Trace/Breakpoint ausgelöst(Speicherabzug geschrieben) dist/electron/shitcord67-linux-x64/shitcord67
