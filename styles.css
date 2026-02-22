@@ -2291,14 +2291,23 @@ body[data-hide-channel-panel="on"] .chat-panel {
 .media-card--sticker .media-card__preview {
   aspect-ratio: 1 / 1;
   min-height: 156px;
+  height: 176px;
   max-height: 196px;
   object-fit: contain;
+  background: #262b35;
+}
+
+.media-card--sticker {
+  min-width: 148px;
 }
 
 .media-card--sticker img.media-card__preview,
 .media-card--sticker video.media-card__preview {
+  display: block;
   width: 100%;
-  height: 100%;
+  min-height: 156px;
+  height: 176px;
+  max-height: 196px;
   object-fit: contain;
 }
 
@@ -2726,8 +2735,14 @@ body[data-hide-channel-panel="on"] .chat-panel {
   cursor: zoom-in;
 }
 
-.message-attachment--sticker img {
+.message-attachment--sticker img,
+.message-attachment--sticker video {
+  width: min(180px, 100%);
+  min-width: min(132px, 100%);
   max-width: 180px;
+  min-height: min(132px, 100%);
+  max-height: 180px;
+  object-fit: contain;
 }
 
 .message-lottie-player {

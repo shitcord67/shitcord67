@@ -715,6 +715,20 @@
     </form>
   </dialog>
 
+  <dialog id="mediaUrlDialog" class="modal">
+    <form id="mediaUrlForm" class="modal-form" method="dialog">
+      <h3 id="mediaUrlDialogTitle">Add Media URL</h3>
+      <label id="mediaUrlNameLabel" for="mediaUrlNameInput">Name</label>
+      <input id="mediaUrlNameInput" type="text" maxlength="120" placeholder="name" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <label for="mediaUrlInput">URL</label>
+      <input id="mediaUrlInput" type="url" maxlength="4096" placeholder="https://example.com/media.png" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <div class="modal-actions">
+        <button id="mediaUrlCancelBtn" type="button">Cancel</button>
+        <button type="submit">Add URL</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="selfMenuDialog" class="modal profile-popout">
     <div class="profile-preview">
       <div id="selfPopoutBanner" class="profile-preview__banner"></div>

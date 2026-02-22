@@ -254,3 +254,6 @@ $ts | USER_PROMPT | I noticed that the privacy gate is broken (nothing happens o
 
 ## 2026-02-22T19:00:49Z
 I noticed that the privacy gate is broken (nothing happens on button click), then in the GIF picker it also doesn't show privacy gate options and the Sticker picker seems to have no enforced sticker display size, thus everything will look small after a few seconds there. Also when I click on the profile of a user I still don't see their avatar there, despite it showing in the sidebar and the chat. Oh also when I click on a profile picture in the chat then the user profile should open as well. And on the user profile it should be possible to click on the profile picture to open an extended profile with tabs to show which guilds and friends are shared among that user and the logged in user. Also when clicked on the profile picture in this view then the image viewer should show the profile big.
+
+## 2026-02-22T19:27:35Z
+After I allowed a file via privacy gate then immiadetly show it. Then I noticed adding URLs doesn't work in the file picker; no dialog shows up to enter one... Then the Sticker picker still has no enforced sticker display size...

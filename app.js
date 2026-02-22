@@ -273,6 +273,7 @@ const COSMETIC_BUNDLE_CATALOG = [
   }
 ];
 const mediaAllowOnceUrls = new Set();
+const mediaAllowOnceAttachmentKeys = new Set();
 const EMOJI_LIBRARY = [
   { name: "grinning", value: "😀", aliases: ["smile"], keywords: ["happy", "face"] },
   { name: "joy", value: "😂", aliases: ["lol"], keywords: ["laugh", "tears"] },
@@ -1030,6 +1031,7 @@ let mediaPickerTab = "gif";
 let mediaPickerQuery = "";
 let mediaPickerEmojiOnlyMode = false;
 let mediaPickerEmojiSelectHandler = null;
+let mediaUrlDialogResolver = null;
 let gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
 let gifPickerRemoteEntries = [];
 let gifPickerRemoteNext = "";
@@ -1290,6 +1292,13 @@ const ui = {
   addMediaUrlBtn: document.getElementById("addMediaUrlBtn"),
   addMediaFileBtn: document.getElementById("addMediaFileBtn"),
   mediaFileInput: document.getElementById("mediaFileInput"),
+  mediaUrlDialog: document.getElementById("mediaUrlDialog"),
+  mediaUrlForm: document.getElementById("mediaUrlForm"),
+  mediaUrlDialogTitle: document.getElementById("mediaUrlDialogTitle"),
+  mediaUrlNameLabel: document.getElementById("mediaUrlNameLabel"),
+  mediaUrlNameInput: document.getElementById("mediaUrlNameInput"),
+  mediaUrlInput: document.getElementById("mediaUrlInput"),
+  mediaUrlCancelBtn: document.getElementById("mediaUrlCancelBtn"),
   mediaTabs: [...document.querySelectorAll(".media-picker__tab")],
   openMediaPickerBtn: document.getElementById("openMediaPickerBtn"),
   openGifPickerBtn: document.getElementById("openGifPickerBtn"),
@@ -11519,11 +11528,54 @@ function normalizeMediaPrivacyUrl(url) {
   }
 }
 
-function allowMediaUrlOnce(url) {
+function mediaPrivacyUrlKeys(url, { includePathVariant = false } = {}) {
+  const keys = new Set();
   const normalized = normalizeMediaPrivacyUrl(url);
-  if (normalized) mediaAllowOnceUrls.add(normalized);
+  if (normalized) keys.add(normalized);
   const resolved = resolveMediaUrl(url);
-  if (resolved && resolved !== normalized) mediaAllowOnceUrls.add(resolved);
+  if (resolved) keys.add(resolved);
+  if (includePathVariant) {
+    try {
+      const parsed = new URL(normalized || resolved, window.location.href);
+      parsed.search = "";
+      parsed.hash = "";
+      keys.add(parsed.href);
+    } catch {
+      // Skip invalid URLs.
+    }
+  }
+  return [...keys].filter(Boolean);
+}
+
+function allowMediaUrlOnce(url) {
+  mediaPrivacyUrlKeys(url, { includePathVariant: true }).forEach((key) => {
+    mediaAllowOnceUrls.add(key);
+  });
+}
+
+function mediaAllowOnceAttachmentKey(attachment, contextKey = "") {
+  if (!attachment || typeof attachment !== "object") return "";
+  const mediaUrl = (attachment?.url || "").toString().trim();
+  if (!mediaUrl) return "";
+  const normalized = mediaPrivacyUrlKeys(mediaUrl, { includePathVariant: true })[0] || normalizeMediaPrivacyUrl(mediaUrl);
+  if (!normalized) return "";
+  return [
+    (contextKey || "").toString(),
+    (attachment?.type || "").toString(),
+    normalized
+  ].join("|");
+}
+
+function allowMediaAttachmentOnce(attachment, contextKey = "") {
+  const key = mediaAllowOnceAttachmentKey(attachment, contextKey);
+  if (key) mediaAllowOnceAttachmentKeys.add(key);
+  const mediaUrl = (attachment?.url || "").toString().trim();
+  if (mediaUrl) allowMediaUrlOnce(mediaUrl);
+}
+
+function isMediaAttachmentAllowedOnce(attachment, contextKey = "") {
+  const key = mediaAllowOnceAttachmentKey(attachment, contextKey);
+  return Boolean(key && mediaAllowOnceAttachmentKeys.has(key));
 }
 
 function isExternalMediaUrl(url) {
@@ -11553,8 +11605,9 @@ function doesMediaRuleMatchHost(rule, host) {
 }
 
 function isTrustedMediaUrl(url) {
-  const normalized = normalizeMediaPrivacyUrl(url);
-  if (mediaAllowOnceUrls.has(normalized) || mediaAllowOnceUrls.has(url)) return true;
+  const candidates = mediaPrivacyUrlKeys(url, { includePathVariant: true });
+  if (candidates.some((entry) => mediaAllowOnceUrls.has(entry))) return true;
+  const normalized = candidates[0] || normalizeMediaPrivacyUrl(url);
   const host = mediaUrlHost(normalized);
   if (!host) return false;
   const prefs = getPreferences();
@@ -17300,16 +17353,66 @@ function sendMediaAttachment(entry, type) {
   }
 }
 
-function addMediaFromUrlFlow() {
-  const tab = mediaPickerTab;
+function safeNativePrompt(message, defaultValue = "") {
+  if (!(typeof window !== "undefined" && typeof window.prompt === "function")) return null;
+  try {
+    return window.prompt(message, defaultValue);
+  } catch {
+    return null;
+  }
+}
+
+function settleMediaUrlDialog(result = null) {
+  if (!(mediaUrlDialogResolver instanceof Function)) return;
+  const resolve = mediaUrlDialogResolver;
+  mediaUrlDialogResolver = null;
+  resolve(result);
+}
+
+function openMediaUrlEntryDialog(tab) {
   const nameLabel = tab === "emoji" ? "emoji short name" : `${tab} name`;
-  const typedName = prompt(`Add ${nameLabel}`, "");
-  if (typedName === null) return;
-  const typedUrl = prompt(`Add ${tab.toUpperCase()} URL`, "https://");
-  if (!typedUrl) return;
+  if (!ui.mediaUrlDialog || !ui.mediaUrlNameInput || !ui.mediaUrlInput) {
+    const typedName = safeNativePrompt(`Add ${nameLabel}`, "");
+    if (typedName === null) return Promise.resolve(null);
+    const typedUrl = safeNativePrompt(`Add ${tab.toUpperCase()} URL`, "https://");
+    if (!typedUrl) return Promise.resolve(null);
+    return Promise.resolve({ typedName, typedUrl });
+  }
+  if (mediaUrlDialogResolver instanceof Function) settleMediaUrlDialog(null);
+  if (ui.mediaUrlDialogTitle) ui.mediaUrlDialogTitle.textContent = `Add ${tab.toUpperCase()} URL`;
+  if (ui.mediaUrlNameLabel) ui.mediaUrlNameLabel.textContent = `Name (${nameLabel})`;
+  ui.mediaUrlNameInput.value = "";
+  ui.mediaUrlInput.value = "https://";
+  return new Promise((resolve) => {
+    mediaUrlDialogResolver = resolve;
+    if (!ui.mediaUrlDialog.open) ui.mediaUrlDialog.showModal();
+    requestAnimationFrame(() => {
+      ui.mediaUrlNameInput?.focus();
+      ui.mediaUrlNameInput?.select();
+    });
+  });
+}
+
+function enforceStickerPreviewSizing(element) {
+  if (!(element instanceof HTMLElement)) return;
+  element.style.aspectRatio = "1 / 1";
+  element.style.minHeight = "156px";
+  element.style.height = "176px";
+  element.style.maxHeight = "196px";
+  element.style.objectFit = "contain";
+}
+
+async function addMediaFromUrlFlow() {
+  const tab = mediaPickerTab;
+  const details = await openMediaUrlEntryDialog(tab);
+  if (!details) return;
+  const { typedName = "", typedUrl = "" } = details;
   const name = sanitizeMediaName(typedName, `${tab}-${Date.now().toString().slice(-4)}`);
   const url = typedUrl.trim();
-  if (!/^https?:\/\//i.test(url) && !/^data:/i.test(url)) return;
+  if (!/^https?:\/\//i.test(url) && !/^data:/i.test(url)) {
+    showToast("Only http(s) or data URLs are supported.", { tone: "error" });
+    return;
+  }
   const inferredType = inferAttachmentTypeFromUrl(url);
   const resolvedType = tab === "docs"
     ? (inferredType === "rtf" ? "rtf" : "odf")
@@ -17326,6 +17429,9 @@ function addMediaFromUrlFlow() {
   })) {
     saveState();
     renderMediaPicker();
+    showToast("Added media URL.");
+  } else {
+    showToast("Could not add media URL.", { tone: "error" });
   }
 }
 
@@ -17838,14 +17944,17 @@ function renderMediaPicker() {
       return;
     }
 
-    if (mediaPickerTab === "gif" && entry.preview === "video") {
+    const entryUrlForPreview = resolvedEntryUrl || entry.url || "";
+    const stickerLooksVideo = mediaPickerTab === "sticker" && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(entryUrlForPreview);
+    if ((mediaPickerTab === "gif" && entry.preview === "video") || stickerLooksVideo) {
       const video = document.createElement("video");
       video.className = "media-card__preview";
-      video.src = resolvedEntryUrl || entry.url;
+      video.src = entryUrlForPreview;
       video.autoplay = true;
       video.loop = true;
       video.muted = true;
       video.playsInline = true;
+      if (mediaPickerTab === "sticker") enforceStickerPreviewSizing(video);
       card.appendChild(video);
     } else if (mediaPickerTab === "sticker" && stickerFormatFromName(entry.name, entry.url) === "dotlottie") {
       const preview = document.createElement("div");
@@ -17855,13 +17964,15 @@ function renderMediaPicker() {
       preview.style.color = "#c4ccd8";
       preview.style.fontSize = "0.72rem";
       preview.textContent = ".lottie";
+      enforceStickerPreviewSizing(preview);
       card.appendChild(preview);
     } else {
       const img = document.createElement("img");
       img.className = "media-card__preview";
       img.loading = "lazy";
-      img.src = resolvedEntryUrl || entry.url;
+      img.src = entryUrlForPreview;
       img.alt = entry.name || "media";
+      if (mediaPickerTab === "sticker") enforceStickerPreviewSizing(img);
       card.appendChild(img);
     }
     if (mediaPickerTab === "gif") {
@@ -21343,7 +21454,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     });
   };
 
-  if (type !== "swf" && shouldGateMediaUrl(mediaUrl)) {
+  if (type !== "swf" && !isMediaAttachmentAllowedOnce(attachment, swfKey) && shouldGateMediaUrl(mediaUrl)) {
     const host = mediaUrlHost(mediaUrl);
     const hostLabel = host || "external host";
     const kind = attachmentTypeDisplayLabel(type, mediaUrl);
@@ -21437,7 +21548,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     onceBtn.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      allowMediaUrlOnce(mediaUrl);
+      allowMediaAttachmentOnce(attachment, swfKey);
       showToast("Allowed once for this URL.");
       renderMessages();
     });
@@ -29080,7 +29191,7 @@ ui.mediaGrid.addEventListener("scroll", () => {
 });
 
 ui.addMediaUrlBtn.addEventListener("click", () => {
-  addMediaFromUrlFlow();
+  void addMediaFromUrlFlow();
 });
 
 ui.addMediaFileBtn.addEventListener("click", () => {
@@ -29091,6 +29202,33 @@ ui.addMediaFileBtn.addEventListener("click", () => {
 ui.mediaFileInput.addEventListener("change", async () => {
   const file = ui.mediaFileInput.files?.[0];
   await addMediaFromFileFlow(file);
+});
+
+ui.mediaUrlForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const typedName = (ui.mediaUrlNameInput?.value || "").toString();
+  const typedUrl = (ui.mediaUrlInput?.value || "").toString().trim();
+  if (!typedUrl) {
+    showToast("Enter a URL.", { tone: "error" });
+    ui.mediaUrlInput?.focus();
+    return;
+  }
+  if (!/^https?:\/\//i.test(typedUrl) && !/^data:/i.test(typedUrl)) {
+    showToast("Only http(s) or data URLs are supported.", { tone: "error" });
+    ui.mediaUrlInput?.focus();
+    return;
+  }
+  settleMediaUrlDialog({ typedName, typedUrl });
+  ui.mediaUrlDialog?.close();
+});
+
+ui.mediaUrlCancelBtn?.addEventListener("click", () => {
+  settleMediaUrlDialog(null);
+  ui.mediaUrlDialog?.close();
+});
+
+ui.mediaUrlDialog?.addEventListener("close", () => {
+  settleMediaUrlDialog(null);
 });
 
 ui.channelFilterInput.addEventListener("input", () => {
@@ -31006,6 +31144,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   ui.findDialog,
   ui.shortcutsDialog,
   ui.quickSwitchDialog,
+  ui.mediaUrlDialog,
   ui.selfMenuDialog,
   ui.userPopoutDialog,
   ui.userProfileExtendedDialog,
