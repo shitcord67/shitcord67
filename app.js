@@ -32,6 +32,7 @@ const XMPP_MAM_PAGE_SIZE = 120;
 const XMPP_MAM_LOADING_STALE_MS = 18000;
 const XMPP_PING_INTERVAL_MS = 45000;
 const XMPP_PING_TIMEOUT_MS = 12000;
+const POPOUT_PRESENCE_REFRESH_MS = 30_000;
 const MESSAGE_CHAR_LIMIT_MIN = 200;
 const MESSAGE_CHAR_LIMIT_DEFAULT = 2000;
 const MESSAGE_CHAR_LIMIT_MAX = 20000;
@@ -984,6 +985,7 @@ let composerPendingAttachments = [];
 let composerDraftConversationId = null;
 let composerDraftSaveTimer = null;
 let composerMetaRefreshTimer = null;
+let popoutPresenceRefreshTimer = null;
 let composerTempLimitConversationId = null;
 let composerTempLimitExtra = 0;
 let composerCharCountClickTimer = null;
@@ -1007,6 +1009,8 @@ let findDialogPendingJumpToast = false;
 let pendingFindJumpMessageId = "";
 let pendingFindJumpAttempts = 0;
 let lastRenderedMessageSignature = "";
+let userPopoutXmppNeedsRefresh = false;
+let selfPopoutXmppNeedsRefresh = false;
 let cosmeticsTab = "decor";
 let pinsSearchTerm = "";
 let pinsSortMode = "latest";
@@ -1958,6 +1962,34 @@ function accountXmppPresenceMeta(account, { fallbackLastActive = "" } = {}) {
     title: titleParts.join(" · "),
     needsRefresh
   };
+}
+
+function clearPopoutPresenceRefreshTimer() {
+  if (popoutPresenceRefreshTimer) {
+    clearTimeout(popoutPresenceRefreshTimer);
+    popoutPresenceRefreshTimer = null;
+  }
+}
+
+function schedulePopoutPresenceRefresh() {
+  clearPopoutPresenceRefreshTimer();
+  const userOpen = Boolean(ui.userPopoutDialog?.open && selectedUserPopoutId);
+  const selfOpen = Boolean(ui.selfMenuDialog?.open);
+  const shouldRefresh = (userOpen && userPopoutXmppNeedsRefresh) || (selfOpen && selfPopoutXmppNeedsRefresh);
+  if (!shouldRefresh) return;
+  popoutPresenceRefreshTimer = setTimeout(() => {
+    popoutPresenceRefreshTimer = null;
+    if (ui.selfMenuDialog?.open) renderSelfPopout();
+    if (ui.userPopoutDialog?.open) {
+      const selected = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
+      const fallbackName = ui.userPopoutName?.textContent || "Unknown";
+      renderUserPopout(selected, fallbackName, {
+        focusQuickDm: false,
+        resetQuickDmInput: false,
+        refreshPrivateFields: false
+      });
+    }
+  }, POPOUT_PRESENCE_REFRESH_MS);
 }
 
 function dmHeaderStatusMeta(thread, accountId, { typingSummary = "" } = {}) {
@@ -21545,6 +21577,7 @@ function renderUserPopout(
     ui.userPopoutName.appendChild(chip);
   }
   ui.userPopoutStatus.textContent = account ? displayStatus(account, guildId) : "Offline";
+  let userXmppNeedsRefresh = false;
   if (ui.userPopoutXmppMeta) {
     const dmThread = account?.id && current?.id
       ? state.dmThreads.find((thread) => (
@@ -21558,7 +21591,10 @@ function renderUserPopout(
     ui.userPopoutXmppMeta.textContent = xmppMeta.text;
     ui.userPopoutXmppMeta.hidden = !xmppMeta.text;
     ui.userPopoutXmppMeta.title = xmppMeta.title || "";
+    userXmppNeedsRefresh = Boolean(xmppMeta.needsRefresh);
   }
+  userPopoutXmppNeedsRefresh = userXmppNeedsRefresh;
+  schedulePopoutPresenceRefresh();
   ui.userPopoutBio.textContent = bio;
   if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
   applyAvatarStyle(ui.userPopoutAvatar, account, guildId);
@@ -21593,6 +21629,7 @@ function openUserPopout(account, fallbackName = "Unknown") {
   selectedUserPopoutId = account?.id || null;
   renderUserPopout(account, fallbackName, { focusQuickDm: true, resetQuickDmInput: true });
   ui.userPopoutDialog.showModal();
+  schedulePopoutPresenceRefresh();
 }
 
 function mentionAccountInComposer(account) {
@@ -24331,12 +24368,16 @@ function renderSelfPopout() {
     ui.selfPopoutName.appendChild(chip);
   }
   ui.selfPopoutStatus.textContent = displayStatus(account, getActiveGuild()?.id || null);
+  let selfXmppNeedsRefresh = false;
   if (ui.selfPopoutXmppMeta) {
     const xmppMeta = accountXmppPresenceMeta(account, { fallbackLastActive: account?.xmppLastActiveAt || "" });
     ui.selfPopoutXmppMeta.textContent = xmppMeta.text;
     ui.selfPopoutXmppMeta.hidden = !xmppMeta.text;
     ui.selfPopoutXmppMeta.title = xmppMeta.title || "";
+    selfXmppNeedsRefresh = Boolean(xmppMeta.needsRefresh);
   }
+  selfPopoutXmppNeedsRefresh = selfXmppNeedsRefresh;
+  schedulePopoutPresenceRefresh();
   if (ui.selfPresenceSelect) ui.selfPresenceSelect.value = normalizePresence(account.presence || "online");
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
   applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);
@@ -28094,6 +28135,8 @@ ui.swfViewerDialog.addEventListener("close", () => {
 });
 ui.userPopoutDialog.addEventListener("close", () => {
   selectedUserPopoutId = null;
+  userPopoutXmppNeedsRefresh = false;
+  schedulePopoutPresenceRefresh();
 });
 ui.userPopoutDialog.addEventListener("contextmenu", (event) => {
   const account = selectedUserPopoutId ? getAccountById(selectedUserPopoutId) : null;
@@ -28104,6 +28147,10 @@ ui.selfMenuDialog?.addEventListener("contextmenu", (event) => {
   const account = getCurrentAccount();
   if (!account) return;
   openProfileContextMenu(event, account, { self: true });
+});
+ui.selfMenuDialog?.addEventListener("close", () => {
+  selfPopoutXmppNeedsRefresh = false;
+  schedulePopoutPresenceRefresh();
 });
 
 ui.openRolesBtn.addEventListener("click", () => {
@@ -28431,6 +28478,7 @@ ui.messageEditForm.addEventListener("submit", (event) => {
 ui.selfProfileBtn.addEventListener("click", () => {
   renderSelfPopout();
   ui.selfMenuDialog.showModal();
+  schedulePopoutPresenceRefresh();
 });
 
 ui.selfPresenceSelect?.addEventListener("change", () => {
