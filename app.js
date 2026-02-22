@@ -21,6 +21,7 @@ const XMPP_HTTP_UPLOAD_LEGACY_NAMESPACE = "urn:xmpp:http:upload";
 const XMPP_REACTIONS_NAMESPACE = "urn:xmpp:reactions:0";
 const XMPP_MESSAGE_RETRACT_NAMESPACE = "urn:xmpp:message-retract:1";
 const XMPP_FASTEN_NAMESPACE = "urn:xmpp:fasten:0";
+const XMPP_CHAT_MARKERS_NAMESPACE = "urn:xmpp:chat-markers:0";
 const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
 const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
@@ -1024,6 +1025,7 @@ const xmppMamStateByPeerJid = new Map();
 const xmppRoomMessageIndexByJid = new Map();
 const xmppDmMessageIndexByPeerJid = new Map();
 const xmppPendingReceiptByStanzaId = new Map();
+const xmppLastSentDisplayedMarkerByPeerJid = new Map();
 const xmppLocalSentRefIdSeenAt = new Map();
 const XMPP_LOCAL_SENT_REF_TTL_MS = 6 * 60 * 60 * 1000;
 const XMPP_LOCAL_SENT_REF_MAX = 1600;
@@ -1774,6 +1776,7 @@ function markDmRead(thread, accountId) {
   const nextMs = toTimestampMs(newestTs);
   if (nextMs <= currentMs) return false;
   thread.readState[accountId] = newestTs;
+  maybePublishXmppDisplayedMarkerForDmThread(thread, accountId, { trigger: "mark-read" });
   return true;
 }
 
@@ -4397,6 +4400,48 @@ function xmppPeerJidForRelayRoom(roomToken, account = getCurrentAccount()) {
   return xmppPeerJidForDmThread(thread, account);
 }
 
+function latestXmppPeerMessageReferenceIdForDmThread(thread, accountId) {
+  if (!thread || !accountId || !Array.isArray(thread.messages)) return "";
+  const ownId = accountId.toString();
+  for (let i = thread.messages.length - 1; i >= 0; i -= 1) {
+    const message = thread.messages[i];
+    if (!message) continue;
+    const authorId = (message.userId || "").toString();
+    if (authorId && authorId === ownId) continue;
+    const referenceId = preferredXmppDmReferenceIdForMessage(message) || primaryXmppReferenceIdForMessage(message);
+    if (referenceId) return referenceId;
+  }
+  return "";
+}
+
+function maybePublishXmppDisplayedMarkerForDmThread(thread, accountId, { trigger = "" } = {}) {
+  const prefs = getPreferences();
+  if (prefs.relayMode !== "xmpp" || relayStatus !== "connected" || !xmppConnection || !globalThis.$msg) return false;
+  if (!thread || !accountId) return false;
+  const account = getAccountById(accountId);
+  if (!account) return false;
+  const peerJid = xmppPeerJidForDmThread(thread, account);
+  const peerBare = xmppBareJid(peerJid);
+  if (!peerBare) return false;
+  const markerTargetId = latestXmppPeerMessageReferenceIdForDmThread(thread, accountId);
+  if (!markerTargetId) return false;
+  if ((xmppLastSentDisplayedMarkerByPeerJid.get(peerBare) || "") === markerTargetId) return false;
+  const markerStanzaId = `s67-mark-${createId().slice(0, 12)}`;
+  const markerStanza = globalThis.$msg({ to: peerBare, type: "chat", id: markerStanzaId })
+    .c("displayed", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: markerTargetId });
+  xmppConnection.send(markerStanza);
+  rememberXmppLocalSentRefs([markerStanzaId]);
+  xmppLastSentDisplayedMarkerByPeerJid.set(peerBare, markerTargetId);
+  addXmppDebugEvent("message", "Sent XMPP chat marker", {
+    to: peerBare,
+    marker: "displayed",
+    id: markerTargetId,
+    stanzaId: markerStanzaId,
+    trigger: trigger || ""
+  });
+  return true;
+}
+
 function relayRoomForActiveConversation() {
   const prefs = getPreferences();
   if (prefs.relayRoom) return prefs.relayRoom;
@@ -4786,6 +4831,21 @@ function xmppReceiptReceivedId(stanza) {
   return (node?.getAttribute("id") || "").toString().trim();
 }
 
+function xmppChatMarkerPayload(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const markerKinds = ["received", "displayed", "acknowledged"];
+  for (const kind of markerKinds) {
+    const node = [...stanza.getElementsByTagName(kind)]
+      .find((entry) => xmppNodeHasXmlns(entry, XMPP_CHAT_MARKERS_NAMESPACE)) || null;
+    if (!node) continue;
+    return {
+      type: kind,
+      id: (node.getAttribute("id") || "").toString().trim()
+    };
+  }
+  return null;
+}
+
 function xmppMessageCorrectionTargetId(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
   const node = [...stanza.getElementsByTagName("replace")]
@@ -5017,39 +5077,103 @@ function rememberXmppPendingReceipt(stanzaId, thread, message, peerJid = "") {
   trimXmppPendingReceiptMap();
 }
 
-function markXmppMessageDeliveredByReceipt(stanzaId, peerJid = "") {
+function resolveXmppOutboundDmMessageByReference(stanzaId, peerJid = "") {
   const key = (stanzaId || "").toString().trim();
-  if (!key) return false;
+  if (!key) return { thread: null, message: null };
   const normalizedPeer = xmppBareJid(peerJid);
-  let targetMessage = null;
-  let targetThread = null;
+  const current = getCurrentAccount();
+  const ownUserId = (current?.id || "").toString();
+  const isOwnMessage = (message) => {
+    if (!message) return false;
+    if (!ownUserId) return true;
+    return (message.userId || "").toString() === ownUserId;
+  };
   const pending = xmppPendingReceiptByStanzaId.get(key);
   if (pending?.threadId && pending?.messageId) {
     const scopedThread = state.dmThreads.find((entry) => entry.id === pending.threadId) || null;
     const scopedMessage = scopedThread ? findMessageInChannel(scopedThread, pending.messageId) : null;
-    if (scopedMessage) {
-      targetThread = scopedThread;
-      targetMessage = scopedMessage;
+    if (scopedThread && scopedMessage && isOwnMessage(scopedMessage)) {
+      return {
+        thread: scopedThread,
+        message: scopedMessage
+      };
     }
   }
-  if (!targetMessage) {
-    for (const thread of state.dmThreads) {
-      const hasPeer = !normalizedPeer
-        || thread.participantIds.some((id) => xmppBareJid(getAccountById(id)?.xmppJid || "") === normalizedPeer);
-      if (!hasPeer) continue;
-      const found = (thread.messages || []).find((message) => (message.xmppStanzaId || "").toString() === key);
-      if (found) {
-        targetThread = thread;
-        targetMessage = found;
-        break;
-      }
+  for (const thread of state.dmThreads) {
+    const hasPeer = !normalizedPeer
+      || thread.participantIds.some((id) => xmppBareJid(getAccountById(id)?.xmppJid || "") === normalizedPeer);
+    if (!hasPeer) continue;
+    const found = (thread.messages || []).find((message) => (
+      isOwnMessage(message)
+      && messageMatchesXmppReference(message, key)
+    )) || null;
+    if (found) {
+      return {
+        thread,
+        message: found
+      };
     }
   }
+  return { thread: null, message: null };
+}
+
+function markXmppMessageDeliveredByReceipt(stanzaId, peerJid = "") {
+  const key = (stanzaId || "").toString().trim();
+  if (!key) return false;
+  const { thread: targetThread, message: targetMessage } = resolveXmppOutboundDmMessageByReference(key, peerJid);
   xmppPendingReceiptByStanzaId.delete(key);
   if (!targetMessage || !targetThread) return false;
-  targetMessage.xmppDeliveryState = "delivered";
-  targetMessage.xmppDeliveryAt = new Date().toISOString();
-  return true;
+  const nowIso = new Date().toISOString();
+  const currentState = (targetMessage.xmppDeliveryState || "").toString().toLowerCase();
+  let changed = false;
+  if (currentState !== "read" && currentState !== "delivered") {
+    targetMessage.xmppDeliveryState = "delivered";
+    changed = true;
+  }
+  if (!targetMessage.xmppDeliveryAt) {
+    targetMessage.xmppDeliveryAt = nowIso;
+    changed = true;
+  }
+  return changed;
+}
+
+function markXmppMessageReadByMarker(stanzaId, peerJid = "") {
+  const key = (stanzaId || "").toString().trim();
+  if (!key) return false;
+  const { thread, message } = resolveXmppOutboundDmMessageByReference(key, peerJid);
+  xmppPendingReceiptByStanzaId.delete(key);
+  if (!thread || !message) return false;
+  const nowIso = new Date().toISOString();
+  const current = getCurrentAccount();
+  const ownUserId = (current?.id || "").toString();
+  const targetIndex = (thread.messages || []).findIndex((entry) => entry === message);
+  if (targetIndex < 0) return false;
+  let changed = false;
+  for (let i = 0; i <= targetIndex; i += 1) {
+    const entry = thread.messages[i];
+    if (!entry) continue;
+    if (ownUserId && (entry.userId || "").toString() !== ownUserId) continue;
+    const hasXmppReference = Boolean(
+      (entry.xmppStanzaId || "").toString().trim()
+      || (Array.isArray(entry.xmppRefIds) && entry.xmppRefIds.length > 0)
+      || (entry.xmppDeliveryState || "").toString().trim()
+    );
+    if (!hasXmppReference) continue;
+    const state = (entry.xmppDeliveryState || "").toString().toLowerCase();
+    if (state !== "read") {
+      entry.xmppDeliveryState = "read";
+      changed = true;
+    }
+    if (!entry.xmppReadAt) {
+      entry.xmppReadAt = nowIso;
+      changed = true;
+    }
+    if (!entry.xmppDeliveryAt) {
+      entry.xmppDeliveryAt = nowIso;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function xmppExtractOobAttachments(stanza) {
@@ -6760,6 +6884,7 @@ function teardownXmppConnection() {
   xmppMamStateByPeerJid.clear();
   xmppRoomMessageIndexByJid.clear();
   xmppDmMessageIndexByPeerJid.clear();
+  xmppLastSentDisplayedMarkerByPeerJid.clear();
   xmppAvatarFetchInFlight.clear();
   xmppAvatarHashByJid.clear();
   xmppAvatarMissingByJid.clear();
@@ -7363,6 +7488,7 @@ function connectRelaySocket({ force = false } = {}) {
         const attachments = xmppAttachmentsFromOobEntries(xmppExtractOobAttachments(stanza));
         const receiptRequest = xmppReceiptRequestNode(stanza);
         const receiptReceivedId = xmppReceiptReceivedId(stanza);
+        const chatMarker = xmppChatMarkerPayload(stanza);
         const stanzaMessageId = (stanza.getAttribute("id") || "").toString().trim();
         const stanzaRefs = xmppStanzaReferenceIds(stanza);
         const correctionTargetId = xmppMessageCorrectionTargetId(stanza);
@@ -7403,6 +7529,25 @@ function connectRelaySocket({ force = false } = {}) {
             addXmppDebugEvent("message", "Received XMPP delivery receipt", {
               from: peerBare,
               id: receiptReceivedId,
+              matched: updated
+            });
+          }
+          if (chatMarker?.type && chatMarker.id) {
+            let updated = false;
+            if (chatMarker.type === "displayed" || chatMarker.type === "acknowledged") {
+              updated = markXmppMessageReadByMarker(chatMarker.id, peerBare);
+            } else if (chatMarker.type === "received") {
+              updated = markXmppMessageDeliveredByReceipt(chatMarker.id, peerBare);
+            }
+            if (updated) {
+              saveState();
+              const activeConversation = getActiveConversation();
+              if (activeConversation?.type === "dm") renderMessages();
+            }
+            addXmppDebugEvent("message", "Received XMPP chat marker", {
+              from: peerBare,
+              marker: chatMarker.type,
+              id: chatMarker.id,
               matched: updated
             });
           }
@@ -8575,6 +8720,13 @@ function appendXmppOriginIdNode(stanza, originId) {
   return stanza;
 }
 
+function appendXmppChatMarkableNode(stanza) {
+  if (!stanza) return stanza;
+  xmppEnsureBuilderAtMessageNode(stanza);
+  stanza.c("markable", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE }).up();
+  return stanza;
+}
+
 function appendXmppReactionsNode(stanza, targetRefId, emojis = []) {
   const refId = (targetRefId || "").toString().trim();
   if (!stanza || !refId) return stanza;
@@ -9092,6 +9244,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
       stanza.c("replace", replaceNode).up();
       appendXmppOriginIdNode(stanza, correctionOriginId);
       appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
+      appendXmppChatMarkableNode(stanza);
       stanza.c("request", { xmlns: "urn:xmpp:receipts" });
       xmppConnection.send(stanza);
       rememberXmppLocalSentRefs([correctionStanzaId, correctionOriginId]);
@@ -9311,6 +9464,7 @@ function publishRelayDirectMessage(thread, message, account) {
         appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
         appendXmppOriginIdNode(stanza, originId);
         appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+        appendXmppChatMarkableNode(stanza);
         stanza.c("request", { xmlns: "urn:xmpp:receipts" });
         xmppConnection.send(stanza);
         rememberXmppLocalSentRefs([stanzaId, originId]);
@@ -22489,10 +22643,15 @@ function renderMessages() {
     let deliveryBadge = null;
     if (isDm && currentAccount?.id && message.userId === currentAccount.id) {
       const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
-      if (deliveryState === "sent" || deliveryState === "delivered") {
+      if (deliveryState === "sent" || deliveryState === "delivered" || deliveryState === "read") {
         deliveryBadge = document.createElement("span");
         deliveryBadge.className = `message-delivery message-delivery--${deliveryState}`;
-        if (deliveryState === "delivered") {
+        if (deliveryState === "read") {
+          deliveryBadge.textContent = "✓✓ Read";
+          deliveryBadge.title = message.xmppReadAt
+            ? `Read at ${formatFullTimestamp(message.xmppReadAt)}`
+            : "Read";
+        } else if (deliveryState === "delivered") {
           deliveryBadge.textContent = "✓✓";
           deliveryBadge.title = message.xmppDeliveryAt
             ? `Delivered at ${formatFullTimestamp(message.xmppDeliveryAt)}`
@@ -23079,13 +23238,23 @@ function appendMessageRowLite(channel, message) {
   head.appendChild(time);
   if (isDm && currentUser?.id && message.userId === currentUser.id) {
     const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
-    if (deliveryState === "sent" || deliveryState === "delivered") {
+    if (deliveryState === "sent" || deliveryState === "delivered" || deliveryState === "read") {
       const deliveryBadge = document.createElement("span");
       deliveryBadge.className = `message-delivery message-delivery--${deliveryState}`;
-      deliveryBadge.textContent = deliveryState === "delivered" ? "✓✓" : "✓";
-      deliveryBadge.title = deliveryState === "delivered"
-        ? (message.xmppDeliveryAt ? `Delivered at ${formatFullTimestamp(message.xmppDeliveryAt)}` : "Delivered")
-        : "Sent (waiting for delivery receipt)";
+      if (deliveryState === "read") {
+        deliveryBadge.textContent = "✓✓ Read";
+        deliveryBadge.title = message.xmppReadAt
+          ? `Read at ${formatFullTimestamp(message.xmppReadAt)}`
+          : "Read";
+      } else if (deliveryState === "delivered") {
+        deliveryBadge.textContent = "✓✓";
+        deliveryBadge.title = message.xmppDeliveryAt
+          ? `Delivered at ${formatFullTimestamp(message.xmppDeliveryAt)}`
+          : "Delivered";
+      } else {
+        deliveryBadge.textContent = "✓";
+        deliveryBadge.title = "Sent (waiting for delivery receipt)";
+      }
       head.appendChild(deliveryBadge);
     }
   }

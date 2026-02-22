@@ -1573,6 +1573,11 @@ body[data-hide-channel-panel="on"] .chat-panel {
   color: #7bd7a2;
 }
 
+.message-delivery--read {
+  color: #8dc7ff;
+  font-weight: 600;
+}
+
 .message-image-preview {
   margin-top: 0.3rem;
   max-width: min(420px, 100%);

@@ -286,6 +286,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
 - XMPP DM threads now use direct `chat` stanzas to peer JIDs (not only MUC mapping), so one-to-one messaging works for JID-backed DM contacts.
 - XMPP DM sends now request delivery receipts (`urn:xmpp:receipts`) and show sent/delivered status for outbound DM messages.
+- XMPP DM read-state now also uses chat markers (`urn:xmpp:chat-markers:0`, XEP-0333): outbound direct messages are marked `markable`, inbound `displayed` markers mark your sent DMs as read, and opening/reading a DM publishes `displayed` markers back to peers.
 - XMPP message edits now use Last Message Correction (`urn:xmpp:message-correct:0`, XEP-0308): incoming `replace` stanzas patch existing DM/MUC messages, and local edits publish correction stanzas when stanza references are known.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
