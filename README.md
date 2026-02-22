@@ -82,6 +82,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Quick channel filter input in the sidebar.
 - Discord-like media picker panel in the composer (tabs: GIFs, Stickers, Emojis, SWFs, SVGs, PDFs, Text, Docs, HTML).
 - GIF picker can load additional remote results on demand ("Load more GIFs").
+- Sticker picker can load additional remote results on demand ("Load more stickers").
 - Click-to-send media attachments from picker (GIF/sticker/SVG/SWF), including local SWF index support via `swf-index.json`.
 - Video attachments render inline with native controls and open-in-tab fallback.
 - GIF media sent as MP4/WebM now autoplay + loop inline (no video control chrome).

@@ -48,6 +48,10 @@ const GIF_PICKER_INITIAL_PAGE_SIZE = 140;
 const GIF_PICKER_PAGE_STEP = 120;
 const GIF_PICKER_VISIBLE_MAX = 20000;
 const GIF_PICKER_REMOTE_MAX = 20000;
+const STICKER_PICKER_INITIAL_PAGE_SIZE = 140;
+const STICKER_PICKER_PAGE_STEP = 120;
+const STICKER_PICKER_VISIBLE_MAX = 20000;
+const STICKER_PICKER_REMOTE_MAX = 12000;
 const EMOJI_PICKER_INITIAL_PAGE_SIZE = 180;
 const EMOJI_PICKER_PAGE_STEP = 180;
 const TENOR_PUBLIC_API_KEY = "LIVDSRZULELA";
@@ -931,6 +935,13 @@ let gifPickerRemoteLoading = false;
 let gifPickerRemoteError = "";
 let gifPickerRemoteQueryKey = "";
 let gifPickerRemoteRequestToken = 0;
+let stickerPickerVisibleCount = STICKER_PICKER_INITIAL_PAGE_SIZE;
+let stickerPickerRemoteEntries = [];
+let stickerPickerRemoteNext = "";
+let stickerPickerRemoteLoading = false;
+let stickerPickerRemoteError = "";
+let stickerPickerRemoteQueryKey = "";
+let stickerPickerRemoteRequestToken = 0;
 let tenorApiKeyVisible = false;
 let emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
 let emojiLibraryEntries = [...EMOJI_LIBRARY];
@@ -15463,7 +15474,7 @@ function mediaEntriesForActiveTab() {
   }
   if (mediaPickerTab === "sticker") {
     const custom = (guild?.customStickers || []).map((entry) => ({ ...entry, source: "guild-custom" }));
-    return [...custom, ...STICKER_LIBRARY];
+    return dedupeStickerEntries([...custom, ...STICKER_LIBRARY, ...stickerPickerRemoteEntries]);
   }
   if (mediaPickerTab === "svg") {
     const custom = (guild?.customSvgs || []).map((entry) => ({ ...entry, source: "guild-custom" }));
@@ -15496,6 +15507,10 @@ function gifPickerQueryKey() {
   return (mediaPickerQuery || "").toString().trim().toLowerCase();
 }
 
+function stickerPickerQueryKey() {
+  return (mediaPickerQuery || "").toString().trim().toLowerCase();
+}
+
 function normalizeGifPickerEntry(entry) {
   const value = entry && typeof entry === "object" ? entry : {};
   const name = (value.name || "gif").toString().trim().slice(0, 120) || "gif";
@@ -15518,6 +15533,30 @@ function appendGifPickerEntries(entries) {
     next.push(normalized);
   });
   gifPickerRemoteEntries = next.slice(0, GIF_PICKER_REMOTE_MAX);
+}
+
+function normalizeStickerPickerEntry(entry) {
+  const value = entry && typeof entry === "object" ? entry : {};
+  const name = (value.name || "sticker").toString().trim().slice(0, 120) || "sticker";
+  const url = (value.url || "").toString().trim();
+  if (!url) return null;
+  const format = stickerFormatFromName(name, url);
+  return { name, url, format, source: "remote" };
+}
+
+function appendStickerPickerEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return;
+  const seen = new Set(stickerPickerRemoteEntries.map((entry) => `${entry.url}::${entry.name}`));
+  const next = [...stickerPickerRemoteEntries];
+  entries.forEach((entry) => {
+    const normalized = normalizeStickerPickerEntry(entry);
+    if (!normalized) return;
+    const key = `${normalized.url}::${normalized.name}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    next.push(normalized);
+  });
+  stickerPickerRemoteEntries = next.slice(0, STICKER_PICKER_REMOTE_MAX);
 }
 
 function readStoredTenorCredentials() {
@@ -15553,6 +15592,15 @@ function invalidateGifPickerRemoteEntries() {
   gifPickerRemoteNext = "";
   gifPickerRemoteError = "";
   gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+}
+
+function invalidateStickerPickerRemoteEntries() {
+  stickerPickerRemoteRequestToken += 1;
+  stickerPickerRemoteLoading = false;
+  stickerPickerRemoteEntries = [];
+  stickerPickerRemoteNext = "";
+  stickerPickerRemoteError = "";
+  stickerPickerVisibleCount = STICKER_PICKER_INITIAL_PAGE_SIZE;
 }
 
 function setTenorCredentialsStatus(message, tone = "") {
@@ -15606,8 +15654,11 @@ function saveTenorCredentialSettings({ refreshGifPicker = false } = {}) {
   }
   if (refreshGifPicker) {
     invalidateGifPickerRemoteEntries();
+    invalidateStickerPickerRemoteEntries();
     if (mediaPickerOpen && mediaPickerTab === "gif") {
       maybeLoadMoreGifPickerEntries({ reset: true, force: true });
+    } else if (mediaPickerOpen && mediaPickerTab === "sticker") {
+      maybeLoadMoreStickerPickerEntries({ reset: true, force: true });
     }
   }
   return true;
@@ -15693,6 +15744,17 @@ function gifScopeUsageUrls(scope, conversationId = "") {
 }
 
 function dedupeGifEntries(entries) {
+  if (!Array.isArray(entries)) return [];
+  const seen = new Set();
+  return entries.filter((entry) => {
+    const key = (entry?.url || "").toString().trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function dedupeStickerEntries(entries) {
   if (!Array.isArray(entries)) return [];
   const seen = new Set();
   return entries.filter((entry) => {
@@ -15823,18 +15885,41 @@ function applyGifScopeToEntries(entries) {
     .sort((a, b) => (rank.get(byUrl(a)) || 0) - (rank.get(byUrl(b)) || 0));
 }
 
-function parseTenorV2Results(results) {
+function tenorFirstFormatUrl(formats, candidates = []) {
+  if (!formats || typeof formats !== "object") return "";
+  for (const key of candidates) {
+    const url = (formats?.[key]?.url || "").toString().trim();
+    if (url) return url;
+  }
+  return "";
+}
+
+function parseTenorV2Results(results, { kind = "gif" } = {}) {
   if (!Array.isArray(results)) return [];
+  const stickerMode = kind === "sticker";
+  const imageCandidates = stickerMode
+    ? [
+        "transparentwebp", "tinytransparentwebp", "nanotransparentwebp",
+        "webp_transparent", "tinywebp_transparent", "nanowebp_transparent",
+        "webp", "tinywebp", "nanowebp",
+        "transparentgif", "tinytransparentgif", "nanotransparentgif",
+        "gif_transparent", "tinygif_transparent", "nanogif_transparent",
+        "gif", "tinygif", "mediumgif", "nanogif"
+      ]
+    : ["gif", "tinygif", "mediumgif", "nanogif"];
+  const videoCandidates = stickerMode
+    ? []
+    : ["mp4", "tinymp4", "nanomp4", "webm", "tinywebm", "nanowebm"];
   return results
     .map((item) => {
       const formats = item?.media_formats || {};
-      const gifFormat = formats.gif || formats.tinygif || formats.mediumgif || formats.nanogif;
-      const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4 || formats.webm || formats.tinywebm;
-      const preferred = gifFormat?.url || mp4Format?.url || "";
+      const imageUrl = tenorFirstFormatUrl(formats, imageCandidates);
+      const videoUrl = tenorFirstFormatUrl(formats, videoCandidates);
+      const preferred = imageUrl || videoUrl;
       if (!preferred) return null;
-      const isVideo = !gifFormat?.url && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
+      const isVideo = !stickerMode && !imageUrl && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
       return {
-        name: (item?.content_description || item?.title || "gif").toString().trim().slice(0, 120) || "gif",
+        name: (item?.content_description || item?.title || (stickerMode ? "sticker" : "gif")).toString().trim().slice(0, 120) || (stickerMode ? "sticker" : "gif"),
         url: preferred,
         preview: isVideo ? "video" : "",
         source: "remote"
@@ -15843,19 +15928,33 @@ function parseTenorV2Results(results) {
     .filter(Boolean);
 }
 
-function parseTenorV1Results(results) {
+function parseTenorV1Results(results, { kind = "gif" } = {}) {
   if (!Array.isArray(results)) return [];
+  const stickerMode = kind === "sticker";
+  const imageCandidates = stickerMode
+    ? [
+        "transparentwebp", "tinytransparentwebp", "nanotransparentwebp",
+        "webp_transparent", "tinywebp_transparent", "nanowebp_transparent",
+        "webp", "tinywebp", "nanowebp",
+        "transparentgif", "tinytransparentgif", "nanotransparentgif",
+        "gif_transparent", "tinygif_transparent", "nanogif_transparent",
+        "gif", "tinygif", "mediumgif", "nanogif"
+      ]
+    : ["gif", "tinygif", "mediumgif", "nanogif"];
+  const videoCandidates = stickerMode
+    ? []
+    : ["mp4", "tinymp4", "nanomp4", "webm", "tinywebm", "nanowebm"];
   return results
     .map((item) => {
       const media = Array.isArray(item?.media) ? item.media[0] : null;
       const formats = media && typeof media === "object" ? media : {};
-      const gifFormat = formats.gif || formats.tinygif || formats.mediumgif || formats.nanogif;
-      const mp4Format = formats.mp4 || formats.tinymp4 || formats.nanomp4 || formats.webm || formats.tinywebm;
-      const preferred = gifFormat?.url || mp4Format?.url || "";
+      const imageUrl = tenorFirstFormatUrl(formats, imageCandidates);
+      const videoUrl = tenorFirstFormatUrl(formats, videoCandidates);
+      const preferred = imageUrl || videoUrl;
       if (!preferred) return null;
-      const isVideo = !gifFormat?.url && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
+      const isVideo = !stickerMode && !imageUrl && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(preferred);
       return {
-        name: (item?.title || item?.content_description || "gif").toString().trim().slice(0, 120) || "gif",
+        name: (item?.title || item?.content_description || (stickerMode ? "sticker" : "gif")).toString().trim().slice(0, 120) || (stickerMode ? "sticker" : "gif"),
         url: preferred,
         preview: isVideo ? "video" : "",
         source: "remote"
@@ -15864,46 +15963,67 @@ function parseTenorV1Results(results) {
     .filter(Boolean);
 }
 
-async function fetchTenorGifEntries(query = "", nextCursor = "") {
+async function fetchTenorEntries({
+  query = "",
+  nextCursor = "",
+  kind = "gif"
+} = {}) {
   if (typeof fetch !== "function") return { entries: [], next: "", error: "Fetch unavailable" };
   const { key, clientKey, customKey } = resolveTenorCredentials();
-  const buildV2Endpoint = (mediaFilter = "") => {
+  const stickerMode = kind === "sticker";
+  const buildV2Endpoint = (mediaFilter = "", searchFilter = "") => {
     const endpoint = new URL(query ? "https://tenor.googleapis.com/v2/search" : "https://tenor.googleapis.com/v2/featured");
     endpoint.searchParams.set("key", key);
     endpoint.searchParams.set("client_key", clientKey);
     endpoint.searchParams.set("limit", String(TENOR_RESULTS_PAGE_SIZE));
     if (mediaFilter) endpoint.searchParams.set("media_filter", mediaFilter);
+    if (searchFilter) endpoint.searchParams.set("searchfilter", searchFilter);
     if (query) endpoint.searchParams.set("q", query);
     if (nextCursor) endpoint.searchParams.set("pos", nextCursor);
     return endpoint;
   };
-  const mediaFilterCandidates = [
-    "gif,tinygif,mediumgif,nanogif,mp4,tinymp4,nanomp4",
-    "gif,tinygif,mediumgif,nanogif",
-    "minimal",
-    ""
-  ];
+  const mediaFilterCandidates = stickerMode
+    ? [
+        "transparentwebp,webp,tinywebp,nanowebp,gif,tinygif,mediumgif,nanogif",
+        "webp,tinywebp,gif,tinygif,nanogif",
+        "gif,tinygif,mediumgif,nanogif",
+        "minimal",
+        ""
+      ]
+    : [
+        "gif,tinygif,mediumgif,nanogif,mp4,tinymp4,nanomp4",
+        "gif,tinygif,mediumgif,nanogif",
+        "minimal",
+        ""
+      ];
+  const searchFilterCandidates = stickerMode ? ["sticker", "sticker,-static", ""] : [""];
   let lastError = "";
   const handleHttpError = (status) => {
     lastError = `HTTP ${status}`;
     return status === 400 || status === 401 || status === 403;
   };
-  for (const mediaFilter of mediaFilterCandidates) {
-    try {
-      const response = await fetch(buildV2Endpoint(mediaFilter).toString(), { cache: "no-store" });
-      if (!response.ok) {
-        if (handleHttpError(response.status)) continue;
-        return { entries: [], next: "", error: lastError };
+  for (const searchFilter of searchFilterCandidates) {
+    for (const mediaFilter of mediaFilterCandidates) {
+      try {
+        const response = await fetch(buildV2Endpoint(mediaFilter, searchFilter).toString(), { cache: "no-store" });
+        if (!response.ok) {
+          if (handleHttpError(response.status)) continue;
+          return { entries: [], next: "", error: lastError };
+        }
+        const payload = await response.json();
+        const entries = parseTenorV2Results(payload?.results, { kind });
+        if (entries.length === 0 && !payload?.next && (mediaFilter || searchFilter)) {
+          // Continue fallback probes until we get at least one format variant.
+          continue;
+        }
+        return {
+          entries,
+          next: (payload?.next || "").toString(),
+          error: ""
+        };
+      } catch (error) {
+        lastError = String(error || "Request failed");
       }
-      const payload = await response.json();
-      const entries = parseTenorV2Results(payload?.results);
-      return {
-        entries,
-        next: (payload?.next || "").toString(),
-        error: ""
-      };
-    } catch (error) {
-      lastError = String(error || "Request failed");
     }
   }
   try {
@@ -15911,12 +16031,13 @@ async function fetchTenorGifEntries(query = "", nextCursor = "") {
     endpoint.searchParams.set("key", key);
     endpoint.searchParams.set("client_key", clientKey);
     endpoint.searchParams.set("limit", String(TENOR_RESULTS_PAGE_SIZE));
+    if (stickerMode) endpoint.searchParams.set("searchfilter", "sticker");
     if (query) endpoint.searchParams.set("q", query);
     if (nextCursor) endpoint.searchParams.set("pos", nextCursor);
     const response = await fetch(endpoint.toString(), { cache: "no-store" });
     if (response.ok) {
       const payload = await response.json();
-      const entries = parseTenorV1Results(payload?.results);
+      const entries = parseTenorV1Results(payload?.results, { kind });
       return {
         entries,
         next: (payload?.next || payload?.next_cursor || "").toString(),
@@ -15928,15 +16049,24 @@ async function fetchTenorGifEntries(query = "", nextCursor = "") {
     lastError = String(error || "Request failed");
   }
   if (/HTTP 400|HTTP 401|HTTP 403/i.test(lastError)) {
+    const providerLabel = stickerMode ? "Sticker provider" : "GIF provider";
     return {
       entries: [],
       next: "",
       error: customKey
-        ? "GIF provider rejected your Tenor API credentials."
-        : "GIF provider rejected demo Tenor credentials. Open Settings > Advanced and set your Tenor API key."
+        ? `${providerLabel} rejected your Tenor API credentials.`
+        : `${providerLabel} rejected demo Tenor credentials. Open Settings > Advanced and set your Tenor API key.`
     };
   }
   return { entries: [], next: "", error: lastError || "Request failed" };
+}
+
+async function fetchTenorGifEntries(query = "", nextCursor = "") {
+  return fetchTenorEntries({ query, nextCursor, kind: "gif" });
+}
+
+async function fetchTenorStickerEntries(query = "", nextCursor = "") {
+  return fetchTenorEntries({ query, nextCursor, kind: "sticker" });
 }
 
 function maybeLoadMoreGifPickerEntries({ reset = false, force = false } = {}) {
@@ -15988,9 +16118,58 @@ function maybeLoadMoreGifPickerEntries({ reset = false, force = false } = {}) {
     });
 }
 
+function maybeLoadMoreStickerPickerEntries({ reset = false, force = false } = {}) {
+  if (mediaPickerTab !== "sticker") return;
+  const queryKey = stickerPickerQueryKey();
+  if (reset || stickerPickerRemoteQueryKey !== queryKey) {
+    stickerPickerRemoteEntries = [];
+    stickerPickerRemoteNext = "";
+    stickerPickerRemoteError = "";
+    stickerPickerRemoteQueryKey = queryKey;
+    stickerPickerVisibleCount = STICKER_PICKER_INITIAL_PAGE_SIZE;
+    if (stickerPickerRemoteLoading) {
+      stickerPickerRemoteRequestToken += 1;
+      stickerPickerRemoteLoading = false;
+    }
+  }
+  if (stickerPickerRemoteLoading) return;
+  if (!force && !reset && stickerPickerRemoteError && !stickerPickerRemoteNext) return;
+  if (!force && !reset && !stickerPickerRemoteNext && stickerPickerRemoteEntries.length > 0) return;
+  const requestToken = ++stickerPickerRemoteRequestToken;
+  stickerPickerRemoteLoading = true;
+  if (force) stickerPickerRemoteError = "";
+  const cursor = reset ? "" : stickerPickerRemoteNext;
+  fetchTenorStickerEntries(queryKey, cursor)
+    .then(({ entries, next, error }) => {
+      if (requestToken !== stickerPickerRemoteRequestToken || queryKey !== stickerPickerRemoteQueryKey) return;
+      const previousCount = stickerPickerRemoteEntries.length;
+      appendStickerPickerEntries(entries);
+      const appendedCount = Math.max(0, stickerPickerRemoteEntries.length - previousCount);
+      stickerPickerRemoteNext = (next || "").toString();
+      if (error) {
+        stickerPickerRemoteError = (error || "").toString().slice(0, 220) || "Could not load remote stickers right now.";
+        return;
+      }
+      if (appendedCount === 0 && !stickerPickerRemoteNext) {
+        stickerPickerRemoteError = "No more stickers from provider.";
+        return;
+      }
+      stickerPickerRemoteError = "";
+    })
+    .catch(() => {
+      if (requestToken !== stickerPickerRemoteRequestToken || queryKey !== stickerPickerRemoteQueryKey) return;
+      stickerPickerRemoteError = "Could not load remote stickers right now.";
+    })
+    .finally(() => {
+      if (requestToken !== stickerPickerRemoteRequestToken || queryKey !== stickerPickerRemoteQueryKey) return;
+      stickerPickerRemoteLoading = false;
+      if (mediaPickerOpen && mediaPickerTab === "sticker") renderMediaPicker();
+    });
+}
+
 function maybeAutoloadMediaPickerOnScroll() {
   if (!mediaPickerOpen) return;
-  if (mediaPickerTab !== "gif" && mediaPickerTab !== "emoji") return;
+  if (mediaPickerTab !== "gif" && mediaPickerTab !== "sticker" && mediaPickerTab !== "emoji") return;
   if (mediaPickerScrollLoadRaf) return;
   mediaPickerScrollLoadRaf = requestAnimationFrame(() => {
     mediaPickerScrollLoadRaf = 0;
@@ -16009,6 +16188,19 @@ function maybeAutoloadMediaPickerOnScroll() {
       if (activeGifScope() !== "all") return;
       if (gifPickerRemoteLoading || gifPickerRemoteError) return;
       maybeLoadMoreGifPickerEntries({ reset: false });
+      renderMediaPicker();
+      return;
+    }
+    if (mediaPickerTab === "sticker") {
+      const entries = filteredMediaEntries();
+      const visibleLimit = Math.max(STICKER_PICKER_INITIAL_PAGE_SIZE, stickerPickerVisibleCount);
+      if (entries.length > visibleLimit) {
+        stickerPickerVisibleCount = Math.min(STICKER_PICKER_VISIBLE_MAX, stickerPickerVisibleCount + STICKER_PICKER_PAGE_STEP);
+        renderMediaPicker();
+        return;
+      }
+      if (stickerPickerRemoteLoading || stickerPickerRemoteError) return;
+      maybeLoadMoreStickerPickerEntries({ reset: false });
       renderMediaPicker();
       return;
     }
@@ -16102,6 +16294,8 @@ function openMediaPicker({ emojiOnly = false, onEmojiSelect = null } = {}) {
     if (activeGifScope() === "all") {
       maybeLoadMoreGifPickerEntries({ reset: gifPickerRemoteQueryKey !== gifPickerQueryKey() });
     }
+  } else if (mediaPickerTab === "sticker") {
+    maybeLoadMoreStickerPickerEntries({ reset: stickerPickerRemoteQueryKey !== stickerPickerQueryKey() });
   } else if (mediaPickerTab === "emoji") {
     void ensureEmojiLibraryLoaded();
   }
@@ -16118,6 +16312,7 @@ function openMediaPickerWithTab(tab, {
   if (MEDIA_TABS.includes(targetTab)) {
     if (mediaPickerTab !== targetTab) {
       gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+      stickerPickerVisibleCount = STICKER_PICKER_INITIAL_PAGE_SIZE;
       emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
     }
     mediaPickerTab = targetTab;
@@ -16516,6 +16711,10 @@ function renderMediaPicker() {
     empty.className = "media-card--empty";
     if (mediaPickerTab === "swf") {
       empty.textContent = "No SWFs found. Run a local server and keep swf-index.json available.";
+    } else if (mediaPickerTab === "sticker" && stickerPickerRemoteLoading) {
+      empty.textContent = "Loading stickers...";
+    } else if (mediaPickerTab === "sticker" && stickerPickerRemoteError) {
+      empty.textContent = stickerPickerRemoteError;
     } else if (mediaPickerTab === "emoji" && emojiLibraryLoading) {
       empty.textContent = "Loading full emoji list…";
     } else if (mediaPickerTab === "emoji" && emojiLibraryError) {
@@ -16531,6 +16730,8 @@ function renderMediaPicker() {
     ? entries.length
     : mediaPickerTab === "gif"
       ? Math.max(GIF_PICKER_INITIAL_PAGE_SIZE, gifPickerVisibleCount)
+      : mediaPickerTab === "sticker"
+        ? Math.max(STICKER_PICKER_INITIAL_PAGE_SIZE, stickerPickerVisibleCount)
       : mediaPickerTab === "emoji"
         ? Math.max(EMOJI_PICKER_INITIAL_PAGE_SIZE, emojiPickerVisibleCount)
       : 140;
@@ -16933,6 +17134,56 @@ function renderMediaPicker() {
     ui.mediaGrid.appendChild(footer);
     if (!scopedMode && !gifPickerRemoteLoading && !gifPickerRemoteError && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
       maybeLoadMoreGifPickerEntries({ reset: false });
+    }
+  }
+  if (mediaPickerTab === "sticker") {
+    const hasMoreVisible = entries.length > visibleEntries.length;
+    const canLoadRemote = Boolean(
+      stickerPickerRemoteNext || (stickerPickerRemoteEntries.length === 0 && !stickerPickerRemoteError)
+    );
+    const canRetryRemote = Boolean(stickerPickerRemoteError && !stickerPickerRemoteLoading);
+    const footer = document.createElement("div");
+    footer.className = "media-card--empty";
+    footer.style.display = "grid";
+    footer.style.gap = "0.35rem";
+    const info = document.createElement("div");
+    if (stickerPickerRemoteLoading) {
+      info.textContent = "Loading stickers...";
+    } else if (stickerPickerRemoteError) {
+      info.textContent = stickerPickerRemoteError;
+    } else {
+      info.textContent = `${entries.length} stickers ready.`;
+    }
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "message-action-btn";
+    loadBtn.disabled = stickerPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote && !canRetryRemote);
+    if (hasMoreVisible) {
+      loadBtn.textContent = "Show more stickers";
+    } else if (stickerPickerRemoteLoading) {
+      loadBtn.textContent = "Loading...";
+    } else if (canRetryRemote) {
+      loadBtn.textContent = "Retry sticker provider";
+    } else {
+      loadBtn.textContent = "Load more stickers";
+    }
+    loadBtn.addEventListener("click", () => {
+      if (hasMoreVisible) {
+        stickerPickerVisibleCount = Math.min(
+          STICKER_PICKER_VISIBLE_MAX,
+          stickerPickerVisibleCount + STICKER_PICKER_PAGE_STEP
+        );
+        renderMediaPicker();
+        return;
+      }
+      maybeLoadMoreStickerPickerEntries({ reset: false, force: canRetryRemote });
+      renderMediaPicker();
+    });
+    footer.appendChild(info);
+    footer.appendChild(loadBtn);
+    ui.mediaGrid.appendChild(footer);
+    if (!stickerPickerRemoteLoading && !stickerPickerRemoteError && visibleEntries.length < stickerPickerVisibleCount && canLoadRemote) {
+      maybeLoadMoreStickerPickerEntries({ reset: false });
     }
   }
   if (mediaPickerTab === "emoji") {
@@ -27506,6 +27757,7 @@ ui.mediaTabs.forEach((tabBtn) => {
     }
     if (nextTab !== mediaPickerTab) {
       gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+      stickerPickerVisibleCount = STICKER_PICKER_INITIAL_PAGE_SIZE;
       emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
     }
     mediaPickerTab = nextTab;
@@ -27513,6 +27765,8 @@ ui.mediaTabs.forEach((tabBtn) => {
     renderMediaPicker();
     if (mediaPickerTab === "gif") {
       if (activeGifScope() === "all") maybeLoadMoreGifPickerEntries({ reset: true });
+    } else if (mediaPickerTab === "sticker") {
+      maybeLoadMoreStickerPickerEntries({ reset: true });
     } else if (mediaPickerTab === "emoji") {
       void ensureEmojiLibraryLoaded();
     }
@@ -27524,15 +27778,21 @@ ui.mediaSearchInput.addEventListener("input", () => {
   mediaPickerQuery = ui.mediaSearchInput.value.slice(0, 80);
   if (mediaPickerTab === "gif") {
     gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+  } else if (mediaPickerTab === "sticker") {
+    stickerPickerVisibleCount = STICKER_PICKER_INITIAL_PAGE_SIZE;
   } else if (mediaPickerTab === "emoji") {
     emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
   }
   renderMediaPicker();
-  if (mediaPickerTab === "gif") {
+  if (mediaPickerTab === "gif" || mediaPickerTab === "sticker") {
     if (gifPickerQueryDebounceTimer) clearTimeout(gifPickerQueryDebounceTimer);
     gifPickerQueryDebounceTimer = setTimeout(() => {
       gifPickerQueryDebounceTimer = null;
-      if (activeGifScope() === "all") maybeLoadMoreGifPickerEntries({ reset: true });
+      if (mediaPickerTab === "gif") {
+        if (activeGifScope() === "all") maybeLoadMoreGifPickerEntries({ reset: true });
+      } else if (mediaPickerTab === "sticker") {
+        maybeLoadMoreStickerPickerEntries({ reset: true });
+      }
     }, 220);
   }
 });
@@ -27543,9 +27803,11 @@ ui.mediaSearchInput.addEventListener("keydown", (event) => {
       event.preventDefault();
       mediaPickerQuery = "";
       if (mediaPickerTab === "gif") gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+      if (mediaPickerTab === "sticker") stickerPickerVisibleCount = STICKER_PICKER_INITIAL_PAGE_SIZE;
       if (mediaPickerTab === "emoji") emojiPickerVisibleCount = EMOJI_PICKER_INITIAL_PAGE_SIZE;
       renderMediaPicker();
       if (mediaPickerTab === "gif" && activeGifScope() === "all") maybeLoadMoreGifPickerEntries({ reset: true });
+      if (mediaPickerTab === "sticker") maybeLoadMoreStickerPickerEntries({ reset: true });
       if (mediaPickerTab === "emoji") void ensureEmojiLibraryLoaded();
       return;
     }
@@ -29063,6 +29325,9 @@ ui.testTenorCredentialsBtn?.addEventListener("click", async () => {
   if (mediaPickerOpen && mediaPickerTab === "gif") {
     invalidateGifPickerRemoteEntries();
     maybeLoadMoreGifPickerEntries({ reset: true, force: true });
+  } else if (mediaPickerOpen && mediaPickerTab === "sticker") {
+    invalidateStickerPickerRemoteEntries();
+    maybeLoadMoreStickerPickerEntries({ reset: true, force: true });
   }
 });
 
