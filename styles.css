@@ -2697,6 +2697,16 @@ body[data-hide-channel-panel="on"] .chat-panel {
   max-width: 180px;
 }
 
+.message-lottie-player {
+  width: 180px;
+  height: 180px;
+  max-width: min(180px, 100%);
+  display: block;
+  border-radius: 10px;
+  border: 1px solid #41454f;
+  background: #11141b;
+}
+
 .message-swf {
   display: inline-block;
   width: fit-content;
@@ -3133,6 +3143,53 @@ body[data-hide-channel-panel="on"] .chat-panel {
   color: #fff;
 }
 
+.message-lottie-controls {
+  margin-top: 0.28rem;
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.3rem 0.36rem;
+  border: 1px solid #2f3239;
+  border-radius: 8px;
+  background: rgba(17, 20, 27, 0.86);
+}
+
+.message-lottie-controls button,
+.message-lottie-controls select {
+  min-width: 34px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #3a3f4f;
+  background: #2f3340;
+  color: #d5dae4;
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 0 0.36rem;
+}
+
+.message-lottie-controls button.is-active {
+  background: #4a5198;
+  color: #fff;
+}
+
+.message-lottie-controls__seek {
+  flex: 1 1 120px;
+  min-width: 88px;
+  accent-color: #6f79ff;
+}
+
+.message-lottie-controls__speed {
+  min-width: 62px;
+}
+
+.message-lottie-controls__time {
+  min-width: 76px;
+  color: #aeb7c7;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
 .message-video-controls {
   margin-top: 0.35rem;
   display: none;
@@ -3280,6 +3337,9 @@ body[data-hide-channel-panel="on"] .chat-panel {
 .message:focus-within .message-video-controls,
 .message-attachment--gif:hover .message-gif-controls,
 .message-attachment--gif.message-attachment--gif-controls-open .message-gif-controls,
+.message-attachment--sticker:hover .message-lottie-controls,
+.message:hover .message-lottie-controls,
+.message:focus-within .message-lottie-controls,
 .message-pdf-viewer:hover .message-pdf-controls,
 .message-pdf-viewer:focus-within .message-pdf-controls,
 .message-attachment--swf-runtime-hover .message-swf-top-controls,
@@ -3295,12 +3355,20 @@ body[data-hide-channel-panel="on"] .chat-panel {
 
 .message.message--actions-hover .message-video-controls,
 .message.message--actions-hover .message-gif-controls,
+.message.message--actions-hover .message-lottie-controls,
 .message.message--actions-hover .message-swf-top-controls,
-.message.message--actions-hover .message-swf-audio-rail {
+.message.message--actions-hover .message-swf-audio-rail,
+.message.message--controls-lock .message-video-controls,
+.message.message--controls-lock .message-gif-controls,
+.message.message--controls-lock .message-lottie-controls,
+.message.message--controls-lock .message-pdf-controls,
+.message.message--controls-lock .message-swf-top-controls,
+.message.message--controls-lock .message-swf-audio-rail {
   display: flex;
 }
 
-.message.message--actions-hover .message-gif-hover-btn {
+.message.message--actions-hover .message-gif-hover-btn,
+.message.message--controls-lock .message-gif-hover-btn {
   opacity: 1;
   pointer-events: auto;
 }

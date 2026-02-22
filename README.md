@@ -86,6 +86,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Video attachments render inline with native controls and open-in-tab fallback.
 - GIF media sent as MP4/WebM now autoplay + loop inline (no video control chrome).
 - Sticker picker supports image stickers plus `.apng` and `.lottie` resources.
+- `.lottie` message attachments now include inline playback controls (play/pause, scrub, speed, loop, open URL).
 - Ruffle and dotLottie runtimes are auto-loaded by the app (no manual user install flow).
 - Media runtime bootstrap now tries local bundled paths first and then multiple CDN fallbacks for higher load reliability.
 - Guild-scoped custom emoji (image-based) and custom sticker/media resources can be added from URL or local file.

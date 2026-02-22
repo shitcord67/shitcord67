@@ -956,6 +956,7 @@ const swfRuntimes = new Map();
 const swfPendingAudio = new Map();
 const swfPendingUi = new Map();
 const swfRuntimeTelemetry = new Map();
+const swfRuntimeHoverOffTimerByKey = new Map();
 const swfPipTabs = [];
 let swfPipActiveKey = null;
 let swfPipManuallyHidden = false;
@@ -13533,6 +13534,53 @@ function bindMessageActionHoverState(messageRow, actionBar) {
   });
 }
 
+function bindMessageAttachmentControlLock(messageRow) {
+  if (!(messageRow instanceof HTMLElement)) return;
+  if (messageRow.dataset.controlLockBound === "on") return;
+  const controls = [...messageRow.querySelectorAll(
+    ".message-video-controls, .message-gif-controls, .message-lottie-controls, .message-pdf-controls, .message-swf-top-controls, .message-swf-audio-rail, .message-gif-hover-btn"
+  )].filter((node) => node instanceof HTMLElement);
+  if (controls.length === 0) return;
+  messageRow.dataset.controlLockBound = "on";
+  let releaseTimer = null;
+  const clearReleaseTimer = () => {
+    if (releaseTimer) {
+      clearTimeout(releaseTimer);
+      releaseTimer = null;
+    }
+  };
+  const keepLocked = () => {
+    if (!messageRow.isConnected) return false;
+    if (messageRow.matches(":hover") || messageRow.matches(":focus-within")) return true;
+    return controls.some((control) => (
+      control.matches(":hover") || control.matches(":focus-within") || control.matches(":active")
+    ));
+  };
+  const lock = () => {
+    clearReleaseTimer();
+    messageRow.classList.add("message--controls-lock");
+  };
+  const unlockLater = (delayMs = 240) => {
+    clearReleaseTimer();
+    releaseTimer = setTimeout(() => {
+      releaseTimer = null;
+      if (keepLocked()) return;
+      messageRow.classList.remove("message--controls-lock");
+    }, Math.max(0, Number(delayMs) || 0));
+  };
+  controls.forEach((control) => {
+    control.addEventListener("pointerenter", lock);
+    control.addEventListener("pointerdown", lock);
+    control.addEventListener("focusin", lock);
+    control.addEventListener("pointerleave", () => unlockLater(240));
+    control.addEventListener("focusout", () => unlockLater(280));
+    control.addEventListener("click", () => unlockLater(280));
+  });
+  messageRow.addEventListener("mouseenter", lock);
+  messageRow.addEventListener("mouseleave", () => unlockLater(240));
+  messageRow.addEventListener("focusout", () => unlockLater(280));
+}
+
 function quickSwitchHaystackForItem(item) {
   return [
     item.label || "",
@@ -17310,6 +17358,8 @@ function destroySwfRuntime(runtimeKey, {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime) return false;
   setSwfRuntimeHoverState(runtimeKey, false);
+  clearSwfRuntimeHoverOffTimer(runtimeKey);
+  clearSwfRuntimeHoverClass(runtime);
   if (!force && shouldPreserveSwfRuntime(runtimeKey, runtime, liveSwfKeys)) {
     ensurePreservedSwfRuntimeHost(runtimeKey, runtime, reason);
     addDebugLog("warn", "Skipped SWF runtime destroy because runtime is preserved", {
@@ -17491,12 +17541,45 @@ function setSwfRuntimeHoverState(runtimeKey, hovered) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime) return;
   const active = Boolean(hovered);
-  runtime.runtimeHover = active;
+  const pendingOffTimer = swfRuntimeHoverOffTimerByKey.get(runtimeKey);
+  if (pendingOffTimer) {
+    clearTimeout(pendingOffTimer);
+    swfRuntimeHoverOffTimerByKey.delete(runtimeKey);
+  }
   const attachment = runtime.anchorHost instanceof HTMLElement
     ? runtime.anchorHost.closest(".message-attachment--swf")
     : null;
+  if (active) {
+    runtime.runtimeHover = true;
+    if (attachment instanceof HTMLElement) {
+      attachment.classList.add("message-attachment--swf-runtime-hover");
+    }
+    return;
+  }
+  runtime.runtimeHover = false;
+  if (!(attachment instanceof HTMLElement)) return;
+  const clearHover = () => {
+    swfRuntimeHoverOffTimerByKey.delete(runtimeKey);
+    if (!attachment.isConnected) return;
+    if (attachment.matches(":hover") || attachment.matches(":focus-within")) return;
+    attachment.classList.remove("message-attachment--swf-runtime-hover");
+  };
+  swfRuntimeHoverOffTimerByKey.set(runtimeKey, setTimeout(clearHover, 220));
+}
+
+function clearSwfRuntimeHoverOffTimer(runtimeKey) {
+  const pending = swfRuntimeHoverOffTimerByKey.get(runtimeKey);
+  if (!pending) return;
+  clearTimeout(pending);
+  swfRuntimeHoverOffTimerByKey.delete(runtimeKey);
+}
+
+function clearSwfRuntimeHoverClass(runtime) {
+  const attachment = runtime?.anchorHost instanceof HTMLElement
+    ? runtime.anchorHost.closest(".message-attachment--swf")
+    : null;
   if (attachment instanceof HTMLElement) {
-    attachment.classList.toggle("message-attachment--swf-runtime-hover", active);
+    attachment.classList.remove("message-attachment--swf-runtime-hover");
   }
 }
 
@@ -19734,6 +19817,361 @@ function createGifControlStrip(video, { label = "GIF", mediaUrl = "" } = {}) {
   return row;
 }
 
+function createDotLottieControlStrip(player, { label = "Sticker", mediaUrl = "" } = {}) {
+  if (!(player instanceof HTMLElement)) return null;
+  const row = document.createElement("div");
+  row.className = "message-lottie-controls";
+  const playBtn = document.createElement("button");
+  playBtn.type = "button";
+  playBtn.title = "Pause/Resume";
+  const restartBtn = document.createElement("button");
+  restartBtn.type = "button";
+  restartBtn.textContent = "↺";
+  restartBtn.title = "Restart";
+  const seek = document.createElement("input");
+  seek.type = "range";
+  seek.min = "0";
+  seek.max = "1000";
+  seek.step = "1";
+  seek.value = "0";
+  seek.className = "message-lottie-controls__seek";
+  seek.title = "Scrub";
+  const frameLabel = document.createElement("span");
+  frameLabel.className = "message-lottie-controls__time";
+  frameLabel.textContent = "0%";
+  const speed = document.createElement("select");
+  speed.className = "message-lottie-controls__speed";
+  [0.5, 0.75, 1, 1.25, 1.5, 2].forEach((rate) => {
+    const option = document.createElement("option");
+    option.value = String(rate);
+    option.textContent = `${rate}x`;
+    if (rate === 1) option.selected = true;
+    speed.appendChild(option);
+  });
+  speed.title = "Playback speed";
+  const loopBtn = document.createElement("button");
+  loopBtn.type = "button";
+  loopBtn.title = "Toggle loop";
+  const openBtn = document.createElement("button");
+  openBtn.type = "button";
+  openBtn.textContent = "↗";
+  openBtn.title = `Open ${(label || "sticker").toString()} URL`;
+
+  let seeking = false;
+  let seekWasPlaying = false;
+  let localPlaying = true;
+  let localLoop = player.hasAttribute("loop");
+  let syncRaf = 0;
+
+  const clampRatio = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+  const invoke = (names, ...args) => {
+    for (const name of names) {
+      const fn = player?.[name];
+      if (typeof fn !== "function") continue;
+      try {
+        fn.apply(player, args);
+        return true;
+      } catch {
+        // Continue with fallbacks.
+      }
+    }
+    return false;
+  };
+  const readNumber = (names) => {
+    for (const name of names) {
+      const value = player?.[name];
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+    }
+    for (const name of names) {
+      const attr = player.getAttribute?.(name);
+      if (typeof attr !== "string" || !attr.trim()) continue;
+      const parsed = Number(attr);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return Number.NaN;
+  };
+  const readBoolean = (names) => {
+    for (const name of names) {
+      const value = player?.[name];
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number" && Number.isFinite(value)) return value !== 0;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["true", "1", "on", "yes"].includes(normalized)) return true;
+        if (["false", "0", "off", "no"].includes(normalized)) return false;
+      }
+    }
+    for (const name of names) {
+      const attr = player.getAttribute?.(name);
+      if (typeof attr !== "string" || !attr.trim()) continue;
+      const normalized = attr.trim().toLowerCase();
+      if (["true", "1", "on", "yes", ""].includes(normalized)) return true;
+      if (["false", "0", "off", "no"].includes(normalized)) return false;
+    }
+    return null;
+  };
+  const readString = (names) => {
+    for (const name of names) {
+      const value = player?.[name];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    for (const name of names) {
+      const attr = player.getAttribute?.(name);
+      if (typeof attr === "string" && attr.trim()) return attr.trim();
+    }
+    return "";
+  };
+  const totalFrames = () => {
+    const value = readNumber(["totalFrames", "frames", "durationFrames", "frameCount"]);
+    return Number.isFinite(value) && value > 0 ? value : Number.NaN;
+  };
+  const currentFrame = () => {
+    const value = readNumber(["currentFrame", "frame", "currentRawFrame"]);
+    return Number.isFinite(value) && value >= 0 ? value : Number.NaN;
+  };
+  const readProgressRatio = () => {
+    const current = currentFrame();
+    const total = totalFrames();
+    if (Number.isFinite(current) && Number.isFinite(total) && total > 0) {
+      return clampRatio(current / total);
+    }
+    const seeker = readNumber(["seeker", "currentSeeker", "progress", "currentProgress"]);
+    if (Number.isFinite(seeker)) {
+      if (seeker > 1) return clampRatio(seeker / 100);
+      if (seeker >= 0) return clampRatio(seeker);
+    }
+    const duration = readNumber(["duration", "totalTime", "durationMs"]);
+    const currentTime = readNumber(["currentTime", "time", "elapsedTime"]);
+    if (Number.isFinite(duration) && duration > 0 && Number.isFinite(currentTime) && currentTime >= 0) {
+      return clampRatio(currentTime / duration);
+    }
+    return clampRatio(Number(seek.value) / 1000);
+  };
+  const isPlaying = () => {
+    const paused = readBoolean(["paused", "isPaused", "isFrozen", "stopped", "isStopped"]);
+    if (typeof paused === "boolean") return !paused;
+    const stateName = readString(["state", "playState", "status"]).toLowerCase();
+    if (stateName) {
+      if (stateName.includes("pause") || stateName.includes("stop") || stateName.includes("freeze")) return false;
+      if (stateName.includes("play") || stateName.includes("run")) return true;
+    }
+    return localPlaying;
+  };
+  const loopEnabled = () => {
+    const loop = readBoolean(["loop"]);
+    if (typeof loop === "boolean") return loop;
+    if (player.hasAttribute("loop")) return true;
+    return localLoop;
+  };
+  const ensureSpeedOption = (rate) => {
+    if (!Number.isFinite(rate) || rate <= 0) return;
+    const hasOption = [...speed.options].some((option) => Number(option.value) === rate);
+    if (hasOption) return;
+    const option = document.createElement("option");
+    option.value = String(rate);
+    option.textContent = `${rate}x`;
+    speed.appendChild(option);
+  };
+  const setSpeed = (value) => {
+    const rate = Number(value);
+    if (!Number.isFinite(rate) || rate <= 0) return false;
+    let applied = invoke(["setSpeed"], rate);
+    if (!applied) {
+      try {
+        if ("speed" in player) {
+          player.speed = rate;
+          applied = true;
+        }
+      } catch {
+        // Continue with attribute fallback.
+      }
+    }
+    if (!applied) {
+      try {
+        player.setAttribute("speed", String(rate));
+        applied = true;
+      } catch {
+        // Ignore unsupported assignment.
+      }
+    }
+    return applied;
+  };
+  const seekToRatio = (value) => {
+    const ratio = clampRatio(value);
+    const percent = ratio * 100;
+    if (invoke(["seek"], `${Math.round(percent)}%`)) return true;
+    if (invoke(["seek", "setSeeker", "setProgress"], percent)) return true;
+    if (invoke(["seek", "setSeeker", "setProgress"], ratio)) return true;
+    const total = totalFrames();
+    if (Number.isFinite(total) && total > 0) {
+      const frame = Math.round(total * ratio);
+      if (invoke(["setFrame"], frame)) return true;
+      if (invoke(["goToAndStop"], frame, true)) return true;
+      try {
+        if ("currentFrame" in player) {
+          player.currentFrame = frame;
+          return true;
+        }
+      } catch {
+        // Ignore unsupported assignment.
+      }
+    }
+    return false;
+  };
+  const supportsSeek = () => (
+    typeof player.seek === "function"
+    || typeof player.setSeeker === "function"
+    || typeof player.setProgress === "function"
+    || typeof player.setFrame === "function"
+    || typeof player.goToAndStop === "function"
+    || Number.isFinite(totalFrames())
+  );
+  const setPlaying = (enabled) => {
+    localPlaying = Boolean(enabled);
+    if (enabled) {
+      invoke(["play", "resume", "unfreeze"]);
+    } else {
+      const paused = invoke(["pause", "freeze"]);
+      if (!paused) invoke(["stop"]);
+    }
+  };
+  const setLoop = (enabled) => {
+    localLoop = Boolean(enabled);
+    invoke(["setLoop"], localLoop);
+    try {
+      if ("loop" in player) player.loop = localLoop;
+    } catch {
+      // Ignore unsupported assignment.
+    }
+    if (localLoop) {
+      player.setAttribute("loop", "");
+    } else {
+      player.removeAttribute("loop");
+    }
+  };
+  const stopSyncLoop = () => {
+    if (!syncRaf) return;
+    cancelAnimationFrame(syncRaf);
+    syncRaf = 0;
+  };
+  const syncLoopTick = () => {
+    syncRaf = 0;
+    if (!row.isConnected || !player.isConnected) return;
+    sync();
+    if (isPlaying()) syncRaf = requestAnimationFrame(syncLoopTick);
+  };
+  const ensureSyncLoop = () => {
+    if (syncRaf || !isPlaying() || !row.isConnected || !player.isConnected) return;
+    syncRaf = requestAnimationFrame(syncLoopTick);
+  };
+  const sync = () => {
+    const playing = isPlaying();
+    playBtn.textContent = playing ? "⏸" : "▶";
+    playBtn.classList.toggle("is-active", playing);
+    const loopOn = loopEnabled();
+    loopBtn.textContent = loopOn ? "∞" : "1×";
+    loopBtn.classList.toggle("is-active", loopOn);
+    const rate = readNumber(["speed", "playbackRate"]);
+    const resolvedRate = Number.isFinite(rate) && rate > 0 ? rate : 1;
+    ensureSpeedOption(resolvedRate);
+    speed.value = String(resolvedRate);
+    const ratio = clampRatio(readProgressRatio());
+    if (!seeking) {
+      seek.value = String(Math.round(ratio * 1000));
+    }
+    seek.disabled = !supportsSeek();
+    const total = totalFrames();
+    const frame = currentFrame();
+    if (Number.isFinite(total) && total > 0 && Number.isFinite(frame)) {
+      const shownFrame = seeking
+        ? Math.round((Number(seek.value) / 1000) * total)
+        : Math.round(frame);
+      frameLabel.textContent = `${Math.max(0, shownFrame)}f / ${Math.max(1, Math.round(total))}f`;
+    } else {
+      const shownRatio = seeking ? clampRatio(Number(seek.value) / 1000) : ratio;
+      frameLabel.textContent = `${Math.round(shownRatio * 100)}%`;
+    }
+    if (playing) ensureSyncLoop();
+    else stopSyncLoop();
+  };
+  const beginSeek = () => {
+    if (seeking) return;
+    seeking = true;
+    seekWasPlaying = isPlaying();
+    if (seekWasPlaying) setPlaying(false);
+  };
+  const finishSeek = () => {
+    if (!seeking) return;
+    seeking = false;
+    if (seekWasPlaying) setPlaying(true);
+    seekWasPlaying = false;
+    sync();
+  };
+
+  playBtn.addEventListener("click", () => {
+    setPlaying(!isPlaying());
+    sync();
+  });
+  restartBtn.addEventListener("click", () => {
+    seekToRatio(0);
+    sync();
+  });
+  seek.addEventListener("input", () => {
+    beginSeek();
+    seekToRatio(Number(seek.value) / 1000);
+    sync();
+  });
+  seek.addEventListener("change", finishSeek);
+  seek.addEventListener("pointerdown", beginSeek);
+  seek.addEventListener("pointerup", finishSeek);
+  seek.addEventListener("pointercancel", finishSeek);
+  seek.addEventListener("blur", finishSeek);
+  speed.addEventListener("change", () => {
+    const next = Number(speed.value);
+    if (!Number.isFinite(next) || next <= 0) return;
+    setSpeed(next);
+    sync();
+  });
+  loopBtn.addEventListener("click", () => {
+    setLoop(!loopEnabled());
+    sync();
+  });
+  openBtn.addEventListener("click", () => {
+    const sourceUrl = mediaUrl || player.getAttribute("src") || "";
+    openExternalUrlInClient(sourceUrl);
+  });
+  [
+    "load",
+    "ready",
+    "play",
+    "pause",
+    "stop",
+    "complete",
+    "frame",
+    "render",
+    "time",
+    "freeze",
+    "unfreeze"
+  ].forEach((eventName) => {
+    player.addEventListener(eventName, sync);
+  });
+
+  row.appendChild(playBtn);
+  row.appendChild(restartBtn);
+  row.appendChild(seek);
+  row.appendChild(frameLabel);
+  row.appendChild(speed);
+  row.appendChild(loopBtn);
+  row.appendChild(openBtn);
+  row.__sync = sync;
+  sync();
+  return row;
+}
+
 function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
@@ -20337,12 +20775,20 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const canRenderDotLottie = typeof customElements !== "undefined" && customElements.get("dotlottie-player");
     if (canRenderDotLottie) {
       const lottie = document.createElement("dotlottie-player");
+      lottie.className = "message-lottie-player";
       lottie.setAttribute("src", mediaUrl);
       lottie.setAttribute("autoplay", "");
       lottie.setAttribute("loop", "");
-      lottie.style.width = "180px";
-      lottie.style.height = "180px";
       wrap.appendChild(lottie);
+      bindAttachmentContextMenu(lottie, {
+        downloadExt: "lottie",
+        downloadName: attachment.name || "sticker"
+      });
+      const lottieControls = createDotLottieControlStrip(lottie, {
+        label: attachment.name || "Sticker",
+        mediaUrl
+      });
+      if (lottieControls) wrap.appendChild(lottieControls);
     } else {
       const fallback = document.createElement("div");
       fallback.className = "message-swf";
@@ -21930,6 +22376,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     postAttachments.forEach((attachment, index) => {
       renderMessageAttachment(postRow, attachment, { swfKey: `${post.id}:${index}` });
     });
+    if (postAttachments.length > 0) bindMessageAttachmentControlLock(postRow);
 
     const postActions = document.createElement("div");
     postActions.className = "message-actions";
@@ -22083,6 +22530,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         replyAttachments.forEach((attachment, index) => {
           renderMessageAttachment(replyRow, attachment, { swfKey: `${replyMessage.id}:${index}` });
         });
+        if (replyAttachments.length > 0) bindMessageAttachmentControlLock(replyRow);
 
         const replyActions = document.createElement("div");
         replyActions.className = "message-actions";
@@ -22987,7 +23435,7 @@ function renderMessages() {
     });
     messageRow.addEventListener("dblclick", (event) => {
       if (!(event.target instanceof HTMLElement)) return;
-      if (event.target.closest("button, a, input, textarea, iframe, video, audio, .reaction-chip, .message-media-gate")) return;
+      if (event.target.closest("button, a, input, textarea, iframe, video, audio, .reaction-chip, .message-media-gate, .message-lottie-player")) return;
       setReplyTarget(conversationId, message, message.forumThreadId || null);
     });
     let replyLine = null;
@@ -23407,6 +23855,7 @@ function renderMessages() {
     attachments.forEach((attachment, index) => {
       renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
     });
+    if (attachments.length > 0) bindMessageAttachmentControlLock(messageRow);
     if (
       isDm
       && dmPeerAccount
@@ -23787,6 +24236,7 @@ function appendMessageRowLite(channel, message) {
   attachments.forEach((attachment, index) => {
     renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
   });
+  if (attachments.length > 0) bindMessageAttachmentControlLock(messageRow);
   if (
     isDm
     && dmPeerAccount
