@@ -1787,18 +1787,39 @@ function dmPeerAccountForThread(thread, accountId) {
   return peerId ? getAccountById(peerId) : null;
 }
 
-function latestOwnXmppReadDmMessageId(thread, accountId) {
-  if (!thread || !accountId || !Array.isArray(thread.messages)) return "";
+function latestOwnXmppDmDeliveryMessage(thread, accountId) {
+  if (!thread || !accountId || !Array.isArray(thread.messages)) return null;
   const ownId = accountId.toString();
   for (let i = thread.messages.length - 1; i >= 0; i -= 1) {
     const message = thread.messages[i];
     if (!message) continue;
     if ((message.userId || "").toString() !== ownId) continue;
     const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
-    if (deliveryState !== "read") continue;
-    const id = (message.id || "").toString().trim();
-    if (id) return id;
+    if (!["sent", "delivered", "read"].includes(deliveryState)) continue;
+    return message;
   }
+  return null;
+}
+
+function latestOwnXmppReadDmMessageId(thread, accountId) {
+  const message = latestOwnXmppDmDeliveryMessage(thread, accountId);
+  if (!message) return "";
+  const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
+  if (deliveryState !== "read") return "";
+  return (message.id || "").toString().trim();
+}
+
+function formatDmDeliverySummaryForComposer(thread, accountId) {
+  const message = latestOwnXmppDmDeliveryMessage(thread, accountId);
+  if (!message) return "";
+  const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
+  if (deliveryState === "read") {
+    const readAt = (message.xmppReadAt || message.xmppDeliveryAt || "").toString().trim();
+    if (!readAt) return "Seen";
+    return `Seen ${formatTime(readAt)}`;
+  }
+  if (deliveryState === "delivered") return "Delivered";
+  if (deliveryState === "sent") return "Sent";
   return "";
 }
 
@@ -4887,6 +4908,12 @@ function xmppChatMarkerPayload(stanza) {
   return null;
 }
 
+function xmppChatMarkableNode(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  return [...stanza.getElementsByTagName("markable")]
+    .find((entry) => xmppNodeHasXmlns(entry, XMPP_CHAT_MARKERS_NAMESPACE)) || null;
+}
+
 function xmppMessageCorrectionTargetId(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
   const node = [...stanza.getElementsByTagName("replace")]
@@ -7530,6 +7557,7 @@ function connectRelaySocket({ force = false } = {}) {
         const receiptRequest = xmppReceiptRequestNode(stanza);
         const receiptReceivedId = xmppReceiptReceivedId(stanza);
         const chatMarker = xmppChatMarkerPayload(stanza);
+        const chatMarkable = Boolean(xmppChatMarkableNode(stanza));
         const stanzaMessageId = (stanza.getAttribute("id") || "").toString().trim();
         const stanzaRefs = xmppStanzaReferenceIds(stanza);
         const correctionTargetId = xmppMessageCorrectionTargetId(stanza);
@@ -7559,6 +7587,16 @@ function connectRelaySocket({ force = false } = {}) {
               .c("received", { xmlns: "urn:xmpp:receipts", id: stanzaMessageId });
             xmppConnection.send(receiptAck);
             addXmppDebugEvent("message", "Sent XMPP delivery receipt", { to: peerBare, id: stanzaMessageId });
+          }
+          if (!ownAuthor && chatMarkable && stanzaMessageId && xmppConnection) {
+            const markerAck = globalThis.$msg({ to: peerBare, type: "chat" })
+              .c("received", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: stanzaMessageId });
+            xmppConnection.send(markerAck);
+            addXmppDebugEvent("message", "Sent XMPP chat marker", {
+              to: peerBare,
+              marker: "received",
+              id: stanzaMessageId
+            });
           }
           if (receiptReceivedId) {
             const updated = markXmppMessageDeliveredByReceipt(receiptReceivedId, peerBare);
@@ -13458,6 +13496,13 @@ function renderSlashSuggestions() {
   });
 }
 
+function setComposerTypingNoteText(text = "") {
+  if (!ui.composerTypingNote) return;
+  const value = (text || "").toString();
+  ui.composerTypingNote.textContent = value;
+  ui.composerTypingNote.hidden = !value;
+}
+
 function renderComposerMeta() {
   if (composerMetaRefreshTimer) {
     clearTimeout(composerMetaRefreshTimer);
@@ -13489,21 +13534,22 @@ function renderComposerMeta() {
   const account = getCurrentAccount();
   const room = relayRoomForActiveConversation();
   const typingSummary = formatTypingSummary(typingNamesForRoom(room));
-  if (ui.composerTypingNote) {
-    ui.composerTypingNote.textContent = typingSummary;
-    ui.composerTypingNote.hidden = !typingSummary;
-  }
   if (!conversation || !account) {
     submitBtn.disabled = true;
+    setComposerTypingNoteText("");
     if (ui.composerSystemNotice) ui.composerSystemNotice.hidden = true;
     return;
   }
 
   if (conversation.type === "dm") {
+    const deliverySummary = formatDmDeliverySummaryForComposer(conversation.thread, account.id);
+    const dmMetaLine = [typingSummary, deliverySummary].filter(Boolean).join(" · ");
+    setComposerTypingNoteText(dmMetaLine);
     submitBtn.disabled = false;
     if (ui.composerSystemNotice) ui.composerSystemNotice.hidden = true;
     return;
   }
+  setComposerTypingNoteText(typingSummary);
 
   const channel = conversation.channel;
   const canPost = canCurrentUserPostInChannel(channel, account);
