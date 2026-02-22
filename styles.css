@@ -1578,6 +1578,34 @@ body[data-hide-channel-panel="on"] .chat-panel {
   font-weight: 600;
 }
 
+.message-seen-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-top: 0.18rem;
+  color: #8f96a1;
+  font-size: 0.68rem;
+}
+
+.message-seen-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex: 0 0 16px;
+  overflow: hidden;
+  line-height: 16px;
+  text-align: center;
+  font-size: 0.56rem;
+  background: #3f4450;
+  background-size: cover;
+  background-position: center;
+}
+
+.message-seen-avatar .avatar-decoration {
+  display: none;
+}
+
 .message-image-preview {
   margin-top: 0.3rem;
   max-width: min(420px, 100%);

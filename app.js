@@ -1780,6 +1780,47 @@ function markDmRead(thread, accountId) {
   return true;
 }
 
+function dmPeerAccountForThread(thread, accountId) {
+  if (!thread || !accountId || !Array.isArray(thread.participantIds)) return null;
+  const ownId = accountId.toString();
+  const peerId = thread.participantIds.find((id) => id && id.toString() !== ownId);
+  return peerId ? getAccountById(peerId) : null;
+}
+
+function latestOwnXmppReadDmMessageId(thread, accountId) {
+  if (!thread || !accountId || !Array.isArray(thread.messages)) return "";
+  const ownId = accountId.toString();
+  for (let i = thread.messages.length - 1; i >= 0; i -= 1) {
+    const message = thread.messages[i];
+    if (!message) continue;
+    if ((message.userId || "").toString() !== ownId) continue;
+    const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
+    if (deliveryState !== "read") continue;
+    const id = (message.id || "").toString().trim();
+    if (id) return id;
+  }
+  return "";
+}
+
+function appendDmSeenIndicator(messageRow, message, peerAccount) {
+  if (!(messageRow instanceof HTMLElement) || !message || !peerAccount) return;
+  const indicator = document.createElement("div");
+  indicator.className = "message-seen-indicator";
+  const avatar = document.createElement("span");
+  avatar.className = "message-seen-avatar";
+  if (peerAccount?.xmppJid) maybeFetchXmppAvatarForJid(peerAccount.xmppJid);
+  applyAvatarStyle(avatar, peerAccount, null);
+  indicator.appendChild(avatar);
+  const label = document.createElement("span");
+  label.textContent = "Seen";
+  indicator.appendChild(label);
+  const seenAt = (message.xmppReadAt || message.xmppDeliveryAt || "").toString().trim();
+  indicator.title = seenAt
+    ? `Seen at ${formatFullTimestamp(seenAt)}`
+    : `Seen by ${displayNameForAccount(peerAccount, null)}`;
+  messageRow.appendChild(indicator);
+}
+
 function dmParticipantIdentityTokenByAccount(account) {
   if (!account || typeof account !== "object") return "";
   const bareJid = xmppBareJid(account.xmppJid || "");
@@ -22313,6 +22354,12 @@ function renderMessages() {
   }
 
   const currentAccount = getCurrentAccount();
+  const dmPeerAccount = isDm && dmThread && currentAccount
+    ? dmPeerAccountForThread(dmThread, currentAccount.id)
+    : null;
+  const latestReadOwnDmMessageId = isDm && dmThread && currentAccount
+    ? latestOwnXmppReadDmMessageId(dmThread, currentAccount.id)
+    : "";
   const unreadStats = !isDm ? getChannelUnreadStats(channel, currentAccount) : { unread: 0, mentions: 0 };
   const dmUnreadStats = isDm && dmThread && currentAccount ? getDmUnreadStats(dmThread, currentAccount) : { unread: 0, mentions: 0 };
   const firstUnreadMessageId = !isDm ? findFirstUnreadMessageId(channel, currentAccount) : null;
@@ -22910,6 +22957,15 @@ function renderMessages() {
     attachments.forEach((attachment, index) => {
       renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
     });
+    if (
+      isDm
+      && dmPeerAccount
+      && latestReadOwnDmMessageId
+      && (message.id || "").toString() === latestReadOwnDmMessageId
+      && (message.userId || "").toString() === (currentAccount?.id || "").toString()
+    ) {
+      appendDmSeenIndicator(messageRow, message, dmPeerAccount);
+    }
     if (reactions.childElementCount > 0) {
       messageRow.appendChild(reactions);
     }
@@ -23186,6 +23242,8 @@ function appendMessageRowLite(channel, message) {
   if (!channel || !message) return;
   const currentUser = getCurrentAccount();
   const isDm = Boolean(channel.participantIds);
+  const dmPeerAccount = isDm && currentUser?.id ? dmPeerAccountForThread(channel, currentUser.id) : null;
+  const latestReadOwnDmMessageId = isDm && currentUser?.id ? latestOwnXmppReadDmMessageId(channel, currentUser.id) : "";
   const canManageMessages = !isDm && canCurrentUser("manageMessages");
   const previous = [...ui.messageList.querySelectorAll(".message")].at(-1);
   const previousTs = previous?.dataset?.ts || "";
@@ -23279,6 +23337,15 @@ function appendMessageRowLite(channel, message) {
   attachments.forEach((attachment, index) => {
     renderMessageAttachment(messageRow, attachment, { swfKey: `${message.id}:${index}` });
   });
+  if (
+    isDm
+    && dmPeerAccount
+    && latestReadOwnDmMessageId
+    && (message.id || "").toString() === latestReadOwnDmMessageId
+    && (message.userId || "").toString() === (currentUser?.id || "").toString()
+  ) {
+    appendDmSeenIndicator(messageRow, message, dmPeerAccount);
+  }
   ui.messageList.appendChild(messageRow);
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
   updateJumpToBottomButton();
