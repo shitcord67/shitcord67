@@ -22,6 +22,7 @@ const XMPP_REACTIONS_NAMESPACE = "urn:xmpp:reactions:0";
 const XMPP_MESSAGE_RETRACT_NAMESPACE = "urn:xmpp:message-retract:1";
 const XMPP_FASTEN_NAMESPACE = "urn:xmpp:fasten:0";
 const XMPP_CHAT_MARKERS_NAMESPACE = "urn:xmpp:chat-markers:0";
+const XMPP_CSI_NAMESPACE = "urn:xmpp:csi:0";
 const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
 const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
@@ -1016,6 +1017,8 @@ let xmppRuntimeLastError = "";
 let xmppPingTimer = null;
 let xmppPingOutstandingId = "";
 let xmppPingOutstandingAt = 0;
+let xmppCsiSupported = false;
+let xmppCsiState = "";
 const xmppWsDiscoveryCache = new Map();
 const xmppRoomByJid = new Map();
 const xmppRosterByJid = new Map();
@@ -6887,6 +6890,87 @@ function enableXmppCarbons(connection) {
   );
 }
 
+function xmppStreamFeaturesNode(connection = xmppConnection) {
+  if (!connection || typeof connection !== "object") return null;
+  const candidates = [
+    connection.features,
+    connection._streamFeatures,
+    connection._proto?.features,
+    connection._proto?._features
+  ];
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate.getElementsByTagName === "function") return candidate;
+  }
+  return null;
+}
+
+function xmppServerSupportsCsi(connection = xmppConnection) {
+  const featuresNode = xmppStreamFeaturesNode(connection);
+  if (!featuresNode) return false;
+  const csiNodes = [...featuresNode.getElementsByTagName("csi")];
+  if (csiNodes.some((node) => xmppNodeHasXmlns(node, XMPP_CSI_NAMESPACE))) return true;
+  const anyNodes = [...featuresNode.getElementsByTagName("*")];
+  return anyNodes.some((node) => xmppNodeHasXmlns(node, XMPP_CSI_NAMESPACE));
+}
+
+function xmppBuildClientStateNode(state = "active") {
+  const normalized = state === "inactive" ? "inactive" : "active";
+  if (globalThis.Strophe && typeof globalThis.Strophe.xmlElement === "function") {
+    return globalThis.Strophe.xmlElement(normalized, { xmlns: XMPP_CSI_NAMESPACE });
+  }
+  if (typeof document !== "undefined" && typeof document.createElementNS === "function") {
+    const node = document.createElementNS(XMPP_CSI_NAMESPACE, normalized);
+    node.setAttribute("xmlns", XMPP_CSI_NAMESPACE);
+    return node;
+  }
+  return null;
+}
+
+function sendXmppClientStateHint(state = "active", { force = false, reason = "" } = {}) {
+  const normalized = state === "inactive" ? "inactive" : "active";
+  if (!xmppConnection || relayStatus !== "connected") return false;
+  if (!xmppCsiSupported) return false;
+  if (!force && xmppCsiState === normalized) return false;
+  const node = xmppBuildClientStateNode(normalized);
+  if (!node) return false;
+  try {
+    xmppConnection.send(node);
+    xmppCsiState = normalized;
+    addXmppDebugEvent("presence", "Sent XMPP client state hint", {
+      state: normalized,
+      reason: reason || ""
+    });
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "Failed to send XMPP client state hint", {
+      state: normalized,
+      reason: reason || "",
+      error: String(error?.message || error || "")
+    });
+    return false;
+  }
+}
+
+function syncXmppClientStateHint({ force = false, reason = "" } = {}) {
+  if (!xmppConnection || relayStatus !== "connected") return false;
+  if (!xmppCsiSupported) return false;
+  const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+  const focused = typeof document !== "undefined" && typeof document.hasFocus === "function"
+    ? document.hasFocus()
+    : true;
+  const nextState = hidden || !focused ? "inactive" : "active";
+  return sendXmppClientStateHint(nextState, { force, reason });
+}
+
+function refreshXmppCsiCapability(connection = xmppConnection) {
+  xmppCsiSupported = xmppServerSupportsCsi(connection);
+  if (!xmppCsiSupported) xmppCsiState = "";
+  addXmppDebugEvent("presence", xmppCsiSupported ? "XMPP CSI available" : "XMPP CSI unavailable", {
+    namespace: XMPP_CSI_NAMESPACE
+  });
+  return xmppCsiSupported;
+}
+
 function resolveXmppMucService(prefs = getPreferences()) {
   const explicit = normalizeXmppMucService(prefs.xmppMucService);
   if (explicit) return explicit;
@@ -7004,6 +7088,8 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
 function teardownXmppConnection() {
   addXmppDebugEvent("connect", "Tearing down XMPP connection");
   clearXmppPingLoop();
+  xmppCsiSupported = false;
+  xmppCsiState = "";
   if (xmppConnection) {
     try {
       xmppConnection.disconnect();
@@ -8403,6 +8489,8 @@ function connectRelaySocket({ force = false } = {}) {
         if (status === S.CONNECTED) {
           setRelayStatus("connected");
           sendCurrentXmppPresence();
+          refreshXmppCsiCapability(xmppConnection);
+          syncXmppClientStateHint({ force: true, reason: "connected" });
           enableXmppCarbons(xmppConnection);
           startXmppPingLoop(xmppConnection);
           const initialRoom = relayRoomForActiveConversation();
@@ -28917,6 +29005,18 @@ window.addEventListener("beforeunload", (event) => {
   if (!hasPendingComposerChanges()) return;
   event.preventDefault();
   event.returnValue = "";
+});
+document.addEventListener("visibilitychange", () => {
+  if (getPreferences().relayMode !== "xmpp") return;
+  syncXmppClientStateHint({ reason: "visibilitychange" });
+});
+window.addEventListener("focus", () => {
+  if (getPreferences().relayMode !== "xmpp") return;
+  syncXmppClientStateHint({ reason: "window-focus" });
+});
+window.addEventListener("blur", () => {
+  if (getPreferences().relayMode !== "xmpp") return;
+  syncXmppClientStateHint({ reason: "window-blur" });
 });
 document.addEventListener("scroll", closeContextMenu, true);
 document.addEventListener("scroll", () => {

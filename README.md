@@ -301,6 +301,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP room history loading now keeps a per-room MAM cursor (`RSM before`) so older pages can be fetched progressively instead of preloading everything at room-open time.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.
 - XMPP sessions now reply to `urn:xmpp:ping` IQs and send periodic keepalive pings (XEP-0199) to improve long-lived connection stability.
+- XMPP sessions now detect CSI support (`urn:xmpp:csi:0`, XEP-0352) and publish `active`/`inactive` client-state hints on focus/visibility changes.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
 - XMPP outbound messages now include reply metadata (`urn:xmpp:reply:0`) with fallback quote ranges (`urn:xmpp:fallback:0`) when replying in DM/MUC.
 - XMPP outbound DM/MUC messages now attach `origin-id` references (`urn:xmpp:sid:0`) to improve cross-client dedupe/reply/edit targeting.
