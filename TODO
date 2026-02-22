@@ -220,10 +220,13 @@
 - [done] Slash command `/copylink`
 - [done] Slash command `/copyid`
 - [done] Slash command `/copytopic`
+- [done] Added guild/mention/nav slash command pack (`/serverinfo`, `/serverroles`, `/members`, `/membercount`, `/channels`, `/channeltypes`, `/mentions`, `/nextmention`, `/prevmention`, `/listdms`, `/dmnext`, `/dmprev`)
+- [done] Added extended copy slash command pack (`/copyguildid`, `/copyguildname`, `/copychannelname`, `/copyaccountid`, `/copyjid`, `/copypresence`, `/copydisplayname`, `/copyref`)
 - [done] Slash command `/notify [status|all|mentions|mute]`
 - [done] Read-state shortcuts (`Alt+Shift+R` current, `Alt+Shift+A` all)
 - [done] Guild notification cycle shortcut (`Alt+Shift+G`)
 - [done] DM slash support parity for `/copyid`, `/copylink`, `/markdmread`, `/markallread`, `/focus`
+- [done] DM slash guard/parity added for new guild-only slash commands and DM-usable copy/navigation commands
 - [done] Find in conversation modal (`Ctrl+F`) with in-view hit highlighting and keyboard navigation
 - [done] Message actions/context menus now include "Mark Unread From Here" for channel, DM, and forum threads
 - [done] Profile/guild/role forms now have synchronized text + native color picker inputs

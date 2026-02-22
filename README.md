@@ -169,6 +169,8 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Identity/engagement commands: `/quests`, `/questprogress`, `/questbadges`, `/profilefx <none|aurora|flame|ocean>`, `/guildtag [TAG|clear]`, `/decor [emoji|clear]`, `/nameplate [url|data:image/svg+xml|clear]`.
 - Identity summary commands: `/whoami` (quick status) and `/profilecard` (posts profile card text in chat/DM).
 - Copy/notification commands: `/copylink`, `/copyid`, `/copytopic`, `/notify [status|all|mentions|mute]`.
+- Guild/mention/navigation commands: `/serverinfo`, `/serverroles`, `/members`, `/membercount`, `/channels`, `/channeltypes`, `/mentions`, `/nextmention`, `/prevmention`, `/listdms`, `/dmnext`, `/dmprev`.
+- Expanded copy helpers: `/copyguildid`, `/copyguildname`, `/copychannelname`, `/copyaccountid`, `/copyjid`, `/copypresence`, `/copydisplayname`, `/copyref` (DM parity for account/ref copy commands).
 - Channel/DM rows now show `Draft` badges for unsent composer drafts.
 - Right-click DM home icon allows `Mark All DMs Read`.
 - Right-click DM/Channel section headers now opens quick actions (`New DM`, `Create Channel`, `Mark Read`).

@@ -143,10 +143,19 @@ const SLASH_COMMANDS = [
   { name: "rename", args: "<channel-name>", description: "Rename current channel (manage channels)." },
   { name: "channelinfo", args: "", description: "Show current channel metadata." },
   { name: "whereami", args: "", description: "Show active guild/channel IDs and mode." },
+  { name: "serverinfo", args: "", description: "Show active guild metadata summary." },
+  { name: "serverroles", args: "", description: "List roles in the active guild." },
+  { name: "members", args: "", description: "List members in the active guild." },
+  { name: "membercount", args: "", description: "Show active guild member totals by presence." },
+  { name: "channels", args: "", description: "List visible channels in this guild." },
+  { name: "channeltypes", args: "", description: "Show visible channel counts by type." },
   { name: "jumpunread", args: "", description: "Jump to first unread message in current channel." },
   { name: "nextunread", args: "", description: "Switch to next unread channel in this guild." },
   { name: "prevunread", args: "", description: "Switch to previous unread channel in this guild." },
   { name: "unreadcount", args: "", description: "Show unread/mention totals for this guild." },
+  { name: "mentions", args: "", description: "Show current mention summary across guild and DMs." },
+  { name: "nextmention", args: "", description: "Switch to next channel with unread mentions." },
+  { name: "prevmention", args: "", description: "Switch to previous channel with unread mentions." },
   { name: "drafts", args: "", description: "List current channel/DM drafts." },
   { name: "cleardrafts", args: "[all]", description: "Clear draft for this conversation or all drafts." },
   { name: "focus", args: "[search|composer]", description: "Focus channel/DM search or composer." },
@@ -156,6 +165,9 @@ const SLASH_COMMANDS = [
   { name: "markunread", args: "[message-id-prefix|last]", description: "Mark conversation unread from selected message." },
   { name: "newdm", args: "<username-or-jid>", description: "Open or create a DM with a user or XMPP JID." },
   { name: "closedm", args: "", description: "Close current DM thread." },
+  { name: "listdms", args: "", description: "List your DM threads by recent activity." },
+  { name: "dmnext", args: "", description: "Switch to next DM thread by activity." },
+  { name: "dmprev", args: "", description: "Switch to previous DM thread by activity." },
   { name: "leaveguild", args: "", description: "Leave the active guild (if more than one)." },
   { name: "newchannel", args: "<name> [type]", description: "Create a channel in the active guild (manage channels). Types: text/announcement/forum/media/voice/stage." },
   { name: "dupchannel", args: "", description: "Duplicate active channel (manage channels)." },
@@ -165,6 +177,14 @@ const SLASH_COMMANDS = [
   { name: "copylink", args: "", description: "Copy link for current channel/DM." },
   { name: "copyid", args: "", description: "Copy current channel/DM ID." },
   { name: "copytopic", args: "", description: "Copy current channel topic." },
+  { name: "copyguildid", args: "", description: "Copy active guild ID." },
+  { name: "copyguildname", args: "", description: "Copy active guild name." },
+  { name: "copychannelname", args: "", description: "Copy active channel name." },
+  { name: "copyaccountid", args: "", description: "Copy your account ID." },
+  { name: "copyjid", args: "", description: "Copy your XMPP JID (if set)." },
+  { name: "copypresence", args: "", description: "Copy your current presence key." },
+  { name: "copydisplayname", args: "", description: "Copy your current display name." },
+  { name: "copyref", args: "", description: "Copy active conversation reference text." },
   { name: "notify", args: "[status|all|mentions|mute]", description: "View or set current guild notification mode." },
   { name: "schedule", args: "<when> | <text>", description: "Schedule a message for later (e.g. 10m, 2h, date)." },
   { name: "scheduled", args: "", description: "List pending scheduled messages for this conversation." },
@@ -1776,6 +1796,19 @@ function getTotalDmUnreadStats(account) {
   }, { unread: 0, mentions: 0 });
 }
 
+function getSortedDmThreadsForAccount(account) {
+  if (!account) return [];
+  return state.dmThreads
+    .filter((thread) => Array.isArray(thread.participantIds) && thread.participantIds.includes(account.id))
+    .slice()
+    .sort((a, b) => {
+      const aTs = toTimestampMs(a.messages?.[a.messages.length - 1]?.ts || 0);
+      const bTs = toTimestampMs(b.messages?.[b.messages.length - 1]?.ts || 0);
+      if (bTs !== aTs) return bTs - aTs;
+      return (a.id || "").localeCompare(b.id || "");
+    });
+}
+
 function ensureDmReadState(thread) {
   if (!thread || (thread.readState && typeof thread.readState === "object")) return;
   thread.readState = {};
@@ -3302,6 +3335,57 @@ function jumpToUnreadGuildChannel(direction = 1) {
   return true;
 }
 
+function listMentionGuildChannels(guild, account) {
+  if (!guild || !account) return [];
+  return guild.channels
+    .filter((channel) => canAccountViewChannel(guild, channel, account.id))
+    .map((channel) => ({ channel, stats: getChannelUnreadStats(channel, account) }))
+    .filter((entry) => entry.stats.mentions > 0);
+}
+
+function jumpToMentionGuildChannel(direction = 1) {
+  const guild = getActiveGuild();
+  const account = getCurrentAccount();
+  if (!guild || !account) return false;
+  const mentionChannels = listMentionGuildChannels(guild, account);
+  if (mentionChannels.length === 0) return false;
+  const mentionIds = mentionChannels.map((entry) => entry.channel.id);
+  const currentIndex = mentionIds.indexOf(state.activeChannelId);
+  const fallback = direction >= 0 ? 0 : mentionIds.length - 1;
+  const base = currentIndex >= 0 ? currentIndex : fallback;
+  const nextIndex = (base + (direction >= 0 ? 1 : -1) + mentionIds.length) % mentionIds.length;
+  const nextId = mentionIds[nextIndex];
+  if (!nextId) return false;
+  state.viewMode = "guild";
+  state.activeDmId = null;
+  state.activeChannelId = nextId;
+  saveState();
+  render();
+  return true;
+}
+
+function cycleActiveDmThread(direction = 1) {
+  const account = getCurrentAccount();
+  if (!account) return false;
+  const threads = getSortedDmThreadsForAccount(account);
+  if (threads.length === 0) return false;
+  const ids = threads.map((entry) => entry.id);
+  const currentIndex = ids.indexOf(state.activeDmId);
+  const fallback = direction >= 0 ? 0 : ids.length - 1;
+  const base = currentIndex >= 0 ? currentIndex : fallback;
+  const nextIndex = currentIndex >= 0
+    ? (base + (direction >= 0 ? 1 : -1) + ids.length) % ids.length
+    : fallback;
+  const nextId = ids[nextIndex];
+  if (!nextId) return false;
+  if (threads.length === 1 && state.viewMode === "dm" && state.activeDmId === nextId) return false;
+  state.viewMode = "dm";
+  state.activeDmId = nextId;
+  saveState();
+  render();
+  return true;
+}
+
 function moveChannelByOffset(guild, channelId, delta) {
   if (!guild || !Array.isArray(guild.channels) || !channelId || !Number.isFinite(delta) || delta === 0) return false;
   const from = guild.channels.findIndex((entry) => entry.id === channelId);
@@ -3376,6 +3460,21 @@ async function copyText(value) {
       }
     }
   }
+}
+
+function copyTextToChannelWithFeedback(channel, value, {
+  successText = "Copied.",
+  emptyText = "Nothing to copy.",
+  failureText = "Failed to copy."
+} = {}) {
+  const text = (value || "").toString();
+  if (!text.trim()) {
+    addSystemMessage(channel, emptyText);
+    return;
+  }
+  void copyText(text).then((ok) => {
+    addSystemMessage(channel, ok ? successText : failureText);
+  });
 }
 
 function ensureToastHost() {
@@ -12240,6 +12339,143 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "serverinfo") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const visibleChannels = (guild.channels || []).filter((entry) => canAccountViewChannel(guild, entry, account.id));
+    const totals = getGuildUnreadStats(guild, account);
+    const typeCounts = visibleChannels.reduce((acc, entry) => {
+      const key = (entry.type || "text").toString();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const typeSummary = Object.entries(typeCounts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([type, count]) => `${type}:${count}`)
+      .join(", ");
+    const memberCount = Array.isArray(guild.memberIds) ? guild.memberIds.length : 0;
+    addSystemMessage(channel, [
+      `${guild.name} (${guild.id})`,
+      `Members: ${memberCount} · Roles: ${getServerRoles(guild).length} · Visible Channels: ${visibleChannels.length}`,
+      typeSummary ? `Channel Types: ${typeSummary}` : "",
+      `Notifications: ${getGuildNotificationMode(guild.id)} · Unread: ${totals.unread} · Mentions: ${totals.mentions}`
+    ].filter(Boolean).join("\n"));
+    return true;
+  }
+
+  if (command === "serverroles") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const roles = getServerRoles(guild);
+    if (roles.length === 0) {
+      addSystemMessage(channel, "No roles configured in this guild.");
+      return true;
+    }
+    const rows = roles.slice(0, 24).map((role, index) => {
+      const elevated = Object.entries(role.permissions || {})
+        .filter(([, enabled]) => Boolean(enabled))
+        .map(([key]) => key);
+      const roleColor = (role.color || "#b5bac1").toString();
+      const roleId = (role.id || "").toString().slice(0, 8);
+      return `${index + 1}. ${role.name || "(unnamed)"}${roleId ? ` [${roleId}]` : ""} · ${roleColor} · ${elevated.length > 0 ? elevated.join(", ") : "no elevated perms"}`;
+    });
+    if (roles.length > rows.length) rows.push(`…${roles.length - rows.length} more role(s).`);
+    addSystemMessage(channel, `Roles (${roles.length}):\n${rows.join("\n")}`);
+    return true;
+  }
+
+  if (command === "members") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const memberIds = [...new Set((guild.memberIds || []).map((id) => (id || "").toString()).filter(Boolean))];
+    const members = memberIds
+      .map((memberId) => getAccountById(memberId))
+      .filter(Boolean)
+      .sort((a, b) => (
+        displayNameForAccount(a, guild.id).localeCompare(displayNameForAccount(b, guild.id), undefined, { sensitivity: "base" })
+      ));
+    if (members.length === 0) {
+      addSystemMessage(channel, "No members found for this guild.");
+      return true;
+    }
+    const rows = members.slice(0, 24).map((member, index) => {
+      const display = displayNameForAccount(member, guild.id);
+      const username = `@${member.username || "unknown"}`;
+      const showUsername = display.toLowerCase() !== (member.username || "").toLowerCase();
+      return `${index + 1}. ${display}${showUsername ? ` (${username})` : ""}`;
+    });
+    if (members.length > rows.length) rows.push(`…${members.length - rows.length} more member(s).`);
+    addSystemMessage(channel, `Members (${members.length}):\n${rows.join("\n")}`);
+    return true;
+  }
+
+  if (command === "membercount") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const memberIds = [...new Set((guild.memberIds || []).map((id) => (id || "").toString()).filter(Boolean))];
+    const members = memberIds
+      .map((memberId) => getAccountById(memberId))
+      .filter(Boolean);
+    const online = members.filter((member) => normalizePresence(member.presence || "online") !== "invisible").length;
+    const offline = Math.max(0, members.length - online);
+    addSystemMessage(channel, `Members: ${members.length} total · ${online} online · ${offline} offline.`);
+    return true;
+  }
+
+  if (command === "channels") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const visibleChannels = (guild.channels || []).filter((entry) => canAccountViewChannel(guild, entry, account.id));
+    if (visibleChannels.length === 0) {
+      addSystemMessage(channel, "No visible channels in this guild.");
+      return true;
+    }
+    const rows = visibleChannels.slice(0, 30).map((entry, index) => (
+      `${index + 1}. ${channelTypePrefix(entry)}${entry.name} · ${(entry.type || "text").toString()}`
+    ));
+    if (visibleChannels.length > rows.length) rows.push(`…${visibleChannels.length - rows.length} more channel(s).`);
+    addSystemMessage(channel, `Channels (${visibleChannels.length}):\n${rows.join("\n")}`);
+    return true;
+  }
+
+  if (command === "channeltypes") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const visibleChannels = (guild.channels || []).filter((entry) => canAccountViewChannel(guild, entry, account.id));
+    if (visibleChannels.length === 0) {
+      addSystemMessage(channel, "No visible channels in this guild.");
+      return true;
+    }
+    const counts = visibleChannels.reduce((acc, entry) => {
+      const key = (entry.type || "text").toString();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const rows = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([type, count]) => `${type}: ${count}`);
+    addSystemMessage(channel, `Channel types (${visibleChannels.length} total): ${rows.join(" · ")}`);
+    return true;
+  }
+
   if (command === "jumpunread") {
     const unreadMessageId = findFirstUnreadMessageId(channel, account);
     if (!unreadMessageId) {
@@ -12272,6 +12508,42 @@ function handleSlashCommand(rawText, channel, account) {
       channel,
       `Unread in ${guild.name}: ${totals.unread} message${totals.unread === 1 ? "" : "s"}, ${totals.mentions} mention${totals.mentions === 1 ? "" : "s"}.`
     );
+    return true;
+  }
+
+  if (command === "mentions") {
+    const guild = getActiveGuild();
+    const guildMentions = guild ? listMentionGuildChannels(guild, account) : [];
+    const guildMentionCount = guildMentions.reduce((sum, entry) => sum + entry.stats.mentions, 0);
+    const dmMentionCount = getTotalDmUnreadStats(account).mentions;
+    if (guildMentionCount <= 0 && dmMentionCount <= 0) {
+      addSystemMessage(channel, "No unread mentions in guild channels or DMs.");
+      return true;
+    }
+    const lines = [];
+    if (guild) {
+      lines.push(`Guild mentions: ${guildMentionCount} across ${guildMentions.length} channel${guildMentions.length === 1 ? "" : "s"}.`);
+      if (guildMentions.length > 0) {
+        const top = guildMentions
+          .slice(0, 8)
+          .map((entry) => `#${entry.channel.name} (${entry.stats.mentions})`);
+        lines.push(`Channels: ${top.join(", ")}${guildMentions.length > top.length ? ` +${guildMentions.length - top.length} more` : ""}`);
+      }
+    }
+    lines.push(`DM mentions: ${dmMentionCount}.`);
+    addSystemMessage(channel, lines.join("\n"));
+    return true;
+  }
+
+  if (command === "nextmention") {
+    const moved = jumpToMentionGuildChannel(1);
+    if (!moved) addSystemMessage(channel, "No other channels with unread mentions.");
+    return true;
+  }
+
+  if (command === "prevmention") {
+    const moved = jumpToMentionGuildChannel(-1);
+    if (!moved) addSystemMessage(channel, "No other channels with unread mentions.");
     return true;
   }
 
@@ -12407,6 +12679,40 @@ function handleSlashCommand(rawText, channel, account) {
     state.activeDmId = null;
     saveState();
     render();
+    return true;
+  }
+
+  if (command === "listdms") {
+    const threads = getSortedDmThreadsForAccount(account);
+    if (threads.length === 0) {
+      addSystemMessage(channel, "No DM threads yet.");
+      return true;
+    }
+    const rows = threads.slice(0, 20).map((thread, index) => {
+      const peer = dmPeerAccountForThread(thread, account.id);
+      const label = peer ? dmPrimaryLabelForAccount(peer) : "(unknown DM)";
+      const unread = getDmUnreadStats(thread, account);
+      const unreadText = unread.unread > 0
+        ? `${unread.unread} unread${unread.mentions > 0 ? `, ${unread.mentions} mention${unread.mentions === 1 ? "" : "s"}` : ""}`
+        : "read";
+      const lastTs = thread.messages?.[thread.messages.length - 1]?.ts || "";
+      const active = getViewMode() === "dm" && state.activeDmId === thread.id ? "active" : "";
+      return `${index + 1}. ${label} · ${unreadText}${lastTs ? ` · ${formatFullTimestamp(lastTs)}` : ""}${active ? ` · ${active}` : ""}`;
+    });
+    if (threads.length > rows.length) rows.push(`…${threads.length - rows.length} more DM(s).`);
+    addSystemMessage(channel, `DMs (${threads.length}):\n${rows.join("\n")}`);
+    return true;
+  }
+
+  if (command === "dmnext") {
+    const moved = cycleActiveDmThread(1);
+    if (!moved) addSystemMessage(channel, "No other DM threads.");
+    return true;
+  }
+
+  if (command === "dmprev") {
+    const moved = cycleActiveDmThread(-1);
+    if (!moved) addSystemMessage(channel, "No other DM threads.");
     return true;
   }
 
@@ -12569,6 +12875,78 @@ function handleSlashCommand(rawText, channel, account) {
     const topic = (channel?.topic || "").toString();
     void copyText(topic).then((ok) => {
       addSystemMessage(channel, ok ? "Copied channel topic." : "Failed to copy topic.");
+    });
+    return true;
+  }
+
+  if (command === "copyguildid") {
+    copyTextToChannelWithFeedback(channel, getActiveGuild()?.id || "", {
+      successText: "Copied guild ID.",
+      emptyText: "No active guild ID to copy.",
+      failureText: "Failed to copy guild ID."
+    });
+    return true;
+  }
+
+  if (command === "copyguildname") {
+    copyTextToChannelWithFeedback(channel, getActiveGuild()?.name || "", {
+      successText: "Copied guild name.",
+      emptyText: "No active guild name to copy.",
+      failureText: "Failed to copy guild name."
+    });
+    return true;
+  }
+
+  if (command === "copychannelname") {
+    copyTextToChannelWithFeedback(channel, channel?.name ? `#${channel.name}` : "", {
+      successText: "Copied channel name.",
+      emptyText: "No active channel name to copy.",
+      failureText: "Failed to copy channel name."
+    });
+    return true;
+  }
+
+  if (command === "copyaccountid") {
+    copyTextToChannelWithFeedback(channel, account?.id || "", {
+      successText: "Copied account ID.",
+      emptyText: "No account ID to copy.",
+      failureText: "Failed to copy account ID."
+    });
+    return true;
+  }
+
+  if (command === "copyjid") {
+    copyTextToChannelWithFeedback(channel, accountBareXmppJid(account), {
+      successText: "Copied XMPP JID.",
+      emptyText: "No XMPP JID set for this account.",
+      failureText: "Failed to copy XMPP JID."
+    });
+    return true;
+  }
+
+  if (command === "copypresence") {
+    copyTextToChannelWithFeedback(channel, normalizePresence(account?.presence || "online"), {
+      successText: "Copied presence state.",
+      emptyText: "No presence state to copy.",
+      failureText: "Failed to copy presence state."
+    });
+    return true;
+  }
+
+  if (command === "copydisplayname") {
+    copyTextToChannelWithFeedback(channel, displayNameForAccount(account, getActiveGuild()?.id || null), {
+      successText: "Copied display name.",
+      emptyText: "No display name to copy.",
+      failureText: "Failed to copy display name."
+    });
+    return true;
+  }
+
+  if (command === "copyref") {
+    copyTextToChannelWithFeedback(channel, activeConversationReferenceText(), {
+      successText: "Copied active conversation reference.",
+      emptyText: "No active conversation reference to copy.",
+      failureText: "Failed to copy conversation reference."
     });
     return true;
   }
@@ -27195,6 +27573,23 @@ ui.messageForm.addEventListener("submit", (event) => {
     const [rawCommand, ...rawRest] = text.slice(1).split(" ");
     const dmCommand = rawCommand.toLowerCase();
     const dmArg = rawRest.join(" ").trim();
+    if ([
+      "serverinfo",
+      "serverroles",
+      "members",
+      "membercount",
+      "channels",
+      "channeltypes",
+      "mentions",
+      "nextmention",
+      "prevmention",
+      "copyguildid",
+      "copyguildname",
+      "copychannelname"
+    ].includes(dmCommand)) {
+      showToast("This command only works in guild channels.", { tone: "error" });
+      return;
+    }
     if (dmCommand === "closedm") {
       const closingId = state.activeDmId;
       if (closingId) {
@@ -27234,6 +27629,30 @@ ui.messageForm.addEventListener("submit", (event) => {
       render();
       return;
     }
+    if (dmCommand === "listdms") {
+      const threads = getSortedDmThreadsForAccount(account);
+      if (threads.length === 0) {
+        showToast("No DM threads yet.", { tone: "error" });
+        return;
+      }
+      const labels = threads
+        .slice(0, 5)
+        .map((thread) => {
+          const peer = dmPeerAccountForThread(thread, account.id);
+          return peer ? dmPrimaryLabelForAccount(peer) : "(unknown DM)";
+        })
+        .join(", ");
+      showToast(`DMs (${threads.length}): ${labels}${threads.length > 5 ? " ..." : ""}`);
+      return;
+    }
+    if (dmCommand === "dmnext") {
+      if (!cycleActiveDmThread(1)) showToast("No other DM threads.", { tone: "error" });
+      return;
+    }
+    if (dmCommand === "dmprev") {
+      if (!cycleActiveDmThread(-1)) showToast("No other DM threads.", { tone: "error" });
+      return;
+    }
     if (dmCommand === "copyid") {
       void copyText(conversation.thread.id).then((ok) => {
         showToast(ok ? "DM ID copied." : "Failed to copy DM ID.", { tone: ok ? "info" : "error" });
@@ -27244,6 +27663,48 @@ ui.messageForm.addEventListener("submit", (event) => {
       const link = `${window.location.href.split("#")[0]}#msg=${conversation.thread.id}:`;
       void copyText(link).then((ok) => {
         showToast(ok ? "DM link copied." : "Failed to copy DM link.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
+    if (dmCommand === "copyaccountid") {
+      void copyText(account.id || "").then((ok) => {
+        showToast(ok ? "Account ID copied." : "Failed to copy account ID.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
+    if (dmCommand === "copyjid") {
+      const jid = accountBareXmppJid(account);
+      if (!jid) {
+        showToast("No XMPP JID set for this account.", { tone: "error" });
+        return;
+      }
+      void copyText(jid).then((ok) => {
+        showToast(ok ? "XMPP JID copied." : "Failed to copy XMPP JID.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
+    if (dmCommand === "copypresence") {
+      const presence = normalizePresence(account.presence || "online");
+      void copyText(presence).then((ok) => {
+        showToast(ok ? "Presence copied." : "Failed to copy presence.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
+    if (dmCommand === "copydisplayname") {
+      const display = displayNameForAccount(account, null);
+      void copyText(display).then((ok) => {
+        showToast(ok ? "Display name copied." : "Failed to copy display name.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
+    if (dmCommand === "copyref") {
+      const ref = activeConversationReferenceText();
+      if (!ref) {
+        showToast("No active DM reference to copy.", { tone: "error" });
+        return;
+      }
+      void copyText(ref).then((ok) => {
+        showToast(ok ? "Conversation reference copied." : "Failed to copy conversation reference.", { tone: ok ? "info" : "error" });
       });
       return;
     }
