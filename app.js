@@ -1823,6 +1823,14 @@ function formatDmDeliverySummaryForComposer(thread, accountId) {
   return "";
 }
 
+function formatDmDeliveryPrefixForList(message) {
+  const deliveryState = (message?.xmppDeliveryState || "").toString().toLowerCase();
+  if (deliveryState === "read") return "✓✓ Read";
+  if (deliveryState === "delivered") return "✓✓";
+  if (deliveryState === "sent") return "✓";
+  return "";
+}
+
 function latestIncomingDmMessageTimestamp(thread, accountId) {
   if (!thread || !accountId || !Array.isArray(thread.messages)) return "";
   const ownId = accountId.toString();
@@ -20735,9 +20743,20 @@ function renderDmList() {
     if (!lastMessage) {
       preview.textContent = "No messages yet.";
     } else {
-      const sender = lastMessage.userId === currentAccount.id ? "You" : (peer ? dmPrimaryLabelForAccount(peer) : "Unknown");
+      const ownLastMessage = (lastMessage.userId || "").toString() === (currentAccount.id || "").toString();
+      const sender = ownLastMessage ? "You" : (peer ? dmPrimaryLabelForAccount(peer) : "Unknown");
+      const deliveryPrefix = ownLastMessage ? formatDmDeliveryPrefixForList(lastMessage) : "";
+      const senderLabel = deliveryPrefix ? `${sender} ${deliveryPrefix}` : sender;
       const text = (lastMessage.text || "").replace(/\s+/g, " ").trim();
-      preview.textContent = `${sender}: ${text || "(attachment)"}`.slice(0, 66);
+      const rawPreview = `${senderLabel}: ${text || "(attachment)"}`;
+      preview.textContent = rawPreview.slice(0, 72);
+      if (deliveryPrefix === "✓✓ Read" && lastMessage.xmppReadAt) {
+        preview.title = `${rawPreview} · Read ${formatFullTimestamp(lastMessage.xmppReadAt)}`;
+      } else if (deliveryPrefix === "✓✓" && lastMessage.xmppDeliveryAt) {
+        preview.title = `${rawPreview} · Delivered ${formatFullTimestamp(lastMessage.xmppDeliveryAt)}`;
+      } else if (rawPreview.length > 72) {
+        preview.title = rawPreview;
+      }
     }
     content.appendChild(preview);
     button.appendChild(content);
