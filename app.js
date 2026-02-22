@@ -1075,12 +1075,9 @@ const ui = {
   loginScreen: document.getElementById("loginScreen"),
   chatScreen: document.getElementById("chatScreen"),
   loginForm: document.getElementById("loginForm"),
-  loginStoredAccountWrap: document.getElementById("loginStoredAccountWrap"),
-  loginStoredAccountSelect: document.getElementById("loginStoredAccountSelect"),
   loginLocalProfileWrap: document.getElementById("loginLocalProfileWrap"),
   loginLocalProfileSelect: document.getElementById("loginLocalProfileSelect"),
   loginUsername: document.getElementById("loginUsername"),
-  loginTransportMode: document.getElementById("loginTransportMode"),
   loginPassword: document.getElementById("loginPassword"),
   loginXmppServer: document.getElementById("loginXmppServer"),
   loginRememberInput: document.getElementById("loginRememberInput"),
@@ -24621,10 +24618,10 @@ function applyLoginXmppProgressEvent(event) {
   }
 }
 
-function parseLoginIdentity(rawUsername, explicitJid = "", { allowImplicitJid = true } = {}) {
+function parseLoginIdentity(rawUsername, explicitJid = "") {
   const userRaw = (rawUsername || "").toString().trim();
   const jidRaw = (explicitJid || "").toString().trim();
-  const effectiveJid = jidRaw || (allowImplicitJid && userRaw.includes("@") ? userRaw : "");
+  const effectiveJid = jidRaw || (userRaw.includes("@") ? userRaw : "");
   const baseUsernameRaw = userRaw.includes("@") ? userRaw.split("@")[0] : userRaw;
   const fallbackFromJid = effectiveJid.includes("@") ? effectiveJid.split("@")[0] : "";
   const accountSeed = baseUsernameRaw || fallbackFromJid;
@@ -25407,104 +25404,13 @@ function renderXmppProviderList() {
   });
 }
 
-function getLoginTransportMode() {
-  const mode = ui.loginTransportMode?.value || getPreferences().relayMode || "local";
-  return normalizeRelayMode(mode);
-}
-
-function renderLoginStoredAccountSelect() {
-  if (!ui.loginStoredAccountWrap || !ui.loginStoredAccountSelect) return;
-  const select = ui.loginStoredAccountSelect;
-  const previous = (select.value || "").toString();
-  select.innerHTML = "";
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Select saved account";
-  select.appendChild(placeholder);
-
-  const accounts = Array.isArray(state.accounts) ? state.accounts.filter((entry) => entry?.id && entry?.username) : [];
-  if (accounts.length === 0) {
-    ui.loginStoredAccountWrap.hidden = true;
-    return;
-  }
-
-  const knownIds = new Set();
-  accounts.forEach((account) => {
-    const option = document.createElement("option");
-    option.value = account.id;
-    knownIds.add(account.id);
-    const display = ((account.displayName || account.username || "").toString().trim().slice(0, 32) || account.username).trim();
-    const handle = `@${account.username}`;
-    const xmpp = normalizeXmppJid(account.xmppJid || "");
-    option.textContent = xmpp
-      ? `${display} (${handle}) - ${xmpp}`
-      : `${display} (${handle})`;
-    select.appendChild(option);
-  });
-
-  let nextSelection = "";
-  if (previous && knownIds.has(previous)) {
-    nextSelection = previous;
-  } else if (isSessionPersistenceEnabled()) {
-    const remembered = (localStorage.getItem(SESSION_ACCOUNT_KEY) || "").toString();
-    if (remembered && knownIds.has(remembered)) nextSelection = remembered;
-  }
-  if (nextSelection) select.value = nextSelection;
-  ui.loginStoredAccountWrap.hidden = false;
-}
-
-function applyStoredLoginAccountById(accountId) {
-  if (!accountId) return false;
-  const account = getAccountById(accountId);
-  if (!account) return false;
-  const mode = getLoginTransportMode();
-  const username = (account.username || "").toString();
-  const xmppJid = normalizeXmppJid(account.xmppJid || "");
-  if (ui.loginUsername) {
-    ui.loginUsername.value = mode === "xmpp" && xmppJid ? xmppJid : username;
-  }
-  if (mode === "xmpp" && ui.loginXmppServer && !ui.loginXmppServer.value) {
-    const wsUrl = normalizeXmppWsUrl(getPreferences().xmppWsUrl || "");
-    if (wsUrl) ui.loginXmppServer.value = wsUrl;
-  }
-  return true;
-}
-
-function syncLoginUsernameForSelectedAccount() {
-  const selectedId = (ui.loginStoredAccountSelect?.value || "").toString();
-  if (!selectedId || !ui.loginUsername) return;
-  const account = getAccountById(selectedId);
-  if (!account) return;
-  const raw = (ui.loginUsername.value || "").trim();
-  const accountUsername = (account.username || "").toString();
-  const accountXmppJid = normalizeXmppJid(account.xmppJid || "");
-  const matchesAccount = normalizeUsername(raw) === normalizeUsername(accountUsername);
-  const matchesXmpp = xmppBareJid(raw) && xmppBareJid(accountXmppJid) && xmppBareJid(raw) === xmppBareJid(accountXmppJid);
-  if (!raw || matchesAccount || matchesXmpp) {
-    ui.loginUsername.value = getLoginTransportMode() === "xmpp" && accountXmppJid ? accountXmppJid : accountUsername;
-  }
-}
-
 function syncLoginFieldsFromSessionPrefs() {
   const prefs = getPreferences();
-  renderLoginStoredAccountSelect();
   if (ui.loginRememberInput) {
     ui.loginRememberInput.checked = prefs.rememberLogin === "on" && isSessionPersistenceEnabled();
   }
-  const isPristine = !((ui.loginUsername?.value || "").trim()
-    || (ui.loginPassword?.value || "").trim()
-    || (ui.loginXmppServer?.value || "").trim());
-  if (ui.loginTransportMode && isPristine) {
-    ui.loginTransportMode.value = normalizeRelayMode(prefs.relayMode || "local");
-  }
-  if (ui.loginUsername && !ui.loginUsername.value) {
-    const selectedId = (ui.loginStoredAccountSelect?.value || "").toString();
-    const appliedFromStored = selectedId ? applyStoredLoginAccountById(selectedId) : false;
-    if (!appliedFromStored && getLoginTransportMode() === "xmpp" && prefs.xmppJid) {
-      ui.loginUsername.value = prefs.xmppJid;
-    }
-  } else {
-    syncLoginUsernameForSelectedAccount();
+  if (ui.loginUsername && !ui.loginUsername.value && prefs.xmppJid) {
+    ui.loginUsername.value = prefs.xmppJid;
   }
   if (ui.loginXmppServer && !ui.loginXmppServer.value && prefs.xmppWsUrl) {
     ui.loginXmppServer.value = prefs.xmppWsUrl;
@@ -25558,7 +25464,7 @@ function renderLocalXmppProfileSelect() {
   ui.loginLocalProfileSelect.innerHTML = "";
   const defaultOption = document.createElement("option");
   defaultOption.value = "";
-  defaultOption.textContent = "Select profile from .xmpp.local.json";
+  defaultOption.textContent = "Select profile from .xmpp.local.json/.js";
   ui.loginLocalProfileSelect.appendChild(defaultOption);
   if (!Array.isArray(loginLocalXmppProfiles) || loginLocalXmppProfiles.length === 0) {
     ui.loginLocalProfileWrap.hidden = true;
@@ -25577,7 +25483,6 @@ function applyLocalXmppProfileById(profileId) {
   if (!profileId) return false;
   const profile = loginLocalXmppProfiles.find((entry) => entry.id === profileId);
   if (!profile) return false;
-  if (ui.loginTransportMode) ui.loginTransportMode.value = "xmpp";
   if (ui.loginUsername) ui.loginUsername.value = profile.jid;
   if (ui.loginPassword) ui.loginPassword.value = profile.password || "";
   if (ui.loginXmppServer && profile.ws) {
@@ -25588,7 +25493,7 @@ function applyLocalXmppProfileById(profileId) {
 }
 
 async function loadLocalXmppProfiles() {
-  const candidates = [".xmpp.local.json", "./.xmpp.local.json"];
+  const candidates = [".xmpp.local.json", ".xmpp.local.js", "./.xmpp.local.json", "./.xmpp.local.js"];
   for (const path of candidates) {
     try {
       // Try to load local secret profiles if static server exposes dotfiles.
@@ -25681,13 +25586,13 @@ function createOrSwitchAccount(usernameInput, options = {}) {
 ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const typed = ui.loginUsername.value;
-  const selectedRelayMode = getLoginTransportMode();
-  const wantsXmpp = selectedRelayMode === "xmpp";
-  const explicitJid = wantsXmpp ? typed : "";
+  const selectedRelayMode = "xmpp";
+  const wantsXmpp = true;
+  const explicitJid = typed;
   const password = ui.loginPassword?.value || "";
   const wsServer = ui.loginXmppServer?.value || "";
   const rememberLogin = ui.loginRememberInput?.checked !== false;
-  const parsed = parseLoginIdentity(typed, explicitJid, { allowImplicitJid: wantsXmpp });
+  const parsed = parseLoginIdentity(typed, explicitJid);
   if (!parsed.accountUsername) {
     showToast("Username must include at least one letter or number.", { tone: "error" });
     return;
@@ -25752,10 +25657,6 @@ ui.loginForm.addEventListener("submit", async (event) => {
 
 ui.loginUsername?.addEventListener("input", () => {
   resetLoginXmppProgress();
-  if (getLoginTransportMode() !== "xmpp") {
-    loginXmppDiscoveryToken += 1;
-    return;
-  }
   const raw = (ui.loginUsername.value || "").trim();
   if (!looksLikeCompleteJid(raw)) {
     loginXmppDiscoveryToken += 1;
@@ -25769,24 +25670,6 @@ ui.loginUsername?.addEventListener("input", () => {
     }
   }
   void maybeDiscoverLoginXmppWsUrl(raw);
-});
-
-ui.loginStoredAccountSelect?.addEventListener("change", () => {
-  resetLoginXmppProgress();
-  const selectedId = (ui.loginStoredAccountSelect?.value || "").toString();
-  if (!selectedId) return;
-  const applied = applyStoredLoginAccountById(selectedId);
-  if (!applied) return;
-  ui.loginUsername?.focus();
-});
-
-ui.loginTransportMode?.addEventListener("change", () => {
-  resetLoginXmppProgress();
-  syncLoginUsernameForSelectedAccount();
-  if (getLoginTransportMode() === "xmpp" && ui.loginXmppServer && !ui.loginXmppServer.value) {
-    const wsUrl = normalizeXmppWsUrl(getPreferences().xmppWsUrl || "");
-    if (wsUrl) ui.loginXmppServer.value = wsUrl;
-  }
 });
 
 ui.loginLocalProfileSelect?.addEventListener("change", () => {

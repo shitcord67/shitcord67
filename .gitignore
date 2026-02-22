@@ -3,3 +3,4 @@ SVGscreenshots/
 node_modules/
 .env.local
 .xmpp.local.json
+.xmpp.local.js

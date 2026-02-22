@@ -216,3 +216,7 @@ So did you remove IRC, Matrix and Shitcord support then?
 So then why can't I select between them on the login screen?
 [2026-02-22T03:17:42+01:00] USER PROMPT:
 Yeah and also add the selection for stored user accounts back as well
+[2026-02-22T03:49:47+01:00] USER PROMPT:
+Eh please do not include a dropdown to select transport mode. Instead just use XMPP per default for now and have
+  a dropdown for .xmpp.local.js. Please add entries for kazue@xmpp.jp with password kazuekazue and
+  derberg@pimux.de with password my>!H7V7=H<>aD>Y
