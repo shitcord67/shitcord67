@@ -210,3 +210,7 @@ The app opened, but the local client URL is unavailable.
 (node:859895) electron: Failed to load URL: http://127.0.0.1:18081/ with error: ERR_EMPTY_RESPONSE
 (Use `electron --trace-warnings ...` to show where the warning was created)
 [electron] client load failed ERR_EMPTY_RESPONSE (-324) loading 'http://127.0.0.1:18081/'
+[2026-02-22T02:30:21+01:00] USER PROMPT:
+So did you remove IRC, Matrix and Shitcord support then?
+[2026-02-22T02:31:03+01:00] USER PROMPT:
+So then why can't I select between them on the login screen?
