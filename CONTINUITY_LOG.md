@@ -89,3 +89,72 @@ Looks like it works now again? Anyways, why are reactions I apply are still not 
 
 ## 2026-02-21T05:12:44+01:00
 - Prompt: Then what I also noticed is that there is always a red notification bubble at the shitcord67 logo. But it should only be present when I actually got messages or (new) mentions.
+## 2026-02-22T00:37:05+01:00
+Also yeah feel free to work on what you previously suggested. /usr/lib/node_modules/npm/lib/cli/validate-engines.js:29
+    throw err
+    ^
+
+Error: ENOENT: no such file or directory, uv_cwd
+    at process.wrappedCwd (node:internal/bootstrap/switches/does_own_process_state:144:28)
+    at process.cwd (/usr/lib/node_modules/npm/node_modules/graceful-fs/polyfills.js:10:19)
+    at new Config (/usr/lib/node_modules/npm/node_modules/@npmcli/config/lib/index.js:80:19)
+    at new Npm (/usr/lib/node_modules/npm/lib/npm.js:67:19)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli/entry.js:14:15)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli/validate-engines.js:37:10)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli.js:12:31)
+    at Object.<anonymous> (/usr/lib/node_modules/npm/bin/npm-cli.js:2:25)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'uv_cwd'
+}
+
+Node.js v20.19.6
+
+[$TS] USER PROMPT:
+/usr/lib/node_modules/npm/lib/cli/validate-engines.js:29
+    throw err
+    ^
+
+Error: ENOENT: no such file or directory, uv_cwd
+    at process.wrappedCwd (node:internal/bootstrap/switches/does_own_process_state:144:28)
+    at process.cwd (/usr/lib/node_modules/npm/node_modules/graceful-fs/polyfills.js:10:19)
+    at new Config (/usr/lib/node_modules/npm/node_modules/@npmcli/config/lib/index.js:80:19)
+    at new Npm (/usr/lib/node_modules/npm/lib/npm.js:67:19)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli/entry.js:14:15)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli/validate-engines.js:37:10)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli.js:12:31)
+    at Object.<anonymous> (/usr/lib/node_modules/npm/bin/npm-cli.js:2:25)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'uv_cwd'
+}
+
+Node.js v20.19.6
+Can you fix this?
+[2026-02-22T02:22:38+01:00] USER PROMPT (corrected timestamp copy):
+/usr/lib/node_modules/npm/lib/cli/validate-engines.js:29
+    throw err
+    ^
+
+Error: ENOENT: no such file or directory, uv_cwd
+    at process.wrappedCwd (node:internal/bootstrap/switches/does_own_process_state:144:28)
+    at process.cwd (/usr/lib/node_modules/npm/node_modules/graceful-fs/polyfills.js:10:19)
+    at new Config (/usr/lib/node_modules/npm/node_modules/@npmcli/config/lib/index.js:80:19)
+    at new Npm (/usr/lib/node_modules/npm/lib/npm.js:67:19)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli/entry.js:14:15)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli/validate-engines.js:37:10)
+    at module.exports (/usr/lib/node_modules/npm/lib/cli.js:12:31)
+    at Object.<anonymous> (/usr/lib/node_modules/npm/bin/npm-cli.js:2:25)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'uv_cwd'
+}
+
+Node.js v20.19.6
+Can you fix this?
