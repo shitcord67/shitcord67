@@ -1823,6 +1823,64 @@ function formatDmDeliverySummaryForComposer(thread, accountId) {
   return "";
 }
 
+function latestIncomingDmMessageTimestamp(thread, accountId) {
+  if (!thread || !accountId || !Array.isArray(thread.messages)) return "";
+  const ownId = accountId.toString();
+  for (let i = thread.messages.length - 1; i >= 0; i -= 1) {
+    const message = thread.messages[i];
+    if (!message) continue;
+    if ((message.userId || "").toString() === ownId) continue;
+    const stamp = (message.ts || "").toString().trim();
+    if (stamp) return stamp;
+  }
+  return "";
+}
+
+function formatRelativeTimeAgoShort(iso) {
+  const stampMs = toTimestampMs(iso);
+  if (!stampMs) return "";
+  const diffMs = Math.max(0, Date.now() - stampMs);
+  if (diffMs < 45_000) return "just now";
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days < 30) return `${days}d ago`;
+  return formatTime(iso);
+}
+
+function dmHeaderStatusMeta(thread, accountId, { typingSummary = "" } = {}) {
+  const summary = (typingSummary || "").toString().trim();
+  if (summary) return { text: summary, needsRefresh: false };
+  const peer = dmPeerAccountForThread(thread, accountId);
+  if (!peer) return { text: "Direct Message", needsRefresh: false };
+  const resolvedStatus = resolveAccountStatus(peer, null);
+  const hasCustomStatus = Boolean((resolvedStatus.text || "").toString().trim());
+  const presence = normalizePresence(peer.presence || "online");
+  const parts = [];
+  const primaryStatus = displayStatus(peer, null);
+  if (primaryStatus) parts.push(primaryStatus);
+  if (hasCustomStatus) {
+    const presenceText = presenceLabel(peer.presence);
+    if (presenceText) parts.push(presenceText);
+  }
+  let needsRefresh = false;
+  if (presence === "invisible") {
+    const lastIncomingTs = latestIncomingDmMessageTimestamp(thread, accountId);
+    const relative = formatRelativeTimeAgoShort(lastIncomingTs);
+    if (relative) {
+      parts.push(`Last active ${relative}`);
+      needsRefresh = true;
+    }
+  }
+  if (parts.length === 0) parts.push("Direct Message");
+  return {
+    text: parts.join(" · "),
+    needsRefresh
+  };
+}
+
 function appendDmSeenIndicator(messageRow, message, peerAccount) {
   if (!(messageRow instanceof HTMLElement) || !message || !peerAccount) return;
   const indicator = document.createElement("div");
@@ -13545,6 +13603,14 @@ function renderComposerMeta() {
     const deliverySummary = formatDmDeliverySummaryForComposer(conversation.thread, account.id);
     const dmMetaLine = [typingSummary, deliverySummary].filter(Boolean).join(" · ");
     setComposerTypingNoteText(dmMetaLine);
+    const headerMeta = dmHeaderStatusMeta(conversation.thread, account.id, { typingSummary });
+    setActiveChannelTopic(headerMeta.text || "Direct Message");
+    if (headerMeta.needsRefresh) {
+      composerMetaRefreshTimer = setTimeout(() => {
+        composerMetaRefreshTimer = null;
+        renderComposerMeta();
+      }, 30_000);
+    }
     submitBtn.disabled = false;
     if (ui.composerSystemNotice) ui.composerSystemNotice.hidden = true;
     return;
@@ -22294,7 +22360,10 @@ function renderMessages() {
     const peerPrimary = peer ? dmPrimaryLabelForAccount(peer) : "dm";
     const peerSecondary = peer ? dmSecondaryLabelForAccount(peer) : "@dm";
     setActiveChannelHeader(peerPrimary, "@", peerSecondary, peerSecondary);
-    setActiveChannelTopic("Direct Message");
+    const dmRoom = relayRoomForDmThread(dmThread) || relayRoomForActiveConversation();
+    const typingSummary = formatTypingSummary(typingNamesForRoom(dmRoom));
+    const headerMeta = dmHeaderStatusMeta(dmThread, current?.id, { typingSummary });
+    setActiveChannelTopic(headerMeta.text || "Direct Message");
     ui.messageInput.placeholder = peer ? `Message ${peerPrimary}` : "Message DM";
   } else {
     const guild = getActiveGuild();

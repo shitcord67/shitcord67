@@ -289,6 +289,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - XMPP DM read-state now also uses chat markers (`urn:xmpp:chat-markers:0`, XEP-0333): outbound direct messages are marked `markable`, inbound markable DMs now receive `received` markers, incoming `displayed` markers mark your sent DMs as read, and opening/reading a DM publishes `displayed` markers back to peers.
 - DM threads now show a Discord-like tail receipt: the latest read outbound DM message gets a small peer-avatar `Seen` indicator.
 - DM composer meta now includes a live status line in 1:1 chats (typing + delivery/read summary such as `Seen 14:32`).
+- DM header topic now updates live with peer status (custom status/presence and offline `Last active` hints; typing state overrides while active).
 - XMPP message edits now use Last Message Correction (`urn:xmpp:message-correct:0`, XEP-0308): incoming `replace` stanzas patch existing DM/MUC messages, and local edits publish correction stanzas when stanza references are known.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
