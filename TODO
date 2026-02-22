@@ -299,7 +299,7 @@ https://discord.js.org/docs/packages/discord.js/main
 - [done] Users can have custom avatar decorations
 - User can show a guild tag next to their name which opens up a small pop-up with a info profile of that guild
 - Implement some quests which give virtual currency or small icons on the profile. Maybe also some useful ones like "create an issue on the shirtcord67 repo" (with auto-validation)?
-- Seasonal cosmetics rotation and limited-time bundles (shop featured row + countdown).
+- [done] Seasonal cosmetics rotation and limited-time bundles (shop featured row + countdown).
 - Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
 - Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.

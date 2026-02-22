@@ -235,3 +235,15 @@ Okay then next can you implement more XEPs or make the UI better? More features 
 [2026-02-22T05:20:06+01:00] USER PROMPT: Yes
 [2026-02-22T05:41:21+01:00] USER PROMPT: Yes
 [2026-02-22T05:56:36+01:00] USER PROMPT: Yes
+[2026-02-22T06:01:01+01:00] USER PROMPT: I have the small issue ant that is when I try to click on a button of one of the control things that can be hidden that suddenly the controls get hidden... Please prevent that.
+
+## 2026-02-22T08:43:16+01:00
+Do your thing
+
+## 2026-02-22T08:51:10+01:00
+Continue
+
+## 2026-02-22T09:05:43+01:00
+Please continue with 20 more features unattended.
+[2026-02-22T09:08:00+01:00] Please continue with 20 more features unattended.
+2026-02-22T18:18:32Z | USER_PROMPT | Please do your thing

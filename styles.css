@@ -4739,6 +4739,80 @@ body[data-compact-members="on"] .member-item {
   color: #aeb7c7;
 }
 
+.cosmetics-featured {
+  border: 1px solid #424860;
+  background: linear-gradient(135deg, #202738, #1f262f);
+  border-radius: 10px;
+  padding: 0.5rem 0.55rem;
+  margin: 0.35rem 0 0.55rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cosmetics-featured__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.cosmetics-featured__head strong {
+  font-size: 0.82rem;
+  color: #f0f5ff;
+}
+
+.cosmetics-featured__head small {
+  font-size: 0.7rem;
+  color: #b8c7eb;
+}
+
+.cosmetics-featured__grid {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.cosmetic-featured-card {
+  border: 1px solid #4a5877;
+  border-radius: 9px;
+  background: #252d40;
+  padding: 0.45rem 0.5rem;
+  display: grid;
+  gap: 0.28rem;
+}
+
+.cosmetic-featured-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.cosmetic-featured-card__head strong {
+  font-size: 0.78rem;
+  color: #f6f8ff;
+}
+
+.cosmetic-featured-card__head small {
+  font-size: 0.67rem;
+  color: #cad3ea;
+}
+
+.cosmetic-featured-card__note {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #d9e0f3;
+}
+
+.cosmetic-featured-card__includes {
+  font-size: 0.66rem;
+  color: #b2bfdc;
+}
+
+.cosmetic-featured-card .cosmetic-card__action {
+  justify-self: end;
+}
+
 .cosmetics-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

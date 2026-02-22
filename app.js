@@ -219,6 +219,14 @@ const SHARD_ECONOMY = {
   pollWorth: 4,
   badgeWorth: 3
 };
+const COSMETIC_ROTATION_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+const COSMETIC_ROTATION_ANCHOR_MS = Date.UTC(2024, 0, 1, 0, 0, 0);
+const COSMETIC_SEASONS = [
+  { key: "spring", label: "Spring Bloom", months: [2, 3, 4] },
+  { key: "summer", label: "Summer Heat", months: [5, 6, 7] },
+  { key: "autumn", label: "Autumn Circuit", months: [8, 9, 10] },
+  { key: "winter", label: "Winter Pulse", months: [11, 0, 1] }
+];
 const COSMETIC_CATALOG = [
   { id: "decor_starlight", type: "decor", name: "Starlight", value: "✨", cost: 14, note: "Classic sparkle trim." },
   { id: "decor_flame", type: "decor", name: "Hotshot", value: "🔥", cost: 16, note: "Fire badge for high-energy profiles." },
@@ -229,6 +237,40 @@ const COSMETIC_CATALOG = [
   { id: "effect_aurora", type: "effect", name: "Aurora", value: "aurora", cost: 20, note: "Green-blue-purple banner motion." },
   { id: "effect_flame", type: "effect", name: "Flame", value: "flame", cost: 22, note: "Orange-pink energetic sweep." },
   { id: "effect_ocean", type: "effect", name: "Ocean", value: "ocean", cost: 22, note: "Blue-cyan depth gradient." }
+];
+const COSMETIC_BUNDLE_CATALOG = [
+  {
+    id: "bundle_radiant_duo",
+    name: "Radiant Duo",
+    note: "Spark + aurora starter pack.",
+    itemIds: ["decor_starlight", "effect_aurora"],
+    discount: 4,
+    seasons: ["spring", "winter"]
+  },
+  {
+    id: "bundle_heatwave",
+    name: "Heatwave Set",
+    note: "Hotshot, Solar Flare, and Flame effect.",
+    itemIds: ["decor_flame", "nameplate_flare", "effect_flame"],
+    discount: 10,
+    seasons: ["summer", "autumn"]
+  },
+  {
+    id: "bundle_tidal_shine",
+    name: "Tidal Shine",
+    note: "Rare Cut with ocean visuals.",
+    itemIds: ["decor_diamond", "nameplate_wave", "effect_ocean"],
+    discount: 9,
+    seasons: ["summer", "winter"]
+  },
+  {
+    id: "bundle_aurora_crown",
+    name: "Aurora Crown",
+    note: "Premium gradient identity stack.",
+    itemIds: ["decor_diamond", "nameplate_aurora", "effect_aurora"],
+    discount: 8,
+    seasons: ["spring", "autumn"]
+  }
 ];
 const mediaAllowOnceUrls = new Set();
 const EMOJI_LIBRARY = [
@@ -648,6 +690,38 @@ function ensureAccountCosmetics(account) {
   });
 }
 
+function resolveCosmeticSeason(date = new Date()) {
+  const month = date.getUTCMonth();
+  return COSMETIC_SEASONS.find((season) => season.months.includes(month)) || COSMETIC_SEASONS[0];
+}
+
+function resolveFeaturedCosmeticBundles(now = new Date()) {
+  const season = resolveCosmeticSeason(now);
+  const candidateBundles = COSMETIC_BUNDLE_CATALOG.filter((bundle) => bundle.seasons.includes(season.key));
+  const fallbackBundles = COSMETIC_BUNDLE_CATALOG;
+  const pool = candidateBundles.length > 0 ? candidateBundles : fallbackBundles;
+  if (pool.length === 0) {
+    return {
+      season,
+      bundles: [],
+      endsAtMs: Date.now() + COSMETIC_ROTATION_INTERVAL_MS
+    };
+  }
+  const nowMs = now.getTime();
+  const rotationIndex = Math.max(0, Math.floor((nowMs - COSMETIC_ROTATION_ANCHOR_MS) / COSMETIC_ROTATION_INTERVAL_MS));
+  const slotCount = Math.min(2, pool.length);
+  const bundles = Array.from({ length: slotCount }, (_, offset) => {
+    const index = (rotationIndex + offset) % pool.length;
+    return pool[index];
+  }).filter(Boolean);
+  const endsAtMs = COSMETIC_ROTATION_ANCHOR_MS + ((rotationIndex + 1) * COSMETIC_ROTATION_INTERVAL_MS);
+  return {
+    season,
+    bundles,
+    endsAtMs
+  };
+}
+
 function migrateState(raw) {
   const sourceGuilds = Array.isArray(raw?.guilds) ? raw.guilds : raw?.servers;
   if (raw && Array.isArray(raw.accounts) && Array.isArray(sourceGuilds)) {
@@ -1044,6 +1118,7 @@ let lastRenderedMessageSignature = "";
 let userPopoutXmppNeedsRefresh = false;
 let selfPopoutXmppNeedsRefresh = false;
 let cosmeticsTab = "decor";
+let cosmeticsFeaturedRefreshTimer = null;
 let pinsSearchTerm = "";
 let pinsSortMode = "latest";
 let loginLocalXmppProfiles = [];
@@ -1454,6 +1529,10 @@ const ui = {
   cosmeticsForm: document.getElementById("cosmeticsForm"),
   cosmeticsBalance: document.getElementById("cosmeticsBalance"),
   cosmeticsProgress: document.getElementById("cosmeticsProgress"),
+  cosmeticsFeatured: document.getElementById("cosmeticsFeatured"),
+  cosmeticsFeaturedLabel: document.getElementById("cosmeticsFeaturedLabel"),
+  cosmeticsFeaturedCountdown: document.getElementById("cosmeticsFeaturedCountdown"),
+  cosmeticsFeaturedGrid: document.getElementById("cosmeticsFeaturedGrid"),
   cosmeticsGrid: document.getElementById("cosmeticsGrid"),
   cosmeticsCloseBtn: document.getElementById("cosmeticsCloseBtn"),
   cosmeticsTabs: [...document.querySelectorAll("[data-cosmetics-tab]")],
@@ -14581,6 +14660,160 @@ function buyCosmetic(account, cosmetic) {
   return { ok: true };
 }
 
+function resolveBundlePricingForAccount(bundle, account) {
+  const items = Array.isArray(bundle?.itemIds)
+    ? bundle.itemIds.map((id) => cosmeticById(id)).filter(Boolean)
+    : [];
+  const totalCost = items.reduce((sum, item) => sum + item.cost, 0);
+  const missingItems = items.filter((item) => !accountOwnsCosmetic(account, item));
+  const missingCost = missingItems.reduce((sum, item) => sum + item.cost, 0);
+  let discount = 0;
+  if (missingCost > 0 && totalCost > 0) {
+    const baseDiscount = Math.max(0, Number(bundle?.discount || 0));
+    discount = Math.round(baseDiscount * (missingCost / totalCost));
+    if (baseDiscount > 0) discount = Math.max(1, discount);
+    discount = Math.min(discount, Math.max(0, missingCost - 1));
+  }
+  return {
+    items,
+    missingItems,
+    totalCost,
+    missingCost,
+    discount,
+    finalCost: missingCost > 0 ? Math.max(1, missingCost - discount) : 0
+  };
+}
+
+function buyCosmeticBundle(account, bundle) {
+  if (!account || !bundle) return { ok: false, reason: "Invalid bundle." };
+  ensureAccountCosmetics(account);
+  const pricing = resolveBundlePricingForAccount(bundle, account);
+  if (pricing.items.length === 0) return { ok: false, reason: "Bundle has no valid cosmetics." };
+  if (pricing.missingItems.length === 0) return { ok: false, reason: "You already own this bundle." };
+  const wallet = resolveShardWallet(account.id);
+  if (wallet.balance < pricing.finalCost) return { ok: false, reason: "Not enough shards yet." };
+  pricing.missingItems.forEach((item) => {
+    if (!account.ownedCosmetics[item.type].includes(item.id)) {
+      account.ownedCosmetics[item.type].push(item.id);
+    }
+    equipCosmetic(account, item);
+  });
+  account.cosmeticPurchases.push({
+    id: bundle.id,
+    cost: pricing.finalCost,
+    ts: new Date().toISOString()
+  });
+  account.cosmeticPurchases = normalizeCosmeticPurchases(account.cosmeticPurchases);
+  return {
+    ok: true,
+    purchasedCount: pricing.missingItems.length,
+    purchasedNames: pricing.missingItems.map((item) => item.name),
+    finalCost: pricing.finalCost,
+    discount: pricing.discount
+  };
+}
+
+function formatCosmeticsCountdown(remainingMs) {
+  const safeMs = Math.max(0, Math.floor(remainingMs));
+  const totalMinutes = Math.floor(safeMs / 60_000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function clearCosmeticsFeaturedRefreshTimer() {
+  if (!cosmeticsFeaturedRefreshTimer) return;
+  clearTimeout(cosmeticsFeaturedRefreshTimer);
+  cosmeticsFeaturedRefreshTimer = null;
+}
+
+function scheduleCosmeticsFeaturedRefresh(endsAtMs) {
+  clearCosmeticsFeaturedRefreshTimer();
+  if (!ui.cosmeticsDialog?.open) return;
+  const now = Date.now();
+  const remaining = Math.max(0, Math.floor(endsAtMs - now));
+  const nextTick = Math.min(60_000, Math.max(1_000, remaining + 250));
+  cosmeticsFeaturedRefreshTimer = setTimeout(() => {
+    cosmeticsFeaturedRefreshTimer = null;
+    renderCosmeticsDialog();
+  }, nextTick);
+}
+
+function renderFeaturedCosmetics(account, wallet) {
+  if (!ui.cosmeticsFeatured || !ui.cosmeticsFeaturedGrid || !ui.cosmeticsFeaturedLabel || !ui.cosmeticsFeaturedCountdown) return;
+  const featured = resolveFeaturedCosmeticBundles();
+  if (featured.bundles.length === 0) {
+    ui.cosmeticsFeatured.hidden = true;
+    clearCosmeticsFeaturedRefreshTimer();
+    return;
+  }
+  ui.cosmeticsFeatured.hidden = false;
+  ui.cosmeticsFeaturedLabel.textContent = `${featured.season.label} Featured`;
+  ui.cosmeticsFeaturedCountdown.textContent = `Rotates in ${formatCosmeticsCountdown(featured.endsAtMs - Date.now())}`;
+  ui.cosmeticsFeaturedGrid.innerHTML = "";
+  featured.bundles.forEach((bundle) => {
+    const card = document.createElement("article");
+    card.className = "cosmetic-featured-card";
+    const pricing = resolveBundlePricingForAccount(bundle, account);
+    const canAfford = wallet.balance >= pricing.finalCost;
+
+    const top = document.createElement("div");
+    top.className = "cosmetic-featured-card__head";
+    const title = document.createElement("strong");
+    title.textContent = bundle.name;
+    const price = document.createElement("small");
+    if (pricing.missingItems.length === 0) {
+      price.textContent = "Owned";
+    } else if (pricing.discount > 0) {
+      price.textContent = `${pricing.finalCost} shards (${pricing.missingCost} base, -${pricing.discount})`;
+    } else {
+      price.textContent = `${pricing.finalCost} shards`;
+    }
+    top.appendChild(title);
+    top.appendChild(price);
+    card.appendChild(top);
+
+    const note = document.createElement("p");
+    note.className = "cosmetic-featured-card__note";
+    note.textContent = bundle.note;
+    card.appendChild(note);
+
+    const included = document.createElement("small");
+    included.className = "cosmetic-featured-card__includes";
+    included.textContent = pricing.items.map((item) => item.name).join(" · ");
+    card.appendChild(included);
+
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "cosmetic-card__action";
+    if (pricing.missingItems.length === 0) {
+      action.textContent = "Owned";
+      action.disabled = true;
+      action.classList.add("is-owned");
+    } else {
+      action.textContent = canAfford ? "Buy Bundle" : "Locked";
+      action.disabled = !canAfford;
+      action.addEventListener("click", () => {
+        const result = buyCosmeticBundle(account, bundle);
+        if (!result.ok) {
+          showToast(result.reason, { tone: "error" });
+          return;
+        }
+        saveState();
+        render();
+        renderCosmeticsDialog();
+        showToast(`Purchased ${bundle.name} (${result.purchasedCount} items).`);
+      });
+    }
+    card.appendChild(action);
+    ui.cosmeticsFeaturedGrid.appendChild(card);
+  });
+  scheduleCosmeticsFeaturedRefresh(featured.endsAtMs);
+}
+
 function formatCosmeticInventorySummary(accountId) {
   const account = getAccountById(accountId);
   if (!account) return "No active account.";
@@ -14606,13 +14839,18 @@ function normalizeCosmeticsTab(rawTab) {
 
 function renderCosmeticsDialog() {
   const account = getCurrentAccount();
-  if (!account || !ui.cosmeticsDialog?.open) return;
+  if (!account || !ui.cosmeticsDialog?.open) {
+    clearCosmeticsFeaturedRefreshTimer();
+    return;
+  }
+  clearCosmeticsFeaturedRefreshTimer();
   ensureAccountCosmetics(account);
   const wallet = resolveShardWallet(account.id);
   if (ui.cosmeticsBalance) ui.cosmeticsBalance.textContent = `${wallet.balance} shards`;
   if (ui.cosmeticsProgress) {
     ui.cosmeticsProgress.textContent = `Earned ${wallet.earned} · Spent ${wallet.spent} · Messages ${wallet.stats.sentMessages} · Reactions ${wallet.stats.reactionsGiven} · Polls ${wallet.stats.pollsCreated}`;
   }
+  renderFeaturedCosmetics(account, wallet);
   ui.cosmeticsTabs.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.cosmeticsTab === cosmeticsTab);
   });
@@ -30054,6 +30292,9 @@ ui.cosmeticsTabs.forEach((tab) => {
 });
 
 ui.cosmeticsCloseBtn?.addEventListener("click", () => ui.cosmeticsDialog?.close());
+ui.cosmeticsDialog?.addEventListener("close", () => {
+  clearCosmeticsFeaturedRefreshTimer();
+});
 
 ui.profileAvatarUploadBtn.addEventListener("click", () => {
   ui.profileAvatarFileInput.click();

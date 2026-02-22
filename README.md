@@ -254,6 +254,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 - Profile identity extras: avatar decoration emoji, guild tag, profile effect, and optional nameplate SVG/URL.
 - Cosmetics system: collectible avatar decorations, nameplates, and profile effects with a shard wallet, activity-based earning, inventory, and equip flow.
 - Cosmetics shop dialog with category tabs (`Decorations`, `Nameplates`, `Profile Effects`) and purchase/equip controls.
+- Cosmetics shop now includes rotating seasonal featured bundles with live countdown timers and discounted bundle pricing.
 - Guild tag is now copyable from user/member context menus and visible in more name surfaces.
 - Profile editor now includes a live identity preview card and one-click "Clear Identity Extras".
 - Slash cosmetics commands: `/shop [decor|nameplate|effect]` and `/inventory`.
