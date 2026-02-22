@@ -21,6 +21,28 @@ Note: substantial parts of this codebase are LLM-assisted/generated and then rev
    - `dist/shitcord67-linux-x64/shitcord67`
 4. For Windows/macOS builds, change `--platform`/`--arch` accordingly.
 
+## Unified Platform Build Script
+Use a single script for `web`, `electron`, or `android` builds:
+
+- `npm run build:platform -- <web|electron|android>`
+
+Behavior:
+- By default, the script asks if you want to clean before building.
+- Pass `--build` to skip clean and run build only:
+  - `npm run build:platform -- web --build`
+- Pass `--clean` to force clean before build without prompt:
+  - `npm run build:platform -- android --clean`
+
+Convenience aliases:
+- `npm run build:web`
+- `npm run build:electron`
+- `npm run build:android`
+
+Outputs:
+- web: `dist/web`
+- electron: `dist/electron`
+- android: `dist/android/app-debug.apk`
+
 XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 
 ## Run (Recommended: Desktop Electron)

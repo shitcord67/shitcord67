@@ -4,6 +4,7 @@ node_modules/
 .env.local
 .xmpp.local.json
 .mobile-web/
+dist/
 android/.gradle/
 android/.gradle-local/
 android/local.properties

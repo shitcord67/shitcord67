@@ -263,3 +263,9 @@ Btw. can't you use github's gh command to create releases? Cause then I would li
 
 ## 2026-02-22T20:32:54Z
 Then can you try to create an Android client now? Ideally there should be one codebase and from that I can create clients for several platforms with minimal added code for them.
+
+## 2026-02-22T21:06:03Z
+Can you create me a build script which lets me choose the platform? electron, web, android. Also clean & build by default unless I pass --build
+
+## 2026-02-22T21:06:30Z
+Or better, please ask me if I want to clean before build...
