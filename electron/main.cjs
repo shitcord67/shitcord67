@@ -66,6 +66,11 @@ const http = require("node:http");
 const https = require("node:https");
 const net = require("node:net");
 
+const IS_PACKAGED_LINUX = process.platform === "linux" && app.isPackaged;
+const PACKAGED_LINUX_SANDBOX_ENABLED = !IS_PACKAGED_LINUX
+  ? true
+  : PACKAGED_LINUX_SANDBOX_MODE === "on";
+
 const ROOT_DIR = path.resolve(__dirname, "..");
 const STACK_SCRIPT = path.join(ROOT_DIR, "scripts", "run-client-stack.sh");
 
@@ -101,17 +106,18 @@ function resolveShmMode(rawMode) {
   return { mode: "tmp", reason: "auto-unavailable", shmOk, tmpOk };
 }
 
-if (process.platform === "linux" && app.isPackaged) {
+if (IS_PACKAGED_LINUX) {
   const shmDecision = resolveShmMode(PACKAGED_LINUX_SHM_MODE);
   const effectiveShmMode = shmDecision.mode;
-  const disableSandbox = PACKAGED_LINUX_SANDBOX_MODE !== "on";
+  const disableSandbox = !PACKAGED_LINUX_SANDBOX_ENABLED;
   const runtimeDir = EARLY_RUNTIME_DIR || resolveWritableRuntimeDir();
   const tempDir = canAccessDir(process.env.TMPDIR || "") ? process.env.TMPDIR : runtimeDir;
 
-  if (PACKAGED_LINUX_SANDBOX_MODE !== "on") {
+  if (disableSandbox) {
     // Packaged Linux binaries often fail to launch in restricted environments unless sandboxing is disabled.
     app.commandLine.appendSwitch("no-sandbox");
     app.commandLine.appendSwitch("disable-setuid-sandbox");
+    app.commandLine.appendSwitch("disable-gpu-sandbox");
   }
   if (tempDir) {
     applyEarlyRuntimeEnv(tempDir);
@@ -363,6 +369,7 @@ function attachDeveloperShortcuts(windowInstance) {
 }
 
 async function createMainWindow({ startupWarning = "" } = {}) {
+  const windowSandbox = IS_PACKAGED_LINUX ? PACKAGED_LINUX_SANDBOX_ENABLED : true;
   const browser = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -374,7 +381,7 @@ async function createMainWindow({ startupWarning = "" } = {}) {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: windowSandbox
     }
   });
 

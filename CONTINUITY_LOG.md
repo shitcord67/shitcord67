@@ -1249,3 +1249,22 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
 [run-client-stack] stopping client-server (pid 1482362)
 [run-client-stack] stopping xmpp-auth-gateway (pid 1482365)
 [electron] stack exited code=null signal=SIGTERM
+
+[2026-02-23T11:19:21Z] User prompt:
+[electron] starting local stack (client=127.0.0.1:8080, gateway=127.0.0.1:8790, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[run-client-stack] started client-server (pid 2619816)
+[electron] [run-client-stack] started xmpp-auth-gateway (pid 2619824)
+[run-client-stack] client: http://127.0.0.1:8080/
+[run-client-stack] gateway: http://127.0.0.1:8790
+[run-client-stack] press Ctrl+C to stop.
+[electron] xmpp auth gateway listening on http://127.0.0.1:8790
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 12:16:53] "GET / HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 12:16:54] "GET / HTTP/1.1" 200 -
+[2619947:0223/121654.070622:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.80nSVR failed: No such process (3)
+[2619947:0223/121654.070756:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[2619947:0223/121654.070800:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[electron] client load failed ERR_FAILED (-2) loading 'http://127.0.0.1:8080/'
+Trace/Breakpoint ausgelöst(Speicherabzug geschrieben) /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67
