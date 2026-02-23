@@ -1,26 +1,21 @@
-const { app, BrowserWindow, dialog, session } = require("electron");
-const { spawn } = require("node:child_process");
 const fs = require("node:fs");
-const http = require("node:http");
-const https = require("node:https");
-const net = require("node:net");
 const path = require("node:path");
 
-const ROOT_DIR = path.resolve(__dirname, "..");
-const STACK_SCRIPT = path.join(ROOT_DIR, "scripts", "run-client-stack.sh");
-
-const CLIENT_HOST = process.env.CLIENT_HOST || "127.0.0.1";
-const CLIENT_PORT = Number(process.env.CLIENT_PORT || 8080);
-const GATEWAY_HOST = process.env.GATEWAY_HOST || "127.0.0.1";
-const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 8790);
-const GATEWAY_MODE = String(process.env.ELECTRON_GATEWAY_MODE || "auto").toLowerCase();
-const START_TIMEOUT_MS = Math.max(3000, Number(process.env.ELECTRON_START_TIMEOUT_MS || 20000));
-const DYNAMIC_PORT_ATTEMPTS = Math.max(0, Number(process.env.ELECTRON_DYNAMIC_PORT_ATTEMPTS || 12));
-const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
-const CLIENT_PORT_FALLBACKS = [18080, 8081, 38080, 18081];
 const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
-const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "tmp").toLowerCase();
+const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "auto").toLowerCase();
 const PACKAGED_LINUX_RUNTIME_DIR = String(process.env.S67_PACKAGED_LINUX_RUNTIME_DIR || "").trim();
+
+function canAccessDir(candidate) {
+  if (!candidate) return false;
+  try {
+    const stat = fs.statSync(candidate);
+    if (!stat.isDirectory()) return false;
+    fs.accessSync(candidate, fs.constants.W_OK | fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function resolveWritableRuntimeDir() {
   const home = process.env.HOME || process.env.USERPROFILE || "";
@@ -43,17 +38,46 @@ function resolveWritableRuntimeDir() {
   return "";
 }
 
-function canAccessDir(candidate) {
-  if (!candidate) return false;
-  try {
-    const stat = fs.statSync(candidate);
-    if (!stat.isDirectory()) return false;
-    fs.accessSync(candidate, fs.constants.W_OK | fs.constants.X_OK);
-    return true;
-  } catch {
-    return false;
+function applyEarlyRuntimeEnv(runtimeDir) {
+  if (!runtimeDir) return;
+  if (!process.env.TMPDIR || !canAccessDir(process.env.TMPDIR)) {
+    process.env.TMPDIR = runtimeDir;
+  }
+  if (!process.env.TMP || !canAccessDir(process.env.TMP)) {
+    process.env.TMP = runtimeDir;
+  }
+  if (!process.env.TEMP || !canAccessDir(process.env.TEMP)) {
+    process.env.TEMP = runtimeDir;
+  }
+  const xdgRuntime = process.env.XDG_RUNTIME_DIR || "";
+  if (!xdgRuntime || !canAccessDir(xdgRuntime)) {
+    process.env.XDG_RUNTIME_DIR = runtimeDir;
   }
 }
+
+const EARLY_RUNTIME_DIR = process.platform === "linux" ? resolveWritableRuntimeDir() : "";
+if (process.platform === "linux") {
+  applyEarlyRuntimeEnv(EARLY_RUNTIME_DIR);
+}
+
+const { app, BrowserWindow, dialog, session } = require("electron");
+const { spawn } = require("node:child_process");
+const http = require("node:http");
+const https = require("node:https");
+const net = require("node:net");
+
+const ROOT_DIR = path.resolve(__dirname, "..");
+const STACK_SCRIPT = path.join(ROOT_DIR, "scripts", "run-client-stack.sh");
+
+const CLIENT_HOST = process.env.CLIENT_HOST || "127.0.0.1";
+const CLIENT_PORT = Number(process.env.CLIENT_PORT || 8080);
+const GATEWAY_HOST = process.env.GATEWAY_HOST || "127.0.0.1";
+const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 8790);
+const GATEWAY_MODE = String(process.env.ELECTRON_GATEWAY_MODE || "auto").toLowerCase();
+const START_TIMEOUT_MS = Math.max(3000, Number(process.env.ELECTRON_START_TIMEOUT_MS || 20000));
+const DYNAMIC_PORT_ATTEMPTS = Math.max(0, Number(process.env.ELECTRON_DYNAMIC_PORT_ATTEMPTS || 12));
+const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
+const CLIENT_PORT_FALLBACKS = [18080, 8081, 38080, 18081];
 
 function resolveShmMode(rawMode) {
   const normalized = String(rawMode || "").toLowerCase();
@@ -81,22 +105,17 @@ if (process.platform === "linux" && app.isPackaged) {
   const shmDecision = resolveShmMode(PACKAGED_LINUX_SHM_MODE);
   const effectiveShmMode = shmDecision.mode;
   const disableSandbox = PACKAGED_LINUX_SANDBOX_MODE !== "on";
-  const runtimeDir = resolveWritableRuntimeDir();
+  const runtimeDir = EARLY_RUNTIME_DIR || resolveWritableRuntimeDir();
+  const tempDir = canAccessDir(process.env.TMPDIR || "") ? process.env.TMPDIR : runtimeDir;
 
   if (PACKAGED_LINUX_SANDBOX_MODE !== "on") {
     // Packaged Linux binaries often fail to launch in restricted environments unless sandboxing is disabled.
     app.commandLine.appendSwitch("no-sandbox");
     app.commandLine.appendSwitch("disable-setuid-sandbox");
   }
-  if (runtimeDir) {
-    process.env.TMPDIR = runtimeDir;
-    process.env.TMP = runtimeDir;
-    process.env.TEMP = runtimeDir;
-    const xdgRuntime = process.env.XDG_RUNTIME_DIR || "";
-    if (!xdgRuntime || !canAccessDir(xdgRuntime)) {
-      process.env.XDG_RUNTIME_DIR = runtimeDir;
-    }
-    app.setPath("temp", runtimeDir);
+  if (tempDir) {
+    applyEarlyRuntimeEnv(tempDir);
+    app.setPath("temp", tempDir);
   }
   if (effectiveShmMode === "tmp") {
     // Force Chromium to use /tmp for shared memory in packaged Linux builds.
@@ -116,7 +135,7 @@ if (process.platform === "linux" && app.isPackaged) {
   }
   // eslint-disable-next-line no-console
   console.log(
-    `[electron] packaged linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${effectiveShmMode} runtimeTmp=${runtimeDir || "unresolved"}`
+    `[electron] packaged linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${effectiveShmMode} runtimeTmp=${runtimeDir || "unresolved"} temp=${tempDir || "unresolved"}`
   );
 }
 
