@@ -1224,3 +1224,28 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
 [417094:0223/031202.282222:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
 [417094:0223/031202.305338:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.nae93U failed: No such process (3)
 [417094:0223/031202.305402:ERROR:platform_shared_memory_region_posix.cc(2
+
+[2026-02-23T05:59:04Z] User prompt:
+./build.sh electron --clean  [1482458:0223/065810.604837:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.ZCz0u5 failed: No such process (3)
+[1482458:0223/065810.604897:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.615070:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.rHbSpU failed: No such process (3)
+[1482458:0223/065810.615145:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.625329:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.h0qcEN failed: No such process (3)
+[1482458:0223/065810.625390:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.635529:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.UFVrS4 failed: No such process (3)
+[1482458:0223/065810.635593:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.645705:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.lvRC0o failed: No such process (3)
+[1482458:0223/065810.645744:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.655865:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.k5Qdqj failed: No such process (3)
+[1482458:0223/065810.655916:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.666028:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.WIPEBy failed: No such process (3)
+[1482458:0223/065810.666076:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.676183:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.0VRMcz failed: No such process (3)
+[1482458:0223/065810.676231:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[1482458:0223/065810.686341:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.Xxyhu6 failed: No such process (3)
+[1482458:0223/065810.686391:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+^C[electron] stopping local stack
+[electron] [run-client-stack] shutting down...
+[run-client-stack] stopping client-server (pid 1482362)
+[run-client-stack] stopping xmpp-auth-gateway (pid 1482365)
+[electron] stack exited code=null signal=SIGTERM

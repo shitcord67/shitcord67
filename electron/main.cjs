@@ -96,8 +96,8 @@ function resolveShmMode(rawMode) {
     return { mode: "tmp", reason: "forced-unavailable", shmOk, tmpOk };
   }
 
-  if (tmpOk) return { mode: "tmp", reason: "auto", shmOk, tmpOk };
   if (shmOk) return { mode: "shm", reason: "auto", shmOk, tmpOk };
+  if (tmpOk) return { mode: "tmp", reason: "auto", shmOk, tmpOk };
   return { mode: "tmp", reason: "auto-unavailable", shmOk, tmpOk };
 }
 
