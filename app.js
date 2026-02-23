@@ -87,6 +87,52 @@ function applyRuntimePlatformHints() {
 
 applyRuntimePlatformHints();
 
+let runtimeSafeAreaRaf = 0;
+
+function updateRuntimeSafeArea() {
+  runtimeSafeAreaRaf = 0;
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (!root) return;
+  const viewport = window.visualViewport;
+  if (!viewport) {
+    root.style.setProperty("--runtime-safe-top", "0px");
+    root.style.setProperty("--runtime-safe-right", "0px");
+    root.style.setProperty("--runtime-safe-bottom", "0px");
+    root.style.setProperty("--runtime-safe-left", "0px");
+    return;
+  }
+  const offsetTop = Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
+  const offsetLeft = Number.isFinite(viewport.offsetLeft) ? viewport.offsetLeft : 0;
+  const height = Number.isFinite(viewport.height) ? viewport.height : window.innerHeight;
+  const width = Number.isFinite(viewport.width) ? viewport.width : window.innerWidth;
+  const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : height;
+  const innerWidth = Number.isFinite(window.innerWidth) ? window.innerWidth : width;
+  const safeTop = Math.max(0, offsetTop);
+  const safeLeft = Math.max(0, offsetLeft);
+  const safeBottom = Math.max(0, innerHeight - (height + offsetTop));
+  const safeRight = Math.max(0, innerWidth - (width + offsetLeft));
+  root.style.setProperty("--runtime-safe-top", `${Math.round(safeTop)}px`);
+  root.style.setProperty("--runtime-safe-right", `${Math.round(safeRight)}px`);
+  root.style.setProperty("--runtime-safe-bottom", `${Math.round(safeBottom)}px`);
+  root.style.setProperty("--runtime-safe-left", `${Math.round(safeLeft)}px`);
+}
+
+function scheduleRuntimeSafeAreaUpdate() {
+  if (runtimeSafeAreaRaf) return;
+  runtimeSafeAreaRaf = window.requestAnimationFrame(updateRuntimeSafeArea);
+}
+
+if (typeof window !== "undefined") {
+  scheduleRuntimeSafeAreaUpdate();
+  window.addEventListener("resize", scheduleRuntimeSafeAreaUpdate, { passive: true });
+  window.addEventListener("orientationchange", scheduleRuntimeSafeAreaUpdate, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scheduleRuntimeSafeAreaUpdate, { passive: true });
+    window.visualViewport.addEventListener("scroll", scheduleRuntimeSafeAreaUpdate, { passive: true });
+  }
+}
+
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",

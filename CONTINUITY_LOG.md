@@ -1271,3 +1271,6 @@ Trace/Breakpoint ausgelöst(Speicherabzug geschrieben) /home/duda/shitcord67/dis
 
 [2026-02-23T13:39:44Z] User prompt:
 For mobile platforms like Android you need to keep in mind that there are things like notches. My Poco F1 sadly has a notch and thus some buttons are hidden by that. Also in general could the buttons be bigger on Android=
+
+[2026-02-23T20:37:53Z] User prompt:
+Oh you may also take the navigation bar and the status bar of Android in mind. Currently those overlay some of our shitcord67 interface... fix this by moving lower stuff more up and upper stuff more down when navbar and status bar are visible.
