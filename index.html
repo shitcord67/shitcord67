@@ -57,7 +57,18 @@
       <aside class="server-rail">
         <div class="server-rail-scroll">
           <button id="serverBrand" class="server-brand" title="Direct Messages" aria-label="Direct Messages">
-            <span class="server-brand__icon" aria-hidden="true">🫪</span>
+            <span class="server-brand__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                <path
+                  d="M17.5 6.5C16 5 14.2 4.5 12.2 4.5C9.4 4.5 7.5 5.7 7.5 7.3C7.5 8.7 8.6 9.5 11.7 10.1C15 10.8 16.5 11.8 16.5 13.7C16.5 15.9 14.2 17.4 11.2 17.4C8.8 17.4 7.1 16.6 5.9 15.1"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.2"
+                />
+              </svg>
+            </span>
             <span id="serverBrandBadge" class="server-brand__badge" hidden></span>
           </button>
           <div id="serverList" class="server-list"></div>
@@ -68,7 +79,10 @@
       <aside id="channelPanel" class="channel-panel">
         <div class="channel-panel__header">
           <span id="activeServerName">Guild</span>
-          <button id="openGuildSettingsBtn" class="chat-topic-edit" title="Guild settings">⚙</button>
+          <div class="channel-panel__actions">
+            <button id="openGuildSettingsBtn" class="chat-topic-edit chat-topic-edit--icon" title="Guild settings">⚙</button>
+            <button id="closeChannelPanelBtn" class="chat-topic-edit chat-topic-edit--icon channel-panel__close" title="Close channels">✕</button>
+          </div>
         </div>
 
         <div class="channel-scroll">

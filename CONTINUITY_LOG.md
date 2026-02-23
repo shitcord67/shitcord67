@@ -1274,3 +1274,9 @@ For mobile platforms like Android you need to keep in mind that there are things
 
 [2026-02-23T20:37:53Z] User prompt:
 Oh you may also take the navigation bar and the status bar of Android in mind. Currently those overlay some of our shitcord67 interface... fix this by moving lower stuff more up and upper stuff more down when navbar and status bar are visible.
+
+[2026-02-23T20:38:27Z] User prompt:
+Oh also the shitcord67 logo doesn't display on my Android version cause I don't have the newest unicode emojis there. Can you use an SVG of it there instead?
+
+[2026-02-23T20:39:16Z] User prompt:
+Also do you know why group discussions don't load on Android for me? Also I think history of direct messages is also broken again

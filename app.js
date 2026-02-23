@@ -1316,6 +1316,7 @@ const ui = {
   memberPresenceFilterButtons: [...document.querySelectorAll(".member-filter-btn")],
   activeServerName: document.getElementById("activeServerName"),
   openGuildSettingsBtn: document.getElementById("openGuildSettingsBtn"),
+  closeChannelPanelBtn: document.getElementById("closeChannelPanelBtn"),
   activeChannelName: document.getElementById("activeChannelName"),
   activeChannelGlyph: document.getElementById("activeChannelGlyph"),
   activeChannelLabel: document.getElementById("activeChannelLabel"),
@@ -29966,6 +29967,7 @@ ui.findDialog?.addEventListener("close", () => {
   }
 });
 ui.toggleChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
+ui.closeChannelPanelBtn?.addEventListener("click", toggleChannelPanelVisibility);
 ui.toggleMemberPanelBtn?.addEventListener("click", toggleMemberPanelVisibility);
 ui.toggleSwfShelfBtn.addEventListener("click", () => {
   swfShelfOpen = !swfShelfOpen;
