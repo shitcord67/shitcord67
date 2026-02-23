@@ -67,6 +67,26 @@ const EMOJI_DATASET_SOURCES = [
   "https://unicode.org/Public/emoji/17.0/emoji-test.txt",
   "https://raw.githubusercontent.com/unicode-org/emoji/main/data/emoji-test.txt"
 ];
+
+function detectRuntimePlatform() {
+  const ua = String(navigator.userAgent || "").toLowerCase();
+  const platform = String(navigator.userAgentData?.platform || navigator.platform || "").toLowerCase();
+  const haystack = `${ua} ${platform}`;
+  const isAndroid = haystack.includes("android");
+  const isiOS = /(iphone|ipad|ipod)/.test(haystack);
+  const isMobile = isAndroid || isiOS || haystack.includes("mobile");
+  return { isAndroid, isiOS, isMobile };
+}
+
+function applyRuntimePlatformHints() {
+  if (typeof document === "undefined" || !document.body) return;
+  const { isAndroid, isiOS, isMobile } = detectRuntimePlatform();
+  document.body.dataset.platform = isAndroid ? "android" : isiOS ? "ios" : "desktop";
+  document.body.dataset.mobile = isMobile ? "on" : "off";
+}
+
+applyRuntimePlatformHints();
+
 const XMPP_PROVIDER_CATALOG = [
   {
     id: "xmpp_jp",

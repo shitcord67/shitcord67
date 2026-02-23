@@ -1268,3 +1268,6 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
 [2619947:0223/121654.070800:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
 [electron] client load failed ERR_FAILED (-2) loading 'http://127.0.0.1:8080/'
 Trace/Breakpoint ausgelöst(Speicherabzug geschrieben) /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67
+
+[2026-02-23T13:39:44Z] User prompt:
+For mobile platforms like Android you need to keep in mind that there are things like notches. My Poco F1 sadly has a notch and thus some buttons are hidden by that. Also in general could the buttons be bigger on Android=
