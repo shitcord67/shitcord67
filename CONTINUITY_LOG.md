@@ -747,3 +747,240 @@ nj failed: No such process (3)
 [1000896:0223/002453.995825:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
 ^C[electron] stopping local stack
 [electron] [run-client-stack] shutting down...
+
+[2026-02-23 01:40:17 UTC]
+02:22:20 ~/shitcord67:$ ./build.sh electron --clean
+[build-platform] clean step enabled
+[build-platform] packaging electron app (linux/x64)
+Packaging app for platform linux x64 using electron v35.7.5
+Wrote new app to: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+[build-platform] electron output: dist/electron
+02:27:39 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+bash: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64: Ist ein Verzeichnis
+02:37:54 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/
+chrome-sandbox*          libGLESv2.so*            libvulkan.so.1*          shitcord67*
+chrome_crashpad_handler* libffmpeg.so*            locales/                 
+libEGL.so*               libvk_swiftshader.so*    resources/               
+02:37:54 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67 
+[electron] packaged linux flags: sandbox=off shm=tmp runtimeTmp=/home/duda/.cache/shitcord67/runtime
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:63:28: The :prelight pseudo-class is deprecated. Use :hover instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:73:35: The :prelight pseudo-class is deprecated. Use :hover instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:115:31: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:116:24: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:145:27: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:146:29: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:166:34: The :insensitive pseudo-class is deprecated. Use :disabled instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk.css:187:34: The :inconsistent pseudo-class is deprecated. Use :indeterminate instead.
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk-dark.css:52:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.018: Theme parsing error: gtk-dark.css:106:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:210:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:334:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:359:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:392:31: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:561:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:569:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:606:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:614:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:667:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:673:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.019: Theme parsing error: gtk-dark.css:690:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.020: Theme parsing error: gtk-dark.css:1119:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2113:42: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2123:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2126:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2303:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2557:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2560:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2566:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2581:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.022: Theme parsing error: gtk-dark.css:2585:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.023: Theme parsing error: gtk-dark.css:3209:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.023: Theme parsing error: gtk-dark.css:3278:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.023: Theme parsing error: gtk-dark.css:3279:37: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.023: Theme parsing error: gtk-dark.css:3410:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.024: Theme parsing error: gtk-dark.css:3496:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.024: Theme parsing error: gtk-dark.css:3507:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.024: Theme parsing error: gtk-dark.css:3981:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.024: Theme parsing error: gtk-dark.css:3987:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.024: Theme parsing error: gtk-dark.css:4015:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.025: Theme parsing error: gtk-dark.css:4498:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.025: Theme parsing error: gtk-dark.css:4665:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.025: Theme parsing error: gtk-dark.css:4755:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.026: Theme parsing error: gtk-dark.css:5262:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.026: Theme parsing error: gtk-dark.css:5342:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.026: Theme parsing error: gtk-dark.css:5348:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.026: Theme parsing error: gtk-dark.css:5365:30: Invalid number for alpha value
+[electron] starting local stack (client=127.0.0.1:8080, gateway=127.0.0.1:8790, mode=auto)
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.110: Theme parsing error: gtk.css:52:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.110: Theme parsing error: gtk.css:106:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.110: Theme parsing error: gtk.css:210:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:334:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:359:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:392:31: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:561:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:569:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:606:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:614:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:667:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:673:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.111: Theme parsing error: gtk.css:690:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.112: Theme parsing error: gtk.css:1119:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.113: Theme parsing error: gtk.css:2113:42: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.113: Theme parsing error: gtk.css:2123:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.113: Theme parsing error: gtk.css:2126:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.114: Theme parsing error: gtk.css:2303:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.114: Theme parsing error: gtk.css:2557:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.114: Theme parsing error: gtk.css:2560:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.114: Theme parsing error: gtk.css:2566:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.114: Theme parsing error: gtk.css:2581:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.114: Theme parsing error: gtk.css:2585:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.115: Theme parsing error: gtk.css:3209:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.115: Theme parsing error: gtk.css:3278:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.115: Theme parsing error: gtk.css:3279:37: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.115: Theme parsing error: gtk.css:3410:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.115: Theme parsing error: gtk.css:3496:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.115: Theme parsing error: gtk.css:3507:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.116: Theme parsing error: gtk.css:3981:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.116: Theme parsing error: gtk.css:3987:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.116: Theme parsing error: gtk.css:4015:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.117: Theme parsing error: gtk.css:4498:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.117: Theme parsing error: gtk.css:4665:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.117: Theme parsing error: gtk.css:4755:41: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.118: Theme parsing error: gtk.css:5262:30: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.118: Theme parsing error: gtk.css:5342:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.118: Theme parsing error: gtk.css:5348:38: Invalid number for alpha value
+
+(shitcord67:259400): Gtk-WARNING **: 02:38:00.118: Theme parsing error: gtk.css:5365:30: Invalid number for alpha value
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] [run-client-stack] started client-server (pid 259557)
+[electron] [run-client-stack] started xmpp-auth-gateway (pid 259564)
+[run-client-stack] client: http://127.0.0.1:8080/
+[run-client-stack] gateway: http://127.0.0.1:8790
+[run-client-stack] press Ctrl+C to stop.
+[electron] xmpp auth gateway listening on http://127.0.0.1:8790
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 02:38:00] "GET / HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 02:38:00] "GET / HTTP/1.1" 200 -
+[259625:0223/023800.479784:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.Jyy1JP failed: No such process (3)
+[259625:0223/023800.479867:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.493736:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.d7QCmy failed: No such process (3)
+[259625:0223/023800.493798:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 02:38:00] "GET /styles.css HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 02:38:00] "GET /app.js HTTP/1.1" 200 -
+[259625:0223/023800.503974:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.g9mDRG failed: No such process (3)
+[259625:0223/023800.504052:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.514277:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.xyi9uq failed: No such process (3)
+[259625:0223/023800.514369:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.524571:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.El4oBV failed: No such process (3)
+[259625:0223/023800.524658:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.534835:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.RqB04p failed: No such process (3)
+[259625:0223/023800.534915:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.545070:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.f86XpT failed: No such process (3)
+[259625:0223/023800.545151:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.555329:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.h1Yvra failed: No such process (3)
+[259625:0223/023800.555404:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.565527:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.NbHfzY failed: No such process (3)
+[259625:0223/023800.565605:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.575770:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.KEPSMu failed: No such process (3)
+[259625:0223/023800.575845:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.585977:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.v3RuQq failed: No such process (3)
+[259625:0223/023800.586044:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.596241:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.jzfqrC failed: No such process (3)
+[259625:0223/023800.596324:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.606478:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.vK4TlW failed: No such process (3)
+[259625:0223/023800.606545:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.616659:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.xPcbcf failed: No such process (3)
+[259625:0223/023800.616702:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.626842:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.aYTRKg failed: No such process (3)
+[259625:0223/023800.626910:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[259625:0223/023800.637072:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.Aayl40 failed: No such process (3)
+[259625:0223/023800.637143:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[electron] stack stderr: 127.0.0.1 - - [23/Feb/2026 02:38:00] "GET /.xmpp.local.json HTTP/1.1" 200 -
+[259625:0223/023800.705157:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.QLfunA failed: No such process (3)
+[259625:0223/023800.705232:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)

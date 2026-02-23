@@ -22,12 +22,6 @@ const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBO
 const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "tmp").toLowerCase();
 const PACKAGED_LINUX_RUNTIME_DIR = String(process.env.S67_PACKAGED_LINUX_RUNTIME_DIR || "").trim();
 
-function resolveShmMode(rawMode) {
-  if (rawMode === "shm") return "shm";
-  if (rawMode === "tmp") return "tmp";
-  return "tmp";
-}
-
 function resolveWritableRuntimeDir() {
   const home = process.env.HOME || process.env.USERPROFILE || "";
   const candidates = [
@@ -49,8 +43,43 @@ function resolveWritableRuntimeDir() {
   return "";
 }
 
+function canAccessDir(candidate) {
+  if (!candidate) return false;
+  try {
+    const stat = fs.statSync(candidate);
+    if (!stat.isDirectory()) return false;
+    fs.accessSync(candidate, fs.constants.W_OK | fs.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveShmMode(rawMode) {
+  const normalized = String(rawMode || "").toLowerCase();
+  const shmOk = canAccessDir("/dev/shm");
+  const tmpOk = canAccessDir("/tmp");
+
+  if (normalized === "shm") {
+    if (shmOk) return { mode: "shm", reason: "forced", shmOk, tmpOk };
+    if (tmpOk) return { mode: "tmp", reason: "fallback", fallbackFrom: "shm", shmOk, tmpOk };
+    return { mode: "shm", reason: "forced-unavailable", shmOk, tmpOk };
+  }
+
+  if (normalized === "tmp") {
+    if (tmpOk) return { mode: "tmp", reason: "forced", shmOk, tmpOk };
+    if (shmOk) return { mode: "shm", reason: "fallback", fallbackFrom: "tmp", shmOk, tmpOk };
+    return { mode: "tmp", reason: "forced-unavailable", shmOk, tmpOk };
+  }
+
+  if (tmpOk) return { mode: "tmp", reason: "auto", shmOk, tmpOk };
+  if (shmOk) return { mode: "shm", reason: "auto", shmOk, tmpOk };
+  return { mode: "tmp", reason: "auto-unavailable", shmOk, tmpOk };
+}
+
 if (process.platform === "linux" && app.isPackaged) {
-  const effectiveShmMode = resolveShmMode(PACKAGED_LINUX_SHM_MODE);
+  const shmDecision = resolveShmMode(PACKAGED_LINUX_SHM_MODE);
+  const effectiveShmMode = shmDecision.mode;
   const disableSandbox = PACKAGED_LINUX_SANDBOX_MODE !== "on";
   const runtimeDir = resolveWritableRuntimeDir();
 
@@ -59,14 +88,31 @@ if (process.platform === "linux" && app.isPackaged) {
     app.commandLine.appendSwitch("no-sandbox");
     app.commandLine.appendSwitch("disable-setuid-sandbox");
   }
+  if (runtimeDir) {
+    process.env.TMPDIR = runtimeDir;
+    process.env.TMP = runtimeDir;
+    process.env.TEMP = runtimeDir;
+    const xdgRuntime = process.env.XDG_RUNTIME_DIR || "";
+    if (!xdgRuntime || !canAccessDir(xdgRuntime)) {
+      process.env.XDG_RUNTIME_DIR = runtimeDir;
+    }
+    app.setPath("temp", runtimeDir);
+  }
   if (effectiveShmMode === "tmp") {
     // Force Chromium to use /tmp for shared memory in packaged Linux builds.
     app.commandLine.appendSwitch("disable-dev-shm-usage");
-    if (runtimeDir) {
-      process.env.TMPDIR = runtimeDir;
-      process.env.TMP = runtimeDir;
-      process.env.TEMP = runtimeDir;
-    }
+  }
+  if (shmDecision.fallbackFrom) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[electron] packaged linux shm mode '${shmDecision.fallbackFrom}' unavailable; falling back to '${effectiveShmMode}'.`
+    );
+  }
+  if (!shmDecision.shmOk && !shmDecision.tmpOk) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[electron] packaged linux shm fallback: neither /dev/shm nor /tmp is writable; shared memory errors are likely."
+    );
   }
   // eslint-disable-next-line no-console
   console.log(
