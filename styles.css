@@ -5555,33 +5555,35 @@ body[data-debug-overlay="on"] .chat-panel {
     grid-template-columns: 72px 1fr;
   }
 
+  body[data-hide-channel-panel="off"] #chatScreen.screen--active {
+    grid-template-columns: 72px min(84vw, 320px) 1fr;
+  }
+
   .chat-panel {
     grid-column: 2;
   }
 
+  body[data-hide-channel-panel="off"] .chat-panel {
+    grid-column: 3;
+  }
+
   .channel-panel {
-    display: grid;
-    position: fixed;
-    top: calc(var(--safe-top) + var(--runtime-safe-top));
-    bottom: calc(var(--safe-bottom) + var(--runtime-safe-bottom));
-    left: 0;
-    width: min(84vw, 320px);
-    max-width: 320px;
-    z-index: 60;
-    transform: translateX(-110%);
-    transition: transform 160ms ease, box-shadow 160ms ease;
-    box-shadow: 6px 0 18px rgba(0, 0, 0, 0.45);
+    display: none;
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    max-width: none;
+    position: relative;
     border-right: 1px solid var(--line);
   }
 
   body[data-hide-channel-panel="on"] #channelPanel {
-    display: grid;
-    transform: translateX(-110%);
+    display: none;
     pointer-events: none;
   }
 
   body[data-hide-channel-panel="off"] #channelPanel {
-    transform: translateX(0);
+    display: grid;
     pointer-events: auto;
   }
 

@@ -1280,3 +1280,8 @@ Oh also the shitcord67 logo doesn't display on my Android version cause I don't 
 
 [2026-02-23T20:39:16Z] User prompt:
 Also do you know why group discussions don't load on Android for me? Also I think history of direct messages is also broken again
+
+---
+The last changes broke how shitcord67 looks on Android. Apparently the whole channel sidebar is weirds positioned over the chat
+now, hiding most of the UI. Why did it move out of where it was before?
+[2026-02-24T03:23:56+01:00] Can you tell me why the android application looks broken? Especially the channel sidebar is not correctly positioned. For some reason it is over the guild list and partly over the chat...
