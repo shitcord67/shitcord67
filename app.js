@@ -2914,6 +2914,27 @@ function activeConversationHistoryState(conversation = getActiveConversation()) 
   return null;
 }
 
+function xmppHistoryStatusLabel(mamState, { scope = "muc", target = "" } = {}) {
+  if (!mamState) return "";
+  const page = Math.max(1, (Number(mamState.pagesLoaded) || 0) + 1);
+  const isDm = scope === "dm";
+  const targetLabel = isDm
+    ? `DM ${target ? `(${target})` : ""}`
+    : `Room ${target ? `(${target})` : ""}`;
+  if (mamState.loading) {
+    if ((Number(mamState.pagesLoaded) || 0) <= 0) return `Syncing recent history… ${targetLabel}`;
+    return `Syncing older messages (page ${page})… ${targetLabel}`;
+  }
+  if ((Number(mamState.pagesLoaded) || 0) <= 0 && !mamState.complete) {
+    return `Recent history not loaded yet. ${targetLabel}`;
+  }
+  if (mamState.complete) {
+    const loaded = Math.max(0, Number(mamState.pagesLoaded) || 0);
+    return `History synced (${loaded} page${loaded === 1 ? "" : "s"}).`;
+  }
+  return `History synced through page ${Math.max(1, Number(mamState.pagesLoaded) || 1)}.`;
+}
+
 function messageHasLink(message, channelType = "text") {
   if (!message) return false;
   const text = searchableMessageText(message, channelType);
@@ -25079,12 +25100,19 @@ function renderMessages() {
       if (shouldRenderHistoryControl) {
         const control = document.createElement("div");
         control.className = "xmpp-history-control";
+        const statusText = xmppHistoryStatusLabel(mamState, { scope: mamScope, target: mamTarget });
+        if (statusText) control.title = statusText;
         if (mamState.loading) {
-          control.textContent = "Loading older messages...";
+          control.textContent = statusText || "Loading older messages...";
         } else {
+          const status = document.createElement("span");
+          status.textContent = statusText || "Recent history not loaded yet.";
+          control.appendChild(status);
           const button = document.createElement("button");
           button.type = "button";
-          button.textContent = mamState.pagesLoaded > 0 ? "Load older messages" : "Load recent history";
+          button.textContent = mamState.pagesLoaded > 0
+            ? `Load page ${Math.max(1, Number(mamState.pagesLoaded || 0) + 1)}`
+            : "Sync now";
           button.addEventListener("click", () => {
             maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "button" });
           });
