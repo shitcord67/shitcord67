@@ -203,7 +203,7 @@ const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
-  { name: "relay", args: "[status|connect|disconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>]", description: "Control experimental realtime relay transport." },
+  { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
   { name: "tableflip", args: "[text]", description: "Send a table-flip message." },
   { name: "unflip", args: "", description: "Send table reset emote." },
@@ -219,9 +219,14 @@ const SLASH_COMMANDS = [
   { name: "me", args: "<text>", description: "Send an action-style message." },
   { name: "shrug", args: "[text]", description: "Append ¯\\_(ツ)_/¯ to optional text." },
   { name: "note", args: "<text>", description: "Send a collaborative message editable by anyone in the channel." },
-  { name: "nick", args: "<nickname>", description: "Set your nickname in the active guild." },
-  { name: "status", args: "<text>", description: "Set your custom status message." },
+  { name: "nick", args: "<nickname|clear>", description: "Set or clear your nickname in the active guild." },
+  { name: "status", args: "<text|clear>", description: "Set or clear your custom status message." },
   { name: "presence", args: "<online|idle|dnd|invisible>", description: "Set your online presence state." },
+  { name: "online", args: "", description: "Set presence to online." },
+  { name: "idle", args: "", description: "Set presence to idle." },
+  { name: "dnd", args: "", description: "Set presence to do-not-disturb." },
+  { name: "invisible", args: "", description: "Set presence to invisible." },
+  { name: "away", args: "", description: "Set presence to idle." },
   { name: "quests", args: "", description: "Show your earned quest badges and activity stats." },
   { name: "questprogress", args: "", description: "Show quest milestone progress and next goals." },
   { name: "questbadges", args: "", description: "List your unlocked quest badges." },
@@ -230,6 +235,7 @@ const SLASH_COMMANDS = [
   { name: "decor", args: "[emoji|clear]", description: "Set or clear avatar decoration emoji." },
   { name: "nameplate", args: "[url|data:image/svg+xml|clear]", description: "Set or clear nameplate image for your name." },
   { name: "whoami", args: "", description: "Show your current identity summary." },
+  { name: "whois", args: "<username-or-jid>", description: "Show another account identity summary." },
   { name: "profilecard", args: "", description: "Post your profile card text into chat." },
   { name: "shop", args: "[decor|nameplate|effect]", description: "Open cosmetics shop and browse collectible profile cosmetics." },
   { name: "inventory", args: "", description: "Show owned cosmetics and current shard balance." },
@@ -258,6 +264,9 @@ const SLASH_COMMANDS = [
   { name: "cleardrafts", args: "[all]", description: "Clear draft for this conversation or all drafts." },
   { name: "focus", args: "[search|composer]", description: "Focus channel/DM search or composer." },
   { name: "find", args: "[query]", description: "Open find-in-conversation and optionally search immediately." },
+  { name: "findlinks", args: "", description: "Open find pre-filtered to messages containing links." },
+  { name: "findfrom", args: "<username>", description: "Open find pre-filtered to a sender." },
+  { name: "findtoday", args: "", description: "Open find pre-filtered to today." },
   { name: "findnext", args: "", description: "Jump to next find match in current conversation." },
   { name: "findprev", args: "", description: "Jump to previous find match in current conversation." },
   { name: "markunread", args: "[message-id-prefix|last]", description: "Mark conversation unread from selected message." },
@@ -272,6 +281,8 @@ const SLASH_COMMANDS = [
   { name: "movechannel", args: "<up|down|top|bottom>", description: "Reorder active channel (manage channels)." },
   { name: "markdmread", args: "", description: "Mark current DM as read." },
   { name: "markallread", args: "", description: "Mark all channels and DMs as read." },
+  { name: "markmentionsread", args: "", description: "Mark guild channels with mentions as read." },
+  { name: "markdmmentionsread", args: "", description: "Mark DM threads with mentions as read." },
   { name: "copylink", args: "", description: "Copy link for current channel/DM." },
   { name: "copyid", args: "", description: "Copy current channel/DM ID." },
   { name: "copytopic", args: "", description: "Copy current channel topic." },
@@ -283,6 +294,7 @@ const SLASH_COMMANDS = [
   { name: "copypresence", args: "", description: "Copy your current presence key." },
   { name: "copydisplayname", args: "", description: "Copy your current display name." },
   { name: "copyref", args: "", description: "Copy active conversation reference text." },
+  { name: "copyroom", args: "", description: "Copy active relay room token." },
   { name: "notify", args: "[status|all|mentions|mute]", description: "View or set current guild notification mode." },
   { name: "schedule", args: "<when> | <text>", description: "Schedule a message for later (e.g. 10m, 2h, date)." },
   { name: "scheduled", args: "", description: "List pending scheduled messages for this conversation." },
@@ -303,7 +315,7 @@ const SLASH_COMMANDS = [
   { name: "stageaudience", args: "[keep-speaker]", description: "Demote speakers to audience (optionally keep one speaker)." },
   { name: "forumtag", args: "<add|remove|list> ...", description: "Manage forum tags in this channel (manage channels)." },
   { name: "tagthread", args: "<tag1,tag2...|clear>", description: "Assign tags to a forum thread root post." },
-  { name: "topic", args: "<topic>", description: "Set the current channel topic." },
+  { name: "topic", args: "<topic|clear>", description: "Set or clear the current channel topic." },
   { name: "slowmode", args: "<seconds|off>", description: "Set slowmode for current channel (manage channels)." },
   { name: "clear", args: "", description: "Clear all messages in this channel." },
   { name: "markread", args: "[all]", description: "Mark current channel or all guild channels as read." }
@@ -2476,6 +2488,38 @@ function resolveOrCreateDmTarget(identity, { displayName = "" } = {}) {
   if (displayName) {
     target.displayName = displayName.toString().trim().slice(0, 32) || target.displayName;
   }
+  return target;
+}
+
+function resolveAccountByIdentityToken(identity, { includeSelf = false } = {}) {
+  const current = getCurrentAccount();
+  const raw = (identity || "").toString().trim();
+  if (!raw) return null;
+  const token = raw.replace(/^@+/, "");
+  if (!token) return null;
+
+  let target = null;
+  if (looksLikeCompleteJid(token)) {
+    const bare = xmppBareJid(token);
+    target = state.accounts.find((entry) => xmppBareJid(entry?.xmppJid || "") === bare) || null;
+  } else {
+    const normalized = normalizeUsername(token);
+    if (normalized) {
+      target = state.accounts.find((entry) => normalizeUsername(entry?.username || "") === normalized) || null;
+    }
+    if (!target) {
+      const lowered = token.toLowerCase();
+      target = state.accounts.find((entry) => (entry?.displayName || "").toString().toLowerCase() === lowered) || null;
+    }
+    if (!target) {
+      const lowered = token.toLowerCase();
+      target = state.accounts.find((entry) => (
+        (entry?.displayName || "").toString().toLowerCase().startsWith(lowered)
+      )) || null;
+    }
+  }
+  if (!target) return null;
+  if (!includeSelf && current?.id && target.id === current.id) return null;
   return target;
 }
 
@@ -4703,6 +4747,21 @@ function normalizeRelayUrl(value) {
 
 function normalizeRelayRoom(value) {
   return (value || "").toString().trim().slice(0, 80);
+}
+
+function relayHealthUrlFromRelayUrl(value) {
+  const base = normalizeRelayUrl(value)
+    .replace(/^ws:/i, "http:")
+    .replace(/^wss:/i, "https:");
+  try {
+    const url = new URL(base);
+    url.pathname = "/health";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "";
+  }
 }
 
 function normalizeTenorApiKey(value) {
@@ -12459,7 +12518,8 @@ function parseTimestampArg(arg) {
 
 function handleSlashCommand(rawText, channel, account) {
   if (!rawText.startsWith("/")) return false;
-  const [command, ...rest] = rawText.slice(1).split(" ");
+  const [commandRaw, ...rest] = rawText.slice(1).split(" ");
+  const command = (commandRaw || "").toLowerCase();
   const arg = rest.join(" ").trim();
   const conversationId = channel?.id || null;
 
@@ -12734,7 +12794,8 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "topic") {
-    channel.topic = arg.slice(0, 140);
+    const topicInput = (arg || "").trim();
+    channel.topic = !topicInput || topicInput.toLowerCase() === "clear" ? "" : topicInput.slice(0, 140);
     addSystemMessage(channel, channel.topic ? `Topic updated: ${channel.topic}` : "Topic cleared.");
     return true;
   }
@@ -13090,6 +13151,30 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "findlinks") {
+    openFindDialogWithQuery("has:link");
+    return true;
+  }
+
+  if (command === "findfrom") {
+    const sender = (arg || "").trim();
+    if (!sender) {
+      addSystemMessage(channel, "Usage: /findfrom <username>");
+      return true;
+    }
+    openFindDialogWithQuery(`from:${sender}`);
+    return true;
+  }
+
+  if (command === "findtoday") {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    openFindDialogWithQuery(`after:${yyyy}-${mm}-${dd}`);
+    return true;
+  }
+
   if (command === "findnext") {
     if (!findQuery.trim()) {
       openFindDialog();
@@ -13334,6 +13419,54 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "markmentionsread") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const mentionChannels = listMentionGuildChannels(guild, account);
+    if (mentionChannels.length === 0) {
+      addSystemMessage(channel, "No guild channels with unread mentions.");
+      return true;
+    }
+    let changed = 0;
+    mentionChannels.forEach((entry) => {
+      if (markChannelRead(entry.channel, account.id)) changed += 1;
+    });
+    if (changed === 0) {
+      addSystemMessage(channel, "No guild channels were updated.");
+      return true;
+    }
+    saveState();
+    renderServers();
+    renderChannels();
+    renderMessages();
+    addSystemMessage(channel, `Marked ${changed} mention channel${changed === 1 ? "" : "s"} as read.`);
+    return true;
+  }
+
+  if (command === "markdmmentionsread") {
+    let changed = 0;
+    state.dmThreads.forEach((thread) => {
+      if (!Array.isArray(thread.participantIds) || !thread.participantIds.includes(account.id)) return;
+      const stats = getDmUnreadStats(thread, account);
+      if (stats.mentions <= 0) return;
+      if (markDmRead(thread, account.id)) changed += 1;
+    });
+    if (changed === 0) {
+      addSystemMessage(channel, "No DM threads with unread mentions.");
+      return true;
+    }
+    saveState();
+    renderDmList();
+    renderServers();
+    renderChannels();
+    renderMessages();
+    addSystemMessage(channel, `Marked ${changed} DM thread${changed === 1 ? "" : "s"} with mentions as read.`);
+    return true;
+  }
+
   if (command === "copylink") {
     const conversation = getActiveConversation();
     if (!conversation) return true;
@@ -13432,6 +13565,15 @@ function handleSlashCommand(rawText, channel, account) {
       successText: "Copied active conversation reference.",
       emptyText: "No active conversation reference to copy.",
       failureText: "Failed to copy conversation reference."
+    });
+    return true;
+  }
+
+  if (command === "copyroom") {
+    copyTextToChannelWithFeedback(channel, relayRoomForActiveConversation(), {
+      successText: "Copied relay room token.",
+      emptyText: "No relay room token available.",
+      failureText: "Failed to copy relay room token."
     });
     return true;
   }
@@ -14021,26 +14163,42 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "nick") {
-    if (arg) {
-      const guild = getActiveGuild();
-      const nextNick = arg.slice(0, 32);
-      if (guild) {
-        if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+    const rawNick = arg.trim();
+    const guild = getActiveGuild();
+    if (!rawNick) {
+      addSystemMessage(channel, "Usage: /nick <nickname|clear>");
+      return true;
+    }
+    if (guild) {
+      if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+      if (rawNick.toLowerCase() === "clear") {
+        if (account.guildProfiles[guild.id]) {
+          delete account.guildProfiles[guild.id].nickname;
+          if (Object.keys(account.guildProfiles[guild.id]).length === 0) delete account.guildProfiles[guild.id];
+        }
+        addSystemMessage(channel, "Guild nickname cleared.");
+      } else {
+        const nextNick = rawNick.slice(0, 32);
         account.guildProfiles[guild.id] = { ...(account.guildProfiles[guild.id] || {}), nickname: nextNick };
         addSystemMessage(channel, `Guild nickname changed to ${nextNick}.`);
-      } else {
-        account.displayName = nextNick;
-        addSystemMessage(channel, `Display name changed to ${account.displayName}.`);
       }
+    } else if (rawNick.toLowerCase() === "clear") {
+      account.displayName = account.username || account.displayName;
+      addSystemMessage(channel, `Display name reset to ${account.displayName}.`);
+    } else {
+      account.displayName = rawNick.slice(0, 32);
+      addSystemMessage(channel, `Display name changed to ${account.displayName}.`);
     }
     return true;
   }
 
   if (command === "status") {
+    const statusInput = (arg || "").trim();
     const guild = getActiveGuild();
     if (guild) {
       if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
-      const scoped = arg.slice(0, 80);
+      const clearRequested = !statusInput || statusInput.toLowerCase() === "clear";
+      const scoped = clearRequested ? "" : statusInput.slice(0, 80);
       if (scoped) {
         account.guildProfiles[guild.id] = {
           ...(account.guildProfiles[guild.id] || {}),
@@ -14055,20 +14213,28 @@ function handleSlashCommand(rawText, channel, account) {
         addSystemMessage(channel, "Guild status cleared.");
       }
     } else {
-      account.customStatus = arg.slice(0, 80);
+      account.customStatus = (!statusInput || statusInput.toLowerCase() === "clear") ? "" : statusInput.slice(0, 80);
       addSystemMessage(channel, account.customStatus ? `Status set to: ${account.customStatus}` : "Status cleared.");
     }
     return true;
   }
 
+  if (["online", "idle", "dnd", "invisible", "away"].includes(command)) {
+    const nextPresence = command === "away" ? "idle" : command;
+    setCurrentAccountPresence(nextPresence, { persist: true, rerender: true, announceXmpp: true });
+    addSystemMessage(channel, `Presence changed to ${presenceLabel(nextPresence)}.`);
+    return true;
+  }
+
   if (command === "presence") {
-    const next = normalizePresence((arg || "").trim().toLowerCase());
-    if (!arg) {
+    const token = (arg || "").trim().toLowerCase();
+    const next = normalizePresence(token);
+    if (!token || token === "status") {
       addSystemMessage(channel, `Presence: ${presenceLabel(account.presence || "online")}.`);
       return true;
     }
-    if (!["online", "idle", "dnd", "invisible"].includes((arg || "").trim().toLowerCase())) {
-      addSystemMessage(channel, "Usage: /presence <online|idle|dnd|invisible>");
+    if (!["online", "idle", "dnd", "invisible"].includes(token)) {
+      addSystemMessage(channel, "Usage: /presence <online|idle|dnd|invisible|status>");
       return true;
     }
     setCurrentAccountPresence(next, { persist: true, rerender: true, announceXmpp: true });
@@ -14168,6 +14334,22 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
+  if (command === "whois") {
+    const query = (arg || "").trim();
+    if (!query) {
+      addSystemMessage(channel, "Usage: /whois <username-or-jid>");
+      return true;
+    }
+    const target = resolveAccountByIdentityToken(query, { includeSelf: true });
+    if (!target) {
+      addSystemMessage(channel, "No matching account found.");
+      return true;
+    }
+    const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
+    addSystemMessage(channel, formatIdentitySummaryText(target, guildId));
+    return true;
+  }
+
   if (command === "profilecard") {
     const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
     channel.messages.push({
@@ -14224,6 +14406,7 @@ function handleSlashCommand(rawText, channel, account) {
         `Status: ${relayStatusText()}`,
         `URL: ${prefs.relayMode === "xmpp" ? (resolveXmppServiceUrl(prefs) || "(unset)") : prefs.relayUrl}`,
         prefs.relayMode === "xmpp" ? `MUC: ${resolveXmppMucService(prefs) || "(unset)"}` : "",
+        `Auto-connect: ${prefs.relayAutoConnect}`,
         `Room: ${prefs.relayRoom || relayRoomForActiveConversation()}`
       ].join(" · "));
       return true;
@@ -14237,6 +14420,12 @@ function handleSlashCommand(rawText, channel, account) {
       addSystemMessage(channel, ok ? "Relay connect requested." : "Relay connection failed to start.");
       return true;
     }
+    if (sub === "reconnect") {
+      disconnectRelaySocket({ manual: false });
+      const ok = connectRelaySocket({ force: true });
+      addSystemMessage(channel, ok ? "Relay reconnect requested." : "Relay reconnect failed to start.");
+      return true;
+    }
     if (sub === "disconnect") {
       disconnectRelaySocket({ manual: true });
       addSystemMessage(channel, "Relay disconnected.");
@@ -14246,7 +14435,7 @@ function handleSlashCommand(rawText, channel, account) {
       const mode = normalizeRelayMode(payload);
       state.preferences.relayMode = mode;
       saveState();
-      if (mode === "ws" || mode === "http") connectRelaySocket({ force: true });
+      if (mode === "ws" || mode === "http" || mode === "xmpp") connectRelaySocket({ force: true });
       else disconnectRelaySocket({ manual: true });
       addSystemMessage(channel, `Relay mode set to: ${mode}`);
       return true;
@@ -14275,7 +14464,76 @@ function handleSlashCommand(rawText, channel, account) {
       addSystemMessage(channel, `Relay room set to: ${state.preferences.relayRoom}`);
       return true;
     }
-    addSystemMessage(channel, "Usage: /relay [status|connect|disconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>]");
+    if (sub === "roomsync") {
+      syncRelayRoomForActiveConversation();
+      addSystemMessage(channel, `Relay room synced: ${relayRoomForActiveConversation()}`);
+      return true;
+    }
+    if (sub === "autoconnect") {
+      const value = payload.toLowerCase();
+      if (!value || value === "status") {
+        addSystemMessage(channel, `Relay auto-connect: ${state.preferences.relayAutoConnect}`);
+        return true;
+      }
+      if (!["on", "off"].includes(value)) {
+        addSystemMessage(channel, "Usage: /relay autoconnect <on|off|status>");
+        return true;
+      }
+      state.preferences.relayAutoConnect = value;
+      saveState();
+      if (value === "on" && ["ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
+        connectRelaySocket({ force: true });
+      } else if (value === "off") {
+        clearRelayReconnectTimer();
+      }
+      addSystemMessage(channel, `Relay auto-connect set to: ${value}`);
+      return true;
+    }
+    if (sub === "ping") {
+      const prefs = getPreferences();
+      if (prefs.relayMode === "xmpp") {
+        if (!xmppConnection || relayStatus !== "connected") {
+          addSystemMessage(channel, "XMPP relay is not connected.");
+          return true;
+        }
+        const sent = sendXmppPing(xmppConnection);
+        addSystemMessage(channel, sent ? "Sent XMPP ping request." : "Could not send XMPP ping request.");
+        return true;
+      }
+      if (!["ws", "http"].includes(prefs.relayMode)) {
+        addSystemMessage(channel, "Relay ping is available only for ws/http/xmpp modes.");
+        return true;
+      }
+      const startedAt = Date.now();
+      const healthUrl = relayHealthUrlFromRelayUrl(prefs.relayUrl);
+      if (!healthUrl) {
+        addSystemMessage(channel, "Relay URL is invalid.");
+        return true;
+      }
+      fetch(healthUrl, { cache: "no-store" })
+        .then(async (response) => {
+          const elapsed = Date.now() - startedAt;
+          let body = "";
+          try {
+            body = (await response.text()).replace(/\s+/g, " ").trim().slice(0, 200);
+          } catch {
+            body = "";
+          }
+          const prefix = response.ok ? "Relay ping ok" : "Relay ping failed";
+          addSystemMessage(
+            channel,
+            `${prefix} (${elapsed}ms) · HTTP ${response.status}${body ? ` · ${body}` : ""}`
+          );
+        })
+        .catch((error) => {
+          addSystemMessage(channel, `Relay ping failed: ${String(error?.message || error)}`);
+        });
+      return true;
+    }
+    addSystemMessage(
+      channel,
+      "Usage: /relay [status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]"
+    );
     return true;
   }
 
@@ -28738,6 +28996,7 @@ ui.messageForm.addEventListener("submit", (event) => {
       "mentions",
       "nextmention",
       "prevmention",
+      "markmentionsread",
       "copyguildid",
       "copyguildname",
       "copychannelname"
@@ -28782,6 +29041,23 @@ ui.messageForm.addEventListener("submit", (event) => {
       if (!markAllReadForAccount(account.id)) return;
       saveState();
       render();
+      return;
+    }
+    if (dmCommand === "markdmmentionsread") {
+      let changed = 0;
+      state.dmThreads.forEach((thread) => {
+        if (!Array.isArray(thread.participantIds) || !thread.participantIds.includes(account.id)) return;
+        const stats = getDmUnreadStats(thread, account);
+        if (stats.mentions <= 0) return;
+        if (markDmRead(thread, account.id)) changed += 1;
+      });
+      if (changed <= 0) {
+        showToast("No DM threads with unread mentions.", { tone: "error" });
+        return;
+      }
+      saveState();
+      render();
+      showToast(`Marked ${changed} DM thread${changed === 1 ? "" : "s"} with mentions as read.`);
       return;
     }
     if (dmCommand === "listdms") {
@@ -28863,6 +29139,17 @@ ui.messageForm.addEventListener("submit", (event) => {
       });
       return;
     }
+    if (dmCommand === "copyroom") {
+      const room = relayRoomForActiveConversation();
+      if (!room) {
+        showToast("No relay room token available.", { tone: "error" });
+        return;
+      }
+      void copyText(room).then((ok) => {
+        showToast(ok ? "Relay room token copied." : "Failed to copy relay room token.", { tone: ok ? "info" : "error" });
+      });
+      return;
+    }
     if (dmCommand === "focus") {
       if (!dmArg || dmArg.toLowerCase() === "search") {
         ui.dmSearchInput?.focus();
@@ -28879,7 +29166,12 @@ ui.messageForm.addEventListener("submit", (event) => {
       const payload = restRelay.join(" ").trim();
       if (sub === "status") {
         const adapter = getTransportAdapter(state.preferences.relayMode);
-        showToast(`Relay: ${relayStatusText()} · ${state.preferences.relayMode}/${adapter.label} · ${state.preferences.relayUrl}`);
+        const relayUrl = state.preferences.relayMode === "xmpp"
+          ? (resolveXmppServiceUrl(state.preferences) || "(unset)")
+          : state.preferences.relayUrl;
+        showToast(
+          `Relay: ${relayStatusText()} · ${state.preferences.relayMode}/${adapter.label} · ${relayUrl} · auto:${state.preferences.relayAutoConnect}`
+        );
         return;
       }
       if (sub === "connect") {
@@ -28891,6 +29183,12 @@ ui.messageForm.addEventListener("submit", (event) => {
         showToast("Relay connect requested.");
         return;
       }
+      if (sub === "reconnect") {
+        disconnectRelaySocket({ manual: false });
+        connectRelaySocket({ force: true });
+        showToast("Relay reconnect requested.");
+        return;
+      }
       if (sub === "disconnect") {
         disconnectRelaySocket({ manual: true });
         showToast("Relay disconnected.");
@@ -28899,12 +29197,16 @@ ui.messageForm.addEventListener("submit", (event) => {
       if (sub === "mode") {
         state.preferences.relayMode = normalizeRelayMode(payload);
         saveState();
-        if (["ws", "http"].includes(state.preferences.relayMode)) connectRelaySocket({ force: true });
+        if (["ws", "http", "xmpp"].includes(state.preferences.relayMode)) connectRelaySocket({ force: true });
         else disconnectRelaySocket({ manual: true });
         showToast(`Relay mode: ${state.preferences.relayMode}`);
         return;
       }
       if (sub === "url") {
+        if (!payload) {
+          showToast(`Relay URL: ${state.preferences.relayUrl}`);
+          return;
+        }
         state.preferences.relayUrl = normalizeRelayUrl(payload);
         saveState();
         showToast(`Relay URL set: ${state.preferences.relayUrl}`);
@@ -28917,7 +29219,76 @@ ui.messageForm.addEventListener("submit", (event) => {
         showToast(state.preferences.relayRoom ? `Relay room: ${state.preferences.relayRoom}` : "Relay room override cleared.");
         return;
       }
-      showToast("Usage: /relay [status|connect|disconnect|mode <local|http|ws|xmpp|off>|url|room]", { tone: "error" });
+      if (sub === "roomsync") {
+        syncRelayRoomForActiveConversation();
+        showToast(`Relay room synced: ${relayRoomForActiveConversation()}`);
+        return;
+      }
+      if (sub === "autoconnect") {
+        const value = payload.toLowerCase();
+        if (!value || value === "status") {
+          showToast(`Relay auto-connect: ${state.preferences.relayAutoConnect}`);
+          return;
+        }
+        if (!["on", "off"].includes(value)) {
+          showToast("Usage: /relay autoconnect <on|off|status>", { tone: "error" });
+          return;
+        }
+        state.preferences.relayAutoConnect = value;
+        saveState();
+        if (value === "on" && ["ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
+          connectRelaySocket({ force: true });
+        } else if (value === "off") {
+          clearRelayReconnectTimer();
+        }
+        showToast(`Relay auto-connect set to: ${value}`);
+        return;
+      }
+      if (sub === "ping") {
+        const prefs = getPreferences();
+        if (prefs.relayMode === "xmpp") {
+          if (!xmppConnection || relayStatus !== "connected") {
+            showToast("XMPP relay is not connected.", { tone: "error" });
+            return;
+          }
+          const sent = sendXmppPing(xmppConnection);
+          showToast(sent ? "Sent XMPP ping request." : "Could not send XMPP ping request.", { tone: sent ? "info" : "error" });
+          return;
+        }
+        if (!["ws", "http"].includes(prefs.relayMode)) {
+          showToast("Relay ping is available only for ws/http/xmpp modes.", { tone: "error" });
+          return;
+        }
+        const startedAt = Date.now();
+        const healthUrl = relayHealthUrlFromRelayUrl(prefs.relayUrl);
+        if (!healthUrl) {
+          showToast("Relay URL is invalid.", { tone: "error" });
+          return;
+        }
+        fetch(healthUrl, { cache: "no-store" })
+          .then(async (response) => {
+            const elapsed = Date.now() - startedAt;
+            let body = "";
+            try {
+              body = (await response.text()).replace(/\s+/g, " ").trim().slice(0, 200);
+            } catch {
+              body = "";
+            }
+            const prefix = response.ok ? "Relay ping ok" : "Relay ping failed";
+            showToast(`${prefix} (${elapsed}ms) · HTTP ${response.status}${body ? ` · ${body}` : ""}`, {
+              tone: response.ok ? "info" : "error",
+              duration: 2600
+            });
+          })
+          .catch((error) => {
+            showToast(`Relay ping failed: ${String(error?.message || error)}`, { tone: "error" });
+          });
+        return;
+      }
+      showToast(
+        "Usage: /relay [status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url|room|roomsync|autoconnect <on|off|status>|ping]",
+        { tone: "error" }
+      );
       return;
     }
     if (dmCommand === "quests") {
@@ -29016,6 +29387,69 @@ ui.messageForm.addEventListener("submit", (event) => {
       showToast(formatIdentitySummaryText(account, null));
       return;
     }
+    if (dmCommand === "whois") {
+      const query = (dmArg || "").trim();
+      if (!query) {
+        showToast("Usage: /whois <username-or-jid>", { tone: "error" });
+        return;
+      }
+      const target = resolveAccountByIdentityToken(query, { includeSelf: true });
+      if (!target) {
+        showToast("No matching account found.", { tone: "error" });
+        return;
+      }
+      showToast(formatIdentitySummaryText(target, null), { duration: 2600 });
+      return;
+    }
+    if (["online", "idle", "dnd", "invisible", "away"].includes(dmCommand)) {
+      const nextPresence = dmCommand === "away" ? "idle" : dmCommand;
+      setCurrentAccountPresence(nextPresence, { persist: true, rerender: true, announceXmpp: true });
+      showToast(`Presence changed to ${presenceLabel(nextPresence)}.`);
+      return;
+    }
+    if (dmCommand === "nick") {
+      const rawNick = (dmArg || "").trim();
+      if (!rawNick) {
+        showToast(`Display name: ${displayNameForAccount(account, null)}`);
+        return;
+      }
+      if (rawNick.toLowerCase() === "clear") {
+        account.displayName = account.username || account.displayName;
+        saveState();
+        render();
+        showToast(`Display name reset to ${account.displayName}.`);
+        return;
+      }
+      account.displayName = rawNick.slice(0, 32);
+      saveState();
+      render();
+      showToast(`Display name changed to ${account.displayName}.`);
+      return;
+    }
+    if (dmCommand === "status") {
+      const statusInput = (dmArg || "").trim();
+      account.customStatus = (!statusInput || statusInput.toLowerCase() === "clear")
+        ? ""
+        : statusInput.slice(0, 80);
+      saveState();
+      render();
+      showToast(account.customStatus ? `Status set to: ${account.customStatus}` : "Status cleared.");
+      return;
+    }
+    if (dmCommand === "presence") {
+      const token = (dmArg || "").trim().toLowerCase();
+      if (!token || token === "status") {
+        showToast(`Presence: ${presenceLabel(account.presence || "online")}.`);
+        return;
+      }
+      if (!["online", "idle", "dnd", "invisible"].includes(token)) {
+        showToast("Usage: /presence <online|idle|dnd|invisible|status>", { tone: "error" });
+        return;
+      }
+      setCurrentAccountPresence(token, { persist: true, rerender: true, announceXmpp: true });
+      showToast(`Presence changed to ${presenceLabel(token)}.`);
+      return;
+    }
     if (dmCommand === "profilecard") {
       conversation.thread.messages.push({
         id: createId(),
@@ -29040,6 +29474,27 @@ ui.messageForm.addEventListener("submit", (event) => {
     }
     if (dmCommand === "find") {
       openFindDialogWithQuery(dmArg);
+      return;
+    }
+    if (dmCommand === "findlinks") {
+      openFindDialogWithQuery("has:link");
+      return;
+    }
+    if (dmCommand === "findfrom") {
+      const sender = (dmArg || "").trim();
+      if (!sender) {
+        showToast("Usage: /findfrom <username>", { tone: "error" });
+        return;
+      }
+      openFindDialogWithQuery(`from:${sender}`);
+      return;
+    }
+    if (dmCommand === "findtoday") {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      openFindDialogWithQuery(`after:${yyyy}-${mm}-${dd}`);
       return;
     }
     if (dmCommand === "findnext") {
