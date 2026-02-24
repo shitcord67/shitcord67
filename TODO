@@ -317,3 +317,11 @@ https://discord.js.org/docs/packages/discord.js/main
 - Implement something like syncplay (up-to-date fork https://github.com/asozialesnetzwerk/Pyncslay/) / Watchtogether to watch e.g. anime with other people
 - shitcord67 for other platforms (Android, 3DS, terminal TUI)
 - Maybe for Android option to ship with credentials baked in the application (or well, being created on APK install)?
+- Split-screen to see multiple chats
+- scrolling on the side on Android could show a pop-up allowing to switch between recent and most used chats quickly?
+- Maybe implement a hold option on swipe so that user could e.g. still see some parts of the channel names or the guild list? (lock-in to guild list if close to that?)
+- Make it possible to hide guild list on swipe on that?
+- make it possible to swipe-in member list?
+- make it possible to swipe-in channel descriptions?
+- swipe up on message input could show favourite stuff?
+- custom (keyboard and swipe) shortcuts?

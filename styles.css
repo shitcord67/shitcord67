@@ -5552,23 +5552,16 @@ body[data-debug-overlay="on"] .chat-panel {
 
 @media (max-width: 760px) {
   #chatScreen.screen--active {
-    grid-template-columns: 72px 1fr;
-  }
-
-  body[data-hide-channel-panel="off"] #chatScreen.screen--active {
     grid-template-columns: 72px min(84vw, 320px) 1fr;
   }
 
-  .chat-panel {
-    grid-column: 2;
-  }
-
-  body[data-hide-channel-panel="off"] .chat-panel {
-    grid-column: 3;
+  .server-rail {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .channel-panel {
-    display: none;
+    display: grid;
     grid-column: 2;
     grid-row: 1;
     width: auto;
@@ -5577,14 +5570,34 @@ body[data-debug-overlay="on"] .chat-panel {
     border-right: 1px solid var(--line);
   }
 
-  body[data-hide-channel-panel="on"] #channelPanel {
-    display: none;
-    pointer-events: none;
+  .chat-panel {
+    grid-column: 3;
   }
 
-  body[data-hide-channel-panel="off"] #channelPanel {
+  body[data-mobile="on"][data-mobile-pane="chat"] #chatScreen.screen--active {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="chat"] .server-rail,
+  body[data-mobile="on"][data-mobile-pane="chat"] #channelPanel {
+    display: none;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="chat"] .chat-panel {
+    grid-column: 1;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="nav"] #chatScreen.screen--active {
+    grid-template-columns: 72px 1fr;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="nav"] .chat-panel {
+    display: none;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="nav"] .server-rail,
+  body[data-mobile="on"][data-mobile-pane="nav"] #channelPanel {
     display: grid;
-    pointer-events: auto;
   }
 
   .left-bottom-dock {

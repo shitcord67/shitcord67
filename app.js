@@ -87,7 +87,13 @@ function applyRuntimePlatformHints() {
 
 applyRuntimePlatformHints();
 
+const MOBILE_SIDEBAR_BREAKPOINT_PX = 760;
+const mobileLayoutMediaQuery = typeof window !== "undefined" && typeof window.matchMedia === "function"
+  ? window.matchMedia(`(max-width: ${MOBILE_SIDEBAR_BREAKPOINT_PX}px)`)
+  : null;
+
 let runtimeSafeAreaRaf = 0;
+let mobileSwipeNavState = null;
 
 function updateRuntimeSafeArea() {
   runtimeSafeAreaRaf = 0;
@@ -655,6 +661,7 @@ function buildInitialState() {
       recentEmojis: [],
       hideChannelPanel: "off",
       hideMemberPanel: "off",
+      mobilePane: "chat",
       collapseDmSection: "off",
       collapseGuildSection: "off",
       lastChannelByGuild: {},
@@ -2420,6 +2427,8 @@ function openDmWithAccount(targetAccount) {
   if (!thread) return;
   state.viewMode = "dm";
   state.activeDmId = thread.id;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "chat";
   saveState();
   render();
 }
@@ -3459,6 +3468,8 @@ function openGuildById(guildId) {
   state.activeGuildId = guild.id;
   state.activeChannelId = getFirstOpenableChannelIdForGuild(guild);
   state.activeDmId = null;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "nav";
   saveState();
   render();
   return true;
@@ -4506,6 +4517,10 @@ function normalizeToggle(value) {
   return value === "on" ? "on" : "off";
 }
 
+function normalizeMobilePane(value) {
+  return value === "nav" ? "nav" : "chat";
+}
+
 function normalizeSwfAudioPolicy(value) {
   return value === "multi" ? "multi" : "single";
 }
@@ -4802,6 +4817,7 @@ function getPreferences() {
     recentEmojis: normalizeRecentEmojis(current.recentEmojis),
     hideChannelPanel: normalizeToggle(current.hideChannelPanel),
     hideMemberPanel: normalizeToggle(current.hideMemberPanel),
+    mobilePane: normalizeMobilePane(current.mobilePane),
     collapseDmSection: normalizeToggle(current.collapseDmSection),
     collapseGuildSection: normalizeToggle(current.collapseGuildSection),
     lastChannelByGuild: normalizeLastChannelByGuildMap(current.lastChannelByGuild),
@@ -15285,8 +15301,29 @@ function applyMediaAudioPreferences(prefs = getPreferences()) {
   });
 }
 
+function isMobileNarrowLayout() {
+  if (typeof document === "undefined" || !document.body) return false;
+  if (document.body.dataset.mobile !== "on") return false;
+  return mobileLayoutMediaQuery ? mobileLayoutMediaQuery.matches : window.innerWidth <= MOBILE_SIDEBAR_BREAKPOINT_PX;
+}
+
+function setMobilePane(pane, { persist = true, rerender = true } = {}) {
+  const normalized = normalizeMobilePane(pane);
+  state.preferences = getPreferences();
+  if (state.preferences.mobilePane === normalized) return false;
+  state.preferences.mobilePane = normalized;
+  if (persist) saveState();
+  if (rerender) {
+    applyPreferencesToUI();
+    renderChannels();
+    renderMemberList();
+  }
+  return true;
+}
+
 function applyPreferencesToUI() {
   const prefs = getPreferences();
+  const narrowMobile = isMobileNarrowLayout();
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
   document.body.dataset.theme = prefs.theme;
   document.body.dataset.compactMembers = prefs.compactMembers;
@@ -15294,14 +15331,21 @@ function applyPreferencesToUI() {
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   document.body.dataset.hideChannelPanel = prefs.hideChannelPanel;
   document.body.dataset.hideMemberPanel = prefs.hideMemberPanel;
+  document.body.dataset.mobilePane = narrowMobile ? prefs.mobilePane : "chat";
   document.body.dataset.collapseDmSection = prefs.collapseDmSection;
   document.body.dataset.collapseGuildSection = prefs.collapseGuildSection;
   ui.dockMuteBtn.style.opacity = prefs.mute === "on" ? "1" : "0.7";
   ui.dockHeadphonesBtn.style.opacity = prefs.deafen === "on" ? "1" : "0.7";
   if (ui.toggleChannelPanelBtn) {
-    const hidden = prefs.hideChannelPanel === "on";
-    ui.toggleChannelPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
-    setHeaderActionButtonLabel(ui.toggleChannelPanelBtn, hidden ? "Channels Off" : "Channels");
+    if (narrowMobile) {
+      const navVisible = prefs.mobilePane === "nav";
+      ui.toggleChannelPanelBtn.classList.toggle("chat-topic-edit--active", navVisible);
+      setHeaderActionButtonLabel(ui.toggleChannelPanelBtn, navVisible ? "Chat" : "Channels");
+    } else {
+      const hidden = prefs.hideChannelPanel === "on";
+      ui.toggleChannelPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
+      setHeaderActionButtonLabel(ui.toggleChannelPanelBtn, hidden ? "Channels Off" : "Channels");
+    }
   }
   if (ui.toggleMemberPanelBtn) {
     const hidden = prefs.hideMemberPanel === "on";
@@ -15356,6 +15400,11 @@ function applyPreferencesToUI() {
 }
 
 function toggleChannelPanelVisibility() {
+  if (isMobileNarrowLayout()) {
+    const prefs = getPreferences();
+    setMobilePane(prefs.mobilePane === "nav" ? "chat" : "nav");
+    return;
+  }
   state.preferences = getPreferences();
   state.preferences.hideChannelPanel = state.preferences.hideChannelPanel === "on" ? "off" : "on";
   saveState();
@@ -15383,6 +15432,65 @@ function toggleGuildSectionCollapsed() {
   saveState();
   applyPreferencesToUI();
   renderChannels();
+}
+
+function isSwipeNavigationBlockedTarget(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.closest("input, textarea, select, button, a, [contenteditable='true']")) return true;
+  if (target.closest(".swf-pip, .video-pip, .media-picker, dialog[open], .settings-screen--active")) return true;
+  return false;
+}
+
+function onMobileNavTouchStart(event) {
+  if (!isMobileNarrowLayout() || !state.currentAccountId) return;
+  if (event.touches.length !== 1) return;
+  if (isSwipeNavigationBlockedTarget(event.target)) return;
+  const touch = event.touches[0];
+  mobileSwipeNavState = {
+    id: touch.identifier,
+    startX: touch.clientX,
+    startY: touch.clientY,
+    lastX: touch.clientX,
+    lastY: touch.clientY,
+    startTs: Date.now(),
+    axis: ""
+  };
+}
+
+function onMobileNavTouchMove(event) {
+  if (!mobileSwipeNavState) return;
+  const touch = Array.from(event.touches).find((entry) => entry.identifier === mobileSwipeNavState.id);
+  if (!touch) return;
+  const dx = touch.clientX - mobileSwipeNavState.startX;
+  const dy = touch.clientY - mobileSwipeNavState.startY;
+  mobileSwipeNavState.lastX = touch.clientX;
+  mobileSwipeNavState.lastY = touch.clientY;
+  if (!mobileSwipeNavState.axis) {
+    if (Math.abs(dx) < 14 && Math.abs(dy) < 14) return;
+    mobileSwipeNavState.axis = Math.abs(dx) > Math.abs(dy) * 1.1 ? "x" : "y";
+  }
+  if (mobileSwipeNavState.axis === "x") event.preventDefault();
+}
+
+function onMobileNavTouchEnd(event) {
+  if (!mobileSwipeNavState) return;
+  const ended = Array.from(event.changedTouches).find((entry) => entry.identifier === mobileSwipeNavState.id);
+  if (!ended) return;
+  const swipe = mobileSwipeNavState;
+  mobileSwipeNavState = null;
+  if (!isMobileNarrowLayout() || !state.currentAccountId) return;
+  if (swipe.axis && swipe.axis !== "x") return;
+  const dx = ended.clientX - swipe.startX;
+  const dy = ended.clientY - swipe.startY;
+  const dt = Date.now() - swipe.startTs;
+  if (dt > 900) return;
+  if (Math.abs(dx) < 72) return;
+  if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
+  if (dx > 0) {
+    setMobilePane("nav");
+    return;
+  }
+  setMobilePane("chat");
 }
 
 function setSwfQuickAudioMode(mode) {
@@ -22854,7 +22962,10 @@ function renderDmList() {
     button.addEventListener("click", () => {
       state.viewMode = "dm";
       state.activeDmId = thread.id;
+      state.preferences = getPreferences();
+      state.preferences.mobilePane = "chat";
       saveState();
+      applyPreferencesToUI();
       renderMessages();
       renderChannels();
       renderMemberList();
@@ -22866,7 +22977,10 @@ function renderDmList() {
           action: () => {
             state.viewMode = "dm";
             state.activeDmId = thread.id;
+            state.preferences = getPreferences();
+            state.preferences.mobilePane = "chat";
             saveState();
+            applyPreferencesToUI();
             renderMessages();
             renderChannels();
           }
@@ -23066,8 +23180,11 @@ function renderChannels() {
       state.viewMode = "guild";
       state.activeChannelId = channel.id;
       state.activeDmId = null;
+      state.preferences = getPreferences();
+      state.preferences.mobilePane = "chat";
       rememberGuildChannelSelection(server.id, channel.id);
       saveState();
+      applyPreferencesToUI();
       renderMessages();
       renderChannels();
     });
@@ -23080,8 +23197,11 @@ function renderChannels() {
             state.viewMode = "guild";
             state.activeChannelId = channel.id;
             state.activeDmId = null;
+            state.preferences = getPreferences();
+            state.preferences.mobilePane = "chat";
             rememberGuildChannelSelection(server.id, channel.id);
             saveState();
+            applyPreferencesToUI();
             renderMessages();
             renderChannels();
           }
@@ -29652,6 +29772,8 @@ ui.createServerBtn.addEventListener("click", () => {
 ui.serverBrand.addEventListener("click", () => {
   state.viewMode = "dm";
   state.activeDmId = null;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "nav";
   saveState();
   render();
 });
@@ -29666,6 +29788,8 @@ ui.serverBrand.addEventListener("contextmenu", (event) => {
       action: () => {
         state.viewMode = "dm";
         state.activeDmId = null;
+        state.preferences = getPreferences();
+        state.preferences.mobilePane = "nav";
         saveState();
         render();
       }
@@ -31917,6 +32041,28 @@ document.addEventListener("focusin", (event) => {
   target.blur();
   addDebugLog("info", "Blurred hidden virtual-keyboard input to avoid aria-hidden focus warning");
 });
+
+ui.chatScreen?.addEventListener("touchstart", onMobileNavTouchStart, { passive: true });
+ui.chatScreen?.addEventListener("touchmove", onMobileNavTouchMove, { passive: false });
+ui.chatScreen?.addEventListener("touchend", onMobileNavTouchEnd, { passive: true });
+ui.chatScreen?.addEventListener("touchcancel", () => {
+  mobileSwipeNavState = null;
+}, { passive: true });
+
+const handleMobileLayoutViewportChange = () => {
+  if (!state.currentAccountId) return;
+  applyPreferencesToUI();
+  renderChannels();
+  renderMemberList();
+};
+
+if (mobileLayoutMediaQuery) {
+  if (typeof mobileLayoutMediaQuery.addEventListener === "function") {
+    mobileLayoutMediaQuery.addEventListener("change", handleMobileLayoutViewportChange);
+  } else if (typeof mobileLayoutMediaQuery.addListener === "function") {
+    mobileLayoutMediaQuery.addListener(handleMobileLayoutViewportChange);
+  }
+}
 
 mediaPickerTab = getPreferences().mediaLastTab;
 if (dedupeDmThreads()) saveState();
