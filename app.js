@@ -97,29 +97,52 @@ const mobileLayoutMediaQuery = typeof window !== "undefined" && typeof window.ma
 let runtimeSafeAreaRaf = 0;
 let mobileSwipeNavState = null;
 
+function normalizeNativeAndroidInsets(rawInsets) {
+  if (!rawInsets || typeof rawInsets !== "object") return null;
+  const top = Number(rawInsets.top);
+  const right = Number(rawInsets.right);
+  const bottom = Number(rawInsets.bottom);
+  const left = Number(rawInsets.left);
+  if (![top, right, bottom, left].every((value) => Number.isFinite(value) && value >= 0)) {
+    return null;
+  }
+  return {
+    top: Math.round(top),
+    right: Math.round(right),
+    bottom: Math.round(bottom),
+    left: Math.round(left)
+  };
+}
+
 function updateRuntimeSafeArea() {
   runtimeSafeAreaRaf = 0;
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   if (!root) return;
+  const nativeInsets = normalizeNativeAndroidInsets(window.__shitcord67AndroidInsets);
   const viewport = window.visualViewport;
-  if (!viewport) {
-    root.style.setProperty("--runtime-safe-top", "0px");
-    root.style.setProperty("--runtime-safe-right", "0px");
-    root.style.setProperty("--runtime-safe-bottom", "0px");
-    root.style.setProperty("--runtime-safe-left", "0px");
-    return;
+  let safeTop = 0;
+  let safeRight = 0;
+  let safeBottom = 0;
+  let safeLeft = 0;
+  if (viewport) {
+    const offsetTop = Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
+    const offsetLeft = Number.isFinite(viewport.offsetLeft) ? viewport.offsetLeft : 0;
+    const height = Number.isFinite(viewport.height) ? viewport.height : window.innerHeight;
+    const width = Number.isFinite(viewport.width) ? viewport.width : window.innerWidth;
+    const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : height;
+    const innerWidth = Number.isFinite(window.innerWidth) ? window.innerWidth : width;
+    safeTop = Math.max(0, offsetTop);
+    safeLeft = Math.max(0, offsetLeft);
+    safeBottom = Math.max(0, innerHeight - (height + offsetTop));
+    safeRight = Math.max(0, innerWidth - (width + offsetLeft));
   }
-  const offsetTop = Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
-  const offsetLeft = Number.isFinite(viewport.offsetLeft) ? viewport.offsetLeft : 0;
-  const height = Number.isFinite(viewport.height) ? viewport.height : window.innerHeight;
-  const width = Number.isFinite(viewport.width) ? viewport.width : window.innerWidth;
-  const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : height;
-  const innerWidth = Number.isFinite(window.innerWidth) ? window.innerWidth : width;
-  const safeTop = Math.max(0, offsetTop);
-  const safeLeft = Math.max(0, offsetLeft);
-  const safeBottom = Math.max(0, innerHeight - (height + offsetTop));
-  const safeRight = Math.max(0, innerWidth - (width + offsetLeft));
+  if (nativeInsets) {
+    safeTop = Math.max(safeTop, nativeInsets.top);
+    safeRight = Math.max(safeRight, nativeInsets.right);
+    safeBottom = Math.max(safeBottom, nativeInsets.bottom);
+    safeLeft = Math.max(safeLeft, nativeInsets.left);
+  }
   root.style.setProperty("--runtime-safe-top", `${Math.round(safeTop)}px`);
   root.style.setProperty("--runtime-safe-right", `${Math.round(safeRight)}px`);
   root.style.setProperty("--runtime-safe-bottom", `${Math.round(safeBottom)}px`);
@@ -135,6 +158,7 @@ if (typeof window !== "undefined") {
   scheduleRuntimeSafeAreaUpdate();
   window.addEventListener("resize", scheduleRuntimeSafeAreaUpdate, { passive: true });
   window.addEventListener("orientationchange", scheduleRuntimeSafeAreaUpdate, { passive: true });
+  window.addEventListener("shitcord67:android-insets", scheduleRuntimeSafeAreaUpdate, { passive: true });
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", scheduleRuntimeSafeAreaUpdate, { passive: true });
     window.visualViewport.addEventListener("scroll", scheduleRuntimeSafeAreaUpdate, { passive: true });
