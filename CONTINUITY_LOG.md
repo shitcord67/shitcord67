@@ -1290,3 +1290,4 @@ now, hiding most of the UI. Why did it move out of where it was before?
 [2026-02-24T06:15:51+01:00] Ah I think it just takes quite a bit of time to load? Cause on Android that history was also not visible until some minutes after. Is there some way to speed the loading up? Also is there some way to make the Ruffle loading more speed up? Also how about you really put some additional space at the top and bottom to respect the notch, status bar and navigation bar of Android?
 [2026-02-24T06:16:18+01:00] Oh also shitcord67 doesn't display it's logo in the upper-left anymore. Please fix.
 [2026-02-24T06:32:56+01:00] Yeah
+[2026-02-24T06:44:41+01:00] Well I still see the DM channel names in the same line as where my notch is. And when I use SWF PiP it can happen that the title bar is hidden by my notch or the Android status abr and thus I can't move it...

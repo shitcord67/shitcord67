@@ -18690,20 +18690,30 @@ function renderVideoPipDock() {
   });
 }
 
+function pipViewportMargins() {
+  const appRect = document.getElementById("app")?.getBoundingClientRect?.();
+  return {
+    left: Math.max(8, Math.round((appRect?.left || 0) + 8)),
+    top: Math.max(8, Math.round((appRect?.top || 0) + 8)),
+    right: Math.max(8, Math.round(Math.max(0, window.innerWidth - (appRect?.right || window.innerWidth)) + 8)),
+    bottom: Math.max(8, Math.round(Math.max(0, window.innerHeight - (appRect?.bottom || window.innerHeight)) + 8))
+  };
+}
+
 function clampPipDockAboveComposer(dockElement) {
   if (!(dockElement instanceof HTMLElement) || !dockElement.isConnected) return false;
   const rect = dockElement.getBoundingClientRect();
   if (!(Number.isFinite(rect.width) && Number.isFinite(rect.height) && rect.width > 1 && rect.height > 1)) return false;
-  const margin = 8;
-  const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+  const margins = pipViewportMargins();
+  const maxLeft = Math.max(margins.left, window.innerWidth - rect.width - margins.right);
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
-  const maxTopByViewport = window.innerHeight - rect.height - margin;
+  const maxTopByViewport = window.innerHeight - rect.height - margins.bottom;
   const maxTopByComposer = composerRect
-    ? composerRect.top - rect.height - margin
+    ? composerRect.top - rect.height - margins.bottom
     : maxTopByViewport;
-  const maxTop = Math.max(margin, Math.min(maxTopByViewport, maxTopByComposer));
-  const nextLeft = Math.max(margin, Math.min(maxLeft, rect.left));
-  const nextTop = Math.max(margin, Math.min(maxTop, rect.top));
+  const maxTop = Math.max(margins.top, Math.min(maxTopByViewport, maxTopByComposer));
+  const nextLeft = Math.max(margins.left, Math.min(maxLeft, rect.left));
+  const nextTop = Math.max(margins.top, Math.min(maxTop, rect.top));
   if (Math.abs(nextLeft - rect.left) < 0.5 && Math.abs(nextTop - rect.top) < 0.5) return false;
   dockElement.style.left = `${Math.round(nextLeft)}px`;
   dockElement.style.top = `${Math.round(nextTop)}px`;
@@ -18729,11 +18739,18 @@ function updateVideoPipDockLayout() {
     && Number.isFinite(prefs.videoPipPosition.left)
     && Number.isFinite(prefs.videoPipPosition.top)
   ) {
+    const margins = pipViewportMargins();
     const manualRect = ui.videoPipDock.getBoundingClientRect();
     const manualWidth = manualRect.width || 420;
     const manualHeight = manualRect.height || 280;
-    const manualLeft = Math.max(8, Math.min(window.innerWidth - manualWidth - 8, prefs.videoPipPosition.left));
-    const manualTop = Math.max(8, Math.min(window.innerHeight - manualHeight - 8, prefs.videoPipPosition.top));
+    const manualLeft = Math.max(
+      margins.left,
+      Math.min(window.innerWidth - manualWidth - margins.right, prefs.videoPipPosition.left)
+    );
+    const manualTop = Math.max(
+      margins.top,
+      Math.min(window.innerHeight - manualHeight - margins.bottom, prefs.videoPipPosition.top)
+    );
     ui.videoPipDock.style.left = `${Math.round(manualLeft)}px`;
     ui.videoPipDock.style.top = `${Math.round(manualTop)}px`;
     ui.videoPipDock.style.right = "auto";
@@ -18745,17 +18762,18 @@ function updateVideoPipDockLayout() {
   const width = rect.width || 420;
   const height = rect.height || 280;
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
-  let left = Math.max(10, window.innerWidth - width - 14);
-  let top = Math.max(10, window.innerHeight - height - 208);
+  const margins = pipViewportMargins();
+  let left = Math.max(margins.left, window.innerWidth - width - Math.max(14, margins.right));
+  let top = Math.max(margins.top, window.innerHeight - height - Math.max(208, margins.bottom));
   if (composerRect) {
-    top = Math.max(8, composerRect.top - height - 8);
+    top = Math.max(margins.top, composerRect.top - height - margins.bottom);
   }
   if (ui.swfPipDock instanceof HTMLElement && !ui.swfPipDock.classList.contains("swf-pip--hidden")) {
     const swfRect = ui.swfPipDock.getBoundingClientRect();
     const candidateLeft = swfRect.left - width - 12;
-    if (candidateLeft > 10) {
+    if (candidateLeft > margins.left) {
       left = candidateLeft;
-      top = Math.max(8, swfRect.top);
+      top = Math.max(margins.top, swfRect.top);
     }
   }
   ui.videoPipDock.style.left = `${Math.round(left)}px`;
@@ -19616,11 +19634,12 @@ function updateSwfPipDockLayout() {
     && Number.isFinite(prefs.swfPipPosition.left)
     && Number.isFinite(prefs.swfPipPosition.top)
   ) {
+    const margins = pipViewportMargins();
     const rect = ui.swfPipDock.getBoundingClientRect();
     const width = rect.width || 420;
     const height = rect.height || 320;
-    const left = Math.max(8, Math.min(window.innerWidth - width - 8, prefs.swfPipPosition.left));
-    const top = Math.max(8, Math.min(window.innerHeight - 48, prefs.swfPipPosition.top));
+    const left = Math.max(margins.left, Math.min(window.innerWidth - width - margins.right, prefs.swfPipPosition.left));
+    const top = Math.max(margins.top, Math.min(window.innerHeight - height - margins.bottom, prefs.swfPipPosition.top));
     ui.swfPipDock.style.left = `${Math.round(left)}px`;
     ui.swfPipDock.style.top = `${Math.round(top)}px`;
     ui.swfPipDock.style.right = "auto";
@@ -19629,23 +19648,24 @@ function updateSwfPipDockLayout() {
     return;
   }
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  const margins = pipViewportMargins();
   if (!composerRect) {
-    ui.swfPipDock.style.maxHeight = `${Math.max(160, window.innerHeight - 24)}px`;
-    ui.swfPipDock.style.left = `${Math.max(10, window.innerWidth - 420 - 14)}px`;
-    ui.swfPipDock.style.top = `${Math.max(10, window.innerHeight - 420)}px`;
+    ui.swfPipDock.style.maxHeight = `${Math.max(160, window.innerHeight - (margins.top + margins.bottom + 8))}px`;
+    ui.swfPipDock.style.left = `${Math.max(margins.left, window.innerWidth - 420 - Math.max(14, margins.right))}px`;
+    ui.swfPipDock.style.top = `${Math.max(margins.top, window.innerHeight - 420 - margins.bottom)}px`;
     ui.swfPipDock.style.right = "auto";
     ui.swfPipDock.style.bottom = "auto";
     clampPipDockAboveComposer(ui.swfPipDock);
     return;
   }
-  const maxHeight = Math.max(140, composerRect.top - 12);
+  const maxHeight = Math.max(140, composerRect.top - margins.bottom - 4);
   ui.swfPipDock.style.maxHeight = `${Math.round(maxHeight)}px`;
   const rect = ui.swfPipDock.getBoundingClientRect();
   const width = rect.width || 420;
   const height = rect.height || 320;
-  const left = Math.max(10, Math.min(window.innerWidth - width - 10, composerRect.right - width));
-  const maxTopAboveComposer = composerRect.top - height - 8;
-  const top = Math.max(8, maxTopAboveComposer);
+  const left = Math.max(margins.left, Math.min(window.innerWidth - width - margins.right, composerRect.right - width));
+  const maxTopAboveComposer = composerRect.top - height - margins.bottom;
+  const top = Math.max(margins.top, maxTopAboveComposer);
   ui.swfPipDock.style.left = `${Math.round(left)}px`;
   ui.swfPipDock.style.top = `${Math.round(top)}px`;
   ui.swfPipDock.style.right = "auto";
@@ -30246,16 +30266,17 @@ function clampPipBoundsForRect(target, left, top, width, height) {
   const minSize = PIP_MIN_SIZE[target] || PIP_MIN_SIZE.swf;
   const nextWidth = Math.max(minSize.width, width);
   const nextHeight = Math.max(minSize.height, height);
-  const maxLeft = Math.max(8, window.innerWidth - nextWidth - 8);
+  const margins = pipViewportMargins();
+  const maxLeft = Math.max(margins.left, window.innerWidth - nextWidth - margins.right);
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
   const maxTop = composerRect
-    ? Math.max(8, composerRect.top - nextHeight - 8)
-    : Math.max(8, window.innerHeight - nextHeight - 8);
+    ? Math.max(margins.top, composerRect.top - nextHeight - margins.bottom)
+    : Math.max(margins.top, window.innerHeight - nextHeight - margins.bottom);
   return {
-    left: Math.max(8, Math.min(maxLeft, left)),
-    top: Math.max(8, Math.min(maxTop, top)),
-    width: Math.min(nextWidth, Math.max(180, window.innerWidth - 16)),
-    height: Math.min(nextHeight, Math.max(120, window.innerHeight - 16))
+    left: Math.max(margins.left, Math.min(maxLeft, left)),
+    top: Math.max(margins.top, Math.min(maxTop, top)),
+    width: Math.min(nextWidth, Math.max(180, window.innerWidth - (margins.left + margins.right))),
+    height: Math.min(nextHeight, Math.max(120, window.innerHeight - (margins.top + margins.bottom)))
   };
 }
 
@@ -30307,12 +30328,16 @@ const handlePipDragMove = (event) => {
   const moveDistance = Math.hypot(event.clientX - pipDragState.startX, event.clientY - pipDragState.startY);
   if (moveDistance > 10) pipDragState.moved = true;
   const dockRect = targetDock.getBoundingClientRect();
+  const margins = pipViewportMargins();
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
   const maxTop = composerRect
-    ? Math.max(8, composerRect.top - dockRect.height - 8)
-    : Math.max(8, window.innerHeight - dockRect.height - 8);
-  const nextLeft = Math.max(8, Math.min(window.innerWidth - dockRect.width - 8, event.clientX - pipDragState.offsetX));
-  const nextTop = Math.max(8, Math.min(maxTop, event.clientY - pipDragState.offsetY));
+    ? Math.max(margins.top, composerRect.top - dockRect.height - margins.bottom)
+    : Math.max(margins.top, window.innerHeight - dockRect.height - margins.bottom);
+  const nextLeft = Math.max(
+    margins.left,
+    Math.min(window.innerWidth - dockRect.width - margins.right, event.clientX - pipDragState.offsetX)
+  );
+  const nextTop = Math.max(margins.top, Math.min(maxTop, event.clientY - pipDragState.offsetY));
   targetDock.style.left = `${Math.round(nextLeft)}px`;
   targetDock.style.top = `${Math.round(nextTop)}px`;
   targetDock.style.right = "auto";
