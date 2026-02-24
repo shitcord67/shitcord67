@@ -28,8 +28,10 @@ const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
 const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
 const XMPP_HTTP_UPLOAD_MAX_BYTES = 24 * 1024 * 1024;
-const XMPP_MAM_PAGE_SIZE = 120;
-const XMPP_MAM_LOADING_STALE_MS = 18000;
+const XMPP_MAM_PAGE_SIZE = 180;
+const XMPP_MAM_PREFETCH_PAGES = 2;
+const XMPP_MAM_LOADING_STALE_MS = 10000;
+const XMPP_MAM_REQUEST_TIMEOUT_MS = 7000;
 const XMPP_PING_INTERVAL_MS = 45000;
 const XMPP_PING_TIMEOUT_MS = 12000;
 const POPOUT_PRESENCE_REFRESH_MS = 30_000;
@@ -7029,7 +7031,8 @@ function xmppMamArchiveTargetJid(prefs = getPreferences()) {
 function requestXmppRoomHistory(roomJid, {
   limit = XMPP_MAM_PAGE_SIZE,
   force = false,
-  reason = "manual"
+  reason = "manual",
+  prefetchPages = 1
 } = {}) {
   const bareRoom = xmppBareJid(roomJid);
   if (!bareRoom || !xmppConnection || !globalThis.$iq) return false;
@@ -7080,6 +7083,17 @@ function requestXmppRoomHistory(roomJid, {
         mamState.pagesLoaded += 1;
         if (firstId) mamState.before = firstId;
         if (complete || !firstId) mamState.complete = true;
+        const nextPrefetchPages = Math.max(1, Number(prefetchPages) || 1);
+        if (nextPrefetchPages > 1 && !mamState.complete) {
+          setTimeout(() => {
+            requestXmppRoomHistory(bareRoom, {
+              limit: maxRows,
+              force: false,
+              reason: `${reason}-prefetch`,
+              prefetchPages: nextPrefetchPages - 1
+            });
+          }, 120);
+        }
         const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
         if (activeRoomJid && activeRoomJid === bareRoom) {
           renderMessages();
@@ -7116,7 +7130,7 @@ function requestXmppRoomHistory(roomJid, {
           permanent
         });
       },
-      9000
+      XMPP_MAM_REQUEST_TIMEOUT_MS
     );
   } catch (error) {
     endXmppMamLoading(mamState);
@@ -7134,7 +7148,8 @@ function requestXmppRoomHistory(roomJid, {
 function requestXmppDirectHistory(peerJid, {
   limit = XMPP_MAM_PAGE_SIZE,
   force = false,
-  reason = "manual"
+  reason = "manual",
+  prefetchPages = 1
 } = {}) {
   const barePeer = xmppBareJid(peerJid);
   if (!barePeer || !xmppConnection || !globalThis.$iq) return false;
@@ -7200,6 +7215,17 @@ function requestXmppDirectHistory(peerJid, {
         mamState.pagesLoaded += 1;
         if (firstId) mamState.before = firstId;
         if (complete || !firstId) mamState.complete = true;
+        const nextPrefetchPages = Math.max(1, Number(prefetchPages) || 1);
+        if (nextPrefetchPages > 1 && !mamState.complete) {
+          setTimeout(() => {
+            requestXmppDirectHistory(barePeer, {
+              limit: maxRows,
+              force: false,
+              reason: `${reason}-prefetch`,
+              prefetchPages: nextPrefetchPages - 1
+            });
+          }, 120);
+        }
         const activeConversation = getActiveConversation();
         const activePeer = activeConversation?.type === "dm"
           ? xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount())
@@ -7236,7 +7262,12 @@ function requestXmppDirectHistory(peerJid, {
             fromTarget: archiveTarget,
             toTarget: archiveTargets[mamState.targetIndex] || ""
           });
-          requestXmppDirectHistory(barePeer, { limit: maxRows, force: false, reason: `${reason}-fallback-target` });
+          requestXmppDirectHistory(barePeer, {
+            limit: maxRows,
+            force: false,
+            reason: `${reason}-fallback-target`,
+            prefetchPages
+          });
           return;
         }
         if (permanent) mamState.complete = true;
@@ -7257,7 +7288,7 @@ function requestXmppDirectHistory(peerJid, {
           permanent
         });
       },
-      9000
+      XMPP_MAM_REQUEST_TIMEOUT_MS
     );
   } catch (error) {
     endXmppMamLoading(mamState);
@@ -7505,7 +7536,7 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     });
     const mamState = ensureXmppMamState(roomJid);
     if (!mamState || (mamState.pagesLoaded === 0 && !mamState.loading)) {
-      requestXmppRoomHistory(roomJid, { reason: "join" });
+      requestXmppRoomHistory(roomJid, { reason: "join", prefetchPages: XMPP_MAM_PREFETCH_PAGES });
     }
     return true;
   }
@@ -7533,7 +7564,7 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     renderServers();
     renderChannels();
   }
-  requestXmppRoomHistory(roomJid, { reason: "join" });
+  requestXmppRoomHistory(roomJid, { reason: "join", prefetchPages: XMPP_MAM_PREFETCH_PAGES });
   addXmppDebugEvent("presence", "Joined MUC room", { roomToken, roomJid, nick });
   return true;
 }
@@ -9001,7 +9032,7 @@ function connectRelaySocket({ force = false } = {}) {
             });
             const dmMamState = ensureXmppDmMamState(directPeerJid);
             if (dmMamState && dmMamState.pagesLoaded === 0 && !dmMamState.loading) {
-              requestXmppDirectHistory(directPeerJid, { reason: "connect" });
+              requestXmppDirectHistory(directPeerJid, { reason: "connect", prefetchPages: XMPP_MAM_PREFETCH_PAGES });
             }
           }
           Promise.allSettled([
@@ -9196,7 +9227,7 @@ function syncRelayRoomForActiveConversation() {
     if (directPeerJid) {
       const dmMamState = ensureXmppDmMamState(directPeerJid);
       if (dmMamState && dmMamState.pagesLoaded === 0 && !dmMamState.loading) {
-        requestXmppDirectHistory(directPeerJid, { reason: "switch" });
+        requestXmppDirectHistory(directPeerJid, { reason: "switch", prefetchPages: XMPP_MAM_PREFETCH_PAGES });
       }
       relayJoinedRoom = nextRoom;
       return;
@@ -11434,17 +11465,33 @@ function loadScriptTag(src, type = "text/javascript") {
 }
 
 async function localRuntimeExists(src) {
-  try {
-    const response = await fetch(src, { method: "GET", cache: "no-store" });
-    if (!response.ok) return false;
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
-    if (!contentType) return true;
-    if (contentType.includes("javascript")) return true;
-    if (contentType.includes("ecmascript")) return true;
-    if (contentType.includes("application/octet-stream")) return true;
+  const isScriptLikeContentType = (contentType = "") => {
+    const value = (contentType || "").toLowerCase();
+    if (!value) return true;
+    if (value.includes("javascript")) return true;
+    if (value.includes("ecmascript")) return true;
+    if (value.includes("application/octet-stream")) return true;
     // Guard against dev servers returning index.html for missing files.
-    if (contentType.includes("text/html")) return false;
+    if (value.includes("text/html")) return false;
     return true;
+  };
+  try {
+    const headResponse = await fetch(src, { method: "HEAD", cache: "no-store" });
+    if (headResponse.ok) {
+      return isScriptLikeContentType(headResponse.headers.get("content-type") || "");
+    }
+    if (![403, 405, 501].includes(Number(headResponse.status) || 0)) return false;
+  } catch {
+    // Fall through to GET probe when HEAD is blocked or unsupported.
+  }
+  try {
+    const getResponse = await fetch(src, {
+      method: "GET",
+      cache: "no-store",
+      headers: { Range: "bytes=0-0" }
+    });
+    if (!getResponse.ok) return false;
+    return isScriptLikeContentType(getResponse.headers.get("content-type") || "");
   } catch {
     return false;
   }
@@ -25022,6 +25069,9 @@ function renderMessages() {
     if (mamState) {
       recoverStaleXmppMamLoading(mamState, { scope: mamScope, target: mamTarget || "", reason: "render" });
       const xmppConnected = Boolean(xmppConnection && relayStatus === "connected");
+      if (xmppConnected && !mamState.loading && mamState.pagesLoaded === 0 && !mamState.complete) {
+        maybeLoadOlderXmppHistoryForActiveConversation({ trigger: "auto" });
+      }
       const shouldRenderHistoryControl = Boolean(
         xmppConnected
         && (mamState.loading || (mamState.pagesLoaded === 0 && !mamState.complete))

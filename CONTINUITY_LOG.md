@@ -1286,3 +1286,6 @@ The last changes broke how shitcord67 looks on Android. Apparently the whole cha
 now, hiding most of the UI. Why did it move out of where it was before?
 [2026-02-24T03:23:56+01:00] Can you tell me why the android application looks broken? Especially the channel sidebar is not correctly positioned. For some reason it is over the guild list and partly over the chat...
 [2026-02-24T04:14:05+01:00] Yep, looks correct now. Now to improve UX on mobile, maybe make it also act a bit more like Discord Android. E.g. there I can swipe to show either chat or guild+channel view.
+[2026-02-24T06:09:51+01:00] Can you tell me why I see some DM history when running npm run electron but not when running /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67?
+[2026-02-24T06:15:51+01:00] Ah I think it just takes quite a bit of time to load? Cause on Android that history was also not visible until some minutes after. Is there some way to speed the loading up? Also is there some way to make the Ruffle loading more speed up? Also how about you really put some additional space at the top and bottom to respect the notch, status bar and navigation bar of Android?
+[2026-02-24T06:16:18+01:00] Oh also shitcord67 doesn't display it's logo in the upper-left anymore. Please fix.

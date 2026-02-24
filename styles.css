@@ -19,6 +19,8 @@
   --runtime-safe-right: 0px;
   --runtime-safe-bottom: 0px;
   --runtime-safe-left: 0px;
+  --android-safe-extra-top: 0px;
+  --android-safe-extra-bottom: 0px;
 }
 
 body[data-theme="discord"] {
@@ -102,6 +104,13 @@ select {
 
 body[data-platform="android"] {
   --android-touch-size: 40px;
+  --android-safe-extra-top: 12px;
+  --android-safe-extra-bottom: 14px;
+}
+
+body[data-platform="android"] #app {
+  padding-top: max(calc(var(--safe-top) + var(--runtime-safe-top)), var(--android-safe-extra-top));
+  padding-bottom: max(calc(var(--safe-bottom) + var(--runtime-safe-bottom)), var(--android-safe-extra-bottom));
 }
 
 body[data-platform="android"] .chat-topic-edit {
@@ -400,6 +409,23 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .server-brand__icon {
   font-size: 1.2rem;
   line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35rem;
+  min-height: 1.35rem;
+}
+
+.server-brand__icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  display: block;
+}
+
+.server-brand__label {
+  display: none;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
 }
 
 .server-brand__badge {
