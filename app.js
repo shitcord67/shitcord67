@@ -205,7 +205,10 @@ const SLASH_COMMANDS = [
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
+  { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
+  { name: "callxmpp", args: "[start|screen]", description: "Try native XMPP call flow for this conversation." },
   { name: "callscreen", args: "[room]", description: "Open call room and start with screenshare intent." },
+  { name: "whiteboard", args: "[open|copy|link] [room]", description: "Open/copy shared whiteboard room for this conversation." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
   { name: "tableflip", args: "[text]", description: "Send a table-flip message." },
   { name: "unflip", args: "", description: "Send table reset emote." },
@@ -722,7 +725,10 @@ function buildInitialState() {
       xmppHideNonXmpp: "on",
       callProviderUrl: "https://meet.jit.si",
       callRoomPrefix: "shitcord67",
-      callAutoPost: "on"
+      callAutoPost: "on",
+      whiteboardProviderUrl: "https://wbo.ophir.dev/boards",
+      whiteboardRoomPrefix: "shitcord67-wb",
+      whiteboardAutoPost: "on"
     }
   };
 }
@@ -1376,7 +1382,9 @@ const ui = {
   chatHeaderRight: document.querySelector(".chat-header__right"),
   relayHeaderBadge: document.getElementById("relayHeaderBadge"),
   openCallBtn: document.getElementById("openCallBtn"),
+  openXmppCallBtn: document.getElementById("openXmppCallBtn"),
   copyCallLinkBtn: document.getElementById("copyCallLinkBtn"),
+  openWhiteboardBtn: document.getElementById("openWhiteboardBtn"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
   nextUnreadBtn: document.getElementById("nextUnreadBtn"),
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
@@ -1623,6 +1631,9 @@ const ui = {
   callProviderInput: document.getElementById("callProviderInput"),
   callRoomPrefixInput: document.getElementById("callRoomPrefixInput"),
   callAutoPostInput: document.getElementById("callAutoPostInput"),
+  whiteboardProviderInput: document.getElementById("whiteboardProviderInput"),
+  whiteboardRoomPrefixInput: document.getElementById("whiteboardRoomPrefixInput"),
+  whiteboardAutoPostInput: document.getElementById("whiteboardAutoPostInput"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -1723,7 +1734,9 @@ if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 
 const HEADER_ACTION_BUTTONS = [
   { key: "openCallBtn", icon: "📹", fallback: "Call", preferIcon: true },
+  { key: "openXmppCallBtn", icon: "📡", fallback: "XMPP Call", preferIcon: true },
   { key: "copyCallLinkBtn", icon: "🔗", fallback: "Copy Call", preferIcon: true },
+  { key: "openWhiteboardBtn", icon: "📝", fallback: "Whiteboard", preferIcon: true },
   { key: "openFindBtn", icon: "🔍", fallback: "Find", preferIcon: true },
   { key: "markChannelReadBtn", icon: "✓", fallback: "Mark Read" },
   { key: "nextUnreadBtn", icon: "⤓", fallback: "Next Unread" },
@@ -4263,6 +4276,125 @@ function launchConversationCall({ screenShare = false, roomOverride = "", copyOn
   return url;
 }
 
+function canAttemptNativeXmppCall() {
+  const prefs = getPreferences();
+  return Boolean(
+    prefs.relayMode === "xmpp"
+    && relayStatus === "connected"
+    && xmppConnection
+    && typeof globalThis.RTCPeerConnection === "function"
+  );
+}
+
+function launchNativeXmppConversationCall({ screenShare = false } = {}) {
+  const conversation = getActiveConversation();
+  if (!conversation) {
+    showToast("Open a channel or DM first.", { tone: "error" });
+    return false;
+  }
+  if (!canAttemptNativeXmppCall()) {
+    showToast("XMPP relay/WebRTC is not ready for native calling here. Use Web Call meanwhile.", { tone: "error", duration: 2600 });
+    return false;
+  }
+  if (typeof globalThis.startNativeXmppCallSession === "function") {
+    try {
+      const room = conversationCallRoomName(conversation, "");
+      const ok = globalThis.startNativeXmppCallSession({
+        room,
+        screenShare: Boolean(screenShare),
+        conversationId: conversation.id || "",
+        conversationType: conversation.type || ""
+      });
+      if (ok) {
+        showToast(screenShare ? "Native XMPP screen-share call started." : "Native XMPP call started.");
+        return true;
+      }
+    } catch (error) {
+      showToast(`Native XMPP call failed: ${String(error?.message || error)}`, { tone: "error" });
+      return false;
+    }
+  }
+  showToast("Native XMPP call signaling is not fully wired yet. Use Web Call for active AV/screenshare.", { tone: "error", duration: 2800 });
+  return false;
+}
+
+function conversationWhiteboardRoomName(conversation = getActiveConversation(), roomOverride = "") {
+  const override = normalizeConferenceRoomToken(roomOverride);
+  if (override) return override;
+  if (!conversation) return "";
+  const prefs = getPreferences();
+  const prefix = normalizeWhiteboardRoomPrefix(prefs.whiteboardRoomPrefix);
+  const relayRoom = relayRoomForActiveConversation() || "";
+  if (conversation.type === "dm") {
+    const threadId = (conversation.thread?.id || "dm").toString();
+    const seed = `wb:dm:${threadId}:${relayRoom}`;
+    return normalizeConferenceRoomToken(`${prefix}-dm-${shortHashToken(seed).slice(0, 8)}`);
+  }
+  const guildId = (state.activeGuildId || "").toString();
+  const channelId = (conversation.channel?.id || "").toString();
+  const channelName = normalizeConferenceRoomToken(conversation.channel?.name || "room");
+  const seed = `wb:guild:${guildId}:${channelId}:${relayRoom}:${channelName}`;
+  return normalizeConferenceRoomToken(`${prefix}-${channelName || "room"}-${shortHashToken(seed).slice(0, 8)}`);
+}
+
+function conversationWhiteboardUrl(conversation = getActiveConversation(), roomOverride = "") {
+  const room = conversationWhiteboardRoomName(conversation, roomOverride);
+  if (!room) return "";
+  const base = normalizeWhiteboardProviderUrl(getPreferences().whiteboardProviderUrl);
+  return `${base}/${encodeURIComponent(room)}`;
+}
+
+function postWhiteboardInviteToConversation(conversation, account, url) {
+  if (!conversation || !account || !url) return false;
+  const message = {
+    id: createId(),
+    userId: account.id,
+    authorName: "",
+    text: `📝 Whiteboard: ${url}`,
+    ts: new Date().toISOString(),
+    reactions: [],
+    attachments: []
+  };
+  if (conversation.type === "dm") {
+    conversation.thread.messages.push(message);
+    publishRelayDirectMessage(conversation.thread, message, account);
+    return true;
+  }
+  if (conversation.channel?.type === "voice" || conversation.channel?.type === "stage") return false;
+  conversation.channel.messages.push(message);
+  publishRelayChannelMessage(conversation.channel, message, account);
+  return true;
+}
+
+function launchConversationWhiteboard({ roomOverride = "", copyOnly = false, autoPost = true } = {}) {
+  const conversation = getActiveConversation();
+  const account = getCurrentAccount();
+  if (!conversation) {
+    showToast("Open a channel or DM first.", { tone: "error" });
+    return "";
+  }
+  const url = conversationWhiteboardUrl(conversation, roomOverride);
+  if (!url) {
+    showToast("Could not resolve whiteboard room URL.", { tone: "error" });
+    return "";
+  }
+  if (copyOnly) {
+    void copyText(url).then((ok) => showToast(ok ? "Whiteboard link copied." : "Failed to copy whiteboard link.", { tone: ok ? "info" : "error" }));
+    return url;
+  }
+  openConferenceLightbox(url, { title: "Shared Whiteboard" });
+  if (autoPost && getPreferences().whiteboardAutoPost === "on" && account) {
+    const posted = postWhiteboardInviteToConversation(conversation, account, url);
+    if (posted) {
+      saveState();
+      renderMessages();
+      renderChannels();
+      renderDmList();
+    }
+  }
+  return url;
+}
+
 function mentionInComposer(account) {
   if (!account) return;
   const base = ui.messageInput.value.trim();
@@ -4932,6 +5064,25 @@ function normalizeConferenceRoomToken(value) {
   return token.slice(0, 64);
 }
 
+function normalizeWhiteboardProviderUrl(value) {
+  const raw = (value || "").toString().trim().slice(0, 200);
+  if (!raw) return "https://wbo.ophir.dev/boards";
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!/^https?:$/i.test(parsed.protocol)) return "https://wbo.ophir.dev/boards";
+    const cleanPath = parsed.pathname.replace(/\/+$/, "");
+    return `${parsed.origin}${cleanPath}`.slice(0, 200);
+  } catch {
+    return "https://wbo.ophir.dev/boards";
+  }
+}
+
+function normalizeWhiteboardRoomPrefix(value) {
+  const token = normalizeConferenceRoomToken((value || "").toString()).slice(0, 32);
+  return token || "shitcord67-wb";
+}
+
 function relayHealthUrlFromRelayUrl(value) {
   const base = normalizeRelayUrl(value)
     .replace(/^ws:/i, "http:")
@@ -5124,6 +5275,9 @@ function getPreferences() {
     callProviderUrl: normalizeConferenceProviderUrl(current.callProviderUrl),
     callRoomPrefix: normalizeConferenceRoomPrefix(current.callRoomPrefix),
     callAutoPost: normalizeToggle(current.callAutoPost ?? "on"),
+    whiteboardProviderUrl: normalizeWhiteboardProviderUrl(current.whiteboardProviderUrl),
+    whiteboardRoomPrefix: normalizeWhiteboardRoomPrefix(current.whiteboardRoomPrefix),
+    whiteboardAutoPost: normalizeToggle(current.whiteboardAutoPost ?? "on"),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -13907,7 +14061,7 @@ function handleSlashCommand(rawText, channel, account) {
     return true;
   }
 
-  if (command === "call" || command === "callscreen") {
+  if (command === "call" || command === "callscreen" || command === "callweb") {
     const raw = (arg || "").trim();
     const parts = raw ? raw.split(/\s+/) : [];
     const first = (parts[0] || "").toLowerCase();
@@ -13934,6 +14088,37 @@ function handleSlashCommand(rawText, channel, account) {
       roomOverride,
       autoPost: true
     });
+    return true;
+  }
+
+  if (command === "callxmpp") {
+    const raw = (arg || "").trim().toLowerCase();
+    const screenShare = raw === "screen" || raw === "screenshare" || raw === "share";
+    launchNativeXmppConversationCall({ screenShare });
+    return true;
+  }
+
+  if (command === "whiteboard") {
+    const raw = (arg || "").trim();
+    const parts = raw ? raw.split(/\s+/) : [];
+    const first = (parts[0] || "").toLowerCase();
+    const explicitAction = ["open", "join", "copy", "link"].includes(first) ? first : "";
+    const action = explicitAction || "open";
+    const roomOverride = explicitAction ? parts.slice(1).join(" ") : raw;
+    if (action === "copy" || action === "link") {
+      const url = conversationWhiteboardUrl(getActiveConversation(), roomOverride);
+      if (!url) {
+        addSystemMessage(channel, "Could not resolve whiteboard room URL.");
+        return true;
+      }
+      if (action === "copy") {
+        void copyText(url).then((ok) => showToast(ok ? "Whiteboard link copied." : "Failed to copy whiteboard link.", { tone: ok ? "info" : "error" }));
+      } else {
+        addSystemMessage(channel, `Whiteboard link: ${url}`);
+      }
+      return true;
+    }
+    launchConversationWhiteboard({ roomOverride, autoPost: true });
     return true;
   }
 
@@ -24948,9 +25133,17 @@ function renderDmHome() {
     ui.openCallBtn.hidden = true;
     ui.openCallBtn.disabled = true;
   }
+  if (ui.openXmppCallBtn) {
+    ui.openXmppCallBtn.hidden = true;
+    ui.openXmppCallBtn.disabled = true;
+  }
   if (ui.copyCallLinkBtn) {
     ui.copyCallLinkBtn.hidden = true;
     ui.copyCallLinkBtn.disabled = true;
+  }
+  if (ui.openWhiteboardBtn) {
+    ui.openWhiteboardBtn.hidden = true;
+    ui.openWhiteboardBtn.disabled = true;
   }
   setActiveChannelHeader("Friends", "@", "Friends", "Direct messages");
   setActiveChannelTopic("Direct Messages");
@@ -25132,6 +25325,30 @@ function renderVoiceStageSurface(channel) {
     launchConversationCall({ screenShare: true, autoPost: true });
   });
   controls.appendChild(screenCallBtn);
+
+  const xmppCallBtn = document.createElement("button");
+  xmppCallBtn.type = "button";
+  xmppCallBtn.textContent = "Start XMPP Call";
+  xmppCallBtn.addEventListener("click", () => {
+    launchNativeXmppConversationCall({ screenShare: false });
+  });
+  controls.appendChild(xmppCallBtn);
+
+  const xmppScreenBtn = document.createElement("button");
+  xmppScreenBtn.type = "button";
+  xmppScreenBtn.textContent = "XMPP Screen";
+  xmppScreenBtn.addEventListener("click", () => {
+    launchNativeXmppConversationCall({ screenShare: true });
+  });
+  controls.appendChild(xmppScreenBtn);
+
+  const whiteboardBtn = document.createElement("button");
+  whiteboardBtn.type = "button";
+  whiteboardBtn.textContent = "Open Whiteboard";
+  whiteboardBtn.addEventListener("click", () => {
+    launchConversationWhiteboard({ autoPost: true });
+  });
+  controls.appendChild(whiteboardBtn);
 
   if (channel.type === "stage") {
     const handBtn = document.createElement("button");
@@ -25502,9 +25719,17 @@ function renderMessages() {
       ui.openCallBtn.hidden = true;
       ui.openCallBtn.disabled = true;
     }
+    if (ui.openXmppCallBtn) {
+      ui.openXmppCallBtn.hidden = true;
+      ui.openXmppCallBtn.disabled = true;
+    }
     if (ui.copyCallLinkBtn) {
       ui.copyCallLinkBtn.hidden = true;
       ui.copyCallLinkBtn.disabled = true;
+    }
+    if (ui.openWhiteboardBtn) {
+      ui.openWhiteboardBtn.hidden = true;
+      ui.openWhiteboardBtn.disabled = true;
     }
     updateJumpToBottomButton();
     return;
@@ -25512,12 +25737,22 @@ function renderMessages() {
   if (ui.openCallBtn) {
     ui.openCallBtn.hidden = false;
     ui.openCallBtn.disabled = false;
-    setHeaderActionButtonLabel(ui.openCallBtn, isDm ? "DM Call" : "Call");
+    setHeaderActionButtonLabel(ui.openCallBtn, isDm ? "DM Web Call" : "Web Call");
+  }
+  if (ui.openXmppCallBtn) {
+    ui.openXmppCallBtn.hidden = false;
+    ui.openXmppCallBtn.disabled = false;
+    setHeaderActionButtonLabel(ui.openXmppCallBtn, isDm ? "DM XMPP Call" : "XMPP Call");
   }
   if (ui.copyCallLinkBtn) {
     ui.copyCallLinkBtn.hidden = false;
     ui.copyCallLinkBtn.disabled = false;
     setHeaderActionButtonLabel(ui.copyCallLinkBtn, "Copy Call");
+  }
+  if (ui.openWhiteboardBtn) {
+    ui.openWhiteboardBtn.hidden = false;
+    ui.openWhiteboardBtn.disabled = false;
+    setHeaderActionButtonLabel(ui.openWhiteboardBtn, isDm ? "DM Whiteboard" : "Whiteboard");
   }
   if (!isDm && (channel?.type === "voice" || channel?.type === "stage")) {
     renderVoiceStageSurface(channel);
@@ -27284,6 +27519,9 @@ function renderSettingsScreen() {
   if (ui.callProviderInput) ui.callProviderInput.value = prefs.callProviderUrl;
   if (ui.callRoomPrefixInput) ui.callRoomPrefixInput.value = prefs.callRoomPrefix;
   if (ui.callAutoPostInput) ui.callAutoPostInput.value = prefs.callAutoPost;
+  if (ui.whiteboardProviderInput) ui.whiteboardProviderInput.value = prefs.whiteboardProviderUrl;
+  if (ui.whiteboardRoomPrefixInput) ui.whiteboardRoomPrefixInput.value = prefs.whiteboardRoomPrefix;
+  if (ui.whiteboardAutoPostInput) ui.whiteboardAutoPostInput.value = prefs.whiteboardAutoPost;
   renderRelayStatusOutput();
   if (ui.guildNotifGuildName) {
     ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
@@ -27333,6 +27571,8 @@ function hardenInputAutocompleteNoise() {
     ui.memberSearchInput,
     ui.callProviderInput,
     ui.callRoomPrefixInput,
+    ui.whiteboardProviderInput,
+    ui.whiteboardRoomPrefixInput,
     ui.mediaSearchInput,
     ui.findInput,
     ui.findAuthorInput,
@@ -29413,7 +29653,7 @@ ui.messageForm.addEventListener("submit", (event) => {
       });
       return;
     }
-    if (dmCommand === "call" || dmCommand === "callscreen") {
+    if (dmCommand === "call" || dmCommand === "callscreen" || dmCommand === "callweb") {
       const raw = (dmArg || "").trim();
       const parts = raw ? raw.split(/\s+/) : [];
       const first = (parts[0] || "").toLowerCase();
@@ -29440,6 +29680,35 @@ ui.messageForm.addEventListener("submit", (event) => {
         roomOverride,
         autoPost: true
       });
+      return;
+    }
+    if (dmCommand === "callxmpp") {
+      const raw = (dmArg || "").trim().toLowerCase();
+      const screenShare = raw === "screen" || raw === "screenshare" || raw === "share";
+      launchNativeXmppConversationCall({ screenShare });
+      return;
+    }
+    if (dmCommand === "whiteboard") {
+      const raw = (dmArg || "").trim();
+      const parts = raw ? raw.split(/\s+/) : [];
+      const first = (parts[0] || "").toLowerCase();
+      const explicitAction = ["open", "join", "copy", "link"].includes(first) ? first : "";
+      const action = explicitAction || "open";
+      const roomOverride = explicitAction ? parts.slice(1).join(" ") : raw;
+      if (action === "copy" || action === "link") {
+        const url = conversationWhiteboardUrl(conversation, roomOverride);
+        if (!url) {
+          showToast("Could not resolve whiteboard room URL.", { tone: "error" });
+          return;
+        }
+        if (action === "copy") {
+          void copyText(url).then((ok) => showToast(ok ? "Whiteboard link copied." : "Failed to copy whiteboard link.", { tone: ok ? "info" : "error" }));
+        } else {
+          showToast(url, { duration: 2600 });
+        }
+        return;
+      }
+      launchConversationWhiteboard({ roomOverride, autoPost: true });
       return;
     }
     if (dmCommand === "focus") {
@@ -30856,8 +31125,42 @@ ui.openCallBtn?.addEventListener("contextmenu", (event) => {
     }
   ]);
 });
+ui.openXmppCallBtn?.addEventListener("click", () => {
+  launchNativeXmppConversationCall({ screenShare: false });
+});
+ui.openXmppCallBtn?.addEventListener("contextmenu", (event) => {
+  openContextMenu(event, [
+    {
+      label: "Start XMPP Voice/Video",
+      action: () => launchNativeXmppConversationCall({ screenShare: false })
+    },
+    {
+      label: "Start XMPP Screen Share",
+      action: () => launchNativeXmppConversationCall({ screenShare: true })
+    },
+    {
+      label: "Copy Web Call Link",
+      action: () => launchConversationCall({ copyOnly: true, autoPost: false })
+    }
+  ]);
+});
 ui.copyCallLinkBtn?.addEventListener("click", () => {
   launchConversationCall({ copyOnly: true, autoPost: false });
+});
+ui.openWhiteboardBtn?.addEventListener("click", () => {
+  launchConversationWhiteboard({ autoPost: true });
+});
+ui.openWhiteboardBtn?.addEventListener("contextmenu", (event) => {
+  openContextMenu(event, [
+    {
+      label: "Open Whiteboard",
+      action: () => launchConversationWhiteboard({ autoPost: true })
+    },
+    {
+      label: "Copy Whiteboard Link",
+      action: () => launchConversationWhiteboard({ copyOnly: true, autoPost: false })
+    }
+  ]);
 });
 ui.quickSwitchCancel?.addEventListener("click", () => ui.quickSwitchDialog?.close());
 ui.quickSwitchInput?.addEventListener("input", () => {
@@ -31710,6 +32013,9 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.callProviderUrl = normalizeConferenceProviderUrl(ui.callProviderInput?.value || "");
   state.preferences.callRoomPrefix = normalizeConferenceRoomPrefix(ui.callRoomPrefixInput?.value || "");
   state.preferences.callAutoPost = normalizeToggle(ui.callAutoPostInput?.value || "on");
+  state.preferences.whiteboardProviderUrl = normalizeWhiteboardProviderUrl(ui.whiteboardProviderInput?.value || "");
+  state.preferences.whiteboardRoomPrefix = normalizeWhiteboardRoomPrefix(ui.whiteboardRoomPrefixInput?.value || "");
+  state.preferences.whiteboardAutoPost = normalizeToggle(ui.whiteboardAutoPostInput?.value || "on");
   if (!saveTenorCredentialSettings({ refreshGifPicker: true })) {
     showToast("Could not save Tenor credentials.", { tone: "error" });
   }

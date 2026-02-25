@@ -291,9 +291,11 @@ Notes:
 - Added `Alt+M` hotkey for self mute/unmute in active voice/stage channel.
 - Voice/stage channel context menu now includes quick self mute and status actions.
 - Voice/stage call surface now includes direct channel-link copy action.
-- Added realtime call launch in the chat header (`Call`, `Copy Call`) and in voice/stage surfaces (`Start AV Call`, `Start Screen Share`).
-- Added call slash commands: `/call [join|screen|link|copy] [room]` and `/callscreen [room]`.
-- Added Advanced call settings: provider URL, room prefix, and auto-post invite link toggle.
+- Added separate realtime call launch buttons in the chat header: `Web Call`, `XMPP Call`, and `Copy Call`.
+- Added voice/stage call controls for both paths (`Start AV Call`, `Start Screen Share`, `Start XMPP Call`, `XMPP Screen`) plus `Open Whiteboard`.
+- Added call slash commands: `/call [join|screen|link|copy] [room]`, `/callweb ...`, `/callscreen [room]`, and `/callxmpp [start|screen]`.
+- Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
+- Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
 - Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
 - Added Discord-like live typing indicators across relay transports (`ws`, `http/sse`, `xmpp`).
@@ -449,8 +451,10 @@ XMPP mode (experimental):
 XMPP realtime media + spaces status (as of 2026-02-25):
 - Implemented now: text chat, typing states, MAM history, reactions/replies/edit/retract coverage (see `SUPPORTED_XEPS.md`).
 - Implemented now (cross-platform fallback): built-in AV/screenshare conference launch via configurable web conference provider rooms.
+- Implemented now (coexistence): dedicated `Web Call` and `XMPP Call` actions, so fallback conferencing and native-XMPP attempt flow can live side-by-side.
 - Not implemented yet: native XMPP voice/video/screenshare signaling in-client (Jingle/WebRTC stack is not wired).
 - Tracked next: XEP-0166/XEP-0167/XEP-0353/XEP-0320 for call/media flows and XEP-0503 (Draft) for spaces hierarchy.
+- Interop target: maximize compatibility with standards-compliant XMPP clients (including Movim-centric behaviors) rather than provider-specific lock-in.
 - Practical path now: launch/join calls from header buttons or `/call` while using XMPP for chat transport.
 
 ## Local XMPP Secrets + Direct Send Script

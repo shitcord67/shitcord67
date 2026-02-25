@@ -119,8 +119,10 @@
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
             <span id="relayHeaderBadge" class="chat-topic chat-topic--relay">Local</span>
-            <button id="openCallBtn" class="chat-topic-edit" title="Open realtime call">Call</button>
+            <button id="openCallBtn" class="chat-topic-edit" title="Open web conference call">Web Call</button>
+            <button id="openXmppCallBtn" class="chat-topic-edit" title="Open native XMPP call">XMPP Call</button>
             <button id="copyCallLinkBtn" class="chat-topic-edit" title="Copy realtime call link">Copy Call</button>
+            <button id="openWhiteboardBtn" class="chat-topic-edit" title="Open shared whiteboard">Whiteboard</button>
             <button id="openFindBtn" class="chat-topic-edit" title="Find in conversation">Find</button>
             <button id="markChannelReadBtn" class="chat-topic-edit" title="Mark channel read">Mark Read</button>
             <button id="nextUnreadBtn" class="chat-topic-edit" title="Jump to next unread channel">Next Unread</button>
@@ -405,6 +407,16 @@
             <input id="callRoomPrefixInput" type="text" maxlength="40" placeholder="shitcord67" autocomplete="off" autocapitalize="off" spellcheck="false" />
             <label for="callAutoPostInput">Auto-post call invite link</label>
             <select id="callAutoPostInput">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+            <h3>Shared Whiteboard</h3>
+            <label for="whiteboardProviderInput">Whiteboard provider URL</label>
+            <input id="whiteboardProviderInput" type="text" maxlength="200" placeholder="https://wbo.ophir.dev/boards" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="whiteboardRoomPrefixInput">Whiteboard room prefix</label>
+            <input id="whiteboardRoomPrefixInput" type="text" maxlength="40" placeholder="shitcord67-wb" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="whiteboardAutoPostInput">Auto-post whiteboard link</label>
+            <select id="whiteboardAutoPostInput">
               <option value="on">On</option>
               <option value="off">Off</option>
             </select>

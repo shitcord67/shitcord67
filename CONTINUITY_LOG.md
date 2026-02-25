@@ -1300,3 +1300,7 @@ I got a high-priority issue. Discord is exploiting it's users and thus I really 
 Deathmist: soon including XEP-0503 for "spaces" to have the discord-like "server experience"
 2026-02-25T22:52:54Z USER PROMPT:
 No. We need you to implement support for it now. It needs to work on the web, on Linux and Android at the minimum.
+2026-02-25T23:00:35Z USER PROMPT:
+Jitsi and native way need to coexist if there is a way. Maybe separate buttons
+2026-02-25T23:02:15Z USER PROMPT:
+Yeah important is that we can community via Jitsi and with Movim at least. But it would be good if we could communicate with users of any XMPP client. Btw. also what about implementing the Whiteboard extensions soon? Might be great to have one while calling. E.g. for lectures.
