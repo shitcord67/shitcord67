@@ -443,6 +443,12 @@ XMPP mode (experimental):
 - Verified working provider example: `xmpp.jp` with endpoint `wss://api.xmpp.jp/ws` and MUC service `conference.xmpp.jp`
 - Use `XMPP Console` to diagnose failed runtime loads, auth failures, or endpoint mismatches before/after login.
 
+XMPP realtime media + spaces status (as of 2026-02-25):
+- Implemented now: text chat, typing states, MAM history, reactions/replies/edit/retract coverage (see `SUPPORTED_XEPS.md`).
+- Not implemented yet: native XMPP voice/video/screenshare calls in-client (Jingle/WebRTC stack is not wired).
+- Tracked next: XEP-0166/XEP-0167/XEP-0353/XEP-0320 for call/media flows and XEP-0503 (Draft) for spaces hierarchy.
+- Practical workaround for immediate use: run calls/screenshare through a dedicated conference service and post/join links from chat until native call support lands.
+
 ## Local XMPP Secrets + Direct Send Script
 - Local secret file: `.xmpp.local.json` (git-ignored).
 - Example template: `.xmpp.local.example.json`.

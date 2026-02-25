@@ -1295,3 +1295,6 @@ now, hiding most of the UI. Why did it move out of where it was before?
 [2026-02-24T07:03:02+01:00] There is still no space... bruh... I'm pretty sure Android apps can detect notch height or something.
 
 [2026-02-24T07:05:36Z] USER PROMPT: Please try implementing 20 things without asking my for anything
+2026-02-25T22:50:45Z USER PROMPT:
+I got a high-priority issue. Discord is exploiting it's users and thus I really need the following working Deathmist asks for ASAP else the world will collapse due to nuclear failure: Deathmist: any XMPP alternatives with actual screenshare+audio+video working then?
+Deathmist: soon including XEP-0503 for "spaces" to have the discord-like "server experience"

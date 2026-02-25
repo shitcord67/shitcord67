@@ -42,6 +42,11 @@ Status labels:
 |---|---|---|---|
 | XEP-0384 | OMEMO Encryption | Planned | Encrypted payloads are detected but cannot be decrypted yet. |
 | XEP-0084 | User Avatar | Planned | Avatar PubSub (`urn:xmpp:avatar:*`) read path is incomplete. |
+| XEP-0166 | Jingle | Planned | Required signaling baseline for call setup/teardown (`session-initiate`, `session-accept`, `session-terminate`). |
+| XEP-0167 | Jingle RTP Sessions | Planned | Required for real-time voice/video over RTP in Jingle sessions. |
+| XEP-0353 | Jingle Message Initiation | Planned | Needed for modern out-of-band call invite/ringing UX parity with current mobile/desktop XMPP clients. |
+| XEP-0320 | Use of DTLS-SRTP in Jingle Sessions | Planned | Required for secure media transport with browser/WebRTC-compatible call flows. |
+| XEP-0503 (Draft) | Spaces | Planned | Tracked as the target for Discord-like server-space hierarchy once implementation and server compatibility work lands. |
 | Draft (vendor) | Profile Decor / Nameplates (`urn:shitcord67:profile:decor:0`) | Planned | Candidate extension for nameplate URLs, role-color hints, and client platform flags. See `XEP_DRAFT_NAMEPLATES.md`. |
 
 ## Notes

@@ -67,6 +67,11 @@
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
+- [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
+- [priority] Implement call invite/ringing flow with Jingle Message Initiation (XEP-0353), including DM and room entry points.
+- [priority] Add secure WebRTC media transport alignment for Jingle (XEP-0320 DTLS-SRTP path and browser compatibility checks).
+- [priority] Add screenshare (display capture) with optional system-audio + mic mixing controls in call UI.
+- [priority] Track and implement XEP-0503 (Draft) spaces model for Discord-like server/space hierarchy.
 - [done] Per-guild notification settings (mute/mentions only/all).
 - [done] Slash command `/relay reconnect` to force transport reconnect without changing mode.
 - [done] Slash command `/relay autoconnect <on|off|status>` to manage transport auto-connect behavior.
