@@ -213,7 +213,7 @@ const SLASH_COMMANDS = [
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
-  { name: "callxmpp", args: "[start|screen|status]", description: "Try native XMPP call flow or inspect interop readiness." },
+  { name: "callxmpp", args: "[start|screen|status|accept [id]|reject [id]|cancel [id]]", description: "Native XMPP call controls and interop diagnostics." },
   { name: "callscreen", args: "[room]", description: "Open call room and start with screenshare intent." },
   { name: "whiteboard", args: "[open|copy|link] [room]", description: "Open/copy shared whiteboard room for this conversation." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
@@ -1305,6 +1305,10 @@ const xmppMucJoinStateByRoomJid = new Map();
 const xmppDiscoInfoCacheByJid = new Map();
 const xmppDiscoInfoInFlightByJid = new Map();
 const XMPP_DISCO_INFO_TTL_MS = 5 * 60 * 1000;
+const xmppCallSessionById = new Map();
+const xmppLatestIncomingCallSessionByPeer = new Map();
+const xmppLatestOutgoingCallSessionByPeer = new Map();
+const XMPP_CALL_SIGNAL_TIMEOUT_MS = 15_000;
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -4296,6 +4300,146 @@ function canAttemptNativeXmppCall() {
   );
 }
 
+function xmppPeerJidForConversation(conversation = getActiveConversation(), current = getCurrentAccount()) {
+  if (!conversation || conversation.type !== "dm") return "";
+  return xmppPeerJidForDmThread(conversation.thread, current);
+}
+
+function clearXmppCallSignalTimeout(sessionId = "") {
+  const id = (sessionId || "").toString();
+  if (!id) return;
+  const entry = xmppCallSessionById.get(id);
+  if (!entry) return;
+  if (entry.timeoutId) clearTimeout(entry.timeoutId);
+  entry.timeoutId = 0;
+}
+
+function forgetXmppCallSession(sessionId = "") {
+  const id = (sessionId || "").toString();
+  if (!id) return;
+  const entry = xmppCallSessionById.get(id);
+  if (!entry) return;
+  clearXmppCallSignalTimeout(id);
+  xmppCallSessionById.delete(id);
+  const peer = xmppBareJid(entry.peerJid || "");
+  if (peer && xmppLatestIncomingCallSessionByPeer.get(peer) === id) xmppLatestIncomingCallSessionByPeer.delete(peer);
+  if (peer && xmppLatestOutgoingCallSessionByPeer.get(peer) === id) xmppLatestOutgoingCallSessionByPeer.delete(peer);
+}
+
+function xmppSendJingleMessageAction(peerJid, action = "propose", { sessionId = "", media = ["audio", "video"] } = {}) {
+  const to = xmppBareJid(peerJid);
+  const id = (sessionId || "").toString().trim();
+  if (!to || !id || !xmppConnection || relayStatus !== "connected" || !globalThis.$msg) return false;
+  const tag = (action || "").toString().trim().toLowerCase();
+  if (!["propose", "proceed", "retract", "reject"].includes(tag)) return false;
+  const builder = globalThis.$msg({ to, type: "chat" }).c(tag, {
+    xmlns: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+    id
+  });
+  if (tag === "propose") {
+    const wanted = Array.isArray(media) ? media : ["audio", "video"];
+    const normalizedMedia = [...new Set(
+      wanted
+        .map((item) => (item || "").toString().trim().toLowerCase())
+        .filter((item) => item === "audio" || item === "video")
+    )];
+    const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
+    medias.forEach((mediaType) => {
+      builder.c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType }).up();
+    });
+  }
+  xmppConnection.send(builder);
+  addXmppDebugEvent("message", "Sent XMPP jingle-message action", { to, action: tag, id });
+  return true;
+}
+
+function parseXmppJingleMessageAction(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const actions = ["propose", "proceed", "retract", "reject"];
+  for (const action of actions) {
+    const node = [...stanza.getElementsByTagName(action)]
+      .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE)) || null;
+    if (!node) continue;
+    const id = (node.getAttribute("id") || "").toString().trim();
+    const media = action === "propose"
+      ? [...node.getElementsByTagName("description")]
+        .filter((desc) => xmppNodeHasXmlns(desc, XMPP_JINGLE_RTP_NAMESPACE))
+        .map((desc) => (desc.getAttribute("media") || "").toString().trim().toLowerCase())
+        .filter((entry) => entry === "audio" || entry === "video")
+      : [];
+    return { action, id, media };
+  }
+  return null;
+}
+
+function latestXmppCallSessionIdForPeer(peerJid, direction = "incoming") {
+  const peer = xmppBareJid(peerJid);
+  if (!peer) return "";
+  if (direction === "outgoing") return (xmppLatestOutgoingCallSessionByPeer.get(peer) || "").toString();
+  return (xmppLatestIncomingCallSessionByPeer.get(peer) || "").toString();
+}
+
+function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShareFallback = false } = {}) {
+  const peer = xmppBareJid(peerJid);
+  const action = (actionPayload?.action || "").toString();
+  const id = (actionPayload?.id || "").toString();
+  if (!peer || !action || !id) return false;
+  if (action === "propose") {
+    const existingIncomingId = latestXmppCallSessionIdForPeer(peer, "incoming");
+    if (existingIncomingId && existingIncomingId !== id) forgetXmppCallSession(existingIncomingId);
+    xmppCallSessionById.set(id, {
+      id,
+      peerJid: peer,
+      direction: "incoming",
+      state: "proposed",
+      createdAt: Date.now(),
+      media: Array.isArray(actionPayload.media) ? actionPayload.media : []
+    });
+    xmppLatestIncomingCallSessionByPeer.set(peer, id);
+    showToast(`Incoming XMPP call from ${peer}. Use /callxmpp accept ${id.slice(0, 8)} or /callxmpp reject ${id.slice(0, 8)}.`);
+    addXmppDebugEvent("message", "Received XMPP jingle propose", {
+      from: peer,
+      id,
+      media: (actionPayload.media || []).join(",")
+    });
+    return true;
+  }
+  const session = xmppCallSessionById.get(id) || null;
+  if (action === "proceed") {
+    if (session?.direction === "outgoing") {
+      session.state = "proceeded";
+      clearXmppCallSignalTimeout(id);
+      addXmppDebugEvent("message", "Received XMPP jingle proceed", { from: peer, id });
+      showToast("XMPP peer accepted call proposal.");
+      if (typeof globalThis.startNativeXmppCallSession === "function") {
+        try {
+          const ok = globalThis.startNativeXmppCallSession({
+            room: session.room || "",
+            screenShare: Boolean(session.screenShare),
+            conversationId: session.conversationId || "",
+            conversationType: session.conversationType || "dm",
+            interopTarget: session.interopTarget || peer,
+            sessionId: id
+          });
+          if (ok) return true;
+        } catch {
+          // fallback below
+        }
+      }
+      launchConversationCall({ screenShare: Boolean(session?.screenShare || screenShareFallback), autoPost: true });
+      return true;
+    }
+    return true;
+  }
+  if (action === "reject" || action === "retract") {
+    addXmppDebugEvent("message", "Received XMPP jingle stop action", { from: peer, id, action });
+    showToast(action === "reject" ? "XMPP call proposal rejected." : "XMPP call proposal cancelled.");
+    forgetXmppCallSession(id);
+    return true;
+  }
+  return false;
+}
+
 async function launchNativeXmppConversationCall({ screenShare = false } = {}) {
   const conversation = getActiveConversation();
   if (!conversation) {
@@ -4328,6 +4472,44 @@ async function launchNativeXmppConversationCall({ screenShare = false } = {}) {
     });
     launchConversationCall({ screenShare, autoPost: true });
     return false;
+  }
+  const peerJid = xmppPeerJidForConversation(conversation, getCurrentAccount());
+  if (conversation.type === "dm" && peerJid && (!globalThis.startNativeXmppCallSession || typeof globalThis.startNativeXmppCallSession !== "function")) {
+    const sessionId = `jmi-${createId().slice(0, 12)}`;
+    const sent = xmppSendJingleMessageAction(peerJid, "propose", {
+      sessionId,
+      media: screenShare ? ["audio", "video"] : ["audio", "video"]
+    });
+    if (!sent) {
+      showToast("Failed to send XMPP call proposal. Falling back to Web Call.", { tone: "error" });
+      launchConversationCall({ screenShare, autoPost: true });
+      return false;
+    }
+    const peerBare = xmppBareJid(peerJid);
+    const timeoutId = window.setTimeout(() => {
+      const entry = xmppCallSessionById.get(sessionId);
+      if (!entry || entry.state !== "proposed") return;
+      showToast("No XMPP call response. Opening Web Call fallback.", { tone: "error", duration: 2800 });
+      launchConversationCall({ screenShare, autoPost: true });
+      forgetXmppCallSession(sessionId);
+    }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
+    xmppCallSessionById.set(sessionId, {
+      id: sessionId,
+      peerJid: peerBare,
+      direction: "outgoing",
+      state: "proposed",
+      createdAt: Date.now(),
+      media: screenShare ? ["audio", "video"] : ["audio", "video"],
+      screenShare: Boolean(screenShare),
+      timeoutId,
+      room: conversationCallRoomName(conversation, ""),
+      conversationId: conversation.id || "",
+      conversationType: conversation.type || "dm",
+      interopTarget: interop.chosenTarget || peerBare
+    });
+    xmppLatestOutgoingCallSessionByPeer.set(peerBare, sessionId);
+    showToast("Sent XMPP call proposal. Waiting for peer response...");
+    return true;
   }
   if (typeof globalThis.startNativeXmppCallSession === "function") {
     try {
@@ -8697,6 +8879,14 @@ function connectRelaySocket({ force = false } = {}) {
           if (!peer || peer.id === current.id) return;
           const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
           if (!dmRoom) return;
+          const jingleAction = parseXmppJingleMessageAction(stanza);
+          if (jingleAction) {
+            const handledJingle = handleXmppJingleMessageAction(jingleAction, {
+              peerJid: peerBare,
+              screenShareFallback: false
+            });
+            if (handledJingle) return;
+          }
           if (!ownAuthor && receiptRequest && stanzaMessageId && xmppConnection) {
             const receiptAck = globalThis.$msg({ to: peerBare, type: "chat" })
               .c("received", { xmlns: "urn:xmpp:receipts", id: stanzaMessageId });
@@ -14255,8 +14445,11 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "callxmpp") {
-    const raw = (arg || "").trim().toLowerCase();
-    if (raw === "status") {
+    const raw = (arg || "").trim();
+    const [subRaw, tokenRaw] = raw.split(/\s+/, 2);
+    const sub = (subRaw || "").toLowerCase();
+    const token = (tokenRaw || "").trim().toLowerCase();
+    if (sub === "status") {
       xmppAssessConversationCallInterop(getActiveConversation(), { force: true }).then((interop) => {
         if (interop.ready) {
           addSystemMessage(channel, `XMPP call interop: ready (target ${interop.chosenTarget || "unknown"}).`);
@@ -14275,7 +14468,36 @@ function handleSlashCommand(rawText, channel, account) {
       });
       return true;
     }
-    const screenShare = raw === "screen" || raw === "screenshare" || raw === "share";
+    if (sub === "accept" || sub === "reject" || sub === "cancel") {
+      const conversation = getActiveConversation();
+      const peerJid = xmppPeerJidForConversation(conversation, getCurrentAccount());
+      const peerBare = xmppBareJid(peerJid);
+      if (!peerBare) {
+        addSystemMessage(channel, "XMPP call accept/reject/cancel currently works in DMs.");
+        return true;
+      }
+      const targetId = token
+        ? ([...xmppCallSessionById.keys()].find((id) => id.toLowerCase().startsWith(token)) || "")
+        : latestXmppCallSessionIdForPeer(peerBare, sub === "cancel" ? "outgoing" : "incoming");
+      if (!targetId) {
+        addSystemMessage(channel, "No matching XMPP call session.");
+        return true;
+      }
+      const action = sub === "accept" ? "proceed" : (sub === "reject" ? "reject" : "retract");
+      const sent = xmppSendJingleMessageAction(peerBare, action, { sessionId: targetId });
+      if (!sent) {
+        addSystemMessage(channel, "Failed to send XMPP call action.");
+        return true;
+      }
+      addSystemMessage(channel, `Sent XMPP ${action} for ${targetId.slice(0, 8)}.`);
+      if (sub === "accept") {
+        launchConversationCall({ screenShare: false, autoPost: true });
+      }
+      forgetXmppCallSession(targetId);
+      return true;
+    }
+    const lowerRaw = raw.toLowerCase();
+    const screenShare = lowerRaw === "screen" || lowerRaw === "screenshare" || lowerRaw === "share";
     launchNativeXmppConversationCall({ screenShare });
     return true;
   }
@@ -29865,8 +30087,11 @@ ui.messageForm.addEventListener("submit", (event) => {
       return;
     }
     if (dmCommand === "callxmpp") {
-      const raw = (dmArg || "").trim().toLowerCase();
-      if (raw === "status") {
+      const raw = (dmArg || "").trim();
+      const [subRaw, tokenRaw] = raw.split(/\s+/, 2);
+      const sub = (subRaw || "").toLowerCase();
+      const token = (tokenRaw || "").trim().toLowerCase();
+      if (sub === "status") {
         xmppAssessConversationCallInterop(conversation, { force: true }).then((interop) => {
           if (interop.ready) {
             showToast(`XMPP call interop ready (${interop.chosenTarget || "target"}).`);
@@ -29885,7 +30110,30 @@ ui.messageForm.addEventListener("submit", (event) => {
         });
         return;
       }
-      const screenShare = raw === "screen" || raw === "screenshare" || raw === "share";
+      if (sub === "accept" || sub === "reject" || sub === "cancel") {
+        const peerBare = xmppPeerJidForConversation(conversation, getCurrentAccount());
+        const targetId = token
+          ? ([...xmppCallSessionById.keys()].find((id) => id.toLowerCase().startsWith(token)) || "")
+          : latestXmppCallSessionIdForPeer(peerBare, sub === "cancel" ? "outgoing" : "incoming");
+        if (!targetId) {
+          showToast("No matching XMPP call session.", { tone: "error" });
+          return;
+        }
+        const action = sub === "accept" ? "proceed" : (sub === "reject" ? "reject" : "retract");
+        const sent = xmppSendJingleMessageAction(peerBare, action, { sessionId: targetId });
+        if (!sent) {
+          showToast("Failed to send XMPP call action.", { tone: "error" });
+          return;
+        }
+        showToast(`Sent XMPP ${action} (${targetId.slice(0, 8)}).`);
+        if (sub === "accept") {
+          launchConversationCall({ screenShare: false, autoPost: true });
+        }
+        forgetXmppCallSession(targetId);
+        return;
+      }
+      const lowerRaw = raw.toLowerCase();
+      const screenShare = lowerRaw === "screen" || lowerRaw === "screenshare" || lowerRaw === "share";
       launchNativeXmppConversationCall({ screenShare });
       return;
     }
@@ -31338,6 +31586,27 @@ ui.openXmppCallBtn?.addEventListener("contextmenu", (event) => {
     {
       label: "Start XMPP Screen Share",
       action: () => launchNativeXmppConversationCall({ screenShare: true })
+    },
+    {
+      label: "Check XMPP Call Interop",
+      action: () => {
+        xmppAssessConversationCallInterop(getActiveConversation(), { force: true }).then((interop) => {
+          if (interop.ready) {
+            showToast(`XMPP call interop ready (${interop.chosenTarget || "target"}).`);
+            return;
+          }
+          const first = interop.details[0]?.evalResult || {};
+          const missing = [
+            first.hasCore ? "" : "jingle",
+            first.hasMedia ? "" : "rtp-media",
+            first.hasTransport ? "" : "ice-udp",
+            first.hasInvite ? "" : "invite"
+          ].filter(Boolean);
+          showToast(`XMPP call interop not ready${missing.length > 0 ? ` (${missing.join(", ")})` : ""}.`, { tone: "error", duration: 3000 });
+        }).catch(() => {
+          showToast("XMPP call interop check failed.", { tone: "error" });
+        });
+      }
     },
     {
       label: "Copy Web Call Link",

@@ -295,6 +295,7 @@ Notes:
 - Added voice/stage call controls for both paths (`Start AV Call`, `Start Screen Share`, `Start XMPP Call`, `XMPP Screen`) plus `Open Whiteboard`.
 - Added call slash commands: `/call [join|screen|link|copy] [room]`, `/callweb ...`, `/callscreen [room]`, and `/callxmpp [start|screen]`.
 - `/callxmpp status` now runs an XMPP `disco#info` interoperability check for the active peer/room and reports missing call feature buckets.
+- `/callxmpp accept|reject|cancel [id]` now sends Jingle Message Initiation control stanzas for active DM call proposals.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
@@ -454,6 +455,7 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 - Implemented now (cross-platform fallback): built-in AV/screenshare conference launch via configurable web conference provider rooms.
 - Implemented now (coexistence): dedicated `Web Call` and `XMPP Call` actions, so fallback conferencing and native-XMPP attempt flow can live side-by-side.
 - `XMPP Call` now probes target capabilities before start and auto-falls back to `Web Call` when required Jingle feature buckets are missing.
+- `XMPP Call` now sends DM-native call proposals (`propose`) when compatibility checks pass, waits for peer `proceed`, and falls back to `Web Call` on timeout.
 - Not implemented yet: native XMPP voice/video/screenshare signaling in-client (Jingle/WebRTC stack is not wired).
 - Tracked next: XEP-0166/XEP-0167/XEP-0353/XEP-0320 for call/media flows and XEP-0503 (Draft) for spaces hierarchy.
 - Interop target: maximize compatibility with standards-compliant XMPP clients (including Movim-centric behaviors) rather than provider-specific lock-in.

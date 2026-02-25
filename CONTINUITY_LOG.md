@@ -1306,3 +1306,5 @@ Jitsi and native way need to coexist if there is a way. Maybe separate buttons
 Yeah important is that we can community via Jitsi and with Movim at least. But it would be good if we could communicate with users of any XMPP client. Btw. also what about implementing the Whiteboard extensions soon? Might be great to have one while calling. E.g. for lectures.
 2026-02-25T23:05:46Z USER PROMPT:
 Yes. I want that all of this works. Work and never stop working
+2026-02-25T23:07:55Z USER PROMPT:
+Is there more to do then please continue

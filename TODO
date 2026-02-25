@@ -71,6 +71,7 @@
 - [done] Added coexistence controls for `Web Call` and `XMPP Call` so both paths are available side-by-side in header/voice surfaces.
 - [done] Added shared whiteboard fallback (`/whiteboard`, header button, voice/stage button) with configurable provider + room prefix.
 - [done] Added XMPP call interoperability probing (`disco#info`) with `/callxmpp status` and automatic `Web Call` fallback when required Jingle buckets are missing.
+- [done] Added DM-native XMPP call signaling scaffolding for Jingle Message Initiation (`propose/proceed/reject/retract`) with `/callxmpp accept|reject|cancel`.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
