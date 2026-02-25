@@ -77,6 +77,7 @@
 - [done] Added local ICE candidate gathering for queued `/callxmpp transport` sends and auto-transport updates after `session-accept`.
 - [done] Added per-session WebRTC peer-connection state tracking with remote ICE apply/queue handling for incoming `transport-info`.
 - [done] Added best-effort Jingle-to-minimal-SDP mapping for `session-initiate/session-accept` to prime remote descriptions and flush ICE queues.
+- [done] Added per-content Jingle RTP payload mapping (codec/clock/channels/fmtp) into SDP priming for improved interop.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.

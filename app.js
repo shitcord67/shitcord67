@@ -4437,15 +4437,54 @@ function xmppCallSessionMediaList(session = null) {
 
 function xmppBuildMinimalJingleSdp({
   media = ["audio", "video"],
+  contents = [],
   transport = null,
   type = "offer"
 } = {}) {
-  const medias = [...new Set(
-    (Array.isArray(media) ? media : ["audio", "video"])
-      .map((item) => (item || "").toString().trim().toLowerCase())
-      .filter((item) => item === "audio" || item === "video")
-  )];
-  const selectedMedia = medias.length > 0 ? medias : ["audio", "video"];
+  const normalizedContents = (Array.isArray(contents) ? contents : [])
+    .map((entry, index) => {
+      const mediaType = (entry?.media || "").toString().trim().toLowerCase();
+      const media = mediaType === "audio" || mediaType === "video" ? mediaType : "";
+      if (!media) return null;
+      const payloads = (Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [])
+        .map((payload) => ({
+          id: String(Number(payload?.id) || 0),
+          name: (payload?.name || "").toString().trim(),
+          clockrate: String(Number(payload?.clockrate) || (media === "audio" ? 48000 : 90000)),
+          channels: String(Math.max(1, Number(payload?.channels) || (media === "audio" ? 2 : 1))),
+          parameters: Array.isArray(payload?.parameters)
+            ? payload.parameters
+              .map((param) => ({
+                name: (param?.name || "").toString().trim(),
+                value: (param?.value || "").toString().trim()
+              }))
+              .filter((param) => param.name)
+            : []
+        }))
+        .filter((payload) => Number(payload.id) > 0);
+      return {
+        name: (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`,
+        media,
+        payloadTypes: payloads,
+        transport: entry?.transport && typeof entry.transport === "object" ? entry.transport : null
+      };
+    })
+    .filter(Boolean);
+  const selectedContents = normalizedContents.length > 0
+    ? normalizedContents
+    : [...new Set(
+      (Array.isArray(media) ? media : ["audio", "video"])
+        .map((item) => (item || "").toString().trim().toLowerCase())
+        .filter((item) => item === "audio" || item === "video")
+    )].map((mediaType, index) => ({
+      name: `${mediaType}${index}`,
+      media: mediaType,
+      payloadTypes: [],
+      transport: null
+    }));
+  if (selectedContents.length === 0) {
+    selectedContents.push({ name: "audio0", media: "audio", payloadTypes: [], transport: null });
+  }
   const creds = transport && typeof transport === "object"
     ? {
       ufrag: (transport.ufrag || "").toString().trim(),
@@ -4461,26 +4500,57 @@ function xmppBuildMinimalJingleSdp({
     `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
     "s=-",
     "t=0 0",
-    `a=group:BUNDLE ${selectedMedia.map((_, index) => String(index)).join(" ")}`,
+    `a=group:BUNDLE ${selectedContents.map((_, index) => String(index)).join(" ")}`,
     "a=msid-semantic: WMS *"
   ];
-  selectedMedia.forEach((kind, index) => {
-    const payload = kind === "audio" ? "111" : "96";
-    const codec = kind === "audio" ? "opus/48000/2" : "VP8/90000";
+  selectedContents.forEach((content, index) => {
+    const kind = content.media;
+    const contentTransport = content.transport && typeof content.transport === "object"
+      ? content.transport
+      : null;
+    const credsForContent = contentTransport
+      ? {
+        ufrag: (contentTransport.ufrag || "").toString().trim() || ufrag,
+        pwd: (contentTransport.pwd || "").toString().trim() || pwd
+      }
+      : { ufrag, pwd };
+    const payloads = content.payloadTypes.length > 0
+      ? content.payloadTypes
+      : [{
+        id: kind === "audio" ? "111" : "96",
+        name: kind === "audio" ? "opus" : "VP8",
+        clockrate: kind === "audio" ? "48000" : "90000",
+        channels: kind === "audio" ? "2" : "1",
+        parameters: []
+      }];
+    const payloadIds = payloads.map((payload) => payload.id).join(" ");
     lines.push(
-      `m=${kind} 9 UDP/TLS/RTP/SAVPF ${payload}`,
+      `m=${kind} 9 UDP/TLS/RTP/SAVPF ${payloadIds}`,
       "c=IN IP4 0.0.0.0",
       "a=rtcp:9 IN IP4 0.0.0.0",
-      `a=ice-ufrag:${ufrag}`,
-      `a=ice-pwd:${pwd}`,
+      `a=ice-ufrag:${credsForContent.ufrag}`,
+      `a=ice-pwd:${credsForContent.pwd}`,
       "a=ice-options:trickle",
       "a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF",
       `a=setup:${type === "offer" ? "actpass" : "passive"}`,
       `a=mid:${index}`,
       "a=sendrecv",
-      "a=rtcp-mux",
-      `a=rtpmap:${payload} ${codec}`
+      "a=rtcp-mux"
     );
+    payloads.forEach((payload) => {
+      const clockrate = String(Number(payload.clockrate) || (kind === "audio" ? 48000 : 90000));
+      const channels = String(Math.max(1, Number(payload.channels) || (kind === "audio" ? 2 : 1)));
+      const codecName = (payload.name || (kind === "audio" ? "opus" : "VP8")).toString().trim() || (kind === "audio" ? "opus" : "VP8");
+      const codecSpec = kind === "audio" && channels !== "1"
+        ? `${codecName}/${clockrate}/${channels}`
+        : `${codecName}/${clockrate}`;
+      lines.push(`a=rtpmap:${payload.id} ${codecSpec}`);
+      const fmtp = payload.parameters
+        .filter((param) => param.name)
+        .map((param) => param.value ? `${param.name}=${param.value}` : param.name)
+        .join(";");
+      if (fmtp) lines.push(`a=fmtp:${payload.id} ${fmtp}`);
+    });
   });
   return lines.join("\r\n") + "\r\n";
 }
@@ -4488,6 +4558,7 @@ function xmppBuildMinimalJingleSdp({
 async function xmppPrimePeerConnectionFromJingle(sessionId, {
   peerJid = "",
   media = ["audio", "video"],
+  remoteContents = [],
   remoteTransport = null,
   remoteType = "offer"
 } = {}) {
@@ -4512,6 +4583,9 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
   }
   const sdp = xmppBuildMinimalJingleSdp({
     media: Array.isArray(media) && media.length > 0 ? media : xmppCallSessionMediaList(session),
+    contents: Array.isArray(remoteContents) && remoteContents.length > 0
+      ? remoteContents
+      : (Array.isArray(session?.remoteContents) ? session.remoteContents : []),
     transport: remoteTransport,
     type: normalizedRemoteType
   });
@@ -5134,9 +5208,47 @@ function parseXmppJingleIq(stanza) {
   const sid = (jingle.getAttribute("sid") || "").toString().trim();
   const initiator = xmppBareJid(jingle.getAttribute("initiator") || "");
   const responder = xmppBareJid(jingle.getAttribute("responder") || "");
-  const media = [...jingle.getElementsByTagName("description")]
-    .filter((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_RTP_NAMESPACE))
-    .map((node) => (node.getAttribute("media") || "").toString().trim().toLowerCase())
+  const contents = [...jingle.getElementsByTagName("content")]
+    .map((contentNode) => {
+      const description = [...contentNode.getElementsByTagName("description")]
+        .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_RTP_NAMESPACE)) || null;
+      if (!description) return null;
+      const media = (description.getAttribute("media") || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return null;
+      const payloadTypes = [...description.getElementsByTagName("payload-type")]
+        .map((payloadNode) => ({
+          id: Number(payloadNode.getAttribute("id") || 0) || 0,
+          name: (payloadNode.getAttribute("name") || "").toString().trim(),
+          clockrate: Number(payloadNode.getAttribute("clockrate") || 0) || 0,
+          channels: Number(payloadNode.getAttribute("channels") || 0) || 0,
+          parameters: [...payloadNode.getElementsByTagName("parameter")]
+            .map((parameterNode) => ({
+              name: (parameterNode.getAttribute("name") || "").toString().trim(),
+              value: (parameterNode.getAttribute("value") || "").toString().trim()
+            }))
+            .filter((param) => param.name)
+        }))
+        .filter((payload) => payload.id > 0);
+      const transportNode = [...contentNode.getElementsByTagName("transport")]
+        .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_ICE_UDP_NAMESPACE)) || null;
+      const transport = transportNode
+        ? {
+          ufrag: (transportNode.getAttribute("ufrag") || "").toString().trim(),
+          pwd: (transportNode.getAttribute("pwd") || "").toString().trim(),
+          candidateCount: transportNode.getElementsByTagName("candidate").length
+        }
+        : null;
+      return {
+        name: (contentNode.getAttribute("name") || "").toString().trim(),
+        creator: (contentNode.getAttribute("creator") || "").toString().trim().toLowerCase(),
+        media,
+        payloadTypes,
+        transport
+      };
+    })
+    .filter(Boolean);
+  const media = contents
+    .map((entry) => entry.media)
     .filter((item) => item === "audio" || item === "video");
   const reasonNode = [...jingle.getElementsByTagName("reason")][0] || null;
   const infoNode = [...jingle.childNodes]
@@ -5176,6 +5288,7 @@ function parseXmppJingleIq(stanza) {
     initiator,
     responder,
     media,
+    contents,
     reason,
     reasonText,
     info,
@@ -10317,6 +10430,9 @@ function connectRelaySocket({ force = false } = {}) {
           };
           session.peerJid = fromBare;
           if (Array.isArray(jingle.media) && jingle.media.length > 0) session.media = [...jingle.media];
+          if (Array.isArray(jingle.contents) && jingle.contents.length > 0) {
+            session.remoteContents = jingle.contents;
+          }
           xmppCallSessionById.set(jingle.sid, session);
           xmppLatestIncomingCallSessionByPeer.set(fromBare, jingle.sid);
           if (jingle.action === "session-initiate") {
@@ -10336,6 +10452,7 @@ function connectRelaySocket({ force = false } = {}) {
             void xmppPrimePeerConnectionFromJingle(jingle.sid, {
               peerJid: fromBare,
               media: session.media,
+              remoteContents: Array.isArray(jingle.contents) ? jingle.contents : [],
               remoteTransport: session.remoteTransport || null,
               remoteType: "offer"
             });
@@ -10368,6 +10485,7 @@ function connectRelaySocket({ force = false } = {}) {
             void xmppPrimePeerConnectionFromJingle(jingle.sid, {
               peerJid: fromBare,
               media: session.media,
+              remoteContents: Array.isArray(jingle.contents) ? jingle.contents : [],
               remoteTransport: session.remoteTransport || null,
               remoteType: "answer"
             });
