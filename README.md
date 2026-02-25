@@ -299,6 +299,7 @@ Notes:
 - Native DM Jingle scaffolding now also handles ringing/session updates and ICE transport update stanzas (`ringing`, `session-info`, `transport-info`) for broader external-client compatibility.
 - `transport-info` now queues local ICE candidate gathering via browser `RTCPeerConnection` and sends gathered candidates (with fallback to minimal transport credentials).
 - Per-session native `RTCPeerConnection` state is now tracked for XMPP calls, with remote ICE candidates applied when possible and queued until the session is ready.
+- Incoming Jingle `session-initiate/session-accept` now perform a best-effort media/transport mapping into minimal SDP to prime remote descriptions and improve candidate-queue flush behavior.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).

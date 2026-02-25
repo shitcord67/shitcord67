@@ -4435,6 +4435,126 @@ function xmppCallSessionMediaList(session = null) {
   return media.length > 0 ? media : ["audio", "video"];
 }
 
+function xmppBuildMinimalJingleSdp({
+  media = ["audio", "video"],
+  transport = null,
+  type = "offer"
+} = {}) {
+  const medias = [...new Set(
+    (Array.isArray(media) ? media : ["audio", "video"])
+      .map((item) => (item || "").toString().trim().toLowerCase())
+      .filter((item) => item === "audio" || item === "video")
+  )];
+  const selectedMedia = medias.length > 0 ? medias : ["audio", "video"];
+  const creds = transport && typeof transport === "object"
+    ? {
+      ufrag: (transport.ufrag || "").toString().trim(),
+      pwd: (transport.pwd || "").toString().trim()
+    }
+    : xmppBuildJingleTransportCreds();
+  const fallbackCreds = (!creds.ufrag || !creds.pwd) ? xmppBuildJingleTransportCreds() : null;
+  const ufrag = creds.ufrag || fallbackCreds?.ufrag || "u0";
+  const pwd = creds.pwd || fallbackCreds?.pwd || "p0";
+  const sessionId = Math.floor((Date.now() % 2147483647) || 1);
+  const lines = [
+    "v=0",
+    `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
+    "s=-",
+    "t=0 0",
+    `a=group:BUNDLE ${selectedMedia.map((_, index) => String(index)).join(" ")}`,
+    "a=msid-semantic: WMS *"
+  ];
+  selectedMedia.forEach((kind, index) => {
+    const payload = kind === "audio" ? "111" : "96";
+    const codec = kind === "audio" ? "opus/48000/2" : "VP8/90000";
+    lines.push(
+      `m=${kind} 9 UDP/TLS/RTP/SAVPF ${payload}`,
+      "c=IN IP4 0.0.0.0",
+      "a=rtcp:9 IN IP4 0.0.0.0",
+      `a=ice-ufrag:${ufrag}`,
+      `a=ice-pwd:${pwd}`,
+      "a=ice-options:trickle",
+      "a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF",
+      `a=setup:${type === "offer" ? "actpass" : "passive"}`,
+      `a=mid:${index}`,
+      "a=sendrecv",
+      "a=rtcp-mux",
+      `a=rtpmap:${payload} ${codec}`
+    );
+  });
+  return lines.join("\r\n") + "\r\n";
+}
+
+async function xmppPrimePeerConnectionFromJingle(sessionId, {
+  peerJid = "",
+  media = ["audio", "video"],
+  remoteTransport = null,
+  remoteType = "offer"
+} = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const session = xmppCallSessionById.get(sid) || null;
+  const entry = xmppEnsureSessionPeerConnection(sid, {
+    peerJid,
+    media,
+    createLocalOffer: remoteType === "answer"
+  });
+  if (!entry?.pc) return false;
+  const pc = entry.pc;
+  const normalizedRemoteType = (remoteType || "offer").toString().trim().toLowerCase() === "answer" ? "answer" : "offer";
+  if (normalizedRemoteType === "answer" && !pc.localDescription) {
+    try {
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await pc.setLocalDescription(offer);
+    } catch {
+      // Continue and let remote set attempt fail naturally.
+    }
+  }
+  const sdp = xmppBuildMinimalJingleSdp({
+    media: Array.isArray(media) && media.length > 0 ? media : xmppCallSessionMediaList(session),
+    transport: remoteTransport,
+    type: normalizedRemoteType
+  });
+  try {
+    await pc.setRemoteDescription({ type: normalizedRemoteType, sdp });
+  } catch (error) {
+    addXmppDebugEvent("error", "Failed to set remote description from jingle mapping", {
+      sid,
+      peer: xmppBareJid(peerJid || ""),
+      remoteType: normalizedRemoteType,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
+  if (normalizedRemoteType === "offer" && !pc.localDescription) {
+    try {
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      const localCreds = xmppParseIceCredsFromSdp(pc.localDescription?.sdp || "");
+      if (session && localCreds) session.localTransport = localCreds;
+    } catch (error) {
+      addXmppDebugEvent("error", "Failed to generate local answer after remote offer mapping", {
+        sid,
+        error: String(error?.message || error)
+      });
+    }
+  }
+  if (session && remoteTransport && typeof remoteTransport === "object") {
+    session.remoteTransport = {
+      ufrag: (remoteTransport.ufrag || "").toString().trim(),
+      pwd: (remoteTransport.pwd || "").toString().trim()
+    };
+  }
+  const flushResult = await xmppFlushSessionRemoteIceCandidateQueue(sid);
+  addXmppDebugEvent("runtime", "Primed peer connection from jingle mapping", {
+    sid,
+    remoteType: normalizedRemoteType,
+    flushed: flushResult.applied || 0,
+    queued: flushResult.queued || 0
+  });
+  return true;
+}
+
 function xmppEnsureSessionPeerConnection(sessionId, {
   peerJid = "",
   media = ["audio", "video"],
@@ -10201,10 +10321,23 @@ function connectRelaySocket({ force = false } = {}) {
           xmppLatestIncomingCallSessionByPeer.set(fromBare, jingle.sid);
           if (jingle.action === "session-initiate") {
             session.state = "incoming-session-initiate";
+            const remoteTransport = Array.isArray(jingle.transportUpdates) ? (jingle.transportUpdates[0] || null) : null;
+            if (remoteTransport?.ufrag || remoteTransport?.pwd) {
+              session.remoteTransport = {
+                ufrag: remoteTransport.ufrag || "",
+                pwd: remoteTransport.pwd || ""
+              };
+            }
             xmppEnsureSessionPeerConnection(jingle.sid, {
               peerJid: fromBare,
               media: session.media,
               createLocalOffer: false
+            });
+            void xmppPrimePeerConnectionFromJingle(jingle.sid, {
+              peerJid: fromBare,
+              media: session.media,
+              remoteTransport: session.remoteTransport || null,
+              remoteType: "offer"
             });
             xmppSendJingleSessionInfo(fromBare, jingle.sid, { info: "ringing" });
             showToast(`Incoming XMPP media session from ${fromBare}. Use /callxmpp accept ${jingle.sid.slice(0, 8)} or /callxmpp reject ${jingle.sid.slice(0, 8)}.`);
@@ -10220,19 +10353,23 @@ function connectRelaySocket({ force = false } = {}) {
           }
           if (jingle.action === "session-accept") {
             session.state = "session-accepted";
+            const remoteTransport = Array.isArray(jingle.transportUpdates) ? (jingle.transportUpdates[0] || null) : null;
+            if (remoteTransport?.ufrag || remoteTransport?.pwd) {
+              session.remoteTransport = {
+                ufrag: remoteTransport.ufrag || "",
+                pwd: remoteTransport.pwd || ""
+              };
+            }
             xmppEnsureSessionPeerConnection(jingle.sid, {
               peerJid: fromBare,
               media: session.media,
               createLocalOffer: false
             });
-            void xmppFlushSessionRemoteIceCandidateQueue(jingle.sid).then((result) => {
-              if (!result || result.attempted <= 0) return;
-              addXmppDebugEvent("runtime", "Flushed pending remote ICE candidates after session-accept", {
-                sid: jingle.sid,
-                attempted: result.attempted,
-                applied: result.applied,
-                queued: result.queued
-              });
+            void xmppPrimePeerConnectionFromJingle(jingle.sid, {
+              peerJid: fromBare,
+              media: session.media,
+              remoteTransport: session.remoteTransport || null,
+              remoteType: "answer"
             });
             if (!session.localTransport || typeof session.localTransport !== "object") {
               session.localTransport = xmppBuildJingleTransportCreds();
