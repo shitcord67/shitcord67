@@ -24,6 +24,13 @@ const XMPP_FASTEN_NAMESPACE = "urn:xmpp:fasten:0";
 const XMPP_CHAT_MARKERS_NAMESPACE = "urn:xmpp:chat-markers:0";
 const XMPP_CSI_NAMESPACE = "urn:xmpp:csi:0";
 const XMPP_IDLE_NAMESPACE = "urn:xmpp:idle:1";
+const XMPP_JINGLE_NAMESPACE = "urn:xmpp:jingle:1";
+const XMPP_JINGLE_RTP_NAMESPACE = "urn:xmpp:jingle:apps:rtp:1";
+const XMPP_JINGLE_ICE_UDP_NAMESPACE = "urn:xmpp:jingle:transports:ice-udp:1";
+const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE = "urn:xmpp:jingle-message:0";
+const XMPP_CALL_INVITES_NAMESPACE = "urn:xmpp:call-invites:0";
+const XMPP_JINGLE_AUDIO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:audio";
+const XMPP_JINGLE_VIDEO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:video";
 const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
 const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
@@ -206,7 +213,7 @@ const SLASH_COMMANDS = [
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
-  { name: "callxmpp", args: "[start|screen]", description: "Try native XMPP call flow for this conversation." },
+  { name: "callxmpp", args: "[start|screen|status]", description: "Try native XMPP call flow or inspect interop readiness." },
   { name: "callscreen", args: "[room]", description: "Open call room and start with screenshare intent." },
   { name: "whiteboard", args: "[open|copy|link] [room]", description: "Open/copy shared whiteboard room for this conversation." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
@@ -1295,6 +1302,9 @@ const xmppKnownMucOccupantJidByKey = new Map();
 const xmppIncomingContactRequestsByJid = new Map();
 const xmppOutgoingContactRequestsByJid = new Map();
 const xmppMucJoinStateByRoomJid = new Map();
+const xmppDiscoInfoCacheByJid = new Map();
+const xmppDiscoInfoInFlightByJid = new Map();
+const XMPP_DISCO_INFO_TTL_MS = 5 * 60 * 1000;
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -4286,7 +4296,7 @@ function canAttemptNativeXmppCall() {
   );
 }
 
-function launchNativeXmppConversationCall({ screenShare = false } = {}) {
+async function launchNativeXmppConversationCall({ screenShare = false } = {}) {
   const conversation = getActiveConversation();
   if (!conversation) {
     showToast("Open a channel or DM first.", { tone: "error" });
@@ -4296,6 +4306,29 @@ function launchNativeXmppConversationCall({ screenShare = false } = {}) {
     showToast("XMPP relay/WebRTC is not ready for native calling here. Use Web Call meanwhile.", { tone: "error", duration: 2600 });
     return false;
   }
+  const interop = await xmppAssessConversationCallInterop(conversation, { force: false });
+  addXmppDebugEvent("iq", "XMPP native call interoperability check", {
+    conversationId: conversation.id || "",
+    conversationType: conversation.type || "",
+    ready: interop.ready,
+    chosenTarget: interop.chosenTarget || "",
+    targetCount: interop.targets.length
+  });
+  if (!interop.ready) {
+    const missing = interop.details[0]?.evalResult || null;
+    const missingParts = [];
+    if (!missing?.hasCore) missingParts.push("jingle");
+    if (!missing?.hasMedia) missingParts.push("rtp-media");
+    if (!missing?.hasTransport) missingParts.push("ice-udp");
+    if (!missing?.hasInvite) missingParts.push("invite");
+    const suffix = missingParts.length > 0 ? ` missing: ${missingParts.join(", ")}` : "";
+    showToast(`Native XMPP call not interoperable with current target.${suffix} Falling back to Web Call.`, {
+      tone: "error",
+      duration: 3200
+    });
+    launchConversationCall({ screenShare, autoPost: true });
+    return false;
+  }
   if (typeof globalThis.startNativeXmppCallSession === "function") {
     try {
       const room = conversationCallRoomName(conversation, "");
@@ -4303,7 +4336,8 @@ function launchNativeXmppConversationCall({ screenShare = false } = {}) {
         room,
         screenShare: Boolean(screenShare),
         conversationId: conversation.id || "",
-        conversationType: conversation.type || ""
+        conversationType: conversation.type || "",
+        interopTarget: interop.chosenTarget || ""
       });
       if (ok) {
         showToast(screenShare ? "Native XMPP screen-share call started." : "Native XMPP call started.");
@@ -4314,7 +4348,8 @@ function launchNativeXmppConversationCall({ screenShare = false } = {}) {
       return false;
     }
   }
-  showToast("Native XMPP call signaling is not fully wired yet. Use Web Call for active AV/screenshare.", { tone: "error", duration: 2800 });
+  showToast("Native XMPP signaling is not fully wired in-client yet. Opening Web Call fallback.", { tone: "error", duration: 2800 });
+  launchConversationCall({ screenShare, autoPost: true });
   return false;
 }
 
@@ -10028,6 +10063,134 @@ async function xmppFetchDiscoInfo(jid, connection = xmppConnection) {
   return { features, maxFileSize };
 }
 
+async function xmppFetchDiscoInfoCached(jid, { force = false, connection = xmppConnection } = {}) {
+  const bare = xmppBareJid(jid);
+  if (!bare) throw new Error("Invalid discovery target");
+  const now = Date.now();
+  const cached = xmppDiscoInfoCacheByJid.get(bare);
+  if (!force && cached && cached.expiresAt > now) {
+    return {
+      features: new Set(cached.features || []),
+      maxFileSize: Number(cached.maxFileSize || 0)
+    };
+  }
+  if (!force && xmppDiscoInfoInFlightByJid.has(bare)) {
+    return xmppDiscoInfoInFlightByJid.get(bare);
+  }
+  const task = xmppFetchDiscoInfo(bare, connection)
+    .then((result) => {
+      xmppDiscoInfoCacheByJid.set(bare, {
+        features: [...(result?.features || [])],
+        maxFileSize: Number(result?.maxFileSize || 0),
+        expiresAt: Date.now() + XMPP_DISCO_INFO_TTL_MS
+      });
+      return result;
+    })
+    .finally(() => {
+      xmppDiscoInfoInFlightByJid.delete(bare);
+    });
+  xmppDiscoInfoInFlightByJid.set(bare, task);
+  return task;
+}
+
+function xmppCallCapabilityTargetsForConversation(conversation = getActiveConversation()) {
+  if (!conversation) return [];
+  const targets = new Set();
+  const current = getCurrentAccount();
+  if (conversation.type === "dm") {
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, current);
+    const barePeer = xmppBareJid(peerJid);
+    if (barePeer) targets.add(barePeer);
+    const peerDomain = xmppDomainFromJid(barePeer);
+    if (peerDomain) targets.add(peerDomain);
+    return [...targets];
+  }
+  const roomJid = xmppBareJid(conversation.channel?.xmppRoomJid || "");
+  if (roomJid) targets.add(roomJid);
+  const mucDomain = roomJid.includes("@") ? roomJid.split("@")[1] : "";
+  if (mucDomain) targets.add(mucDomain);
+  const prefs = getPreferences();
+  const accountDomain = xmppDomainFromJid(prefs.xmppJid || "");
+  if (accountDomain) targets.add(accountDomain);
+  return [...targets];
+}
+
+function xmppRequiredCallFeatureBuckets() {
+  return {
+    core: [XMPP_JINGLE_NAMESPACE],
+    media: [XMPP_JINGLE_RTP_NAMESPACE, XMPP_JINGLE_AUDIO_NAMESPACE, XMPP_JINGLE_VIDEO_NAMESPACE],
+    transport: [XMPP_JINGLE_ICE_UDP_NAMESPACE],
+    invite: [XMPP_JINGLE_MESSAGE_INIT_NAMESPACE, XMPP_CALL_INVITES_NAMESPACE]
+  };
+}
+
+function xmppEvaluateCallFeatures(features = new Set()) {
+  const buckets = xmppRequiredCallFeatureBuckets();
+  const hasCore = buckets.core.every((feature) => features.has(feature));
+  const hasMedia = buckets.media.some((feature) => features.has(feature));
+  const hasTransport = buckets.transport.some((feature) => features.has(feature));
+  const hasInvite = buckets.invite.some((feature) => features.has(feature));
+  return {
+    hasCore,
+    hasMedia,
+    hasTransport,
+    hasInvite,
+    ready: hasCore && hasMedia && hasTransport && hasInvite
+  };
+}
+
+async function xmppAssessConversationCallInterop(conversation = getActiveConversation(), { force = false } = {}) {
+  const targets = xmppCallCapabilityTargetsForConversation(conversation);
+  if (!conversation || targets.length === 0) {
+    return {
+      ready: false,
+      targets: [],
+      chosenTarget: "",
+      details: [],
+      reason: "no-target"
+    };
+  }
+  const details = [];
+  for (const target of targets) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const info = await xmppFetchDiscoInfoCached(target, { force });
+      const evalResult = xmppEvaluateCallFeatures(info?.features || new Set());
+      const featureList = [...(info?.features || [])];
+      details.push({
+        target,
+        ok: evalResult.ready,
+        evalResult,
+        featureList
+      });
+      if (evalResult.ready) {
+        return {
+          ready: true,
+          targets,
+          chosenTarget: target,
+          details,
+          reason: "ok"
+        };
+      }
+    } catch (error) {
+      details.push({
+        target,
+        ok: false,
+        evalResult: { hasCore: false, hasMedia: false, hasTransport: false, hasInvite: false, ready: false },
+        featureList: [],
+        error: String(error?.message || error || "unknown")
+      });
+    }
+  }
+  return {
+    ready: false,
+    targets,
+    chosenTarget: "",
+    details,
+    reason: "missing-features"
+  };
+}
+
 async function discoverXmppHttpUploadService({ connection = xmppConnection, prefs = getPreferences(), force = false } = {}) {
   if (!connection || !globalThis.$iq) return null;
   const domain = xmppDomainFromJid(prefs?.xmppJid || "");
@@ -14093,6 +14256,25 @@ function handleSlashCommand(rawText, channel, account) {
 
   if (command === "callxmpp") {
     const raw = (arg || "").trim().toLowerCase();
+    if (raw === "status") {
+      xmppAssessConversationCallInterop(getActiveConversation(), { force: true }).then((interop) => {
+        if (interop.ready) {
+          addSystemMessage(channel, `XMPP call interop: ready (target ${interop.chosenTarget || "unknown"}).`);
+          return;
+        }
+        const first = interop.details[0]?.evalResult || {};
+        const missing = [
+          first.hasCore ? "" : "jingle",
+          first.hasMedia ? "" : "rtp-media",
+          first.hasTransport ? "" : "ice-udp",
+          first.hasInvite ? "" : "invite"
+        ].filter(Boolean);
+        addSystemMessage(channel, `XMPP call interop: not ready${missing.length > 0 ? ` (missing ${missing.join(", ")})` : ""}.`);
+      }).catch(() => {
+        addSystemMessage(channel, "XMPP call interop check failed.");
+      });
+      return true;
+    }
     const screenShare = raw === "screen" || raw === "screenshare" || raw === "share";
     launchNativeXmppConversationCall({ screenShare });
     return true;
@@ -29684,6 +29866,25 @@ ui.messageForm.addEventListener("submit", (event) => {
     }
     if (dmCommand === "callxmpp") {
       const raw = (dmArg || "").trim().toLowerCase();
+      if (raw === "status") {
+        xmppAssessConversationCallInterop(conversation, { force: true }).then((interop) => {
+          if (interop.ready) {
+            showToast(`XMPP call interop ready (${interop.chosenTarget || "target"}).`);
+            return;
+          }
+          const first = interop.details[0]?.evalResult || {};
+          const missing = [
+            first.hasCore ? "" : "jingle",
+            first.hasMedia ? "" : "rtp-media",
+            first.hasTransport ? "" : "ice-udp",
+            first.hasInvite ? "" : "invite"
+          ].filter(Boolean);
+          showToast(`XMPP call interop not ready${missing.length > 0 ? ` (${missing.join(", ")})` : ""}.`, { tone: "error", duration: 3000 });
+        }).catch(() => {
+          showToast("XMPP call interop check failed.", { tone: "error" });
+        });
+        return;
+      }
       const screenShare = raw === "screen" || raw === "screenshare" || raw === "share";
       launchNativeXmppConversationCall({ screenShare });
       return;

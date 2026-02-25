@@ -70,6 +70,7 @@
 - [done] Added cross-platform conference fallback for AV/screenshare (`/call`, `/callscreen`, header buttons, voice/stage launch controls) with configurable provider URL + room prefix.
 - [done] Added coexistence controls for `Web Call` and `XMPP Call` so both paths are available side-by-side in header/voice surfaces.
 - [done] Added shared whiteboard fallback (`/whiteboard`, header button, voice/stage button) with configurable provider + room prefix.
+- [done] Added XMPP call interoperability probing (`disco#info`) with `/callxmpp status` and automatic `Web Call` fallback when required Jingle buckets are missing.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
@@ -355,3 +356,4 @@ https://discord.js.org/docs/packages/discord.js/main
 - make it possible to swipe-in channel descriptions?
 - swipe up on message input could show favourite stuff?
 - custom (keyboard and swipe) shortcuts?
+- Could the same whiteboard be shared between XMPP, IRC and Matrix?
