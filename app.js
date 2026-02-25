@@ -4397,6 +4397,9 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
     });
     xmppLatestIncomingCallSessionByPeer.set(peer, id);
     showToast(`Incoming XMPP call from ${peer}. Use /callxmpp accept ${id.slice(0, 8)} or /callxmpp reject ${id.slice(0, 8)}.`);
+    if (addSystemDmMessageByPeerJid(peer, `Incoming XMPP call proposal (${id.slice(0, 8)}). Use /callxmpp accept ${id.slice(0, 8)} or /callxmpp reject ${id.slice(0, 8)}.`)) {
+      refreshDmUiForPeerJid(peer);
+    }
     addXmppDebugEvent("message", "Received XMPP jingle propose", {
       from: peer,
       id,
@@ -4411,6 +4414,9 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       clearXmppCallSignalTimeout(id);
       addXmppDebugEvent("message", "Received XMPP jingle proceed", { from: peer, id });
       showToast("XMPP peer accepted call proposal.");
+      if (addSystemDmMessageByPeerJid(peer, `XMPP peer accepted call proposal (${id.slice(0, 8)}).`)) {
+        refreshDmUiForPeerJid(peer);
+      }
       if (typeof globalThis.startNativeXmppCallSession === "function") {
         try {
           const ok = globalThis.startNativeXmppCallSession({
@@ -4434,6 +4440,9 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
   if (action === "reject" || action === "retract") {
     addXmppDebugEvent("message", "Received XMPP jingle stop action", { from: peer, id, action });
     showToast(action === "reject" ? "XMPP call proposal rejected." : "XMPP call proposal cancelled.");
+    if (addSystemDmMessageByPeerJid(peer, `XMPP call proposal ${action === "reject" ? "rejected" : "cancelled"} (${id.slice(0, 8)}).`)) {
+      refreshDmUiForPeerJid(peer);
+    }
     forgetXmppCallSession(id);
     return true;
   }
@@ -4509,6 +4518,9 @@ async function launchNativeXmppConversationCall({ screenShare = false } = {}) {
     });
     xmppLatestOutgoingCallSessionByPeer.set(peerBare, sessionId);
     showToast("Sent XMPP call proposal. Waiting for peer response...");
+    if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP call proposal (${sessionId.slice(0, 8)}). Waiting for peer response.`)) {
+      refreshDmUiForPeerJid(peerBare);
+    }
     return true;
   }
   if (typeof globalThis.startNativeXmppCallSession === "function") {
@@ -13005,6 +13017,32 @@ function addSystemMessage(channel, text) {
   });
 }
 
+function addSystemDmMessageByPeerJid(peerJid, text) {
+  const thread = findXmppDmThreadByPeerJid(peerJid);
+  if (!thread || !Array.isArray(thread.messages) || !text) return false;
+  thread.messages.push({
+    id: createId(),
+    userId: null,
+    authorName: "system",
+    text: (text || "").toString().slice(0, 480),
+    ts: new Date().toISOString(),
+    reactions: [],
+    attachments: []
+  });
+  return true;
+}
+
+function refreshDmUiForPeerJid(peerJid) {
+  const bare = xmppBareJid(peerJid);
+  if (!bare) return;
+  renderDmList();
+  const activeConversation = getActiveConversation();
+  if (activeConversation?.type !== "dm") return;
+  const activePeer = xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount());
+  if (xmppBareJid(activePeer) !== bare) return;
+  renderMessages();
+}
+
 function ensureScheduledMessagesStore() {
   if (!Array.isArray(state.scheduledMessages)) {
     state.scheduledMessages = [];
@@ -14490,6 +14528,9 @@ function handleSlashCommand(rawText, channel, account) {
         return true;
       }
       addSystemMessage(channel, `Sent XMPP ${action} for ${targetId.slice(0, 8)}.`);
+      if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP ${action} (${targetId.slice(0, 8)}).`)) {
+        refreshDmUiForPeerJid(peerBare);
+      }
       if (sub === "accept") {
         launchConversationCall({ screenShare: false, autoPost: true });
       }
@@ -30126,6 +30167,9 @@ ui.messageForm.addEventListener("submit", (event) => {
           return;
         }
         showToast(`Sent XMPP ${action} (${targetId.slice(0, 8)}).`);
+        if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP ${action} (${targetId.slice(0, 8)}).`)) {
+          refreshDmUiForPeerJid(peerBare);
+        }
         if (sub === "accept") {
           launchConversationCall({ screenShare: false, autoPost: true });
         }
