@@ -53,3 +53,4 @@ Status labels:
 
 - Server feature availability varies by provider; a supported XEP may still be unavailable on a specific server.
 - This list is implementation-oriented (what the client does today), not just what servers advertise in stream features.
+- Current AV/screenshare in-client behavior uses a configurable web conference fallback room launcher; native Jingle signaling XEPs above remain planned.

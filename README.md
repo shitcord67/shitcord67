@@ -291,6 +291,9 @@ Notes:
 - Added `Alt+M` hotkey for self mute/unmute in active voice/stage channel.
 - Voice/stage channel context menu now includes quick self mute and status actions.
 - Voice/stage call surface now includes direct channel-link copy action.
+- Added realtime call launch in the chat header (`Call`, `Copy Call`) and in voice/stage surfaces (`Start AV Call`, `Start Screen Share`).
+- Added call slash commands: `/call [join|screen|link|copy] [room]` and `/callscreen [room]`.
+- Added Advanced call settings: provider URL, room prefix, and auto-post invite link toggle.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
 - Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
 - Added Discord-like live typing indicators across relay transports (`ws`, `http/sse`, `xmpp`).
@@ -445,9 +448,10 @@ XMPP mode (experimental):
 
 XMPP realtime media + spaces status (as of 2026-02-25):
 - Implemented now: text chat, typing states, MAM history, reactions/replies/edit/retract coverage (see `SUPPORTED_XEPS.md`).
-- Not implemented yet: native XMPP voice/video/screenshare calls in-client (Jingle/WebRTC stack is not wired).
+- Implemented now (cross-platform fallback): built-in AV/screenshare conference launch via configurable web conference provider rooms.
+- Not implemented yet: native XMPP voice/video/screenshare signaling in-client (Jingle/WebRTC stack is not wired).
 - Tracked next: XEP-0166/XEP-0167/XEP-0353/XEP-0320 for call/media flows and XEP-0503 (Draft) for spaces hierarchy.
-- Practical workaround for immediate use: run calls/screenshare through a dedicated conference service and post/join links from chat until native call support lands.
+- Practical path now: launch/join calls from header buttons or `/call` while using XMPP for chat transport.
 
 ## Local XMPP Secrets + Direct Send Script
 - Local secret file: `.xmpp.local.json` (git-ignored).

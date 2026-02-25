@@ -204,6 +204,8 @@ const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
+  { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
+  { name: "callscreen", args: "[room]", description: "Open call room and start with screenshare intent." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
   { name: "tableflip", args: "[text]", description: "Send a table-flip message." },
   { name: "unflip", args: "", description: "Send table reset emote." },
@@ -717,7 +719,10 @@ function buildInitialState() {
       xmppPassword: "",
       xmppWsUrl: "",
       xmppMucService: "",
-      xmppHideNonXmpp: "on"
+      xmppHideNonXmpp: "on",
+      callProviderUrl: "https://meet.jit.si",
+      callRoomPrefix: "shitcord67",
+      callAutoPost: "on"
     }
   };
 }
@@ -1370,6 +1375,8 @@ const ui = {
   chatHeader: document.querySelector(".chat-header"),
   chatHeaderRight: document.querySelector(".chat-header__right"),
   relayHeaderBadge: document.getElementById("relayHeaderBadge"),
+  openCallBtn: document.getElementById("openCallBtn"),
+  copyCallLinkBtn: document.getElementById("copyCallLinkBtn"),
   markChannelReadBtn: document.getElementById("markChannelReadBtn"),
   nextUnreadBtn: document.getElementById("nextUnreadBtn"),
   openChannelSettingsBtn: document.getElementById("openChannelSettingsBtn"),
@@ -1613,6 +1620,9 @@ const ui = {
   xmppWsUrlInput: document.getElementById("xmppWsUrlInput"),
   xmppMucServiceInput: document.getElementById("xmppMucServiceInput"),
   xmppHideNonXmppInput: document.getElementById("xmppHideNonXmppInput"),
+  callProviderInput: document.getElementById("callProviderInput"),
+  callRoomPrefixInput: document.getElementById("callRoomPrefixInput"),
+  callAutoPostInput: document.getElementById("callAutoPostInput"),
   exportDataBtn: document.getElementById("exportDataBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   importDataInput: document.getElementById("importDataInput"),
@@ -1712,6 +1722,8 @@ const ui = {
 if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 
 const HEADER_ACTION_BUTTONS = [
+  { key: "openCallBtn", icon: "📹", fallback: "Call", preferIcon: true },
+  { key: "copyCallLinkBtn", icon: "🔗", fallback: "Copy Call", preferIcon: true },
   { key: "openFindBtn", icon: "🔍", fallback: "Find", preferIcon: true },
   { key: "markChannelReadBtn", icon: "✓", fallback: "Mark Read" },
   { key: "nextUnreadBtn", icon: "⤓", fallback: "Next Unread" },
@@ -4104,6 +4116,153 @@ window.addEventListener("s67-open-external-url", (event) => {
   openExternalUrlInClient(requestedUrl);
 });
 
+function shortHashToken(rawValue = "") {
+  const input = (rawValue || "").toString();
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function conversationCallRoomName(conversation = getActiveConversation(), roomOverride = "") {
+  const override = normalizeConferenceRoomToken(roomOverride);
+  if (override) return override;
+  if (!conversation) return "";
+  const prefs = getPreferences();
+  const prefix = normalizeConferenceRoomPrefix(prefs.callRoomPrefix);
+  const relayRoom = relayRoomForActiveConversation() || "";
+  if (conversation.type === "dm") {
+    const threadId = (conversation.thread?.id || "dm").toString();
+    const peer = dmPeerAccountForThread(conversation.thread, state.currentAccountId || "");
+    const peerSeed = (peer?.xmppJid || peer?.username || peer?.id || "").toString().toLowerCase();
+    const seed = `dm:${threadId}:${relayRoom}:${peerSeed}`;
+    const hash = shortHashToken(seed).slice(0, 8);
+    return normalizeConferenceRoomToken(`${prefix}-dm-${hash}`).slice(0, 64);
+  }
+  const guildId = (state.activeGuildId || "").toString();
+  const channelId = (conversation.channel?.id || "").toString();
+  const channelType = (conversation.channel?.type || "text").toString();
+  const channelName = normalizeConferenceRoomToken((conversation.channel?.name || "room").toString());
+  const seed = `guild:${guildId}:${channelId}:${relayRoom}:${channelType}:${channelName}`;
+  const hash = shortHashToken(seed).slice(0, 8);
+  return normalizeConferenceRoomToken(`${prefix}-${channelType}-${channelName || "room"}-${hash}`).slice(0, 64);
+}
+
+function conversationCallUrl(conversation = getActiveConversation(), { roomOverride = "", screenShare = false } = {}) {
+  const room = conversationCallRoomName(conversation, roomOverride);
+  if (!room) return "";
+  const base = normalizeConferenceProviderUrl(getPreferences().callProviderUrl);
+  const hashParams = ["config.prejoinPageEnabled=true"];
+  if (screenShare) hashParams.push("config.startScreenSharing=true");
+  return `${base}/${encodeURIComponent(room)}#${hashParams.join("&")}`;
+}
+
+function postCallInviteToConversation(conversation, account, url, { screenShare = false } = {}) {
+  if (!conversation || !account || !url) return false;
+  const message = {
+    id: createId(),
+    userId: account.id,
+    authorName: "",
+    text: `${screenShare ? "🖥️ Screen-share call" : "📞 Voice/video call"}: ${url}`,
+    ts: new Date().toISOString(),
+    reactions: [],
+    attachments: []
+  };
+  if (conversation.type === "dm") {
+    conversation.thread.messages.push(message);
+    publishRelayDirectMessage(conversation.thread, message, account);
+    return true;
+  }
+  if (conversation.channel?.type === "voice" || conversation.channel?.type === "stage") {
+    return false;
+  }
+  conversation.channel.messages.push(message);
+  publishRelayChannelMessage(conversation.channel, message, account);
+  return true;
+}
+
+function openConferenceLightbox(url, { title = "Realtime call" } = {}) {
+  if (!url) return;
+  const overlay = ensureMediaLightbox();
+  const stage = overlay.querySelector(".media-lightbox__stage");
+  const caption = overlay.querySelector(".media-lightbox__caption");
+  if (!stage || !caption) return;
+  stage.innerHTML = "";
+
+  const frame = document.createElement("iframe");
+  frame.className = "media-lightbox__media media-lightbox__media--frame";
+  frame.src = url;
+  frame.loading = "eager";
+  frame.allow = "camera; microphone; display-capture; fullscreen; autoplay; clipboard-write";
+  frame.referrerPolicy = "no-referrer";
+
+  const controls = document.createElement("div");
+  controls.className = "external-link-gate__actions";
+
+  const externalBtn = document.createElement("button");
+  externalBtn.type = "button";
+  externalBtn.textContent = "Open External";
+  externalBtn.addEventListener("click", () => {
+    if (nativeWindowOpen) nativeWindowOpen(url, "_blank", "noopener,noreferrer");
+    else openExternalUrlInClient(url);
+  });
+
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy URL";
+  copyBtn.addEventListener("click", async () => {
+    const ok = await copyText(url);
+    showToast(ok ? "Call URL copied." : "Could not copy call URL.", { tone: ok ? "info" : "error" });
+  });
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.textContent = "Close";
+  closeBtn.addEventListener("click", () => closeMediaLightbox());
+
+  controls.appendChild(externalBtn);
+  controls.appendChild(copyBtn);
+  controls.appendChild(closeBtn);
+
+  stage.appendChild(frame);
+  stage.appendChild(controls);
+  caption.textContent = title;
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  overlay.focus({ preventScroll: true });
+}
+
+function launchConversationCall({ screenShare = false, roomOverride = "", copyOnly = false, autoPost = true } = {}) {
+  const conversation = getActiveConversation();
+  const account = getCurrentAccount();
+  if (!conversation) {
+    showToast("Open a channel or DM first.", { tone: "error" });
+    return "";
+  }
+  const url = conversationCallUrl(conversation, { roomOverride, screenShare });
+  if (!url) {
+    showToast("Could not resolve call room URL.", { tone: "error" });
+    return "";
+  }
+  if (copyOnly) {
+    void copyText(url).then((ok) => showToast(ok ? "Call link copied." : "Failed to copy call link.", { tone: ok ? "info" : "error" }));
+    return url;
+  }
+  openConferenceLightbox(url, { title: screenShare ? "Screen-share call" : "Voice/video call" });
+  if (autoPost && getPreferences().callAutoPost === "on" && account) {
+    const posted = postCallInviteToConversation(conversation, account, url, { screenShare });
+    if (posted) {
+      saveState();
+      renderMessages();
+      renderChannels();
+      renderDmList();
+    }
+  }
+  return url;
+}
+
 function mentionInComposer(account) {
   if (!account) return;
   const base = ui.messageInput.value.trim();
@@ -4749,6 +4908,30 @@ function normalizeRelayRoom(value) {
   return (value || "").toString().trim().slice(0, 80);
 }
 
+function normalizeConferenceProviderUrl(value) {
+  const raw = (value || "").toString().trim().slice(0, 200);
+  if (!raw) return "https://meet.jit.si";
+  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(candidate);
+    if (!/^https?:$/i.test(parsed.protocol)) return "https://meet.jit.si";
+    const path = parsed.pathname.replace(/\/+$/, "");
+    return `${parsed.origin}${path}`.slice(0, 200);
+  } catch {
+    return "https://meet.jit.si";
+  }
+}
+
+function normalizeConferenceRoomPrefix(value) {
+  const token = (value || "").toString().trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+  return (token || "shitcord67").slice(0, 32);
+}
+
+function normalizeConferenceRoomToken(value) {
+  const token = (value || "").toString().trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+  return token.slice(0, 64);
+}
+
 function relayHealthUrlFromRelayUrl(value) {
   const base = normalizeRelayUrl(value)
     .replace(/^ws:/i, "http:")
@@ -4938,6 +5121,9 @@ function getPreferences() {
     xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),
     xmppMucService: normalizeXmppMucService(current.xmppMucService),
     xmppHideNonXmpp: normalizeToggle(current.xmppHideNonXmpp ?? "on"),
+    callProviderUrl: normalizeConferenceProviderUrl(current.callProviderUrl),
+    callRoomPrefix: normalizeConferenceRoomPrefix(current.callRoomPrefix),
+    callAutoPost: normalizeToggle(current.callAutoPost ?? "on"),
     swfPipPosition: current.swfPipPosition && typeof current.swfPipPosition === "object"
       ? {
           left: Number.isFinite(Number(current.swfPipPosition.left)) ? Math.max(0, Number(current.swfPipPosition.left)) : null,
@@ -13718,6 +13904,36 @@ function handleSlashCommand(rawText, channel, account) {
       return true;
     }
     addSystemMessage(channel, "Usage: /vc <join|leave|mute|unmute|toggle|status>");
+    return true;
+  }
+
+  if (command === "call" || command === "callscreen") {
+    const raw = (arg || "").trim();
+    const parts = raw ? raw.split(/\s+/) : [];
+    const first = (parts[0] || "").toLowerCase();
+    const explicitAction = ["join", "start", "screen", "screenshare", "share", "link", "copy"].includes(first) ? first : "";
+    const action = command === "callscreen" ? "screen" : (explicitAction || "join");
+    const roomOverride = command === "callscreen"
+      ? raw
+      : (explicitAction ? parts.slice(1).join(" ") : raw);
+    if (action === "link" || action === "copy") {
+      const url = conversationCallUrl(getActiveConversation(), { roomOverride });
+      if (!url) {
+        addSystemMessage(channel, "Could not resolve call room URL.");
+        return true;
+      }
+      if (action === "copy") {
+        void copyText(url).then((ok) => showToast(ok ? "Call link copied." : "Failed to copy call link.", { tone: ok ? "info" : "error" }));
+      } else {
+        addSystemMessage(channel, `Call link: ${url}`);
+      }
+      return true;
+    }
+    launchConversationCall({
+      screenShare: ["screen", "screenshare", "share"].includes(action),
+      roomOverride,
+      autoPost: true
+    });
     return true;
   }
 
@@ -24728,6 +24944,14 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
 
 function renderDmHome() {
   const current = getCurrentAccount();
+  if (ui.openCallBtn) {
+    ui.openCallBtn.hidden = true;
+    ui.openCallBtn.disabled = true;
+  }
+  if (ui.copyCallLinkBtn) {
+    ui.copyCallLinkBtn.hidden = true;
+    ui.copyCallLinkBtn.disabled = true;
+  }
   setActiveChannelHeader("Friends", "@", "Friends", "Direct messages");
   setActiveChannelTopic("Direct Messages");
   ui.messageInput.placeholder = "Pick a DM to start chatting";
@@ -24892,6 +25116,22 @@ function renderVoiceStageSurface(channel) {
     });
   });
   controls.appendChild(copyLinkBtn);
+
+  const startCallBtn = document.createElement("button");
+  startCallBtn.type = "button";
+  startCallBtn.textContent = "Start AV Call";
+  startCallBtn.addEventListener("click", () => {
+    launchConversationCall({ screenShare: false, autoPost: true });
+  });
+  controls.appendChild(startCallBtn);
+
+  const screenCallBtn = document.createElement("button");
+  screenCallBtn.type = "button";
+  screenCallBtn.textContent = "Start Screen Share";
+  screenCallBtn.addEventListener("click", () => {
+    launchConversationCall({ screenShare: true, autoPost: true });
+  });
+  controls.appendChild(screenCallBtn);
 
   if (channel.type === "stage") {
     const handBtn = document.createElement("button");
@@ -25258,8 +25498,26 @@ function renderMessages() {
   renderSlashSuggestions();
 
   if (!conversationId) {
+    if (ui.openCallBtn) {
+      ui.openCallBtn.hidden = true;
+      ui.openCallBtn.disabled = true;
+    }
+    if (ui.copyCallLinkBtn) {
+      ui.copyCallLinkBtn.hidden = true;
+      ui.copyCallLinkBtn.disabled = true;
+    }
     updateJumpToBottomButton();
     return;
+  }
+  if (ui.openCallBtn) {
+    ui.openCallBtn.hidden = false;
+    ui.openCallBtn.disabled = false;
+    setHeaderActionButtonLabel(ui.openCallBtn, isDm ? "DM Call" : "Call");
+  }
+  if (ui.copyCallLinkBtn) {
+    ui.copyCallLinkBtn.hidden = false;
+    ui.copyCallLinkBtn.disabled = false;
+    setHeaderActionButtonLabel(ui.copyCallLinkBtn, "Copy Call");
   }
   if (!isDm && (channel?.type === "voice" || channel?.type === "stage")) {
     renderVoiceStageSurface(channel);
@@ -27023,6 +27281,9 @@ function renderSettingsScreen() {
   if (ui.xmppWsUrlInput) ui.xmppWsUrlInput.value = prefs.xmppWsUrl;
   if (ui.xmppMucServiceInput) ui.xmppMucServiceInput.value = prefs.xmppMucService;
   if (ui.xmppHideNonXmppInput) ui.xmppHideNonXmppInput.value = prefs.xmppHideNonXmpp;
+  if (ui.callProviderInput) ui.callProviderInput.value = prefs.callProviderUrl;
+  if (ui.callRoomPrefixInput) ui.callRoomPrefixInput.value = prefs.callRoomPrefix;
+  if (ui.callAutoPostInput) ui.callAutoPostInput.value = prefs.callAutoPost;
   renderRelayStatusOutput();
   if (ui.guildNotifGuildName) {
     ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
@@ -27070,6 +27331,8 @@ function hardenInputAutocompleteNoise() {
     ui.dmSearchInput,
     ui.channelFilterInput,
     ui.memberSearchInput,
+    ui.callProviderInput,
+    ui.callRoomPrefixInput,
     ui.mediaSearchInput,
     ui.findInput,
     ui.findAuthorInput,
@@ -29150,6 +29413,35 @@ ui.messageForm.addEventListener("submit", (event) => {
       });
       return;
     }
+    if (dmCommand === "call" || dmCommand === "callscreen") {
+      const raw = (dmArg || "").trim();
+      const parts = raw ? raw.split(/\s+/) : [];
+      const first = (parts[0] || "").toLowerCase();
+      const explicitAction = ["join", "start", "screen", "screenshare", "share", "link", "copy"].includes(first) ? first : "";
+      const action = dmCommand === "callscreen" ? "screen" : (explicitAction || "join");
+      const roomOverride = dmCommand === "callscreen"
+        ? raw
+        : (explicitAction ? parts.slice(1).join(" ") : raw);
+      if (action === "link" || action === "copy") {
+        const url = conversationCallUrl(conversation, { roomOverride });
+        if (!url) {
+          showToast("Could not resolve call room URL.", { tone: "error" });
+          return;
+        }
+        if (action === "copy") {
+          void copyText(url).then((ok) => showToast(ok ? "Call link copied." : "Failed to copy call link.", { tone: ok ? "info" : "error" }));
+        } else {
+          showToast(url, { duration: 2600 });
+        }
+        return;
+      }
+      launchConversationCall({
+        screenShare: ["screen", "screenshare", "share"].includes(action),
+        roomOverride,
+        autoPost: true
+      });
+      return;
+    }
     if (dmCommand === "focus") {
       if (!dmArg || dmArg.toLowerCase() === "search") {
         ui.dmSearchInput?.focus();
@@ -30545,6 +30837,28 @@ ui.openFindBtn?.addEventListener("click", () => {
   if (!state.currentAccountId) return;
   openFindDialog();
 });
+ui.openCallBtn?.addEventListener("click", () => {
+  launchConversationCall({ screenShare: false, autoPost: true });
+});
+ui.openCallBtn?.addEventListener("contextmenu", (event) => {
+  openContextMenu(event, [
+    {
+      label: "Start Voice/Video Call",
+      action: () => launchConversationCall({ screenShare: false, autoPost: true })
+    },
+    {
+      label: "Start Screen Share",
+      action: () => launchConversationCall({ screenShare: true, autoPost: true })
+    },
+    {
+      label: "Copy Call Link",
+      action: () => launchConversationCall({ copyOnly: true, autoPost: false })
+    }
+  ]);
+});
+ui.copyCallLinkBtn?.addEventListener("click", () => {
+  launchConversationCall({ copyOnly: true, autoPost: false });
+});
 ui.quickSwitchCancel?.addEventListener("click", () => ui.quickSwitchDialog?.close());
 ui.quickSwitchInput?.addEventListener("input", () => {
   quickSwitchQuery = ui.quickSwitchInput.value.slice(0, 80);
@@ -31393,6 +31707,9 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
   state.preferences.xmppMucService = normalizeXmppMucService(ui.xmppMucServiceInput?.value || "");
   state.preferences.xmppHideNonXmpp = normalizeToggle(ui.xmppHideNonXmppInput?.value || "on");
+  state.preferences.callProviderUrl = normalizeConferenceProviderUrl(ui.callProviderInput?.value || "");
+  state.preferences.callRoomPrefix = normalizeConferenceRoomPrefix(ui.callRoomPrefixInput?.value || "");
+  state.preferences.callAutoPost = normalizeToggle(ui.callAutoPostInput?.value || "on");
   if (!saveTenorCredentialSettings({ refreshGifPicker: true })) {
     showToast("Could not save Tenor credentials.", { tone: "error" });
   }

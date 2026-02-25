@@ -119,6 +119,8 @@
           <div class="chat-header__right">
             <span id="activeChannelTopic" class="chat-topic"></span>
             <span id="relayHeaderBadge" class="chat-topic chat-topic--relay">Local</span>
+            <button id="openCallBtn" class="chat-topic-edit" title="Open realtime call">Call</button>
+            <button id="copyCallLinkBtn" class="chat-topic-edit" title="Copy realtime call link">Copy Call</button>
             <button id="openFindBtn" class="chat-topic-edit" title="Find in conversation">Find</button>
             <button id="markChannelReadBtn" class="chat-topic-edit" title="Mark channel read">Mark Read</button>
             <button id="nextUnreadBtn" class="chat-topic-edit" title="Jump to next unread channel">Next Unread</button>
@@ -395,6 +397,16 @@
             <select id="xmppHideNonXmppInput">
               <option value="on">Hide by default</option>
               <option value="off">Show with red warning border</option>
+            </select>
+            <h3>Realtime Calls (AV + Screen Share)</h3>
+            <label for="callProviderInput">Call provider URL</label>
+            <input id="callProviderInput" type="text" maxlength="200" placeholder="https://meet.jit.si" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="callRoomPrefixInput">Call room prefix</label>
+            <input id="callRoomPrefixInput" type="text" maxlength="40" placeholder="shitcord67" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="callAutoPostInput">Auto-post call invite link</label>
+            <select id="callAutoPostInput">
+              <option value="on">On</option>
+              <option value="off">Off</option>
             </select>
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export App JSON</button>

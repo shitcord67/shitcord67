@@ -67,6 +67,7 @@
 - Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
+- [done] Added cross-platform conference fallback for AV/screenshare (`/call`, `/callscreen`, header buttons, voice/stage launch controls) with configurable provider URL + room prefix.
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
 - [priority] Implement call invite/ringing flow with Jingle Message Initiation (XEP-0353), including DM and room entry points.
 - [priority] Add secure WebRTC media transport alignment for Jingle (XEP-0320 DTLS-SRTP path and browser compatibility checks).
