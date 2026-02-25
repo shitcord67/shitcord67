@@ -74,6 +74,7 @@
 - [done] Added DM-native XMPP call signaling scaffolding for Jingle Message Initiation (`propose/proceed/reject/retract`) with `/callxmpp accept|reject|cancel`.
 - [done] Added DM-native Jingle IQ session scaffolding (`session-initiate/session-accept/session-terminate`) and `/callxmpp end`.
 - [done] Added DM-native ringing/transport scaffolding (`ringing`, `session-info`, `transport-info`) with `/callxmpp ring|transport` for better cross-client interop.
+- [done] Added local ICE candidate gathering for queued `/callxmpp transport` sends and auto-transport updates after `session-accept`.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
