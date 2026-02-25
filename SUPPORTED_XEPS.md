@@ -42,7 +42,7 @@ Status labels:
 |---|---|---|---|
 | XEP-0384 | OMEMO Encryption | Planned | Encrypted payloads are detected but cannot be decrypted yet. |
 | XEP-0084 | User Avatar | Planned | Avatar PubSub (`urn:xmpp:avatar:*`) read path is incomplete. |
-| XEP-0166 | Jingle | Planned | Required signaling baseline for call setup/teardown (`session-initiate`, `session-accept`, `session-terminate`). |
+| XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, and `session-terminate`; full media transport/session negotiation is still incomplete. |
 | XEP-0167 | Jingle RTP Sessions | Planned | Required for real-time voice/video over RTP in Jingle sessions. |
 | XEP-0353 | Jingle Message Initiation | Partial | DM call signaling scaffolding now handles `propose/proceed/reject/retract` with interoperability checks and fallback; full native media session wiring is still incomplete. |
 | XEP-0320 | Use of DTLS-SRTP in Jingle Sessions | Planned | Required for secure media transport with browser/WebRTC-compatible call flows. |
