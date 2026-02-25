@@ -1308,3 +1308,6 @@ Yeah important is that we can community via Jitsi and with Movim at least. But i
 Yes. I want that all of this works. Work and never stop working
 2026-02-25T23:07:55Z USER PROMPT:
 Is there more to do then please continue
+2026-02-25T23:12:39Z USER PROMPT:
+Yes
+2026-02-25T23:34:20Z USER PROMPT: Yes

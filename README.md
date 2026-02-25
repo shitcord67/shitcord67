@@ -293,9 +293,10 @@ Notes:
 - Voice/stage call surface now includes direct channel-link copy action.
 - Added separate realtime call launch buttons in the chat header: `Web Call`, `XMPP Call`, and `Copy Call`.
 - Added voice/stage call controls for both paths (`Start AV Call`, `Start Screen Share`, `Start XMPP Call`, `XMPP Screen`) plus `Open Whiteboard`.
-- Added call slash commands: `/call [join|screen|link|copy] [room]`, `/callweb ...`, `/callscreen [room]`, and `/callxmpp [start|screen]`.
+- Added call slash commands: `/call [join|screen|link|copy] [room]`, `/callweb ...`, `/callscreen [room]`, and `/callxmpp [start|screen|status|accept|reject|cancel|ring|transport|end]`.
 - `/callxmpp status` now runs an XMPP `disco#info` interoperability check for the active peer/room and reports missing call feature buckets.
 - `/callxmpp accept|reject|cancel|end [id]` now controls DM-native XMPP call signaling (Jingle Message Initiation and session lifecycle actions).
+- Native DM Jingle scaffolding now also handles ringing/session updates and ICE transport update stanzas (`ringing`, `session-info`, `transport-info`) for broader external-client compatibility.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).

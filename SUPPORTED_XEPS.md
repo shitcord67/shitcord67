@@ -43,8 +43,8 @@ Status labels:
 | XEP-0384 | OMEMO Encryption | Planned | Encrypted payloads are detected but cannot be decrypted yet. |
 | XEP-0084 | User Avatar | Planned | Avatar PubSub (`urn:xmpp:avatar:*`) read path is incomplete. |
 | XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, and `session-terminate`; full media transport/session negotiation is still incomplete. |
-| XEP-0167 | Jingle RTP Sessions | Planned | Required for real-time voice/video over RTP in Jingle sessions. |
-| XEP-0353 | Jingle Message Initiation | Partial | DM call signaling scaffolding now handles `propose/proceed/reject/retract` with interoperability checks and fallback; full native media session wiring is still incomplete. |
+| XEP-0167 | Jingle RTP Sessions | Partial | RTP content/session-info signaling scaffolding is now handled (`session-initiate`, `session-accept`, `session-info/ringing`), while full codec/SDP/WebRTC media negotiation remains incomplete. |
+| XEP-0353 | Jingle Message Initiation | Partial | DM call signaling scaffolding now handles `propose/proceed/ringing/reject/retract` with interoperability checks and fallback; full native media session wiring is still incomplete. |
 | XEP-0320 | Use of DTLS-SRTP in Jingle Sessions | Planned | Required for secure media transport with browser/WebRTC-compatible call flows. |
 | XEP-0503 (Draft) | Spaces | Planned | Tracked as the target for Discord-like server-space hierarchy once implementation and server compatibility work lands. |
 | Draft (vendor) | Profile Decor / Nameplates (`urn:shitcord67:profile:decor:0`) | Planned | Candidate extension for nameplate URLs, role-color hints, and client platform flags. See `XEP_DRAFT_NAMEPLATES.md`. |
@@ -53,6 +53,6 @@ Status labels:
 
 - Server feature availability varies by provider; a supported XEP may still be unavailable on a specific server.
 - This list is implementation-oriented (what the client does today), not just what servers advertise in stream features.
-- Current AV/screenshare in-client behavior uses a configurable web conference fallback room launcher; native Jingle signaling XEPs above remain planned.
+- Current AV/screenshare in-client behavior uses a configurable web conference fallback room launcher; native Jingle signaling exists but media transport is still scaffolding-level.
 - Web-conference and native-XMPP call controls now coexist in UI/commands; native signaling interop with external XMPP clients is the next protocol priority.
 - Shared whiteboard currently uses a configurable web whiteboard room launcher; native XMPP whiteboard extension interop is planned.
