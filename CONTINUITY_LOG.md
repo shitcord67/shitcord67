@@ -1351,3 +1351,11 @@ Yes
 [2026-02-26 05:23:31] Also then yeah please continue with what you deem worthly to add
 
 [2026-02-26 05:28:58] Not sure if this makes sense. But I think you need some differentiation for the screenshare stuff at least. Then please continue with Call/video/screenshare priorities
+
+[2026-02-26 05:31:44] Yes
+
+[2026-02-26T05:59:40.299431] Can you please continue with what you were previously working on? Also I tested the calling functionality. And it looks like when I initiate one from shitcord67 then other clients only get missed calls:  Missed call
+telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#config.prejoinPageEnabled=true
+telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#config.prejoinPageEnabled=true
+telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#config.prejoinPageEnabled=true
+telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#config.prejoinPageEnabled=true Also when I try to call from a different client then I do not see any pop-up or hear any ringtone for incoming calls in shitcord67. And nothing it displayed in the chat regarding when a call has been started and ended. Discord has way better UX here. Please make the calls really work!

@@ -74,6 +74,7 @@
 - [done] Added DM-native XMPP call signaling scaffolding for Jingle Message Initiation (`propose/proceed/reject/retract`) with `/callxmpp accept|reject|cancel`.
 - [done] Added DM-native Jingle IQ session scaffolding (`session-initiate/session-accept/session-terminate`) and `/callxmpp end`.
 - [done] Added DM-native ringing/transport scaffolding (`ringing`, `session-info`, `transport-info`) with `/callxmpp ring|transport` for better cross-client interop.
+- [done] Added incoming call prompts + ringtone for web/XMPP invites with start/end/missed call system messages.
 - [done] Added local ICE candidate gathering for queued `/callxmpp transport` sends and auto-transport updates after `session-accept`.
 - [done] Added per-session WebRTC peer-connection state tracking with remote ICE apply/queue handling for incoming `transport-info`.
 - [done] Added best-effort Jingle-to-minimal-SDP mapping for `session-initiate/session-accept` to prime remote descriptions and flush ICE queues.
@@ -431,4 +432,3 @@ Resources to get you up to speed:
  Pre-built libdave binaries ← newly available!, (https://github.com/discord/libdave/releases)
  DAVE protocol whitepaper, (https://daveprotocol.com/)
  End-to-End Encryption for Audio and Video (support article) (https://support.discord.com/hc/en-us/articles/25968222946071-End-to-End-Encryption-for-Audio-and-Video)
-

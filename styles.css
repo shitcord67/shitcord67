@@ -4339,6 +4339,61 @@ body[data-compact-members="on"] .member-item {
   cursor: auto;
 }
 
+.incoming-call-gate {
+  width: min(520px, calc(100vw - 3rem));
+  background: #1e232e;
+  border: 1px solid #3e465d;
+  border-radius: 14px;
+  padding: 0.9rem 1rem 1rem;
+  display: grid;
+  gap: 0.55rem;
+  cursor: auto;
+}
+
+.incoming-call-gate__title {
+  font-size: 0.98rem;
+  color: #f0f4ff;
+}
+
+.incoming-call-gate__meta {
+  color: #b9c4da;
+  font-size: 0.78rem;
+}
+
+.incoming-call-gate__url {
+  background: #12151c;
+  border: 1px solid #353d52;
+  border-radius: 8px;
+  color: #d7dfef;
+  font-size: 0.7rem;
+  padding: 0.4rem 0.5rem;
+  word-break: break-all;
+}
+
+.incoming-call-gate__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.incoming-call-gate__actions button {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+}
+
+.incoming-call-gate__accept {
+  background: #23a55a;
+  color: #effff6;
+}
+
+.incoming-call-gate__decline {
+  background: #e0565b;
+  color: #fff3f4;
+}
+
 .external-link-gate__url {
   display: block;
   width: 100%;
