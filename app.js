@@ -4313,6 +4313,37 @@ function xmppPeerJidForConversation(conversation = getActiveConversation(), curr
   return xmppPeerJidForDmThread(conversation.thread, current);
 }
 
+function xmppSessionDebugToken(session = null) {
+  if (!session || typeof session !== "object") return "";
+  const id = (session.id || "").toString().trim();
+  if (!id) return "";
+  const sid = id.slice(0, 6);
+  const state = (session.state || "idle").toString().trim().toLowerCase() || "idle";
+  const pending = session.pendingLocalRenegotiation ? "R" : "";
+  const queued = xmppCallSessionTaskChainBySessionId.has(id) ? "Q" : "";
+  const reprime = xmppCallPendingReprimeBySessionId.has(id) ? "P" : "";
+  const localCount = Array.isArray(session.localCandidates) ? session.localCandidates.length : 0;
+  const remoteCount = Array.isArray(session.remoteCandidates) ? session.remoteCandidates.length : 0;
+  return `${sid}:${state}${pending || queued || reprime ? `[${pending}${queued}${reprime}]` : ""} l${localCount}/r${remoteCount}`;
+}
+
+function xmppCallDebugSummaryForConversation(conversation = getActiveConversation(), current = getCurrentAccount()) {
+  if (!conversation || conversation.type !== "dm") return "";
+  const peer = xmppPeerJidForConversation(conversation, current);
+  const peerBare = xmppBareJid(peer);
+  if (!peerBare) return "";
+  const sessions = [...xmppCallSessionById.values()]
+    .filter((session) => xmppBareJid(session?.peerJid || "") === peerBare)
+    .sort((a, b) => (Number(b?.createdAt) || 0) - (Number(a?.createdAt) || 0));
+  if (sessions.length <= 0) return "";
+  const tokens = sessions
+    .slice(0, 2)
+    .map((session) => xmppSessionDebugToken(session))
+    .filter(Boolean);
+  if (tokens.length <= 0) return "";
+  return `XMPP ${tokens.join(" | ")}${sessions.length > tokens.length ? " …" : ""}`;
+}
+
 function clearXmppCallSignalTimeout(sessionId = "") {
   const id = (sessionId || "").toString();
   if (!id) return;
@@ -27868,7 +27899,10 @@ function renderMessages() {
     const dmRoom = relayRoomForDmThread(dmThread) || relayRoomForActiveConversation();
     const typingSummary = formatTypingSummary(typingNamesForRoom(dmRoom));
     const headerMeta = dmHeaderStatusMeta(dmThread, current?.id, { typingSummary });
-    setActiveChannelTopic(headerMeta.text || "Direct Message");
+    const xmppCallDebug = xmppCallDebugSummaryForConversation(getActiveConversation(), current);
+    const topicBits = [headerMeta.text || "Direct Message"];
+    if (xmppCallDebug) topicBits.push(xmppCallDebug);
+    setActiveChannelTopic(topicBits.join(" · "));
     ui.messageInput.placeholder = peer ? `Message ${peerPrimary}` : "Message DM";
   } else {
     const guild = getActiveGuild();
