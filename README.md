@@ -306,6 +306,7 @@ Notes:
 - Incoming ICE candidates now map `sdpMid`/`sdpMLineIndex` using Jingle content names/media instead of fixed index `0`.
 - Jingle RTP description parsing/SDP priming now includes `rtcp-fb`, `rtp-hdrext`, `source`, and `source-group` fields for richer cross-client media negotiation scaffolding.
 - Incoming Jingle `transport-replace` actions are now handled with transport refresh, peer-connection re-prime, candidate re-apply, and local transport update response.
+- Session-scoped Jingle async operations are now serialized through a per-session task queue to reduce signaling-state races during overlapping updates.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
