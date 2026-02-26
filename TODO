@@ -412,3 +412,23 @@ The underlying utility library I wrote to wrap around PipeWire video is here: ht
 - Take some features from Discord/Element Call/Jitsi/TeamSpeak for calling
 - BigBlueButton features, especially breakout rooms and some way to have a view like it, basically whiteboard-centered and aboe images of users and on the left site chat with a tab for notes and pins
 - Public & Contact-specific Stories/Shorts like Instagram/WhatsApp/Movim/Facebook/YouTube...
+- TeamSpeak 3 (and maybe 5&6) compability? Actually making it possible to speak with people from there, lol.
+- Noise supression. At least Krisp-like quality but maybe better with LLMs (https://krisp.ai/discord/ https://support.discord.com/hc/de/articles/360040843952-Krisp-FAQ https://help.krisp.ai/hc/en-us/articles/4420145521436-Set-up-Discord-with-Krisp)
+- TTS (LLMs, open-source)
+- Implement my owo sheets stuff... Cause I can!
+- Voice transcription (Whisper)
+- Transcription that allows each participant/speaker to be independently recognized (neat for podcasts which one might actually record; maybe add podcasting tools? Terms: sherpa-onnx https://en.wikipedia.org/wiki/Speaker_diarisation diarization)
+- Discord voice chat compability. https://gitlab.com/zipdox/librediscord but I think we need some more:
+Reminder: Non-E2EE Voice Calls Deprecated on March 2nd, 2026,
+We're less than two weeks away from the deadline — starting March 2nd, 2026 (we bumped it to the Monday), clients and apps without DAVE support will no longer be able to participate in Discord calls for all audio and video conversations in direct messages (DMs), group messages (GDMs), voice channels, and Go Live streams on Discord.
+
+ What You Need to Do,
+If you're working with Discord's voice APIs directly or maintaining a library that supports voice connections, now is the time to ensure DAVE support is in place before the cutoff.
+
+Resources to get you up to speed:
+ Updated Voice Connections documentation, (https://discord.com/developers/docs/topics/voice-connections)
+ libdave open-source repository & implementation examples, (https://github.com/discord/libdave)
+ Pre-built libdave binaries ← newly available!, (https://github.com/discord/libdave/releases)
+ DAVE protocol whitepaper, (https://daveprotocol.com/)
+ End-to-End Encryption for Audio and Video (support article) (https://support.discord.com/hc/en-us/articles/25968222946071-End-to-End-Encryption-for-Audio-and-Video)
+

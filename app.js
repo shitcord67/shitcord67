@@ -4189,6 +4189,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     const tile = document.createElement("div");
     tile.className = "native-call-surface__tile";
     if (session?.remoteMuted) tile.classList.add("native-call-surface__tile--muted");
+    if (session?.remoteVideoMuted) tile.classList.add("native-call-surface__tile--video-off");
     const video = document.createElement("video");
     video.className = "native-call-surface__video";
     video.autoplay = true;
@@ -4197,7 +4198,10 @@ function renderNativeXmppCallSurface(sessionId = "") {
     const label = document.createElement("span");
     label.className = "native-call-surface__label";
     const baseLabel = index === 0 ? (peer || "Peer") : `${peer || "Peer"} ${index + 1}`;
-    label.textContent = session?.remoteMuted ? `${baseLabel} · mic off` : baseLabel;
+    const badges = [];
+    if (session?.remoteMuted) badges.push("mic off");
+    if (session?.remoteVideoMuted) badges.push("cam off");
+    label.textContent = badges.length > 0 ? `${baseLabel} · ${badges.join(" · ")}` : baseLabel;
     tile.appendChild(video);
     tile.appendChild(label);
     grid.appendChild(tile);
@@ -5523,6 +5527,15 @@ function xmppJingleSendersFromSdpDirection(direction = "", localRole = "responde
 function xmppJingleSendersForLocalEnabled(enabled = true, localRole = "initiator") {
   if (enabled) return "both";
   return localRole === "initiator" ? "responder" : "initiator";
+}
+
+function xmppRemoteSendEnabledForSenders(senders = "both", localRole = "responder") {
+  const normalized = (senders || "").toString().trim().toLowerCase();
+  const local = (localRole || "").toString().trim().toLowerCase() === "initiator" ? "initiator" : "responder";
+  const remote = local === "initiator" ? "responder" : "initiator";
+  if (normalized === "none") return false;
+  if (normalized === "both") return true;
+  return normalized === remote;
 }
 
 function xmppParseSdpMediaSections(sdp = "") {
@@ -12238,6 +12251,14 @@ function connectRelaySocket({ force = false } = {}) {
           if (Array.isArray(jingle.media) && jingle.media.length > 0) session.media = [...jingle.media];
           if (Array.isArray(jingle.contents) && jingle.contents.length > 0) {
             session.remoteContents = jingle.contents;
+            const audioContent = jingle.contents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "audio");
+            const videoContent = jingle.contents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "video");
+            if (audioContent) {
+              session.remoteMuted = !xmppRemoteSendEnabledForSenders(audioContent.senders || "both", session.localJingleRole || "responder");
+            }
+            if (videoContent) {
+              session.remoteVideoMuted = !xmppRemoteSendEnabledForSenders(videoContent.senders || "both", session.localJingleRole || "responder");
+            }
           }
           xmppCallSessionById.set(jingle.sid, session);
           xmppLatestIncomingCallSessionByPeer.set(fromBare, jingle.sid);
@@ -12291,6 +12312,17 @@ function connectRelaySocket({ force = false } = {}) {
                 fingerprint: remoteTransport.fingerprint || ""
               };
             }
+            if (Array.isArray(jingle.contents) && jingle.contents.length > 0) {
+              session.remoteContents = jingle.contents;
+              const audioContent = jingle.contents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "audio");
+              const videoContent = jingle.contents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "video");
+              if (audioContent) {
+                session.remoteMuted = !xmppRemoteSendEnabledForSenders(audioContent.senders || "both", session.localJingleRole || "responder");
+              }
+              if (videoContent) {
+                session.remoteVideoMuted = !xmppRemoteSendEnabledForSenders(videoContent.senders || "both", session.localJingleRole || "responder");
+              }
+            }
             xmppEnsureSessionPeerConnection(jingle.sid, {
               peerJid: fromBare,
               media: session.media,
@@ -12336,6 +12368,14 @@ function connectRelaySocket({ force = false } = {}) {
               session.media = session.remoteContents
                 .map((entry) => (entry.media || "").toString().trim().toLowerCase())
                 .filter((item) => item === "audio" || item === "video");
+              const audioContent = session.remoteContents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "audio");
+              const videoContent = session.remoteContents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "video");
+              if (audioContent) {
+                session.remoteMuted = !xmppRemoteSendEnabledForSenders(audioContent.senders || "both", session.localJingleRole || "responder");
+              }
+              if (videoContent) {
+                session.remoteVideoMuted = !xmppRemoteSendEnabledForSenders(videoContent.senders || "both", session.localJingleRole || "responder");
+              }
             }
             session.state = "content-modified";
             xmppRequestSessionReprime(jingle.sid, {
