@@ -100,7 +100,7 @@ Notes:
 
 ## Desktop Env Overrides
 1. Optional env overrides:
-   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`, `S67_PACKAGED_LINUX_SANDBOX` (`on` to force sandbox in packaged Linux builds; default is `off`), `S67_PACKAGED_LINUX_SHM_MODE` (`auto` default, `shm` to force `/dev/shm`, `tmp` to force `/tmp`; forced modes fall back if unavailable), `S67_PACKAGED_LINUX_RUNTIME_DIR` (optional writable directory for packaged Linux temp/shared runtime files)
+   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`, `S67_PACKAGED_LINUX_SANDBOX` (`on` to force sandbox in packaged Linux builds; default is `off`), `S67_PACKAGED_LINUX_SHM_MODE` (`auto` default, `shm` to force `/dev/shm`, `tmp` to force `/tmp`; forced modes fall back if unavailable), `S67_PACKAGED_LINUX_RUNTIME_DIR` (optional writable directory for packaged Linux temp/shared runtime files), `S67_ELECTRON_PIPEWIRE` (`on` default, `off` disables WebRTC PipeWire capturer), `S67_ELECTRON_OZONE_HINT` (`auto` default, `x11`/`wayland` to force Ozone backend)
 
 ## Implemented
 - Login by username (creates/switches local accounts).

@@ -66,6 +66,17 @@ const http = require("node:http");
 const https = require("node:https");
 const net = require("node:net");
 
+const ELECTRON_PIPEWIRE = String(process.env.S67_ELECTRON_PIPEWIRE || "on").toLowerCase();
+const ELECTRON_OZONE_HINT = String(process.env.S67_ELECTRON_OZONE_HINT || "auto").toLowerCase();
+
+function appendChromiumFeatureFlag(flag) {
+  if (!flag) return;
+  const current = app.commandLine.getSwitchValue("enable-features") || "";
+  const list = current ? current.split(",").map((item) => item.trim()).filter(Boolean) : [];
+  if (!list.includes(flag)) list.push(flag);
+  app.commandLine.appendSwitch("enable-features", list.join(","));
+}
+
 const IS_PACKAGED_LINUX = process.platform === "linux" && app.isPackaged;
 const PACKAGED_LINUX_SANDBOX_ENABLED = !IS_PACKAGED_LINUX
   ? true
@@ -143,6 +154,15 @@ if (IS_PACKAGED_LINUX) {
   console.log(
     `[electron] packaged linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${effectiveShmMode} runtimeTmp=${runtimeDir || "unresolved"} temp=${tempDir || "unresolved"}`
   );
+}
+
+if (process.platform === "linux") {
+  if (ELECTRON_PIPEWIRE !== "off") {
+    appendChromiumFeatureFlag("WebRTCPipeWireCapturer");
+  }
+  if (ELECTRON_OZONE_HINT && ELECTRON_OZONE_HINT !== "off") {
+    app.commandLine.appendSwitch("ozone-platform-hint", ELECTRON_OZONE_HINT);
+  }
 }
 
 let mainWindow = null;
