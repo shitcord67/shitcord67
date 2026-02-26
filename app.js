@@ -23314,6 +23314,9 @@ function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPicke
 function renderMediaPicker() {
   const renderToken = ++mediaPickerRenderToken;
   renderComposerMediaButtons();
+  if (ui.mediaGrid) {
+    ui.mediaGrid.classList.toggle("media-picker__grid--sticker", mediaPickerTab === "sticker");
+  }
   ui.mediaTabs.forEach((tabBtn) => {
     tabBtn.classList.toggle("active", tabBtn.dataset.mediaTab === mediaPickerTab);
   });
@@ -23448,6 +23451,7 @@ function renderMediaPicker() {
     const usePrivacyGate = Boolean(
       !useSwfCard
       && mediaPickerTab !== "emoji"
+      && mediaPickerTab !== "gif"
       && resolvedEntryUrl
       && shouldGateMediaUrl(resolvedEntryUrl)
     );
@@ -23856,21 +23860,8 @@ function renderMediaPicker() {
     footer.appendChild(info);
     if (privacyModeOff) {
       const gateHint = document.createElement("small");
-      gateHint.textContent = "Privacy gate is currently off for GIFs.";
-      const gateEnableBtn = document.createElement("button");
-      gateEnableBtn.type = "button";
-      gateEnableBtn.className = "message-action-btn";
-      gateEnableBtn.textContent = "Enable Privacy Gate";
-      gateEnableBtn.addEventListener("click", () => {
-        state.preferences = getPreferences();
-        state.preferences.mediaPrivacyMode = "safe";
-        saveState();
-        applyPreferencesToUI();
-        renderMediaPicker();
-        showToast("Media privacy gate enabled.");
-      });
+      gateHint.textContent = "Privacy gate is disabled for GIFs.";
       footer.appendChild(gateHint);
-      footer.appendChild(gateEnableBtn);
     }
     footer.appendChild(loadBtn);
     ui.mediaGrid.appendChild(footer);

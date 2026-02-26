@@ -2334,6 +2334,10 @@ body[data-hide-channel-panel="on"] .chat-panel {
   padding: 0.5rem;
 }
 
+.media-picker__grid.media-picker__grid--sticker {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
 .media-card {
   display: flex;
   flex-direction: column;
@@ -2422,24 +2426,24 @@ body[data-hide-channel-panel="on"] .chat-panel {
 
 .media-card--sticker .media-card__preview {
   aspect-ratio: 1 / 1;
-  min-height: 156px;
-  height: 176px;
-  max-height: 196px;
+  min-height: 176px;
+  height: 196px;
+  max-height: 220px;
   object-fit: contain;
   background: #262b35;
 }
 
 .media-card--sticker {
-  min-width: 148px;
+  min-width: 176px;
 }
 
 .media-card--sticker img.media-card__preview,
 .media-card--sticker video.media-card__preview {
   display: block;
   width: 100%;
-  min-height: 156px;
-  height: 176px;
-  max-height: 196px;
+  min-height: 176px;
+  height: 196px;
+  max-height: 220px;
   object-fit: contain;
 }
 
