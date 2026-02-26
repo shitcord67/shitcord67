@@ -83,6 +83,7 @@
 - [done] Added Jingle RTP feedback/extension/source parsing (`rtcp-fb`, `rtp-hdrext`, `source`, `source-group`) into SDP priming scaffolding.
 - [done] Added Jingle `transport-replace` handling with peer-connection re-prime and replacement candidate apply flow.
 - [done] Added per-session queued Jingle async task sequencing to reduce re-offer/re-answer race conditions.
+- [done] Added debounced per-session re-prime request coalescing for overlapping content/transport updates.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.

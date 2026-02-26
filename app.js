@@ -1315,6 +1315,8 @@ const XMPP_CALL_ICE_MAX_CANDIDATES = 24;
 const xmppCallIceGatherInFlightBySessionId = new Map();
 const xmppCallPeerConnectionBySessionId = new Map();
 const xmppCallSessionTaskChainBySessionId = new Map();
+const xmppCallPendingReprimeBySessionId = new Map();
+const XMPP_CALL_REPRIME_DEBOUNCE_MS = 160;
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -4326,6 +4328,9 @@ function forgetXmppCallSession(sessionId = "") {
   const entry = xmppCallSessionById.get(id);
   if (!entry) return;
   xmppCallSessionTaskChainBySessionId.delete(id);
+  const pendingReprime = xmppCallPendingReprimeBySessionId.get(id);
+  if (pendingReprime?.timerId) clearTimeout(pendingReprime.timerId);
+  xmppCallPendingReprimeBySessionId.delete(id);
   xmppCallIceGatherInFlightBySessionId.delete(id);
   xmppCloseSessionPeerConnection(id);
   clearXmppCallSignalTimeout(id);
@@ -4357,6 +4362,84 @@ function xmppEnqueueSessionJingleTask(sessionId, label = "task", task = null) {
     }
   });
   return run;
+}
+
+function xmppRequestSessionReprime(sessionId, {
+  peerJid = "",
+  media = [],
+  remoteContents = [],
+  remoteTransport = null,
+  remoteType = "offer",
+  localRole = "responder",
+  applyCandidates = [],
+  forceLocalTransportUpdate = false,
+  reason = "update"
+} = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const session = xmppCallSessionById.get(sid) || null;
+  if (session) session.pendingLocalRenegotiation = true;
+  const existing = xmppCallPendingReprimeBySessionId.get(sid) || null;
+  if (existing?.timerId) clearTimeout(existing.timerId);
+  const mergedCandidates = [
+    ...(Array.isArray(existing?.request?.applyCandidates) ? existing.request.applyCandidates : []),
+    ...(Array.isArray(applyCandidates) ? applyCandidates : [])
+  ];
+  const mergedRequest = {
+    peerJid: xmppBareJid(peerJid || existing?.request?.peerJid || session?.peerJid || ""),
+    media: Array.isArray(media) && media.length > 0
+      ? media
+      : (Array.isArray(existing?.request?.media) ? existing.request.media : (session?.media || [])),
+    remoteContents: Array.isArray(remoteContents) && remoteContents.length > 0
+      ? remoteContents
+      : (Array.isArray(existing?.request?.remoteContents) ? existing.request.remoteContents : (session?.remoteContents || [])),
+    remoteTransport: remoteTransport || existing?.request?.remoteTransport || session?.remoteTransport || null,
+    remoteType: (remoteType || existing?.request?.remoteType || "offer").toString().trim().toLowerCase() === "answer" ? "answer" : "offer",
+    localRole: (localRole || existing?.request?.localRole || session?.localJingleRole || "responder").toString().trim().toLowerCase() || "responder",
+    applyCandidates: mergedCandidates,
+    forceLocalTransportUpdate: Boolean(forceLocalTransportUpdate || existing?.request?.forceLocalTransportUpdate),
+    reason: (reason || existing?.request?.reason || "update").toString().trim()
+  };
+  const timerId = window.setTimeout(() => {
+    const pending = xmppCallPendingReprimeBySessionId.get(sid);
+    if (!pending) return;
+    xmppCallPendingReprimeBySessionId.delete(sid);
+    const latest = xmppCallSessionById.get(sid) || null;
+    if (latest) latest.pendingLocalRenegotiation = false;
+    void xmppEnqueueSessionJingleTask(sid, `reprime/${pending.request.reason || "update"}`, async () => {
+      const req = pending.request;
+      const primed = await xmppPrimePeerConnectionFromJingle(sid, {
+        peerJid: req.peerJid,
+        media: req.media,
+        remoteContents: req.remoteContents,
+        remoteTransport: req.remoteTransport,
+        remoteType: req.remoteType,
+        localRole: req.localRole
+      });
+      let applied = { attempted: 0, applied: 0, queued: 0 };
+      if (Array.isArray(req.applyCandidates) && req.applyCandidates.length > 0) {
+        applied = await xmppApplyRemoteIceCandidatesForSession(sid, req.applyCandidates);
+      }
+      if (req.forceLocalTransportUpdate && req.peerJid) {
+        xmppQueueTransportInfoGatherAndSend(req.peerJid, sid, { force: true });
+      }
+      addXmppDebugEvent("runtime", "Completed batched XMPP session re-prime", {
+        sid,
+        reason: req.reason || "update",
+        primed: Boolean(primed),
+        attempted: applied.attempted || 0,
+        applied: applied.applied || 0,
+        queued: applied.queued || 0
+      });
+      return true;
+    });
+  }, XMPP_CALL_REPRIME_DEBOUNCE_MS);
+  xmppCallPendingReprimeBySessionId.set(sid, {
+    timerId,
+    requestedAt: Date.now(),
+    request: mergedRequest
+  });
+  return true;
 }
 
 function xmppSendJingleMessageAction(peerJid, action = "propose", { sessionId = "", media = ["audio", "video"] } = {}) {
@@ -9628,6 +9711,10 @@ function teardownXmppConnection() {
   xmppCallIceGatherInFlightBySessionId.clear();
   xmppCallPeerConnectionBySessionId.clear();
   xmppCallSessionTaskChainBySessionId.clear();
+  xmppCallPendingReprimeBySessionId.forEach((entry) => {
+    if (entry?.timerId) clearTimeout(entry.timerId);
+  });
+  xmppCallPendingReprimeBySessionId.clear();
   xmppLatestIncomingCallSessionByPeer.clear();
   xmppLatestOutgoingCallSessionByPeer.clear();
 }
@@ -10902,6 +10989,15 @@ function connectRelaySocket({ force = false } = {}) {
                 .filter((item) => item === "audio" || item === "video");
             }
             session.state = "content-modified";
+            xmppRequestSessionReprime(jingle.sid, {
+              peerJid: fromBare,
+              media: session.media,
+              remoteContents: Array.isArray(session.remoteContents) ? session.remoteContents : [],
+              remoteTransport: session.remoteTransport || null,
+              remoteType: "offer",
+              localRole: session.localJingleRole || "responder",
+              reason: "content-modify"
+            });
             showToast("XMPP media content updated.");
             if (addSystemDmMessageByPeerJid(fromBare, `XMPP content-modify (${jingle.sid.slice(0, 8)}).`)) {
               refreshDmUiForPeerJid(fromBare);
@@ -10941,6 +11037,15 @@ function connectRelaySocket({ force = false } = {}) {
               });
             }
             session.state = "content-removed";
+            xmppRequestSessionReprime(jingle.sid, {
+              peerJid: fromBare,
+              media: session.media,
+              remoteContents: Array.isArray(session.remoteContents) ? session.remoteContents : [],
+              remoteTransport: session.remoteTransport || null,
+              remoteType: "offer",
+              localRole: session.localJingleRole || "responder",
+              reason: "content-remove"
+            });
             showToast("XMPP media content removed.");
             if (addSystemDmMessageByPeerJid(fromBare, `XMPP content-remove (${jingle.sid.slice(0, 8)}).`)) {
               refreshDmUiForPeerJid(fromBare);
@@ -10968,30 +11073,19 @@ function connectRelaySocket({ force = false } = {}) {
               : [];
             session.remoteCandidates = replacementCandidates;
             session.state = "transport-replace-received";
-            void xmppEnqueueSessionJingleTask(jingle.sid, "transport-replace/reprime", async () => {
-              await xmppPrimePeerConnectionFromJingle(jingle.sid, {
-                peerJid: fromBare,
-                media: session.media,
-                remoteContents: Array.isArray(jingle.contents) && jingle.contents.length > 0
-                  ? jingle.contents
-                  : (Array.isArray(session.remoteContents) ? session.remoteContents : []),
-                remoteTransport: session.remoteTransport || null,
-                remoteType: "offer",
-                localRole: session.localJingleRole || "responder"
-              });
-              if (replacementCandidates.length > 0) {
-                return xmppApplyRemoteIceCandidatesForSession(jingle.sid, replacementCandidates);
-              }
-              return { attempted: 0, applied: 0, queued: 0 };
-            }).then((applyResult) => {
-              addXmppDebugEvent("runtime", "Applied transport-replace candidates", {
-                sid: jingle.sid,
-                attempted: applyResult?.attempted || 0,
-                applied: applyResult?.applied || 0,
-                queued: applyResult?.queued || 0
-              });
+            xmppRequestSessionReprime(jingle.sid, {
+              peerJid: fromBare,
+              media: session.media,
+              remoteContents: Array.isArray(jingle.contents) && jingle.contents.length > 0
+                ? jingle.contents
+                : (Array.isArray(session.remoteContents) ? session.remoteContents : []),
+              remoteTransport: session.remoteTransport || null,
+              remoteType: "offer",
+              localRole: session.localJingleRole || "responder",
+              applyCandidates: replacementCandidates,
+              forceLocalTransportUpdate: true,
+              reason: "transport-replace"
             });
-            xmppQueueTransportInfoGatherAndSend(fromBare, jingle.sid, { force: true });
             showToast("XMPP transport replaced for active session.");
             if (addSystemDmMessageByPeerJid(fromBare, `XMPP transport-replace (${jingle.sid.slice(0, 8)}).`)) {
               refreshDmUiForPeerJid(fromBare);
@@ -11039,14 +11133,27 @@ function connectRelaySocket({ force = false } = {}) {
               ? jingle.transportUpdates.flatMap((entry) => Array.isArray(entry?.candidates) ? entry.candidates : [])
               : [];
             const applyCandidates = session.remoteCandidates;
-            void xmppEnqueueSessionJingleTask(jingle.sid, "transport-info/apply-candidates", () => xmppApplyRemoteIceCandidatesForSession(jingle.sid, applyCandidates)).then((result) => {
-              addXmppDebugEvent("runtime", "Applied remote ICE candidates for XMPP session", {
-                sid: jingle.sid,
-                attempted: result?.attempted || 0,
-                applied: result?.applied || 0,
-                queued: result?.queued || 0
+            if (session.pendingLocalRenegotiation) {
+              xmppRequestSessionReprime(jingle.sid, {
+                peerJid: fromBare,
+                media: session.media,
+                remoteContents: Array.isArray(session.remoteContents) ? session.remoteContents : [],
+                remoteTransport: session.remoteTransport || null,
+                remoteType: "offer",
+                localRole: session.localJingleRole || "responder",
+                applyCandidates,
+                reason: "transport-info-queued"
               });
-            });
+            } else {
+              void xmppEnqueueSessionJingleTask(jingle.sid, "transport-info/apply-candidates", () => xmppApplyRemoteIceCandidatesForSession(jingle.sid, applyCandidates)).then((result) => {
+                addXmppDebugEvent("runtime", "Applied remote ICE candidates for XMPP session", {
+                  sid: jingle.sid,
+                  attempted: result?.attempted || 0,
+                  applied: result?.applied || 0,
+                  queued: result?.queued || 0
+                });
+              });
+            }
             session.state = "transport-info-received";
             showToast(`Received XMPP transport-info (${candidateCount} candidate${candidateCount === 1 ? "" : "s"}).`);
             if (addSystemDmMessageByPeerJid(fromBare, `Received XMPP transport-info (${jingle.sid.slice(0, 8)} · ${candidateCount} candidate${candidateCount === 1 ? "" : "s"}).`)) {
