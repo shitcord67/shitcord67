@@ -93,9 +93,11 @@
 - [priority] Add secure WebRTC media transport alignment for Jingle (XEP-0320 DTLS-SRTP path and browser compatibility checks).
 - [priority] Add screenshare (display capture) with optional system-audio + mic mixing controls in call UI.
 - [done] Added native local media capture/attachment scaffolding for Jingle sessions (`getUserMedia` AV + `getDisplayMedia` screen mode) with session cleanup.
+- [done] Added native in-app XMPP call media surface (local preview + remote tiles) with end/refresh/session-id actions.
 - [priority] Map real browser SDP offer/answer details back into outbound Jingle content (instead of synthetic content-only mapping) for stronger interop.
-- [priority] Render local/remote native call media in a dedicated in-app call surface (preview + active streams) on web/Linux/Android.
+- [priority] Polish native call surface UX for web/Linux/Android (responsive layouts, reconnect indicators, device-change handling).
 - [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
+- [priority] Add a dedicated Native Call Debug dialog with per-session force actions (reprime, transport-info, terminate) beyond compact header/console snapshots.
 - [priority] Track and implement XEP-0503 (Draft) spaces model for Discord-like server/space hierarchy.
 - [done] Per-guild notification settings (mute/mentions only/all).
 - [done] Slash command `/relay reconnect` to force transport reconnect without changing mode.
@@ -406,3 +408,5 @@ The underlying utility library I wrote to wrap around PipeWire video is here: ht
 - Device-specific notes
 - Calendar
 - Support for Miiverse and Pictochat (clone and actual protocol support)
+- Take some features from Discord/Element Call/Jitsi/TeamSpeak for calling
+- BigBlueButton features, especially breakout rooms and some way to have a view like it, basically whiteboard-centered and aboe images of users and on the left site chat with a tab for notes and pins

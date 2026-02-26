@@ -1318,6 +1318,8 @@ const xmppCallSessionTaskChainBySessionId = new Map();
 const xmppCallPendingReprimeBySessionId = new Map();
 const XMPP_CALL_REPRIME_DEBOUNCE_MS = 160;
 const xmppCallLocalMediaStreamBySessionId = new Map();
+const xmppCallRemoteStreamsBySessionId = new Map();
+let xmppActiveNativeCallSessionId = "";
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -3882,7 +3884,140 @@ function closeMediaLightbox() {
   overlay.hidden = true;
   const stage = overlay.querySelector(".media-lightbox__stage");
   if (stage) stage.innerHTML = "";
+  xmppActiveNativeCallSessionId = "";
   document.body.style.removeProperty("overflow");
+}
+
+function xmppRemoteStreamListForSession(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return [];
+  const streamMap = xmppCallRemoteStreamsBySessionId.get(sid);
+  if (streamMap instanceof Map && streamMap.size > 0) {
+    return [...streamMap.values()].filter((stream) => stream instanceof MediaStream);
+  }
+  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  const pc = pcEntry?.pc || null;
+  if (!pc) return [];
+  const tracks = pc.getReceivers()
+    .map((receiver) => receiver?.track)
+    .filter((track) => track instanceof MediaStreamTrack);
+  if (tracks.length <= 0) return [];
+  return [new MediaStream(tracks)];
+}
+
+function renderNativeXmppCallSurface(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const overlay = ensureMediaLightbox();
+  const stage = overlay.querySelector(".media-lightbox__stage");
+  const caption = overlay.querySelector(".media-lightbox__caption");
+  if (!stage || !caption) return;
+  const session = xmppCallSessionById.get(sid) || null;
+  const peer = xmppBareJid(session?.peerJid || "");
+  stage.innerHTML = "";
+  const shell = document.createElement("div");
+  shell.className = "native-call-surface";
+  const header = document.createElement("div");
+  header.className = "native-call-surface__header";
+  const title = document.createElement("strong");
+  title.textContent = `Native XMPP Call ${sid.slice(0, 8)}`;
+  const meta = document.createElement("span");
+  const state = (session?.state || "starting").toString().trim();
+  const flags = [
+    session?.pendingLocalRenegotiation ? "reprime" : "",
+    xmppCallSessionTaskChainBySessionId.has(sid) ? "queued" : "",
+    xmppCallPendingReprimeBySessionId.has(sid) ? "debounce" : ""
+  ].filter(Boolean);
+  meta.textContent = `${peer || "peer"} · ${state}${flags.length > 0 ? ` · ${flags.join(",")}` : ""}`;
+  const actions = document.createElement("div");
+  actions.className = "native-call-surface__actions";
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.textContent = "Copy SID";
+  copyBtn.addEventListener("click", () => {
+    void copyText(sid).then((ok) => showToast(ok ? "Session ID copied." : "Failed to copy session ID.", { tone: ok ? "info" : "error" }));
+  });
+  const refreshBtn = document.createElement("button");
+  refreshBtn.type = "button";
+  refreshBtn.textContent = "Refresh";
+  refreshBtn.addEventListener("click", () => renderNativeXmppCallSurface(sid));
+  const endBtn = document.createElement("button");
+  endBtn.type = "button";
+  endBtn.textContent = "End";
+  endBtn.className = "native-call-surface__end";
+  endBtn.addEventListener("click", () => {
+    const targetPeer = xmppBareJid(session?.peerJid || "");
+    if (targetPeer) {
+      xmppSendJingleSessionTerminate(targetPeer, sid, {
+        reason: "success",
+        text: "Ended from in-app native call surface"
+      });
+    }
+    forgetXmppCallSession(sid);
+    closeMediaLightbox();
+  });
+  actions.appendChild(copyBtn);
+  actions.appendChild(refreshBtn);
+  actions.appendChild(endBtn);
+  header.appendChild(title);
+  header.appendChild(meta);
+  header.appendChild(actions);
+  const grid = document.createElement("div");
+  grid.className = "native-call-surface__grid";
+  const localStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  if (localStream instanceof MediaStream) {
+    const localTile = document.createElement("div");
+    localTile.className = "native-call-surface__tile";
+    const video = document.createElement("video");
+    video.className = "native-call-surface__video";
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = localStream;
+    const label = document.createElement("span");
+    label.className = "native-call-surface__label";
+    label.textContent = "You";
+    localTile.appendChild(video);
+    localTile.appendChild(label);
+    grid.appendChild(localTile);
+  }
+  const remoteStreams = xmppRemoteStreamListForSession(sid);
+  remoteStreams.forEach((stream, index) => {
+    const tile = document.createElement("div");
+    tile.className = "native-call-surface__tile";
+    const video = document.createElement("video");
+    video.className = "native-call-surface__video";
+    video.autoplay = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    const label = document.createElement("span");
+    label.className = "native-call-surface__label";
+    label.textContent = index === 0 ? (peer || "Peer") : `${peer || "Peer"} ${index + 1}`;
+    tile.appendChild(video);
+    tile.appendChild(label);
+    grid.appendChild(tile);
+  });
+  if (!localStream && remoteStreams.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "native-call-surface__empty";
+    empty.textContent = "Waiting for local/remote media tracks...";
+    grid.appendChild(empty);
+  }
+  shell.appendChild(header);
+  shell.appendChild(grid);
+  stage.appendChild(shell);
+  caption.textContent = `Native session ${sid.slice(0, 8)} · l${Array.isArray(session?.localCandidates) ? session.localCandidates.length : 0}/r${Array.isArray(session?.remoteCandidates) ? session.remoteCandidates.length : 0}`;
+}
+
+function openNativeXmppCallSurface(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  xmppActiveNativeCallSessionId = sid;
+  const overlay = ensureMediaLightbox();
+  renderNativeXmppCallSurface(sid);
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  overlay.focus({ preventScroll: true });
 }
 
 function lightboxDownloadNameFromLabel(label = "", fallbackExt = "bin") {
@@ -4433,9 +4568,11 @@ function forgetXmppCallSession(sessionId = "") {
   xmppCallPendingReprimeBySessionId.delete(id);
   xmppCallIceGatherInFlightBySessionId.delete(id);
   xmppStopLocalMediaStreamForSession(id);
+  xmppCallRemoteStreamsBySessionId.delete(id);
   xmppCloseSessionPeerConnection(id);
   clearXmppCallSignalTimeout(id);
   xmppCallSessionById.delete(id);
+  if (xmppActiveNativeCallSessionId === id) closeMediaLightbox();
   const peer = xmppBareJid(entry.peerJid || "");
   if (peer && xmppLatestIncomingCallSessionByPeer.get(peer) === id) xmppLatestIncomingCallSessionByPeer.delete(peer);
   if (peer && xmppLatestOutgoingCallSessionByPeer.get(peer) === id) xmppLatestOutgoingCallSessionByPeer.delete(peer);
@@ -4651,6 +4788,7 @@ async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
   if (session) {
     session.localMediaMode = screenShare ? "screen" : "camera";
   }
+  if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   return true;
 }
 
@@ -5258,11 +5396,47 @@ function xmppEnsureSessionPeerConnection(sessionId, {
       });
     }
   };
+  pc.ontrack = (event) => {
+    const stream = event?.streams?.[0] instanceof MediaStream
+      ? event.streams[0]
+      : new MediaStream(event?.track ? [event.track] : []);
+    const streamId = (stream?.id || (event?.track?.id ? `track:${event.track.id}` : `stream:${createId()}`)).toString();
+    let bucket = xmppCallRemoteStreamsBySessionId.get(sid);
+    if (!(bucket instanceof Map)) {
+      bucket = new Map();
+      xmppCallRemoteStreamsBySessionId.set(sid, bucket);
+    }
+    bucket.set(streamId, stream);
+    const track = event?.track;
+    if (track instanceof MediaStreamTrack) {
+      const removeStream = () => {
+        const current = xmppCallRemoteStreamsBySessionId.get(sid);
+        if (!(current instanceof Map)) return;
+        current.delete(streamId);
+        if (current.size <= 0) xmppCallRemoteStreamsBySessionId.delete(sid);
+        if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+      };
+      track.addEventListener("ended", removeStream, { once: true });
+      track.addEventListener("mute", () => {
+        if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+      });
+      track.addEventListener("unmute", () => {
+        if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+      });
+    }
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    addXmppDebugEvent("runtime", "Received remote media track for XMPP session", {
+      sid,
+      kind: (event?.track?.kind || "").toString(),
+      streamId
+    });
+  };
   pc.onconnectionstatechange = () => {
     addXmppDebugEvent("runtime", "XMPP session peerconnection state", {
       sid,
       state: pc.connectionState || ""
     });
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   };
   xmppCallPeerConnectionBySessionId.set(sid, entry);
   if (createLocalOffer) {
@@ -5299,6 +5473,7 @@ function xmppCloseSessionPeerConnection(sessionId = "") {
     // Ignore close errors.
   }
   xmppCallPeerConnectionBySessionId.delete(sid);
+  xmppCallRemoteStreamsBySessionId.delete(sid);
 }
 
 async function xmppApplyRemoteIceCandidatesForSession(sessionId, candidates = []) {
@@ -6177,6 +6352,7 @@ async function launchNativeXmppConversationCall({ screenShare = false } = {}) {
     });
     xmppLatestOutgoingCallSessionByPeer.set(peerBare, sessionId);
     showToast("Sent XMPP call proposal. Waiting for peer response...");
+    openNativeXmppCallSurface(sessionId);
     if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP call proposal (${sessionId.slice(0, 8)}). Waiting for peer response.`)) {
       refreshDmUiForPeerJid(peerBare);
     }
@@ -9942,6 +10118,8 @@ function teardownXmppConnection() {
   xmppCallSessionTaskChainBySessionId.clear();
   xmppCallLocalMediaStreamBySessionId.forEach((_, sid) => xmppStopLocalMediaStreamForSession(sid));
   xmppCallLocalMediaStreamBySessionId.clear();
+  xmppCallRemoteStreamsBySessionId.clear();
+  xmppActiveNativeCallSessionId = "";
   xmppCallPendingReprimeBySessionId.forEach((entry) => {
     if (entry?.timerId) clearTimeout(entry.timerId);
   });
@@ -11150,6 +11328,7 @@ function connectRelaySocket({ force = false } = {}) {
               remoteType: "offer",
               localRole: session.localJingleRole || "responder"
             }));
+            openNativeXmppCallSurface(jingle.sid);
             xmppSendJingleSessionInfo(fromBare, jingle.sid, { info: "ringing" });
             showToast(`Incoming XMPP media session from ${fromBare}. Use /callxmpp accept ${jingle.sid.slice(0, 8)} or /callxmpp reject ${jingle.sid.slice(0, 8)}.`);
             if (addSystemDmMessageByPeerJid(fromBare, `Incoming XMPP session-initiate (${jingle.sid.slice(0, 8)}). Use /callxmpp accept ${jingle.sid.slice(0, 8)} or /callxmpp reject ${jingle.sid.slice(0, 8)}.`)) {
@@ -11191,6 +11370,7 @@ function connectRelaySocket({ force = false } = {}) {
               session.localTransport = xmppBuildJingleTransportCreds();
             }
             xmppQueueTransportInfoGatherAndSend(fromBare, jingle.sid);
+            openNativeXmppCallSurface(jingle.sid);
             showToast("XMPP peer accepted media session.");
             if (addSystemDmMessageByPeerJid(fromBare, `Peer accepted XMPP media session (${jingle.sid.slice(0, 8)}).`)) {
               refreshDmUiForPeerJid(fromBare);
@@ -16569,7 +16749,11 @@ function handleSlashCommand(rawText, channel, account) {
         refreshDmUiForPeerJid(peerBare);
       }
       if (sub === "accept") {
-        launchConversationCall({ screenShare: false, autoPost: true });
+        if (isJinglePhase) {
+          openNativeXmppCallSurface(targetId);
+        } else {
+          launchConversationCall({ screenShare: false, autoPost: true });
+        }
       }
       if (["reject", "cancel", "end"].includes(sub) || (sub === "accept" && !isJinglePhase)) {
         forgetXmppCallSession(targetId);
@@ -32253,7 +32437,11 @@ ui.messageForm.addEventListener("submit", (event) => {
           refreshDmUiForPeerJid(peerBare);
         }
         if (sub === "accept") {
-          launchConversationCall({ screenShare: false, autoPost: true });
+          if (isJinglePhase) {
+            openNativeXmppCallSurface(targetId);
+          } else {
+            launchConversationCall({ screenShare: false, autoPost: true });
+          }
         }
         if (["reject", "cancel", "end"].includes(sub) || (sub === "accept" && !isJinglePhase)) {
           forgetXmppCallSession(targetId);

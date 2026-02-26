@@ -4383,6 +4383,113 @@ body[data-compact-members="on"] .member-item {
   background: #44507a;
 }
 
+.native-call-surface {
+  width: min(1220px, 96vw);
+  min-height: min(78vh, 860px);
+  background: #141922;
+  border: 1px solid #3c4458;
+  border-radius: 12px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.6rem;
+  padding: 0.72rem;
+  cursor: auto;
+}
+
+.native-call-surface__header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.38rem 0.6rem;
+  align-items: center;
+  color: #eaf0ff;
+}
+
+.native-call-surface__header strong {
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+}
+
+.native-call-surface__header span {
+  grid-column: 1 / 2;
+  color: #b8c3dc;
+  font-size: 0.72rem;
+}
+
+.native-call-surface__actions {
+  grid-column: 2 / 3;
+  grid-row: 1 / 3;
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.native-call-surface__actions button {
+  border-radius: 999px;
+  border: 1px solid #4d5976;
+  background: #2a3247;
+  color: #f4f7ff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.23rem 0.62rem;
+}
+
+.native-call-surface__actions .native-call-surface__end {
+  border-color: #7b3941;
+  background: #5a2a30;
+}
+
+.native-call-surface__grid {
+  min-height: 0;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  align-content: start;
+}
+
+.native-call-surface__tile {
+  position: relative;
+  background: #0f141c;
+  border: 1px solid #2f3647;
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+
+.native-call-surface__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #0a0d12;
+}
+
+.native-call-surface__label {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  border-radius: 999px;
+  background: rgba(8, 10, 16, 0.75);
+  color: #e9eefb;
+  border: 1px solid rgba(120, 130, 165, 0.5);
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  max-width: calc(100% - 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.native-call-surface__empty {
+  color: #b9c5e0;
+  border: 1px dashed #4a5572;
+  border-radius: 10px;
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 0.7rem;
+}
+
 .in-app-confirm {
   width: min(480px, calc(100vw - 2.8rem));
   background: #1f232d;
