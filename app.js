@@ -23,6 +23,7 @@ const XMPP_MESSAGE_RETRACT_NAMESPACE = "urn:xmpp:message-retract:1";
 const XMPP_FASTEN_NAMESPACE = "urn:xmpp:fasten:0";
 const XMPP_CHAT_MARKERS_NAMESPACE = "urn:xmpp:chat-markers:0";
 const XMPP_CSI_NAMESPACE = "urn:xmpp:csi:0";
+const XMPP_CAPS_NAMESPACE = "http://jabber.org/protocol/caps";
 const XMPP_IDLE_NAMESPACE = "urn:xmpp:idle:1";
 const XMPP_JINGLE_NAMESPACE = "urn:xmpp:jingle:1";
 const XMPP_JINGLE_RTP_NAMESPACE = "urn:xmpp:jingle:apps:rtp:1";
@@ -79,6 +80,7 @@ const EMOJI_DATASET_SOURCES = [
 ];
 const SHITCORD_BRAND_EMOJI = "🫪";
 const SHITCORD_EMOJI_FALLBACK_GLYPH = "\u{10FFFF}";
+const XMPP_CAPS_NODE = "urn:shitcord67:caps";
 
 function detectRuntimePlatform() {
   const ua = String(navigator.userAgent || "").toLowerCase();
@@ -125,6 +127,48 @@ function supportsEmojiGlyph(emoji) {
   }
   cachedBrandEmojiSupport = rendered !== missing;
   return cachedBrandEmojiSupport;
+}
+
+function xmppCapsIdentityStrings() {
+  return ["client/web//shitcord67"];
+}
+
+function xmppCapsFeatureStrings() {
+  return [...new Set(xmppClientDiscoFeatures())].sort();
+}
+
+async function computeXmppCapsHash() {
+  if (typeof crypto === "undefined" || !crypto.subtle || typeof TextEncoder === "undefined") return "";
+  const identities = xmppCapsIdentityStrings().slice().sort();
+  const features = xmppCapsFeatureStrings();
+  const summary = [...identities, ...features].join("<");
+  const bytes = new TextEncoder().encode(summary);
+  const digest = await crypto.subtle.digest("SHA-1", bytes);
+  const hashBytes = new Uint8Array(digest);
+  let binary = "";
+  hashBytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+}
+
+function ensureXmppCapsHash({ force = false } = {}) {
+  if (!force && xmppCapsHash) return Promise.resolve(xmppCapsHash);
+  if (!force && xmppCapsPromise) return xmppCapsPromise;
+  xmppCapsPromise = computeXmppCapsHash()
+    .then((hash) => {
+      xmppCapsHash = hash || "";
+      if (xmppCapsHash) {
+        addXmppDebugEvent("presence", "Computed XMPP caps hash", { ver: xmppCapsHash });
+      } else {
+        addXmppDebugEvent("presence", "Failed to compute XMPP caps hash");
+      }
+      return xmppCapsHash;
+    })
+    .finally(() => {
+      xmppCapsPromise = null;
+    });
+  return xmppCapsPromise;
 }
 
 const MOBILE_SIDEBAR_BREAKPOINT_PX = 760;
@@ -1382,6 +1426,8 @@ const relayLocalTypingState = {
 };
 let loginXmppProgressStartedAt = 0;
 let loginXmppProgressTimerId = null;
+let xmppCapsHash = "";
+let xmppCapsPromise = null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -6992,7 +7038,7 @@ function xmppShowValueForPresence(presence) {
   return "";
 }
 
-function sendCurrentXmppPresence() {
+function sendCurrentXmppPresence({ skipCapsRetry = false } = {}) {
   if (!xmppConnection || relayStatus !== "connected" || !globalThis.$pres) return false;
   const account = getCurrentAccount();
   const mode = normalizePresence(account?.presence || "online");
@@ -7003,6 +7049,23 @@ function sendCurrentXmppPresence() {
   const show = xmppShowValueForPresence(mode);
   const stanza = globalThis.$pres();
   if (show) stanza.c("show").t(show);
+  const displayName = (account?.displayName || account?.username || "").toString().trim();
+  if (displayName) stanza.c("nick", { xmlns: "http://jabber.org/protocol/nick" }).t(displayName).up();
+  const statusText = (account?.customStatus || "").toString().trim();
+  if (statusText) stanza.c("status").t(statusText.slice(0, 80)).up();
+  if (xmppCapsHash) {
+    stanza.c("c", {
+      xmlns: XMPP_CAPS_NAMESPACE,
+      hash: "sha-1",
+      node: XMPP_CAPS_NODE,
+      ver: xmppCapsHash
+    }).up();
+  } else if (!skipCapsRetry) {
+    ensureXmppCapsHash().then((hash) => {
+      if (!hash) return;
+      sendCurrentXmppPresence({ skipCapsRetry: true });
+    });
+  }
   xmppConnection.send(stanza);
   return true;
 }
@@ -11958,6 +12021,7 @@ function connectRelaySocket({ force = false } = {}) {
         }
         if (status === S.CONNECTED) {
           setRelayStatus("connected");
+          void ensureXmppCapsHash();
           sendCurrentXmppPresence();
           refreshXmppCsiCapability(xmppConnection);
           syncXmppClientStateHint({ force: true, reason: "connected" });

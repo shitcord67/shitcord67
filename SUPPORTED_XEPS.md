@@ -23,6 +23,7 @@ Status labels:
 | XEP-0153 | vCard-Based Avatars | Partial | Reads `vcard-temp:x:update` and fetches avatar via vCard. Publish/update from client is not implemented. |
 | XEP-0203 | Delayed Delivery | Partial | Delay stamps are parsed and used for timeline ordering. |
 | XEP-0280 | Message Carbons | Partial | Client requests carbons and processes carbon forwarded stanzas. |
+| XEP-0115 | Entity Capabilities | Partial | Broadcasts caps hash in presence and answers disco#info queries with supported feature list. |
 | XEP-0297 | Stanza Forwarding | Partial | Forwarded stanzas are consumed for MAM/carbons handling. |
 | XEP-0313 | Message Archive Management (MAM) | Partial | Loads archived history for MUC and DM, with pagination support. |
 | XEP-0363 | HTTP File Upload | Partial | Outbound local DM/MUC attachments now attempt slot-based HTTP upload and send OOB/reference metadata with resulting URLs. Availability still depends on server disco/upload support and CORS/PUT policy. |

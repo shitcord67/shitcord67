@@ -1327,3 +1327,9 @@ Yes
 2026-02-26T00:40:19Z USER PROMPT: Can you make the 🫪 Distorted Face Emoji be shown instead of the S in the upper-right as the shitcord67 logo when the system has the emoji? Also ideally why can't you just ship the emoji, maybe using twemoji or openmoji or GNU FreeFont?
 
 [2026-02-26 02:30:36] Can you continue with the emoji thing I just asked and then continue on the calling stuff? Especially keep attention to what I noted down in call-info file.
+
+[2026-02-26 02:37:39] Well maybe add the broadcasting anyway? I think it might be good to make it as compatible with Movim anyways.
+
+[2026-02-26 02:38:18] Also feel free to add other presence stuff that clients might expect
+
+[2026-02-26 02:39:30] Also please focus on doing the calling and screen sharing high-quality and Discord-like, continue to work on the priority items.
