@@ -5050,19 +5050,43 @@ async function acceptIncomingXmppCall(sessionId = "") {
     const entry = xmppCallSessionById.get(sid);
     if (entry) {
       entry.state = "proceeded";
-      if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);
-      entry.acceptTimeoutId = window.setTimeout(() => {
-        const current = xmppCallSessionById.get(sid);
-        if (!current || (current.state || "").includes("session")) return;
-        showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
-        if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). The caller may not support native calls.`)) {
-          refreshDmUiForPeerJid(peerBare);
-        }
-        if (!current.fallbackInviteSent) {
-          current.fallbackInviteSent = true;
-          launchConversationCall({ screenShare: Boolean(current.screenShare), autoPost: true, allowNative: false });
-        }
-      }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
+      let shouldFallbackNow = false;
+      try {
+        const info = await xmppFetchDiscoInfoCached(peerBare, { force: false });
+        const evalResult = xmppEvaluateCallFeatures(info?.features || new Set());
+        shouldFallbackNow = !evalResult.ready;
+        addXmppDebugEvent("call", "Call interop check for incoming propose", {
+          peer: peerBare,
+          ready: evalResult.ready,
+          features: [...(info?.features || [])]
+        });
+      } catch (error) {
+        shouldFallbackNow = true;
+        addXmppDebugEvent("call", "Call interop check failed for incoming propose", {
+          peer: peerBare,
+          error: String(error?.message || error)
+        });
+      }
+      if (shouldFallbackNow && !entry.fallbackInviteSent) {
+        entry.fallbackInviteSent = true;
+        showToast("Peer does not advertise native call support. Opening web call fallback.", { tone: "error", duration: 3200 });
+        launchConversationCall({ screenShare: Boolean(entry.screenShare), autoPost: true, allowNative: false });
+      }
+      if (!entry.fallbackInviteSent) {
+        if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);
+        entry.acceptTimeoutId = window.setTimeout(() => {
+          const current = xmppCallSessionById.get(sid);
+          if (!current || (current.state || "").includes("session")) return;
+          showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
+          if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). The caller may not support native calls.`)) {
+            refreshDmUiForPeerJid(peerBare);
+          }
+          if (!current.fallbackInviteSent) {
+            current.fallbackInviteSent = true;
+            launchConversationCall({ screenShare: Boolean(current.screenShare), autoPost: true, allowNative: false });
+          }
+        }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
+      }
     }
     if (addSystemDmMessageByPeerJid(peerBare, `Accepted XMPP call proposal (${sid.slice(0, 8)}). Waiting for session-initiate.`)) {
       refreshDmUiForPeerJid(peerBare);
