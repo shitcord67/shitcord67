@@ -4961,6 +4961,10 @@ async function acceptIncomingXmppCall(sessionId = "") {
   const session = xmppCallSessionById.get(sid) || null;
   const peerBare = xmppBareJid(session?.peerJid || "");
   if (!session || !peerBare) return false;
+  if (session.state === "proceeded" || session.state === "accepted") {
+    showToast("Call already accepted. Waiting for session-initiate.", { tone: "info", duration: 2400 });
+    return true;
+  }
   const isJinglePhase = (session.state || "").includes("session");
   if (isJinglePhase) {
     const ok = await xmppSendJingleSessionAccept(peerBare, sid, {
@@ -4977,7 +4981,18 @@ async function acceptIncomingXmppCall(sessionId = "") {
   const sent = xmppSendJingleMessageAction(peerBare, "proceed", { sessionId: sid });
   if (sent) {
     const entry = xmppCallSessionById.get(sid);
-    if (entry) entry.state = "proceeded";
+    if (entry) {
+      entry.state = "proceeded";
+      if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);
+      entry.acceptTimeoutId = window.setTimeout(() => {
+        const current = xmppCallSessionById.get(sid);
+        if (!current || (current.state || "").includes("session")) return;
+        showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
+        if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). The caller may not support native calls.`)) {
+          refreshDmUiForPeerJid(peerBare);
+        }
+      }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
+    }
     if (addSystemDmMessageByPeerJid(peerBare, `Accepted XMPP call proposal (${sid.slice(0, 8)}). Waiting for session-initiate.`)) {
       refreshDmUiForPeerJid(peerBare);
     }
@@ -5026,8 +5041,14 @@ function showIncomingXmppCallPrompt({
   acceptBtn.className = "incoming-call-gate__accept";
   acceptBtn.textContent = "Accept";
   acceptBtn.addEventListener("click", async () => {
+    acceptBtn.disabled = true;
+    declineBtn.disabled = true;
     stopWebCallRingtone(sid);
-    await acceptIncomingXmppCall(sid);
+    const ok = await acceptIncomingXmppCall(sid);
+    if (!ok) {
+      acceptBtn.disabled = false;
+      declineBtn.disabled = false;
+    }
   });
   const declineBtn = document.createElement("button");
   declineBtn.type = "button";
@@ -13006,6 +13027,10 @@ function connectRelaySocket({ force = false } = {}) {
             createdAt: Date.now(),
             media: Array.isArray(jingle.media) ? jingle.media : []
           };
+          if (session.acceptTimeoutId) {
+            clearTimeout(session.acceptTimeoutId);
+            session.acceptTimeoutId = null;
+          }
           session.peerJid = fromBare;
           session.peerFullJid = fromFull || session.peerFullJid || "";
           session.localJingleRole = xmppResolveLocalJingleRole({ session, jingle });
