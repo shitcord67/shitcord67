@@ -92,6 +92,10 @@
 - [priority] Implement call invite/ringing flow with Jingle Message Initiation (XEP-0353), including DM and room entry points.
 - [priority] Add secure WebRTC media transport alignment for Jingle (XEP-0320 DTLS-SRTP path and browser compatibility checks).
 - [priority] Add screenshare (display capture) with optional system-audio + mic mixing controls in call UI.
+- [done] Added native local media capture/attachment scaffolding for Jingle sessions (`getUserMedia` AV + `getDisplayMedia` screen mode) with session cleanup.
+- [priority] Map real browser SDP offer/answer details back into outbound Jingle content (instead of synthetic content-only mapping) for stronger interop.
+- [priority] Render local/remote native call media in a dedicated in-app call surface (preview + active streams) on web/Linux/Android.
+- [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
 - [priority] Track and implement XEP-0503 (Draft) spaces model for Discord-like server/space hierarchy.
 - [done] Per-guild notification settings (mute/mentions only/all).
 - [done] Slash command `/relay reconnect` to force transport reconnect without changing mode.

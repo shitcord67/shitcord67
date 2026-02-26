@@ -1317,6 +1317,7 @@ const xmppCallPeerConnectionBySessionId = new Map();
 const xmppCallSessionTaskChainBySessionId = new Map();
 const xmppCallPendingReprimeBySessionId = new Map();
 const XMPP_CALL_REPRIME_DEBOUNCE_MS = 160;
+const xmppCallLocalMediaStreamBySessionId = new Map();
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -4431,6 +4432,7 @@ function forgetXmppCallSession(sessionId = "") {
   if (pendingReprime?.timerId) clearTimeout(pendingReprime.timerId);
   xmppCallPendingReprimeBySessionId.delete(id);
   xmppCallIceGatherInFlightBySessionId.delete(id);
+  xmppStopLocalMediaStreamForSession(id);
   xmppCloseSessionPeerConnection(id);
   clearXmppCallSignalTimeout(id);
   xmppCallSessionById.delete(id);
@@ -4538,6 +4540,117 @@ function xmppRequestSessionReprime(sessionId, {
     requestedAt: Date.now(),
     request: mergedRequest
   });
+  return true;
+}
+
+function xmppStopLocalMediaStreamForSession(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const stream = xmppCallLocalMediaStreamBySessionId.get(sid);
+  if (!stream) return;
+  try {
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch {
+        // Ignore track stop failures.
+      }
+    });
+  } catch {
+    // Ignore stream cleanup failures.
+  }
+  xmppCallLocalMediaStreamBySessionId.delete(sid);
+}
+
+async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = false } = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return null;
+  const existing = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  if (existing) return existing;
+  const wantsScreen = Boolean(screenShare);
+  let stream = null;
+  if (wantsScreen && navigator.mediaDevices?.getDisplayMedia) {
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true
+      });
+    } catch {
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false
+        });
+      } catch {
+        stream = null;
+      }
+    }
+    if (stream && navigator.mediaDevices?.getUserMedia && stream.getAudioTracks().length === 0) {
+      try {
+        const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        mic.getAudioTracks().forEach((track) => stream.addTrack(track));
+      } catch {
+        // Optional mic merge failed; keep screen-only stream.
+      }
+    }
+  }
+  if (!stream && navigator.mediaDevices?.getUserMedia) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: !wantsScreen
+      });
+    } catch {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch {
+        stream = null;
+      }
+    }
+  }
+  if (!stream) return null;
+  xmppCallLocalMediaStreamBySessionId.set(sid, stream);
+  return stream;
+}
+
+async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
+  screenShare = false
+} = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const session = xmppCallSessionById.get(sid) || null;
+  const entry = xmppEnsureSessionPeerConnection(sid, {
+    peerJid: session?.peerJid || "",
+    media: xmppCallSessionMediaList(session),
+    createLocalOffer: session?.direction === "outgoing"
+  });
+  if (!entry?.pc) return false;
+  const stream = await xmppAcquireLocalMediaStreamForSession(sid, { screenShare });
+  if (!stream) return false;
+  const tracks = stream.getTracks();
+  if (tracks.length <= 0) return false;
+  for (const track of tracks) {
+    const kind = (track.kind || "").toLowerCase();
+    if (!kind) continue;
+    const transceiver = entry.pc.getTransceivers()
+      .find((candidate) => (candidate?.receiver?.track?.kind || candidate?.sender?.track?.kind || "").toLowerCase() === kind) || null;
+    if (transceiver?.sender) {
+      try {
+        await transceiver.sender.replaceTrack(track);
+        continue;
+      } catch {
+        // Fall through to addTrack.
+      }
+    }
+    try {
+      entry.pc.addTrack(track, stream);
+    } catch {
+      // Ignore addTrack failures.
+    }
+  }
+  if (session) {
+    session.localMediaMode = screenShare ? "screen" : "camera";
+  }
   return true;
 }
 
@@ -5516,6 +5629,7 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
 
 function xmppSendJingleSessionInitiate(peerJid, sessionId, {
   media = ["audio", "video"],
+  screenShare = false,
   onSuccess = null,
   onError = null
 } = {}) {
@@ -5548,6 +5662,13 @@ function xmppSendJingleSessionInitiate(peerJid, sessionId, {
     media: medias,
     createLocalOffer: true
   });
+  void xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) }).then((attached) => {
+    addXmppDebugEvent("runtime", "Prepared local media for session-initiate", {
+      sid,
+      screenShare: Boolean(screenShare),
+      attached
+    });
+  });
   medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
     media: mediaType,
     creator: "initiator",
@@ -5575,6 +5696,7 @@ function xmppSendJingleSessionInitiate(peerJid, sessionId, {
 
 function xmppSendJingleSessionAccept(peerJid, sessionId, {
   media = ["audio", "video"],
+  screenShare = false,
   onSuccess = null,
   onError = null
 } = {}) {
@@ -5606,6 +5728,13 @@ function xmppSendJingleSessionAccept(peerJid, sessionId, {
     peerJid: to,
     media: medias,
     createLocalOffer: false
+  });
+  void xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) }).then((attached) => {
+    addXmppDebugEvent("runtime", "Prepared local media for session-accept", {
+      sid,
+      screenShare: Boolean(screenShare),
+      attached
+    });
   });
   medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
     media: mediaType,
@@ -5946,6 +6075,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       }
       const initiated = xmppSendJingleSessionInitiate(peer, id, {
         media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+        screenShare: Boolean(session?.screenShare),
         onSuccess: () => {
           const current = xmppCallSessionById.get(id);
           if (current) current.state = "session-initiate-sent";
@@ -9810,6 +9940,8 @@ function teardownXmppConnection() {
   xmppCallIceGatherInFlightBySessionId.clear();
   xmppCallPeerConnectionBySessionId.clear();
   xmppCallSessionTaskChainBySessionId.clear();
+  xmppCallLocalMediaStreamBySessionId.forEach((_, sid) => xmppStopLocalMediaStreamForSession(sid));
+  xmppCallLocalMediaStreamBySessionId.clear();
   xmppCallPendingReprimeBySessionId.forEach((entry) => {
     if (entry?.timerId) clearTimeout(entry.timerId);
   });
@@ -16400,7 +16532,8 @@ function handleSlashCommand(rawText, channel, account) {
       let sent = false;
       if (sub === "accept" && isJinglePhase) {
         sent = xmppSendJingleSessionAccept(peerBare, targetId, {
-          media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"]
+          media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+          screenShare: Boolean(session?.screenShare)
         });
       } else if (sub === "end") {
         sent = xmppSendJingleSessionTerminate(peerBare, targetId, {
@@ -32083,7 +32216,8 @@ ui.messageForm.addEventListener("submit", (event) => {
         let sent = false;
         if (sub === "accept" && isJinglePhase) {
           sent = xmppSendJingleSessionAccept(peerBare, targetId, {
-            media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"]
+            media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+            screenShare: Boolean(session?.screenShare)
           });
         } else if (sub === "end") {
           sent = xmppSendJingleSessionTerminate(peerBare, targetId, {

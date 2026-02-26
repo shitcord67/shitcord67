@@ -311,6 +311,7 @@ Notes:
 - DM header topic now includes a compact native XMPP call debug summary (session id/state, queued/pending markers, local/remote candidate counts) while sessions are active.
 - `/callxmpp status` now reports a compact native session diagnostic snapshot (state, roles, queue/re-prime flags, candidate counts) alongside interop readiness.
 - XMPP console runtime snapshot now includes active native call session diagnostics for quicker interop troubleshooting.
+- Native Jingle session-initiate/session-accept now attempt local media attachment to peer connections (`getUserMedia` for AV, `getDisplayMedia` for screen mode with optional mic merge) as practical groundwork toward real in-client media.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
