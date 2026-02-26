@@ -4001,6 +4001,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
   if (!stage || !caption) return;
   const session = xmppCallSessionById.get(sid) || null;
   const peer = xmppBareJid(session?.peerJid || "");
+  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  const pcState = (pcEntry?.pc?.connectionState || "").toString().trim();
+  const iceState = (pcEntry?.pc?.iceConnectionState || "").toString().trim();
   stage.innerHTML = "";
   const shell = document.createElement("div");
   shell.className = "native-call-surface";
@@ -4015,7 +4018,14 @@ function renderNativeXmppCallSurface(sessionId = "") {
     xmppCallSessionTaskChainBySessionId.has(sid) ? "queued" : "",
     xmppCallPendingReprimeBySessionId.has(sid) ? "debounce" : ""
   ].filter(Boolean);
-  meta.textContent = `${peer || "peer"} · ${state}${flags.length > 0 ? ` · ${flags.join(",")}` : ""}`;
+  const stateBits = [
+    peer || "peer",
+    state,
+    pcState ? `pc:${pcState}` : "",
+    iceState ? `ice:${iceState}` : "",
+    ...(flags.length > 0 ? flags : [])
+  ].filter(Boolean);
+  meta.textContent = stateBits.join(" · ");
   const actions = document.createElement("div");
   actions.className = "native-call-surface__actions";
   const localSnapshot = xmppLocalMediaSnapshot(sid);
@@ -5200,11 +5210,39 @@ async function xmppEnsureLocalMediaAttached(sessionId = "", { screenShare = fals
 async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
+  const before = xmppLocalMediaSnapshot(sid);
   const wantsScreen = mode === "screen";
   xmppStopLocalMediaStreamForSession(sid);
   await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: wantsScreen });
   const session = xmppCallSessionById.get(sid) || null;
   if (session) session.localMediaMode = wantsScreen ? "screen" : "camera";
+  if (before.audioTracks.length > 0) xmppSetLocalTracksEnabled(sid, "audio", before.audioEnabled);
+  if (before.videoTracks.length > 0) xmppSetLocalTracksEnabled(sid, "video", before.videoEnabled);
+  if (session?.peerJid) {
+    const localRole = (session.localJingleRole || (session.direction === "outgoing" ? "initiator" : "responder"))
+      .toString()
+      .trim()
+      .toLowerCase() === "initiator"
+      ? "initiator"
+      : "responder";
+    const snapshot = xmppLocalMediaSnapshot(sid);
+    const senders = xmppJingleSendersForLocalEnabled(snapshot.videoEnabled, localRole);
+    const contents = Array.isArray(session.remoteContents) && session.remoteContents.length > 0
+      ? session.remoteContents
+      : xmppCallSessionMediaList(session).map((mediaType, index) => ({ name: `${mediaType}${index}`, media: mediaType }));
+    const updates = contents
+      .filter((entry) => (entry.media || "").toString().trim().toLowerCase() === "video")
+      .map((entry, index) => ({
+        name: (entry.name || `video${index}`).toString().trim(),
+        media: "video",
+        senders,
+        creator: localRole
+      }));
+    if (updates.length > 0) {
+      xmppSendJingleContentModify(session.peerJid, sid, updates);
+    }
+    xmppQueueTransportInfoGatherAndSend(session.peerJid, sid, { force: true });
+  }
   const stream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
   if (wantsScreen && stream) {
     stream.getVideoTracks().forEach((track) => {
