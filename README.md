@@ -309,6 +309,8 @@ Notes:
 - Session-scoped Jingle async operations are now serialized through a per-session task queue to reduce signaling-state races during overlapping updates.
 - Incoming content/transport change bursts are now coalesced via a debounced per-session re-prime request path (`pendingLocalRenegotiation`) to avoid repeated rapid reprime cycles.
 - DM header topic now includes a compact native XMPP call debug summary (session id/state, queued/pending markers, local/remote candidate counts) while sessions are active.
+- `/callxmpp status` now reports a compact native session diagnostic snapshot (state, roles, queue/re-prime flags, candidate counts) alongside interop readiness.
+- XMPP console runtime snapshot now includes active native call session diagnostics for quicker interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).

@@ -4344,6 +4344,74 @@ function xmppCallDebugSummaryForConversation(conversation = getActiveConversatio
   return `XMPP ${tokens.join(" | ")}${sessions.length > tokens.length ? " …" : ""}`;
 }
 
+function xmppCallSessionDebugSnapshot(session = null) {
+  if (!session || typeof session !== "object") return null;
+  const id = (session.id || "").toString().trim();
+  if (!id) return null;
+  const peer = xmppBareJid(session.peerJid || "");
+  const createdAt = Number(session.createdAt) || 0;
+  const queuedTask = xmppCallSessionTaskChainBySessionId.has(id);
+  const pendingReprime = xmppCallPendingReprimeBySessionId.has(id);
+  const localCandidates = Array.isArray(session.localCandidates) ? session.localCandidates.length : 0;
+  const remoteCandidates = Array.isArray(session.remoteCandidates) ? session.remoteCandidates.length : 0;
+  const media = Array.isArray(session.media)
+    ? session.media.map((entry) => (entry || "").toString().trim().toLowerCase()).filter(Boolean)
+    : [];
+  return {
+    id,
+    sid: id.slice(0, 8),
+    peer,
+    direction: (session.direction || "").toString().trim().toLowerCase(),
+    state: (session.state || "").toString().trim().toLowerCase(),
+    media,
+    localRole: (session.localJingleRole || "").toString().trim().toLowerCase(),
+    remoteRole: (session.remoteJingleRole || "").toString().trim().toLowerCase(),
+    pendingLocalRenegotiation: Boolean(session.pendingLocalRenegotiation),
+    queuedTask,
+    pendingReprime,
+    localCandidates,
+    remoteCandidates,
+    createdAt: createdAt > 0 ? new Date(createdAt).toISOString() : ""
+  };
+}
+
+function xmppCallDebugSnapshotForConversation(conversation = getActiveConversation(), current = getCurrentAccount()) {
+  if (!conversation || conversation.type !== "dm") return [];
+  const peer = xmppPeerJidForConversation(conversation, current);
+  const peerBare = xmppBareJid(peer);
+  if (!peerBare) return [];
+  return [...xmppCallSessionById.values()]
+    .filter((session) => xmppBareJid(session?.peerJid || "") === peerBare)
+    .sort((a, b) => (Number(b?.createdAt) || 0) - (Number(a?.createdAt) || 0))
+    .map((session) => xmppCallSessionDebugSnapshot(session))
+    .filter(Boolean);
+}
+
+function xmppCallDebugSnapshotAll() {
+  return [...xmppCallSessionById.values()]
+    .sort((a, b) => (Number(b?.createdAt) || 0) - (Number(a?.createdAt) || 0))
+    .map((session) => xmppCallSessionDebugSnapshot(session))
+    .filter(Boolean);
+}
+
+function xmppFormatCallSnapshotLine(snapshot = null) {
+  if (!snapshot) return "";
+  const bits = [
+    snapshot.sid || "",
+    snapshot.direction || "unknown",
+    snapshot.state || "idle"
+  ];
+  if (Array.isArray(snapshot.media) && snapshot.media.length > 0) bits.push(snapshot.media.join("+"));
+  bits.push(`l${Number(snapshot.localCandidates) || 0}/r${Number(snapshot.remoteCandidates) || 0}`);
+  const flags = [
+    snapshot.pendingLocalRenegotiation ? "R" : "",
+    snapshot.queuedTask ? "Q" : "",
+    snapshot.pendingReprime ? "P" : ""
+  ].filter(Boolean).join("");
+  if (flags) bits.push(`[${flags}]`);
+  return bits.filter(Boolean).join(" ");
+}
+
 function clearXmppCallSignalTimeout(sessionId = "") {
   const id = (sessionId || "").toString();
   if (!id) return;
@@ -14461,7 +14529,8 @@ function formatXmppConsoleLogs() {
     search: searchToken || "",
     paused: xmppDebugPaused,
     eventsTotal: xmppDebugEvents.length,
-    eventsShown: filtered.length
+    eventsShown: filtered.length,
+    activeCallSessions: xmppCallDebugSnapshotAll().slice(0, 8)
   };
   const lines = filtered.map((entry) => {
     const head = `[${entry.ts}] [${entry.category}] ${entry.message}`;
@@ -16287,9 +16356,14 @@ function handleSlashCommand(rawText, channel, account) {
     const sub = (subRaw || "").toLowerCase();
     const token = (tokenRaw || "").trim().toLowerCase();
     if (sub === "status") {
-      xmppAssessConversationCallInterop(getActiveConversation(), { force: true }).then((interop) => {
+      const activeConversation = getActiveConversation();
+      xmppAssessConversationCallInterop(activeConversation, { force: true }).then((interop) => {
+        const snapshots = xmppCallDebugSnapshotForConversation(activeConversation, getCurrentAccount());
+        const snapshotText = snapshots.length > 0
+          ? ` session: ${xmppFormatCallSnapshotLine(snapshots[0])}${snapshots.length > 1 ? " …" : ""}`
+          : "";
         if (interop.ready) {
-          addSystemMessage(channel, `XMPP call interop: ready (target ${interop.chosenTarget || "unknown"}).`);
+          addSystemMessage(channel, `XMPP call interop: ready (target ${interop.chosenTarget || "unknown"}).${snapshotText}`);
           return;
         }
         const first = interop.details[0]?.evalResult || {};
@@ -16299,7 +16373,7 @@ function handleSlashCommand(rawText, channel, account) {
           first.hasTransport ? "" : "ice-udp",
           first.hasInvite ? "" : "invite"
         ].filter(Boolean);
-        addSystemMessage(channel, `XMPP call interop: not ready${missing.length > 0 ? ` (missing ${missing.join(", ")})` : ""}.`);
+        addSystemMessage(channel, `XMPP call interop: not ready${missing.length > 0 ? ` (missing ${missing.join(", ")})` : ""}.${snapshotText}`);
       }).catch(() => {
         addSystemMessage(channel, "XMPP call interop check failed.");
       });
@@ -31969,8 +32043,12 @@ ui.messageForm.addEventListener("submit", (event) => {
       const token = (tokenRaw || "").trim().toLowerCase();
       if (sub === "status") {
         xmppAssessConversationCallInterop(conversation, { force: true }).then((interop) => {
+          const snapshots = xmppCallDebugSnapshotForConversation(conversation, getCurrentAccount());
+          const snapshotText = snapshots.length > 0
+            ? ` · ${xmppFormatCallSnapshotLine(snapshots[0])}${snapshots.length > 1 ? " …" : ""}`
+            : "";
           if (interop.ready) {
-            showToast(`XMPP call interop ready (${interop.chosenTarget || "target"}).`);
+            showToast(`XMPP call interop ready (${interop.chosenTarget || "target"}).${snapshotText}`);
             return;
           }
           const first = interop.details[0]?.evalResult || {};
@@ -31980,7 +32058,7 @@ ui.messageForm.addEventListener("submit", (event) => {
             first.hasTransport ? "" : "ice-udp",
             first.hasInvite ? "" : "invite"
           ].filter(Boolean);
-          showToast(`XMPP call interop not ready${missing.length > 0 ? ` (${missing.join(", ")})` : ""}.`, { tone: "error", duration: 3000 });
+          showToast(`XMPP call interop not ready${missing.length > 0 ? ` (${missing.join(", ")})` : ""}.${snapshotText}`, { tone: "error", duration: 3000 });
         }).catch(() => {
           showToast("XMPP call interop check failed.", { tone: "error" });
         });
