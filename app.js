@@ -30719,6 +30719,8 @@ function renderMessages() {
     avatars.className = "call-bar__avatars";
     const details = document.createElement("div");
     details.className = "call-bar__details";
+    const statusPill = document.createElement("span");
+    statusPill.className = "call-bar__status";
     const title = document.createElement("strong");
     const meta = document.createElement("div");
     meta.className = "call-bar__meta";
@@ -30729,9 +30731,11 @@ function renderMessages() {
     let peerBare = "";
     let statusText = "";
     let labelText = "";
+    let subtitleText = "";
     let openAction = null;
     let endAction = null;
     let screenShare = false;
+    let localSnapshot = null;
 
     if (conversation.type === "dm" && current) {
       const peerAccount = dmPeerAccountForThread(dmThread, current.id);
@@ -30745,6 +30749,10 @@ function renderMessages() {
         screenShare = Boolean(session.screenShare);
         labelText = screenShare ? "Native screen-share call" : "Native voice/video call";
         statusText = (session.state || "starting").toString();
+        const elapsedMs = Math.max(0, Date.now() - (Number(session.createdAt) || Date.now()));
+        const minutes = Math.floor(elapsedMs / 60000);
+        const seconds = Math.floor((elapsedMs % 60000) / 1000);
+        subtitleText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
         openAction = () => openNativeXmppCallSurface(sessionId);
         endAction = () => {
           if (peerBare) {
@@ -30757,6 +30765,7 @@ function renderMessages() {
           closeMediaLightbox();
         };
         ensureXmppCallSpeakingMonitor(sessionId);
+        localSnapshot = xmppLocalMediaSnapshot(sessionId);
       }
       if (!session && activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
         labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";
@@ -30782,6 +30791,7 @@ function renderMessages() {
     } else if (activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
       labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";
       statusText = activeWebCallLightbox.incoming ? "in progress" : "starting";
+      subtitleText = "External call";
       openAction = () => openWebCallLightbox(activeWebCallLightbox.url || conversationCallUrl(conversation, {}), {
         conversation,
         screenShare: Boolean(activeWebCallLightbox.screenShare),
@@ -30797,14 +30807,57 @@ function renderMessages() {
       return;
     }
 
+    statusPill.textContent = statusText ? statusText.replace(/-/g, " ") : "active";
     title.textContent = labelText;
-    meta.textContent = statusText ? `Status: ${statusText}` : "";
+    meta.textContent = subtitleText || "";
+    details.appendChild(statusPill);
     if (openAction) {
       const openBtn = document.createElement("button");
       openBtn.type = "button";
       openBtn.textContent = "Open";
       openBtn.addEventListener("click", openAction);
       actions.appendChild(openBtn);
+    }
+    if (sessionId && localSnapshot) {
+      const micBtn = document.createElement("button");
+      micBtn.type = "button";
+      micBtn.textContent = localSnapshot.audioEnabled ? "Mute" : "Unmute";
+      micBtn.addEventListener("click", async () => {
+        if (xmppLocalMediaSnapshot(sessionId).audioTracks.length === 0) {
+          await xmppEnsureLocalMediaAttached(sessionId, { screenShare: localSnapshot.mode === "screen" });
+        }
+        const nextEnabled = !xmppLocalMediaSnapshot(sessionId).audioEnabled;
+        xmppSetLocalTracksEnabled(sessionId, "audio", nextEnabled);
+        renderMessages();
+      });
+      actions.appendChild(micBtn);
+
+      const camBtn = document.createElement("button");
+      camBtn.type = "button";
+      camBtn.textContent = localSnapshot.videoEnabled ? "Stop Cam" : "Start Cam";
+      camBtn.addEventListener("click", async () => {
+        if (xmppLocalMediaSnapshot(sessionId).videoTracks.length === 0) {
+          await xmppEnsureLocalMediaAttached(sessionId, { screenShare: localSnapshot.mode === "screen" });
+        }
+        const nextEnabled = !xmppLocalMediaSnapshot(sessionId).videoEnabled;
+        xmppSetLocalTracksEnabled(sessionId, "video", nextEnabled);
+        renderMessages();
+      });
+      actions.appendChild(camBtn);
+
+      const screenBtn = document.createElement("button");
+      screenBtn.type = "button";
+      screenBtn.textContent = localSnapshot.mode === "screen" ? "Stop Share" : "Share";
+      const cap = screenShareCapabilitySnapshot();
+      if (!cap.ok && localSnapshot.mode !== "screen") {
+        screenBtn.disabled = true;
+        screenBtn.title = cap.reason || "Screen share unavailable";
+      }
+      screenBtn.addEventListener("click", async () => {
+        await xmppSwitchLocalMediaMode(sessionId, localSnapshot.mode === "screen" ? "camera" : "screen");
+        renderMessages();
+      });
+      actions.appendChild(screenBtn);
     }
     if (endAction) {
       const endBtn = document.createElement("button");

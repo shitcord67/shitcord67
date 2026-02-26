@@ -4395,6 +4395,18 @@ body[data-compact-members="on"] .member-item {
   min-width: 0;
 }
 
+.call-bar__status {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dbe0ff;
+  background: rgba(88, 101, 242, 0.25);
+  border: 1px solid rgba(88, 101, 242, 0.45);
+  border-radius: 999px;
+  padding: 4px 10px;
+  width: fit-content;
+}
+
 .call-bar__details strong {
   font-size: 15px;
   color: var(--text-main);
@@ -4409,6 +4421,7 @@ body[data-compact-members="on"] .member-item {
   margin-left: auto;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .call-bar__actions button {
