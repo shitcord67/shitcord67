@@ -1394,6 +1394,7 @@ const xmppCallSessionTaskChainBySessionId = new Map();
 const xmppCallPendingReprimeBySessionId = new Map();
 const XMPP_CALL_REPRIME_DEBOUNCE_MS = 160;
 const xmppCallLocalMediaStreamBySessionId = new Map();
+const xmppCallLocalAuxStreamsBySessionId = new Map();
 const xmppCallRemoteStreamsBySessionId = new Map();
 let xmppActiveNativeCallSessionId = "";
 let relayStatus = "disconnected";
@@ -4889,6 +4890,31 @@ function xmppStopLocalMediaStreamForSession(sessionId = "") {
     // Ignore stream cleanup failures.
   }
   xmppCallLocalMediaStreamBySessionId.delete(sid);
+  const aux = xmppCallLocalAuxStreamsBySessionId.get(sid);
+  if (aux && typeof aux === "object") {
+    const streams = Array.isArray(aux.streams) ? aux.streams : [];
+    streams.forEach((item) => {
+      try {
+        item.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {
+            // Ignore track stop failures.
+          }
+        });
+      } catch {
+        // Ignore aux cleanup failures.
+      }
+    });
+    if (aux.audioContext && typeof aux.audioContext.close === "function") {
+      try {
+        aux.audioContext.close();
+      } catch {
+        // Ignore audio context close failures.
+      }
+    }
+  }
+  xmppCallLocalAuxStreamsBySessionId.delete(sid);
 }
 
 async function requestUserMediaWithFallback({ audioId = "", videoId = "", wantsVideo = true } = {}) {
@@ -4906,6 +4932,35 @@ async function requestUserMediaWithFallback({ audioId = "", videoId = "", wantsV
   }
 }
 
+function mixMediaStreamAudioTracks(streams = []) {
+  const sources = streams
+    .filter((stream) => stream instanceof MediaStream)
+    .map((stream) => ({
+      stream,
+      tracks: stream.getAudioTracks()
+    }))
+    .filter((entry) => entry.tracks.length > 0);
+  if (sources.length === 0) return { stream: null, audioContext: null };
+  if (sources.length === 1 && sources[0].tracks.length === 1) {
+    return { stream: sources[0].stream, audioContext: null };
+  }
+  if (typeof AudioContext !== "function" && typeof webkitAudioContext !== "function") {
+    return { stream: sources[0].stream, audioContext: null };
+  }
+  const Ctx = typeof AudioContext === "function" ? AudioContext : webkitAudioContext;
+  const audioContext = new Ctx();
+  const destination = audioContext.createMediaStreamDestination();
+  sources.forEach(({ stream }) => {
+    try {
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(destination);
+    } catch {
+      // Ignore source connection failures.
+    }
+  });
+  return { stream: destination.stream, audioContext };
+}
+
 async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = false } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return null;
@@ -4917,6 +4972,7 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
   const videoDeviceId = prefs.callVideoInputId || "";
   let stream = null;
   if (wantsScreen && navigator.mediaDevices?.getDisplayMedia) {
+    let micStream = null;
     try {
       stream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
@@ -4932,12 +4988,29 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
         stream = null;
       }
     }
-    if (stream && navigator.mediaDevices?.getUserMedia && stream.getAudioTracks().length === 0) {
+    if (stream && navigator.mediaDevices?.getUserMedia) {
       try {
-        const mic = await requestUserMediaWithFallback({ audioId: audioDeviceId, wantsVideo: false });
-        mic.getAudioTracks().forEach((track) => stream.addTrack(track));
+        micStream = await requestUserMediaWithFallback({ audioId: audioDeviceId, wantsVideo: false });
       } catch {
         // Optional mic merge failed; keep screen-only stream.
+      }
+    }
+    if (stream) {
+      const audioSources = [];
+      if (stream.getAudioTracks().length > 0) audioSources.push(stream);
+      if (micStream && micStream.getAudioTracks().length > 0) audioSources.push(micStream);
+      if (audioSources.length > 0) {
+        const mixed = mixMediaStreamAudioTracks(audioSources);
+        if (mixed.stream && mixed.stream.getAudioTracks().length > 0) {
+          stream.getAudioTracks().forEach((track) => stream.removeTrack(track));
+          mixed.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
+        }
+        if (micStream || mixed.audioContext) {
+          xmppCallLocalAuxStreamsBySessionId.set(sid, {
+            streams: [micStream].filter(Boolean),
+            audioContext: mixed.audioContext || null
+          });
+        }
       }
     }
   }
@@ -10856,6 +10929,7 @@ function teardownXmppConnection() {
   xmppCallSessionTaskChainBySessionId.clear();
   xmppCallLocalMediaStreamBySessionId.forEach((_, sid) => xmppStopLocalMediaStreamForSession(sid));
   xmppCallLocalMediaStreamBySessionId.clear();
+  xmppCallLocalAuxStreamsBySessionId.clear();
   xmppCallRemoteStreamsBySessionId.clear();
   xmppActiveNativeCallSessionId = "";
   xmppCallPendingReprimeBySessionId.forEach((entry) => {
