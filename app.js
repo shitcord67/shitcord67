@@ -4520,6 +4520,15 @@ function xmppSdpDirectionFromJingleSenders(senders = "", localRole = "responder"
   return "sendrecv";
 }
 
+function xmppNormalizeSdpExtmapDirection(direction = "", localRole = "responder") {
+  const normalized = (direction || "").toString().trim().toLowerCase();
+  if (["sendrecv", "sendonly", "recvonly", "inactive"].includes(normalized)) return normalized;
+  if (["both", "initiator", "responder", "none"].includes(normalized)) {
+    return xmppSdpDirectionFromJingleSenders(normalized, localRole);
+  }
+  return "";
+}
+
 function xmppBuildMinimalJingleSdp({
   media = ["audio", "video"],
   contents = [],
@@ -4538,6 +4547,14 @@ function xmppBuildMinimalJingleSdp({
           name: (payload?.name || "").toString().trim(),
           clockrate: String(Number(payload?.clockrate) || (media === "audio" ? 48000 : 90000)),
           channels: String(Math.max(1, Number(payload?.channels) || (media === "audio" ? 2 : 1))),
+          rtcpFeedback: Array.isArray(payload?.rtcpFeedback)
+            ? payload.rtcpFeedback
+              .map((feedback) => ({
+                type: (feedback?.type || "").toString().trim().toLowerCase(),
+                subtype: (feedback?.subtype || "").toString().trim().toLowerCase()
+              }))
+              .filter((feedback) => feedback.type)
+            : [],
           parameters: Array.isArray(payload?.parameters)
             ? payload.parameters
               .map((param) => ({
@@ -4552,6 +4569,49 @@ function xmppBuildMinimalJingleSdp({
         name: (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`,
         media,
         senders: (entry?.senders || "both").toString().trim().toLowerCase() || "both",
+        rtcpFeedback: Array.isArray(entry?.rtcpFeedback)
+          ? entry.rtcpFeedback
+            .map((feedback) => ({
+              type: (feedback?.type || "").toString().trim().toLowerCase(),
+              subtype: (feedback?.subtype || "").toString().trim().toLowerCase()
+            }))
+            .filter((feedback) => feedback.type)
+          : [],
+        extmaps: Array.isArray(entry?.extmaps)
+          ? entry.extmaps
+            .map((extmap) => ({
+              id: String(Number(extmap?.id) || 0),
+              uri: (extmap?.uri || "").toString().trim(),
+              direction: (extmap?.direction || "").toString().trim().toLowerCase(),
+              attributes: (extmap?.attributes || "").toString().trim()
+            }))
+            .filter((extmap) => Number(extmap.id) > 0 && extmap.uri)
+          : [],
+        sources: Array.isArray(entry?.sources)
+          ? entry.sources
+            .map((source) => ({
+              ssrc: String(Number(source?.ssrc) || 0),
+              parameters: Array.isArray(source?.parameters)
+                ? source.parameters
+                  .map((param) => ({
+                    name: (param?.name || "").toString().trim(),
+                    value: (param?.value || "").toString().trim()
+                  }))
+                  .filter((param) => param.name)
+                : []
+            }))
+            .filter((source) => Number(source.ssrc) > 0)
+          : [],
+        sourceGroups: Array.isArray(entry?.sourceGroups)
+          ? entry.sourceGroups
+            .map((group) => ({
+              semantics: (group?.semantics || "").toString().trim().toUpperCase(),
+              sources: Array.isArray(group?.sources)
+                ? group.sources.map((ssrc) => String(Number(ssrc) || 0)).filter((ssrc) => Number(ssrc) > 0)
+                : []
+            }))
+            .filter((group) => group.semantics && group.sources.length > 0)
+          : [],
         payloadTypes: payloads,
         transport: entry?.transport && typeof entry.transport === "object" ? entry.transport : null
       };
@@ -4567,11 +4627,25 @@ function xmppBuildMinimalJingleSdp({
       name: `${mediaType}${index}`,
       media: mediaType,
       senders: "both",
+      rtcpFeedback: [],
+      extmaps: [],
+      sources: [],
+      sourceGroups: [],
       payloadTypes: [],
       transport: null
     }));
   if (selectedContents.length === 0) {
-    selectedContents.push({ name: "audio0", media: "audio", senders: "both", payloadTypes: [], transport: null });
+    selectedContents.push({
+      name: "audio0",
+      media: "audio",
+      senders: "both",
+      rtcpFeedback: [],
+      extmaps: [],
+      sources: [],
+      sourceGroups: [],
+      payloadTypes: [],
+      transport: null
+    });
   }
   const creds = transport && typeof transport === "object"
     ? {
@@ -4631,6 +4705,7 @@ function xmppBuildMinimalJingleSdp({
         name: kind === "audio" ? "opus" : "VP8",
         clockrate: kind === "audio" ? "48000" : "90000",
         channels: kind === "audio" ? "2" : "1",
+        rtcpFeedback: [],
         parameters: []
       }];
     const payloadIds = payloads.map((payload) => payload.id).join(" ");
@@ -4660,6 +4735,33 @@ function xmppBuildMinimalJingleSdp({
         .map((param) => param.value ? `${param.name}=${param.value}` : param.name)
         .join(";");
       if (fmtp) lines.push(`a=fmtp:${payload.id} ${fmtp}`);
+      const payloadRtcpFeedback = payload.rtcpFeedback
+        .filter((feedback) => feedback.type)
+        .map((feedback) => `${feedback.type}${feedback.subtype ? ` ${feedback.subtype}` : ""}`);
+      payloadRtcpFeedback.forEach((feedbackLine) => {
+        lines.push(`a=rtcp-fb:${payload.id} ${feedbackLine}`);
+      });
+    });
+    const commonRtcpFeedback = content.rtcpFeedback
+      .filter((feedback) => feedback.type)
+      .map((feedback) => `${feedback.type}${feedback.subtype ? ` ${feedback.subtype}` : ""}`);
+    commonRtcpFeedback.forEach((feedbackLine) => {
+      lines.push(`a=rtcp-fb:* ${feedbackLine}`);
+    });
+    content.extmaps.forEach((extmap) => {
+      const normalizedDirection = xmppNormalizeSdpExtmapDirection(extmap.direction, localRole);
+      const direction = normalizedDirection ? `/${normalizedDirection}` : "";
+      const suffix = extmap.attributes ? ` ${extmap.attributes}` : "";
+      lines.push(`a=extmap:${extmap.id}${direction} ${extmap.uri}${suffix}`);
+    });
+    content.sourceGroups.forEach((group) => {
+      lines.push(`a=ssrc-group:${group.semantics} ${group.sources.join(" ")}`);
+    });
+    content.sources.forEach((source) => {
+      source.parameters.forEach((param) => {
+        const value = param.value ? `:${param.value}` : "";
+        lines.push(`a=ssrc:${source.ssrc} ${param.name}${value}`);
+      });
     });
   });
   return lines.join("\r\n") + "\r\n";
@@ -5360,6 +5462,12 @@ function parseXmppJingleIq(stanza) {
           name: (payloadNode.getAttribute("name") || "").toString().trim(),
           clockrate: Number(payloadNode.getAttribute("clockrate") || 0) || 0,
           channels: Number(payloadNode.getAttribute("channels") || 0) || 0,
+          rtcpFeedback: [...payloadNode.getElementsByTagName("rtcp-fb")]
+            .map((feedbackNode) => ({
+              type: (feedbackNode.getAttribute("type") || "").toString().trim().toLowerCase(),
+              subtype: (feedbackNode.getAttribute("subtype") || "").toString().trim().toLowerCase()
+            }))
+            .filter((feedback) => feedback.type),
           parameters: [...payloadNode.getElementsByTagName("parameter")]
             .map((parameterNode) => ({
               name: (parameterNode.getAttribute("name") || "").toString().trim(),
@@ -5368,6 +5476,40 @@ function parseXmppJingleIq(stanza) {
             .filter((param) => param.name)
         }))
         .filter((payload) => payload.id > 0);
+      const rtcpFeedback = [...(description ? description.getElementsByTagName("rtcp-fb") : [])]
+        .filter((feedbackNode) => feedbackNode.parentNode === description)
+        .map((feedbackNode) => ({
+          type: (feedbackNode.getAttribute("type") || "").toString().trim().toLowerCase(),
+          subtype: (feedbackNode.getAttribute("subtype") || "").toString().trim().toLowerCase()
+        }))
+        .filter((feedback) => feedback.type);
+      const extmaps = [...(description ? description.getElementsByTagName("rtp-hdrext") : [])]
+        .map((extNode) => ({
+          id: Number(extNode.getAttribute("id") || 0) || 0,
+          uri: (extNode.getAttribute("uri") || "").toString().trim(),
+          direction: (extNode.getAttribute("senders") || "").toString().trim().toLowerCase(),
+          attributes: (extNode.getAttribute("attributes") || "").toString().trim()
+        }))
+        .filter((ext) => ext.id > 0 && ext.uri);
+      const sources = [...(description ? description.getElementsByTagName("source") : [])]
+        .map((sourceNode) => ({
+          ssrc: Number(sourceNode.getAttribute("ssrc") || 0) || 0,
+          parameters: [...sourceNode.getElementsByTagName("parameter")]
+            .map((parameterNode) => ({
+              name: (parameterNode.getAttribute("name") || "").toString().trim(),
+              value: (parameterNode.getAttribute("value") || "").toString().trim()
+            }))
+            .filter((param) => param.name)
+        }))
+        .filter((source) => source.ssrc > 0);
+      const sourceGroups = [...(description ? description.getElementsByTagName("source-group") : [])]
+        .map((groupNode) => ({
+          semantics: (groupNode.getAttribute("semantics") || "").toString().trim().toUpperCase(),
+          sources: [...groupNode.getElementsByTagName("source")]
+            .map((sourceNode) => Number(sourceNode.getAttribute("ssrc") || 0) || 0)
+            .filter((ssrc) => ssrc > 0)
+        }))
+        .filter((group) => group.semantics && group.sources.length > 0);
       const transportNode = [...contentNode.getElementsByTagName("transport")]
         .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_ICE_UDP_NAMESPACE)) || null;
       const fingerprintNode = transportNode
@@ -5388,6 +5530,10 @@ function parseXmppJingleIq(stanza) {
         creator: (contentNode.getAttribute("creator") || "").toString().trim().toLowerCase(),
         senders,
         media,
+        rtcpFeedback,
+        extmaps,
+        sources,
+        sourceGroups,
         payloadTypes,
         transport
       };
