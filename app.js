@@ -141,7 +141,7 @@ async function computeXmppCapsHash() {
   if (typeof crypto === "undefined" || !crypto.subtle || typeof TextEncoder === "undefined") return "";
   const identities = xmppCapsIdentityStrings().slice().sort();
   const features = xmppCapsFeatureStrings();
-  const summary = [...identities, ...features].join("<");
+  const summary = `${identities.map((id) => `${id}<`).join("")}${features.map((feature) => `${feature}<`).join("")}`;
   const bytes = new TextEncoder().encode(summary);
   const digest = await crypto.subtle.digest("SHA-1", bytes);
   const hashBytes = new Uint8Array(digest);
@@ -4014,6 +4014,45 @@ function renderNativeXmppCallSurface(sessionId = "") {
   meta.textContent = `${peer || "peer"} · ${state}${flags.length > 0 ? ` · ${flags.join(",")}` : ""}`;
   const actions = document.createElement("div");
   actions.className = "native-call-surface__actions";
+  const localSnapshot = xmppLocalMediaSnapshot(sid);
+  const micBtn = document.createElement("button");
+  micBtn.type = "button";
+  micBtn.className = "native-call-surface__toggle";
+  micBtn.textContent = localSnapshot.audioEnabled ? "Mute Mic" : "Unmute Mic";
+  micBtn.title = localSnapshot.audioEnabled ? "Mute microphone" : "Unmute microphone";
+  micBtn.disabled = localSnapshot.audioTracks.length === 0;
+  if (localSnapshot.audioEnabled) micBtn.classList.add("is-active");
+  micBtn.addEventListener("click", async () => {
+    if (localSnapshot.audioTracks.length === 0) {
+      await xmppEnsureLocalMediaAttached(sid, { screenShare: localSnapshot.mode === "screen" });
+    }
+    const nextEnabled = !xmppLocalMediaSnapshot(sid).audioEnabled;
+    xmppSetLocalTracksEnabled(sid, "audio", nextEnabled);
+  });
+  const camBtn = document.createElement("button");
+  camBtn.type = "button";
+  camBtn.className = "native-call-surface__toggle";
+  camBtn.textContent = localSnapshot.videoEnabled ? "Stop Cam" : "Start Cam";
+  camBtn.title = localSnapshot.videoEnabled ? "Disable camera" : "Enable camera";
+  camBtn.disabled = localSnapshot.videoTracks.length === 0 && localSnapshot.mode !== "camera";
+  if (localSnapshot.videoEnabled) camBtn.classList.add("is-active");
+  camBtn.addEventListener("click", async () => {
+    if (xmppLocalMediaSnapshot(sid).videoTracks.length === 0) {
+      await xmppEnsureLocalMediaAttached(sid, { screenShare: localSnapshot.mode === "screen" });
+    }
+    const nextEnabled = !xmppLocalMediaSnapshot(sid).videoEnabled;
+    xmppSetLocalTracksEnabled(sid, "video", nextEnabled);
+  });
+  const screenBtn = document.createElement("button");
+  screenBtn.type = "button";
+  screenBtn.className = "native-call-surface__toggle";
+  const screenActive = localSnapshot.mode === "screen";
+  screenBtn.textContent = screenActive ? "Stop Share" : "Share Screen";
+  screenBtn.title = screenActive ? "Stop screen sharing" : "Share your screen";
+  if (screenActive) screenBtn.classList.add("is-active");
+  screenBtn.addEventListener("click", async () => {
+    await xmppSwitchLocalMediaMode(sid, screenActive ? "camera" : "screen");
+  });
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.textContent = "Copy SID";
@@ -4039,6 +4078,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
     forgetXmppCallSession(sid);
     closeMediaLightbox();
   });
+  actions.appendChild(micBtn);
+  actions.appendChild(camBtn);
+  actions.appendChild(screenBtn);
   actions.appendChild(copyBtn);
   actions.appendChild(refreshBtn);
   actions.appendChild(endBtn);
@@ -4875,6 +4917,68 @@ async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
   return true;
 }
 
+function xmppLocalMediaSnapshot(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  const session = xmppCallSessionById.get(sid) || null;
+  const stream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  const audioTracks = stream ? stream.getAudioTracks() : [];
+  const videoTracks = stream ? stream.getVideoTracks() : [];
+  const audioEnabled = audioTracks.some((track) => track.enabled);
+  const videoEnabled = videoTracks.some((track) => track.enabled);
+  return {
+    session,
+    stream,
+    audioTracks,
+    videoTracks,
+    audioEnabled,
+    videoEnabled,
+    mode: (session?.localMediaMode || "camera").toString().trim() || "camera"
+  };
+}
+
+function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const snapshot = xmppLocalMediaSnapshot(sid);
+  const tracks = kind === "audio" ? snapshot.audioTracks : (kind === "video" ? snapshot.videoTracks : []);
+  if (tracks.length === 0) return false;
+  tracks.forEach((track) => {
+    track.enabled = enabled;
+  });
+  if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  return true;
+}
+
+async function xmppEnsureLocalMediaAttached(sessionId = "", { screenShare = false } = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return null;
+  if (xmppCallLocalMediaStreamBySessionId.get(sid)) {
+    return xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  }
+  await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare });
+  return xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+}
+
+async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const wantsScreen = mode === "screen";
+  xmppStopLocalMediaStreamForSession(sid);
+  await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: wantsScreen });
+  const session = xmppCallSessionById.get(sid) || null;
+  if (session) session.localMediaMode = wantsScreen ? "screen" : "camera";
+  const stream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  if (wantsScreen && stream) {
+    stream.getVideoTracks().forEach((track) => {
+      track.addEventListener("ended", () => {
+        void xmppSwitchLocalMediaMode(sid, "camera");
+      }, { once: true });
+    });
+  }
+  if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  return true;
+}
+
 function xmppSendJingleMessageAction(peerJid, action = "propose", { sessionId = "", media = ["audio", "video"] } = {}) {
   const to = xmppBareJid(peerJid);
   const id = (sessionId || "").toString().trim();
@@ -4913,6 +5017,35 @@ function xmppSendIqResultForIncomingSet(stanza) {
   return true;
 }
 
+function xmppSendDiscoInfoResult({ id, to, node = "" } = {}) {
+  if (!id || !xmppConnection || !globalThis.$iq) return false;
+  const attrs = { type: "result", id };
+  if (to) attrs.to = to;
+  const queryAttrs = { xmlns: "http://jabber.org/protocol/disco#info" };
+  if (node) queryAttrs.node = node;
+  const result = globalThis.$iq(attrs).c("query", queryAttrs);
+  result.c("identity", { category: "client", type: "web", name: "shitcord67" }).up();
+  xmppClientDiscoFeatures().forEach((feature) => {
+    result.c("feature", { var: feature }).up();
+  });
+  xmppConnection.send(result);
+  return true;
+}
+
+function xmppSendDiscoInfoError({ id, to, node = "" } = {}) {
+  if (!id || !xmppConnection || !globalThis.$iq) return false;
+  const errorAttrs = { type: "error", id };
+  if (to) errorAttrs.to = to;
+  const queryAttrs = { xmlns: "http://jabber.org/protocol/disco#info" };
+  if (node) queryAttrs.node = node;
+  const errorStanza = globalThis.$iq(errorAttrs)
+    .c("query", queryAttrs).up()
+    .c("error", { type: "cancel" })
+    .c("item-not-found", { xmlns: "urn:ietf:params:xml:ns:xmpp-stanzas" });
+  xmppConnection.send(errorStanza);
+  return true;
+}
+
 function xmppSendDiscoInfoResultForIncomingGet(stanza) {
   if (!stanza || !xmppConnection || !globalThis.$iq) return false;
   const id = (stanza.getAttribute("id") || "").toString().trim();
@@ -4922,25 +5055,25 @@ function xmppSendDiscoInfoResultForIncomingGet(stanza) {
     .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/disco#info")) || null;
   if (!query) return false;
   const nodeAttr = (query.getAttribute("node") || "").toString().trim();
-  const attrs = { type: "result", id };
-  if (from) attrs.to = from;
-  if (nodeAttr) {
-    const errorAttrs = { type: "error", id };
-    if (from) errorAttrs.to = from;
-    const errorStanza = globalThis.$iq(errorAttrs)
-      .c("query", { xmlns: "http://jabber.org/protocol/disco#info", node: nodeAttr }).up()
-      .c("error", { type: "cancel" })
-      .c("item-not-found", { xmlns: "urn:ietf:params:xml:ns:xmpp-stanzas" });
-    xmppConnection.send(errorStanza);
+  if (!nodeAttr) {
+    return xmppSendDiscoInfoResult({ id, to: from });
+  }
+  const expectedNode = xmppCapsHash ? `${XMPP_CAPS_NODE}#${xmppCapsHash}` : "";
+  if (expectedNode && nodeAttr === expectedNode) {
+    return xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
+  }
+  if (!xmppCapsHash && nodeAttr.startsWith(`${XMPP_CAPS_NODE}#`)) {
+    ensureXmppCapsHash().then((hash) => {
+      const resolvedNode = hash ? `${XMPP_CAPS_NODE}#${hash}` : "";
+      if (resolvedNode && nodeAttr === resolvedNode) {
+        xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
+        return;
+      }
+      xmppSendDiscoInfoError({ id, to: from, node: nodeAttr });
+    });
     return true;
   }
-  const result = globalThis.$iq(attrs).c("query", { xmlns: "http://jabber.org/protocol/disco#info" });
-  result.c("identity", { category: "client", type: "web", name: "shitcord67" }).up();
-  xmppClientDiscoFeatures().forEach((feature) => {
-    result.c("feature", { var: feature }).up();
-  });
-  xmppConnection.send(result);
-  return true;
+  return xmppSendDiscoInfoError({ id, to: from, node: nodeAttr });
 }
 
 function xmppBuildJingleTransportCreds() {
@@ -7049,6 +7182,7 @@ function sendCurrentXmppPresence({ skipCapsRetry = false } = {}) {
   const show = xmppShowValueForPresence(mode);
   const stanza = globalThis.$pres();
   if (show) stanza.c("show").t(show);
+  stanza.c("priority").t("0").up();
   const displayName = (account?.displayName || account?.username || "").toString().trim();
   if (displayName) stanza.c("nick", { xmlns: "http://jabber.org/protocol/nick" }).t(displayName).up();
   const statusText = (account?.customStatus || "").toString().trim();
@@ -12643,6 +12777,7 @@ function xmppCallCapabilityTargetsForConversation(conversation = getActiveConver
 
 function xmppClientDiscoFeatures() {
   return [
+    XMPP_CAPS_NAMESPACE,
     XMPP_JINGLE_NAMESPACE,
     XMPP_JINGLE_RTP_NAMESPACE,
     XMPP_JINGLE_RTP_INFO_NAMESPACE,
@@ -12651,6 +12786,7 @@ function xmppClientDiscoFeatures() {
     XMPP_CALL_INVITES_NAMESPACE,
     XMPP_JINGLE_AUDIO_NAMESPACE,
     XMPP_JINGLE_VIDEO_NAMESPACE,
+    "http://jabber.org/protocol/nick",
     "urn:xmpp:jingle:apps:dtls:0",
     XMPP_REACTIONS_NAMESPACE,
     XMPP_MESSAGE_RETRACT_NAMESPACE,

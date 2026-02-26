@@ -1333,3 +1333,5 @@ Yes
 [2026-02-26 02:38:18] Also feel free to add other presence stuff that clients might expect
 
 [2026-02-26 02:39:30] Also please focus on doing the calling and screen sharing high-quality and Discord-like, continue to work on the priority items.
+
+[2026-02-26 03:40:47] Is everything noted in the TODO? Important first is that we really get all the call/video/screensharing and whiteboard functionality settled.

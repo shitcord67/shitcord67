@@ -4450,6 +4450,17 @@ body[data-compact-members="on"] .member-item {
   padding: 0.23rem 0.62rem;
 }
 
+.native-call-surface__actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.native-call-surface__actions .native-call-surface__toggle.is-active {
+  border-color: #2f6b47;
+  background: #1f3c2b;
+  color: #d6ffe3;
+}
+
 .native-call-surface__actions .native-call-surface__end {
   border-color: #7b3941;
   background: #5a2a30;
