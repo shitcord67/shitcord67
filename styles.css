@@ -423,6 +423,24 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   min-height: 1.35rem;
 }
 
+.server-brand__emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+  display: none;
+}
+
+.server-brand__emoji-fallback {
+  display: block;
+}
+
+.server-brand--emoji .server-brand__emoji {
+  display: block;
+}
+
+.server-brand--emoji .server-brand__emoji-fallback {
+  display: none;
+}
+
 .server-brand__icon svg {
   width: 1.35rem;
   height: 1.35rem;

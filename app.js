@@ -77,6 +77,8 @@ const EMOJI_DATASET_SOURCES = [
   "https://unicode.org/Public/emoji/17.0/emoji-test.txt",
   "https://raw.githubusercontent.com/unicode-org/emoji/main/data/emoji-test.txt"
 ];
+const SHITCORD_BRAND_EMOJI = "🫪";
+const SHITCORD_EMOJI_FALLBACK_GLYPH = "\u{10FFFF}";
 
 function detectRuntimePlatform() {
   const ua = String(navigator.userAgent || "").toLowerCase();
@@ -96,6 +98,34 @@ function applyRuntimePlatformHints() {
 }
 
 applyRuntimePlatformHints();
+
+function renderEmojiToCanvasData(text, { size = 32 } = {}) {
+  if (typeof document === "undefined") return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+  ctx.clearRect(0, 0, size, size);
+  ctx.textBaseline = "top";
+  ctx.font = `${size}px sans-serif`;
+  ctx.fillText(text, 0, 0);
+  return canvas.toDataURL();
+}
+
+let cachedBrandEmojiSupport = null;
+
+function supportsEmojiGlyph(emoji) {
+  if (cachedBrandEmojiSupport !== null) return cachedBrandEmojiSupport;
+  const rendered = renderEmojiToCanvasData(emoji);
+  const missing = renderEmojiToCanvasData(SHITCORD_EMOJI_FALLBACK_GLYPH);
+  if (!rendered || !missing) {
+    cachedBrandEmojiSupport = false;
+    return cachedBrandEmojiSupport;
+  }
+  cachedBrandEmojiSupport = rendered !== missing;
+  return cachedBrandEmojiSupport;
+}
 
 const MOBILE_SIDEBAR_BREAKPOINT_PX = 760;
 const mobileLayoutMediaQuery = typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -1371,6 +1401,7 @@ const ui = {
   loginXmppProgressTimer: document.getElementById("loginXmppProgressTimer"),
   loginXmppProgressDetail: document.getElementById("loginXmppProgressDetail"),
   serverBrand: document.getElementById("serverBrand"),
+  serverBrandIcon: document.querySelector("#serverBrand .server-brand__icon"),
   serverBrandBadge: document.getElementById("serverBrandBadge"),
   serverList: document.getElementById("serverList"),
   dmSection: document.getElementById("dmSection"),
@@ -1754,6 +1785,12 @@ const ui = {
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
+
+function applyServerBrandEmojiSupport() {
+  if (!ui.serverBrand) return;
+  const supported = supportsEmojiGlyph(SHITCORD_BRAND_EMOJI);
+  ui.serverBrand.classList.toggle("server-brand--emoji", supported);
+}
 
 if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 
@@ -4827,6 +4864,36 @@ function xmppSendIqResultForIncomingSet(stanza) {
   const attrs = { type: "result", id };
   if (from) attrs.to = from;
   xmppConnection.send(globalThis.$iq(attrs));
+  return true;
+}
+
+function xmppSendDiscoInfoResultForIncomingGet(stanza) {
+  if (!stanza || !xmppConnection || !globalThis.$iq) return false;
+  const id = (stanza.getAttribute("id") || "").toString().trim();
+  if (!id) return false;
+  const from = (stanza.getAttribute("from") || "").toString().trim();
+  const query = [...stanza.getElementsByTagName("query")]
+    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/disco#info")) || null;
+  if (!query) return false;
+  const nodeAttr = (query.getAttribute("node") || "").toString().trim();
+  const attrs = { type: "result", id };
+  if (from) attrs.to = from;
+  if (nodeAttr) {
+    const errorAttrs = { type: "error", id };
+    if (from) errorAttrs.to = from;
+    const errorStanza = globalThis.$iq(errorAttrs)
+      .c("query", { xmlns: "http://jabber.org/protocol/disco#info", node: nodeAttr }).up()
+      .c("error", { type: "cancel" })
+      .c("item-not-found", { xmlns: "urn:ietf:params:xml:ns:xmpp-stanzas" });
+    xmppConnection.send(errorStanza);
+    return true;
+  }
+  const result = globalThis.$iq(attrs).c("query", { xmlns: "http://jabber.org/protocol/disco#info" });
+  result.c("identity", { category: "client", type: "web", name: "shitcord67" }).up();
+  xmppClientDiscoFeatures().forEach((feature) => {
+    result.c("feature", { var: feature }).up();
+  });
+  xmppConnection.send(result);
   return true;
 }
 
@@ -11603,6 +11670,20 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "set", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
+          const type = (stanza?.getAttribute("type") || "").toLowerCase();
+          if (type !== "get") return true;
+          const handled = xmppSendDiscoInfoResultForIncomingGet(stanza);
+          if (!handled) return true;
+          const from = stanza.getAttribute("from") || "";
+          const id = stanza.getAttribute("id") || "";
+          addXmppDebugEvent("iq", "Handled XMPP disco#info request", { from, id });
+        } catch {
+          addXmppDebugEvent("error", "XMPP disco#info handler failed");
+        }
+        return true;
+      }, null, "iq", "get", null, null);
+      xmppConnection.addHandler((stanza) => {
+        try {
           const pingNode = [...stanza.getElementsByTagName("ping")]
             .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:ping")) || null;
           if (!pingNode) return true;
@@ -12494,6 +12575,26 @@ function xmppCallCapabilityTargetsForConversation(conversation = getActiveConver
   const accountDomain = xmppDomainFromJid(prefs.xmppJid || "");
   if (accountDomain) targets.add(accountDomain);
   return [...targets];
+}
+
+function xmppClientDiscoFeatures() {
+  return [
+    XMPP_JINGLE_NAMESPACE,
+    XMPP_JINGLE_RTP_NAMESPACE,
+    XMPP_JINGLE_RTP_INFO_NAMESPACE,
+    XMPP_JINGLE_ICE_UDP_NAMESPACE,
+    XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+    XMPP_CALL_INVITES_NAMESPACE,
+    XMPP_JINGLE_AUDIO_NAMESPACE,
+    XMPP_JINGLE_VIDEO_NAMESPACE,
+    "urn:xmpp:jingle:apps:dtls:0",
+    XMPP_REACTIONS_NAMESPACE,
+    XMPP_MESSAGE_RETRACT_NAMESPACE,
+    XMPP_FASTEN_NAMESPACE,
+    XMPP_CHAT_MARKERS_NAMESPACE,
+    XMPP_IDLE_NAMESPACE,
+    "urn:xmpp:ping"
+  ];
 }
 
 function xmppRequiredCallFeatureBuckets() {
@@ -36058,6 +36159,7 @@ if (mobileLayoutMediaQuery) {
 mediaPickerTab = getPreferences().mediaLastTab;
 if (dedupeDmThreads()) saveState();
 hardenInputAutocompleteNoise();
+applyServerBrandEmojiSupport();
 renderComposerMediaButtons();
 runScheduledDispatch();
 ensureScheduledDispatchTimer();

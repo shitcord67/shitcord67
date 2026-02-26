@@ -1324,3 +1324,6 @@ Yes
 2026-02-26T00:23:49Z USER PROMPT: Please continue
 2026-02-26T00:25:32Z USER PROMPT: Yeah, maybe that is useful, you can add the debug stuff as well, maybe add it to TODO. But what about then continuing with the actual call/video/screen sharing functionality & priority entries?
 2026-02-26T00:27:39Z USER PROMPT: Yes
+2026-02-26T00:40:19Z USER PROMPT: Can you make the 🫪 Distorted Face Emoji be shown instead of the S in the upper-right as the shitcord67 logo when the system has the emoji? Also ideally why can't you just ship the emoji, maybe using twemoji or openmoji or GNU FreeFont?
+
+[2026-02-26 02:30:36] Can you continue with the emoji thing I just asked and then continue on the calling stuff? Especially keep attention to what I noted down in call-info file.
