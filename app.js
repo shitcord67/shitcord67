@@ -9399,13 +9399,19 @@ function xmppRoomNodeForToken(roomToken) {
   return sanitizeChannelName(raw.replace(/[:]/g, "-"), "lobby-general");
 }
 
-function isXmppMucRoomJid(roomJid, prefs = getPreferences()) {
+function looksLikeXmppMucJid(roomJid, prefs = getPreferences()) {
   const bare = xmppBareJid(roomJid);
   if (!bare || !bare.includes("@")) return false;
-  if (isKnownXmppRoomJid(bare)) return true;
   const mucService = resolveXmppMucService(prefs);
   if (mucService && bare.endsWith(`@${mucService}`)) return true;
   return /@(?:conference|muc)\./i.test(bare);
+}
+
+function isXmppMucRoomJid(roomJid, prefs = getPreferences()) {
+  const bare = xmppBareJid(roomJid);
+  if (!bare || !bare.includes("@")) return false;
+  if (looksLikeXmppMucJid(bare, prefs)) return true;
+  return isKnownXmppRoomJid(bare, prefs);
 }
 
 function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
@@ -10982,9 +10988,10 @@ function findXmppRoomChannelByJid(roomJid) {
   return null;
 }
 
-function isKnownXmppRoomJid(roomJid) {
+function isKnownXmppRoomJid(roomJid, prefs = getPreferences()) {
   const bare = xmppBareJid(roomJid);
   if (!bare) return false;
+  if (!looksLikeXmppMucJid(bare, prefs)) return false;
   if (xmppRoomByJid.has(bare)) return true;
   return Boolean(findXmppRoomChannelByJid(bare));
 }
@@ -12329,7 +12336,9 @@ function connectRelaySocket({ force = false } = {}) {
         const nick = (from.split("/")[1] || "").toString();
         const ownBare = xmppBareJid(getPreferences().xmppJid || "");
         const knownRoom = isKnownXmppRoomJid(bareFrom);
-        const isDirectLike = (type === "chat" || type === "normal" || type === "headline") && !knownRoom;
+        const isGroupchat = type === "groupchat";
+        const isMucLike = isGroupchat || isXmppMucRoomJid(bareFrom);
+        const isDirectLike = (type === "chat" || type === "normal" || type === "headline") && !isMucLike;
         const hasComposing = stanza.getElementsByTagName("composing").length > 0;
         const hasPaused = stanza.getElementsByTagName("paused").length > 0;
         const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
@@ -12629,6 +12638,7 @@ function connectRelaySocket({ force = false } = {}) {
           }
           return;
         }
+        if (!isMucLike) return;
         const roomJid = bareFrom;
         const fallbackRoomToken = roomJid ? `xmpp:${roomJid}` : "";
         const roomToken = xmppRoomByJid.get(roomJid) || fallbackRoomToken || `xmpp:${roomJid}`;
@@ -32999,6 +33009,7 @@ function upsertXmppSpaceChannels(bookmarks, prefs = getPreferences(), account = 
   bookmarks.forEach((entry) => {
     const roomJid = normalizeXmppJid(entry?.jid || "").toLowerCase();
     if (!roomJid) return;
+    if (!looksLikeXmppMucJid(roomJid, prefs)) return;
     const upserted = upsertXmppRoomChannel(roomJid, {
       roomName: (entry?.name || "").toString(),
       roomToken: `xmpp:${roomJid}`,
