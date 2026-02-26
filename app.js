@@ -5872,6 +5872,12 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     });
   }
   xmppConnection.send(builder);
+  addXmppDebugEvent("call", "Sent Jingle Message", {
+    to,
+    action: tag,
+    id,
+    media: tag === "propose" ? (media || []) : []
+  });
   addXmppDebugEvent("message", "Sent XMPP jingle-message action", { to, action: tag, id });
   return true;
 }
@@ -12437,6 +12443,13 @@ function connectRelaySocket({ force = false } = {}) {
           if (!dmRoom) return;
           const jingleAction = parseXmppJingleMessageAction(stanza);
           if (jingleAction && !ownAuthor) {
+            addXmppDebugEvent("call", "Incoming Jingle Message", {
+              from: bareFrom,
+              action: jingleAction.action,
+              id: jingleAction.id,
+              media: Array.isArray(jingleAction.media) ? jingleAction.media : [],
+              raw: trimXmppRaw(xmppSerializePayload(stanza))
+            });
             const handledJingle = handleXmppJingleMessageAction(jingleAction, {
               peerJid: stanza.getAttribute("from") || peerBare,
               screenShareFallback: false
@@ -12975,6 +12988,13 @@ function connectRelaySocket({ force = false } = {}) {
           const fromBare = xmppBareJid(fromFull);
           const jingle = parseXmppJingleIq(stanza);
           if (!jingle || !fromBare || !jingle.sid) return true;
+          addXmppDebugEvent("call", "Incoming Jingle IQ", {
+            from: fromBare,
+            action: jingle.action || "",
+            sid: jingle.sid,
+            media: Array.isArray(jingle.media) ? jingle.media : [],
+            raw: trimXmppRaw(xmppSerializePayload(stanza))
+          });
           xmppSendIqResultForIncomingSet(stanza);
           const existing = xmppCallSessionById.get(jingle.sid) || null;
           const session = existing || {
@@ -35679,16 +35699,16 @@ ui.openCallBtn?.addEventListener("click", () => {
 ui.openCallBtn?.addEventListener("contextmenu", (event) => {
   openContextMenu(event, [
     {
-      label: "Start Voice/Video Call",
-      action: () => launchConversationCall({ screenShare: false, autoPost: true })
+      label: "Start Web Voice/Video",
+      action: () => launchConversationCall({ screenShare: false, autoPost: true, allowNative: false })
     },
     {
-      label: "Start Screen Share",
-      action: () => launchConversationCall({ screenShare: true, autoPost: true })
+      label: "Start Web Screen Share",
+      action: () => launchConversationCall({ screenShare: true, autoPost: true, allowNative: false })
     },
     {
-      label: "Copy Call Link",
-      action: () => launchConversationCall({ copyOnly: true, autoPost: false })
+      label: "Copy Web Call Link",
+      action: () => launchConversationCall({ copyOnly: true, autoPost: false, allowNative: false })
     }
   ]);
 });
