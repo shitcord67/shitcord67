@@ -56,5 +56,6 @@ Status labels:
 - Server feature availability varies by provider; a supported XEP may still be unavailable on a specific server.
 - This list is implementation-oriented (what the client does today), not just what servers advertise in stream features.
 - Current AV/screenshare in-client behavior uses a configurable web conference fallback room launcher; native Jingle signaling exists but media transport is still scaffolding-level.
+- Call invites (`urn:xmpp:call-invites:0`) are not advertised yet; native DM calling relies on Jingle Message Initiation.
 - Web-conference and native-XMPP call controls now coexist in UI/commands; native signaling interop with external XMPP clients is the next protocol priority.
 - Shared whiteboard currently uses a configurable web whiteboard room launcher; native XMPP whiteboard extension interop is planned.
