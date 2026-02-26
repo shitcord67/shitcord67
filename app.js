@@ -808,6 +808,8 @@ function buildInitialState() {
       callProviderUrl: "https://meet.jit.si",
       callRoomPrefix: "shitcord67",
       callAutoPost: "on",
+      callAudioInputId: "",
+      callVideoInputId: "",
       whiteboardProviderUrl: "https://wbo.ophir.dev/boards",
       whiteboardRoomPrefix: "shitcord67-wb",
       whiteboardAutoPost: "on"
@@ -1428,6 +1430,7 @@ let loginXmppProgressStartedAt = 0;
 let loginXmppProgressTimerId = null;
 let xmppCapsHash = "";
 let xmppCapsPromise = null;
+let mediaDeviceSnapshot = { audio: [], video: [], ready: false, loading: false };
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -4087,6 +4090,64 @@ function renderNativeXmppCallSurface(sessionId = "") {
   header.appendChild(title);
   header.appendChild(meta);
   header.appendChild(actions);
+  const devicesRow = document.createElement("div");
+  devicesRow.className = "native-call-surface__devices";
+  const prefs = getPreferences();
+  const audioSelect = document.createElement("select");
+  audioSelect.className = "native-call-surface__select";
+  const videoSelect = document.createElement("select");
+  videoSelect.className = "native-call-surface__select";
+  const buildSelectOptions = (select, items, selectedId, fallbackLabel) => {
+    select.innerHTML = "";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = fallbackLabel;
+    select.appendChild(defaultOption);
+    let hasSelected = !selectedId;
+    items.forEach((device, index) => {
+      const option = document.createElement("option");
+      option.value = device.id;
+      option.textContent = formatMediaDeviceLabel(device, `${fallbackLabel} ${index + 1}`);
+      if (device.id === selectedId) {
+        option.selected = true;
+        hasSelected = true;
+      }
+      select.appendChild(option);
+    });
+    if (selectedId && !hasSelected) {
+      const option = document.createElement("option");
+      option.value = selectedId;
+      option.textContent = "Previously selected (missing)";
+      option.selected = true;
+      select.appendChild(option);
+    }
+  };
+  buildSelectOptions(audioSelect, mediaDeviceSnapshot.audio || [], prefs.callAudioInputId, "Default Mic");
+  buildSelectOptions(videoSelect, mediaDeviceSnapshot.video || [], prefs.callVideoInputId, "Default Camera");
+  audioSelect.addEventListener("change", () => {
+    state.preferences = getPreferences();
+    state.preferences.callAudioInputId = audioSelect.value;
+    saveState();
+    void xmppReacquireLocalMediaForSession(sid);
+    showToast("Microphone device updated.");
+  });
+  videoSelect.addEventListener("change", () => {
+    state.preferences = getPreferences();
+    state.preferences.callVideoInputId = videoSelect.value;
+    saveState();
+    void xmppReacquireLocalMediaForSession(sid);
+    showToast("Camera device updated.");
+  });
+  const audioWrap = document.createElement("label");
+  audioWrap.className = "native-call-surface__device";
+  audioWrap.textContent = "Mic";
+  audioWrap.appendChild(audioSelect);
+  const videoWrap = document.createElement("label");
+  videoWrap.className = "native-call-surface__device";
+  videoWrap.textContent = "Cam";
+  videoWrap.appendChild(videoSelect);
+  devicesRow.appendChild(audioWrap);
+  devicesRow.appendChild(videoWrap);
   const grid = document.createElement("div");
   grid.className = "native-call-surface__grid";
   const localStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
@@ -4129,9 +4190,15 @@ function renderNativeXmppCallSurface(sessionId = "") {
     grid.appendChild(empty);
   }
   shell.appendChild(header);
+  shell.appendChild(devicesRow);
   shell.appendChild(grid);
   stage.appendChild(shell);
   caption.textContent = `Native session ${sid.slice(0, 8)} · l${Array.isArray(session?.localCandidates) ? session.localCandidates.length : 0}/r${Array.isArray(session?.remoteCandidates) ? session.remoteCandidates.length : 0}`;
+  if (!mediaDeviceSnapshot.ready && !mediaDeviceSnapshot.loading) {
+    void refreshMediaDeviceSnapshot().then(() => {
+      if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    });
+  }
 }
 
 function openNativeXmppCallSurface(sessionId = "") {
@@ -4824,12 +4891,30 @@ function xmppStopLocalMediaStreamForSession(sessionId = "") {
   xmppCallLocalMediaStreamBySessionId.delete(sid);
 }
 
+async function requestUserMediaWithFallback({ audioId = "", videoId = "", wantsVideo = true } = {}) {
+  if (!navigator.mediaDevices?.getUserMedia) return null;
+  const audioConstraint = audioId ? { deviceId: { exact: audioId } } : true;
+  const videoConstraint = wantsVideo ? (videoId ? { deviceId: { exact: videoId } } : true) : false;
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: videoConstraint });
+  } catch {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: true, video: wantsVideo });
+    } catch {
+      return null;
+    }
+  }
+}
+
 async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = false } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return null;
   const existing = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
   if (existing) return existing;
   const wantsScreen = Boolean(screenShare);
+  const prefs = getPreferences();
+  const audioDeviceId = prefs.callAudioInputId || "";
+  const videoDeviceId = prefs.callVideoInputId || "";
   let stream = null;
   if (wantsScreen && navigator.mediaDevices?.getDisplayMedia) {
     try {
@@ -4849,7 +4934,7 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
     }
     if (stream && navigator.mediaDevices?.getUserMedia && stream.getAudioTracks().length === 0) {
       try {
-        const mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const mic = await requestUserMediaWithFallback({ audioId: audioDeviceId, wantsVideo: false });
         mic.getAudioTracks().forEach((track) => stream.addTrack(track));
       } catch {
         // Optional mic merge failed; keep screen-only stream.
@@ -4857,18 +4942,11 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
     }
   }
   if (!stream && navigator.mediaDevices?.getUserMedia) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: !wantsScreen
-      });
-    } catch {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      } catch {
-        stream = null;
-      }
-    }
+    stream = await requestUserMediaWithFallback({
+      audioId: audioDeviceId,
+      videoId: videoDeviceId,
+      wantsVideo: !wantsScreen
+    });
   }
   if (!stream) return null;
   xmppCallLocalMediaStreamBySessionId.set(sid, stream);
@@ -4934,6 +5012,51 @@ function xmppLocalMediaSnapshot(sessionId = "") {
     videoEnabled,
     mode: (session?.localMediaMode || "camera").toString().trim() || "camera"
   };
+}
+
+function formatMediaDeviceLabel(device, fallback) {
+  if (!device) return fallback;
+  const label = (device.label || "").toString().trim();
+  return label || fallback;
+}
+
+async function refreshMediaDeviceSnapshot({ force = false } = {}) {
+  if (!navigator.mediaDevices?.enumerateDevices) return mediaDeviceSnapshot;
+  if (mediaDeviceSnapshot.loading) return mediaDeviceSnapshot;
+  if (!force && mediaDeviceSnapshot.ready) return mediaDeviceSnapshot;
+  mediaDeviceSnapshot.loading = true;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audio = devices
+      .filter((device) => device.kind === "audioinput")
+      .map((device) => ({ id: device.deviceId, label: device.label || "" }));
+    const video = devices
+      .filter((device) => device.kind === "videoinput")
+      .map((device) => ({ id: device.deviceId, label: device.label || "" }));
+    mediaDeviceSnapshot = {
+      audio,
+      video,
+      ready: true,
+      loading: false
+    };
+  } catch {
+    mediaDeviceSnapshot.loading = false;
+  }
+  return mediaDeviceSnapshot;
+}
+
+async function xmppReacquireLocalMediaForSession(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const before = xmppLocalMediaSnapshot(sid);
+  const mode = before.mode;
+  xmppStopLocalMediaStreamForSession(sid);
+  await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: mode === "screen" });
+  const after = xmppLocalMediaSnapshot(sid);
+  if (before.audioTracks.length > 0) xmppSetLocalTracksEnabled(sid, "audio", before.audioEnabled);
+  if (before.videoTracks.length > 0) xmppSetLocalTracksEnabled(sid, "video", before.videoEnabled);
+  if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  return Boolean(after.stream);
 }
 
 function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true) {
@@ -7509,6 +7632,10 @@ function normalizePresence(value) {
   return "online";
 }
 
+function normalizeMediaDeviceId(value) {
+  return (value || "").toString().trim().slice(0, 180);
+}
+
 function xmppShowValueForPresence(presence) {
   const mode = normalizePresence(presence);
   if (mode === "idle") return "away";
@@ -7948,6 +8075,8 @@ function getPreferences() {
     callProviderUrl: normalizeConferenceProviderUrl(current.callProviderUrl),
     callRoomPrefix: normalizeConferenceRoomPrefix(current.callRoomPrefix),
     callAutoPost: normalizeToggle(current.callAutoPost ?? "on"),
+    callAudioInputId: normalizeMediaDeviceId(current.callAudioInputId),
+    callVideoInputId: normalizeMediaDeviceId(current.callVideoInputId),
     whiteboardProviderUrl: normalizeWhiteboardProviderUrl(current.whiteboardProviderUrl),
     whiteboardRoomPrefix: normalizeWhiteboardRoomPrefix(current.whiteboardRoomPrefix),
     whiteboardAutoPost: normalizeToggle(current.whiteboardAutoPost ?? "on"),
@@ -36729,6 +36858,15 @@ if (mobileLayoutMediaQuery) {
   } else if (typeof mobileLayoutMediaQuery.addListener === "function") {
     mobileLayoutMediaQuery.addListener(handleMobileLayoutViewportChange);
   }
+}
+
+if (navigator.mediaDevices?.addEventListener) {
+  navigator.mediaDevices.addEventListener("devicechange", () => {
+    mediaDeviceSnapshot.ready = false;
+    void refreshMediaDeviceSnapshot({ force: true }).then(() => {
+      if (xmppActiveNativeCallSessionId) renderNativeXmppCallSurface(xmppActiveNativeCallSessionId);
+    });
+  });
 }
 
 mediaPickerTab = getPreferences().mediaLastTab;
