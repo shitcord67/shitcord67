@@ -290,7 +290,7 @@ const SLASH_COMMANDS = [
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
   { name: "callxmpp", args: "[start|screen|status|accept [id]|reject [id]|cancel [id]|ring [id]|transport [id]|end [id]]", description: "Native XMPP call controls and interop diagnostics." },
   { name: "callscreen", args: "[room]", description: "Open call room and start with screenshare intent." },
-  { name: "whiteboard", args: "[open|copy|link] [room]", description: "Open/copy shared whiteboard room for this conversation." },
+  { name: "whiteboard", args: "[open|copy|link|post|fallback] [room]", description: "Open/copy shared whiteboard room for this conversation." },
   { name: "spoiler", args: "<text>", description: "Send spoiler text (click to reveal)." },
   { name: "tableflip", args: "[text]", description: "Send a table-flip message." },
   { name: "unflip", args: "", description: "Send table reset emote." },
@@ -6676,7 +6676,7 @@ function postWhiteboardInviteToConversation(conversation, account, url) {
   return true;
 }
 
-function launchConversationWhiteboard({ roomOverride = "", copyOnly = false, autoPost = true } = {}) {
+function launchConversationWhiteboard({ roomOverride = "", copyOnly = false, autoPost = false } = {}) {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
   if (!conversation) {
@@ -17071,7 +17071,7 @@ function handleSlashCommand(rawText, channel, account) {
     const raw = (arg || "").trim();
     const parts = raw ? raw.split(/\s+/) : [];
     const first = (parts[0] || "").toLowerCase();
-    const explicitAction = ["open", "join", "copy", "link"].includes(first) ? first : "";
+    const explicitAction = ["open", "join", "copy", "link", "post", "fallback"].includes(first) ? first : "";
     const action = explicitAction || "open";
     const roomOverride = explicitAction ? parts.slice(1).join(" ") : raw;
     if (action === "copy" || action === "link") {
@@ -17087,7 +17087,8 @@ function handleSlashCommand(rawText, channel, account) {
       }
       return true;
     }
-    launchConversationWhiteboard({ roomOverride, autoPost: true });
+    const wantsPost = action === "post" || action === "fallback";
+    launchConversationWhiteboard({ roomOverride, autoPost: wantsPost });
     return true;
   }
 
@@ -28315,7 +28316,7 @@ function renderVoiceStageSurface(channel) {
   whiteboardBtn.type = "button";
   whiteboardBtn.textContent = "Open Whiteboard";
   whiteboardBtn.addEventListener("click", () => {
-    launchConversationWhiteboard({ autoPost: true });
+    launchConversationWhiteboard({ autoPost: false });
   });
   controls.appendChild(whiteboardBtn);
 
@@ -32758,7 +32759,7 @@ ui.messageForm.addEventListener("submit", (event) => {
       const raw = (dmArg || "").trim();
       const parts = raw ? raw.split(/\s+/) : [];
       const first = (parts[0] || "").toLowerCase();
-      const explicitAction = ["open", "join", "copy", "link"].includes(first) ? first : "";
+      const explicitAction = ["open", "join", "copy", "link", "post", "fallback"].includes(first) ? first : "";
       const action = explicitAction || "open";
       const roomOverride = explicitAction ? parts.slice(1).join(" ") : raw;
       if (action === "copy" || action === "link") {
@@ -32774,7 +32775,8 @@ ui.messageForm.addEventListener("submit", (event) => {
         }
         return;
       }
-      launchConversationWhiteboard({ roomOverride, autoPost: true });
+      const wantsPost = action === "post" || action === "fallback";
+      launchConversationWhiteboard({ roomOverride, autoPost: wantsPost });
       return;
     }
     if (dmCommand === "focus") {
@@ -34235,12 +34237,16 @@ ui.copyCallLinkBtn?.addEventListener("click", () => {
   launchConversationCall({ copyOnly: true, autoPost: false });
 });
 ui.openWhiteboardBtn?.addEventListener("click", () => {
-  launchConversationWhiteboard({ autoPost: true });
+  launchConversationWhiteboard({ autoPost: false });
 });
 ui.openWhiteboardBtn?.addEventListener("contextmenu", (event) => {
   openContextMenu(event, [
     {
       label: "Open Whiteboard",
+      action: () => launchConversationWhiteboard({ autoPost: false })
+    },
+    {
+      label: "Open Fallback & Post Link",
       action: () => launchConversationWhiteboard({ autoPost: true })
     },
     {

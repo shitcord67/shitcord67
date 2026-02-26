@@ -1335,3 +1335,5 @@ Yes
 [2026-02-26 02:39:30] Also please focus on doing the calling and screen sharing high-quality and Discord-like, continue to work on the priority items.
 
 [2026-02-26 03:40:47] Is everything noted in the TODO? Important first is that we really get all the call/video/screensharing and whiteboard functionality settled.
+
+[2026-02-26 04:11:35] Maybe keep fallback? Would users with the whiteboard extension use the same whiteboard as fallback? If not then please do not paste the fallback link unless the user explicitely selects fallback whiteboard as an option (maybe right-click on the option to start a whiteboard?)
