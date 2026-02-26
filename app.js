@@ -131,6 +131,26 @@ function initElectronPlatformBridge() {
   electronRuntime.ipcRenderer.send("s67-request-platform-info");
 }
 
+function screenShareCapabilitySnapshot() {
+  const platform = (platformRuntimeInfo.platform || "web").toString().toLowerCase();
+  const sessionType = (platformRuntimeInfo.sessionType || "").toString().toLowerCase();
+  const pipewire = (platformRuntimeInfo.pipewire || "on").toString().toLowerCase();
+  const hasDisplay = Boolean(navigator.mediaDevices?.getDisplayMedia);
+  if (!hasDisplay) {
+    return { ok: false, reason: "Screen sharing is unavailable in this browser." };
+  }
+  if (platform === "android" || platform === "ios") {
+    return { ok: false, reason: "Screen sharing is not supported on mobile yet." };
+  }
+  if (platform === "linux" && sessionType === "wayland") {
+    if (pipewire === "off") {
+      return { ok: false, reason: "Wayland screen sharing requires PipeWire (disabled)." };
+    }
+    return { ok: true, warning: "Wayland screen sharing depends on PipeWire + xdg-desktop-portal." };
+  }
+  return { ok: true, warning: "" };
+}
+
 function currentPlatformDetectedLabel() {
   const info = platformRuntimeInfo || {};
   const platform = (info.platform || "web").toString();
@@ -1493,7 +1513,9 @@ let platformRuntimeInfo = {
   platform: detectRuntimePlatform().isAndroid ? "android" : (detectRuntimePlatform().isiOS ? "ios" : "web"),
   sessionType: "n/a",
   displayServer: "n/a",
-  override: ""
+  override: "",
+  pipewire: "on",
+  ozoneHint: "auto"
 };
 const electronRuntime = typeof window !== "undefined" && typeof window.require === "function"
   ? (() => {
@@ -4140,7 +4162,17 @@ function renderNativeXmppCallSurface(sessionId = "") {
   screenBtn.textContent = screenActive ? "Stop Share" : "Share Screen";
   screenBtn.title = screenActive ? "Stop screen sharing" : "Share your screen";
   if (screenActive) screenBtn.classList.add("is-active");
+  const screenCapability = screenShareCapabilitySnapshot();
+  if (!screenCapability.ok) {
+    screenBtn.disabled = true;
+    screenBtn.title = screenCapability.reason || "Screen sharing unavailable";
+  }
   screenBtn.addEventListener("click", async () => {
+    if (!screenShareCapabilitySnapshot().ok && !screenActive) {
+      const cap = screenShareCapabilitySnapshot();
+      showToast(cap.reason || "Screen sharing unavailable.", { tone: "error" });
+      return;
+    }
     await xmppSwitchLocalMediaMode(sid, screenActive ? "camera" : "screen");
   });
   const copyBtn = document.createElement("button");
@@ -5292,6 +5324,13 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
   if (!sid) return false;
   const before = xmppLocalMediaSnapshot(sid);
   const wantsScreen = mode === "screen";
+  if (wantsScreen) {
+    const capability = screenShareCapabilitySnapshot();
+    if (!capability.ok) {
+      showToast(capability.reason || "Screen sharing unavailable.", { tone: "error" });
+      return false;
+    }
+  }
   xmppStopLocalMediaStreamForSession(sid);
   await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: wantsScreen });
   const session = xmppCallSessionById.get(sid) || null;
@@ -7297,6 +7336,15 @@ async function launchNativeXmppConversationCall({ screenShare = false } = {}) {
   if (!conversation) {
     showToast("Open a channel or DM first.", { tone: "error" });
     return false;
+  }
+  if (screenShare) {
+    const capability = screenShareCapabilitySnapshot();
+    if (!capability.ok) {
+      showToast(capability.reason || "Screen sharing is not supported here.", { tone: "error", duration: 3200 });
+      screenShare = false;
+    } else if (capability.warning) {
+      showToast(capability.warning, { tone: "info", duration: 2600 });
+    }
   }
   if (!canAttemptNativeXmppCall()) {
     showToast("XMPP relay/WebRTC is not ready for native calling here. Use Web Call meanwhile.", { tone: "error", duration: 2600 });

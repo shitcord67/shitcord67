@@ -457,7 +457,9 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       platform: platformSummary.platform,
       sessionType: platformSummary.sessionType,
       displayServer: platformSummary.displayServer,
-      override: ELECTRON_PLATFORM_OVERRIDE || ""
+      override: ELECTRON_PLATFORM_OVERRIDE || "",
+      pipewire: ELECTRON_PIPEWIRE || "on",
+      ozoneHint: ELECTRON_OZONE_HINT || "auto"
     });
   });
   ipcMain.on("s67-request-platform-info", (event) => {
@@ -465,7 +467,9 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       platform: platformSummary.platform,
       sessionType: platformSummary.sessionType,
       displayServer: platformSummary.displayServer,
-      override: ELECTRON_PLATFORM_OVERRIDE || ""
+      override: ELECTRON_PLATFORM_OVERRIDE || "",
+      pipewire: ELECTRON_PIPEWIRE || "on",
+      ozoneHint: ELECTRON_OZONE_HINT || "auto"
     });
   });
 

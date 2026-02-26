@@ -1349,3 +1349,5 @@ Yes
 [2026-02-26 05:18:46] Also does the screen share work reliable web, Android and Linux (X11, Wayland?)
 
 [2026-02-26 05:23:31] Also then yeah please continue with what you deem worthly to add
+
+[2026-02-26 05:28:58] Not sure if this makes sense. But I think you need some differentiation for the screenshare stuff at least. Then please continue with Call/video/screenshare priorities
