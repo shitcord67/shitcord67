@@ -4155,6 +4155,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
   if (localStream instanceof MediaStream) {
     const localTile = document.createElement("div");
     localTile.className = "native-call-surface__tile";
+    const localMeta = xmppLocalMediaSnapshot(sid);
+    localTile.classList.toggle("native-call-surface__tile--muted", localMeta.audioTracks.length > 0 && !localMeta.audioEnabled);
+    localTile.classList.toggle("native-call-surface__tile--video-off", localMeta.videoTracks.length > 0 && !localMeta.videoEnabled);
     const video = document.createElement("video");
     video.className = "native-call-surface__video";
     video.autoplay = true;
@@ -4163,7 +4166,10 @@ function renderNativeXmppCallSurface(sessionId = "") {
     video.srcObject = localStream;
     const label = document.createElement("span");
     label.className = "native-call-surface__label";
-    label.textContent = "You";
+    const badges = [];
+    if (localMeta.audioTracks.length > 0 && !localMeta.audioEnabled) badges.push("mic off");
+    if (localMeta.videoTracks.length > 0 && !localMeta.videoEnabled) badges.push("cam off");
+    label.textContent = badges.length > 0 ? `You · ${badges.join(" · ")}` : "You";
     localTile.appendChild(video);
     localTile.appendChild(label);
     grid.appendChild(localTile);
@@ -5123,11 +5129,15 @@ async function xmppReacquireLocalMediaForSession(sessionId = "") {
   if (!sid) return false;
   const before = xmppLocalMediaSnapshot(sid);
   const mode = before.mode;
+  const peerJid = before.session?.peerJid || "";
   xmppStopLocalMediaStreamForSession(sid);
   await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: mode === "screen" });
   const after = xmppLocalMediaSnapshot(sid);
   if (before.audioTracks.length > 0) xmppSetLocalTracksEnabled(sid, "audio", before.audioEnabled);
   if (before.videoTracks.length > 0) xmppSetLocalTracksEnabled(sid, "video", before.videoEnabled);
+  if (peerJid) {
+    xmppQueueTransportInfoGatherAndSend(peerJid, sid, { force: true });
+  }
   if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   return Boolean(after.stream);
 }
@@ -5141,6 +5151,13 @@ function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true) {
   tracks.forEach((track) => {
     track.enabled = enabled;
   });
+  if (snapshot.session) {
+    if (kind === "audio") snapshot.session.localMuted = !enabled;
+    if (kind === "video") snapshot.session.localVideoMuted = !enabled;
+  }
+  if (kind === "audio" && snapshot.session?.peerJid) {
+    xmppSendJingleSessionInfo(snapshot.session.peerJid, sid, { info: enabled ? "unmute" : "mute" });
+  }
   if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   return true;
 }

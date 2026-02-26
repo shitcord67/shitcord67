@@ -4509,6 +4509,24 @@ body[data-compact-members="on"] .member-item {
   aspect-ratio: 16 / 9;
 }
 
+.native-call-surface__tile--muted::after,
+.native-call-surface__tile--video-off::after {
+  content: "";
+  position: absolute;
+  inset: 0.35rem;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.native-call-surface__tile--muted::after {
+  border-color: rgba(255, 96, 96, 0.35);
+}
+
+.native-call-surface__tile--video-off::after {
+  border-color: rgba(255, 204, 96, 0.35);
+}
+
 .native-call-surface__video {
   width: 100%;
   height: 100%;
