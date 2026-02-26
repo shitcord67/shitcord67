@@ -78,6 +78,7 @@
 - [done] Added per-session WebRTC peer-connection state tracking with remote ICE apply/queue handling for incoming `transport-info`.
 - [done] Added best-effort Jingle-to-minimal-SDP mapping for `session-initiate/session-accept` to prime remote descriptions and flush ICE queues.
 - [done] Added per-content Jingle RTP payload mapping (codec/clock/channels/fmtp) into SDP priming for improved interop.
+- [done] Added Jingle sender-role direction mapping and `content-modify`/`content-remove` session handling for lifecycle consistency.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
@@ -364,3 +365,16 @@ https://discord.js.org/docs/packages/discord.js/main
 - swipe up on message input could show favourite stuff?
 - custom (keyboard and swipe) shortcuts?
 - Could the same whiteboard be shared between XMPP, IRC and Matrix?
+- Can we control the volume of each user and their screenshares?
+- Can we re-route the audio of each user and their screenshares?
+- Can users define to hide applications from sharing audio (pipewire integration)?
+- Spout2 support for avatars (maybe Nitendo Mii-like for e.g. games or other stuff?); see this comment:
+hoshinolina
+on Jan 21
+I recently posted the repo, though please keep in mind this is very WIP right now: https://github.com/hoshinolina/spout2pw
+And the corresponding OBS plugin (which is generic and not specific to this usage): https://github.com/hoshinolina/obs-pwvideo
+The underlying utility library I wrote to wrap around PipeWire video is here: https://github.com/hoshinolina/libfunnel
+- Suppurt "video" calls by using anime avatars / Miis similar to "REALITY - Become an Anime Avatar" net.wrightflyer.le.reality Androdi app
+- Virtual spaces/rooms users can visit and decorate. VRChat/REALITY/(matrix.org's)Third Room/Mozilla Hubs/Immerse. Maybe actual support for Mozilla Hubs or custom XMPP-based thing, lol?
+- Some Twitter/Facebook/Instagram-like experiences
+- YouTube/Peertube/FOSDEM/media.ccc.de-like experience

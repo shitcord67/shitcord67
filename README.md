@@ -301,6 +301,7 @@ Notes:
 - Per-session native `RTCPeerConnection` state is now tracked for XMPP calls, with remote ICE candidates applied when possible and queued until the session is ready.
 - Incoming Jingle `session-initiate/session-accept` now perform a best-effort media/transport mapping into minimal SDP to prime remote descriptions and improve candidate-queue flush behavior.
 - Jingle content parsing now carries per-media RTP payload details (payload IDs/codecs/rates/fmtp params) into SDP priming for improved cross-client negotiation alignment.
+- Jingle sender roles are now mapped into SDP media directions (`sendrecv/sendonly/recvonly/inactive`), and incoming `content-modify` / `content-remove` actions are tracked in session state.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
