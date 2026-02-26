@@ -4958,14 +4958,14 @@ function xmppAnalyzeSpeakingLevel(analyser, buffer) {
 function updateXmppCallSpeakingUi(sessionId, speaking = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
-  const bar = document.querySelector(`.call-bar[data-session-id="${sid}"]`);
+  const bar = document.querySelector(`.call-grid[data-session-id="${sid}"]`);
   if (!bar) return;
   const localEl = bar.querySelector("[data-call-speaker=\"local\"]");
-  if (localEl) localEl.classList.toggle("call-avatar--speaking", Boolean(speaking.local));
+  if (localEl) localEl.classList.toggle("call-tile--speaking", Boolean(speaking.local));
   if (speaking.remote && typeof speaking.remote === "object") {
     Object.entries(speaking.remote).forEach(([key, value]) => {
       const target = bar.querySelector(`[data-call-speaker="${key}"]`);
-      if (target) target.classList.toggle("call-avatar--speaking", Boolean(value));
+      if (target) target.classList.toggle("call-tile--speaking", Boolean(value));
     });
   }
 }
@@ -30714,18 +30714,17 @@ function renderMessages() {
     if (!conversation) return;
     const current = getCurrentAccount();
     const callBar = document.createElement("section");
-    callBar.className = "call-bar";
-    const avatars = document.createElement("div");
-    avatars.className = "call-bar__avatars";
-    const details = document.createElement("div");
-    details.className = "call-bar__details";
-    const statusPill = document.createElement("span");
-    statusPill.className = "call-bar__status";
-    const title = document.createElement("strong");
-    const meta = document.createElement("div");
-    meta.className = "call-bar__meta";
-    const actions = document.createElement("div");
-    actions.className = "call-bar__actions";
+    callBar.className = "call-grid";
+    const header = document.createElement("div");
+    header.className = "call-grid__header";
+    const headerTitle = document.createElement("strong");
+    headerTitle.textContent = "In Call";
+    const headerMeta = document.createElement("span");
+    headerMeta.className = "call-grid__meta";
+    header.appendChild(headerTitle);
+    header.appendChild(headerMeta);
+    const grid = document.createElement("div");
+    grid.className = "call-grid__tiles";
 
     let sessionId = "";
     let peerBare = "";
@@ -30736,6 +30735,7 @@ function renderMessages() {
     let endAction = null;
     let screenShare = false;
     let localSnapshot = null;
+    let tiles = [];
 
     if (conversation.type === "dm" && current) {
       const peerAccount = dmPeerAccountForThread(dmThread, current.id);
@@ -30778,16 +30778,23 @@ function renderMessages() {
         });
       }
       if (!labelText) return;
-      const localAvatar = document.createElement("div");
-      localAvatar.className = "call-avatar call-avatar--local";
-      localAvatar.dataset.callSpeaker = "local";
-      if (current) applyAvatarStyle(localAvatar, current, null);
-      const peerAvatar = document.createElement("div");
-      peerAvatar.className = "call-avatar";
-      peerAvatar.dataset.callSpeaker = peerBare || "peer";
-      if (peerAccount) applyAvatarStyle(peerAvatar, peerAccount, null);
-      avatars.appendChild(localAvatar);
-      avatars.appendChild(peerAvatar);
+      const localTile = {
+        id: "local",
+        name: "You",
+        account: current,
+        muted: localSnapshot ? !localSnapshot.audioEnabled : false,
+        videoOff: localSnapshot ? !localSnapshot.videoEnabled : false,
+        speakingKey: "local"
+      };
+      const peerTile = {
+        id: peerBare || "peer",
+        name: peerAccount ? displayNameForAccount(peerAccount, null) : (peerBare || "Peer"),
+        account: peerAccount,
+        muted: Boolean(session?.remoteMuted),
+        videoOff: Boolean(session?.remoteVideoMuted),
+        speakingKey: peerBare || "peer"
+      };
+      tiles = [localTile, peerTile];
     } else if (activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
       labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";
       statusText = activeWebCallLightbox.incoming ? "in progress" : "starting";
@@ -30798,82 +30805,115 @@ function renderMessages() {
         incoming: Boolean(activeWebCallLightbox.incoming),
         fromLabel: activeWebCallLightbox.fromLabel || ""
       });
-      const localAvatar = document.createElement("div");
-      localAvatar.className = "call-avatar call-avatar--local";
-      localAvatar.dataset.callSpeaker = "local";
-      if (current) applyAvatarStyle(localAvatar, current, null);
-      avatars.appendChild(localAvatar);
+      tiles = [{
+        id: "local",
+        name: "You",
+        account: current,
+        muted: false,
+        videoOff: false,
+        speakingKey: "local"
+      }];
     } else {
       return;
     }
 
-    statusPill.textContent = statusText ? statusText.replace(/-/g, " ") : "active";
-    title.textContent = labelText;
-    meta.textContent = subtitleText || "";
-    details.appendChild(statusPill);
-    if (openAction) {
-      const openBtn = document.createElement("button");
-      openBtn.type = "button";
-      openBtn.textContent = "Open";
-      openBtn.addEventListener("click", openAction);
-      actions.appendChild(openBtn);
-    }
-    if (sessionId && localSnapshot) {
-      const micBtn = document.createElement("button");
-      micBtn.type = "button";
-      micBtn.textContent = localSnapshot.audioEnabled ? "Mute" : "Unmute";
-      micBtn.addEventListener("click", async () => {
-        if (xmppLocalMediaSnapshot(sessionId).audioTracks.length === 0) {
-          await xmppEnsureLocalMediaAttached(sessionId, { screenShare: localSnapshot.mode === "screen" });
-        }
-        const nextEnabled = !xmppLocalMediaSnapshot(sessionId).audioEnabled;
-        xmppSetLocalTracksEnabled(sessionId, "audio", nextEnabled);
-        renderMessages();
-      });
-      actions.appendChild(micBtn);
-
-      const camBtn = document.createElement("button");
-      camBtn.type = "button";
-      camBtn.textContent = localSnapshot.videoEnabled ? "Stop Cam" : "Start Cam";
-      camBtn.addEventListener("click", async () => {
-        if (xmppLocalMediaSnapshot(sessionId).videoTracks.length === 0) {
-          await xmppEnsureLocalMediaAttached(sessionId, { screenShare: localSnapshot.mode === "screen" });
-        }
-        const nextEnabled = !xmppLocalMediaSnapshot(sessionId).videoEnabled;
-        xmppSetLocalTracksEnabled(sessionId, "video", nextEnabled);
-        renderMessages();
-      });
-      actions.appendChild(camBtn);
-
-      const screenBtn = document.createElement("button");
-      screenBtn.type = "button";
-      screenBtn.textContent = localSnapshot.mode === "screen" ? "Stop Share" : "Share";
-      const cap = screenShareCapabilitySnapshot();
-      if (!cap.ok && localSnapshot.mode !== "screen") {
-        screenBtn.disabled = true;
-        screenBtn.title = cap.reason || "Screen share unavailable";
+    headerMeta.textContent = [labelText, subtitleText].filter(Boolean).join(" · ");
+    tiles.forEach((tile) => {
+      const tileEl = document.createElement("div");
+      tileEl.className = "call-tile";
+      tileEl.dataset.callSpeaker = tile.speakingKey;
+      const avatar = document.createElement("div");
+      avatar.className = `call-tile__avatar ${tile.id === "local" ? "call-tile__avatar--local" : ""}`;
+      if (tile.account) {
+        applyAvatarStyle(avatar, tile.account, null);
+      } else {
+        avatar.textContent = (tile.name || "?").charAt(0).toUpperCase();
       }
-      screenBtn.addEventListener("click", async () => {
-        await xmppSwitchLocalMediaMode(sessionId, localSnapshot.mode === "screen" ? "camera" : "screen");
-        renderMessages();
-      });
-      actions.appendChild(screenBtn);
-    }
-    if (endAction) {
-      const endBtn = document.createElement("button");
-      endBtn.type = "button";
-      endBtn.className = "call-bar__end";
-      endBtn.textContent = "End";
-      endBtn.addEventListener("click", endAction);
-      actions.appendChild(endBtn);
-    }
-
-    details.appendChild(title);
-    if (meta.textContent) details.appendChild(meta);
-    callBar.appendChild(avatars);
-    callBar.appendChild(details);
-    callBar.appendChild(actions);
+      const name = document.createElement("div");
+      name.className = "call-tile__name";
+      name.textContent = tile.name || "User";
+      const badges = document.createElement("div");
+      badges.className = "call-tile__badges";
+      const micBadge = document.createElement("span");
+      micBadge.className = `call-tile__badge ${tile.muted ? "is-muted" : ""}`;
+      micBadge.textContent = tile.muted ? "Mic off" : "Mic on";
+      badges.appendChild(micBadge);
+      const camBadge = document.createElement("span");
+      camBadge.className = `call-tile__badge ${tile.videoOff ? "is-muted" : ""}`;
+      camBadge.textContent = tile.videoOff ? "Cam off" : "Cam on";
+      badges.appendChild(camBadge);
+      const controls = document.createElement("div");
+      controls.className = "call-tile__controls";
+      if (tile.id === "local" && sessionId && localSnapshot) {
+        const micBtn = document.createElement("button");
+        micBtn.type = "button";
+        micBtn.textContent = localSnapshot.audioEnabled ? "Mute" : "Unmute";
+        micBtn.addEventListener("click", async () => {
+          if (xmppLocalMediaSnapshot(sessionId).audioTracks.length === 0) {
+            await xmppEnsureLocalMediaAttached(sessionId, { screenShare: localSnapshot.mode === "screen" });
+          }
+          const nextEnabled = !xmppLocalMediaSnapshot(sessionId).audioEnabled;
+          xmppSetLocalTracksEnabled(sessionId, "audio", nextEnabled);
+          renderMessages();
+        });
+        controls.appendChild(micBtn);
+        const camBtn = document.createElement("button");
+        camBtn.type = "button";
+        camBtn.textContent = localSnapshot.videoEnabled ? "Stop Cam" : "Start Cam";
+        camBtn.addEventListener("click", async () => {
+          if (xmppLocalMediaSnapshot(sessionId).videoTracks.length === 0) {
+            await xmppEnsureLocalMediaAttached(sessionId, { screenShare: localSnapshot.mode === "screen" });
+          }
+          const nextEnabled = !xmppLocalMediaSnapshot(sessionId).videoEnabled;
+          xmppSetLocalTracksEnabled(sessionId, "video", nextEnabled);
+          renderMessages();
+        });
+        controls.appendChild(camBtn);
+        const screenBtn = document.createElement("button");
+        screenBtn.type = "button";
+        screenBtn.textContent = localSnapshot.mode === "screen" ? "Stop Share" : "Share";
+        const cap = screenShareCapabilitySnapshot();
+        if (!cap.ok && localSnapshot.mode !== "screen") {
+          screenBtn.disabled = true;
+          screenBtn.title = cap.reason || "Screen share unavailable";
+        }
+        screenBtn.addEventListener("click", async () => {
+          await xmppSwitchLocalMediaMode(sessionId, localSnapshot.mode === "screen" ? "camera" : "screen");
+          renderMessages();
+        });
+        controls.appendChild(screenBtn);
+        if (openAction) {
+          const openBtn = document.createElement("button");
+          openBtn.type = "button";
+          openBtn.textContent = "Open";
+          openBtn.addEventListener("click", openAction);
+          controls.appendChild(openBtn);
+        }
+        if (endAction) {
+          const endBtn = document.createElement("button");
+          endBtn.type = "button";
+          endBtn.className = "call-tile__end";
+          endBtn.textContent = "End";
+          endBtn.addEventListener("click", endAction);
+          controls.appendChild(endBtn);
+        }
+      } else if (openAction && tile.id === "local") {
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.textContent = "Open";
+        openBtn.addEventListener("click", openAction);
+        controls.appendChild(openBtn);
+      }
+      tileEl.appendChild(avatar);
+      tileEl.appendChild(name);
+      tileEl.appendChild(badges);
+      tileEl.appendChild(controls);
+      grid.appendChild(tileEl);
+    });
     if (sessionId) callBar.dataset.sessionId = sessionId;
+    callBar.dataset.tileCount = String(Math.max(1, tiles.length));
+    callBar.appendChild(header);
+    callBar.appendChild(grid);
     ui.messageList.appendChild(callBar);
   };
 

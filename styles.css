@@ -4340,28 +4340,67 @@ body[data-compact-members="on"] .member-item {
   cursor: auto;
 }
 
-.call-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 16px;
-  margin: 12px 10px 6px;
+.call-grid {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  margin: 12px 10px 8px;
   background: linear-gradient(135deg, rgba(88, 101, 242, 0.16), rgba(88, 101, 242, 0.06));
   border: 1px solid rgba(88, 101, 242, 0.35);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
 }
 
-.call-bar__avatars {
+.call-grid__header {
   display: flex;
+  align-items: baseline;
   gap: 10px;
+  color: var(--text-main);
 }
 
-.call-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+.call-grid__header strong {
+  font-size: 15px;
+}
+
+.call-grid__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.call-grid__tiles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.call-grid[data-tile-count="1"] .call-grid__tiles {
+  grid-template-columns: minmax(220px, 1fr);
+}
+
+.call-grid[data-tile-count="2"] .call-grid__tiles {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.call-grid[data-tile-count="3"] .call-grid__tiles {
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.call-tile {
+  background: rgba(10, 12, 17, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  min-height: 150px;
+  position: relative;
+}
+
+.call-tile__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
   background: var(--bg-light);
   display: inline-flex;
   align-items: center;
@@ -4372,10 +4411,11 @@ body[data-compact-members="on"] .member-item {
   overflow: hidden;
 }
 
-.call-avatar--local::after {
+.call-tile[data-call-speaker="local"] .call-tile__avatar::after,
+.call-tile__avatar--local::after {
   content: "You";
   position: absolute;
-  bottom: -16px;
+  bottom: -18px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 11px;
@@ -4383,48 +4423,44 @@ body[data-compact-members="on"] .member-item {
   white-space: nowrap;
 }
 
-.call-avatar--speaking {
+.call-tile.call-tile--speaking,
+.call-tile.call-tile--speaking .call-tile__avatar {
   border-color: var(--call-speaking);
   box-shadow: 0 0 0 4px rgba(59, 165, 92, 0.25);
 }
 
-.call-bar__details {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.call-bar__status {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #dbe0ff;
-  background: rgba(88, 101, 242, 0.25);
-  border: 1px solid rgba(88, 101, 242, 0.45);
-  border-radius: 999px;
-  padding: 4px 10px;
-  width: fit-content;
-}
-
-.call-bar__details strong {
+.call-tile__name {
   font-size: 15px;
   color: var(--text-main);
+  font-weight: 600;
 }
 
-.call-bar__meta {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.call-bar__actions {
-  margin-left: auto;
+.call-tile__badges {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.call-bar__actions button {
+.call-tile__badge {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.call-tile__badge.is-muted {
+  color: #ffb4b6;
+  background: rgba(237, 66, 69, 0.2);
+}
+
+.call-tile__controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.call-tile__controls button {
   background: var(--bg-dark);
   color: var(--text-main);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -4432,7 +4468,7 @@ body[data-compact-members="on"] .member-item {
   padding: 6px 12px;
 }
 
-.call-bar__actions .call-bar__end {
+.call-tile__controls .call-tile__end {
   background: rgba(237, 66, 69, 0.2);
   border-color: rgba(237, 66, 69, 0.5);
   color: #ffb4b6;
