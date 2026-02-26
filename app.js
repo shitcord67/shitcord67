@@ -5234,6 +5234,219 @@ function xmppNormalizeSdpExtmapDirection(direction = "", localRole = "responder"
   return "";
 }
 
+function xmppJingleSendersFromSdpDirection(direction = "", localRole = "responder") {
+  const normalized = (direction || "").toString().trim().toLowerCase();
+  const role = (localRole || "").toString().trim().toLowerCase() === "initiator" ? "initiator" : "responder";
+  if (normalized === "inactive") return "none";
+  if (normalized === "sendrecv") return "both";
+  if (normalized === "sendonly") return role === "initiator" ? "initiator" : "responder";
+  if (normalized === "recvonly") return role === "initiator" ? "responder" : "initiator";
+  return "both";
+}
+
+function xmppParseSdpMediaSections(sdp = "") {
+  const text = (sdp || "").toString();
+  if (!text) return [];
+  const lines = text.split(/\r\n|\n/).map((line) => line.trim()).filter(Boolean);
+  const sessionDefaults = {
+    iceUfrag: "",
+    icePwd: "",
+    fingerprint: "",
+    fingerprintHash: "sha-256",
+    setup: ""
+  };
+  const sections = [];
+  let current = null;
+  const finishCurrent = () => {
+    if (!current) return;
+    if (!current.iceUfrag) current.iceUfrag = sessionDefaults.iceUfrag;
+    if (!current.icePwd) current.icePwd = sessionDefaults.icePwd;
+    if (!current.fingerprint) current.fingerprint = sessionDefaults.fingerprint;
+    if (!current.fingerprintHash) current.fingerprintHash = sessionDefaults.fingerprintHash || "sha-256";
+    if (!current.setup) current.setup = sessionDefaults.setup;
+    current.payloadTypes = [...current.payloadTypeMap.values()];
+    current.rtcpFeedback = current.rtcpFeedback.filter((entry) => entry.type);
+    current.extmaps = current.extmaps.filter((entry) => entry.id && entry.uri);
+    current.sources = [...current.sourceMap.values()];
+    current.sourceGroups = current.sourceGroups.filter((entry) => entry.semantics && entry.sources.length > 0);
+    sections.push(current);
+  };
+  const parseFmtpParams = (raw = "") => {
+    const cleaned = raw.trim();
+    if (!cleaned) return [];
+    return cleaned.split(";").map((part) => {
+      const trimmed = part.trim();
+      if (!trimmed) return null;
+      const [name, value] = trimmed.split("=");
+      return {
+        name: (name || "").toString().trim(),
+        value: (value || "").toString().trim()
+      };
+    }).filter((entry) => entry && entry.name);
+  };
+  lines.forEach((line) => {
+    if (line.startsWith("m=")) {
+      finishCurrent();
+      const parts = line.slice(2).split(/\s+/);
+      const kind = (parts[0] || "").toString().trim().toLowerCase();
+      current = {
+        kind,
+        mid: "",
+        direction: "sendrecv",
+        iceUfrag: "",
+        icePwd: "",
+        fingerprint: "",
+        fingerprintHash: "sha-256",
+        setup: "",
+        payloadTypeMap: new Map(),
+        rtcpFeedback: [],
+        extmaps: [],
+        sourceMap: new Map(),
+        sourceGroups: []
+      };
+      return;
+    }
+    const target = current || sessionDefaults;
+    if (line.startsWith("a=ice-ufrag:")) {
+      target.iceUfrag = line.slice("a=ice-ufrag:".length).trim();
+      return;
+    }
+    if (line.startsWith("a=ice-pwd:")) {
+      target.icePwd = line.slice("a=ice-pwd:".length).trim();
+      return;
+    }
+    if (line.startsWith("a=fingerprint:")) {
+      const raw = line.slice("a=fingerprint:".length).trim();
+      const [hash, ...rest] = raw.split(/\s+/);
+      target.fingerprintHash = (hash || "sha-256").toString().trim().toLowerCase() || "sha-256";
+      target.fingerprint = rest.join(" ").trim();
+      return;
+    }
+    if (line.startsWith("a=setup:")) {
+      target.setup = line.slice("a=setup:".length).trim().toLowerCase();
+      return;
+    }
+    if (!current) return;
+    if (line.startsWith("a=mid:")) {
+      current.mid = line.slice("a=mid:".length).trim();
+      return;
+    }
+    if (line.startsWith("a=sendrecv") || line.startsWith("a=sendonly") || line.startsWith("a=recvonly") || line.startsWith("a=inactive")) {
+      current.direction = line.slice(2).trim();
+      return;
+    }
+    if (line.startsWith("a=rtpmap:")) {
+      const raw = line.slice("a=rtpmap:".length).trim();
+      const [pt, codecSpec] = raw.split(/\s+/, 2);
+      if (!pt || !codecSpec) return;
+      const [codec, clock, channels] = codecSpec.split("/");
+      const id = Number(pt) || 0;
+      if (!id) return;
+      current.payloadTypeMap.set(id, {
+        id,
+        name: (codec || "").toString().trim(),
+        clockrate: Number(clock) || 0,
+        channels: Number(channels) || 0,
+        rtcpFeedback: [],
+        parameters: []
+      });
+      return;
+    }
+    if (line.startsWith("a=fmtp:")) {
+      const raw = line.slice("a=fmtp:".length).trim();
+      const [pt, params] = raw.split(/\s+/, 2);
+      const id = Number(pt) || 0;
+      const entry = current.payloadTypeMap.get(id);
+      if (!entry) return;
+      entry.parameters = parseFmtpParams(params || "");
+      return;
+    }
+    if (line.startsWith("a=rtcp-fb:")) {
+      const raw = line.slice("a=rtcp-fb:".length).trim();
+      const [pt, type, subtype] = raw.split(/\s+/, 3);
+      if (!pt || !type) return;
+      const feedback = {
+        type: type.toString().trim().toLowerCase(),
+        subtype: (subtype || "").toString().trim().toLowerCase()
+      };
+      if (pt === "*") {
+        current.rtcpFeedback.push(feedback);
+        return;
+      }
+      const id = Number(pt) || 0;
+      const payload = current.payloadTypeMap.get(id);
+      if (!payload) return;
+      payload.rtcpFeedback.push(feedback);
+      return;
+    }
+    if (line.startsWith("a=extmap:")) {
+      const raw = line.slice("a=extmap:".length).trim();
+      const [idPart, uri, ...rest] = raw.split(/\s+/);
+      if (!idPart || !uri) return;
+      const [idRaw, dirRaw] = idPart.split("/", 2);
+      const id = Number(idRaw) || 0;
+      if (!id) return;
+      current.extmaps.push({
+        id,
+        uri: uri.toString().trim(),
+        direction: (dirRaw || "").toString().trim().toLowerCase(),
+        attributes: rest.join(" ").trim()
+      });
+      return;
+    }
+    if (line.startsWith("a=ssrc-group:")) {
+      const raw = line.slice("a=ssrc-group:".length).trim();
+      const [semantics, ...ssrcs] = raw.split(/\s+/);
+      const sources = ssrcs.map((value) => Number(value) || 0).filter((value) => value > 0);
+      if (!semantics || sources.length === 0) return;
+      current.sourceGroups.push({
+        semantics: semantics.toString().trim().toUpperCase(),
+        sources
+      });
+      return;
+    }
+    if (line.startsWith("a=ssrc:")) {
+      const raw = line.slice("a=ssrc:".length).trim();
+      const [ssrcToken, param] = raw.split(/\s+/, 2);
+      const ssrc = Number(ssrcToken) || 0;
+      if (!ssrc || !param) return;
+      const [name, value] = param.split(":", 2);
+      if (!name) return;
+      const entry = current.sourceMap.get(ssrc) || { ssrc, parameters: [] };
+      entry.parameters.push({
+        name: (name || "").toString().trim(),
+        value: (value || "").toString().trim()
+      });
+      current.sourceMap.set(ssrc, entry);
+    }
+  });
+  finishCurrent();
+  return sections;
+}
+
+function xmppBuildJingleContentsFromSdp(sdp = "", { localRole = "initiator" } = {}) {
+  const sections = xmppParseSdpMediaSections(sdp);
+  return sections
+    .filter((section) => section.kind === "audio" || section.kind === "video")
+    .map((section, index) => ({
+      name: section.mid || `${section.kind}${index}`,
+      media: section.kind,
+      senders: xmppJingleSendersFromSdpDirection(section.direction, localRole),
+      payloadTypes: section.payloadTypes,
+      rtcpFeedback: section.rtcpFeedback,
+      extmaps: section.extmaps,
+      sources: section.sources,
+      sourceGroups: section.sourceGroups,
+      transport: {
+        ufrag: section.iceUfrag || "",
+        pwd: section.icePwd || "",
+        hash: section.fingerprintHash || "sha-256",
+        fingerprint: section.fingerprint || "",
+        setup: section.setup || ""
+      }
+    }));
+}
+
 function xmppBuildMinimalJingleSdp({
   media = ["audio", "video"],
   contents = [],
@@ -5892,18 +6105,88 @@ function xmppQueueTransportInfoGatherAndSend(peerJid, sessionId, { force = false
 function xmppBuildJingleRtpContent(builder, {
   media = "audio",
   creator = "initiator",
+  senders = "both",
   transport = null,
-  dtls = null
+  dtls = null,
+  payloadTypes = [],
+  rtcpFeedback = [],
+  extmaps = [],
+  sources = [],
+  sourceGroups = []
 } = {}) {
   const mediaType = media === "video" ? "video" : "audio";
   builder
-    .c("content", { creator, name: mediaType })
+    .c("content", { creator, name: mediaType, senders: (senders || "both").toString().trim().toLowerCase() || "both" })
     .c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType });
-  if (mediaType === "audio") {
-    builder.c("payload-type", { id: "111", name: "opus", clockrate: "48000", channels: "2" }).up();
-  } else {
-    builder.c("payload-type", { id: "96", name: "VP8", clockrate: "90000" }).up();
-  }
+  const normalizedPayloads = Array.isArray(payloadTypes) && payloadTypes.length > 0
+    ? payloadTypes
+    : [{
+      id: mediaType === "audio" ? "111" : "96",
+      name: mediaType === "audio" ? "opus" : "VP8",
+      clockrate: mediaType === "audio" ? "48000" : "90000",
+      channels: mediaType === "audio" ? "2" : "1",
+      rtcpFeedback: [],
+      parameters: []
+    }];
+  normalizedPayloads.forEach((payload) => {
+    const id = (payload.id || "").toString().trim() || (mediaType === "audio" ? "111" : "96");
+    const name = (payload.name || "").toString().trim() || (mediaType === "audio" ? "opus" : "VP8");
+    const clockrate = String(Number(payload.clockrate) || (mediaType === "audio" ? 48000 : 90000));
+    const channels = String(Math.max(1, Number(payload.channels) || (mediaType === "audio" ? 2 : 1)));
+    const attrs = mediaType === "audio"
+      ? { id, name, clockrate, channels }
+      : { id, name, clockrate };
+    builder.c("payload-type", attrs);
+    (Array.isArray(payload.parameters) ? payload.parameters : []).forEach((param) => {
+      if (!param?.name) return;
+      const paramAttrs = { name: String(param.name) };
+      if (param.value) paramAttrs.value = String(param.value);
+      builder.c("parameter", paramAttrs).up();
+    });
+    (Array.isArray(payload.rtcpFeedback) ? payload.rtcpFeedback : []).forEach((feedback) => {
+      if (!feedback?.type) return;
+      const fbAttrs = { type: String(feedback.type) };
+      if (feedback.subtype) fbAttrs.subtype = String(feedback.subtype);
+      builder.c("rtcp-fb", fbAttrs).up();
+    });
+    builder.up();
+  });
+  (Array.isArray(rtcpFeedback) ? rtcpFeedback : []).forEach((feedback) => {
+    if (!feedback?.type) return;
+    const fbAttrs = { type: String(feedback.type) };
+    if (feedback.subtype) fbAttrs.subtype = String(feedback.subtype);
+    builder.c("rtcp-fb", fbAttrs).up();
+  });
+  (Array.isArray(extmaps) ? extmaps : []).forEach((extmap) => {
+    if (!extmap?.id || !extmap?.uri) return;
+    const attrs = {
+      id: String(extmap.id),
+      uri: String(extmap.uri)
+    };
+    if (extmap.direction) attrs.senders = String(extmap.direction);
+    if (extmap.attributes) attrs.attributes = String(extmap.attributes);
+    builder.c("rtp-hdrext", attrs).up();
+  });
+  (Array.isArray(sourceGroups) ? sourceGroups : []).forEach((group) => {
+    if (!group?.semantics || !Array.isArray(group.sources) || group.sources.length === 0) return;
+    builder.c("source-group", { semantics: String(group.semantics) });
+    group.sources.forEach((ssrc) => {
+      if (!ssrc) return;
+      builder.c("source", { ssrc: String(ssrc) }).up();
+    });
+    builder.up();
+  });
+  (Array.isArray(sources) ? sources : []).forEach((source) => {
+    if (!source?.ssrc) return;
+    builder.c("source", { ssrc: String(source.ssrc) });
+    (Array.isArray(source.parameters) ? source.parameters : []).forEach((param) => {
+      if (!param?.name) return;
+      const attrs = { name: String(param.name) };
+      if (param.value) attrs.value = String(param.value);
+      builder.c("parameter", attrs).up();
+    });
+    builder.up();
+  });
   const creds = transport && typeof transport === "object"
     ? {
       ufrag: (transport.ufrag || "").toString().trim(),
@@ -6048,7 +6331,7 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
   return true;
 }
 
-function xmppSendJingleSessionInitiate(peerJid, sessionId, {
+async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
   media = ["audio", "video"],
   screenShare = false,
   onSuccess = null,
@@ -6066,11 +6349,6 @@ function xmppSendJingleSessionInitiate(peerJid, sessionId, {
       initiator: ownBare || ""
     });
   const sessionEntry = xmppCallSessionById.get(sid) || null;
-  const localTransport = sessionEntry?.localTransport && typeof sessionEntry.localTransport === "object"
-    ? sessionEntry.localTransport
-    : xmppBuildJingleTransportCreds();
-  if (sessionEntry) sessionEntry.localTransport = localTransport;
-  const localDtls = xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "actpass" });
   const wanted = Array.isArray(media) ? media : ["audio", "video"];
   const normalizedMedia = [...new Set(
     wanted
@@ -6078,24 +6356,59 @@ function xmppSendJingleSessionInitiate(peerJid, sessionId, {
       .filter((item) => item === "audio" || item === "video")
   )];
   const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
-  xmppEnsureSessionPeerConnection(sid, {
+  const entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid: to,
     media: medias,
-    createLocalOffer: true
+    createLocalOffer: false
   });
-  void xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) }).then((attached) => {
-    addXmppDebugEvent("runtime", "Prepared local media for session-initiate", {
-      sid,
-      screenShare: Boolean(screenShare),
-      attached
-    });
+  const attached = await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) });
+  if (entry?.pc && !entry.pc.localDescription) {
+    try {
+      const offer = await entry.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await entry.pc.setLocalDescription(offer);
+    } catch (error) {
+      addXmppDebugEvent("error", "Failed preparing local offer for session-initiate", {
+        sid,
+        error: String(error?.message || error)
+      });
+    }
+  }
+  addXmppDebugEvent("runtime", "Prepared local media for session-initiate", {
+    sid,
+    screenShare: Boolean(screenShare),
+    attached
   });
-  medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
-    media: mediaType,
-    creator: "initiator",
-    transport: localTransport,
-    dtls: localDtls
-  }));
+  const localSdp = entry?.pc?.localDescription?.sdp || "";
+  const localTransport = xmppParseIceCredsFromSdp(localSdp)
+    || (sessionEntry?.localTransport && typeof sessionEntry.localTransport === "object"
+      ? sessionEntry.localTransport
+      : xmppBuildJingleTransportCreds());
+  if (sessionEntry) sessionEntry.localTransport = localTransport;
+  const localDtls = xmppParseDtlsFingerprintFromSdp(localSdp) || xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "actpass" });
+  const contents = localSdp ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "initiator" }) : [];
+  if (contents.length > 0) {
+    contents.forEach((content) => xmppBuildJingleRtpContent(iq, {
+      media: content.media,
+      creator: "initiator",
+      senders: content.senders,
+      transport: content.transport || localTransport,
+      dtls: content.transport
+        ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
+        : localDtls,
+      payloadTypes: content.payloadTypes,
+      rtcpFeedback: content.rtcpFeedback,
+      extmaps: content.extmaps,
+      sources: content.sources,
+      sourceGroups: content.sourceGroups
+    }));
+  } else {
+    medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
+      media: mediaType,
+      creator: "initiator",
+      transport: localTransport,
+      dtls: localDtls
+    }));
+  }
   xmppConnection.sendIQ(
     iq,
     () => {
@@ -6115,7 +6428,7 @@ function xmppSendJingleSessionInitiate(peerJid, sessionId, {
   return true;
 }
 
-function xmppSendJingleSessionAccept(peerJid, sessionId, {
+async function xmppSendJingleSessionAccept(peerJid, sessionId, {
   media = ["audio", "video"],
   screenShare = false,
   onSuccess = null,
@@ -6133,11 +6446,6 @@ function xmppSendJingleSessionAccept(peerJid, sessionId, {
       responder: ownBare || ""
     });
   const sessionEntry = xmppCallSessionById.get(sid) || null;
-  const localTransport = sessionEntry?.localTransport && typeof sessionEntry.localTransport === "object"
-    ? sessionEntry.localTransport
-    : xmppBuildJingleTransportCreds();
-  if (sessionEntry) sessionEntry.localTransport = localTransport;
-  const localDtls = xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "active" });
   const wanted = Array.isArray(media) ? media : ["audio", "video"];
   const normalizedMedia = [...new Set(
     wanted
@@ -6145,24 +6453,59 @@ function xmppSendJingleSessionAccept(peerJid, sessionId, {
       .filter((item) => item === "audio" || item === "video")
   )];
   const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
-  xmppEnsureSessionPeerConnection(sid, {
+  const entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid: to,
     media: medias,
     createLocalOffer: false
   });
-  void xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) }).then((attached) => {
-    addXmppDebugEvent("runtime", "Prepared local media for session-accept", {
-      sid,
-      screenShare: Boolean(screenShare),
-      attached
-    });
+  const attached = await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) });
+  if (entry?.pc && !entry.pc.localDescription) {
+    try {
+      const answer = await entry.pc.createAnswer();
+      await entry.pc.setLocalDescription(answer);
+    } catch (error) {
+      addXmppDebugEvent("error", "Failed preparing local answer for session-accept", {
+        sid,
+        error: String(error?.message || error)
+      });
+    }
+  }
+  addXmppDebugEvent("runtime", "Prepared local media for session-accept", {
+    sid,
+    screenShare: Boolean(screenShare),
+    attached
   });
-  medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
-    media: mediaType,
-    creator: "responder",
-    transport: localTransport,
-    dtls: localDtls
-  }));
+  const localSdp = entry?.pc?.localDescription?.sdp || "";
+  const localTransport = xmppParseIceCredsFromSdp(localSdp)
+    || (sessionEntry?.localTransport && typeof sessionEntry.localTransport === "object"
+      ? sessionEntry.localTransport
+      : xmppBuildJingleTransportCreds());
+  if (sessionEntry) sessionEntry.localTransport = localTransport;
+  const localDtls = xmppParseDtlsFingerprintFromSdp(localSdp) || xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "active" });
+  const contents = localSdp ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "responder" }) : [];
+  if (contents.length > 0) {
+    contents.forEach((content) => xmppBuildJingleRtpContent(iq, {
+      media: content.media,
+      creator: "responder",
+      senders: content.senders,
+      transport: content.transport || localTransport,
+      dtls: content.transport
+        ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
+        : localDtls,
+      payloadTypes: content.payloadTypes,
+      rtcpFeedback: content.rtcpFeedback,
+      extmaps: content.extmaps,
+      sources: content.sources,
+      sourceGroups: content.sourceGroups
+    }));
+  } else {
+    medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
+      media: mediaType,
+      creator: "responder",
+      transport: localTransport,
+      dtls: localDtls
+    }));
+  }
   xmppConnection.sendIQ(
     iq,
     () => {
@@ -6494,23 +6837,25 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
           // fallback below
         }
       }
-      const initiated = xmppSendJingleSessionInitiate(peer, id, {
-        media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
-        screenShare: Boolean(session?.screenShare),
-        onSuccess: () => {
-          const current = xmppCallSessionById.get(id);
-          if (current) current.state = "session-initiate-sent";
-          if (addSystemDmMessageByPeerJid(peer, `Sent XMPP session-initiate (${id.slice(0, 8)}).`)) {
-            refreshDmUiForPeerJid(peer);
+      void (async () => {
+        const initiated = await xmppSendJingleSessionInitiate(peer, id, {
+          media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+          screenShare: Boolean(session?.screenShare),
+          onSuccess: () => {
+            const current = xmppCallSessionById.get(id);
+            if (current) current.state = "session-initiate-sent";
+            if (addSystemDmMessageByPeerJid(peer, `Sent XMPP session-initiate (${id.slice(0, 8)}).`)) {
+              refreshDmUiForPeerJid(peer);
+            }
+          },
+          onError: () => {
+            launchConversationCall({ screenShare: Boolean(session?.screenShare || screenShareFallback), autoPost: true });
           }
-        },
-        onError: () => {
+        });
+        if (!initiated) {
           launchConversationCall({ screenShare: Boolean(session?.screenShare || screenShareFallback), autoPost: true });
         }
-      });
-      if (!initiated) {
-        launchConversationCall({ screenShare: Boolean(session?.screenShare || screenShareFallback), autoPost: true });
-      }
+      })();
       return true;
     }
     return true;
@@ -17012,10 +17357,22 @@ function handleSlashCommand(rawText, channel, account) {
       const action = sub === "accept" ? "proceed" : (sub === "reject" ? "reject" : "retract");
       let sent = false;
       if (sub === "accept" && isJinglePhase) {
-        sent = xmppSendJingleSessionAccept(peerBare, targetId, {
-          media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
-          screenShare: Boolean(session?.screenShare)
-        });
+        void (async () => {
+          const ok = await xmppSendJingleSessionAccept(peerBare, targetId, {
+            media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+            screenShare: Boolean(session?.screenShare)
+          });
+          if (!ok) {
+            addSystemMessage(channel, "Failed to send XMPP call action.");
+            return;
+          }
+          addSystemMessage(channel, `Sent XMPP session-accept for ${targetId.slice(0, 8)}.`);
+          if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP session-accept (${targetId.slice(0, 8)}).`)) {
+            refreshDmUiForPeerJid(peerBare);
+          }
+          openNativeXmppCallSurface(targetId);
+        })();
+        return true;
       } else if (sub === "end") {
         sent = xmppSendJingleSessionTerminate(peerBare, targetId, {
           reason: "success",
@@ -32701,10 +33058,22 @@ ui.messageForm.addEventListener("submit", (event) => {
         const action = sub === "accept" ? "proceed" : (sub === "reject" ? "reject" : "retract");
         let sent = false;
         if (sub === "accept" && isJinglePhase) {
-          sent = xmppSendJingleSessionAccept(peerBare, targetId, {
-            media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
-            screenShare: Boolean(session?.screenShare)
-          });
+          void (async () => {
+            const ok = await xmppSendJingleSessionAccept(peerBare, targetId, {
+              media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+              screenShare: Boolean(session?.screenShare)
+            });
+            if (!ok) {
+              showToast("Failed to send XMPP call action.", { tone: "error" });
+              return;
+            }
+            showToast(`Sent XMPP session-accept (${targetId.slice(0, 8)}).`);
+            if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP session-accept (${targetId.slice(0, 8)}).`)) {
+              refreshDmUiForPeerJid(peerBare);
+            }
+            openNativeXmppCallSurface(targetId);
+          })();
+          return;
         } else if (sub === "end") {
           sent = xmppSendJingleSessionTerminate(peerBare, targetId, {
             reason: "success",

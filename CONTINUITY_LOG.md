@@ -1337,3 +1337,5 @@ Yes
 [2026-02-26 03:40:47] Is everything noted in the TODO? Important first is that we really get all the call/video/screensharing and whiteboard functionality settled.
 
 [2026-02-26 04:11:35] Maybe keep fallback? Would users with the whiteboard extension use the same whiteboard as fallback? If not then please do not paste the fallback link unless the user explicitely selects fallback whiteboard as an option (maybe right-click on the option to start a whiteboard?)
+
+[2026-02-26 04:16:37] Btw. do the whiteboard extension allow exporting history or saving a canvas screenshot in the chat as an image? Could that stuff be added at least?
