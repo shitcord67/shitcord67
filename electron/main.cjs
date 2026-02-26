@@ -60,14 +60,16 @@ if (process.platform === "linux") {
   applyEarlyRuntimeEnv(EARLY_RUNTIME_DIR);
 }
 
-const { app, BrowserWindow, dialog, session } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const https = require("node:https");
 const net = require("node:net");
+const os = require("node:os");
 
 const ELECTRON_PIPEWIRE = String(process.env.S67_ELECTRON_PIPEWIRE || "on").toLowerCase();
 const ELECTRON_OZONE_HINT = String(process.env.S67_ELECTRON_OZONE_HINT || "auto").toLowerCase();
+const ELECTRON_PLATFORM_OVERRIDE = String(process.env.S67_ELECTRON_PLATFORM_OVERRIDE || "").toLowerCase();
 
 function appendChromiumFeatureFlag(flag) {
   if (!flag) return;
@@ -75,6 +77,43 @@ function appendChromiumFeatureFlag(flag) {
   const list = current ? current.split(",").map((item) => item.trim()).filter(Boolean) : [];
   if (!list.includes(flag)) list.push(flag);
   app.commandLine.appendSwitch("enable-features", list.join(","));
+}
+
+function detectLinuxSessionType() {
+  const envHint = (process.env.XDG_SESSION_TYPE || "").toLowerCase();
+  if (envHint === "wayland" || envHint === "x11") return envHint;
+  const display = process.env.DISPLAY || "";
+  const wayland = process.env.WAYLAND_DISPLAY || "";
+  if (wayland && !display) return "wayland";
+  if (display) return "x11";
+  return "unknown";
+}
+
+function detectPlatformSummary() {
+  if (process.platform !== "linux") {
+    return {
+      platform: process.platform,
+      sessionType: "n/a",
+      displayServer: "n/a"
+    };
+  }
+  const sessionType = detectLinuxSessionType();
+  const displayServer = sessionType === "wayland" ? (process.env.WAYLAND_DISPLAY || "") : (process.env.DISPLAY || "");
+  return {
+    platform: "linux",
+    sessionType,
+    displayServer: displayServer || "unknown"
+  };
+}
+
+function resolvePlatformOverride(summary) {
+  if (!ELECTRON_PLATFORM_OVERRIDE) return summary;
+  const [platform, sessionType = summary.sessionType] = ELECTRON_PLATFORM_OVERRIDE.split(":");
+  return {
+    platform: platform || summary.platform,
+    sessionType: sessionType || summary.sessionType,
+    displayServer: summary.displayServer
+  };
 }
 
 const IS_PACKAGED_LINUX = process.platform === "linux" && app.isPackaged;
@@ -411,6 +450,24 @@ async function createMainWindow({ startupWarning = "" } = {}) {
   const origin = new URL(activeClientUrl).origin;
   attachNavigationGuards(browser, origin);
   attachDeveloperShortcuts(browser);
+
+  const platformSummary = resolvePlatformOverride(detectPlatformSummary());
+  browser.webContents.on("did-finish-load", () => {
+    browser.webContents.send("s67-platform-info", {
+      platform: platformSummary.platform,
+      sessionType: platformSummary.sessionType,
+      displayServer: platformSummary.displayServer,
+      override: ELECTRON_PLATFORM_OVERRIDE || ""
+    });
+  });
+  ipcMain.on("s67-request-platform-info", (event) => {
+    event.sender.send("s67-platform-info", {
+      platform: platformSummary.platform,
+      sessionType: platformSummary.sessionType,
+      displayServer: platformSummary.displayServer,
+      override: ELECTRON_PLATFORM_OVERRIDE || ""
+    });
+  });
 
   let loadedClient = false;
   try {

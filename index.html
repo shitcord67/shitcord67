@@ -342,6 +342,16 @@
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
+            <label for="platformOverrideInput">Platform override</label>
+            <select id="platformOverrideInput">
+              <option value="auto">Auto detect</option>
+              <option value="linux:x11">Linux (X11)</option>
+              <option value="linux:wayland">Linux (Wayland)</option>
+              <option value="linux:unknown">Linux (Unknown)</option>
+              <option value="windows">Windows</option>
+              <option value="darwin">macOS</option>
+            </select>
+            <p id="platformDetectedNote" class="settings-note"></p>
             <label for="swfAudioPolicyInput">SWF audio policy</label>
             <select id="swfAudioPolicyInput">
               <option value="single">Only one SWF with audio</option>

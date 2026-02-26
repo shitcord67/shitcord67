@@ -101,6 +101,62 @@ function applyRuntimePlatformHints() {
 
 applyRuntimePlatformHints();
 
+function applyPlatformRuntimeInfo(info = {}) {
+  if (!info || typeof info !== "object") return;
+  const next = {
+    ...platformRuntimeInfo,
+    ...info
+  };
+  platformRuntimeInfo = next;
+  const prefs = getPreferences();
+  const override = normalizePlatformOverride(prefs.platformOverride);
+  if (override && override !== "auto") {
+    platformRuntimeInfo.override = override;
+    if (override.includes(":")) {
+      const [platform, sessionType] = override.split(":");
+      platformRuntimeInfo.platform = platform || platformRuntimeInfo.platform;
+      platformRuntimeInfo.sessionType = sessionType || platformRuntimeInfo.sessionType;
+    } else {
+      platformRuntimeInfo.platform = override;
+    }
+  }
+}
+
+function initElectronPlatformBridge() {
+  if (!electronRuntime?.ipcRenderer) return;
+  electronRuntime.ipcRenderer.on("s67-platform-info", (_event, payload) => {
+    applyPlatformRuntimeInfo(payload || {});
+    renderPlatformDetectedNote();
+  });
+  electronRuntime.ipcRenderer.send("s67-request-platform-info");
+}
+
+function currentPlatformDetectedLabel() {
+  const info = platformRuntimeInfo || {};
+  const platform = (info.platform || "web").toString();
+  const sessionType = (info.sessionType || "").toString();
+  const displayServer = (info.displayServer || "").toString();
+  if (platform === "linux") {
+    const suffix = sessionType && sessionType !== "n/a"
+      ? `${sessionType}${displayServer && displayServer !== "unknown" ? `:${displayServer}` : ""}`
+      : "unknown";
+    return `Linux · ${suffix}`;
+  }
+  if (platform === "windows") return "Windows";
+  if (platform === "darwin") return "macOS";
+  if (platform === "android") return "Android";
+  if (platform === "ios") return "iOS";
+  return "Web";
+}
+
+function renderPlatformDetectedNote() {
+  if (!ui.platformDetectedNote) return;
+  const label = currentPlatformDetectedLabel();
+  const override = normalizePlatformOverride(getPreferences().platformOverride);
+  const overrideLabel = override && override !== "auto" ? ` (override: ${override})` : "";
+  ui.platformDetectedNote.textContent = `Detected platform: ${label}${overrideLabel}.`;
+}
+
 function renderEmojiToCanvasData(text, { size = 32 } = {}) {
   if (typeof document === "undefined") return "";
   const canvas = document.createElement("canvas");
@@ -810,6 +866,7 @@ function buildInitialState() {
       callAutoPost: "on",
       callAudioInputId: "",
       callVideoInputId: "",
+      platformOverride: "auto",
       whiteboardProviderUrl: "https://wbo.ophir.dev/boards",
       whiteboardRoomPrefix: "shitcord67-wb",
       whiteboardAutoPost: "on"
@@ -1432,6 +1489,23 @@ let loginXmppProgressTimerId = null;
 let xmppCapsHash = "";
 let xmppCapsPromise = null;
 let mediaDeviceSnapshot = { audio: [], video: [], ready: false, loading: false };
+let platformRuntimeInfo = {
+  platform: detectRuntimePlatform().isAndroid ? "android" : (detectRuntimePlatform().isiOS ? "ios" : "web"),
+  sessionType: "n/a",
+  displayServer: "n/a",
+  override: ""
+};
+const electronRuntime = typeof window !== "undefined" && typeof window.require === "function"
+  ? (() => {
+    try {
+      const electron = window.require("electron");
+      if (!electron?.ipcRenderer) return null;
+      return electron;
+    } catch {
+      return null;
+    }
+  })()
+  : null;
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -1711,6 +1785,8 @@ const ui = {
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
+  platformOverrideInput: document.getElementById("platformOverrideInput"),
+  platformDetectedNote: document.getElementById("platformDetectedNote"),
   swfAudioPolicyInput: document.getElementById("swfAudioPolicyInput"),
   swfAudioScopeInput: document.getElementById("swfAudioScopeInput"),
   swfAutoplayInput: document.getElementById("swfAutoplayInput"),
@@ -6062,6 +6138,15 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
       await pc.setLocalDescription(answer);
       const localCreds = xmppParseIceCredsFromSdp(pc.localDescription?.sdp || "");
       if (session && localCreds) session.localTransport = localCreds;
+      if (Array.isArray(remoteContents) && remoteContents.length > 0) {
+        const localContents = xmppBuildJingleContentsFromSdp(pc.localDescription?.sdp || "", { localRole });
+        if (localContents.length > 0 && session?.peerJid) {
+          xmppSendJingleContentModify(session.peerJid, sid, localContents.map((entry) => ({
+            ...entry,
+            creator: localRole
+          })));
+        }
+      }
     } catch (error) {
       addXmppDebugEvent("error", "Failed to generate local answer after remote offer mapping", {
         sid,
@@ -7848,6 +7933,14 @@ function normalizeMediaDeviceId(value) {
   return (value || "").toString().trim().slice(0, 180);
 }
 
+function normalizePlatformOverride(value) {
+  const raw = (value || "").toString().trim().toLowerCase();
+  if (!raw || raw === "auto") return "auto";
+  if (["linux:x11", "linux:wayland", "linux:unknown", "linux"].includes(raw)) return raw;
+  if (["windows", "darwin"].includes(raw)) return raw;
+  return "auto";
+}
+
 function xmppShowValueForPresence(presence) {
   const mode = normalizePresence(presence);
   if (mode === "idle") return "away";
@@ -8289,6 +8382,7 @@ function getPreferences() {
     callAutoPost: normalizeToggle(current.callAutoPost ?? "on"),
     callAudioInputId: normalizeMediaDeviceId(current.callAudioInputId),
     callVideoInputId: normalizeMediaDeviceId(current.callVideoInputId),
+    platformOverride: normalizePlatformOverride(current.platformOverride),
     whiteboardProviderUrl: normalizeWhiteboardProviderUrl(current.whiteboardProviderUrl),
     whiteboardRoomPrefix: normalizeWhiteboardRoomPrefix(current.whiteboardRoomPrefix),
     whiteboardAutoPost: normalizeToggle(current.whiteboardAutoPost ?? "on"),
@@ -31221,6 +31315,8 @@ function renderSettingsScreen() {
   if (ui.callProviderInput) ui.callProviderInput.value = prefs.callProviderUrl;
   if (ui.callRoomPrefixInput) ui.callRoomPrefixInput.value = prefs.callRoomPrefix;
   if (ui.callAutoPostInput) ui.callAutoPostInput.value = prefs.callAutoPost;
+  if (ui.platformOverrideInput) ui.platformOverrideInput.value = prefs.platformOverride || "auto";
+  renderPlatformDetectedNote();
   if (ui.whiteboardProviderInput) ui.whiteboardProviderInput.value = prefs.whiteboardProviderUrl;
   if (ui.whiteboardRoomPrefixInput) ui.whiteboardRoomPrefixInput.value = prefs.whiteboardRoomPrefix;
   if (ui.whiteboardAutoPostInput) ui.whiteboardAutoPostInput.value = prefs.whiteboardAutoPost;
@@ -35847,6 +35943,7 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.callProviderUrl = normalizeConferenceProviderUrl(ui.callProviderInput?.value || "");
   state.preferences.callRoomPrefix = normalizeConferenceRoomPrefix(ui.callRoomPrefixInput?.value || "");
   state.preferences.callAutoPost = normalizeToggle(ui.callAutoPostInput?.value || "on");
+  state.preferences.platformOverride = normalizePlatformOverride(ui.platformOverrideInput?.value || "auto");
   state.preferences.whiteboardProviderUrl = normalizeWhiteboardProviderUrl(ui.whiteboardProviderInput?.value || "");
   state.preferences.whiteboardRoomPrefix = normalizeWhiteboardRoomPrefix(ui.whiteboardRoomPrefixInput?.value || "");
   state.preferences.whiteboardAutoPost = normalizeToggle(ui.whiteboardAutoPostInput?.value || "on");
@@ -37116,6 +37213,8 @@ mediaPickerTab = getPreferences().mediaLastTab;
 if (dedupeDmThreads()) saveState();
 hardenInputAutocompleteNoise();
 applyServerBrandEmojiSupport();
+initElectronPlatformBridge();
+renderPlatformDetectedNote();
 renderComposerMediaButtons();
 runScheduledDispatch();
 ensureScheduledDispatchTimer();

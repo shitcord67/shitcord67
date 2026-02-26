@@ -1345,3 +1345,7 @@ Yes
 [2026-02-26 05:04:12] Yes, work on all of that. I'm going to make me a sandwhich so I can't confirm stuff for you. Just keep working like a real german engineer.
 
 [2026-02-26 05:07:00] yES
+
+[2026-02-26 05:18:46] Also does the screen share work reliable web, Android and Linux (X11, Wayland?)
+
+[2026-02-26 05:23:31] Also then yeah please continue with what you deem worthly to add

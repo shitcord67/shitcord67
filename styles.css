@@ -5685,6 +5685,12 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.78rem;
 }
 
+#platformDetectedNote {
+  margin: 0.45rem 0 0.2rem;
+  color: #b7c1d7;
+  font-size: 0.78rem;
+}
+
 #tenorCredentialsStatus[data-tone="ok"] {
   color: #9ee2a2;
 }
