@@ -1479,6 +1479,7 @@ const xmppCallRemoteStreamsBySessionId = new Map();
 const xmppCallReconnectAttemptBySessionId = new Map();
 const webCallInviteSeenTokens = new Set();
 const webCallInvitePendingByToken = new Map();
+const xmppCallInviteTokenById = new Map();
 let webCallRingtoneContext = null;
 let webCallRingtoneInterval = null;
 let webCallRingtoneToken = "";
@@ -4724,6 +4725,58 @@ function parseCallInviteFromText(text = "") {
   };
 }
 
+function parseXmppCallInviteAction(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const actions = ["invite", "accept", "reject", "retract", "left"];
+  for (const action of actions) {
+    const node = [...stanza.getElementsByTagName(action)]
+      .find((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)) || null;
+    if (!node) continue;
+    const rawId = (node.getAttribute("id") || "").toString().trim();
+    const audio = node.getAttribute("audio");
+    const video = node.getAttribute("video");
+    const externals = [...node.getElementsByTagName("external")]
+      .filter((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE))
+      .map((entry) => (entry.getAttribute("uri") || entry.getAttribute("url") || "").toString().trim())
+      .filter(Boolean);
+    return {
+      action,
+      id: action === "invite" ? "" : rawId,
+      audio: audio === "true",
+      video: video === "true",
+      externals
+    };
+  }
+  return null;
+}
+
+function xmppSendCallInviteAction(peerJid = "", action = "invite", {
+  inviteId = "",
+  url = "",
+  audio = true,
+  video = true
+} = {}) {
+  if (!xmppConnection || !globalThis.$msg || relayStatus !== "connected") return false;
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true }) || xmppBareJid(peerJid);
+  if (!to) return false;
+  const tag = (action || "").toString().trim().toLowerCase();
+  if (!["invite", "accept", "reject", "retract", "left"].includes(tag)) return false;
+  const trimmedInviteId = (inviteId || "").toString().trim();
+  const stanzaId = tag === "invite"
+    ? (trimmedInviteId || `ci-${createId().slice(0, 12)}`)
+    : `ci-${createId().slice(0, 12)}`;
+  if (tag !== "invite" && !trimmedInviteId) return false;
+  const attrs = { xmlns: XMPP_CALL_INVITES_NAMESPACE, audio: audio ? "true" : "false", video: video ? "true" : "false" };
+  if (tag !== "invite") attrs.id = trimmedInviteId;
+  const builder = globalThis.$msg({ to, type: "chat", id: stanzaId }).c(tag, attrs);
+  if ((tag === "invite" || tag === "accept") && url) {
+    builder.c("external", { uri: url }).up();
+  }
+  xmppConnection.send(builder);
+  addXmppDebugEvent("call", `Sent call-invite ${tag}`, { to, id: trimmedInviteId || stanzaId, url, audio, video });
+  return stanzaId;
+}
+
 function resolveConversationById(conversationId = "", typeHint = "") {
   const id = (conversationId || "").toString().trim();
   if (!id) return null;
@@ -4913,7 +4966,14 @@ function showIncomingWebCallPrompt({
     if (inviteToken) {
       const pending = webCallInvitePendingByToken.get(inviteToken);
       if (pending?.timeoutId) clearTimeout(pending.timeoutId);
+      if (pending?.xmppInviteId && pending?.xmppPeerJid) {
+        xmppSendCallInviteAction(pending.xmppPeerJid, "accept", {
+          inviteId: pending.xmppInviteId,
+          url
+        });
+      }
       webCallInvitePendingByToken.delete(inviteToken);
+      if (pending?.xmppInviteId) xmppCallInviteTokenById.delete(pending.xmppInviteId);
     }
     openWebCallLightbox(url, {
       conversation,
@@ -4931,7 +4991,14 @@ function showIncomingWebCallPrompt({
     if (inviteToken) {
       const pending = webCallInvitePendingByToken.get(inviteToken);
       if (pending?.timeoutId) clearTimeout(pending.timeoutId);
+      if (pending?.xmppInviteId && pending?.xmppPeerJid) {
+        xmppSendCallInviteAction(pending.xmppPeerJid, "reject", {
+          inviteId: pending.xmppInviteId,
+          url
+        });
+      }
       webCallInvitePendingByToken.delete(inviteToken);
+      if (pending?.xmppInviteId) xmppCallInviteTokenById.delete(pending.xmppInviteId);
     }
     closeMediaLightbox();
   });
@@ -4990,6 +5057,10 @@ async function acceptIncomingXmppCall(sessionId = "") {
         showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
         if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). The caller may not support native calls.`)) {
           refreshDmUiForPeerJid(peerBare);
+        }
+        if (!current.fallbackInviteSent) {
+          current.fallbackInviteSent = true;
+          launchConversationCall({ screenShare: Boolean(current.screenShare), autoPost: true, allowNative: false });
         }
       }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
     }
@@ -5124,6 +5195,49 @@ function maybeHandleIncomingWebCallInvite({
     fromLabel,
     inviteToken: token
   });
+}
+
+function maybeHandleIncomingXmppCallInvite({
+  conversation,
+  peerJid = "",
+  invite = null,
+  history = false
+} = {}) {
+  if (!conversation || !invite || history) return false;
+  const url = normalizeCallInviteUrl((invite.url || "").toString());
+  if (!url) return false;
+  const inviteId = (invite.id || "").toString().trim();
+  const peerBare = xmppBareJid(peerJid || "");
+  const token = buildWebCallInviteToken({
+    url,
+    messageId: inviteId || url,
+    fromId: peerBare || "xmpp"
+  });
+  if (!token || webCallInviteSeenTokens.has(token)) return false;
+  markWebCallInviteSeen(token);
+  const pendingTimeoutId = window.setTimeout(() => {
+    if (!token) return;
+    webCallInvitePendingByToken.delete(token);
+    if (inviteId) xmppCallInviteTokenById.delete(inviteId);
+  }, WEB_CALL_INVITE_TIMEOUT_MS);
+  webCallInvitePendingByToken.set(token, {
+    conversationId: conversation.id || "",
+    conversationType: conversation.type || "",
+    fromLabel: peerBare || "Peer",
+    timeoutId: pendingTimeoutId,
+    xmppInviteId: inviteId || "",
+    xmppPeerJid: peerBare || "",
+    url
+  });
+  if (inviteId) xmppCallInviteTokenById.set(inviteId, token);
+  showIncomingWebCallPrompt({
+    conversation,
+    url,
+    screenShare: Boolean(invite.screenShare),
+    fromLabel: peerBare || "Peer",
+    inviteToken: token
+  });
+  return true;
 }
 
 function postCallInviteToConversation(conversation, account, url, { screenShare = false } = {}) {
@@ -12477,6 +12591,52 @@ function connectRelaySocket({ force = false } = {}) {
             });
             if (handledJingle) return;
           }
+          const callInvite = parseXmppCallInviteAction(stanza);
+          if (callInvite && !ownAuthor) {
+            const inviteId = callInvite.action === "invite"
+              ? (xmppStanzaStableId(stanza) || stanzaMessageId)
+              : callInvite.id || "";
+            const inviteUrl = (callInvite.externals || [])
+              .map((entry) => normalizeCallInviteUrl(entry))
+              .find(Boolean) || "";
+            addXmppDebugEvent("call", "Incoming call-invite", {
+              from: peerBare,
+              action: callInvite.action,
+              id: inviteId,
+              url: inviteUrl,
+              audio: callInvite.audio,
+              video: callInvite.video
+            });
+            if (callInvite.action === "invite" && inviteUrl) {
+              const inferred = parseCallInviteFromText(text);
+              const thread = getOrCreateDmThread(current, peer);
+              maybeHandleIncomingXmppCallInvite({
+                conversation: { type: "dm", id: thread.id, thread },
+                peerJid: peerBare,
+                invite: {
+                  id: inviteId,
+                  url: inviteUrl,
+                  screenShare: Boolean(inferred?.screenShare)
+                },
+                history
+              });
+            } else if (callInvite.action === "retract" && inviteId) {
+              const token = xmppCallInviteTokenById.get(inviteId);
+              if (token) {
+                stopWebCallRingtone(token);
+                webCallInvitePendingByToken.delete(token);
+                xmppCallInviteTokenById.delete(inviteId);
+                closeMediaLightbox();
+              }
+              if (addSystemDmMessageByPeerJid(peerBare, `XMPP call invite retracted (${inviteId.slice(0, 8)}).`)) {
+                refreshDmUiForPeerJid(peerBare);
+              }
+            } else if (["accept", "reject", "left"].includes(callInvite.action)) {
+              if (addSystemDmMessageByPeerJid(peerBare, `XMPP call invite ${callInvite.action} (${(inviteId || "").slice(0, 8)}).`)) {
+                refreshDmUiForPeerJid(peerBare);
+              }
+            }
+          }
           if (!ownAuthor && receiptRequest && stanzaMessageId && xmppConnection) {
             const receiptAck = globalThis.$msg({ to: peerBare, type: "chat" })
               .c("received", { xmlns: "urn:xmpp:receipts", id: stanzaMessageId });
@@ -14191,6 +14351,27 @@ function appendXmppAttachmentMetadataNodes(stanza, attachments = []) {
   return stanza;
 }
 
+function appendXmppCallInviteNode(stanza, {
+  url = "",
+  audio = true,
+  video = true
+} = {}) {
+  if (!stanza) return stanza;
+  const href = normalizeCallInviteUrl(url);
+  if (!href) return stanza;
+  xmppEnsureBuilderAtMessageNode(stanza);
+  stanza
+    .c("invite", {
+      xmlns: XMPP_CALL_INVITES_NAMESPACE,
+      audio: audio ? "true" : "false",
+      video: video ? "true" : "false"
+    })
+    .c("external", { uri: href })
+    .up()
+    .up();
+  return stanza;
+}
+
 function xmppSendIqPromise(connection, iqBuilder, timeoutMs = 7000) {
   return new Promise((resolve, reject) => {
     if (!connection || typeof connection.sendIQ !== "function") {
@@ -14294,6 +14475,7 @@ function xmppClientDiscoFeatures() {
     XMPP_JINGLE_RTP_INFO_NAMESPACE,
     XMPP_JINGLE_ICE_UDP_NAMESPACE,
     XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+    XMPP_CALL_INVITES_NAMESPACE,
     XMPP_JINGLE_AUDIO_NAMESPACE,
     XMPP_JINGLE_VIDEO_NAMESPACE,
     "urn:xmpp:jingle:apps:rtp:rtcp-fb:0",
@@ -15029,6 +15211,20 @@ function publishRelayDirectMessage(thread, message, account) {
         appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
         appendXmppOriginIdNode(stanza, originId);
         appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+        const callInvite = parseCallInviteFromText(message.text || "");
+        if (callInvite?.url) {
+          appendXmppCallInviteNode(stanza, {
+            url: callInvite.url,
+            audio: true,
+            video: true
+          });
+          addXmppDebugEvent("call", "Sent call-invite in DM", {
+            to: peerJid,
+            id: stanzaId,
+            url: callInvite.url,
+            screenShare: Boolean(callInvite.screenShare)
+          });
+        }
         appendXmppChatMarkableNode(stanza);
         stanza.c("request", { xmlns: "urn:xmpp:receipts" });
         xmppConnection.send(stanza);

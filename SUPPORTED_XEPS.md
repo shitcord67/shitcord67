@@ -31,6 +31,7 @@ Status labels:
 | XEP-0308 | Last Message Correction | Partial | Incoming `replace` corrections (`urn:xmpp:message-correct:0`) update matching DM/MUC messages, and local edits attempt to publish correction stanzas when a reference ID is known. |
 | XEP-0444 | Message Reactions | Partial | Incoming `<reactions/>` updates now apply to DM/MUC messages, and local reaction clicks publish outbound reaction stanzas using per-user reaction sets. |
 | XEP-0424 | Message Retraction | Partial | Incoming `<retract/>` (direct and `fasten:0 apply-to`) stanzas now retract matching DM/MUC messages instead of showing unsupported fallback text. |
+| XEP-0482 | Call Invites | Partial | Sends and consumes `urn:xmpp:call-invites:0` for DM call invites (external URL only); accept/reject/retract are handled for web-call fallback. |
 | XEP-0402 | PEP Native Bookmarks | Partial | Reads modern bookmarks via PubSub, with legacy fallback. |
 | XEP-0461 | Message Replies | Partial | Parses incoming reply metadata and now also publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |
 | XEP-0428 | Fallback Indication | Partial | Consumes fallback ranges to clean reply fallback text for `XEP-0461` messages. |
@@ -56,6 +57,5 @@ Status labels:
 - Server feature availability varies by provider; a supported XEP may still be unavailable on a specific server.
 - This list is implementation-oriented (what the client does today), not just what servers advertise in stream features.
 - Current AV/screenshare in-client behavior uses a configurable web conference fallback room launcher; native Jingle signaling exists but media transport is still scaffolding-level.
-- Call invites (`urn:xmpp:call-invites:0`) are not advertised yet; native DM calling relies on Jingle Message Initiation.
 - Web-conference and native-XMPP call controls now coexist in UI/commands; native signaling interop with external XMPP clients is the next protocol priority.
 - Shared whiteboard currently uses a configurable web whiteboard room launcher; native XMPP whiteboard extension interop is planned.
