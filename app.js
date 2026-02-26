@@ -4389,6 +4389,29 @@ function xmppParseIceCredsFromSdp(sdp = "") {
   return { ufrag, pwd };
 }
 
+function xmppParseDtlsFingerprintFromSdp(sdp = "") {
+  const text = (sdp || "").toString();
+  if (!text) return null;
+  const fingerprintMatch = text.match(/^a=fingerprint:([^\s]+)\s+(.+)$/m);
+  const setupMatch = text.match(/^a=setup:(.+)$/m);
+  if (!fingerprintMatch) return null;
+  return {
+    hash: (fingerprintMatch?.[1] || "sha-256").toString().trim().toLowerCase() || "sha-256",
+    value: (fingerprintMatch?.[2] || "").toString().trim(),
+    setup: (setupMatch?.[1] || "").toString().trim().toLowerCase()
+  };
+}
+
+function xmppGeneratePseudoDtlsFingerprint() {
+  const chunks = [];
+  const hex = "0123456789ABCDEF";
+  for (let i = 0; i < 32; i += 1) {
+    const byte = `${hex[Math.floor(Math.random() * 16)]}${hex[Math.floor(Math.random() * 16)]}`;
+    chunks.push(byte);
+  }
+  return chunks.join(":");
+}
+
 function xmppParseRtcIceCandidateForJingle(candidateText = "") {
   const raw = (candidateText || "").toString().trim();
   if (!raw) return null;
@@ -4410,7 +4433,7 @@ function xmppParseRtcIceCandidateForJingle(candidateText = "") {
   return { foundation, component, protocol, priority, ip, port, type };
 }
 
-function xmppJingleCandidateToRtcInit(candidate = {}, index = 0) {
+function xmppJingleCandidateToRtcInit(candidate = {}, index = 0, { session = null } = {}) {
   const foundation = (candidate.foundation || `${index + 1}`).toString().trim();
   const component = Number(candidate.component || 1) || 1;
   const protocol = ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp");
@@ -4418,10 +4441,21 @@ function xmppJingleCandidateToRtcInit(candidate = {}, index = 0) {
   const ip = (candidate.ip || "0.0.0.0").toString().trim();
   const port = Number(candidate.port || 9) || 9;
   const type = ((candidate.type || "host").toString().trim().toLowerCase() || "host");
+  const contentName = (candidate.contentName || "").toString().trim();
+  const contentMedia = (candidate.media || "").toString().trim().toLowerCase();
+  const remoteContents = Array.isArray(session?.remoteContents) ? session.remoteContents : [];
+  const contentIndex = contentName
+    ? remoteContents.findIndex((entry) => (entry?.name || "").toString().trim() === contentName)
+    : -1;
+  const mediaIndex = contentMedia
+    ? remoteContents.findIndex((entry) => (entry?.media || "").toString().trim().toLowerCase() === contentMedia)
+    : -1;
+  const resolvedIndex = contentIndex >= 0 ? contentIndex : (mediaIndex >= 0 ? mediaIndex : 0);
+  const sdpMid = contentName || String(resolvedIndex);
   return {
     candidate: `candidate:${foundation} ${component} ${protocol} ${priority} ${ip} ${port} typ ${type}`,
-    sdpMid: "0",
-    sdpMLineIndex: 0
+    sdpMid,
+    sdpMLineIndex: resolvedIndex
   };
 }
 
@@ -4433,6 +4467,37 @@ function xmppCallSessionMediaList(session = null) {
       .filter((item) => item === "audio" || item === "video")
   )];
   return media.length > 0 ? media : ["audio", "video"];
+}
+
+function xmppResolveLocalDtlsForSession(sessionId = "", { fallbackSetup = "actpass" } = {}) {
+  const sid = (sessionId || "").toString().trim();
+  const session = xmppCallSessionById.get(sid) || null;
+  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  const fromPc = xmppParseDtlsFingerprintFromSdp(pcEntry?.pc?.localDescription?.sdp || "");
+  if (fromPc?.value) {
+    const dtls = {
+      hash: fromPc.hash || "sha-256",
+      value: fromPc.value,
+      setup: fromPc.setup || fallbackSetup
+    };
+    if (session) session.localDtls = dtls;
+    return dtls;
+  }
+  const persisted = session?.localDtls && typeof session.localDtls === "object" ? session.localDtls : null;
+  if (persisted?.value) {
+    return {
+      hash: (persisted.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
+      value: (persisted.value || "").toString().trim(),
+      setup: (persisted.setup || fallbackSetup).toString().trim().toLowerCase() || fallbackSetup
+    };
+  }
+  const generated = {
+    hash: "sha-256",
+    value: xmppGeneratePseudoDtlsFingerprint(),
+    setup: fallbackSetup
+  };
+  if (session) session.localDtls = generated;
+  return generated;
 }
 
 function xmppResolveLocalJingleRole({ session = null, jingle = null } = {}) {
@@ -4514,9 +4579,19 @@ function xmppBuildMinimalJingleSdp({
       pwd: (transport.pwd || "").toString().trim()
     }
     : xmppBuildJingleTransportCreds();
+  const dtls = transport && typeof transport === "object"
+    ? {
+      hash: (transport.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
+      value: (transport.fingerprint || transport.value || "").toString().trim(),
+      setup: (transport.setup || "").toString().trim().toLowerCase()
+    }
+    : { hash: "sha-256", value: "", setup: "" };
   const fallbackCreds = (!creds.ufrag || !creds.pwd) ? xmppBuildJingleTransportCreds() : null;
   const ufrag = creds.ufrag || fallbackCreds?.ufrag || "u0";
   const pwd = creds.pwd || fallbackCreds?.pwd || "p0";
+  const fingerprintValue = dtls.value || xmppGeneratePseudoDtlsFingerprint();
+  const fingerprintHash = dtls.hash || "sha-256";
+  const fallbackSetup = type === "offer" ? "actpass" : "passive";
   const sessionId = Math.floor((Date.now() % 2147483647) || 1);
   const lines = [
     "v=0",
@@ -4538,6 +4613,17 @@ function xmppBuildMinimalJingleSdp({
         pwd: (contentTransport.pwd || "").toString().trim() || pwd
       }
       : { ufrag, pwd };
+    const dtlsForContent = contentTransport
+      ? {
+        hash: (contentTransport.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
+        value: (contentTransport.fingerprint || contentTransport.value || "").toString().trim() || fingerprintValue,
+        setup: (contentTransport.setup || "").toString().trim().toLowerCase() || dtls.setup || fallbackSetup
+      }
+      : {
+        hash: fingerprintHash,
+        value: fingerprintValue,
+        setup: dtls.setup || fallbackSetup
+      };
     const payloads = content.payloadTypes.length > 0
       ? content.payloadTypes
       : [{
@@ -4555,9 +4641,9 @@ function xmppBuildMinimalJingleSdp({
       `a=ice-ufrag:${credsForContent.ufrag}`,
       `a=ice-pwd:${credsForContent.pwd}`,
       "a=ice-options:trickle",
-      "a=fingerprint:sha-256 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF",
-      `a=setup:${(contentTransport?.setup || "").toString().trim().toLowerCase() || (type === "offer" ? "actpass" : "passive")}`,
-      `a=mid:${index}`,
+      `a=fingerprint:${dtlsForContent.hash} ${dtlsForContent.value}`,
+      `a=setup:${dtlsForContent.setup}`,
+      `a=mid:${content.name || index}`,
       `a=${sdpDirection}`,
       "a=rtcp-mux"
     );
@@ -4781,7 +4867,7 @@ async function xmppApplyRemoteIceCandidatesForSession(sessionId, candidates = []
   let applied = 0;
   let queued = 0;
   for (let i = 0; i < list.length; i += 1) {
-    const rtcCandidate = xmppJingleCandidateToRtcInit(list[i], i);
+    const rtcCandidate = xmppJingleCandidateToRtcInit(list[i], i, { session });
     try {
       await pc.addIceCandidate(rtcCandidate);
       applied += 1;
@@ -4932,7 +5018,8 @@ function xmppQueueTransportInfoGatherAndSend(peerJid, sessionId, { force = false
 function xmppBuildJingleRtpContent(builder, {
   media = "audio",
   creator = "initiator",
-  transport = null
+  transport = null,
+  dtls = null
 } = {}) {
   const mediaType = media === "video" ? "video" : "audio";
   builder
@@ -4952,13 +5039,30 @@ function xmppBuildJingleRtpContent(builder, {
   const fallbackCreds = (!creds.ufrag || !creds.pwd) ? xmppBuildJingleTransportCreds() : null;
   const ufrag = creds.ufrag || fallbackCreds?.ufrag || "";
   const pwd = creds.pwd || fallbackCreds?.pwd || "";
+  const dtlsInfo = dtls && typeof dtls === "object"
+    ? {
+      hash: (dtls.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
+      value: (dtls.value || "").toString().trim() || xmppGeneratePseudoDtlsFingerprint(),
+      setup: (dtls.setup || "actpass").toString().trim().toLowerCase() || "actpass"
+    }
+    : {
+      hash: "sha-256",
+      value: xmppGeneratePseudoDtlsFingerprint(),
+      setup: "actpass"
+    };
   builder
     .up()
     .c("transport", {
       xmlns: XMPP_JINGLE_ICE_UDP_NAMESPACE,
       ufrag,
       pwd
-    })
+    });
+  builder.c("fingerprint", {
+    xmlns: "urn:xmpp:jingle:apps:dtls:0",
+    hash: dtlsInfo.hash,
+    setup: dtlsInfo.setup
+  }).t(dtlsInfo.value).up();
+  builder
     .up()
     .up();
   return builder;
@@ -5091,6 +5195,7 @@ function xmppSendJingleSessionInitiate(peerJid, sessionId, {
     ? sessionEntry.localTransport
     : xmppBuildJingleTransportCreds();
   if (sessionEntry) sessionEntry.localTransport = localTransport;
+  const localDtls = xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "actpass" });
   const wanted = Array.isArray(media) ? media : ["audio", "video"];
   const normalizedMedia = [...new Set(
     wanted
@@ -5106,7 +5211,8 @@ function xmppSendJingleSessionInitiate(peerJid, sessionId, {
   medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
     media: mediaType,
     creator: "initiator",
-    transport: localTransport
+    transport: localTransport,
+    dtls: localDtls
   }));
   xmppConnection.sendIQ(
     iq,
@@ -5148,6 +5254,7 @@ function xmppSendJingleSessionAccept(peerJid, sessionId, {
     ? sessionEntry.localTransport
     : xmppBuildJingleTransportCreds();
   if (sessionEntry) sessionEntry.localTransport = localTransport;
+  const localDtls = xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "active" });
   const wanted = Array.isArray(media) ? media : ["audio", "video"];
   const normalizedMedia = [...new Set(
     wanted
@@ -5163,7 +5270,8 @@ function xmppSendJingleSessionAccept(peerJid, sessionId, {
   medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
     media: mediaType,
     creator: "responder",
-    transport: localTransport
+    transport: localTransport,
+    dtls: localDtls
   }));
   xmppConnection.sendIQ(
     iq,
@@ -5270,6 +5378,7 @@ function parseXmppJingleIq(stanza) {
           ufrag: (transportNode.getAttribute("ufrag") || "").toString().trim(),
           pwd: (transportNode.getAttribute("pwd") || "").toString().trim(),
           setup: (fingerprintNode?.getAttribute("setup") || "").toString().trim().toLowerCase(),
+          hash: (fingerprintNode?.getAttribute("hash") || "sha-256").toString().trim().toLowerCase(),
           fingerprint: xmppNodeText(fingerprintNode).trim(),
           candidateCount: transportNode.getElementsByTagName("candidate").length
         }
@@ -5291,25 +5400,42 @@ function parseXmppJingleIq(stanza) {
   const infoNode = [...jingle.childNodes]
     .find((node) => node?.nodeType === 1 && xmppNodeHasXmlns(node, XMPP_JINGLE_RTP_INFO_NAMESPACE)) || null;
   const info = infoNode ? (infoNode.nodeName || "").toString().trim().toLowerCase() : "";
-  const transportUpdates = [...jingle.getElementsByTagName("transport")]
-    .filter((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_ICE_UDP_NAMESPACE))
-    .map((node) => {
-      const candidates = [...node.getElementsByTagName("candidate")].map((candidate) => ({
+  const transportUpdates = [...jingle.getElementsByTagName("content")]
+    .map((contentNode) => {
+      const transportNode = [...contentNode.getElementsByTagName("transport")]
+        .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_ICE_UDP_NAMESPACE)) || null;
+      if (!transportNode) return null;
+      const contentName = (contentNode.getAttribute("name") || "").toString().trim();
+      const describedMedia = [...contentNode.getElementsByTagName("description")]
+        .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_RTP_NAMESPACE))
+        ?.getAttribute("media") || "";
+      const media = (describedMedia || "").toString().trim().toLowerCase()
+        || (contentName.toLowerCase().includes("video") ? "video" : (contentName.toLowerCase().includes("audio") ? "audio" : ""));
+      const fingerprintNode = [...transportNode.getElementsByTagName("fingerprint")][0] || null;
+      const candidates = [...transportNode.getElementsByTagName("candidate")].map((candidate) => ({
         foundation: (candidate.getAttribute("foundation") || "").toString().trim(),
         component: Number(candidate.getAttribute("component") || 0) || 0,
         protocol: (candidate.getAttribute("protocol") || "").toString().trim().toLowerCase(),
         priority: Number(candidate.getAttribute("priority") || 0) || 0,
         ip: (candidate.getAttribute("ip") || "").toString().trim(),
         port: Number(candidate.getAttribute("port") || 0) || 0,
-        type: (candidate.getAttribute("type") || "").toString().trim().toLowerCase()
+        type: (candidate.getAttribute("type") || "").toString().trim().toLowerCase(),
+        contentName,
+        media: (media || "").toString().trim().toLowerCase()
       }));
       return {
-        ufrag: (node.getAttribute("ufrag") || "").toString().trim(),
-        pwd: (node.getAttribute("pwd") || "").toString().trim(),
+        contentName,
+        media: (media || "").toString().trim().toLowerCase(),
+        ufrag: (transportNode.getAttribute("ufrag") || "").toString().trim(),
+        pwd: (transportNode.getAttribute("pwd") || "").toString().trim(),
+        setup: (fingerprintNode?.getAttribute("setup") || "").toString().trim().toLowerCase(),
+        hash: (fingerprintNode?.getAttribute("hash") || "sha-256").toString().trim().toLowerCase(),
+        fingerprint: xmppNodeText(fingerprintNode).trim(),
         candidateCount: candidates.length,
         candidates
       };
-    });
+    })
+    .filter(Boolean);
   let reason = "";
   let reasonText = "";
   if (reasonNode) {
@@ -5371,6 +5497,8 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       id,
       peerJid: peer,
       direction: "incoming",
+      localJingleRole: "responder",
+      remoteJingleRole: "initiator",
       state: "proposed",
       createdAt: Date.now(),
       media: Array.isArray(actionPayload.media) ? actionPayload.media : []
@@ -5521,6 +5649,8 @@ async function launchNativeXmppConversationCall({ screenShare = false } = {}) {
       id: sessionId,
       peerJid: peerBare,
       direction: "outgoing",
+      localJingleRole: "initiator",
+      remoteJingleRole: "responder",
       state: "proposed",
       createdAt: Date.now(),
       media: screenShare ? ["audio", "video"] : ["audio", "video"],
@@ -10480,7 +10610,10 @@ function connectRelaySocket({ force = false } = {}) {
             if (remoteTransport?.ufrag || remoteTransport?.pwd) {
               session.remoteTransport = {
                 ufrag: remoteTransport.ufrag || "",
-                pwd: remoteTransport.pwd || ""
+                pwd: remoteTransport.pwd || "",
+                setup: remoteTransport.setup || "",
+                hash: remoteTransport.hash || "sha-256",
+                fingerprint: remoteTransport.fingerprint || ""
               };
             }
             xmppEnsureSessionPeerConnection(jingle.sid, {
@@ -10514,7 +10647,10 @@ function connectRelaySocket({ force = false } = {}) {
             if (remoteTransport?.ufrag || remoteTransport?.pwd) {
               session.remoteTransport = {
                 ufrag: remoteTransport.ufrag || "",
-                pwd: remoteTransport.pwd || ""
+                pwd: remoteTransport.pwd || "",
+                setup: remoteTransport.setup || "",
+                hash: remoteTransport.hash || "sha-256",
+                fingerprint: remoteTransport.fingerprint || ""
               };
             }
             xmppEnsureSessionPeerConnection(jingle.sid, {
@@ -10636,7 +10772,10 @@ function connectRelaySocket({ force = false } = {}) {
             if (firstTransport?.ufrag || firstTransport?.pwd) {
               session.remoteTransport = {
                 ufrag: firstTransport.ufrag || "",
-                pwd: firstTransport.pwd || ""
+                pwd: firstTransport.pwd || "",
+                setup: firstTransport.setup || "",
+                hash: firstTransport.hash || "sha-256",
+                fingerprint: firstTransport.fingerprint || ""
               };
             }
             const candidateCount = Array.isArray(jingle.transportUpdates)

@@ -79,6 +79,7 @@
 - [done] Added best-effort Jingle-to-minimal-SDP mapping for `session-initiate/session-accept` to prime remote descriptions and flush ICE queues.
 - [done] Added per-content Jingle RTP payload mapping (codec/clock/channels/fmtp) into SDP priming for improved interop.
 - [done] Added Jingle sender-role direction mapping and `content-modify`/`content-remove` session handling for lifecycle consistency.
+- [done] Added DTLS fingerprint/setup propagation in Jingle session content and content-name-aware ICE candidate mapping (`sdpMid`/`sdpMLineIndex`).
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
@@ -378,3 +379,6 @@ The underlying utility library I wrote to wrap around PipeWire video is here: ht
 - Virtual spaces/rooms users can visit and decorate. VRChat/REALITY/(matrix.org's)Third Room/Mozilla Hubs/Immerse. Maybe actual support for Mozilla Hubs or custom XMPP-based thing, lol?
 - Some Twitter/Facebook/Instagram-like experiences
 - YouTube/Peertube/FOSDEM/media.ccc.de-like experience
+- RSS integration
+- Some way to have upcoming events in spaces, rich text/Markdown/HTML formatted
+- Take more inspiration from https://xmpp.org/software/movim/ https://movim.eu

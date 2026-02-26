@@ -45,7 +45,7 @@ Status labels:
 | XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, `session-info`, `transport-info`, `content-modify`, `content-remove`, and `session-terminate`, with per-session peer-connection candidate apply/queue behavior; full media transport/session negotiation is still incomplete. |
 | XEP-0167 | Jingle RTP Sessions | Partial | RTP content/session-info signaling scaffolding is now handled (`session-initiate`, `session-accept`, `session-info/ringing`), while full codec/SDP/WebRTC media negotiation remains incomplete. |
 | XEP-0353 | Jingle Message Initiation | Partial | DM call signaling scaffolding now handles `propose/proceed/ringing/reject/retract` with interoperability checks and fallback; full native media session wiring is still incomplete. |
-| XEP-0320 | Use of DTLS-SRTP in Jingle Sessions | Planned | Required for secure media transport with browser/WebRTC-compatible call flows. |
+| XEP-0320 | Use of DTLS-SRTP in Jingle Sessions | Partial | DTLS fingerprint/setup metadata is now parsed/propagated in Jingle signaling and SDP priming scaffolding; full secure media establishment across clients is still incomplete. |
 | XEP-0503 (Draft) | Spaces | Planned | Tracked as the target for Discord-like server-space hierarchy once implementation and server compatibility work lands. |
 | Draft (vendor) | Profile Decor / Nameplates (`urn:shitcord67:profile:decor:0`) | Planned | Candidate extension for nameplate URLs, role-color hints, and client platform flags. See `XEP_DRAFT_NAMEPLATES.md`. |
 
