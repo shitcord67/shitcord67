@@ -4178,6 +4178,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   remoteStreams.forEach((stream, index) => {
     const tile = document.createElement("div");
     tile.className = "native-call-surface__tile";
+    if (session?.remoteMuted) tile.classList.add("native-call-surface__tile--muted");
     const video = document.createElement("video");
     video.className = "native-call-surface__video";
     video.autoplay = true;
@@ -4185,7 +4186,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
     video.srcObject = stream;
     const label = document.createElement("span");
     label.className = "native-call-surface__label";
-    label.textContent = index === 0 ? (peer || "Peer") : `${peer || "Peer"} ${index + 1}`;
+    const baseLabel = index === 0 ? (peer || "Peer") : `${peer || "Peer"} ${index + 1}`;
+    label.textContent = session?.remoteMuted ? `${baseLabel} · mic off` : baseLabel;
     tile.appendChild(video);
     tile.appendChild(label);
     grid.appendChild(tile);
@@ -5158,6 +5160,29 @@ function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true) {
   if (kind === "audio" && snapshot.session?.peerJid) {
     xmppSendJingleSessionInfo(snapshot.session.peerJid, sid, { info: enabled ? "unmute" : "mute" });
   }
+  if (snapshot.session?.peerJid) {
+    const localRole = (snapshot.session.localJingleRole || (snapshot.session.direction === "outgoing" ? "initiator" : "responder"))
+      .toString()
+      .trim()
+      .toLowerCase() === "initiator"
+      ? "initiator"
+      : "responder";
+    const senders = xmppJingleSendersForLocalEnabled(enabled, localRole);
+    const contents = Array.isArray(snapshot.session.remoteContents) && snapshot.session.remoteContents.length > 0
+      ? snapshot.session.remoteContents
+      : xmppCallSessionMediaList(snapshot.session).map((mediaType, index) => ({ name: `${mediaType}${index}`, media: mediaType }));
+    const updates = contents
+      .filter((entry) => (entry.media || "").toString().trim().toLowerCase() === kind)
+      .map((entry, index) => ({
+        name: (entry.name || `${kind}${index}`).toString().trim(),
+        media: kind,
+        senders,
+        creator: localRole
+      }));
+    if (updates.length > 0) {
+      xmppSendJingleContentModify(snapshot.session.peerJid, sid, updates);
+    }
+  }
   if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   return true;
 }
@@ -5455,6 +5480,11 @@ function xmppJingleSendersFromSdpDirection(direction = "", localRole = "responde
   if (normalized === "sendonly") return role === "initiator" ? "initiator" : "responder";
   if (normalized === "recvonly") return role === "initiator" ? "responder" : "initiator";
   return "both";
+}
+
+function xmppJingleSendersForLocalEnabled(enabled = true, localRole = "initiator") {
+  if (enabled) return "both";
+  return localRole === "initiator" ? "responder" : "initiator";
 }
 
 function xmppParseSdpMediaSections(sdp = "") {
@@ -6471,6 +6501,47 @@ function xmppSendJingleSessionInfo(peerJid, sessionId, {
         error: trimXmppRaw(xmppSerializePayload(errorStanza))
       });
       if (typeof onError === "function") onError(errorStanza);
+    },
+    9000
+  );
+  return true;
+}
+
+function xmppSendJingleContentModify(peerJid, sessionId, contents = []) {
+  const to = xmppBareJid(peerJid);
+  const sid = (sessionId || "").toString().trim();
+  if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
+  const normalizedContents = Array.isArray(contents) ? contents.filter((entry) => entry && entry.media) : [];
+  if (normalizedContents.length === 0) return false;
+  const iq = globalThis.$iq({ type: "set", to })
+    .c("jingle", {
+      xmlns: XMPP_JINGLE_NAMESPACE,
+      action: "content-modify",
+      sid
+    });
+  normalizedContents.forEach((content, index) => {
+    const media = (content.media || "").toString().trim().toLowerCase();
+    if (media !== "audio" && media !== "video") return;
+    const name = (content.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+    const senders = (content.senders || "both").toString().trim().toLowerCase() || "both";
+    const creator = (content.creator || "initiator").toString().trim().toLowerCase() || "initiator";
+    iq.c("content", { creator, name, senders })
+      .c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media })
+      .up()
+      .up();
+  });
+  iq.up();
+  xmppConnection.sendIQ(
+    iq,
+    () => {
+      addXmppDebugEvent("iq", "Sent XMPP jingle content-modify", { to, sid, count: normalizedContents.length });
+    },
+    (errorStanza) => {
+      addXmppDebugEvent("error", "XMPP jingle content-modify failed", {
+        to,
+        sid,
+        error: trimXmppRaw(xmppSerializePayload(errorStanza))
+      });
     },
     9000
   );
@@ -12342,8 +12413,11 @@ function connectRelaySocket({ force = false } = {}) {
             if (info) session.state = `session-info-${info}`;
             if (info === "ringing") {
               showToast("XMPP session is ringing.");
+            } else if (info === "mute") {
+              session.remoteMuted = true;
             } else if (info) {
               showToast(`XMPP session info: ${info}.`);
+              if (info === "unmute") session.remoteMuted = false;
             }
             if (addSystemDmMessageByPeerJid(fromBare, `XMPP session-info (${jingle.sid.slice(0, 8)}): ${info || "unknown"}.`)) {
               refreshDmUiForPeerJid(fromBare);
