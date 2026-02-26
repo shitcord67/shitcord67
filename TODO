@@ -81,6 +81,7 @@
 - [done] Added Jingle sender-role direction mapping and `content-modify`/`content-remove` session handling for lifecycle consistency.
 - [done] Added DTLS fingerprint/setup propagation in Jingle session content and content-name-aware ICE candidate mapping (`sdpMid`/`sdpMLineIndex`).
 - [done] Added Jingle RTP feedback/extension/source parsing (`rtcp-fb`, `rtp-hdrext`, `source`, `source-group`) into SDP priming scaffolding.
+- [done] Added Jingle `transport-replace` handling with peer-connection re-prime and replacement candidate apply flow.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
@@ -388,3 +389,8 @@ The underlying utility library I wrote to wrap around PipeWire video is here: ht
 - Provide some experience for young users like Zervo Android app com.planet.pinponapp
 - Guilds could have a shared virtual room for decoration, similar to users
 - There could be quests for guilds that users can contribute to, something like a MMORGP-like experience & leaderboard
+- Way to send messages to all users of shitcord67 from me
+- Local P2P communication similar to Briar 
+- Discover other users of shitcord67, like Nintendo 3DS Streetpass and Spotpass
+- Actual integration for Nintendo protocols
+- Dating & random matchups for users that want it... Hiding some info or matchup-specific profiles. Maybe also matchups just for some games and then only showing info related to that game?

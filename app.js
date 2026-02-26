@@ -4778,13 +4778,13 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
   const session = xmppCallSessionById.get(sid) || null;
-  const entry = xmppEnsureSessionPeerConnection(sid, {
+  let entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid,
     media,
     createLocalOffer: remoteType === "answer"
   });
   if (!entry?.pc) return false;
-  const pc = entry.pc;
+  let pc = entry.pc;
   const normalizedRemoteType = (remoteType || "offer").toString().trim().toLowerCase() === "answer" ? "answer" : "offer";
   if (normalizedRemoteType === "answer" && !pc.localDescription) {
     try {
@@ -4803,16 +4803,46 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
     type: normalizedRemoteType,
     localRole
   });
-  try {
+  const applyRemoteDescription = async () => {
     await pc.setRemoteDescription({ type: normalizedRemoteType, sdp });
+  };
+  try {
+    if (normalizedRemoteType === "offer" && pc.signalingState !== "stable") {
+      try {
+        await pc.setLocalDescription({ type: "rollback" });
+      } catch {
+        // Continue with direct set attempt.
+      }
+    }
+    await applyRemoteDescription();
   } catch (error) {
     addXmppDebugEvent("error", "Failed to set remote description from jingle mapping", {
       sid,
       peer: xmppBareJid(peerJid || ""),
       remoteType: normalizedRemoteType,
+      signalingState: pc.signalingState || "",
       error: String(error?.message || error)
     });
-    return false;
+    try {
+      xmppCloseSessionPeerConnection(sid);
+      const retryEntry = xmppEnsureSessionPeerConnection(sid, {
+        peerJid,
+        media: Array.isArray(media) && media.length > 0 ? media : xmppCallSessionMediaList(session),
+        createLocalOffer: normalizedRemoteType === "answer"
+      });
+      if (!retryEntry?.pc) return false;
+      await retryEntry.pc.setRemoteDescription({ type: normalizedRemoteType, sdp });
+      entry = retryEntry;
+      pc = retryEntry.pc;
+    } catch (retryError) {
+      addXmppDebugEvent("error", "Retry failed setting remote description from jingle mapping", {
+        sid,
+        peer: xmppBareJid(peerJid || ""),
+        remoteType: normalizedRemoteType,
+        error: String(retryError?.message || retryError)
+      });
+      return false;
+    }
   }
   if (normalizedRemoteType === "offer" && !pc.localDescription) {
     try {
@@ -10892,6 +10922,56 @@ function connectRelaySocket({ force = false } = {}) {
               from: fromBare,
               sid: jingle.sid,
               removedCount: removeTargets.length
+            });
+            return true;
+          }
+          if (jingle.action === "transport-replace") {
+            const firstTransport = Array.isArray(jingle.transportUpdates) ? jingle.transportUpdates[0] : null;
+            if (firstTransport?.ufrag || firstTransport?.pwd) {
+              session.remoteTransport = {
+                ufrag: firstTransport.ufrag || "",
+                pwd: firstTransport.pwd || "",
+                setup: firstTransport.setup || "",
+                hash: firstTransport.hash || "sha-256",
+                fingerprint: firstTransport.fingerprint || ""
+              };
+            }
+            const replacementCandidates = Array.isArray(jingle.transportUpdates)
+              ? jingle.transportUpdates.flatMap((entry) => Array.isArray(entry?.candidates) ? entry.candidates : [])
+              : [];
+            session.remoteCandidates = replacementCandidates;
+            session.state = "transport-replace-received";
+            void xmppPrimePeerConnectionFromJingle(jingle.sid, {
+              peerJid: fromBare,
+              media: session.media,
+              remoteContents: Array.isArray(jingle.contents) && jingle.contents.length > 0
+                ? jingle.contents
+                : (Array.isArray(session.remoteContents) ? session.remoteContents : []),
+              remoteTransport: session.remoteTransport || null,
+              remoteType: "offer",
+              localRole: session.localJingleRole || "responder"
+            }).then(() => {
+              if (replacementCandidates.length > 0) {
+                return xmppApplyRemoteIceCandidatesForSession(jingle.sid, replacementCandidates);
+              }
+              return { attempted: 0, applied: 0, queued: 0 };
+            }).then((applyResult) => {
+              addXmppDebugEvent("runtime", "Applied transport-replace candidates", {
+                sid: jingle.sid,
+                attempted: applyResult?.attempted || 0,
+                applied: applyResult?.applied || 0,
+                queued: applyResult?.queued || 0
+              });
+            });
+            xmppQueueTransportInfoGatherAndSend(fromBare, jingle.sid, { force: true });
+            showToast("XMPP transport replaced for active session.");
+            if (addSystemDmMessageByPeerJid(fromBare, `XMPP transport-replace (${jingle.sid.slice(0, 8)}).`)) {
+              refreshDmUiForPeerJid(fromBare);
+            }
+            addXmppDebugEvent("iq", "Received XMPP jingle transport-replace", {
+              from: fromBare,
+              sid: jingle.sid,
+              candidateCount: replacementCandidates.length
             });
             return true;
           }

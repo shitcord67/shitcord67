@@ -305,6 +305,7 @@ Notes:
 - Jingle DTLS metadata is now propagated through parsed content transport (`fingerprint`, `hash`, `setup`) and reused in SDP priming/outgoing session content where available.
 - Incoming ICE candidates now map `sdpMid`/`sdpMLineIndex` using Jingle content names/media instead of fixed index `0`.
 - Jingle RTP description parsing/SDP priming now includes `rtcp-fb`, `rtp-hdrext`, `source`, and `source-group` fields for richer cross-client media negotiation scaffolding.
+- Incoming Jingle `transport-replace` actions are now handled with transport refresh, peer-connection re-prime, candidate re-apply, and local transport update response.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
