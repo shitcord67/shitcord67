@@ -1480,6 +1480,8 @@ const xmppCallReconnectAttemptBySessionId = new Map();
 const webCallInviteSeenTokens = new Set();
 const webCallInvitePendingByToken = new Map();
 const xmppCallInviteTokenById = new Map();
+const xmppCallSpeakingStateBySessionId = new Map();
+let xmppCallSpeakingAudioContext = null;
 let webCallRingtoneContext = null;
 let webCallRingtoneInterval = null;
 let webCallRingtoneToken = "";
@@ -4916,7 +4918,8 @@ function openWebCallLightbox(url, {
         screenShare: Boolean(screenShare),
         fromLabel: fromLabel || "",
         incoming: Boolean(incoming),
-        startedAt: Date.now()
+        startedAt: Date.now(),
+        url
       }
     : null;
   openConferenceLightbox(url, { title });
@@ -4928,6 +4931,118 @@ function openWebCallLightbox(url, {
       refreshConversationUi(conv);
       saveState();
     }
+  }
+}
+
+function ensureXmppCallSpeakingContext() {
+  if (xmppCallSpeakingAudioContext) return xmppCallSpeakingAudioContext;
+  try {
+    xmppCallSpeakingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    xmppCallSpeakingAudioContext = null;
+  }
+  return xmppCallSpeakingAudioContext;
+}
+
+function xmppAnalyzeSpeakingLevel(analyser, buffer) {
+  if (!analyser || !buffer) return 0;
+  analyser.getByteTimeDomainData(buffer);
+  let sum = 0;
+  for (let i = 0; i < buffer.length; i += 1) {
+    const centered = (buffer[i] - 128) / 128;
+    sum += centered * centered;
+  }
+  return Math.sqrt(sum / buffer.length);
+}
+
+function updateXmppCallSpeakingUi(sessionId, speaking = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const bar = document.querySelector(`.call-bar[data-session-id="${sid}"]`);
+  if (!bar) return;
+  const localEl = bar.querySelector("[data-call-speaker=\"local\"]");
+  if (localEl) localEl.classList.toggle("call-avatar--speaking", Boolean(speaking.local));
+  if (speaking.remote && typeof speaking.remote === "object") {
+    Object.entries(speaking.remote).forEach(([key, value]) => {
+      const target = bar.querySelector(`[data-call-speaker="${key}"]`);
+      if (target) target.classList.toggle("call-avatar--speaking", Boolean(value));
+    });
+  }
+}
+
+function ensureXmppCallSpeakingMonitor(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  if (xmppCallSpeakingStateBySessionId.has(sid)) return;
+  const session = xmppCallSessionById.get(sid) || null;
+  if (!session) return;
+  const ctx = ensureXmppCallSpeakingContext();
+  if (!ctx) return;
+  void ctx.resume().catch(() => null);
+  const state = {
+    local: null,
+    remote: null,
+    peerKey: xmppBareJid(session.peerJid || "") || "peer",
+    rafId: 0
+  };
+  const buildAnalyzer = (stream) => {
+    if (!stream || stream.getAudioTracks().length === 0) return null;
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    const source = ctx.createMediaStreamSource(stream);
+    source.connect(analyser);
+    return { analyser, source, buffer: new Uint8Array(analyser.fftSize) };
+  };
+  const refreshAnalyzers = () => {
+    const localStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+    if (!state.local || state.local.stream !== localStream) {
+      if (state.local?.source) state.local.source.disconnect();
+      const analyzer = buildAnalyzer(localStream);
+      state.local = analyzer ? { stream: localStream, ...analyzer } : null;
+    }
+    const remoteStreams = xmppRemoteStreamListForSession(sid);
+    const primaryRemote = remoteStreams[0] || null;
+    if (!state.remote || state.remote.stream !== primaryRemote) {
+      if (state.remote?.source) state.remote.source.disconnect();
+      const analyzer = buildAnalyzer(primaryRemote);
+      state.remote = analyzer ? { stream: primaryRemote, ...analyzer } : null;
+    }
+  };
+  const tick = () => {
+    refreshAnalyzers();
+    const localLevel = state.local?.analyser ? xmppAnalyzeSpeakingLevel(state.local.analyser, state.local.buffer) : 0;
+    const remoteLevel = state.remote?.analyser ? xmppAnalyzeSpeakingLevel(state.remote.analyser, state.remote.buffer) : 0;
+    const speaking = {
+      local: localLevel > 0.05,
+      remote: { [state.peerKey]: remoteLevel > 0.05 }
+    };
+    updateXmppCallSpeakingUi(sid, speaking);
+    state.rafId = window.requestAnimationFrame(tick);
+  };
+  state.rafId = window.requestAnimationFrame(tick);
+  xmppCallSpeakingStateBySessionId.set(sid, state);
+}
+
+function stopXmppCallSpeakingMonitor(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const state = xmppCallSpeakingStateBySessionId.get(sid);
+  if (!state) return;
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  if (state.local?.source) state.local.source.disconnect();
+  if (state.remote?.source) state.remote.source.disconnect();
+  xmppCallSpeakingStateBySessionId.delete(sid);
+}
+
+function refreshCallBarForPeer(peerJid = "") {
+  const peerBare = xmppBareJid(peerJid || "");
+  if (!peerBare) return;
+  const conversation = getActiveConversation();
+  if (!conversation || conversation.type !== "dm") return;
+  const current = getCurrentAccount();
+  const activePeer = xmppBareJid(xmppPeerJidForDmThread(conversation.thread, current));
+  if (activePeer && activePeer === peerBare) {
+    renderMessages();
   }
 }
 
@@ -5091,6 +5206,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
     if (addSystemDmMessageByPeerJid(peerBare, `Accepted XMPP call proposal (${sid.slice(0, 8)}). Waiting for session-initiate.`)) {
       refreshDmUiForPeerJid(peerBare);
     }
+    refreshCallBarForPeer(peerBare);
   }
   return sent;
 }
@@ -5522,6 +5638,7 @@ function forgetXmppCallSession(sessionId = "") {
   xmppCallIceGatherInFlightBySessionId.delete(id);
   xmppStopLocalMediaStreamForSession(id);
   xmppCallRemoteStreamsBySessionId.delete(id);
+  stopXmppCallSpeakingMonitor(id);
   xmppCloseSessionPeerConnection(id);
   clearXmppCallSignalTimeout(id);
   xmppCallSessionById.delete(id);
@@ -7918,6 +8035,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       peerLabel: peer,
       screenShare: false
     });
+    refreshCallBarForPeer(peer);
     showToast(`Incoming XMPP call from ${peer}. Use /callxmpp accept ${id.slice(0, 8)} or /callxmpp reject ${id.slice(0, 8)}.`);
     if (addSystemDmMessageByPeerJid(peer, `Incoming XMPP call proposal (${id.slice(0, 8)}). Use /callxmpp accept ${id.slice(0, 8)} or /callxmpp reject ${id.slice(0, 8)}.`)) {
       refreshDmUiForPeerJid(peer);
@@ -8121,6 +8239,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     xmppLatestOutgoingCallSessionByPeer.set(peerBare, sessionId);
     showToast("Sent XMPP call proposal. Waiting for peer response...");
     openNativeXmppCallSurface(sessionId);
+    refreshCallBarForPeer(peerBare);
     if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP call proposal (${sessionId.slice(0, 8)}). Waiting for peer response.`)) {
       refreshDmUiForPeerJid(peerBare);
     }
@@ -11958,6 +12077,8 @@ function teardownXmppConnection() {
   xmppCallLocalMediaStreamBySessionId.forEach((_, sid) => xmppStopLocalMediaStreamForSession(sid));
   xmppCallLocalMediaStreamBySessionId.clear();
   xmppCallLocalAuxStreamsBySessionId.clear();
+  xmppCallSpeakingStateBySessionId.forEach((_, sid) => stopXmppCallSpeakingMonitor(sid));
+  xmppCallSpeakingStateBySessionId.clear();
   xmppCallRemoteStreamsBySessionId.clear();
   xmppActiveNativeCallSessionId = "";
   xmppCallPendingReprimeBySessionId.forEach((entry) => {
@@ -30588,6 +30709,122 @@ function renderMessages() {
     divider.appendChild(jumpBtn);
     ui.messageList.appendChild(divider);
   }
+
+  const renderCallBar = () => {
+    if (!conversation) return;
+    const current = getCurrentAccount();
+    const callBar = document.createElement("section");
+    callBar.className = "call-bar";
+    const avatars = document.createElement("div");
+    avatars.className = "call-bar__avatars";
+    const details = document.createElement("div");
+    details.className = "call-bar__details";
+    const title = document.createElement("strong");
+    const meta = document.createElement("div");
+    meta.className = "call-bar__meta";
+    const actions = document.createElement("div");
+    actions.className = "call-bar__actions";
+
+    let sessionId = "";
+    let peerBare = "";
+    let statusText = "";
+    let labelText = "";
+    let openAction = null;
+    let endAction = null;
+    let screenShare = false;
+
+    if (conversation.type === "dm" && current) {
+      const peerAccount = dmPeerAccountForThread(dmThread, current.id);
+      const peerJid = xmppPeerJidForDmThread(dmThread, current);
+      peerBare = xmppBareJid(peerJid);
+      const session = [...xmppCallSessionById.values()]
+        .filter((entry) => xmppBareJid(entry?.peerJid || "") === peerBare)
+        .sort((a, b) => (Number(b?.createdAt) || 0) - (Number(a?.createdAt) || 0))[0];
+      if (session) {
+        sessionId = session.id || "";
+        screenShare = Boolean(session.screenShare);
+        labelText = screenShare ? "Native screen-share call" : "Native voice/video call";
+        statusText = (session.state || "starting").toString();
+        openAction = () => openNativeXmppCallSurface(sessionId);
+        endAction = () => {
+          if (peerBare) {
+            xmppSendJingleSessionTerminate(peerBare, sessionId, {
+              reason: "success",
+              text: "Ended from call bar"
+            });
+          }
+          forgetXmppCallSession(sessionId);
+          closeMediaLightbox();
+        };
+        ensureXmppCallSpeakingMonitor(sessionId);
+      }
+      if (!session && activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
+        labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";
+        statusText = activeWebCallLightbox.incoming ? "in progress" : "starting";
+        openAction = () => openWebCallLightbox(activeWebCallLightbox.url || conversationCallUrl(conversation, {}), {
+          conversation,
+          screenShare: Boolean(activeWebCallLightbox.screenShare),
+          incoming: Boolean(activeWebCallLightbox.incoming),
+          fromLabel: activeWebCallLightbox.fromLabel || ""
+        });
+      }
+      if (!labelText) return;
+      const localAvatar = document.createElement("div");
+      localAvatar.className = "call-avatar call-avatar--local";
+      localAvatar.dataset.callSpeaker = "local";
+      if (current) applyAvatarStyle(localAvatar, current, null);
+      const peerAvatar = document.createElement("div");
+      peerAvatar.className = "call-avatar";
+      peerAvatar.dataset.callSpeaker = peerBare || "peer";
+      if (peerAccount) applyAvatarStyle(peerAvatar, peerAccount, null);
+      avatars.appendChild(localAvatar);
+      avatars.appendChild(peerAvatar);
+    } else if (activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
+      labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";
+      statusText = activeWebCallLightbox.incoming ? "in progress" : "starting";
+      openAction = () => openWebCallLightbox(activeWebCallLightbox.url || conversationCallUrl(conversation, {}), {
+        conversation,
+        screenShare: Boolean(activeWebCallLightbox.screenShare),
+        incoming: Boolean(activeWebCallLightbox.incoming),
+        fromLabel: activeWebCallLightbox.fromLabel || ""
+      });
+      const localAvatar = document.createElement("div");
+      localAvatar.className = "call-avatar call-avatar--local";
+      localAvatar.dataset.callSpeaker = "local";
+      if (current) applyAvatarStyle(localAvatar, current, null);
+      avatars.appendChild(localAvatar);
+    } else {
+      return;
+    }
+
+    title.textContent = labelText;
+    meta.textContent = statusText ? `Status: ${statusText}` : "";
+    if (openAction) {
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.textContent = "Open";
+      openBtn.addEventListener("click", openAction);
+      actions.appendChild(openBtn);
+    }
+    if (endAction) {
+      const endBtn = document.createElement("button");
+      endBtn.type = "button";
+      endBtn.className = "call-bar__end";
+      endBtn.textContent = "End";
+      endBtn.addEventListener("click", endAction);
+      actions.appendChild(endBtn);
+    }
+
+    details.appendChild(title);
+    if (meta.textContent) details.appendChild(meta);
+    callBar.appendChild(avatars);
+    callBar.appendChild(details);
+    callBar.appendChild(actions);
+    if (sessionId) callBar.dataset.sessionId = sessionId;
+    ui.messageList.appendChild(callBar);
+  };
+
+  renderCallBar();
   if (getPreferences().relayMode === "xmpp") {
     let mamState = null;
     let mamScope = "";
