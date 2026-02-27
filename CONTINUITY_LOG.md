@@ -1578,3 +1578,6 @@ If you think that makes sense
 
 ## 2026-02-27T10:06:27Z
 You may continue. But: why the heck is the sticker picker so different to all the other pickers? I just can't get it to display a rectangular minimum height for stickers. They all get squished to a few pixels in height after a few seconds. PREVENT that. ALL OTHER PICKERS, GIF and Emoji and SVG, etc. don't have this issue! After that you may continue working on the calling functionality. E.g. we don't receive calls from Movim and Movim doesn't receive calsl from us, please focus on fixing this native XMPP call functionality. Also you may rename the buttons in the XMPP interface accordingly. I don't even know why I have two calling buttons, one for web and one for DM?! Can't it be one and then it has a section for legacy onn right-click?
+
+## 2026-02-27T10:58:06Z
+Yeah

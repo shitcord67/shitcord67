@@ -5323,7 +5323,7 @@ function parseXmppCallInviteAction(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
   const actions = ["invite", "accept", "reject", "retract", "left"];
   for (const action of actions) {
-    const node = [...stanza.getElementsByTagName(action)]
+    const node = xmppElementsByLocalName(stanza, action)
       .find((entry) => (
         xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
         || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
@@ -5332,17 +5332,18 @@ function parseXmppCallInviteAction(stanza) {
     const rawId = (node.getAttribute("id") || "").toString().trim();
     const audio = node.getAttribute("audio");
     const video = node.getAttribute("video");
-    const jingleNode = [...node.getElementsByTagName("jingle")]
+    const jingleCandidates = xmppElementsByLocalName(node, "jingle");
+    const jingleNode = jingleCandidates
       .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_NAMESPACE))
-      || [...node.getElementsByTagName("jingle")]
+      || jingleCandidates
         .find((entry) => (
           xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
           || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
         ))
-      || [...node.getElementsByTagName("jingle")]
-        .find((entry) => !(entry.getAttribute("xmlns") || "").toString().trim()) || null;
+      || jingleCandidates
+        .find((entry) => !xmppNodeXmlns(entry)) || null;
     const jingleSid = (jingleNode?.getAttribute("sid") || "").toString().trim();
-    const externals = [...node.getElementsByTagName("external")]
+    const externals = xmppElementsByLocalName(node, "external")
       .filter((entry) => {
         const scoped = xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
           || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX);
@@ -6845,7 +6846,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
   const primaryNamespace = hasV0 && !hasV1
     ? XMPP_JINGLE_MESSAGE_INIT_NAMESPACE
     : XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1;
-  const namespaceList = (!hasV0 && !hasV1 && tag !== "propose")
+  const namespaceList = (!hasV0 && !hasV1)
     ? [primaryNamespace, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE]
     : [primaryNamespace];
   const uniqueNamespaces = [...new Set(namespaceList.filter(Boolean))];
@@ -6878,7 +6879,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     xmlns: uniqueNamespaces.join(","),
     media: tag === "propose" ? (media || []) : []
   });
-  if (!hasV0 && !hasV1 && tag !== "propose" && uniqueNamespaces.length > 1) {
+  if (!hasV0 && !hasV1 && uniqueNamespaces.length > 1) {
     addXmppDebugEvent("call", "Sent Jingle Message compatibility fallback", {
       to,
       action: tag,
@@ -8685,16 +8686,16 @@ function xmppSendJingleSessionTerminate(peerJid, sessionId, {
 
 function parseXmppJingleIq(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const jingle = [...stanza.getElementsByTagName("jingle")]
+  const jingle = xmppElementsByLocalName(stanza, "jingle")
     .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_NAMESPACE)) || null;
   if (!jingle) return null;
   const action = (jingle.getAttribute("action") || "").toString().trim().toLowerCase();
   const sid = (jingle.getAttribute("sid") || "").toString().trim();
   const initiator = xmppBareJid(jingle.getAttribute("initiator") || "");
   const responder = xmppBareJid(jingle.getAttribute("responder") || "");
-  const contents = [...jingle.getElementsByTagName("content")]
+  const contents = xmppElementsByLocalName(jingle, "content")
     .map((contentNode) => {
-      const description = [...contentNode.getElementsByTagName("description")]
+      const description = xmppElementsByLocalName(contentNode, "description")
         .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_RTP_NAMESPACE)) || null;
       const contentName = (contentNode.getAttribute("name") || "").toString().trim();
       const describedMedia = (description?.getAttribute("media") || "").toString().trim().toLowerCase();
@@ -8704,19 +8705,19 @@ function parseXmppJingleIq(stanza) {
       const media = describedMedia === "audio" || describedMedia === "video" ? describedMedia : inferredMedia;
       const senders = (contentNode.getAttribute("senders") || "both").toString().trim().toLowerCase() || "both";
       if (!media && !contentName) return null;
-      const payloadTypes = [...(description ? description.getElementsByTagName("payload-type") : [])]
+      const payloadTypes = [...(description ? xmppElementsByLocalName(description, "payload-type") : [])]
         .map((payloadNode) => ({
           id: Number(payloadNode.getAttribute("id") || 0) || 0,
           name: (payloadNode.getAttribute("name") || "").toString().trim(),
           clockrate: Number(payloadNode.getAttribute("clockrate") || 0) || 0,
           channels: Number(payloadNode.getAttribute("channels") || 0) || 0,
-          rtcpFeedback: [...payloadNode.getElementsByTagName("rtcp-fb")]
+          rtcpFeedback: xmppElementsByLocalName(payloadNode, "rtcp-fb")
             .map((feedbackNode) => ({
               type: (feedbackNode.getAttribute("type") || "").toString().trim().toLowerCase(),
               subtype: (feedbackNode.getAttribute("subtype") || "").toString().trim().toLowerCase()
             }))
             .filter((feedback) => feedback.type),
-          parameters: [...payloadNode.getElementsByTagName("parameter")]
+          parameters: xmppElementsByLocalName(payloadNode, "parameter")
             .map((parameterNode) => ({
               name: (parameterNode.getAttribute("name") || "").toString().trim(),
               value: (parameterNode.getAttribute("value") || "").toString().trim()
@@ -8724,14 +8725,14 @@ function parseXmppJingleIq(stanza) {
             .filter((param) => param.name)
         }))
         .filter((payload) => payload.id > 0);
-      const rtcpFeedback = [...(description ? description.getElementsByTagName("rtcp-fb") : [])]
+      const rtcpFeedback = [...(description ? xmppElementsByLocalName(description, "rtcp-fb") : [])]
         .filter((feedbackNode) => feedbackNode.parentNode === description)
         .map((feedbackNode) => ({
           type: (feedbackNode.getAttribute("type") || "").toString().trim().toLowerCase(),
           subtype: (feedbackNode.getAttribute("subtype") || "").toString().trim().toLowerCase()
         }))
         .filter((feedback) => feedback.type);
-      const extmaps = [...(description ? description.getElementsByTagName("rtp-hdrext") : [])]
+      const extmaps = [...(description ? xmppElementsByLocalName(description, "rtp-hdrext") : [])]
         .map((extNode) => ({
           id: Number(extNode.getAttribute("id") || 0) || 0,
           uri: (extNode.getAttribute("uri") || "").toString().trim(),
@@ -8739,10 +8740,10 @@ function parseXmppJingleIq(stanza) {
           attributes: (extNode.getAttribute("attributes") || "").toString().trim()
         }))
         .filter((ext) => ext.id > 0 && ext.uri);
-      const sources = [...(description ? description.getElementsByTagName("source") : [])]
+      const sources = [...(description ? xmppElementsByLocalName(description, "source") : [])]
         .map((sourceNode) => ({
           ssrc: Number(sourceNode.getAttribute("ssrc") || 0) || 0,
-          parameters: [...sourceNode.getElementsByTagName("parameter")]
+          parameters: xmppElementsByLocalName(sourceNode, "parameter")
             .map((parameterNode) => ({
               name: (parameterNode.getAttribute("name") || "").toString().trim(),
               value: (parameterNode.getAttribute("value") || "").toString().trim()
@@ -8750,18 +8751,18 @@ function parseXmppJingleIq(stanza) {
             .filter((param) => param.name)
         }))
         .filter((source) => source.ssrc > 0);
-      const sourceGroups = [...(description ? description.getElementsByTagName("source-group") : [])]
+      const sourceGroups = [...(description ? xmppElementsByLocalName(description, "source-group") : [])]
         .map((groupNode) => ({
           semantics: (groupNode.getAttribute("semantics") || "").toString().trim().toUpperCase(),
-          sources: [...groupNode.getElementsByTagName("source")]
+          sources: xmppElementsByLocalName(groupNode, "source")
             .map((sourceNode) => Number(sourceNode.getAttribute("ssrc") || 0) || 0)
             .filter((ssrc) => ssrc > 0)
         }))
         .filter((group) => group.semantics && group.sources.length > 0);
-      const transportNode = [...contentNode.getElementsByTagName("transport")]
+      const transportNode = xmppElementsByLocalName(contentNode, "transport")
         .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_ICE_UDP_NAMESPACE)) || null;
       const fingerprintNode = transportNode
-        ? [...transportNode.getElementsByTagName("fingerprint")][0] || null
+        ? xmppElementsByLocalName(transportNode, "fingerprint")[0] || null
         : null;
       const transport = transportNode
         ? {
@@ -8770,7 +8771,7 @@ function parseXmppJingleIq(stanza) {
           setup: (fingerprintNode?.getAttribute("setup") || "").toString().trim().toLowerCase(),
           hash: (fingerprintNode?.getAttribute("hash") || "sha-256").toString().trim().toLowerCase(),
           fingerprint: xmppNodeText(fingerprintNode).trim(),
-          candidateCount: transportNode.getElementsByTagName("candidate").length
+          candidateCount: xmppElementsByLocalName(transportNode, "candidate").length
         }
         : null;
       return {
@@ -8790,23 +8791,23 @@ function parseXmppJingleIq(stanza) {
   const media = contents
     .map((entry) => entry.media)
     .filter((item) => item === "audio" || item === "video");
-  const reasonNode = [...jingle.getElementsByTagName("reason")][0] || null;
+  const reasonNode = xmppElementsByLocalName(jingle, "reason")[0] || null;
   const infoNode = [...jingle.childNodes]
     .find((node) => node?.nodeType === 1 && xmppNodeHasXmlns(node, XMPP_JINGLE_RTP_INFO_NAMESPACE)) || null;
   const info = infoNode ? (infoNode.nodeName || "").toString().trim().toLowerCase() : "";
-  const transportUpdates = [...jingle.getElementsByTagName("content")]
+  const transportUpdates = xmppElementsByLocalName(jingle, "content")
     .map((contentNode) => {
-      const transportNode = [...contentNode.getElementsByTagName("transport")]
+      const transportNode = xmppElementsByLocalName(contentNode, "transport")
         .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_ICE_UDP_NAMESPACE)) || null;
       if (!transportNode) return null;
       const contentName = (contentNode.getAttribute("name") || "").toString().trim();
-      const describedMedia = [...contentNode.getElementsByTagName("description")]
+      const describedMedia = xmppElementsByLocalName(contentNode, "description")
         .find((node) => xmppNodeHasXmlns(node, XMPP_JINGLE_RTP_NAMESPACE))
         ?.getAttribute("media") || "";
       const media = (describedMedia || "").toString().trim().toLowerCase()
         || (contentName.toLowerCase().includes("video") ? "video" : (contentName.toLowerCase().includes("audio") ? "audio" : ""));
-      const fingerprintNode = [...transportNode.getElementsByTagName("fingerprint")][0] || null;
-      const candidates = [...transportNode.getElementsByTagName("candidate")].map((candidate) => ({
+      const fingerprintNode = xmppElementsByLocalName(transportNode, "fingerprint")[0] || null;
+      const candidates = xmppElementsByLocalName(transportNode, "candidate").map((candidate) => ({
         foundation: (candidate.getAttribute("foundation") || "").toString().trim(),
         component: Number(candidate.getAttribute("component") || 0) || 0,
         protocol: (candidate.getAttribute("protocol") || "").toString().trim().toLowerCase(),
@@ -8836,7 +8837,7 @@ function parseXmppJingleIq(stanza) {
     const child = [...(reasonNode.childNodes || [])]
       .find((node) => node?.nodeType === 1 && (node.nodeName || "").toLowerCase() !== "text") || null;
     reason = (child?.nodeName || "").toString().trim().toLowerCase();
-    const textNode = [...reasonNode.getElementsByTagName("text")][0] || null;
+    const textNode = xmppElementsByLocalName(reasonNode, "text")[0] || null;
     reasonText = xmppNodeText(textNode).trim();
   }
   return {
@@ -8857,7 +8858,7 @@ function parseXmppJingleMessageAction(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
   const actions = ["propose", "proceed", "accept", "retract", "reject", "ringing"];
   for (const action of actions) {
-    const node = [...stanza.getElementsByTagName(action)]
+    const node = xmppElementsByLocalName(stanza, action)
       .find((entry) => (
         xmppNodeHasAnyXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES)
         || xmppNodeHasXmlnsPrefix(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX)
@@ -8866,7 +8867,7 @@ function parseXmppJingleMessageAction(stanza) {
     const id = (node.getAttribute("id") || stanza.getAttribute("id") || "").toString().trim();
     const media = action === "propose"
       ? [...new Set(
-        [...node.getElementsByTagName("description")]
+        xmppElementsByLocalName(node, "description")
           .map((desc) => {
             const hinted = (desc.getAttribute("media") || "").toString().trim().toLowerCase();
             if (hinted === "audio" || hinted === "video") return hinted;
@@ -10746,7 +10747,36 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
 
 function xmppNodeXmlns(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
-  return (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
+  const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
+  if (inline) return inline;
+  return (node.namespaceURI || "").toString().trim().toLowerCase();
+}
+
+function xmppNodeLocalName(node) {
+  if (!node) return "";
+  const local = (node.localName || node.nodeName || "").toString().trim().toLowerCase();
+  if (!local) return "";
+  if (!local.includes(":")) return local;
+  return local.split(":").pop() || "";
+}
+
+function xmppElementsByLocalName(root, name = "") {
+  if (!root || typeof root.getElementsByTagName !== "function") return [];
+  const wanted = (name || "").toString().trim().toLowerCase();
+  if (!wanted) return [];
+  const direct = [...root.getElementsByTagName(wanted)];
+  const wildcard = [...root.getElementsByTagName("*")]
+    .filter((node) => xmppNodeLocalName(node) === wanted);
+  if (direct.length === 0) return wildcard;
+  if (wildcard.length === 0) return direct;
+  const seen = new Set();
+  const merged = [];
+  [...direct, ...wildcard].forEach((node) => {
+    if (seen.has(node)) return;
+    seen.add(node);
+    merged.push(node);
+  });
+  return merged;
 }
 
 function xmppNodeHasXmlns(node, xmlns) {
