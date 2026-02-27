@@ -59,6 +59,12 @@ const XMPP_MAM_LOADING_STALE_MS = 10000;
 const XMPP_MAM_REQUEST_TIMEOUT_MS = 7000;
 const XMPP_PING_INTERVAL_MS = 45000;
 const XMPP_PING_TIMEOUT_MS = 12000;
+const XMPP_MUC_SELF_PING_INTERVAL_MS = 75_000;
+const XMPP_MUC_SELF_PING_TIMEOUT_MS = 10_000;
+const XMPP_MUC_SELF_PING_REJOIN_AFTER_FAILURES = 2;
+const XMPP_MUC_SELF_PING_REJOIN_COOLDOWN_MS = 25_000;
+const XMPP_ROOM_DISCOVERY_TTL_MS = 6 * 60 * 1000;
+const XMPP_ROOM_DISCOVERY_MAX_ITEMS = 150;
 const POPOUT_PRESENCE_REFRESH_MS = 30_000;
 const MESSAGE_CHAR_LIMIT_MIN = 200;
 const MESSAGE_CHAR_LIMIT_DEFAULT = 2000;
@@ -1727,8 +1733,11 @@ const xmppKnownMucOccupantJidByKey = new Map();
 const xmppIncomingContactRequestsByJid = new Map();
 const xmppOutgoingContactRequestsByJid = new Map();
 const xmppMucJoinStateByRoomJid = new Map();
+const xmppMucSelfPingStateByRoomJid = new Map();
 const xmppDiscoInfoCacheByJid = new Map();
 const xmppDiscoInfoInFlightByJid = new Map();
+const xmppRoomDiscoveryCacheByService = new Map();
+const xmppRoomDiscoveryInFlightByService = new Map();
 const XMPP_DISCO_INFO_TTL_MS = 5 * 60 * 1000;
 const xmppAvailableFullJidsByBare = new Map();
 const xmppCallSessionById = new Map();
@@ -5615,7 +5624,8 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
     : `ci-${createId().slice(0, 12)}`;
   if (tag !== "invite" && !trimmedInviteId) return false;
   const attrs = { xmlns: XMPP_CALL_INVITES_NAMESPACE, audio: audio ? "true" : "false", video: video ? "true" : "false" };
-  if (tag !== "invite") attrs.id = trimmedInviteId;
+  if (tag === "invite") attrs.id = stanzaId;
+  else attrs.id = trimmedInviteId;
   const stanza = globalThis.$msg({ to, type: "chat", id: stanzaId });
   const builder = stanza.c(tag, attrs);
   if ((tag === "invite" || tag === "accept") && trimmedSessionId) {
@@ -9405,6 +9415,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     showToast("XMPP relay/WebRTC is not ready for native calling here. Use Web Call meanwhile.", { tone: "error", duration: 2600 });
     return false;
   }
+  sendCurrentXmppPresence();
   const interop = await xmppAssessConversationCallInterop(conversation, { force: false });
   addXmppDebugEvent("iq", "XMPP native call interoperability check", {
     conversationId: conversation.id || "",
@@ -9449,13 +9460,13 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     const sentJmi = xmppSendJingleMessageAction(peerJid, "propose", {
       sessionId,
       media: negotiatedMedia,
-      preferFull: false
+      preferFull: true
     });
     const sentCallInviteCompat = xmppSendCallInviteAction(peerJid, "invite", {
       sessionId,
       audio: negotiatedMedia.includes("audio"),
       video: negotiatedMedia.includes("video"),
-      preferFull: false,
+      preferFull: true,
       fallbackBody: "Incoming XMPP call invite."
     });
     const sent = Boolean(sentJmi || sentCallInviteCompat);
@@ -11252,6 +11263,145 @@ function startXmppPingLoop(connection = xmppConnection) {
     if (relayStatus !== "connected") return;
     sendXmppPing(connection);
   }, XMPP_PING_INTERVAL_MS);
+}
+
+function clearXmppMucSelfPing(roomJid = "") {
+  const bare = xmppBareJid(roomJid);
+  if (!bare) return;
+  const state = xmppMucSelfPingStateByRoomJid.get(bare);
+  if (state?.timerId) clearTimeout(state.timerId);
+  xmppMucSelfPingStateByRoomJid.delete(bare);
+}
+
+function clearAllXmppMucSelfPings() {
+  for (const [roomJid, state] of xmppMucSelfPingStateByRoomJid.entries()) {
+    if (state?.timerId) clearTimeout(state.timerId);
+    xmppMucSelfPingStateByRoomJid.delete(roomJid);
+  }
+}
+
+function xmppMucSelfPingTarget(roomJid = "", fallbackNick = "") {
+  const bare = xmppBareJid(roomJid);
+  if (!bare) return "";
+  const joinState = xmppMucJoinStateByRoomJid.get(bare) || {};
+  const account = getCurrentAccount();
+  const fallback = sanitizeChannelName(
+    fallbackNick
+      || joinState.nick
+      || account?.username
+      || "user",
+    "user"
+  );
+  const nick = sanitizeChannelName((joinState.nick || fallback).toString(), fallback);
+  return nick ? `${bare}/${nick}` : "";
+}
+
+function scheduleXmppMucSelfPing(roomJid = "", {
+  immediate = false,
+  reason = ""
+} = {}) {
+  const bare = xmppBareJid(roomJid);
+  if (!bare) return false;
+  if (!xmppConnection || relayStatus !== "connected") {
+    clearXmppMucSelfPing(bare);
+    return false;
+  }
+  const next = xmppMucSelfPingStateByRoomJid.get(bare) || {
+    timerId: 0,
+    inFlightId: "",
+    failureCount: 0,
+    lastSuccessAt: 0,
+    lastFailureAt: 0,
+    lastRejoinAt: 0
+  };
+  if (next.timerId) clearTimeout(next.timerId);
+  const delay = immediate
+    ? 3500
+    : (XMPP_MUC_SELF_PING_INTERVAL_MS + Math.floor(Math.random() * 6000));
+  next.timerId = setTimeout(() => {
+    const current = xmppMucSelfPingStateByRoomJid.get(bare);
+    if (!current) return;
+    current.timerId = 0;
+    xmppMucSelfPingStateByRoomJid.set(bare, current);
+    sendXmppMucSelfPing(bare, { reason: reason || "scheduled" });
+  }, Math.max(1200, delay));
+  xmppMucSelfPingStateByRoomJid.set(bare, next);
+  return true;
+}
+
+function sendXmppMucSelfPing(roomJid = "", { reason = "manual" } = {}) {
+  const bare = xmppBareJid(roomJid);
+  if (!bare || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
+  const joinState = xmppMucJoinStateByRoomJid.get(bare) || {};
+  if (joinState.pending) {
+    scheduleXmppMucSelfPing(bare, { immediate: false, reason: "pending" });
+    return false;
+  }
+  const target = xmppMucSelfPingTarget(bare);
+  if (!target) return false;
+  const state = xmppMucSelfPingStateByRoomJid.get(bare) || {
+    timerId: 0,
+    inFlightId: "",
+    failureCount: 0,
+    lastSuccessAt: 0,
+    lastFailureAt: 0,
+    lastRejoinAt: 0
+  };
+  if (state.inFlightId) return true;
+  const pingId = `s67-muc-ping-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 7)}`;
+  state.inFlightId = pingId;
+  xmppMucSelfPingStateByRoomJid.set(bare, state);
+  const pingIq = globalThis.$iq({ type: "get", to: target, id: pingId }).c("ping", { xmlns: "urn:xmpp:ping" });
+  xmppConnection.sendIQ(
+    pingIq,
+    () => {
+      const live = xmppMucSelfPingStateByRoomJid.get(bare);
+      if (!live || live.inFlightId !== pingId) return;
+      live.inFlightId = "";
+      live.failureCount = 0;
+      live.lastSuccessAt = Date.now();
+      xmppMucSelfPingStateByRoomJid.set(bare, live);
+      scheduleXmppMucSelfPing(bare, { reason: "ok" });
+    },
+    (errorStanza) => {
+      const live = xmppMucSelfPingStateByRoomJid.get(bare);
+      if (!live || live.inFlightId !== pingId) return;
+      live.inFlightId = "";
+      live.lastFailureAt = Date.now();
+      live.failureCount = (Number(live.failureCount) || 0) + 1;
+      const error = xmppStanzaErrorDetails(errorStanza) || { condition: "", text: "" };
+      addXmppDebugEvent("warn", "XMPP MUC self-ping failed", {
+        roomJid: bare,
+        target,
+        reason,
+        condition: error.condition || "",
+        text: error.text || "",
+        failures: live.failureCount
+      });
+      if (live.failureCount >= XMPP_MUC_SELF_PING_REJOIN_AFTER_FAILURES) {
+        const now = Date.now();
+        const sinceRejoin = now - (Number(live.lastRejoinAt) || 0);
+        if (sinceRejoin >= XMPP_MUC_SELF_PING_REJOIN_COOLDOWN_MS) {
+          live.failureCount = 0;
+          live.lastRejoinAt = now;
+          xmppMucSelfPingStateByRoomJid.set(bare, live);
+          const roomToken = (joinState.roomToken || `xmpp:${bare}`).toString().trim() || `xmpp:${bare}`;
+          addXmppDebugEvent("presence", "Rejoining room after MUC self-ping failure", {
+            roomJid: bare,
+            roomToken,
+            condition: error.condition || ""
+          });
+          joinXmppRoom(roomToken, getCurrentAccount());
+          scheduleXmppMucSelfPing(bare, { immediate: true, reason: "rejoin-after-self-ping-failure" });
+          return;
+        }
+      }
+      xmppMucSelfPingStateByRoomJid.set(bare, live);
+      scheduleXmppMucSelfPing(bare, { reason: "failed" });
+    },
+    XMPP_MUC_SELF_PING_TIMEOUT_MS
+  );
+  return true;
 }
 
 function decodeHtmlEntities(text) {
@@ -13053,6 +13203,8 @@ function reportXmppMucJoinError(roomJid, nick, stanza) {
     by: details.by || "",
     hint: joinHint
   });
+  xmppRoomByJid.delete(bareRoom);
+  clearXmppMucSelfPing(bareRoom);
   const joinState = xmppMucJoinStateByRoomJid.get(bareRoom) || {};
   xmppMucJoinStateByRoomJid.set(bareRoom, {
     ...joinState,
@@ -13647,8 +13799,9 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
   const prefs = getPreferences();
   const roomJid = xmppRoomJidForToken(roomToken, prefs);
   if (!roomJid) return false;
-  if (xmppRoomByJid.has(roomJid)) {
-    const existingJoin = xmppMucJoinStateByRoomJid.get(roomJid) || {};
+  const existingJoin = xmppMucJoinStateByRoomJid.get(roomJid) || {};
+  const shouldForceRejoin = Boolean(existingJoin.pending || (existingJoin.lastErrorCondition || "").toString().toLowerCase() === "unavailable");
+  if (xmppRoomByJid.has(roomJid) && !shouldForceRejoin) {
     xmppMucJoinStateByRoomJid.set(roomJid, {
       ...existingJoin,
       roomToken,
@@ -13660,7 +13813,12 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     if (!mamState || (mamState.pagesLoaded === 0 && !mamState.loading)) {
       requestXmppRoomHistory(roomJid, { reason: "join", prefetchPages: XMPP_MAM_PREFETCH_PAGES });
     }
+    scheduleXmppMucSelfPing(roomJid, { immediate: true, reason: "join-existing" });
     return true;
+  }
+  if (shouldForceRejoin) {
+    xmppRoomByJid.delete(roomJid);
+    clearXmppMucSelfPing(roomJid);
   }
   const nick = sanitizeChannelName(account.username || "user", "user");
   const presence = globalThis.$pres({ to: `${roomJid}/${nick}` })
@@ -13687,6 +13845,7 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     renderChannels();
   }
   requestXmppRoomHistory(roomJid, { reason: "join", prefetchPages: XMPP_MAM_PREFETCH_PAGES });
+  scheduleXmppMucSelfPing(roomJid, { immediate: true, reason: "join-requested" });
   addXmppDebugEvent("presence", "Joined MUC room", { roomToken, roomJid, nick });
   return true;
 }
@@ -13694,6 +13853,7 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
 function teardownXmppConnection() {
   addXmppDebugEvent("connect", "Tearing down XMPP connection");
   clearXmppPingLoop();
+  clearAllXmppMucSelfPings();
   xmppCsiSupported = false;
   xmppCsiState = "";
   if (xmppConnection) {
@@ -13722,6 +13882,7 @@ function teardownXmppConnection() {
   xmppMucJoinStateByRoomJid.clear();
   xmppDiscoInfoCacheByJid.clear();
   xmppDiscoInfoInFlightByJid.clear();
+  xmppRoomDiscoveryInFlightByService.clear();
   xmppAvailableFullJidsByBare.clear();
   xmppCallSessionIdByInviteId.clear();
   xmppCallSessionById.forEach((entry, sid) => {
@@ -15627,7 +15788,7 @@ function connectRelaySocket({ force = false } = {}) {
           const joinState = xmppMucJoinStateByRoomJid.get(roomJid) || {};
           const ownNick = (joinState.nick || sanitizeChannelName(current?.username || "user", "user")).toLowerCase();
           const joiningOwnNick = nick.toLowerCase() === ownNick;
-          if (joiningOwnNick) {
+          if (joiningOwnNick && type !== "unavailable") {
             xmppMucJoinStateByRoomJid.set(roomJid, {
               ...joinState,
               roomToken,
@@ -15638,6 +15799,18 @@ function connectRelaySocket({ force = false } = {}) {
               lastErrorCondition: "",
               lastErrorText: ""
             });
+            scheduleXmppMucSelfPing(roomJid, { immediate: false, reason: "own-presence" });
+          } else if (joiningOwnNick && type === "unavailable") {
+            xmppMucJoinStateByRoomJid.set(roomJid, {
+              ...joinState,
+              roomToken,
+              nick,
+              pending: true,
+              lastErrorAt: new Date().toISOString(),
+              lastErrorCondition: "unavailable"
+            });
+            xmppRoomByJid.delete(roomJid);
+            clearXmppMucSelfPing(roomJid);
           } else if (!joinState.roomToken || joinState.roomToken !== roomToken) {
             xmppMucJoinStateByRoomJid.set(roomJid, {
               ...joinState,
@@ -15768,16 +15941,25 @@ function connectRelaySocket({ force = false } = {}) {
           }
           Promise.allSettled([
             fetchXmppRoster(xmppConnection),
-            fetchXmppBookmarks(xmppConnection)
+            fetchXmppBookmarks(xmppConnection),
+            discoverXmppMucRooms({
+              connection: xmppConnection,
+              prefs: getPreferences(),
+              force: false
+            })
           ]).then((results) => {
             const rosterItems = results[0]?.status === "fulfilled" ? results[0].value : [];
             const bookmarkItems = results[1]?.status === "fulfilled" ? results[1].value : [];
+            const discoveredRooms = results[2]?.status === "fulfilled" ? results[2].value : [];
+            const spaceRooms = mergeXmppBookmarks(bookmarkItems, discoveredRooms);
             addXmppDebugEvent("connect", "XMPP sync complete", {
               rosterCount: rosterItems.length,
-              bookmarkCount: bookmarkItems.length
+              bookmarkCount: bookmarkItems.length,
+              discoveredRoomCount: discoveredRooms.length,
+              mergedSpaceRoomCount: spaceRooms.length
             });
             syncXmppRosterIntoState(rosterItems, getPreferences(), current);
-            upsertXmppSpaceChannels(bookmarkItems, getPreferences(), current);
+            upsertXmppSpaceChannels(spaceRooms, getPreferences(), current);
             saveState();
             renderServers();
             renderDmList();
@@ -15817,6 +15999,7 @@ function connectRelaySocket({ force = false } = {}) {
         }
         if (status === S.DISCONNECTED) {
           clearXmppPingLoop();
+          clearAllXmppMucSelfPings();
           xmppConnection = null;
           if (relayManualDisconnect) {
             setRelayStatus("disconnected");
@@ -15828,6 +16011,7 @@ function connectRelaySocket({ force = false } = {}) {
         }
         if (status === S.AUTHFAIL) {
           clearXmppPingLoop();
+          clearAllXmppMucSelfPings();
           addXmppDebugEvent("error", "Relay auth failed; auto-reconnect suppressed after AUTHFAIL", {
             wsUrl,
             jid
@@ -15837,6 +16021,7 @@ function connectRelaySocket({ force = false } = {}) {
         }
         if (status === S.CONNFAIL || status === S.ERROR) {
           clearXmppPingLoop();
+          clearAllXmppMucSelfPings();
           addXmppDebugEvent("error", "Relay connect/auth failed", {
             status: statusName,
             wsUrl,
@@ -16538,6 +16723,74 @@ async function xmppAssessConversationCallInterop(conversation = getActiveConvers
     details,
     reason: "missing-features"
   };
+}
+
+async function discoverXmppMucRooms({
+  connection = xmppConnection,
+  prefs = getPreferences(),
+  force = false
+} = {}) {
+  if (!connection || !globalThis.$iq) return [];
+  const mucService = resolveXmppMucService(prefs);
+  if (!mucService) return [];
+  const cacheKey = mucService.toLowerCase();
+  const now = Date.now();
+  const cached = xmppRoomDiscoveryCacheByService.get(cacheKey);
+  if (!force && cached && cached.expiresAt > now) {
+    return Array.isArray(cached.rooms) ? cached.rooms : [];
+  }
+  if (!force && xmppRoomDiscoveryInFlightByService.has(cacheKey)) {
+    return xmppRoomDiscoveryInFlightByService.get(cacheKey);
+  }
+  const task = (async () => {
+    try {
+      const stanza = await xmppSendIqPromise(
+        connection,
+        globalThis.$iq({ type: "get", to: mucService }).c("query", { xmlns: "http://jabber.org/protocol/disco#items" }),
+        7000
+      );
+      const rooms = [...stanza.getElementsByTagName("item")]
+        .map((node) => {
+          const jid = xmppBareJid(node.getAttribute("jid") || "");
+          if (!jid || !looksLikeXmppMucJid(jid, prefs)) return null;
+          return {
+            jid,
+            name: decodeHtmlEntities((node.getAttribute("name") || "").toString()).trim().slice(0, 90),
+            autojoin: false,
+            nick: ""
+          };
+        })
+        .filter(Boolean)
+        .slice(0, XMPP_ROOM_DISCOVERY_MAX_ITEMS);
+      addXmppDebugEvent("iq", "Discovered MUC rooms via disco#items", {
+        service: mucService,
+        count: rooms.length
+      });
+      return rooms;
+    } catch (error) {
+      addXmppDebugEvent("iq", "MUC room discovery unavailable", {
+        service: mucService,
+        error: String(error?.message || error || "unknown")
+      });
+      return [];
+    }
+  })()
+    .then((rooms) => {
+      const normalizedRooms = Array.isArray(rooms) ? rooms : [];
+      const ttl = normalizedRooms.length > 0
+        ? XMPP_ROOM_DISCOVERY_TTL_MS
+        : Math.max(60_000, Math.floor(XMPP_ROOM_DISCOVERY_TTL_MS / 4));
+      xmppRoomDiscoveryCacheByService.set(cacheKey, {
+        rooms: normalizedRooms,
+        expiresAt: Date.now() + ttl
+      });
+      return normalizedRooms;
+    })
+    .finally(() => {
+      xmppRoomDiscoveryInFlightByService.delete(cacheKey);
+    });
+  xmppRoomDiscoveryInFlightByService.set(cacheKey, task);
+  return task;
 }
 
 async function discoverXmppHttpUploadService({ connection = xmppConnection, prefs = getPreferences(), force = false } = {}) {

@@ -17,7 +17,7 @@ Status labels:
 | XEP-0085 | Chat State Notifications | Implemented | Sends and receives composing/paused style states for MUC/DM typing indicators. |
 | XEP-0184 | Message Delivery Receipts | Partial | Direct-message sends now request receipts and mark outbound DM messages as delivered when receipts arrive. Groupchat receipts are not tracked. |
 | XEP-0333 | Chat Markers | Partial | DM sends now include `markable` hints, inbound markable DMs receive `received` markers, incoming `displayed`/`acknowledged` markers upgrade outbound DM status to read, and local DM read updates publish `displayed` markers. |
-| XEP-0030 | Service Discovery | Partial | Responds to incoming `disco#info` queries with supported client feature set (including call/Jingle signaling). |
+| XEP-0030 | Service Discovery | Partial | Responds to incoming `disco#info` queries with supported client feature set (including call/Jingle signaling), and uses `disco#items` for upload and MUC room discovery workflows. |
 | XEP-0199 | XMPP Ping | Implemented | Replies to incoming ping IQs and sends periodic keepalive pings on active XMPP sessions. |
 | XEP-0319 | Last User Interaction in Presence | Partial | Parses incoming `<idle xmlns='urn:xmpp:idle:1' since='...'>` hints and uses them for DM peer `Last active` metadata when available. |
 | XEP-0352 | Client State Indication | Partial | Detects CSI feature support from stream features and sends `active`/`inactive` hints based on app focus/visibility while connected. |
@@ -38,6 +38,7 @@ Status labels:
 | XEP-0424 | Message Retraction | Partial | Incoming `<retract/>` (direct and `fasten:0 apply-to`) stanzas now retract matching DM/MUC messages instead of showing unsupported fallback text. |
 | XEP-0482 | Call Invites | Partial | Sends and consumes `urn:xmpp:call-invites:0` for DM call invites (external URL only); accept/reject/retract are handled for web-call fallback. |
 | XEP-0402 | PEP Native Bookmarks | Partial | Reads modern bookmarks via PubSub, with legacy fallback. |
+| XEP-0410 | MUC Self-Ping | Partial | Joined MUC rooms now run periodic self-pings and trigger controlled rejoin attempts after repeated ping failures to improve room session continuity. |
 | XEP-0461 | Message Replies | Partial | Parses incoming reply metadata and now also publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |
 | XEP-0428 | Fallback Indication | Partial | Consumes fallback ranges to clean reply fallback text for `XEP-0461` messages. |
 | XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`). |
