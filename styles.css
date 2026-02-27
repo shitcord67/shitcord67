@@ -2336,6 +2336,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
 
 .media-picker__grid.media-picker__grid--sticker {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  align-items: stretch;
 }
 
 .media-picker__privacy-banner {
@@ -2475,27 +2476,32 @@ body[data-hide-channel-panel="on"] .chat-panel {
 }
 
 .media-card--sticker .media-card__preview {
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 16 / 10;
   width: 100%;
-  min-height: 176px;
-  height: 176px;
-  max-height: 176px;
-  object-fit: contain;
+  min-height: 156px;
+  height: 156px;
+  max-height: 156px;
+  flex: 0 0 156px;
+  object-fit: cover;
+  object-position: center;
   background: #262b35;
 }
 
 .media-card--sticker {
-  min-width: 176px;
+  min-width: 156px;
+  min-height: 196px;
 }
 
 .media-card--sticker img.media-card__preview,
 .media-card--sticker video.media-card__preview {
   display: block;
   width: 100%;
-  min-height: 176px;
-  height: 176px;
-  max-height: 176px;
-  object-fit: contain;
+  min-height: 156px;
+  height: 156px;
+  max-height: 156px;
+  flex: 0 0 156px;
+  object-fit: cover;
+  object-position: center;
 }
 
 .media-card__label {

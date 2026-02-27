@@ -1575,3 +1575,6 @@ Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working?
 Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working? And why I get that devtools toggle is only available in the electron app when I quite literally run /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67? Oh also why are the stickers still squshed when they load. Why can't you enforce a size similar to how it is done for GIFs?
 ## [2026-02-27T10:28:23+01:00] User Prompt
 If you think that makes sense
+
+## 2026-02-27T10:06:27Z
+You may continue. But: why the heck is the sticker picker so different to all the other pickers? I just can't get it to display a rectangular minimum height for stickers. They all get squished to a few pixels in height after a few seconds. PREVENT that. ALL OTHER PICKERS, GIF and Emoji and SVG, etc. don't have this issue! After that you may continue working on the calling functionality. E.g. we don't receive calls from Movim and Movim doesn't receive calsl from us, please focus on fixing this native XMPP call functionality. Also you may rename the buttons in the XMPP interface accordingly. I don't even know why I have two calling buttons, one for web and one for DM?! Can't it be one and then it has a section for legacy onn right-click?

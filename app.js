@@ -2039,7 +2039,7 @@ if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 
 const HEADER_ACTION_BUTTONS = [
   { key: "openCallBtn", icon: "📹", fallback: "Call", preferIcon: true },
-  { key: "openXmppCallBtn", icon: "📡", fallback: "XMPP Call", preferIcon: true },
+  { key: "openXmppCallBtn", icon: "📡", fallback: "Legacy XMPP", preferIcon: true },
   { key: "copyCallLinkBtn", icon: "🔗", fallback: "Copy Call", preferIcon: true },
   { key: "openWhiteboardBtn", icon: "📝", fallback: "Whiteboard", preferIcon: true },
   { key: "openFindBtn", icon: "🔍", fallback: "Find", preferIcon: true },
@@ -5786,6 +5786,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
   const sentCallInviteAccept = callInviteId
     ? Boolean(xmppSendCallInviteAction(peerTarget || peerBare, "accept", {
       inviteId: callInviteId,
+      sessionId: sid,
       audio: session.media?.includes("audio") !== false,
       video: session.media?.includes("video") !== false
     }))
@@ -6837,35 +6838,54 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
   const cachedDisco = barePeer ? xmppDiscoInfoCacheByJid.get(barePeer) : null;
   const featureList = Array.isArray(cachedDisco?.features) ? cachedDisco.features : [];
   const featureSet = new Set(featureList);
-  const jmiNamespace = (!featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE) && featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1))
-    ? XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
-    : XMPP_JINGLE_MESSAGE_INIT_NAMESPACE;
   const tag = (action || "").toString().trim().toLowerCase();
   if (!["propose", "proceed", "accept", "retract", "reject", "ringing"].includes(tag)) return false;
-  const builder = globalThis.$msg({ to, type: "chat" }).c(tag, {
-    xmlns: jmiNamespace,
-    id
-  });
-  if (tag === "propose") {
-    const wanted = Array.isArray(media) ? media : ["audio", "video"];
-    const normalizedMedia = [...new Set(
-      wanted
-        .map((item) => (item || "").toString().trim().toLowerCase())
-        .filter((item) => item === "audio" || item === "video")
-    )];
-    const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
-    medias.forEach((mediaType) => {
-      builder.c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType }).up();
+  const hasV0 = featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE);
+  const hasV1 = featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1);
+  const primaryNamespace = hasV0 && !hasV1
+    ? XMPP_JINGLE_MESSAGE_INIT_NAMESPACE
+    : XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1;
+  const namespaceList = (!hasV0 && !hasV1 && tag !== "propose")
+    ? [primaryNamespace, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE]
+    : [primaryNamespace];
+  const uniqueNamespaces = [...new Set(namespaceList.filter(Boolean))];
+  let sentCount = 0;
+  uniqueNamespaces.forEach((namespace) => {
+    const builder = globalThis.$msg({ to, type: "chat" }).c(tag, {
+      xmlns: namespace,
+      id
     });
-  }
-  xmppConnection.send(builder);
+    if (tag === "propose") {
+      const wanted = Array.isArray(media) ? media : ["audio", "video"];
+      const normalizedMedia = [...new Set(
+        wanted
+          .map((item) => (item || "").toString().trim().toLowerCase())
+          .filter((item) => item === "audio" || item === "video")
+      )];
+      const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
+      medias.forEach((mediaType) => {
+        builder.c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType }).up();
+      });
+    }
+    xmppConnection.send(builder);
+    sentCount += 1;
+  });
+  if (sentCount <= 0) return false;
   addXmppDebugEvent("call", "Sent Jingle Message", {
     to,
     action: tag,
     id,
-    xmlns: jmiNamespace,
+    xmlns: uniqueNamespaces.join(","),
     media: tag === "propose" ? (media || []) : []
   });
+  if (!hasV0 && !hasV1 && tag !== "propose" && uniqueNamespaces.length > 1) {
+    addXmppDebugEvent("call", "Sent Jingle Message compatibility fallback", {
+      to,
+      action: tag,
+      id,
+      namespaces: uniqueNamespaces
+    });
+  }
   addXmppDebugEvent("message", "Sent XMPP jingle-message action", { to, action: tag, id });
   return true;
 }
@@ -8924,7 +8944,27 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
     });
     return true;
   }
-  const session = xmppCallSessionById.get(id) || null;
+  let session = xmppCallSessionById.get(id) || null;
+  if (!session) {
+    const preferredDirection = action === "ringing" || action === "proceed" || action === "accept"
+      ? "outgoing"
+      : "incoming";
+    const fallbackId = latestXmppCallSessionIdForPeer(peer, preferredDirection)
+      || latestXmppCallSessionIdForPeer(peer, preferredDirection === "outgoing" ? "incoming" : "outgoing");
+    if (fallbackId && fallbackId !== id) {
+      const fallbackSession = xmppCallSessionById.get(fallbackId) || null;
+      if (fallbackSession && xmppBareJid(fallbackSession.peerJid || "") === peer) {
+        addXmppDebugEvent("call", "Mapped jingle-message id to known session", {
+          from: peer,
+          action,
+          providedId: id,
+          mappedId: fallbackId
+        });
+        id = fallbackId;
+        session = fallbackSession;
+      }
+    }
+  }
   if (action === "ringing") {
     if (session?.direction === "outgoing") {
       session.state = "ringing";
@@ -23664,11 +23704,27 @@ function applyGifScopeToEntries(entries) {
 
 function tenorFirstFormatUrl(formats, candidates = []) {
   if (!formats || typeof formats !== "object") return "";
-  for (const key of candidates) {
-    const url = (formats?.[key]?.url || "").toString().trim();
-    if (url) return url;
+  let fallbackUrl = "";
+  let balancedUrl = "";
+  for (const [index, key] of candidates.entries()) {
+    const formatEntry = formats?.[key];
+    const url = (formatEntry?.url || "").toString().trim();
+    if (!url) continue;
+    if (!fallbackUrl) fallbackUrl = url;
+    const dims = Array.isArray(formatEntry?.dims) ? formatEntry.dims : [];
+    const width = Number(dims[0]) || 0;
+    const height = Number(dims[1]) || 0;
+    if (width > 0 && height > 0) {
+      const ratio = width / Math.max(1, height);
+      const largeEnough = width >= 96 && height >= 96;
+      if (largeEnough && ratio >= 0.55 && ratio <= 1.9) return url;
+      if (!balancedUrl && largeEnough && ratio >= 0.35 && ratio <= 2.8) balancedUrl = url;
+    } else if (index === 0) {
+      // No geometry hint from provider: keep first-candidate behavior.
+      return url;
+    }
   }
-  return "";
+  return balancedUrl || fallbackUrl || "";
 }
 
 function parseTenorV2Results(results, { kind = "gif" } = {}) {
@@ -23676,12 +23732,10 @@ function parseTenorV2Results(results, { kind = "gif" } = {}) {
   const stickerMode = kind === "sticker";
   const imageCandidates = stickerMode
     ? [
-        "transparentwebp", "tinytransparentwebp", "nanotransparentwebp",
-        "webp_transparent", "tinywebp_transparent", "nanowebp_transparent",
-        "webp", "tinywebp", "nanowebp",
-        "transparentgif", "tinytransparentgif", "nanotransparentgif",
-        "gif_transparent", "tinygif_transparent", "nanogif_transparent",
-        "gif", "tinygif", "mediumgif", "nanogif"
+        "webp", "gif", "mediumgif",
+        "transparentwebp", "webp_transparent", "transparentgif", "gif_transparent",
+        "tinywebp", "tinygif", "tinytransparentwebp", "tinywebp_transparent", "tinytransparentgif", "tinygif_transparent",
+        "nanowebp", "nanogif", "nanotransparentwebp", "nanowebp_transparent", "nanotransparentgif", "nanogif_transparent"
       ]
     : ["gif", "tinygif", "mediumgif", "nanogif"];
   const videoCandidates = stickerMode
@@ -23710,12 +23764,10 @@ function parseTenorV1Results(results, { kind = "gif" } = {}) {
   const stickerMode = kind === "sticker";
   const imageCandidates = stickerMode
     ? [
-        "transparentwebp", "tinytransparentwebp", "nanotransparentwebp",
-        "webp_transparent", "tinywebp_transparent", "nanowebp_transparent",
-        "webp", "tinywebp", "nanowebp",
-        "transparentgif", "tinytransparentgif", "nanotransparentgif",
-        "gif_transparent", "tinygif_transparent", "nanogif_transparent",
-        "gif", "tinygif", "mediumgif", "nanogif"
+        "webp", "gif", "mediumgif",
+        "transparentwebp", "webp_transparent", "transparentgif", "gif_transparent",
+        "tinywebp", "tinygif", "tinytransparentwebp", "tinywebp_transparent", "tinytransparentgif", "tinygif_transparent",
+        "nanowebp", "nanogif", "nanotransparentwebp", "nanowebp_transparent", "nanotransparentgif", "nanogif_transparent"
       ]
     : ["gif", "tinygif", "mediumgif", "nanogif"];
   const videoCandidates = stickerMode
@@ -23761,8 +23813,8 @@ async function fetchTenorEntries({
   };
   const mediaFilterCandidates = stickerMode
     ? [
-        "transparentwebp,webp,tinywebp,nanowebp,gif,tinygif,mediumgif,nanogif",
-        "webp,tinywebp,gif,tinygif,nanogif",
+        "webp,gif,mediumgif,tinywebp,tinygif,nanowebp,nanogif,transparentwebp,transparentgif",
+        "webp,gif,mediumgif,tinywebp,tinygif,nanowebp,nanogif",
         "gif,tinygif,mediumgif,nanogif",
         "minimal",
         ""
@@ -24287,11 +24339,15 @@ function openMediaUrlEntryDialog(tab) {
 function enforceStickerPreviewSizing(element) {
   if (!(element instanceof HTMLElement)) return;
   element.style.width = "100%";
-  element.style.aspectRatio = "1 / 1";
-  element.style.minHeight = "176px";
-  element.style.height = "176px";
-  element.style.maxHeight = "176px";
-  element.style.objectFit = "contain";
+  element.style.minWidth = "100%";
+  element.style.aspectRatio = "16 / 10";
+  element.style.minHeight = "156px";
+  element.style.height = "156px";
+  element.style.maxHeight = "156px";
+  element.style.flex = "0 0 156px";
+  element.style.display = "block";
+  element.style.objectFit = "cover";
+  element.style.objectPosition = "center";
 }
 
 function mediaPickerEntryIsUserAdded(entry) {
@@ -31742,12 +31798,12 @@ function renderMessages() {
   if (ui.openCallBtn) {
     ui.openCallBtn.hidden = false;
     ui.openCallBtn.disabled = false;
-    setHeaderActionButtonLabel(ui.openCallBtn, isDm ? "DM Web Call" : "Web Call");
+    setHeaderActionButtonLabel(ui.openCallBtn, isDm ? "DM Call" : "Call");
   }
   if (ui.openXmppCallBtn) {
-    ui.openXmppCallBtn.hidden = false;
-    ui.openXmppCallBtn.disabled = false;
-    setHeaderActionButtonLabel(ui.openXmppCallBtn, isDm ? "DM XMPP Call" : "XMPP Call");
+    ui.openXmppCallBtn.hidden = true;
+    ui.openXmppCallBtn.disabled = true;
+    setHeaderActionButtonLabel(ui.openXmppCallBtn, "Legacy XMPP");
   }
   if (ui.copyCallLinkBtn) {
     ui.copyCallLinkBtn.hidden = false;
@@ -37531,12 +37587,60 @@ ui.openCallBtn?.addEventListener("click", () => {
 ui.openCallBtn?.addEventListener("contextmenu", (event) => {
   openContextMenu(event, [
     {
-      label: "Start Web Voice/Video",
-      action: () => launchConversationCall({ screenShare: false, autoPost: true, allowNative: false })
+      label: "Start Call (Auto)",
+      action: () => launchConversationCall({ screenShare: false, autoPost: true, allowNative: true })
     },
     {
-      label: "Start Web Screen Share",
-      action: () => launchConversationCall({ screenShare: true, autoPost: true, allowNative: false })
+      label: "Start Screen Share (Auto)",
+      action: () => launchConversationCall({ screenShare: true, autoPost: true, allowNative: true })
+    },
+    {
+      label: "Legacy XMPP",
+      disabled: !(getActiveConversation()?.type === "dm"),
+      submenu: [
+        {
+          label: "Start Native Voice/Video",
+          action: () => launchNativeXmppConversationCall({ screenShare: false })
+        },
+        {
+          label: "Start Native Screen Share",
+          action: () => launchNativeXmppConversationCall({ screenShare: true })
+        },
+        {
+          label: "Check Native Interop",
+          action: () => {
+            xmppAssessConversationCallInterop(getActiveConversation(), { force: true }).then((interop) => {
+              if (interop.ready) {
+                showToast(`XMPP call interop ready (${interop.chosenTarget || "target"}).`);
+                return;
+              }
+              const first = interop.details[0]?.evalResult || {};
+              const missing = [
+                first.hasCore ? "" : "jingle",
+                first.hasMedia ? "" : "rtp-media",
+                first.hasTransport ? "" : "ice-udp",
+                first.hasInvite ? "" : "invite"
+              ].filter(Boolean);
+              showToast(`XMPP call interop not ready${missing.length > 0 ? ` (${missing.join(", ")})` : ""}.`, { tone: "error", duration: 3000 });
+            }).catch(() => {
+              showToast("XMPP call interop check failed.", { tone: "error" });
+            });
+          }
+        }
+      ]
+    },
+    {
+      label: "Web Fallback",
+      submenu: [
+        {
+          label: "Start Web Voice/Video",
+          action: () => launchConversationCall({ screenShare: false, autoPost: true, allowNative: false })
+        },
+        {
+          label: "Start Web Screen Share",
+          action: () => launchConversationCall({ screenShare: true, autoPost: true, allowNative: false })
+        }
+      ]
     },
     {
       label: "Copy Web Call Link",
