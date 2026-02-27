@@ -1359,3 +1359,196 @@ telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#co
 telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#config.prejoinPageEnabled=true
 telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#config.prejoinPageEnabled=true
 telephone receiver Voice/video call: https://meet.jit.si/shitcord67-dm-hgwj75#config.prejoinPageEnabled=true Also when I try to call from a different client then I do not see any pop-up or hear any ringtone for incoming calls in shitcord67. And nothing it displayed in the chat regarding when a call has been started and ended. Discord has way better UX here. Please make the calls really work!
+[2026-02-26T05:45:12Z] Why do other XMPP clients only get jitsi meet links and no real calling pop-up? Also why do shitcord67 not notice when other clients call? It also seems like that direct messages from other people don't get synced anymore? But from shitcord67 to others direct messages seem to work.
+
+[2026-02-26T05:45:36Z] Then feel free to continue on what you did previously btw.
+
+[2026-02-26T05:47:31Z] Oh I noticed something... Is there a difference between xmpp:kazue@xmpp.jp direct message and XMPP room kazuq@xmpp.jp? Cause for some reason I have one in XMPP channels and the other in direct messages?! I just wanted to talk with a user?!
+
+[2026-02-26T05:49:16Z] Huh mut when dino writes to shitcord67 then messages appear in XMPP room kazue@xmpp.jp. And dino can only receive my messages when I write in xmpp:kazue@xmpp.jp in Direct Messages...
+
+[2026-02-26T05:54:06Z] Well, whatver. Can you now continue with the calling/audio/screenshare stuff?
+
+[2026-02-26T06:11:51Z] Well native ones should be preferred, shouldn't they? I think non-natives ones could be accessible via right-click menu. Also yeah feel free for debug UI
+
+[2026-02-26T06:50:31Z] Why can I accept calls multiple time and why don't they really start?: Incoming XMPP call proposal (d6d85d49). Use ￼/callxmpp accept d6d85d49 or ￼/callxmpp reject d6d85d49.
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Accepted XMPP call proposal (d6d85d49). Waiting for session-initiate.
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Accepted XMPP call proposal (d6d85d49). Waiting for session-initiate.
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Accepted XMPP call proposal (d6d85d49). Waiting for session-initiate.
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+XMPP call proposal cancelled (d6d85d49).
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Incoming XMPP call proposal (ea94330c). Use ￼/callxmpp accept ea94330c or ￼/callxmpp reject ea94330c.
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Incoming XMPP call proposal (dffda57a). Use ￼/callxmpp accept dffda57a or ￼/callxmpp reject dffda57a.
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Accepted XMPP call proposal (dffda57a). Waiting for session-initiate.
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Accepted XMPP call proposal (dffda57a). Waiting for session-initiate.
+New messages
+￼system
+07:49
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Accepted XMPP call proposal (dffda57a). Waiting for session-initiate. Also it doesn't seem like other clients get calls I try to initiate?
+
+[2026-02-26T07:06:26Z] Incoming XMPP voice/video call
+kazue@xmpp.jp is calling
+Accept
+Decline system
+08:04
+👍
+❤️
+😂
+☺
+Reply
+Quote
+Mark Unread
+Incoming XMPP call proposal (c0f5575d). Use /callxmpp accept c0f5575d or /callxmpp reject c0f5575d.
+system
+08:04
+👍
+❤️
+😂
+☺
+Reply
+Quote
+Mark Unread
+Accepted XMPP call proposal (c0f5575d). Waiting for session-initiate.
+system
+08:05
+👍
+❤️
+😂
+☺
+Reply
+Quote
+Mark Unread
+No session-initiate received for XMPP call (c0f5575d). The caller may not support native calls.
+system
+08:05
+👍
+❤️
+😂
+☺
+Reply
+Quote
+Mark Unread
+You started a voice/video call.
+derberg
+08:05
+✓✓ Read
+👍
+❤️
+😂
+☺
+Reply
+Quote
+Mark Unread
+Edit
+Delete
+📞 Voice/video call: https://meet.jit.si/shitcord67-dm-y7vzxl#config.prejoinPageEnabled=true
+Seen
+system
+08:05
+👍
+❤️
+😂
+☺
+Reply
+Quote
+Mark Unread
+Your voice/video call ended. For some reason actually being in the call after accepting one still does not work correctly. Also I noticed "[This message is OMEMO encrypted]", is there still no encryption support implemented?
+
+[2026-02-26T07:14:30Z] In general I accept that a call-interface showing the user avatar opens in the group/DM when I start a call. Similar to how Discord does it. And when a user says something then around the avatar there is a green border showing that the user is speaking.
+
+[2026-02-26T07:52:17Z] Yeah maybe. Btw. when I'm in settings why is the message area above it and the bar with info about my chat? Settings screen should be above everything ideally. Also can you tell me how to open the XMPP console? Also why is the Ctrl+Shift+I shortcut and F12 not working to bring up the web inspector? Also one other thing I noticed: why are stickers received from Movim now shown in chat?
+
+[2026-02-26T07:53:50Z] Also I noticed that you broke the online list in rooms
+
+[2026-02-26T08:02:07Z] Devtools don't work in electron right now, please add command. Also could it be that you broke HTML document loading?
+
+2026-02-26T09:04:20+01:00	Devtools don't work in electron right now, please add command. Also could it be that you broke HTML document loading?
+
+## 2026-02-27T00:54:44Z
+Cam you continue with the last stuff? Also please finally fix my priorities around calling and screensharing and really make it work ffs.
+
+## 2026-02-27T03:09:18Z
+Okay when I start a call from shitcord67 then Dino and Movim get call notifications and at least the calling interface pops up. But when I call from Movim then i don't see a pop-up to accept a call and when I call from Dino i do see one but then it doesn't vanish after accepting and doesn't let me in the calling interface. Also the calling interface seems to vanish when I click anything but it needs to be sticky while I'm in a call. And a call should not end until I explicitely leave the call. Also btw. is there a way to test audio? E.g. a button to play sound clips like rickroll.ogg
+2026-02-27T04:29:49+01:00 | Do your thing
+2026-02-27T04:41:48+01:00 | I think the rickroll and log can be commited. Also did you look at the short-tim fixes files and fixed stuff mentioned there?
+2026-02-27T04:43:00+01:00 | Is there anything else you think needs improvement and stuff I should really test?
+2026-02-27T04:44:03+01:00 | Yes implement the stuff. Only ask me to test after you are done
+2026-02-27T04:52:27+01:00 | PROMPT: Yes implement the stuff. Only ask me to test after you are done
