@@ -1558,3 +1558,18 @@ Can you continue and also tell me what I should test?
 
 [2026-02-27T06:37:32+01:00] Can you continue?
 [2026-02-27T06:38:59+01:00] You also need to tell me what I should test and how I can test
+[$ts] Maybe this can help. Also I noticed that Movim doesn't receive my calls anymore? And also I don't receive calls from Movim. Oh and when I join calls started from Dino then Dino crashes? Also for some reason when I start shitcord67 and go to a chat with previous calls then I get a incoming call notification even when no call is currently on?
+
+## 2026-02-27T08:59:00Z
+Prompt with attached runtime dumps/logs (JMI/Jingle/XMPP state):
+Maybe this can help. Also I noticed that Movim doesn't receive my calls anymore? And also I don't receive calls from Movim. Oh and when I join calls started from Dino then Dino crashes? Also for some reason when I start shitcord67 and go to a chat with previous calls then I get a incoming call notification even when no call is currently on?
+
+## 2026-02-27T09:00:00Z
+Oh also can you extent the privacy gate for file pickers to every tab there that loads stuff from external urls not added by the user? And then it should offer the option for each (sub)domain to accept them. Stuff that is not accepted will be completely hidden in the picker.
+
+## 2026-02-27T09:01:00Z
+Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working? And why I get that devtools toggle is only available in the electron app when I quite literally run /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67? Oh also why are the stickers still squshed when they load. Why can't you enforce a size similar to how it is done for GIFs?
+## [$ts] User Prompt
+Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working? And why I get that devtools toggle is only available in the electron app when I quite literally run /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67? Oh also why are the stickers still squshed when they load. Why can't you enforce a size similar to how it is done for GIFs?
+## [2026-02-27T10:10:37+01:00] User Prompt (corrected timestamp)
+Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working? And why I get that devtools toggle is only available in the electron app when I quite literally run /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67? Oh also why are the stickers still squshed when they load. Why can't you enforce a size similar to how it is done for GIFs?

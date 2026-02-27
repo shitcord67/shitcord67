@@ -2373,6 +2373,21 @@ body[data-hide-channel-panel="on"] .chat-panel {
   padding: 0.22rem 0.5rem;
 }
 
+.media-picker__privacy-hosts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.media-picker__privacy-host-btn {
+  background: #222d41;
+  color: #dce8ff;
+  border: 1px solid #42567f;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  padding: 0.18rem 0.48rem;
+}
+
 .media-card {
   display: flex;
   flex-direction: column;
@@ -2461,9 +2476,10 @@ body[data-hide-channel-panel="on"] .chat-panel {
 
 .media-card--sticker .media-card__preview {
   aspect-ratio: 1 / 1;
+  width: 100%;
   min-height: 176px;
-  height: 196px;
-  max-height: 220px;
+  height: 176px;
+  max-height: 176px;
   object-fit: contain;
   background: #262b35;
 }
@@ -2477,8 +2493,8 @@ body[data-hide-channel-panel="on"] .chat-panel {
   display: block;
   width: 100%;
   min-height: 176px;
-  height: 196px;
-  max-height: 220px;
+  height: 176px;
+  max-height: 176px;
   object-fit: contain;
 }
 
@@ -2909,11 +2925,14 @@ body[data-hide-channel-panel="on"] .chat-panel {
 .message-attachment--sticker img,
 .message-attachment--sticker video {
   width: min(180px, 100%);
+  height: min(180px, 100%);
+  aspect-ratio: 1 / 1;
   min-width: min(132px, 100%);
   max-width: 180px;
   min-height: min(132px, 100%);
   max-height: 180px;
   object-fit: contain;
+  background: #11141b;
 }
 
 .message-lottie-player {

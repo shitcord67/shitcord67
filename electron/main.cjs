@@ -66,6 +66,7 @@ const http = require("node:http");
 const https = require("node:https");
 const net = require("node:net");
 const os = require("node:os");
+const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
 
 const ELECTRON_PIPEWIRE = String(process.env.S67_ELECTRON_PIPEWIRE || "on").toLowerCase();
 const ELECTRON_OZONE_HINT = String(process.env.S67_ELECTRON_OZONE_HINT || "auto").toLowerCase();
@@ -440,7 +441,8 @@ async function createMainWindow({ startupWarning = "" } = {}) {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: windowSandbox
+      sandbox: windowSandbox,
+      preload: PRELOAD_PATH
     }
   });
 

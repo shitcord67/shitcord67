@@ -133,6 +133,19 @@ function applyPlatformRuntimeInfo(info = {}) {
 }
 
 function initElectronPlatformBridge() {
+  if (electronRuntime?.bridge) {
+    const { bridge } = electronRuntime;
+    if (typeof bridge.onPlatformInfo === "function") {
+      bridge.onPlatformInfo((payload) => {
+        applyPlatformRuntimeInfo(payload || {});
+        renderPlatformDetectedNote();
+      });
+    }
+    if (typeof bridge.requestPlatformInfo === "function") {
+      bridge.requestPlatformInfo();
+    }
+    return;
+  }
   if (!electronRuntime?.ipcRenderer) return;
   electronRuntime.ipcRenderer.on("s67-platform-info", (_event, payload) => {
     applyPlatformRuntimeInfo(payload || {});
@@ -142,6 +155,10 @@ function initElectronPlatformBridge() {
 }
 
 function requestDevtoolsToggle() {
+  if (electronRuntime?.bridge && typeof electronRuntime.bridge.toggleDevtools === "function") {
+    electronRuntime.bridge.toggleDevtools();
+    return true;
+  }
   if (!electronRuntime?.ipcRenderer) return false;
   electronRuntime.ipcRenderer.send("s67-toggle-devtools");
   return true;
@@ -1554,17 +1571,21 @@ let platformRuntimeInfo = {
   pipewire: "on",
   ozoneHint: "auto"
 };
-const electronRuntime = typeof window !== "undefined" && typeof window.require === "function"
-  ? (() => {
-    try {
-      const electron = window.require("electron");
-      if (!electron?.ipcRenderer) return null;
-      return electron;
-    } catch {
-      return null;
-    }
-  })()
-  : null;
+const electronRuntime = (() => {
+  if (typeof window === "undefined") return null;
+  const bridge = window.s67Electron;
+  if (bridge && typeof bridge === "object") {
+    return { bridge };
+  }
+  if (typeof window.require !== "function") return null;
+  try {
+    const electron = window.require("electron");
+    if (!electron?.ipcRenderer) return null;
+    return electron;
+  } catch {
+    return null;
+  }
+})();
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -6928,7 +6949,10 @@ function xmppGeneratePseudoDtlsFingerprint() {
   return chunks.join(":");
 }
 
-function xmppParseRtcIceCandidateForJingle(candidateText = "") {
+function xmppParseRtcIceCandidateForJingle(candidateText = "", {
+  sdpMid = "",
+  sdpMLineIndex = null
+} = {}) {
   const raw = (candidateText || "").toString().trim();
   if (!raw) return null;
   const tokenized = raw.startsWith("candidate:")
@@ -6946,7 +6970,27 @@ function xmppParseRtcIceCandidateForJingle(candidateText = "") {
   const typeIndex = parts.findIndex((entry) => entry.toLowerCase() === "typ");
   if (typeIndex >= 0 && parts[typeIndex + 1]) type = (parts[typeIndex + 1] || "host").toString().toLowerCase();
   if (!foundation || !protocol || !ip) return null;
-  return { foundation, component, protocol, priority, ip, port, type };
+  const normalizedMid = (sdpMid || "").toString().trim();
+  const parsedLineIndex = Number(sdpMLineIndex);
+  const normalizedLineIndex = Number.isFinite(parsedLineIndex) && parsedLineIndex >= 0
+    ? parsedLineIndex
+    : null;
+  const inferredMedia = normalizedMid.toLowerCase().includes("video")
+    ? "video"
+    : (normalizedMid.toLowerCase().includes("audio") ? "audio" : "");
+  return {
+    foundation,
+    component,
+    protocol,
+    priority,
+    ip,
+    port,
+    type,
+    sdpMid: normalizedMid,
+    sdpMLineIndex: normalizedLineIndex,
+    contentName: normalizedMid,
+    media: inferredMedia
+  };
 }
 
 function xmppJingleCandidateToRtcInit(candidate = {}, index = 0, { session = null } = {}) {
@@ -6966,8 +7010,17 @@ function xmppJingleCandidateToRtcInit(candidate = {}, index = 0, { session = nul
   const mediaIndex = contentMedia
     ? remoteContents.findIndex((entry) => (entry?.media || "").toString().trim().toLowerCase() === contentMedia)
     : -1;
-  const resolvedIndex = contentIndex >= 0 ? contentIndex : (mediaIndex >= 0 ? mediaIndex : 0);
-  const sdpMid = contentName || String(resolvedIndex);
+  const fallbackIndex = Number(candidate.sdpMLineIndex);
+  const resolvedIndex = contentIndex >= 0
+    ? contentIndex
+    : (mediaIndex >= 0
+      ? mediaIndex
+      : (Number.isFinite(fallbackIndex) && fallbackIndex >= 0 ? fallbackIndex : 0));
+  const resolvedContent = remoteContents[resolvedIndex] || null;
+  const hasMatchedNamedContent = contentIndex >= 0;
+  const sdpMid = hasMatchedNamedContent
+    ? contentName
+    : ((resolvedContent?.name || "").toString().trim() || contentName || String(resolvedIndex));
   return {
     candidate: `candidate:${foundation} ${component} ${protocol} ${priority} ${ip} ${port} typ ${type}`,
     sdpMid,
@@ -7410,12 +7463,20 @@ function xmppBuildMinimalJingleSdp({
   const fingerprintHash = dtls.hash || "sha-256";
   const fallbackSetup = type === "offer" ? "actpass" : "passive";
   const sessionId = Math.floor((Date.now() % 2147483647) || 1);
+  const contentMids = [];
+  const usedMids = new Set();
+  selectedContents.forEach((content, index) => {
+    let mid = (content?.name || "").toString().trim() || String(index);
+    if (usedMids.has(mid)) mid = `${mid}-${index}`;
+    usedMids.add(mid);
+    contentMids.push(mid);
+  });
   const lines = [
     "v=0",
     `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
     "s=-",
     "t=0 0",
-    `a=group:BUNDLE ${selectedContents.map((_, index) => String(index)).join(" ")}`,
+    `a=group:BUNDLE ${contentMids.join(" ")}`,
     "a=msid-semantic: WMS *"
   ];
   selectedContents.forEach((content, index) => {
@@ -7461,7 +7522,7 @@ function xmppBuildMinimalJingleSdp({
       "a=ice-options:trickle",
       `a=fingerprint:${dtlsForContent.hash} ${dtlsForContent.value}`,
       `a=setup:${dtlsForContent.setup}`,
-      `a=mid:${content.name || index}`,
+      `a=mid:${contentMids[index] || String(index)}`,
       `a=${sdpDirection}`,
       "a=rtcp-mux"
     );
@@ -7664,7 +7725,10 @@ function xmppEnsureSessionPeerConnection(sessionId, {
   pc.onicecandidate = (event) => {
     const raw = (event?.candidate?.candidate || "").toString().trim();
     if (!raw) return;
-    const parsed = xmppParseRtcIceCandidateForJingle(raw);
+    const parsed = xmppParseRtcIceCandidateForJingle(raw, {
+      sdpMid: event?.candidate?.sdpMid || "",
+      sdpMLineIndex: event?.candidate?.sdpMLineIndex
+    });
     if (!parsed) return;
     const key = `${parsed.protocol}|${parsed.ip}|${parsed.port}|${parsed.type}|${parsed.component}`;
     if (entry.localCandidateKeys.has(key)) return;
@@ -8206,33 +8270,108 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
     }
     : xmppBuildJingleTransportCreds();
   const fallbackCreds = (!normalizedTransport.ufrag || !normalizedTransport.pwd) ? xmppBuildJingleTransportCreds() : null;
+  const session = xmppCallSessionById.get(sid) || null;
+  const localRole = (session?.localJingleRole || (session?.direction === "incoming" ? "responder" : "initiator"))
+    .toString()
+    .trim()
+    .toLowerCase() === "responder"
+    ? "responder"
+    : "initiator";
+  const contentCatalog = [];
+  const seenContentNames = new Set();
+  const pushContent = (name = "", media = "") => {
+    const normalizedName = (name || "").toString().trim();
+    const normalizedMedia = (media || "").toString().trim().toLowerCase();
+    if (!normalizedName || (normalizedMedia !== "audio" && normalizedMedia !== "video")) return;
+    if (seenContentNames.has(normalizedName)) return;
+    seenContentNames.add(normalizedName);
+    contentCatalog.push({ name: normalizedName, media: normalizedMedia });
+  };
+  if (Array.isArray(session?.remoteContents)) {
+    session.remoteContents.forEach((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      pushContent(name, media);
+    });
+  }
+  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  if (pcEntry?.pc?.localDescription?.sdp) {
+    xmppBuildJingleContentsFromSdp(pcEntry.pc.localDescription.sdp, { localRole }).forEach((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      pushContent(name, media);
+    });
+  }
+  xmppCallSessionMediaList(session).forEach((mediaType, index) => {
+    pushContent(mediaType, mediaType);
+    pushContent(`${mediaType}${index}`, mediaType);
+  });
+  if (contentCatalog.length === 0) {
+    contentCatalog.push({ name: "audio", media: "audio" });
+  }
+  const normalizedCandidates = Array.isArray(candidates)
+    ? candidates
+      .filter((entry) => entry && typeof entry === "object")
+      .map((entry) => ({
+        ...entry,
+        contentName: ((entry.contentName || entry.sdpMid || "") + "").toString().trim(),
+        media: ((entry.media || "") + "").toString().trim().toLowerCase(),
+        sdpMLineIndex: Number(entry.sdpMLineIndex)
+      }))
+    : [];
+  const candidatesByContentName = new Map();
+  const pushCandidateForContent = (contentName = "", candidate = null) => {
+    if (!contentName || !candidate) return;
+    const list = candidatesByContentName.get(contentName) || [];
+    list.push(candidate);
+    candidatesByContentName.set(contentName, list);
+  };
+  normalizedCandidates.forEach((candidate) => {
+    const byName = contentCatalog.filter((content) => content.name === candidate.contentName);
+    const byMedia = byName.length > 0
+      ? byName
+      : (candidate.media ? contentCatalog.filter((content) => content.media === candidate.media) : []);
+    const byIndex = byMedia.length > 0
+      ? byMedia
+      : (Number.isFinite(candidate.sdpMLineIndex) && candidate.sdpMLineIndex >= 0 && candidate.sdpMLineIndex < contentCatalog.length
+        ? [contentCatalog[candidate.sdpMLineIndex]]
+        : []);
+    const targets = byIndex.length > 0 ? byIndex : contentCatalog;
+    targets.forEach((content) => {
+      pushCandidateForContent(content.name, candidate);
+    });
+  });
   const iq = globalThis.$iq({ type: "set", to })
     .c("jingle", {
       xmlns: XMPP_JINGLE_NAMESPACE,
       action: "transport-info",
       sid
-    })
-    .c("content", { creator: "initiator", name: "bundle" })
-    .c("transport", {
-      xmlns: XMPP_JINGLE_ICE_UDP_NAMESPACE,
-      ufrag: normalizedTransport.ufrag || fallbackCreds?.ufrag || "",
-      pwd: normalizedTransport.pwd || fallbackCreds?.pwd || ""
     });
-  const normalizedCandidates = Array.isArray(candidates)
-    ? candidates.filter((entry) => entry && typeof entry === "object")
-    : [];
-  normalizedCandidates.forEach((candidate, index) => {
-    iq.c("candidate", {
-      foundation: (candidate.foundation || `${index + 1}`).toString().slice(0, 24),
-      component: String(Number(candidate.component) || 1),
-      protocol: ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp").slice(0, 8),
-      priority: String(Number(candidate.priority) || (2130706431 - index)),
-      ip: (candidate.ip || "0.0.0.0").toString().slice(0, 64),
-      port: String(Number(candidate.port) || 9),
-      type: ((candidate.type || "host").toString().trim().toLowerCase() || "host").slice(0, 16)
-    }).up();
+  contentCatalog.forEach((content) => {
+    const contentCandidates = candidatesByContentName.get(content.name) || [];
+    iq
+      .c("content", { creator: localRole, name: content.name })
+      .c("transport", {
+        xmlns: XMPP_JINGLE_ICE_UDP_NAMESPACE,
+        ufrag: normalizedTransport.ufrag || fallbackCreds?.ufrag || "",
+        pwd: normalizedTransport.pwd || fallbackCreds?.pwd || ""
+      });
+    contentCandidates.forEach((candidate, index) => {
+      iq.c("candidate", {
+        foundation: (candidate.foundation || `${index + 1}`).toString().slice(0, 24),
+        component: String(Number(candidate.component) || 1),
+        protocol: ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp").slice(0, 8),
+        priority: String(Number(candidate.priority) || (2130706431 - index)),
+        ip: (candidate.ip || "0.0.0.0").toString().slice(0, 64),
+        port: String(Number(candidate.port) || 9),
+        type: ((candidate.type || "host").toString().trim().toLowerCase() || "host").slice(0, 16)
+      }).up();
+    });
+    iq.up().up();
   });
-  iq.up().up().up();
+  iq.up();
   xmppConnection.sendIQ(
     iq,
     () => {
@@ -13518,7 +13657,7 @@ function connectRelaySocket({ force = false } = {}) {
           if (!dmRoom) return;
           if (!ownAuthor && from.includes("/")) xmppRememberPeerFullJid(from);
           const jingleAction = parseXmppJingleMessageAction(stanza);
-          if (jingleAction && !ownAuthor) {
+          if (jingleAction && !ownAuthor && !history) {
             addXmppDebugEvent("call", "Incoming Jingle Message", {
               from: bareFrom,
               action: jingleAction.action,
@@ -13533,7 +13672,7 @@ function connectRelaySocket({ force = false } = {}) {
             if (handledJingle) return;
           }
           const callInvite = parseXmppCallInviteAction(stanza);
-          if (callInvite && !ownAuthor) {
+          if (callInvite && !ownAuthor && !history) {
             const inviteId = callInvite.action === "invite"
               ? (callInvite.id || xmppStanzaStableId(stanza) || stanzaMessageId)
               : callInvite.id || "";
@@ -13566,7 +13705,7 @@ function connectRelaySocket({ force = false } = {}) {
                 },
                 history
               });
-            } else if (callInvite.action === "invite" && !history) {
+            } else if (callInvite.action === "invite") {
               const existingIncomingId = latestXmppCallSessionIdForPeer(peerBare, "incoming");
               const existingIncoming = existingIncomingId ? (xmppCallSessionById.get(existingIncomingId) || null) : null;
               let nativeSessionId = (callInvite.jingleSid || "").toString().trim();
@@ -24115,11 +24254,17 @@ function openMediaUrlEntryDialog(tab) {
 
 function enforceStickerPreviewSizing(element) {
   if (!(element instanceof HTMLElement)) return;
+  element.style.width = "100%";
   element.style.aspectRatio = "1 / 1";
-  element.style.minHeight = "156px";
+  element.style.minHeight = "176px";
   element.style.height = "176px";
-  element.style.maxHeight = "196px";
+  element.style.maxHeight = "176px";
   element.style.objectFit = "contain";
+}
+
+function mediaPickerEntryIsUserAdded(entry) {
+  const source = (entry?.source || "").toString().trim().toLowerCase();
+  return source === "guild-custom" || source === "user-custom" || source === "user";
 }
 
 async function addMediaFromUrlFlow() {
@@ -24276,8 +24421,12 @@ function appendMediaPickerPrivacyBanner({
   const totalHidden = Math.max(0, Number(hiddenCount) || 0);
   if (totalHidden <= 0) return false;
   const gatedUrls = hiddenGatedUrls instanceof Set ? [...hiddenGatedUrls].filter(Boolean) : [];
-  const gatedHosts = hiddenGatedHosts instanceof Set ? [...hiddenGatedHosts].filter(Boolean) : [];
-  const blockedHosts = hiddenBlockedHosts instanceof Set ? [...hiddenBlockedHosts].filter(Boolean) : [];
+  const gatedHosts = hiddenGatedHosts instanceof Set
+    ? [...hiddenGatedHosts].filter(Boolean).sort((a, b) => a.localeCompare(b))
+    : [];
+  const blockedHosts = hiddenBlockedHosts instanceof Set
+    ? [...hiddenBlockedHosts].filter(Boolean).sort((a, b) => a.localeCompare(b))
+    : [];
   const gate = document.createElement("div");
   gate.className = "media-picker__privacy-banner";
   const heading = document.createElement("strong");
@@ -24343,9 +24492,38 @@ function appendMediaPickerPrivacyBanner({
   actions.appendChild(allowOnceBtn);
   actions.appendChild(trustBtn);
   actions.appendChild(settingsBtn);
+  let hostActions = null;
+  if (gatedHosts.length > 0) {
+    hostActions = document.createElement("div");
+    hostActions.className = "media-picker__privacy-hosts";
+    const hostLimit = 14;
+    gatedHosts.slice(0, hostLimit).forEach((host) => {
+      const trustHostBtn = document.createElement("button");
+      trustHostBtn.type = "button";
+      trustHostBtn.className = "media-picker__privacy-host-btn";
+      trustHostBtn.textContent = `Trust ${host}`;
+      trustHostBtn.addEventListener("click", () => {
+        if (!addMediaTrustRule(host)) {
+          showToast(`${host} is already trusted or invalid.`);
+          return;
+        }
+        saveState();
+        renderMediaPrivacyRuleEditor();
+        renderMediaPicker();
+        showToast(`Trusted ${host}.`);
+      });
+      hostActions.appendChild(trustHostBtn);
+    });
+    if (gatedHosts.length > hostLimit) {
+      const more = document.createElement("small");
+      more.textContent = `${gatedHosts.length - hostLimit} more host${gatedHosts.length - hostLimit === 1 ? "" : "s"} hidden`;
+      hostActions.appendChild(more);
+    }
+  }
   gate.appendChild(heading);
   gate.appendChild(meta);
   gate.appendChild(actions);
+  if (hostActions) gate.appendChild(hostActions);
   ui.mediaGrid.appendChild(gate);
   return true;
 }
@@ -24452,30 +24630,28 @@ function renderMediaPicker() {
   }
   ui.mediaGrid.innerHTML = "";
   const allEntries = filteredMediaEntries();
-  const pickerUsesPrivacyRules = mediaPickerTab !== "gif" && mediaPickerTab !== "emoji";
   const hiddenPrivacyUrls = new Set();
   const hiddenPrivacyGatedUrls = new Set();
   const hiddenPrivacyGatedHosts = new Set();
   const hiddenPrivacyBlockedHosts = new Set();
-  const entries = pickerUsesPrivacyRules
-    ? allEntries.filter((entry) => {
-      const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
-      if (!resolvedEntryUrl || !shouldGateMediaUrl(resolvedEntryUrl)) return true;
-      hiddenPrivacyUrls.add(resolvedEntryUrl);
-      const blocked = isBlockedMediaUrl(resolvedEntryUrl);
-      const host = mediaUrlHost(resolvedEntryUrl);
-      if (blocked) {
-        if (host) hiddenPrivacyBlockedHosts.add(host);
-      } else {
-        hiddenPrivacyGatedUrls.add(resolvedEntryUrl);
-        if (host) hiddenPrivacyGatedHosts.add(host);
-      }
-      return false;
-    })
-    : allEntries;
+  const entries = allEntries.filter((entry) => {
+    const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
+    if (!resolvedEntryUrl || mediaPickerEntryIsUserAdded(entry)) return true;
+    if (!shouldGateMediaUrl(resolvedEntryUrl)) return true;
+    hiddenPrivacyUrls.add(resolvedEntryUrl);
+    const blocked = isBlockedMediaUrl(resolvedEntryUrl);
+    const host = mediaUrlHost(resolvedEntryUrl);
+    if (blocked) {
+      if (host) hiddenPrivacyBlockedHosts.add(host);
+    } else {
+      hiddenPrivacyGatedUrls.add(resolvedEntryUrl);
+      if (host) hiddenPrivacyGatedHosts.add(host);
+    }
+    return false;
+  });
   const hiddenPrivacyCount = hiddenPrivacyUrls.size;
   if (entries.length === 0) {
-    if (hiddenPrivacyCount > 0 && pickerUsesPrivacyRules) {
+    if (hiddenPrivacyCount > 0) {
       appendMediaPickerPrivacyBanner({
         hiddenCount: hiddenPrivacyCount,
         hiddenGatedUrls: hiddenPrivacyGatedUrls,
@@ -24495,7 +24671,7 @@ function renderMediaPicker() {
       empty.textContent = "Loading full emoji list…";
     } else if (mediaPickerTab === "emoji" && emojiLibraryError) {
       empty.textContent = emojiLibraryError;
-    } else if (hiddenPrivacyCount > 0 && pickerUsesPrivacyRules) {
+    } else if (hiddenPrivacyCount > 0) {
       empty.textContent = "Everything in this view is hidden by privacy rules.";
     } else {
       empty.textContent = "No media found for this query.";
@@ -24514,7 +24690,7 @@ function renderMediaPicker() {
         ? Math.max(EMOJI_PICKER_INITIAL_PAGE_SIZE, emojiPickerVisibleCount)
       : 140;
   const visibleEntries = entries.slice(0, maxVisible);
-  if (hiddenPrivacyCount > 0 && pickerUsesPrivacyRules) {
+  if (hiddenPrivacyCount > 0) {
     appendMediaPickerPrivacyBanner({
       hiddenCount: hiddenPrivacyCount,
       hiddenGatedUrls: hiddenPrivacyGatedUrls,
@@ -39075,6 +39251,14 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && lightbox && !lightbox.hidden) {
     event.preventDefault();
     closeMediaLightbox();
+    return;
+  }
+  const key = (event.key || "").toLowerCase();
+  const wantsDevtools = event.key === "F12"
+    || (event.ctrlKey && event.shiftKey && key === "i")
+    || (event.metaKey && event.altKey && key === "i");
+  if (wantsDevtools && requestDevtoolsToggle()) {
+    event.preventDefault();
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key === "/") {
