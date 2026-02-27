@@ -2338,6 +2338,41 @@ body[data-hide-channel-panel="on"] .chat-panel {
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
+.media-picker__privacy-banner {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.4rem;
+  background: #191d26;
+  border: 1px solid #3b465d;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  color: #d7dfef;
+}
+
+.media-picker__privacy-banner strong {
+  font-size: 0.74rem;
+}
+
+.media-picker__privacy-banner small {
+  color: #9fb0d3;
+  font-size: 0.68rem;
+}
+
+.media-picker__privacy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.32rem;
+}
+
+.media-picker__privacy-actions button {
+  background: #2d3950;
+  color: #e7eefb;
+  border: 1px solid #4c5f84;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  padding: 0.22rem 0.5rem;
+}
+
 .media-card {
   display: flex;
   flex-direction: column;
@@ -5857,6 +5892,72 @@ body[data-compact-members="on"] .member-item {
   gap: 0.55rem;
   flex-wrap: wrap;
   margin-top: 0.7rem;
+}
+
+.settings-inline-actions--media-rules input {
+  min-width: 260px;
+  flex: 1 1 280px;
+}
+
+.settings-inline-actions--media-rules select {
+  min-width: 96px;
+}
+
+.settings-media-rule-grid {
+  margin-top: 0.6rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+.settings-media-rule-column {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.settings-media-rule-list {
+  display: grid;
+  gap: 0.28rem;
+  min-height: 42px;
+  padding: 0.4rem;
+  border-radius: 8px;
+  border: 1px solid #2d313a;
+  background: #1b1e24;
+}
+
+.settings-media-rule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border-radius: 6px;
+  background: #252a33;
+  border: 1px solid #353d4c;
+  padding: 0.24rem 0.4rem;
+  font-size: 0.72rem;
+  color: #dfe6f7;
+}
+
+.settings-media-rule-item code {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-media-rule-item button {
+  background: #5a3034;
+  border: 1px solid #7d474d;
+  color: #ffe2e4;
+  border-radius: 6px;
+  font-size: 0.66rem;
+  padding: 0.2rem 0.42rem;
+}
+
+.settings-media-rule-empty {
+  color: #a3afc8;
+  font-size: 0.7rem;
 }
 
 .settings-inline-actions button,

@@ -422,6 +422,8 @@ const SLASH_COMMANDS = [
   { name: "mediaprivacy", args: "[status|safe|off]", description: "Control two-click external media loading privacy mode." },
   { name: "trustdomain", args: "<domain|*.domain|/regex/>", description: "Whitelist a media domain rule for auto-loading." },
   { name: "untrustdomain", args: "<domain|*.domain|/regex/>", description: "Remove a trusted media domain rule." },
+  { name: "blockdomain", args: "<domain|*.domain|/regex/>", description: "Block a media domain rule for picker/media loading." },
+  { name: "unblockdomain", args: "<domain|*.domain|/regex/>", description: "Remove a blocked media domain rule." },
   { name: "pins", args: "", description: "Open pinned messages for current channel." },
   { name: "unpinall", args: "", description: "Unpin all messages in current channel (manage messages)." },
   { name: "rename", args: "<channel-name>", description: "Rename current channel (manage channels)." },
@@ -872,6 +874,7 @@ function buildInitialState() {
       forumThreadTagFilter: {},
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],
+      mediaDenyRules: [],
       mediaLastTab: "gif",
       gifFavorites: [],
       gifGroups: [],
@@ -1492,12 +1495,14 @@ const XMPP_CALL_REPRIME_DEBOUNCE_MS = 160;
 const xmppCallLocalMediaStreamBySessionId = new Map();
 const xmppCallLocalAuxStreamsBySessionId = new Map();
 const xmppCallRemoteStreamsBySessionId = new Map();
+const xmppCallRemoteTrackWaitTimerBySessionId = new Map();
 const xmppCallReconnectAttemptBySessionId = new Map();
 const webCallInviteSeenTokens = new Set();
 const webCallInvitePendingByToken = new Map();
 const xmppCallInviteTokenById = new Map();
 const xmppCallSpeakingStateBySessionId = new Map();
 let xmppCallSpeakingAudioContext = null;
+let xmppMediaAccessToastAt = 0;
 let webCallRingtoneContext = null;
 let webCallRingtoneInterval = null;
 let webCallRingtoneToken = "";
@@ -1845,6 +1850,11 @@ const ui = {
   swfAutoplayInput: document.getElementById("swfAutoplayInput"),
   swfPauseOnMuteInput: document.getElementById("swfPauseOnMuteInput"),
   swfVuMeterInput: document.getElementById("swfVuMeterInput"),
+  mediaRuleInput: document.getElementById("mediaRuleInput"),
+  mediaRuleKindInput: document.getElementById("mediaRuleKindInput"),
+  addMediaRuleBtn: document.getElementById("addMediaRuleBtn"),
+  mediaAllowRulesList: document.getElementById("mediaAllowRulesList"),
+  mediaDenyRulesList: document.getElementById("mediaDenyRulesList"),
   tenorApiKeyInput: document.getElementById("tenorApiKeyInput"),
   tenorClientKeyInput: document.getElementById("tenorClientKeyInput"),
   tenorCredentialsStatus: document.getElementById("tenorCredentialsStatus"),
@@ -4222,6 +4232,63 @@ function xmppRemoteStreamListForSession(sessionId = "") {
   return [new MediaStream(tracks)];
 }
 
+function clearXmppRemoteTrackWaitHint(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const timerId = xmppCallRemoteTrackWaitTimerBySessionId.get(sid);
+  if (timerId) clearTimeout(timerId);
+  xmppCallRemoteTrackWaitTimerBySessionId.delete(sid);
+}
+
+function scheduleXmppRemoteTrackWaitHint(sessionId = "", delayMs = 12000) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  clearXmppRemoteTrackWaitHint(sid);
+  const timerId = window.setTimeout(() => {
+    xmppCallRemoteTrackWaitTimerBySessionId.delete(sid);
+    const session = xmppCallSessionById.get(sid) || null;
+    if (!session) return;
+    if (xmppRemoteStreamListForSession(sid).length > 0) return;
+    const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+    const state = (pcEntry?.pc?.connectionState || "").toString().trim().toLowerCase();
+    if (!["connected", "connecting", "new"].includes(state)) return;
+    const peer = xmppBareJid(session.peerJid || "");
+    const message = peer
+      ? `Connected to ${peer}, but no remote media tracks yet.`
+      : "Connected, but no remote media tracks yet.";
+    showToast(message, { tone: "error", duration: 3200 });
+    addXmppDebugEvent("call", "Remote media not received yet", { sid, peer, state });
+  }, Math.max(3000, Number(delayMs) || 12000));
+  xmppCallRemoteTrackWaitTimerBySessionId.set(sid, timerId);
+}
+
+function describeMediaAccessError(error, fallback = "Could not access local media devices.") {
+  const name = (error?.name || "").toString();
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Media permission denied. Allow microphone/camera and retry.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No compatible microphone/camera device found.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "Media device is busy or not readable right now.";
+  }
+  if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+    return "Selected media device constraints are unsupported.";
+  }
+  if (name === "AbortError") {
+    return "Media request was aborted.";
+  }
+  return fallback;
+}
+
+function showXmppMediaAccessError(message = "Could not access local media devices.") {
+  const now = Date.now();
+  if (now - xmppMediaAccessToastAt < 2500) return;
+  xmppMediaAccessToastAt = now;
+  showToast(message, { tone: "error", duration: 3200 });
+}
+
 function renderNativeXmppCallSurface(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
@@ -4489,6 +4556,7 @@ function openNativeXmppCallSurface(sessionId = "") {
     stopNativeCallAudioTest();
   }
   xmppActiveNativeCallSessionId = sid;
+  scheduleXmppRemoteTrackWaitHint(sid);
   const overlay = ensureMediaLightbox();
   renderNativeXmppCallSurface(sid);
   overlay.hidden = false;
@@ -4898,7 +4966,12 @@ function parseXmppCallInviteAction(stanza) {
         const unscopedChild = !xmppNodeXmlns(entry) && entry.parentNode === node;
         return scoped || unscopedChild;
       })
-      .map((entry) => (entry.getAttribute("uri") || entry.getAttribute("url") || "").toString().trim())
+      .map((entry) => (
+        entry.getAttribute("uri")
+        || entry.getAttribute("url")
+        || xmppNodeText(entry)
+        || ""
+      ).toString().trim())
       .filter(Boolean);
     return {
       action,
@@ -5643,7 +5716,7 @@ function openConferenceLightbox(url, { title = "Realtime call" } = {}) {
 
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
-  closeBtn.textContent = "Close";
+  closeBtn.textContent = /call/i.test((title || "").toString()) ? "Leave Call" : "Close";
   closeBtn.addEventListener("click", () => closeMediaLightbox({ force: true }));
 
   controls.appendChild(externalBtn);
@@ -5834,6 +5907,7 @@ function forgetXmppCallSession(sessionId = "") {
   if (!id) return;
   const entry = xmppCallSessionById.get(id);
   if (!entry) return;
+  clearXmppRemoteTrackWaitHint(id);
   xmppCallSessionTaskChainBySessionId.delete(id);
   const pendingReprime = xmppCallPendingReprimeBySessionId.get(id);
   if (pendingReprime?.timerId) clearTimeout(pendingReprime.timerId);
@@ -6011,12 +6085,21 @@ async function requestUserMediaWithFallback({ audioId = "", videoId = "", wantsV
   if (!navigator.mediaDevices?.getUserMedia) return null;
   const audioConstraint = audioId ? { deviceId: { exact: audioId } } : true;
   const videoConstraint = wantsVideo ? (videoId ? { deviceId: { exact: videoId } } : true) : false;
+  let lastError = null;
   try {
     return await navigator.mediaDevices.getUserMedia({ audio: audioConstraint, video: videoConstraint });
-  } catch {
+  } catch (error) {
+    lastError = error;
     try {
       return await navigator.mediaDevices.getUserMedia({ audio: true, video: wantsVideo });
-    } catch {
+    } catch (fallbackError) {
+      lastError = fallbackError;
+      addXmppDebugEvent("error", "Local getUserMedia request failed", {
+        audioId: audioId || "",
+        videoId: videoId || "",
+        wantsVideo: Boolean(wantsVideo),
+        error: String(lastError?.message || lastError)
+      });
       return null;
     }
   }
@@ -6061,6 +6144,8 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
   const audioDeviceId = prefs.callAudioInputId || "";
   const videoDeviceId = prefs.callVideoInputId || "";
   let stream = null;
+  let displayError = null;
+  let usedDisplayCapture = false;
   if (wantsScreen && navigator.mediaDevices?.getDisplayMedia) {
     let micStream = null;
     try {
@@ -6068,13 +6153,17 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
         video: true,
         audio: true
       });
-    } catch {
+      usedDisplayCapture = Boolean(stream);
+    } catch (error) {
+      displayError = error;
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
           audio: false
         });
-      } catch {
+        usedDisplayCapture = Boolean(stream);
+      } catch (fallbackError) {
+        displayError = fallbackError;
         stream = null;
       }
     }
@@ -6110,8 +6199,24 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
       videoId: videoDeviceId,
       wantsVideo: !wantsScreen
     });
+    if (stream && wantsScreen && !usedDisplayCapture) {
+      showToast("Screen capture unavailable. Using camera/mic fallback.", { tone: "error", duration: 3200 });
+    }
   }
-  if (!stream) return null;
+  if (!stream) {
+    const message = wantsScreen
+      ? describeMediaAccessError(displayError, "Could not start screen share capture.")
+      : "Could not access microphone/camera. Check permissions and retry.";
+    showXmppMediaAccessError(message);
+    addXmppDebugEvent("error", "Failed acquiring local media stream for XMPP session", {
+      sid,
+      wantsScreen,
+      displayError: displayError ? String(displayError?.message || displayError) : "",
+      audioDeviceId,
+      videoDeviceId
+    });
+    return null;
+  }
   xmppCallLocalMediaStreamBySessionId.set(sid, stream);
   return stream;
 }
@@ -7252,6 +7357,7 @@ function xmppEnsureSessionPeerConnection(sessionId, {
     }
   };
   pc.ontrack = (event) => {
+    clearXmppRemoteTrackWaitHint(sid);
     const stream = event?.streams?.[0] instanceof MediaStream
       ? event.streams[0]
       : new MediaStream(event?.track ? [event.track] : []);
@@ -7290,6 +7396,10 @@ function xmppEnsureSessionPeerConnection(sessionId, {
     const sessionEntry = xmppCallSessionById.get(sid) || null;
     const peer = sessionEntry?.peerJid || entry.peerJid || "";
     const state = pc.connectionState || "";
+    if (["connected", "connecting", "new"].includes(state)) {
+      scheduleXmppRemoteTrackWaitHint(sid);
+      if (sessionEntry) sessionEntry.lastFailureNotified = "";
+    }
     if (["failed", "disconnected"].includes(state) && peer) {
       const lastAttempt = xmppCallReconnectAttemptBySessionId.get(sid) || 0;
       const now = Date.now();
@@ -7298,6 +7408,13 @@ function xmppEnsureSessionPeerConnection(sessionId, {
         if (sessionEntry) sessionEntry.state = "reconnecting";
         xmppQueueTransportInfoGatherAndSend(peer, sid, { force: true });
         showToast("Call connection dropped. Attempting to reconnect...", { tone: "error", duration: 2400 });
+      }
+    }
+    if (state === "failed" && sessionEntry?.lastFailureNotified !== "pc-failed") {
+      sessionEntry.lastFailureNotified = "pc-failed";
+      showToast("Peer connection failed. Try Refresh or end/restart the call.", { tone: "error", duration: 3400 });
+      if (peer && addSystemDmMessageByPeerJid(peer, `XMPP call connection failed (${sid.slice(0, 8)}). Try Refresh or restart call.`)) {
+        refreshDmUiForPeerJid(peer);
       }
     }
     addXmppDebugEvent("runtime", "XMPP session peerconnection state", {
@@ -7310,6 +7427,10 @@ function xmppEnsureSessionPeerConnection(sessionId, {
     const sessionEntry = xmppCallSessionById.get(sid) || null;
     const peer = sessionEntry?.peerJid || entry.peerJid || "";
     const iceState = pc.iceConnectionState || "";
+    if (["connected", "checking", "new"].includes(iceState)) {
+      scheduleXmppRemoteTrackWaitHint(sid);
+      if (sessionEntry?.lastFailureNotified === "ice-failed") sessionEntry.lastFailureNotified = "";
+    }
     if (["failed", "disconnected"].includes(iceState) && peer) {
       const lastAttempt = xmppCallReconnectAttemptBySessionId.get(sid) || 0;
       const now = Date.now();
@@ -7317,6 +7438,13 @@ function xmppEnsureSessionPeerConnection(sessionId, {
         xmppCallReconnectAttemptBySessionId.set(sid, now);
         if (sessionEntry) sessionEntry.state = "reconnecting";
         xmppQueueTransportInfoGatherAndSend(peer, sid, { force: true });
+      }
+    }
+    if (iceState === "failed" && sessionEntry?.lastFailureNotified !== "ice-failed") {
+      sessionEntry.lastFailureNotified = "ice-failed";
+      showToast("ICE transport failed. Gathering fresh candidates...", { tone: "error", duration: 3000 });
+      if (peer && addSystemDmMessageByPeerJid(peer, `ICE transport failed for XMPP call (${sid.slice(0, 8)}). Retrying transport-info.`)) {
+        refreshDmUiForPeerJid(peer);
       }
     }
     if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
@@ -9334,6 +9462,10 @@ function normalizeMediaTrustRules(value) {
     .slice(0, 120);
 }
 
+function normalizeMediaDenyRules(value) {
+  return normalizeMediaTrustRules(value);
+}
+
 function normalizeMessageCharLimit(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return MESSAGE_CHAR_LIMIT_DEFAULT;
@@ -9572,6 +9704,7 @@ function getPreferences() {
     forumThreadTagFilter: normalizeForumThreadTagFilterMap(current.forumThreadTagFilter),
     mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
     mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
+    mediaDenyRules: normalizeMediaDenyRules(current.mediaDenyRules),
     mediaLastTab: normalizeMediaTab(current.mediaLastTab),
     gifFavorites: normalizeGifFavorites(current.gifFavorites),
     gifGroups,
@@ -17290,7 +17423,20 @@ function doesMediaRuleMatchHost(rule, host) {
   return host === rule;
 }
 
+function normalizeMediaRuleToken(rule) {
+  return (rule || "").toString().trim().toLowerCase();
+}
+
+function isBlockedMediaUrl(url) {
+  const normalized = normalizeMediaPrivacyUrl(url);
+  const host = mediaUrlHost(normalized);
+  if (!host) return false;
+  const prefs = getPreferences();
+  return prefs.mediaDenyRules.some((rule) => doesMediaRuleMatchHost(rule, host));
+}
+
 function isTrustedMediaUrl(url) {
+  if (isBlockedMediaUrl(url)) return false;
   const candidates = mediaPrivacyUrlKeys(url, { includePathVariant: true });
   if (candidates.some((entry) => mediaAllowOnceUrls.has(entry))) return true;
   const normalized = candidates[0] || normalizeMediaPrivacyUrl(url);
@@ -17306,14 +17452,15 @@ function isTrustedMediaUrl(url) {
 
 function shouldGateMediaUrl(url) {
   const normalized = normalizeMediaPrivacyUrl(url);
+  if (!isExternalMediaUrl(normalized)) return false;
+  if (isBlockedMediaUrl(normalized)) return true;
   const prefs = getPreferences();
   if (prefs.mediaPrivacyMode === "off") return false;
-  if (!isExternalMediaUrl(normalized)) return false;
   return !isTrustedMediaUrl(normalized);
 }
 
 function addMediaTrustRule(rule) {
-  const cleaned = (rule || "").toString().trim().toLowerCase();
+  const cleaned = normalizeMediaRuleToken(rule);
   if (!cleaned) return false;
   state.preferences = getPreferences();
   const current = normalizeMediaTrustRules(state.preferences.mediaTrustRules);
@@ -17323,12 +17470,32 @@ function addMediaTrustRule(rule) {
 }
 
 function removeMediaTrustRule(rule) {
-  const cleaned = (rule || "").toString().trim().toLowerCase();
+  const cleaned = normalizeMediaRuleToken(rule);
   if (!cleaned) return false;
   state.preferences = getPreferences();
   const current = normalizeMediaTrustRules(state.preferences.mediaTrustRules);
   if (!current.includes(cleaned)) return false;
   state.preferences.mediaTrustRules = current.filter((entry) => entry !== cleaned);
+  return true;
+}
+
+function addMediaDenyRule(rule) {
+  const cleaned = normalizeMediaRuleToken(rule);
+  if (!cleaned) return false;
+  state.preferences = getPreferences();
+  const current = normalizeMediaDenyRules(state.preferences.mediaDenyRules);
+  if (current.includes(cleaned)) return false;
+  state.preferences.mediaDenyRules = [cleaned, ...current].slice(0, 120);
+  return true;
+}
+
+function removeMediaDenyRule(rule) {
+  const cleaned = normalizeMediaRuleToken(rule);
+  if (!cleaned) return false;
+  state.preferences = getPreferences();
+  const current = normalizeMediaDenyRules(state.preferences.mediaDenyRules);
+  if (!current.includes(cleaned)) return false;
+  state.preferences.mediaDenyRules = current.filter((entry) => entry !== cleaned);
   return true;
 }
 
@@ -20193,7 +20360,10 @@ function handleSlashCommand(rawText, channel, account) {
     const lowered = arg.toLowerCase();
     if (!arg || lowered === "list") {
       const rules = getPreferences().mediaTrustRules;
-      addSystemMessage(channel, rules.length > 0 ? `Trusted media rules: ${rules.join(", ")}` : "No trusted media rules.");
+      const blocked = getPreferences().mediaDenyRules;
+      const trustedText = rules.length > 0 ? `Trusted media rules: ${rules.join(", ")}` : "No trusted media rules.";
+      const blockedText = blocked.length > 0 ? `Blocked media rules: ${blocked.join(", ")}` : "No blocked media rules.";
+      addSystemMessage(channel, `${trustedText} ${blockedText}`);
       return true;
     }
     const added = addMediaTrustRule(arg);
@@ -20219,6 +20389,38 @@ function handleSlashCommand(rawText, channel, account) {
     }
     saveState();
     addSystemMessage(channel, `Removed media trust rule: ${arg}`);
+    renderMessages();
+    return true;
+  }
+
+  if (command === "blockdomain") {
+    if (!arg) {
+      addSystemMessage(channel, "Usage: /blockdomain <domain|*.domain|/regex/>");
+      return true;
+    }
+    const added = addMediaDenyRule(arg);
+    if (!added) {
+      addSystemMessage(channel, `Media block rule already exists or invalid: ${arg}`);
+      return true;
+    }
+    saveState();
+    addSystemMessage(channel, `Added media block rule: ${arg}`);
+    renderMessages();
+    return true;
+  }
+
+  if (command === "unblockdomain") {
+    if (!arg) {
+      addSystemMessage(channel, "Usage: /unblockdomain <domain|*.domain|/regex/>");
+      return true;
+    }
+    const removed = removeMediaDenyRule(arg);
+    if (!removed) {
+      addSystemMessage(channel, `Media block rule not found: ${arg}`);
+      return true;
+    }
+    saveState();
+    addSystemMessage(channel, `Removed media block rule: ${arg}`);
     renderMessages();
     return true;
   }
@@ -23730,6 +23932,90 @@ function renderSwfPickerPreview(host, entry, index = 0, renderToken = mediaPicke
   }
 }
 
+function appendMediaPickerPrivacyBanner({
+  hiddenCount = 0,
+  hiddenGatedUrls = new Set(),
+  hiddenGatedHosts = new Set(),
+  hiddenBlockedHosts = new Set()
+} = {}) {
+  if (!(ui.mediaGrid instanceof HTMLElement)) return false;
+  const totalHidden = Math.max(0, Number(hiddenCount) || 0);
+  if (totalHidden <= 0) return false;
+  const gatedUrls = hiddenGatedUrls instanceof Set ? [...hiddenGatedUrls].filter(Boolean) : [];
+  const gatedHosts = hiddenGatedHosts instanceof Set ? [...hiddenGatedHosts].filter(Boolean) : [];
+  const blockedHosts = hiddenBlockedHosts instanceof Set ? [...hiddenBlockedHosts].filter(Boolean) : [];
+  const gate = document.createElement("div");
+  gate.className = "media-picker__privacy-banner";
+  const heading = document.createElement("strong");
+  heading.textContent = `${totalHidden} external item${totalHidden === 1 ? "" : "s"} hidden by privacy rules.`;
+  const meta = document.createElement("small");
+  const metaBits = [];
+  if (gatedHosts.length > 0) {
+    const preview = gatedHosts.slice(0, 6).join(", ");
+    metaBits.push(`Untrusted hosts: ${preview}${gatedHosts.length > 6 ? " …" : ""}`);
+  } else {
+    metaBits.push("No untrusted hosts available for one-time allow");
+  }
+  if (blockedHosts.length > 0) {
+    const preview = blockedHosts.slice(0, 6).join(", ");
+    metaBits.push(`Deny-listed hosts: ${preview}${blockedHosts.length > 6 ? " …" : ""}`);
+  }
+  meta.textContent = metaBits.join(" · ");
+  const actions = document.createElement("div");
+  actions.className = "media-picker__privacy-actions";
+  const allowOnceBtn = document.createElement("button");
+  allowOnceBtn.type = "button";
+  allowOnceBtn.textContent = "Allow Hidden Once";
+  allowOnceBtn.disabled = gatedUrls.length <= 0;
+  allowOnceBtn.addEventListener("click", () => {
+    if (gatedUrls.length <= 0) {
+      showToast("Hidden media is deny-listed. Remove deny rules to show it.", { tone: "error" });
+      return;
+    }
+    gatedUrls.forEach((url) => allowMediaUrlOnce(url));
+    renderMediaPicker();
+    showToast("Temporarily allowed hidden media for this session.");
+  });
+  const trustBtn = document.createElement("button");
+  trustBtn.type = "button";
+  trustBtn.textContent = "Trust Hidden Hosts";
+  trustBtn.disabled = gatedHosts.length <= 0;
+  trustBtn.addEventListener("click", () => {
+    if (gatedHosts.length <= 0) {
+      showToast("No untrusted hosts available to trust.");
+      return;
+    }
+    let added = 0;
+    gatedHosts.forEach((host) => {
+      const rule = suggestSubdomainTrustRule(host) || host;
+      if (addMediaTrustRule(rule)) added += 1;
+    });
+    if (added > 0) {
+      saveState();
+      renderMediaPrivacyRuleEditor();
+      renderMediaPicker();
+      showToast(`Added ${added} trust rule${added === 1 ? "" : "s"}.`);
+    } else {
+      showToast("Hidden hosts are already trusted.");
+    }
+  });
+  const settingsBtn = document.createElement("button");
+  settingsBtn.type = "button";
+  settingsBtn.textContent = "Advanced Rules";
+  settingsBtn.addEventListener("click", () => {
+    openSettingsScreen();
+    setSettingsTab("advanced");
+  });
+  actions.appendChild(allowOnceBtn);
+  actions.appendChild(trustBtn);
+  actions.appendChild(settingsBtn);
+  gate.appendChild(heading);
+  gate.appendChild(meta);
+  gate.appendChild(actions);
+  ui.mediaGrid.appendChild(gate);
+  return true;
+}
+
 function renderMediaPicker() {
   const renderToken = ++mediaPickerRenderToken;
   renderComposerMediaButtons();
@@ -23831,8 +24117,38 @@ function renderMediaPicker() {
     }
   }
   ui.mediaGrid.innerHTML = "";
-  const entries = filteredMediaEntries();
+  const allEntries = filteredMediaEntries();
+  const pickerUsesPrivacyRules = mediaPickerTab !== "gif" && mediaPickerTab !== "emoji";
+  const hiddenPrivacyUrls = new Set();
+  const hiddenPrivacyGatedUrls = new Set();
+  const hiddenPrivacyGatedHosts = new Set();
+  const hiddenPrivacyBlockedHosts = new Set();
+  const entries = pickerUsesPrivacyRules
+    ? allEntries.filter((entry) => {
+      const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
+      if (!resolvedEntryUrl || !shouldGateMediaUrl(resolvedEntryUrl)) return true;
+      hiddenPrivacyUrls.add(resolvedEntryUrl);
+      const blocked = isBlockedMediaUrl(resolvedEntryUrl);
+      const host = mediaUrlHost(resolvedEntryUrl);
+      if (blocked) {
+        if (host) hiddenPrivacyBlockedHosts.add(host);
+      } else {
+        hiddenPrivacyGatedUrls.add(resolvedEntryUrl);
+        if (host) hiddenPrivacyGatedHosts.add(host);
+      }
+      return false;
+    })
+    : allEntries;
+  const hiddenPrivacyCount = hiddenPrivacyUrls.size;
   if (entries.length === 0) {
+    if (hiddenPrivacyCount > 0 && pickerUsesPrivacyRules) {
+      appendMediaPickerPrivacyBanner({
+        hiddenCount: hiddenPrivacyCount,
+        hiddenGatedUrls: hiddenPrivacyGatedUrls,
+        hiddenGatedHosts: hiddenPrivacyGatedHosts,
+        hiddenBlockedHosts: hiddenPrivacyBlockedHosts
+      });
+    }
     const empty = document.createElement("div");
     empty.className = "media-card--empty";
     if (mediaPickerTab === "swf") {
@@ -23845,6 +24161,8 @@ function renderMediaPicker() {
       empty.textContent = "Loading full emoji list…";
     } else if (mediaPickerTab === "emoji" && emojiLibraryError) {
       empty.textContent = emojiLibraryError;
+    } else if (hiddenPrivacyCount > 0 && pickerUsesPrivacyRules) {
+      empty.textContent = "Everything in this view is hidden by privacy rules.";
     } else {
       empty.textContent = "No media found for this query.";
     }
@@ -23862,19 +24180,19 @@ function renderMediaPicker() {
         ? Math.max(EMOJI_PICKER_INITIAL_PAGE_SIZE, emojiPickerVisibleCount)
       : 140;
   const visibleEntries = entries.slice(0, maxVisible);
+  if (hiddenPrivacyCount > 0 && pickerUsesPrivacyRules) {
+    appendMediaPickerPrivacyBanner({
+      hiddenCount: hiddenPrivacyCount,
+      hiddenGatedUrls: hiddenPrivacyGatedUrls,
+      hiddenGatedHosts: hiddenPrivacyGatedHosts,
+      hiddenBlockedHosts: hiddenPrivacyBlockedHosts
+    });
+  }
   visibleEntries.forEach((entry, index) => {
     const sendType = attachmentTypeForMediaPickerTab(mediaPickerTab, entry);
     const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
-    const hostLabel = mediaUrlHost(resolvedEntryUrl) || "";
     const useSwfCard = mediaPickerTab === "swf";
-    const usePrivacyGate = Boolean(
-      !useSwfCard
-      && mediaPickerTab !== "emoji"
-      && mediaPickerTab !== "gif"
-      && resolvedEntryUrl
-      && shouldGateMediaUrl(resolvedEntryUrl)
-    );
-    const useDivCard = useSwfCard || usePrivacyGate || mediaPickerTab === "gif";
+    const useDivCard = useSwfCard || mediaPickerTab === "gif";
     const card = document.createElement(useDivCard ? "div" : "button");
     if (card instanceof HTMLButtonElement) card.type = "button";
     card.className = `media-card${useSwfCard ? " media-card--swf" : ""}`;
@@ -23926,124 +24244,6 @@ function renderMediaPicker() {
       kind.className = "media-card__kind";
       kind.textContent = "guild";
       label.appendChild(kind);
-    }
-
-    if (usePrivacyGate) {
-      card.classList.add("media-card--gated");
-      const preview = document.createElement("div");
-      preview.className = "media-card__preview media-card__preview--gated";
-      const typeLabel = attachmentTypeDisplayLabel(sendType, resolvedEntryUrl) || "media";
-      preview.textContent = `External ${typeLabel} hidden`;
-      const meta = document.createElement("span");
-      meta.className = "media-card__gate-meta";
-      meta.textContent = hostLabel ? `Host: ${hostLabel}` : "External host";
-      const urlNote = document.createElement("span");
-      urlNote.className = "media-card__gate-url";
-      urlNote.textContent = resolvedEntryUrl;
-      const actions = document.createElement("div");
-      actions.className = "media-card__gate-actions";
-      const onceBtn = document.createElement("button");
-      onceBtn.type = "button";
-      onceBtn.textContent = "Once";
-      onceBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        allowMediaUrlOnce(resolvedEntryUrl);
-        showToast("Allowed once for this URL.");
-        renderMediaPicker();
-      });
-      const trustBtn = document.createElement("button");
-      trustBtn.type = "button";
-      const domainRule = suggestSubdomainTrustRule(hostLabel);
-      trustBtn.textContent = domainRule.startsWith("*.") ? "Trust domain + subdomains" : "Trust host";
-      trustBtn.title = domainRule || hostLabel || "";
-      trustBtn.disabled = !hostLabel;
-      trustBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const host = mediaUrlHost(resolvedEntryUrl) || "";
-        if (!host) {
-          showToast("Could not detect media host for trust rule.", { tone: "error" });
-          return;
-        }
-        const trustRule = suggestSubdomainTrustRule(host) || host;
-        const added = addMediaTrustRule(trustRule);
-        if (added) showToast(`Trusted: ${trustRule}`);
-        else showToast(`Already trusted: ${trustRule}`);
-        if (added) saveState();
-        renderMediaPicker();
-      });
-      const trustSubdomainBtn = document.createElement("button");
-      trustSubdomainBtn.type = "button";
-      trustSubdomainBtn.textContent = "Trust sub";
-      trustSubdomainBtn.title = hostLabel ? `Trust only ${hostLabel}` : "Trust only this host";
-      trustSubdomainBtn.disabled = !hostLabel;
-      trustSubdomainBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const host = mediaUrlHost(resolvedEntryUrl) || "";
-        if (!host) {
-          showToast("Could not detect media host for trust rule.", { tone: "error" });
-          return;
-        }
-        const added = addMediaTrustRule(host);
-        if (added) showToast(`Trusted subdomain: ${host}`);
-        else showToast(`Already trusted: ${host}`);
-        if (added) saveState();
-        renderMediaPicker();
-      });
-      const customRuleBtn = document.createElement("button");
-      customRuleBtn.type = "button";
-      customRuleBtn.textContent = "Rule";
-      customRuleBtn.disabled = !hostLabel;
-      customRuleBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const host = mediaUrlHost(resolvedEntryUrl) || "";
-        if (!host) {
-          showToast("Could not detect media host for custom rule.", { tone: "error" });
-          return;
-        }
-        const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
-        if (typeof nextRule !== "string") return;
-        const added = addMediaTrustRule(nextRule);
-        if (added) {
-          saveState();
-          showToast(`Added trust rule: ${nextRule}`);
-        } else {
-          showToast("Rule already exists or invalid.");
-        }
-        renderMediaPicker();
-      });
-      const copyUrlBtn = document.createElement("button");
-      copyUrlBtn.type = "button";
-      copyUrlBtn.textContent = "Copy";
-      copyUrlBtn.addEventListener("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        const copied = await copyText(resolvedEntryUrl);
-        showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
-      });
-      const openBtn = document.createElement("button");
-      openBtn.type = "button";
-      openBtn.textContent = "Open";
-      openBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        openExternalUrlInClient(resolvedEntryUrl);
-      });
-      const sendBtn = document.createElement("button");
-      sendBtn.type = "button";
-      sendBtn.textContent = "Send";
-      sendBtn.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        sendMediaAttachment(entry, sendType);
-      });
-      actions.append(onceBtn, trustBtn, trustSubdomainBtn, customRuleBtn, copyUrlBtn, openBtn, sendBtn);
-      card.append(preview, label, meta, urlNote, actions);
-      ui.mediaGrid.appendChild(card);
-      return;
     }
 
     if (mediaPickerTab === "swf") {
@@ -24305,7 +24505,8 @@ function renderMediaPicker() {
     } else if (stickerPickerRemoteError) {
       info.textContent = stickerPickerRemoteError;
     } else {
-      info.textContent = `${entries.length} stickers ready.`;
+      const hiddenSuffix = hiddenPrivacyCount > 0 ? ` · ${hiddenPrivacyCount} hidden` : "";
+      info.textContent = `${entries.length} stickers ready${hiddenSuffix}.`;
     }
     const loadBtn = document.createElement("button");
     loadBtn.type = "button";
@@ -32959,6 +33160,89 @@ function setSettingsTab(tabId) {
   });
 }
 
+function renderMediaRuleItems(container, rules = [], {
+  emptyText = "No rules.",
+  onRemove = null
+} = {}) {
+  if (!(container instanceof HTMLElement)) return;
+  container.innerHTML = "";
+  const list = Array.isArray(rules) ? rules : [];
+  if (list.length <= 0) {
+    const empty = document.createElement("div");
+    empty.className = "settings-media-rule-empty";
+    empty.textContent = emptyText;
+    container.appendChild(empty);
+    return;
+  }
+  list.forEach((rule) => {
+    const row = document.createElement("div");
+    row.className = "settings-media-rule-item";
+    const label = document.createElement("code");
+    label.textContent = rule;
+    label.title = rule;
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", () => {
+      if (typeof onRemove === "function") onRemove(rule);
+    });
+    row.appendChild(label);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+  });
+}
+
+function renderMediaPrivacyRuleEditor() {
+  const prefs = getPreferences();
+  renderMediaRuleItems(ui.mediaAllowRulesList, prefs.mediaTrustRules, {
+    emptyText: "No allow rules configured.",
+    onRemove: (rule) => {
+      if (!removeMediaTrustRule(rule)) return;
+      saveState();
+      renderMediaPrivacyRuleEditor();
+      if (mediaPickerOpen) renderMediaPicker();
+      renderMessages();
+      showToast(`Removed allow rule: ${rule}`);
+    }
+  });
+  renderMediaRuleItems(ui.mediaDenyRulesList, prefs.mediaDenyRules, {
+    emptyText: "No deny rules configured.",
+    onRemove: (rule) => {
+      if (!removeMediaDenyRule(rule)) return;
+      saveState();
+      renderMediaPrivacyRuleEditor();
+      if (mediaPickerOpen) renderMediaPicker();
+      renderMessages();
+      showToast(`Removed deny rule: ${rule}`);
+    }
+  });
+}
+
+function addMediaRuleFromSettingsInput() {
+  const rawRule = (ui.mediaRuleInput?.value || "").toString().trim();
+  if (!rawRule) {
+    showToast("Enter a media rule first.", { tone: "error" });
+    return false;
+  }
+  const kind = (ui.mediaRuleKindInput?.value || "allow").toString().toLowerCase() === "deny"
+    ? "deny"
+    : "allow";
+  const added = kind === "deny"
+    ? addMediaDenyRule(rawRule)
+    : addMediaTrustRule(rawRule);
+  if (!added) {
+    showToast(`${kind === "deny" ? "Deny" : "Allow"} rule is invalid or already exists.`, { tone: "error" });
+    return false;
+  }
+  saveState();
+  if (ui.mediaRuleInput) ui.mediaRuleInput.value = "";
+  renderMediaPrivacyRuleEditor();
+  if (mediaPickerOpen) renderMediaPicker();
+  renderMessages();
+  showToast(`Added ${kind} rule: ${rawRule}`);
+  return true;
+}
+
 function renderSettingsScreen() {
   const account = getCurrentAccount();
   const guild = getActiveGuild();
@@ -32995,6 +33279,10 @@ function renderSettingsScreen() {
   if (ui.whiteboardProviderInput) ui.whiteboardProviderInput.value = prefs.whiteboardProviderUrl;
   if (ui.whiteboardRoomPrefixInput) ui.whiteboardRoomPrefixInput.value = prefs.whiteboardRoomPrefix;
   if (ui.whiteboardAutoPostInput) ui.whiteboardAutoPostInput.value = prefs.whiteboardAutoPost;
+  if (ui.mediaRuleKindInput && !["allow", "deny"].includes(ui.mediaRuleKindInput.value)) {
+    ui.mediaRuleKindInput.value = "allow";
+  }
+  renderMediaPrivacyRuleEditor();
   renderRelayStatusOutput();
   if (ui.guildNotifGuildName) {
     ui.guildNotifGuildName.textContent = guild ? guild.name : "No guild selected";
@@ -33044,6 +33332,7 @@ function hardenInputAutocompleteNoise() {
     ui.memberSearchInput,
     ui.callProviderInput,
     ui.callRoomPrefixInput,
+    ui.mediaRuleInput,
     ui.whiteboardProviderInput,
     ui.whiteboardRoomPrefixInput,
     ui.mediaSearchInput,
@@ -37642,6 +37931,16 @@ ui.advancedForm.addEventListener("submit", (event) => {
   renderRelayStatusOutput();
   refreshSwfAudioFocus();
   render();
+});
+
+ui.addMediaRuleBtn?.addEventListener("click", () => {
+  addMediaRuleFromSettingsInput();
+});
+
+ui.mediaRuleInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  addMediaRuleFromSettingsInput();
 });
 
 ui.toggleTenorApiKeyBtn?.addEventListener("click", () => {

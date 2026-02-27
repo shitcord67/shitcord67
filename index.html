@@ -377,6 +377,26 @@
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
+            <h3>Media Privacy Rules</h3>
+            <p>Manage allow/deny domain rules for external media shown in picker and chat.</p>
+            <div class="settings-inline-actions settings-inline-actions--media-rules">
+              <input id="mediaRuleInput" type="text" maxlength="160" placeholder="domain, *.domain, or /regex/" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <select id="mediaRuleKindInput">
+                <option value="allow">Allow</option>
+                <option value="deny">Deny</option>
+              </select>
+              <button id="addMediaRuleBtn" type="button">Add Rule</button>
+            </div>
+            <div class="settings-media-rule-grid">
+              <div class="settings-media-rule-column">
+                <strong>Allowed Rules</strong>
+                <div id="mediaAllowRulesList" class="settings-media-rule-list"></div>
+              </div>
+              <div class="settings-media-rule-column">
+                <strong>Denied Rules</strong>
+                <div id="mediaDenyRulesList" class="settings-media-rule-list"></div>
+              </div>
+            </div>
             <h3>GIF Provider (Tenor)</h3>
             <p>Use your own Tenor API key if demo credentials stop loading GIFs.</p>
             <label for="tenorApiKeyInput">Tenor API key</label>
