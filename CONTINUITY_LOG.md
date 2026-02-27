@@ -1587,3 +1587,464 @@ Also I noticed that the client still does not display stickers received from Mov
 
 ## [2026-02-27T12:27:53+01:00] User Prompt
 And devtools still don't open for /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67. Please really fix this!
+[$ts] USER PROMPT:
+[1317182:0227/125804.037109:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.qK3beo failed: No such process (3)
+[1317182:0227/125804.037194:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[1317182:0227/125804.037219:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[1317366:0227/125807.755497:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.yerpAm failed: No such process (3)
+[1317366:0227/125807.755565:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[1317366:0227/125807.755591:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+when I try to open devtools via shortcuts Also when I do a call and other partner accepted it: 
+￼system
+13:56
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Sent XMPP call proposal (jmi-c705). Waiting for peer response.
+￼system
+13:56
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+XMPP peer is ringing (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+XMPP peer accepted call proposal (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Sent XMPP session-initiate (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Peer accepted XMPP media session (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+XMPP media session terminated (jmi-c705) reason: failed-application. Oh and when Movim user sends a sticker: Ein Sticker wurde versendet (instead of the actual sticker, please fix by implementing the XEP or whatever movim uses, check xmpp.org https://xmpp.org/software/movim), also calling does still not send send a notification to movim and shitcord67 does still not seem to send the correct presence stuff to Movim cause I can't start a call from Movim either...
+[2026-02-27T14:20:38+01:00] USER PROMPT:
+[1317182:0227/125804.037109:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.qK3beo failed: No such process (3)
+[1317182:0227/125804.037194:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[1317182:0227/125804.037219:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[1317366:0227/125807.755497:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.yerpAm failed: No such process (3)
+[1317366:0227/125807.755565:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[1317366:0227/125807.755591:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+when I try to open devtools via shortcuts Also when I do a call and other partner accepted it: 
+￼system
+13:56
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Sent XMPP call proposal (jmi-c705). Waiting for peer response.
+￼system
+13:56
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+XMPP peer is ringing (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+XMPP peer accepted call proposal (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Sent XMPP session-initiate (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Peer accepted XMPP media session (jmi-c705).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+Received XMPP transport-info (jmi-c705 · 1 candidate).
+￼system
+13:57
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+XMPP media session terminated (jmi-c705) reason: failed-application. Oh and when Movim user sends a sticker: Ein Sticker wurde versendet (instead of the actual sticker, please fix by implementing the XEP or whatever movim uses, check xmpp.org https://xmpp.org/software/movim), also calling does still not send send a notification to movim and shitcord67 does still not seem to send the correct presence stuff to Movim cause I can't start a call from Movim either...
+[2026-02-27T14:28:48+01:00] USER PROMPT:
+Then could you support the DiscordRPC stuff? E.g. in Discord on each user profile you can see what their current activity is, also for friends in the friend tab on the right site. When I click on the shitcord67 icon there should not only be the direct message stuff. In Discord I see there several tabs from up to down (in german but you need to provide them in english, however maybe provide localization stuff as well in settings and try to auto-detect locale?): "Freunde", "Bibliothek", "Nachrichtenanfragen", "Nitro", "Shop", "Quests". And below that is a diver and then the direct message user and dm groups entries are listed. I think one of the printed PDFs of the Discord interface also shows this... Feel free to implement other stuff to make shitcord67 more Discord-like interface-wise. I think the whole decoration stuff is also not yet completely working. Oh also why is OLED mode not pitch black? Could we also have high contrast mode? Feel free to look up on the internet on features of Discord. Oh also feel free to read the discord-api-docs that I downloaded in a subdir. Maybe you can also actually implement a mode in which shitcord67 can actually allow login via Discord (but named Shitcord in the interface) with mail, password and 2FA/TOTP, basically acting as a custom Discord client?
+
+## 2026-02-27T13:29:47Z
+Then could you support the DiscordRPC stuff? E.g. in Discord on each user profile you can see what their current activity is, also for friends in the friend tab on the right site. When I click on the shitcord67 icon there should not only be the direct message stuff. In Discord I see there several tabs from up to down (in german but you need to provide them in english, however maybe provide localization stuff as well in settings and try to auto-detect locale?): "Freunde", "Bibliothek", "Nachrichtenanfragen", "Nitro", "Shop", "Quests". And below that is a diver and then the direct message user and dm groups entries are listed. I think one of the printed PDFs of the Discord interface also shows this... Feel free to implement other stuff to make shitcord67 more Discord-like interface-wise. I think the whole decoration stuff is also not yet completely working. Oh also why is OLED mode not pitch black? Could we also have high contrast mode? Feel free to look up on the internet on features of Discord. Oh also feel free to read the discord-api-docs that I downloaded in a subdir. Maybe you can also actually implement a mode in which shitcord67 can actually allow login via Discord (but named Shitcord in the interface) with mail, password and 2FA/TOTP, basically acting as a custom Discord client?

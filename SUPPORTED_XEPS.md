@@ -28,6 +28,8 @@ Status labels:
 | XEP-0313 | Message Archive Management (MAM) | Partial | Loads archived history for MUC and DM, with pagination support. |
 | XEP-0066 | Out of Band Data | Partial | Inbound `jabber:x:oob` attachment payloads are parsed into message attachments with namespace/local-name tolerant matching; unsupported OOB payloads now keep a visible fallback text instead of being silently dropped. |
 | XEP-0372 | References | Partial | Consumes `urn:xmpp:reference:0` attachment references (URI/name/media metadata) for DM/MUC attachment rendering with compatibility handling for prefixed stanzas. |
+| XEP-0385 | Stateless Inline Media Sharing (SIMS) | Partial | Parses inbound `urn:xmpp:sims:1` `media-sharing` payloads (including Movim-style nested references/URIs) into message attachments. Outbound SIMS publish is not implemented yet. |
+| XEP-0446 | File Metadata Element | Partial | Consumes `urn:xmpp:file:metadata:0` file metadata fields (name/media type/URI hints) to improve inbound attachment rendering and type detection. |
 | XEP-0363 | HTTP File Upload | Partial | Outbound local DM/MUC attachments now attempt slot-based HTTP upload and send OOB/reference metadata with resulting URLs. Availability still depends on server disco/upload support and CORS/PUT policy. |
 | XEP-0359 | Unique and Stable Stanza IDs | Partial | Uses stanza IDs/reference IDs for dedupe and reply matching; outbound XMPP sends now include `origin-id` hints. |
 | XEP-0308 | Last Message Correction | Partial | Incoming `replace` corrections (`urn:xmpp:message-correct:0`) update matching DM/MUC messages, and local edits attempt to publish correction stanzas when a reference ID is known. |

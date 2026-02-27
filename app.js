@@ -29,6 +29,9 @@ const XMPP_JINGLE_NAMESPACE = "urn:xmpp:jingle:1";
 const XMPP_JINGLE_RTP_NAMESPACE = "urn:xmpp:jingle:apps:rtp:1";
 const XMPP_JINGLE_RTP_INFO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:info:1";
 const XMPP_JINGLE_ICE_UDP_NAMESPACE = "urn:xmpp:jingle:transports:ice-udp:1";
+const XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE = "urn:xmpp:jingle:apps:rtp:rtcp-fb:0";
+const XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE = "urn:xmpp:jingle:apps:rtp:rtp-hdrext:0";
+const XMPP_JINGLE_RTP_SSMA_NAMESPACE = "urn:xmpp:jingle:apps:rtp:ssma:0";
 const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE = "urn:xmpp:jingle-message:0";
 const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1 = "urn:xmpp:jingle-message:1";
 const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX = "urn:xmpp:jingle-message";
@@ -40,6 +43,8 @@ const XMPP_CALL_INVITES_NAMESPACE = "urn:xmpp:call-invites:0";
 const XMPP_CALL_INVITES_NAMESPACE_PREFIX = "urn:xmpp:call-invites";
 const XMPP_JINGLE_AUDIO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:audio";
 const XMPP_JINGLE_VIDEO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:video";
+const XMPP_SIMS_NAMESPACE = "urn:xmpp:sims:1";
+const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
 const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
@@ -1559,6 +1564,7 @@ const xmppLatestOutgoingCallSessionByPeer = new Map();
 const XMPP_CALL_SIGNAL_TIMEOUT_MS = 15_000;
 const XMPP_CALL_ICE_GATHER_TIMEOUT_MS = 4200;
 const XMPP_CALL_ICE_MAX_CANDIDATES = 24;
+const XMPP_CALL_TRANSPORT_NOTICE_INTERVAL_MS = 5000;
 const xmppCallIceGatherInFlightBySessionId = new Map();
 const xmppCallPeerConnectionBySessionId = new Map();
 const xmppCallSessionTaskChainBySessionId = new Map();
@@ -1569,6 +1575,7 @@ const xmppCallLocalAuxStreamsBySessionId = new Map();
 const xmppCallRemoteStreamsBySessionId = new Map();
 const xmppCallRemoteTrackWaitTimerBySessionId = new Map();
 const xmppCallReconnectAttemptBySessionId = new Map();
+const xmppCallTransportInfoNoticeBySessionId = new Map();
 const webCallInviteSeenTokens = new Set();
 const webCallInvitePendingByToken = new Map();
 const xmppCallInviteTokenById = new Map();
@@ -5411,31 +5418,47 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   inviteId = "",
   sessionId = "",
   url = "",
+  fallbackBody = "",
+  preferFull = false,
   audio = true,
   video = true
 } = {}) {
   if (!xmppConnection || !globalThis.$msg || relayStatus !== "connected") return false;
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true }) || xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull }) || xmppBareJid(peerJid);
   if (!to) return false;
   const tag = (action || "").toString().trim().toLowerCase();
   if (!["invite", "accept", "reject", "retract", "left"].includes(tag)) return false;
   const trimmedInviteId = (inviteId || "").toString().trim();
   const trimmedSessionId = (sessionId || "").toString().trim();
+  const trimmedFallbackBody = (fallbackBody || "").toString().trim();
   const stanzaId = tag === "invite"
     ? (trimmedInviteId || `ci-${createId().slice(0, 12)}`)
     : `ci-${createId().slice(0, 12)}`;
   if (tag !== "invite" && !trimmedInviteId) return false;
   const attrs = { xmlns: XMPP_CALL_INVITES_NAMESPACE, audio: audio ? "true" : "false", video: video ? "true" : "false" };
   if (tag !== "invite") attrs.id = trimmedInviteId;
-  const builder = globalThis.$msg({ to, type: "chat", id: stanzaId }).c(tag, attrs);
+  const stanza = globalThis.$msg({ to, type: "chat", id: stanzaId });
+  const builder = stanza.c(tag, attrs);
   if ((tag === "invite" || tag === "accept") && trimmedSessionId) {
     builder.c("jingle", { xmlns: XMPP_JINGLE_NAMESPACE, sid: trimmedSessionId }).up();
   }
   if ((tag === "invite" || tag === "accept") && url) {
     builder.c("external", { uri: url }).up();
   }
-  xmppConnection.send(builder);
-  addXmppDebugEvent("call", `Sent call-invite ${tag}`, { to, id: trimmedInviteId || stanzaId, url, audio, video });
+  builder.up();
+  if (trimmedFallbackBody) {
+    stanza.c("body").t(trimmedFallbackBody.slice(0, 220)).up();
+  }
+  xmppConnection.send(stanza);
+  addXmppDebugEvent("call", `Sent call-invite ${tag}`, {
+    to,
+    id: trimmedInviteId || stanzaId,
+    url,
+    audio,
+    video,
+    preferFull: Boolean(preferFull),
+    fallbackBody: trimmedFallbackBody ? "yes" : "no"
+  });
   return stanzaId;
 }
 
@@ -6325,6 +6348,32 @@ function clearXmppCallSignalTimeout(sessionId = "") {
   entry.timeoutId = 0;
 }
 
+function xmppTrackTransportInfoNotice(sessionId = "", candidateCount = 0) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) {
+    return { shouldAnnounce: false, packetCount: 0, totalCandidates: 0 };
+  }
+  const now = Date.now();
+  const count = Math.max(0, Number(candidateCount) || 0);
+  const previous = xmppCallTransportInfoNoticeBySessionId.get(sid) || {
+    packetCount: 0,
+    totalCandidates: 0,
+    lastAnnouncedAt: 0
+  };
+  const packetCount = previous.packetCount + 1;
+  const totalCandidates = previous.totalCandidates + count;
+  const shouldAnnounce = (
+    packetCount <= 1
+    || now - (Number(previous.lastAnnouncedAt) || 0) >= XMPP_CALL_TRANSPORT_NOTICE_INTERVAL_MS
+  );
+  xmppCallTransportInfoNoticeBySessionId.set(sid, {
+    packetCount,
+    totalCandidates,
+    lastAnnouncedAt: shouldAnnounce ? now : previous.lastAnnouncedAt
+  });
+  return { shouldAnnounce, packetCount, totalCandidates };
+}
+
 function forgetXmppCallSession(sessionId = "") {
   const id = (sessionId || "").toString();
   if (!id) return;
@@ -6336,6 +6385,7 @@ function forgetXmppCallSession(sessionId = "") {
   if (pendingReprime?.timerId) clearTimeout(pendingReprime.timerId);
   xmppCallPendingReprimeBySessionId.delete(id);
   xmppCallIceGatherInFlightBySessionId.delete(id);
+  xmppCallTransportInfoNoticeBySessionId.delete(id);
   xmppStopLocalMediaStreamForSession(id);
   xmppCallRemoteStreamsBySessionId.delete(id);
   stopXmppCallSpeakingMonitor(id);
@@ -6982,21 +7032,14 @@ function xmppSendDiscoInfoResultForIncomingGet(stanza) {
     return xmppSendDiscoInfoResult({ id, to: from });
   }
   const expectedNode = xmppCapsHash ? `${XMPP_CAPS_NODE}#${xmppCapsHash}` : "";
-  if (expectedNode && nodeAttr === expectedNode) {
-    return xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
-  }
-  if (!xmppCapsHash && nodeAttr.startsWith(`${XMPP_CAPS_NODE}#`)) {
-    ensureXmppCapsHash().then((hash) => {
-      const resolvedNode = hash ? `${XMPP_CAPS_NODE}#${hash}` : "";
-      if (resolvedNode && nodeAttr === resolvedNode) {
-        xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
-        return;
-      }
-      xmppSendDiscoInfoError({ id, to: from, node: nodeAttr });
+  if (!xmppCapsHash) void ensureXmppCapsHash();
+  if (expectedNode && nodeAttr !== expectedNode) {
+    addXmppDebugEvent("presence", "Answered disco#info request for non-current caps node", {
+      requestedNode: nodeAttr,
+      expectedNode
     });
-    return true;
   }
-  return xmppSendDiscoInfoError({ id, to: from, node: nodeAttr });
+  return xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
 }
 
 function xmppBuildJingleTransportCreds() {
@@ -7808,11 +7851,6 @@ function xmppEnsureSessionPeerConnection(sessionId, {
       // Ignore unsupported transceiver setup.
     }
   });
-  try {
-    pc.createDataChannel("shitcord67-jingle");
-  } catch {
-    // Ignore data channel setup failures.
-  }
   pc.onicecandidate = (event) => {
     const raw = (event?.candidate?.candidate || "").toString().trim();
     if (!raw) return;
@@ -8185,7 +8223,7 @@ function xmppBuildJingleRtpContent(builder, {
     });
     (Array.isArray(payload.rtcpFeedback) ? payload.rtcpFeedback : []).forEach((feedback) => {
       if (!feedback?.type) return;
-      const fbAttrs = { type: String(feedback.type) };
+      const fbAttrs = { xmlns: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE, type: String(feedback.type) };
       if (feedback.subtype) fbAttrs.subtype = String(feedback.subtype);
       builder.c("rtcp-fb", fbAttrs).up();
     });
@@ -8193,13 +8231,14 @@ function xmppBuildJingleRtpContent(builder, {
   });
   (Array.isArray(rtcpFeedback) ? rtcpFeedback : []).forEach((feedback) => {
     if (!feedback?.type) return;
-    const fbAttrs = { type: String(feedback.type) };
+    const fbAttrs = { xmlns: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE, type: String(feedback.type) };
     if (feedback.subtype) fbAttrs.subtype = String(feedback.subtype);
     builder.c("rtcp-fb", fbAttrs).up();
   });
   (Array.isArray(extmaps) ? extmaps : []).forEach((extmap) => {
     if (!extmap?.id || !extmap?.uri) return;
     const attrs = {
+      xmlns: XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
       id: String(extmap.id),
       uri: String(extmap.uri)
     };
@@ -8209,16 +8248,16 @@ function xmppBuildJingleRtpContent(builder, {
   });
   (Array.isArray(sourceGroups) ? sourceGroups : []).forEach((group) => {
     if (!group?.semantics || !Array.isArray(group.sources) || group.sources.length === 0) return;
-    builder.c("source-group", { semantics: String(group.semantics) });
+    builder.c("source-group", { xmlns: XMPP_JINGLE_RTP_SSMA_NAMESPACE, semantics: String(group.semantics) });
     group.sources.forEach((ssrc) => {
       if (!ssrc) return;
-      builder.c("source", { ssrc: String(ssrc) }).up();
+      builder.c("source", { xmlns: XMPP_JINGLE_RTP_SSMA_NAMESPACE, ssrc: String(ssrc) }).up();
     });
     builder.up();
   });
   (Array.isArray(sources) ? sources : []).forEach((source) => {
     if (!source?.ssrc) return;
-    builder.c("source", { ssrc: String(source.ssrc) });
+    builder.c("source", { xmlns: XMPP_JINGLE_RTP_SSMA_NAMESPACE, ssrc: String(source.ssrc) });
     (Array.isArray(source.parameters) ? source.parameters : []).forEach((param) => {
       if (!param?.name) return;
       const attrs = { name: String(param.name) };
@@ -8772,6 +8811,14 @@ function parseXmppJingleIq(stanza) {
           clockrate: Number(payloadNode.getAttribute("clockrate") || 0) || 0,
           channels: Number(payloadNode.getAttribute("channels") || 0) || 0,
           rtcpFeedback: xmppElementsByLocalName(payloadNode, "rtcp-fb")
+            .filter((feedbackNode) => (
+              feedbackNode.parentNode === payloadNode
+              && (
+                xmppNodeHasXmlns(feedbackNode, XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE)
+                || xmppNodeHasXmlns(feedbackNode, XMPP_JINGLE_RTP_NAMESPACE)
+                || !xmppNodeXmlns(feedbackNode)
+              )
+            ))
             .map((feedbackNode) => ({
               type: (feedbackNode.getAttribute("type") || "").toString().trim().toLowerCase(),
               subtype: (feedbackNode.getAttribute("subtype") || "").toString().trim().toLowerCase()
@@ -8786,13 +8833,28 @@ function parseXmppJingleIq(stanza) {
         }))
         .filter((payload) => payload.id > 0);
       const rtcpFeedback = [...(description ? xmppElementsByLocalName(description, "rtcp-fb") : [])]
-        .filter((feedbackNode) => feedbackNode.parentNode === description)
+        .filter((feedbackNode) => (
+          feedbackNode.parentNode === description
+          && (
+            xmppNodeHasXmlns(feedbackNode, XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE)
+            || xmppNodeHasXmlns(feedbackNode, XMPP_JINGLE_RTP_NAMESPACE)
+            || !xmppNodeXmlns(feedbackNode)
+          )
+        ))
         .map((feedbackNode) => ({
           type: (feedbackNode.getAttribute("type") || "").toString().trim().toLowerCase(),
           subtype: (feedbackNode.getAttribute("subtype") || "").toString().trim().toLowerCase()
         }))
         .filter((feedback) => feedback.type);
       const extmaps = [...(description ? xmppElementsByLocalName(description, "rtp-hdrext") : [])]
+        .filter((extNode) => (
+          extNode.parentNode === description
+          && (
+            xmppNodeHasXmlns(extNode, XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE)
+            || xmppNodeHasXmlns(extNode, XMPP_JINGLE_RTP_NAMESPACE)
+            || !xmppNodeXmlns(extNode)
+          )
+        ))
         .map((extNode) => ({
           id: Number(extNode.getAttribute("id") || 0) || 0,
           uri: (extNode.getAttribute("uri") || "").toString().trim(),
@@ -8801,6 +8863,14 @@ function parseXmppJingleIq(stanza) {
         }))
         .filter((ext) => ext.id > 0 && ext.uri);
       const sources = [...(description ? xmppElementsByLocalName(description, "source") : [])]
+        .filter((sourceNode) => (
+          sourceNode.parentNode === description
+          && (
+            xmppNodeHasXmlns(sourceNode, XMPP_JINGLE_RTP_SSMA_NAMESPACE)
+            || xmppNodeHasXmlns(sourceNode, XMPP_JINGLE_RTP_NAMESPACE)
+            || !xmppNodeXmlns(sourceNode)
+          )
+        ))
         .map((sourceNode) => ({
           ssrc: Number(sourceNode.getAttribute("ssrc") || 0) || 0,
           parameters: xmppElementsByLocalName(sourceNode, "parameter")
@@ -8812,9 +8882,25 @@ function parseXmppJingleIq(stanza) {
         }))
         .filter((source) => source.ssrc > 0);
       const sourceGroups = [...(description ? xmppElementsByLocalName(description, "source-group") : [])]
+        .filter((groupNode) => (
+          groupNode.parentNode === description
+          && (
+            xmppNodeHasXmlns(groupNode, XMPP_JINGLE_RTP_SSMA_NAMESPACE)
+            || xmppNodeHasXmlns(groupNode, XMPP_JINGLE_RTP_NAMESPACE)
+            || !xmppNodeXmlns(groupNode)
+          )
+        ))
         .map((groupNode) => ({
           semantics: (groupNode.getAttribute("semantics") || "").toString().trim().toUpperCase(),
           sources: xmppElementsByLocalName(groupNode, "source")
+            .filter((sourceNode) => (
+              sourceNode.parentNode === groupNode
+              && (
+                xmppNodeHasXmlns(sourceNode, XMPP_JINGLE_RTP_SSMA_NAMESPACE)
+                || xmppNodeHasXmlns(sourceNode, XMPP_JINGLE_RTP_NAMESPACE)
+                || !xmppNodeXmlns(sourceNode)
+              )
+            ))
             .map((sourceNode) => Number(sourceNode.getAttribute("ssrc") || 0) || 0)
             .filter((ssrc) => ssrc > 0)
         }))
@@ -9181,15 +9267,17 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
   }
   if (conversation.type === "dm" && peerJid && (!globalThis.startNativeXmppCallSession || typeof globalThis.startNativeXmppCallSession !== "function")) {
     const sessionId = `jmi-${createId().slice(0, 12)}`;
-    const sentJmi = xmppSendJingleMessageAction(peerTargetJid || peerJid, "propose", {
+    const sentJmi = xmppSendJingleMessageAction(peerJid, "propose", {
       sessionId,
       media: negotiatedMedia,
-      preferFull: true
+      preferFull: false
     });
-    const sentCallInviteCompat = xmppSendCallInviteAction(peerTargetJid || peerJid, "invite", {
+    const sentCallInviteCompat = xmppSendCallInviteAction(peerJid, "invite", {
       sessionId,
       audio: negotiatedMedia.includes("audio"),
-      video: negotiatedMedia.includes("video")
+      video: negotiatedMedia.includes("video"),
+      preferFull: false,
+      fallbackBody: "Incoming XMPP call invite."
     });
     const sent = Boolean(sentJmi || sentCallInviteCompat);
     if (!sent) {
@@ -11357,6 +11445,70 @@ function xmppExtractOobAttachments(stanza) {
       mime: cleanMime
     });
   };
+  const extractRefUri = (node = null) => {
+    if (!node) return "";
+    const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
+    return (node.getAttribute("uri") || xmppNodeText(uriNode) || "").toString().trim();
+  };
+  const extractRefMime = (node = null) => {
+    if (!node) return "";
+    const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
+    const typeAttr = (node.getAttribute("type") || "").toString().trim().toLowerCase();
+    const mimeFromTypeAttr = typeAttr.includes("/") ? typeAttr : "";
+    return (node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || mimeFromTypeAttr || "").toString().trim();
+  };
+  const extractRefName = (node = null) => {
+    if (!node) return "";
+    const nameNode = xmppElementsByLocalName(node, "name")[0] || null;
+    const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
+    return (node.getAttribute("name") || xmppNodeText(nameNode) || xmppNodeText(descNode) || "").toString().trim();
+  };
+  const upsertMediaSharingNode = (mediaSharingNode, { fallbackUrl = "", fallbackName = "", fallbackMime = "" } = {}) => {
+    if (!mediaSharingNode || !xmppNodeHasXmlns(mediaSharingNode, XMPP_SIMS_NAMESPACE)) return;
+    const fileNode = xmppElementsByLocalName(mediaSharingNode, "file")
+      .find((node) => xmppNodeHasXmlns(node, XMPP_FILE_METADATA_NAMESPACE))
+      || xmppElementsByLocalName(mediaSharingNode, "file")[0]
+      || null;
+    const fileNameNode = fileNode ? (xmppElementsByLocalName(fileNode, "name")[0] || null) : null;
+    const fileDescNode = fileNode ? (xmppElementsByLocalName(fileNode, "desc")[0] || null) : null;
+    const fileMimeNode = fileNode ? (xmppElementsByLocalName(fileNode, "media-type")[0] || null) : null;
+    const fileUriNodes = fileNode ? xmppElementsByLocalName(fileNode, "uri") : [];
+    const fileName = (xmppNodeText(fileNameNode) || xmppNodeText(fileDescNode) || fallbackName || "").toString().trim();
+    const fileMime = (xmppNodeText(fileMimeNode) || fallbackMime || "").toString().trim();
+    const uriCandidates = [];
+    const pushUri = (rawUrl = "") => {
+      const normalized = normalizeMediaUrl(rawUrl);
+      if (!normalized) return;
+      if (uriCandidates.includes(normalized)) return;
+      uriCandidates.push(normalized);
+    };
+    pushUri(fallbackUrl);
+    fileUriNodes.forEach((uriNode) => {
+      pushUri(xmppNodeText(uriNode));
+      pushUri(uriNode?.getAttribute?.("uri") || "");
+    });
+    xmppElementsByLocalName(mediaSharingNode, "reference")
+      .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
+      .forEach((refNode) => {
+        pushUri(extractRefUri(refNode));
+        const thumbNodes = xmppElementsByLocalName(refNode, "thumbnail");
+        thumbNodes.forEach((thumbNode) => {
+          pushUri(thumbNode?.getAttribute?.("uri") || "");
+        });
+        upsert({
+          url: extractRefUri(refNode),
+          name: extractRefName(refNode) || fileName || fallbackName,
+          mime: extractRefMime(refNode) || fileMime || fallbackMime
+        });
+      });
+    uriCandidates.forEach((uri) => {
+      upsert({
+        url: uri,
+        name: fileName || fallbackName,
+        mime: fileMime || fallbackMime
+      });
+    });
+  };
   xmppElementsByLocalName(stanza, "x")
     .filter((node) => xmppNodeHasXmlns(node, "jabber:x:oob"))
     .forEach((node) => {
@@ -11372,18 +11524,27 @@ function xmppExtractOobAttachments(stanza) {
   xmppElementsByLocalName(stanza, "reference")
     .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
     .forEach((node) => {
-      const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
-      const nameNode = xmppElementsByLocalName(node, "name")[0] || null;
-      const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
-      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
-      const typeAttr = (node.getAttribute("type") || "").toString().trim().toLowerCase();
-      const mimeFromTypeAttr = typeAttr.includes("/") ? typeAttr : "";
+      const uri = extractRefUri(node);
+      const name = extractRefName(node);
+      const mime = extractRefMime(node);
       upsert({
-        url: node.getAttribute("uri") || xmppNodeText(uriNode) || "",
-        name: node.getAttribute("name") || xmppNodeText(nameNode) || xmppNodeText(descNode),
-        mime: node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || mimeFromTypeAttr
+        url: uri,
+        name,
+        mime
       });
+      const mediaSharingNode = xmppElementsByLocalName(node, "media-sharing")
+        .find((entry) => xmppNodeHasXmlns(entry, XMPP_SIMS_NAMESPACE)) || null;
+      if (mediaSharingNode) {
+        upsertMediaSharingNode(mediaSharingNode, {
+          fallbackUrl: uri,
+          fallbackName: name,
+          fallbackMime: mime
+        });
+      }
     });
+  xmppElementsByLocalName(stanza, "media-sharing")
+    .filter((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE))
+    .forEach((node) => upsertMediaSharingNode(node));
   return out.slice(0, 6);
 }
 
@@ -11392,6 +11553,9 @@ function xmppHasOobAttachmentHint(stanza) {
   const hasOob = xmppElementsByLocalName(stanza, "x")
     .some((node) => xmppNodeHasXmlns(node, "jabber:x:oob"));
   if (hasOob) return true;
+  const hasMediaSharing = xmppElementsByLocalName(stanza, "media-sharing")
+    .some((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE));
+  if (hasMediaSharing) return true;
   return xmppElementsByLocalName(stanza, "reference")
     .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
     .some((node) => {
@@ -11418,10 +11582,15 @@ function xmppAttachmentsFromOobEntries(entries) {
     if (!clean) return;
     const preferredName = typeof entry === "string" ? "" : (entry?.name || "").toString().trim();
     const preferredMime = typeof entry === "string" ? "" : (entry?.mime || "").toString().trim();
-    const type = inferAttachmentTypeFromUrl(clean)
+    let type = inferAttachmentTypeFromUrl(clean)
       || inferAttachmentTypeFromUrl(preferredName)
       || inferAttachmentTypeFromMime(preferredMime)
       || "file";
+    const stickerHint = /\bsticker\b/i.test(preferredName)
+      || /\baufkleber\b/i.test(preferredName)
+      || (/image\/webp/i.test(preferredMime) && /\bsticker\b/i.test(preferredName))
+      || /\/stickers?\//i.test(clean);
+    if (type === "gif" && stickerHint) type = "sticker";
     out.push({
       type,
       url: clean,
@@ -11436,6 +11605,19 @@ function xmppAttachmentsFromOobEntries(entries) {
 function xmppAttachmentsFromUrls(urls) {
   const entries = Array.isArray(urls) ? urls.map((url) => ({ url })) : [];
   return xmppAttachmentsFromOobEntries(entries);
+}
+
+function xmppLooksLikeAttachmentFallbackText(text = "") {
+  const normalized = decodeHtmlEntities((text || "").toString())
+    .trim()
+    .toLowerCase()
+    .replace(/[.!?]+$/g, "")
+    .trim();
+  if (!normalized) return false;
+  if (/^(ein|a)\s+sticker\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
+  if (/^\bsticker\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
+  if (/^(ein|a)\s+aufkleber\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
+  return false;
 }
 
 function xmppXhtmlNodeToInlineText(node) {
@@ -13845,6 +14027,9 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         const attachments = xmppAttachmentsFromOobEntries(xmppExtractOobAttachments(stanza));
+        if (attachments.length > 0 && xmppLooksLikeAttachmentFallbackText(text)) {
+          text = "";
+        }
         if (!text && !encrypted && attachments.length === 0 && attachmentHint) {
           text = "[XMPP attachment metadata received, but no supported URL payload was found]";
         }
@@ -14881,9 +15066,19 @@ function connectRelaySocket({ force = false } = {}) {
               });
             }
             session.state = "transport-info-received";
-            showToast(`Received XMPP transport-info (${candidateCount} candidate${candidateCount === 1 ? "" : "s"}).`);
-            if (addSystemDmMessageByPeerJid(fromBare, `Received XMPP transport-info (${jingle.sid.slice(0, 8)} · ${candidateCount} candidate${candidateCount === 1 ? "" : "s"}).`)) {
-              refreshDmUiForPeerJid(fromBare);
+            const transportNotice = xmppTrackTransportInfoNotice(jingle.sid, candidateCount);
+            if (transportNotice.shouldAnnounce) {
+              const candidateLabel = transportNotice.totalCandidates === 1 ? "candidate" : "candidates";
+              const packetLabel = transportNotice.packetCount === 1 ? "update" : "updates";
+              showToast(
+                `Received XMPP transport-info (${transportNotice.packetCount} ${packetLabel} · ${transportNotice.totalCandidates} ${candidateLabel}).`
+              );
+              if (addSystemDmMessageByPeerJid(
+                fromBare,
+                `Received XMPP transport-info (${jingle.sid.slice(0, 8)} · ${transportNotice.packetCount} ${packetLabel} · ${transportNotice.totalCandidates} ${candidateLabel}).`
+              )) {
+                refreshDmUiForPeerJid(fromBare);
+              }
             }
             addXmppDebugEvent("iq", "Received XMPP jingle transport-info", {
               from: fromBare,
@@ -15862,12 +16057,16 @@ function xmppClientDiscoFeatures() {
     XMPP_CALL_INVITES_NAMESPACE,
     XMPP_JINGLE_AUDIO_NAMESPACE,
     XMPP_JINGLE_VIDEO_NAMESPACE,
-    "urn:xmpp:jingle:apps:rtp:rtcp-fb:0",
-    "urn:xmpp:jingle:apps:rtp:rtp-hdrext:0",
-    "urn:xmpp:jingle:apps:rtp:ssma:0",
+    XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
+    XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
+    XMPP_JINGLE_RTP_SSMA_NAMESPACE,
     "urn:xmpp:jingle:apps:rtp:rtcp-mux:0",
     "http://jabber.org/protocol/nick",
     "urn:xmpp:jingle:apps:dtls:0",
+    "urn:xmpp:reference:0",
+    "jabber:x:oob",
+    XMPP_SIMS_NAMESPACE,
+    XMPP_FILE_METADATA_NAMESPACE,
     XMPP_REACTIONS_NAMESPACE,
     XMPP_MESSAGE_RETRACT_NAMESPACE,
     XMPP_FASTEN_NAMESPACE,
@@ -15935,9 +16134,9 @@ function xmppShouldUseMinimalRtpForPeer(peerJid = "", media = ["audio", "video"]
   )];
   const features = xmppCachedCallFeaturesForPeer(peerJid);
   if (features.size <= 0) return true;
-  const hasRtpFb = features.has("urn:xmpp:jingle:apps:rtp:rtcp-fb:0");
-  const hasHdrExt = features.has("urn:xmpp:jingle:apps:rtp:rtp-hdrext:0");
-  const hasSsma = features.has("urn:xmpp:jingle:apps:rtp:ssma:0");
+  const hasRtpFb = features.has(XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE);
+  const hasHdrExt = features.has(XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE);
+  const hasSsma = features.has(XMPP_JINGLE_RTP_SSMA_NAMESPACE);
   const supportsAudio = features.has(XMPP_JINGLE_AUDIO_NAMESPACE);
   const supportsVideo = features.has(XMPP_JINGLE_VIDEO_NAMESPACE);
   const mediaMismatch = normalizedMedia.some((item) => (
@@ -23076,6 +23275,7 @@ function inferAttachmentTypeFromUrl(url) {
   if (has(/\.bin(\?|$|&|#)/i)) return "bin";
   if (has(/\.apng(\?|$|&|#)/i)) return "sticker";
   if (has(/\.lottie(\?|$|&|#)/i)) return "sticker";
+  if (has(/\/stickers?\//i) && has(/\.(png|gif|webp|apng|lottie)(\?|$|&|#)/i)) return "sticker";
   if (has(/\.(mp4|webm|mov|m4v|ogv|m3u8)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(mp4|webm|mov|m4v|ogv|m3u8)(?:[&#]|$)/i)) return "video";
   if (has(/\.(png|jpe?g|gif|webp|bmp|avif|heic|heif|jfif)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(png|jpe?g|gif|webp|bmp|avif|heic|heif)(?:[&#]|$)/i)) return "gif";
   if (has(/\/[^/?#]+\.[a-z0-9]{1,12}(\?|$|&|#)/i)) return "file";

@@ -197,6 +197,26 @@ if (IS_PACKAGED_LINUX) {
 }
 
 if (process.platform === "linux") {
+  if (!IS_PACKAGED_LINUX) {
+    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "auto").toLowerCase();
+    const shmDecision = resolveShmMode(devShmMode);
+    if (shmDecision.mode === "tmp") {
+      // Some restricted Linux/dev environments do not expose writable /dev/shm (e.g. sandboxes/containers).
+      app.commandLine.appendSwitch("disable-dev-shm-usage");
+    }
+    if (shmDecision.fallbackFrom) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[electron] linux shm mode '${shmDecision.fallbackFrom}' unavailable; falling back to '${shmDecision.mode}'.`
+      );
+    }
+    if (!shmDecision.shmOk && !shmDecision.tmpOk) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[electron] linux shm fallback: neither /dev/shm nor /tmp is writable; shared memory errors are likely."
+      );
+    }
+  }
   if (ELECTRON_PIPEWIRE !== "off") {
     appendChromiumFeatureFlag("WebRTCPipeWireCapturer");
   }
