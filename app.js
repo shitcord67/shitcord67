@@ -102,6 +102,11 @@ function detectRuntimePlatform() {
   return { isAndroid, isiOS, isMobile };
 }
 
+function looksLikeElectronUserAgent() {
+  const ua = String(navigator.userAgent || "").toLowerCase();
+  return /\belectron\/\d+/i.test(ua);
+}
+
 function applyRuntimePlatformHints() {
   if (typeof document === "undefined" || !document.body) return;
   const { isAndroid, isiOS, isMobile } = detectRuntimePlatform();
@@ -133,8 +138,9 @@ function applyPlatformRuntimeInfo(info = {}) {
 }
 
 function initElectronPlatformBridge() {
-  if (electronRuntime?.bridge) {
-    const { bridge } = electronRuntime;
+  const runtime = resolveElectronRuntime({ refresh: true });
+  if (runtime?.bridge) {
+    const { bridge } = runtime;
     if (typeof bridge.onPlatformInfo === "function") {
       bridge.onPlatformInfo((payload) => {
         applyPlatformRuntimeInfo(payload || {});
@@ -146,22 +152,31 @@ function initElectronPlatformBridge() {
     }
     return;
   }
-  if (!electronRuntime?.ipcRenderer) return;
-  electronRuntime.ipcRenderer.on("s67-platform-info", (_event, payload) => {
+  if (!runtime?.ipcRenderer) return;
+  runtime.ipcRenderer.on("s67-platform-info", (_event, payload) => {
     applyPlatformRuntimeInfo(payload || {});
     renderPlatformDetectedNote();
   });
-  electronRuntime.ipcRenderer.send("s67-request-platform-info");
+  runtime.ipcRenderer.send("s67-request-platform-info");
 }
 
 function requestDevtoolsToggle() {
-  if (electronRuntime?.bridge && typeof electronRuntime.bridge.toggleDevtools === "function") {
-    electronRuntime.bridge.toggleDevtools();
+  const runtime = resolveElectronRuntime({ refresh: true });
+  if (runtime?.bridge && typeof runtime.bridge.toggleDevtools === "function") {
+    runtime.bridge.toggleDevtools();
     return true;
   }
-  if (!electronRuntime?.ipcRenderer) return false;
-  electronRuntime.ipcRenderer.send("s67-toggle-devtools");
-  return true;
+  if (runtime?.ipcRenderer) {
+    runtime.ipcRenderer.send("s67-toggle-devtools");
+    return true;
+  }
+  if (!looksLikeElectronUserAgent() || typeof window === "undefined") return false;
+  try {
+    window.location.href = "s67://devtools/toggle";
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function screenShareCapabilitySnapshot() {
@@ -212,16 +227,21 @@ function renderPlatformDetectedNote() {
 }
 
 function runtimeDiagnosticsSnapshot() {
-  const hasBridge = Boolean(electronRuntime?.bridge);
-  const hasIpcRenderer = Boolean(electronRuntime?.ipcRenderer);
-  const route = hasBridge ? "preload-bridge" : (hasIpcRenderer ? "window.require" : "web");
+  const runtime = resolveElectronRuntime({ refresh: true });
+  const hasBridge = Boolean(runtime?.bridge);
+  const hasIpcRenderer = Boolean(runtime?.ipcRenderer);
+  const inElectronShell = looksLikeElectronUserAgent();
+  const route = hasBridge
+    ? "preload-bridge"
+    : (hasIpcRenderer ? "window.require" : (inElectronShell ? "electron-no-bridge" : "web"));
   const canToggleDevtools = hasBridge
-    ? typeof electronRuntime?.bridge?.toggleDevtools === "function"
-    : hasIpcRenderer;
+    ? typeof runtime?.bridge?.toggleDevtools === "function"
+    : (hasIpcRenderer || inElectronShell);
   return {
     route,
     hasBridge,
     hasIpcRenderer,
+    inElectronShell,
     canToggleDevtools
   };
 }
@@ -235,9 +255,13 @@ function renderRuntimeDiagnosticsNote() {
   }
   const detail = diagnostics.route === "preload-bridge"
     ? "Preload bridge active"
-    : "Legacy window.require path active";
+    : diagnostics.route === "window.require"
+      ? "Legacy window.require path active"
+      : "Electron shell detected (bridge missing)";
   const ipcDetail = diagnostics.hasBridge || diagnostics.hasIpcRenderer ? "IPC ready" : "IPC unavailable";
-  const devtoolsDetail = diagnostics.canToggleDevtools ? "DevTools toggle available" : "DevTools toggle unavailable";
+  const devtoolsDetail = diagnostics.canToggleDevtools
+    ? (diagnostics.route === "electron-no-bridge" ? "DevTools toggle fallback available" : "DevTools toggle available")
+    : "DevTools toggle unavailable";
   ui.runtimeDiagnosticsNote.textContent = `Runtime diagnostics: ${detail} · ${ipcDetail} · ${devtoolsDetail}.`;
 }
 
@@ -1602,7 +1626,8 @@ let platformRuntimeInfo = {
   pipewire: "on",
   ozoneHint: "auto"
 };
-const electronRuntime = (() => {
+
+function detectElectronRuntime() {
   if (typeof window === "undefined") return null;
   const bridge = window.s67Electron;
   if (bridge && typeof bridge === "object") {
@@ -1616,7 +1641,20 @@ const electronRuntime = (() => {
   } catch {
     return null;
   }
-})();
+}
+
+let electronRuntime = detectElectronRuntime();
+
+function resolveElectronRuntime({ refresh = false } = {}) {
+  if (!refresh && electronRuntime) return electronRuntime;
+  const detected = detectElectronRuntime();
+  if (detected) {
+    electronRuntime = detected;
+  } else if (refresh) {
+    electronRuntime = null;
+  }
+  return electronRuntime;
+}
 
 const ui = {
   loginScreen: document.getElementById("loginScreen"),
@@ -8473,7 +8511,8 @@ async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
       .map((item) => (item || "").toString().trim().toLowerCase())
       .filter((item) => item === "audio" || item === "video")
   )];
-  const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
+  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"]);
+  const useMinimalRtp = xmppShouldUseMinimalRtpForPeer(to, medias);
   const entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid: to,
     media: medias,
@@ -8503,7 +8542,17 @@ async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
       : xmppBuildJingleTransportCreds());
   if (sessionEntry) sessionEntry.localTransport = localTransport;
   const localDtls = xmppParseDtlsFingerprintFromSdp(localSdp) || xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "actpass" });
-  const contents = localSdp ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "initiator" }) : [];
+  const contents = (!useMinimalRtp && localSdp) ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "initiator" }) : [];
+  if (sessionEntry) {
+    sessionEntry.media = medias;
+  }
+  if (useMinimalRtp) {
+    addXmppDebugEvent("call", "Using minimal RTP description for session-initiate", {
+      sid,
+      to,
+      media: medias
+    });
+  }
   if (contents.length > 0) {
     contents.forEach((content) => xmppBuildJingleRtpContent(iq, {
       media: content.media,
@@ -8570,7 +8619,8 @@ async function xmppSendJingleSessionAccept(peerJid, sessionId, {
       .map((item) => (item || "").toString().trim().toLowerCase())
       .filter((item) => item === "audio" || item === "video")
   )];
-  const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
+  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"]);
+  const useMinimalRtp = xmppShouldUseMinimalRtpForPeer(to, medias);
   const entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid: to,
     media: medias,
@@ -8600,7 +8650,17 @@ async function xmppSendJingleSessionAccept(peerJid, sessionId, {
       : xmppBuildJingleTransportCreds());
   if (sessionEntry) sessionEntry.localTransport = localTransport;
   const localDtls = xmppParseDtlsFingerprintFromSdp(localSdp) || xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "active" });
-  const contents = localSdp ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "responder" }) : [];
+  const contents = (!useMinimalRtp && localSdp) ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "responder" }) : [];
+  if (sessionEntry) {
+    sessionEntry.media = medias;
+  }
+  if (useMinimalRtp) {
+    addXmppDebugEvent("call", "Using minimal RTP description for session-accept", {
+      sid,
+      to,
+      media: medias
+    });
+  }
   if (contents.length > 0) {
     contents.forEach((content) => xmppBuildJingleRtpContent(iq, {
       media: content.media,
@@ -9090,6 +9150,8 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
   });
   const peerJid = xmppPeerJidForConversation(conversation, getCurrentAccount());
   const peerTargetJid = xmppNormalizeCallTargetJid(peerJid, { preferFull: true }) || peerJid;
+  const requestedMedia = screenShare ? ["audio", "video"] : ["audio", "video"];
+  const negotiatedMedia = xmppNegotiatedCallMediaForPeer(peerTargetJid || peerJid, requestedMedia);
   const hasFeatureEvidence = interop.details.some((entry) => Array.isArray(entry?.featureList) && entry.featureList.length > 0);
   const hasDiscoErrors = interop.details.some((entry) => Boolean(entry?.error));
   const allowOptimistic = conversation.type === "dm" && peerJid && (!hasFeatureEvidence || hasDiscoErrors);
@@ -9121,13 +9183,13 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     const sessionId = `jmi-${createId().slice(0, 12)}`;
     const sentJmi = xmppSendJingleMessageAction(peerTargetJid || peerJid, "propose", {
       sessionId,
-      media: screenShare ? ["audio", "video"] : ["audio", "video"],
+      media: negotiatedMedia,
       preferFull: true
     });
     const sentCallInviteCompat = xmppSendCallInviteAction(peerTargetJid || peerJid, "invite", {
       sessionId,
-      audio: true,
-      video: true
+      audio: negotiatedMedia.includes("audio"),
+      video: negotiatedMedia.includes("video")
     });
     const sent = Boolean(sentJmi || sentCallInviteCompat);
     if (!sent) {
@@ -9156,7 +9218,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
       remoteJingleRole: "responder",
       state: "proposed",
       createdAt: Date.now(),
-      media: screenShare ? ["audio", "video"] : ["audio", "video"],
+      media: negotiatedMedia,
       screenShare: Boolean(screenShare),
       inviteSignal: sentJmi ? "jmi" : "call-invite",
       callInviteId: sentCallInviteCompat || "",
@@ -10779,6 +10841,14 @@ function xmppElementsByLocalName(root, name = "") {
   return merged;
 }
 
+function xmppDirectChildByLocalName(root, name = "") {
+  if (!root || !root.childNodes) return null;
+  const wanted = (name || "").toString().trim().toLowerCase();
+  if (!wanted) return null;
+  return [...root.childNodes]
+    .find((node) => node?.nodeType === 1 && xmppNodeLocalName(node) === wanted) || null;
+}
+
 function xmppNodeHasXmlns(node, xmlns) {
   return xmppNodeXmlns(node) === (xmlns || "").toString().trim().toLowerCase();
 }
@@ -11260,40 +11330,80 @@ function xmppExtractOobAttachments(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
   const out = [];
   const seen = new Set();
+  const normalizeMediaUrl = (raw = "") => {
+    const value = (raw || "").toString().trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value)) return value;
+    const wrapped = value.match(/^xmpp:(https?:\/\/.+)$/i);
+    if (wrapped?.[1] && /^https?:\/\//i.test(wrapped[1])) return wrapped[1];
+    return "";
+  };
   const upsert = (entry = {}) => {
-    const url = (entry.url || "").toString().trim();
-    if (!/^https?:\/\//i.test(url)) return;
+    const url = normalizeMediaUrl(entry.url || "");
+    if (!url) return;
+    const cleanName = (entry.name || "").toString().trim().slice(0, 120);
+    const cleanMime = (entry.mime || "").toString().trim().toLowerCase().slice(0, 120);
     const key = url.toLowerCase();
     if (seen.has(key)) {
       const existing = out.find((item) => (item.url || "").toLowerCase() === key) || null;
-      if (existing && !existing.name && entry.name) existing.name = entry.name;
+      if (existing && !existing.name && cleanName) existing.name = cleanName;
+      if (existing && !existing.mime && cleanMime) existing.mime = cleanMime;
       return;
     }
     seen.add(key);
     out.push({
       url,
-      name: (entry.name || "").toString().trim().slice(0, 120)
+      name: cleanName,
+      mime: cleanMime
     });
   };
-  [...stanza.getElementsByTagName("x")]
+  xmppElementsByLocalName(stanza, "x")
     .filter((node) => xmppNodeHasXmlns(node, "jabber:x:oob"))
     .forEach((node) => {
-      const urlNode = node.getElementsByTagName("url")[0] || null;
-      const descNode = node.getElementsByTagName("desc")[0] || null;
+      const urlNode = xmppElementsByLocalName(node, "url")[0] || null;
+      const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
+      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
       upsert({
-        url: xmppNodeText(urlNode),
-        name: xmppNodeText(descNode)
+        url: xmppNodeText(urlNode) || node.getAttribute?.("url") || "",
+        name: xmppNodeText(descNode),
+        mime: xmppNodeText(mediaTypeNode)
       });
     });
-  [...stanza.getElementsByTagName("reference")]
+  xmppElementsByLocalName(stanza, "reference")
     .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
     .forEach((node) => {
+      const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
+      const nameNode = xmppElementsByLocalName(node, "name")[0] || null;
+      const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
+      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
+      const typeAttr = (node.getAttribute("type") || "").toString().trim().toLowerCase();
+      const mimeFromTypeAttr = typeAttr.includes("/") ? typeAttr : "";
       upsert({
-        url: node.getAttribute("uri") || "",
-        name: node.getAttribute("name") || ""
+        url: node.getAttribute("uri") || xmppNodeText(uriNode) || "",
+        name: node.getAttribute("name") || xmppNodeText(nameNode) || xmppNodeText(descNode),
+        mime: node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || mimeFromTypeAttr
       });
     });
   return out.slice(0, 6);
+}
+
+function xmppHasOobAttachmentHint(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return false;
+  const hasOob = xmppElementsByLocalName(stanza, "x")
+    .some((node) => xmppNodeHasXmlns(node, "jabber:x:oob"));
+  if (hasOob) return true;
+  return xmppElementsByLocalName(stanza, "reference")
+    .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
+    .some((node) => {
+      const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
+      const uri = (node.getAttribute("uri") || xmppNodeText(uriNode) || "").toString().trim();
+      if (/^(https?:\/\/|xmpp:https?:\/\/)/i.test(uri)) return true;
+      const typeAttr = (node.getAttribute("type") || "").toString().trim().toLowerCase();
+      if (typeAttr === "data" || typeAttr === "media" || typeAttr === "file") return true;
+      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
+      const mediaType = (node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || "").toString().trim().toLowerCase();
+      return mediaType.includes("/");
+    });
 }
 
 function xmppExtractOobUrls(stanza) {
@@ -11306,13 +11416,18 @@ function xmppAttachmentsFromOobEntries(entries) {
   entries.forEach((entry) => {
     const clean = (typeof entry === "string" ? entry : entry?.url || "").toString().trim();
     if (!clean) return;
-    const type = inferAttachmentTypeFromUrl(clean) || "file";
     const preferredName = typeof entry === "string" ? "" : (entry?.name || "").toString().trim();
+    const preferredMime = typeof entry === "string" ? "" : (entry?.mime || "").toString().trim();
+    const type = inferAttachmentTypeFromUrl(clean)
+      || inferAttachmentTypeFromUrl(preferredName)
+      || inferAttachmentTypeFromMime(preferredMime)
+      || "file";
     out.push({
       type,
       url: clean,
       name: preferredName || clean.split("/").pop() || clean,
-      format: inferAttachmentFormat(type, clean)
+      format: inferAttachmentFormat(type, clean),
+      mime: preferredMime
     });
   });
   return normalizeAttachments(out);
@@ -11361,7 +11476,7 @@ function xmppXhtmlNodeToInlineText(node) {
 
 function xmppPreferredBodyText(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const markdownNode = [...stanza.getElementsByTagName("content")]
+  const markdownNode = xmppElementsByLocalName(stanza, "content")
     .find((node) => {
       if (!xmppNodeHasXmlns(node, "urn:xmpp:content")) return false;
       const type = (node.getAttribute("type") || "").toString().trim().toLowerCase();
@@ -11369,10 +11484,10 @@ function xmppPreferredBodyText(stanza) {
     }) || null;
   const markdownText = decodeHtmlEntities(xmppNodeText(markdownNode)).trim();
   if (markdownText) return markdownText;
-  const htmlNode = [...stanza.getElementsByTagName("html")]
+  const htmlNode = xmppElementsByLocalName(stanza, "html")
     .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/xhtml-im")) || null;
   const xhtmlBody = htmlNode
-    ? [...htmlNode.getElementsByTagName("body")]
+    ? xmppElementsByLocalName(htmlNode, "body")
       .find((node) => xmppNodeHasXmlns(node, "http://www.w3.org/1999/xhtml")) || null
     : null;
   if (!xhtmlBody) return "";
@@ -13715,11 +13830,12 @@ function connectRelaySocket({ force = false } = {}) {
         const hasGone = stanza.getElementsByTagName("gone").length > 0;
         const hasActive = stanza.getElementsByTagName("active").length > 0;
         const preferredBodyText = xmppPreferredBodyText(stanza);
-        const bodyNode = stanza.getElementsByTagName("body")[0] || null;
-        const subjectNode = stanza.getElementsByTagName("subject")[0] || null;
+        const bodyNode = xmppDirectChildByLocalName(stanza, "body");
+        const subjectNode = xmppDirectChildByLocalName(stanza, "subject");
         const bodyText = (preferredBodyText || decodeHtmlEntities(xmppNodeText(bodyNode))).trim();
         const subjectText = decodeHtmlEntities(xmppNodeText(subjectNode)).trim();
         const encrypted = xmppHasEncryptedPayload(stanza);
+        const attachmentHint = xmppHasOobAttachmentHint(stanza);
         let text = bodyText;
         if (!text && subjectText) {
           text = type === "groupchat" ? `[Room subject] ${subjectText}` : subjectText;
@@ -13729,6 +13845,9 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         const attachments = xmppAttachmentsFromOobEntries(xmppExtractOobAttachments(stanza));
+        if (!text && !encrypted && attachments.length === 0 && attachmentHint) {
+          text = "[XMPP attachment metadata received, but no supported URL payload was found]";
+        }
         const receiptRequest = xmppReceiptRequestNode(stanza);
         const receiptReceivedId = xmppReceiptReceivedId(stanza);
         const chatMarker = xmppChatMarkerPayload(stanza);
@@ -15780,6 +15899,51 @@ function xmppEvaluateCallFeatures(features = new Set()) {
     hasInvite,
     ready: hasCore && hasMedia && hasTransport && hasInvite
   };
+}
+
+function xmppCachedCallFeaturesForPeer(peerJid = "") {
+  const barePeer = xmppBareJid(peerJid);
+  if (!barePeer) return new Set();
+  const cached = xmppDiscoInfoCacheByJid.get(barePeer);
+  if (!cached || !Array.isArray(cached.features)) return new Set();
+  return new Set(cached.features);
+}
+
+function xmppNegotiatedCallMediaForPeer(peerJid = "", requestedMedia = ["audio", "video"]) {
+  const wanted = [...new Set(
+    (Array.isArray(requestedMedia) ? requestedMedia : ["audio", "video"])
+      .map((item) => (item || "").toString().trim().toLowerCase())
+      .filter((item) => item === "audio" || item === "video")
+  )];
+  const normalizedWanted = wanted.length > 0 ? wanted : ["audio", "video"];
+  const features = xmppCachedCallFeaturesForPeer(peerJid);
+  if (features.size <= 0) return normalizedWanted;
+  const supportsAudio = features.has(XMPP_JINGLE_AUDIO_NAMESPACE);
+  const supportsVideo = features.has(XMPP_JINGLE_VIDEO_NAMESPACE);
+  if (!supportsAudio && !supportsVideo) return normalizedWanted;
+  const next = normalizedWanted.filter((item) => (
+    item === "audio" ? supportsAudio : supportsVideo
+  ));
+  return next.length > 0 ? next : (supportsAudio ? ["audio"] : ["video"]);
+}
+
+function xmppShouldUseMinimalRtpForPeer(peerJid = "", media = ["audio", "video"]) {
+  const normalizedMedia = [...new Set(
+    (Array.isArray(media) ? media : ["audio", "video"])
+      .map((item) => (item || "").toString().trim().toLowerCase())
+      .filter((item) => item === "audio" || item === "video")
+  )];
+  const features = xmppCachedCallFeaturesForPeer(peerJid);
+  if (features.size <= 0) return true;
+  const hasRtpFb = features.has("urn:xmpp:jingle:apps:rtp:rtcp-fb:0");
+  const hasHdrExt = features.has("urn:xmpp:jingle:apps:rtp:rtp-hdrext:0");
+  const hasSsma = features.has("urn:xmpp:jingle:apps:rtp:ssma:0");
+  const supportsAudio = features.has(XMPP_JINGLE_AUDIO_NAMESPACE);
+  const supportsVideo = features.has(XMPP_JINGLE_VIDEO_NAMESPACE);
+  const mediaMismatch = normalizedMedia.some((item) => (
+    (item === "audio" && !supportsAudio) || (item === "video" && !supportsVideo)
+  ));
+  return mediaMismatch || !hasRtpFb || !hasHdrExt || !hasSsma;
 }
 
 async function xmppAssessConversationCallInterop(conversation = getActiveConversation(), { force = false } = {}) {
@@ -22918,6 +23082,33 @@ function inferAttachmentTypeFromUrl(url) {
   return null;
 }
 
+function inferAttachmentTypeFromMime(mime = "") {
+  const raw = (mime || "").toString().trim().toLowerCase();
+  if (!raw) return null;
+  const clean = raw.split(";")[0].trim();
+  if (!clean) return null;
+  if (clean.startsWith("image/")) {
+    if (clean.includes("svg")) return "svg";
+    if (clean.includes("apng") || clean.includes("lottie")) return "sticker";
+    return "gif";
+  }
+  if (clean === "application/x-shockwave-flash") return "swf";
+  if (clean === "application/pdf") return "pdf";
+  if (clean === "application/rtf" || clean === "text/rtf") return "rtf";
+  if (clean.startsWith("audio/")) return "audio";
+  if (clean.startsWith("video/")) return "video";
+  if (clean.startsWith("text/")) return "text";
+  if (
+    clean.includes("officedocument")
+    || clean.includes("msword")
+    || clean.includes("vnd.ms-")
+    || clean.includes("vnd.oasis.opendocument")
+  ) {
+    return "odf";
+  }
+  return null;
+}
+
 function inferVideoMimeType(value) {
   const raw = (value || "").toString().toLowerCase();
   if (/\.mp4(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?mp4(?:[&#]|$)/i.test(raw)) return "video/mp4";
@@ -24568,7 +24759,9 @@ function appendMediaPickerPrivacyBanner({
   allowOnceBtn.type = "button";
   allowOnceBtn.textContent = "Allow Hidden Once";
   allowOnceBtn.disabled = gatedUrls.length <= 0;
-  allowOnceBtn.addEventListener("click", () => {
+  allowOnceBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (gatedUrls.length <= 0) {
       showToast("Hidden media is deny-listed. Remove deny rules to show it.", { tone: "error" });
       return;
@@ -24581,7 +24774,9 @@ function appendMediaPickerPrivacyBanner({
   trustBtn.type = "button";
   trustBtn.textContent = "Trust Hidden Hosts";
   trustBtn.disabled = gatedHosts.length <= 0;
-  trustBtn.addEventListener("click", () => {
+  trustBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     if (gatedHosts.length <= 0) {
       showToast("No untrusted hosts available to trust.");
       return;
@@ -24603,7 +24798,9 @@ function appendMediaPickerPrivacyBanner({
   const settingsBtn = document.createElement("button");
   settingsBtn.type = "button";
   settingsBtn.textContent = "Advanced Rules";
-  settingsBtn.addEventListener("click", () => {
+  settingsBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     openSettingsScreen();
     setSettingsTab("advanced");
   });
@@ -24620,7 +24817,9 @@ function appendMediaPickerPrivacyBanner({
       trustHostBtn.type = "button";
       trustHostBtn.className = "media-picker__privacy-host-btn";
       trustHostBtn.textContent = `Trust ${host}`;
-      trustHostBtn.addEventListener("click", () => {
+      trustHostBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         if (!addMediaTrustRule(host)) {
           showToast(`${host} is already trusted or invalid.`);
           return;
@@ -39150,14 +39349,25 @@ document.addEventListener("click", (event) => {
     if (!ui.contextMenu.contains(event.target)) closeContextMenu();
   }
   if (mediaPickerOpen) {
-    const inPicker = ui.mediaPicker.contains(event.target);
-    const onToggle = ui.openMediaPickerBtn.contains(event.target)
-      || ui.toggleSwfAudioBtn.contains(event.target)
-      || ui.toggleMediaPrivacyBtn?.contains(event.target)
-      || ui.quickFileAttachBtn.contains(event.target)
-      || ui.openGifPickerBtn?.contains(event.target)
-      || ui.openStickerPickerBtn?.contains(event.target)
-      || ui.openEmojiPickerBtn?.contains(event.target)
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    const pathContains = (node) => {
+      if (!(node instanceof Node)) return false;
+      if (path.length > 0) return path.includes(node);
+      return event.target instanceof Node ? node.contains(event.target) : false;
+    };
+    const pathContainsEmojiPickerBtn = path.some((node) => (
+      node instanceof HTMLElement
+      && node.classList.contains("message-action-emoji-btn--picker")
+    ));
+    const inPicker = pathContains(ui.mediaPicker);
+    const onToggle = pathContains(ui.openMediaPickerBtn)
+      || pathContains(ui.toggleSwfAudioBtn)
+      || pathContains(ui.toggleMediaPrivacyBtn)
+      || pathContains(ui.quickFileAttachBtn)
+      || pathContains(ui.openGifPickerBtn)
+      || pathContains(ui.openStickerPickerBtn)
+      || pathContains(ui.openEmojiPickerBtn)
+      || pathContainsEmojiPickerBtn
       || (event.target instanceof HTMLElement && Boolean(event.target.closest(".message-action-emoji-btn--picker")));
     if (!inPicker && !onToggle) closeMediaPicker();
   }

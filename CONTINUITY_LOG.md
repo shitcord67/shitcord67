@@ -1581,3 +1581,9 @@ You may continue. But: why the heck is the sticker picker so different to all th
 
 ## 2026-02-27T10:58:06Z
 Yeah
+
+## 2026-02-27T11:27:01Z
+Also I noticed that the client still does not display stickers received from Movim. it does not even display XMPP fallback messages... Please fix.
+
+## [2026-02-27T12:27:53+01:00] User Prompt
+And devtools still don't open for /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67. Please really fix this!

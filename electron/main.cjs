@@ -60,7 +60,7 @@ if (process.platform === "linux") {
   applyEarlyRuntimeEnv(EARLY_RUNTIME_DIR);
 }
 
-const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain, globalShortcut } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const https = require("node:https");
@@ -384,6 +384,56 @@ function installClientSecurityHeaders() {
   );
 }
 
+let devtoolsShortcutsRegistered = false;
+
+function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow() || mainWindow) {
+  if (!windowInstance || windowInstance.isDestroyed?.()) return false;
+  if (!windowInstance.webContents || windowInstance.webContents.isDestroyed?.()) return false;
+  try {
+    windowInstance.webContents.toggleDevTools();
+    return true;
+  } catch (error) {
+    log("failed to toggle DevTools", String(error?.message || error));
+    return false;
+  }
+}
+
+function handleInternalS67Url(target, windowInstance) {
+  if (!target || target.protocol !== "s67:") return false;
+  const host = (target.hostname || "").toLowerCase();
+  const path = (target.pathname || "").toLowerCase();
+  if (host === "devtools" && (path === "/toggle" || path === "" || path === "/")) {
+    toggleDevtoolsForWindow(windowInstance);
+    return true;
+  }
+  return false;
+}
+
+function registerDevtoolsGlobalShortcuts() {
+  if (devtoolsShortcutsRegistered) return;
+  const accelerators = ["F12", "CommandOrControl+Shift+I", "Command+Alt+I"];
+  let registeredAny = false;
+  accelerators.forEach((accelerator) => {
+    try {
+      const ok = globalShortcut.register(accelerator, () => {
+        toggleDevtoolsForWindow();
+      });
+      if (ok) registeredAny = true;
+    } catch (error) {
+      log("failed to register DevTools shortcut", `${accelerator} ${String(error?.message || error)}`);
+    }
+  });
+  devtoolsShortcutsRegistered = registeredAny;
+}
+
+function unregisterDevtoolsGlobalShortcuts() {
+  if (!devtoolsShortcutsRegistered) return;
+  globalShortcut.unregister("F12");
+  globalShortcut.unregister("CommandOrControl+Shift+I");
+  globalShortcut.unregister("Command+Alt+I");
+  devtoolsShortcutsRegistered = false;
+}
+
 function attachNavigationGuards(windowInstance, allowedOrigin) {
   const routeExternalToRenderer = (url) => {
     let target;
@@ -392,6 +442,7 @@ function attachNavigationGuards(windowInstance, allowedOrigin) {
     } catch {
       return;
     }
+    if (handleInternalS67Url(target, windowInstance)) return;
     if (target.protocol !== "http:" && target.protocol !== "https:") return;
     const serialized = JSON.stringify(target.toString());
     if (windowInstance?.isDestroyed?.()) return;
@@ -424,7 +475,7 @@ function attachDeveloperShortcuts(windowInstance) {
     const wantsCmdAltI = key === "I" && input.meta && input.alt;
     if (!wantsF12 && !wantsCtrlShiftI && !wantsCmdAltI) return;
     event.preventDefault();
-    windowInstance.webContents.toggleDevTools();
+    toggleDevtoolsForWindow(windowInstance);
   });
 }
 
@@ -475,8 +526,7 @@ async function createMainWindow({ startupWarning = "" } = {}) {
     });
   });
   ipcMain.on("s67-toggle-devtools", () => {
-    if (!mainWindow?.webContents) return;
-    mainWindow.webContents.toggleDevTools();
+    toggleDevtoolsForWindow(mainWindow);
   });
 
   let loadedClient = false;
@@ -518,11 +568,13 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   isShuttingDown = true;
+  unregisterDevtoolsGlobalShortcuts();
   stopStackScript();
 });
 
 app.on("will-quit", () => {
   isShuttingDown = true;
+  unregisterDevtoolsGlobalShortcuts();
   stopStackScript();
 });
 
@@ -616,6 +668,7 @@ app.whenReady().then(async () => {
   let startupRecovered = false;
   try {
     installClientSecurityHeaders();
+    registerDevtoolsGlobalShortcuts();
     const result = await startClientStackWithFallback();
     startupRecovered = Boolean(result.recovered);
     startupWarning = (result.warning || "").toString();
