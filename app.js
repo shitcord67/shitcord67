@@ -45,6 +45,7 @@ const XMPP_JINGLE_AUDIO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:audio";
 const XMPP_JINGLE_VIDEO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:video";
 const XMPP_SIMS_NAMESPACE = "urn:xmpp:sims:1";
 const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
+const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
 const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
@@ -11656,26 +11657,85 @@ function markXmppMessageReadByMarker(stanzaId, peerJid = "") {
   return changed;
 }
 
+function xmppNormalizeBobCid(value = "") {
+  let token = (value || "").toString().trim();
+  if (!token) return "";
+  if (/^xmpp:/i.test(token)) token = token.replace(/^xmpp:/i, "");
+  if (/^cid:/i.test(token)) token = token.replace(/^cid:/i, "");
+  try {
+    token = decodeURIComponent(token);
+  } catch {
+    // Keep the original token when URI decoding fails.
+  }
+  token = token
+    .split("?")[0]
+    .split("#")[0]
+    .replace(/^<+|>+$/g, "")
+    .trim();
+  return token.toLowerCase();
+}
+
+function xmppInlineBobEntries(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+  const out = [];
+  const seen = new Set();
+  xmppElementsByLocalName(stanza, "data")
+    .filter((node) => xmppNodeHasXmlns(node, XMPP_BOB_NAMESPACE))
+    .forEach((node) => {
+      const rawCid = (node.getAttribute?.("cid") || "").toString().trim();
+      const cidKey = xmppNormalizeBobCid(rawCid);
+      if (!cidKey || seen.has(cidKey)) return;
+      const payload = (xmppNodeText(node) || "").toString().replace(/\s+/g, "");
+      if (!payload || payload.length > (8 * 1024 * 1024)) return;
+      const cleanPayload = payload.replace(/[^a-z0-9+/=]/gi, "");
+      if (!cleanPayload) return;
+      const rawMime = (node.getAttribute?.("type") || "").toString().trim().toLowerCase();
+      const mime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(rawMime) ? rawMime : "application/octet-stream";
+      seen.add(cidKey);
+      out.push({
+        cid: rawCid || cidKey,
+        cidKey,
+        name: rawCid || cidKey,
+        mime,
+        url: `data:${mime};base64,${cleanPayload}`
+      });
+    });
+  return out.slice(0, 6);
+}
+
 function xmppExtractOobAttachments(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
   const out = [];
   const seen = new Set();
+  const inlineBobEntries = xmppInlineBobEntries(stanza);
+  const inlineBobByCid = new Map(
+    inlineBobEntries
+      .map((entry) => [entry.cidKey, entry])
+      .filter(([key]) => Boolean(key))
+  );
+  const resolveInlineBobFromUri = (raw = "") => {
+    const cidKey = xmppNormalizeBobCid(raw);
+    if (!cidKey) return null;
+    return inlineBobByCid.get(cidKey) || null;
+  };
   const normalizeMediaUrl = (raw = "") => {
     const value = (raw || "").toString().trim();
     if (!value) return "";
+    if (/^data:/i.test(value)) return value;
     if (/^https?:\/\//i.test(value)) return value;
     const wrapped = value.match(/^xmpp:(https?:\/\/.+)$/i);
     if (wrapped?.[1] && /^https?:\/\//i.test(wrapped[1])) return wrapped[1];
     return "";
   };
   const upsert = (entry = {}) => {
-    const url = normalizeMediaUrl(entry.url || "");
+    const bobEntry = resolveInlineBobFromUri(entry.url || "");
+    const url = normalizeMediaUrl((bobEntry?.url || entry.url || "").toString());
     if (!url) return;
-    const cleanName = (entry.name || "").toString().trim().slice(0, 120);
-    const cleanMime = (entry.mime || "").toString().trim().toLowerCase().slice(0, 120);
-    const key = url.toLowerCase();
+    const cleanName = (entry.name || bobEntry?.name || "").toString().trim().slice(0, 120);
+    const cleanMime = (entry.mime || bobEntry?.mime || "").toString().trim().toLowerCase().slice(0, 120);
+    const key = /^data:/i.test(url) ? url : url.toLowerCase();
     if (seen.has(key)) {
-      const existing = out.find((item) => (item.url || "").toLowerCase() === key) || null;
+      const existing = out.find((item) => ((/^data:/i.test(item.url || "") ? item.url : (item.url || "").toLowerCase()) === key)) || null;
       if (existing && !existing.name && cleanName) existing.name = cleanName;
       if (existing && !existing.mime && cleanMime) existing.mime = cleanMime;
       return;
@@ -11719,10 +11779,10 @@ function xmppExtractOobAttachments(stanza) {
     const fileMime = (xmppNodeText(fileMimeNode) || fallbackMime || "").toString().trim();
     const uriCandidates = [];
     const pushUri = (rawUrl = "") => {
-      const normalized = normalizeMediaUrl(rawUrl);
-      if (!normalized) return;
-      if (uriCandidates.includes(normalized)) return;
-      uriCandidates.push(normalized);
+      const candidate = (rawUrl || "").toString().trim();
+      if (!candidate) return;
+      if (uriCandidates.includes(candidate)) return;
+      uriCandidates.push(candidate);
     };
     pushUri(fallbackUrl);
     fileUriNodes.forEach((uriNode) => {
@@ -11787,6 +11847,19 @@ function xmppExtractOobAttachments(stanza) {
   xmppElementsByLocalName(stanza, "media-sharing")
     .filter((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE))
     .forEach((node) => upsertMediaSharingNode(node));
+  xmppElementsByLocalName(stanza, "img")
+    .forEach((node) => {
+      const src = (node.getAttribute?.("src") || "").toString().trim();
+      if (!src) return;
+      const bobEntry = resolveInlineBobFromUri(src);
+      if (!bobEntry) return;
+      const alt = (node.getAttribute?.("alt") || node.getAttribute?.("title") || "").toString().trim();
+      upsert({
+        url: src,
+        name: alt || bobEntry.name,
+        mime: bobEntry.mime
+      });
+    });
   return out.slice(0, 6);
 }
 
@@ -11795,6 +11868,9 @@ function xmppHasOobAttachmentHint(stanza) {
   const hasOob = xmppElementsByLocalName(stanza, "x")
     .some((node) => xmppNodeHasXmlns(node, "jabber:x:oob"));
   if (hasOob) return true;
+  const hasInlineBob = xmppElementsByLocalName(stanza, "data")
+    .some((node) => xmppNodeHasXmlns(node, XMPP_BOB_NAMESPACE));
+  if (hasInlineBob) return true;
   const hasMediaSharing = xmppElementsByLocalName(stanza, "media-sharing")
     .some((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE));
   if (hasMediaSharing) return true;
@@ -11803,7 +11879,7 @@ function xmppHasOobAttachmentHint(stanza) {
     .some((node) => {
       const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
       const uri = (node.getAttribute("uri") || xmppNodeText(uriNode) || "").toString().trim();
-      if (/^(https?:\/\/|xmpp:https?:\/\/)/i.test(uri)) return true;
+      if (/^(https?:\/\/|xmpp:https?:\/\/|cid:|xmpp:cid:)/i.test(uri)) return true;
       const typeAttr = (node.getAttribute("type") || "").toString().trim().toLowerCase();
       if (typeAttr === "data" || typeAttr === "media" || typeAttr === "file") return true;
       const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
@@ -14276,7 +14352,11 @@ function connectRelaySocket({ force = false } = {}) {
           text = "[Encrypted XMPP message (OMEMO/PGP) — decryption is not available in this client yet]";
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
-        const attachments = xmppAttachmentsFromOobEntries(xmppExtractOobAttachments(stanza));
+        let attachmentEntries = xmppExtractOobAttachments(stanza);
+        if (attachmentEntries.length === 0 && xmppLooksLikeAttachmentFallbackText(text)) {
+          attachmentEntries = xmppInlineBobEntries(stanza);
+        }
+        const attachments = xmppAttachmentsFromOobEntries(attachmentEntries);
         if (attachments.length > 0 && xmppLooksLikeAttachmentFallbackText(text)) {
           text = "";
         }
@@ -16327,6 +16407,7 @@ function xmppClientDiscoFeatures() {
     "urn:xmpp:jingle:apps:dtls:0",
     "urn:xmpp:reference:0",
     "jabber:x:oob",
+    XMPP_BOB_NAMESPACE,
     XMPP_SIMS_NAMESPACE,
     XMPP_FILE_METADATA_NAMESPACE,
     XMPP_REACTIONS_NAMESPACE,

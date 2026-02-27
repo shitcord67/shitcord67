@@ -13,6 +13,7 @@ Status labels:
 |---|---|---|---|
 | XEP-0045 | Multi-User Chat (MUC) | Partial | Join rooms, parse occupants/presence, groupchat send/receive. Advanced moderation/config/admin flows are not complete. |
 | XEP-0071 | XHTML-IM | Partial | Incoming XHTML content is converted to chat markdown/text (basic formatting and links). |
+| XEP-0231 | Bits of Binary | Partial | Inbound inline BoB payloads (`urn:xmpp:bob`) are parsed for attachment rendering (including `cid:` references and XHTML `<img src='cid:...'>` paths) to improve Movim sticker/emoji interoperability. Outbound BoB publish is not implemented. |
 | XEP-0085 | Chat State Notifications | Implemented | Sends and receives composing/paused style states for MUC/DM typing indicators. |
 | XEP-0184 | Message Delivery Receipts | Partial | Direct-message sends now request receipts and mark outbound DM messages as delivered when receipts arrive. Groupchat receipts are not tracked. |
 | XEP-0333 | Chat Markers | Partial | DM sends now include `markable` hints, inbound markable DMs receive `received` markers, incoming `displayed`/`acknowledged` markers upgrade outbound DM status to read, and local DM read updates publish `displayed` markers. |
