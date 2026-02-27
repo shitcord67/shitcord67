@@ -6080,6 +6080,12 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.78rem;
 }
 
+#runtimeDiagnosticsNote {
+  margin: 0 0 0.35rem;
+  color: #9fb0d3;
+  font-size: 0.74rem;
+}
+
 #tenorCredentialsStatus[data-tone="ok"] {
   color: #9ee2a2;
 }

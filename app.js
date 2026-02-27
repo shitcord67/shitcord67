@@ -208,6 +208,37 @@ function renderPlatformDetectedNote() {
   const override = normalizePlatformOverride(getPreferences().platformOverride);
   const overrideLabel = override && override !== "auto" ? ` (override: ${override})` : "";
   ui.platformDetectedNote.textContent = `Detected platform: ${label}${overrideLabel}.`;
+  renderRuntimeDiagnosticsNote();
+}
+
+function runtimeDiagnosticsSnapshot() {
+  const hasBridge = Boolean(electronRuntime?.bridge);
+  const hasIpcRenderer = Boolean(electronRuntime?.ipcRenderer);
+  const route = hasBridge ? "preload-bridge" : (hasIpcRenderer ? "window.require" : "web");
+  const canToggleDevtools = hasBridge
+    ? typeof electronRuntime?.bridge?.toggleDevtools === "function"
+    : hasIpcRenderer;
+  return {
+    route,
+    hasBridge,
+    hasIpcRenderer,
+    canToggleDevtools
+  };
+}
+
+function renderRuntimeDiagnosticsNote() {
+  if (!ui.runtimeDiagnosticsNote) return;
+  const diagnostics = runtimeDiagnosticsSnapshot();
+  if (diagnostics.route === "web") {
+    ui.runtimeDiagnosticsNote.textContent = "Runtime diagnostics: web context (no Electron IPC bridge detected).";
+    return;
+  }
+  const detail = diagnostics.route === "preload-bridge"
+    ? "Preload bridge active"
+    : "Legacy window.require path active";
+  const ipcDetail = diagnostics.hasBridge || diagnostics.hasIpcRenderer ? "IPC ready" : "IPC unavailable";
+  const devtoolsDetail = diagnostics.canToggleDevtools ? "DevTools toggle available" : "DevTools toggle unavailable";
+  ui.runtimeDiagnosticsNote.textContent = `Runtime diagnostics: ${detail} · ${ipcDetail} · ${devtoolsDetail}.`;
 }
 
 function renderEmojiToCanvasData(text, { size = 32 } = {}) {
@@ -1867,6 +1898,7 @@ const ui = {
   debugOverlayInput: document.getElementById("debugOverlayInput"),
   platformOverrideInput: document.getElementById("platformOverrideInput"),
   platformDetectedNote: document.getElementById("platformDetectedNote"),
+  runtimeDiagnosticsNote: document.getElementById("runtimeDiagnosticsNote"),
   swfAudioPolicyInput: document.getElementById("swfAudioPolicyInput"),
   swfAudioScopeInput: document.getElementById("swfAudioScopeInput"),
   swfAutoplayInput: document.getElementById("swfAutoplayInput"),

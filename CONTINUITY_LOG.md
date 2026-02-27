@@ -1573,3 +1573,5 @@ Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working?
 Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working? And why I get that devtools toggle is only available in the electron app when I quite literally run /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67? Oh also why are the stickers still squshed when they load. Why can't you enforce a size similar to how it is done for GIFs?
 ## [2026-02-27T10:10:37+01:00] User Prompt (corrected timestamp)
 Also can you tell me why Ctrl+Shift+I is not working and why F12 is not working? And why I get that devtools toggle is only available in the electron app when I quite literally run /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67? Oh also why are the stickers still squshed when they load. Why can't you enforce a size similar to how it is done for GIFs?
+## [2026-02-27T10:28:23+01:00] User Prompt
+If you think that makes sense
