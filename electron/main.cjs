@@ -472,6 +472,10 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       ozoneHint: ELECTRON_OZONE_HINT || "auto"
     });
   });
+  ipcMain.on("s67-toggle-devtools", () => {
+    if (!mainWindow?.webContents) return;
+    mainWindow.webContents.toggleDevTools();
+  });
 
   let loadedClient = false;
   try {

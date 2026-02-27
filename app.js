@@ -30,6 +30,11 @@ const XMPP_JINGLE_RTP_NAMESPACE = "urn:xmpp:jingle:apps:rtp:1";
 const XMPP_JINGLE_RTP_INFO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:info:1";
 const XMPP_JINGLE_ICE_UDP_NAMESPACE = "urn:xmpp:jingle:transports:ice-udp:1";
 const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE = "urn:xmpp:jingle-message:0";
+const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1 = "urn:xmpp:jingle-message:1";
+const XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES = [
+  XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+  XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
+];
 const XMPP_CALL_INVITES_NAMESPACE = "urn:xmpp:call-invites:0";
 const XMPP_JINGLE_AUDIO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:audio";
 const XMPP_JINGLE_VIDEO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:video";
@@ -132,6 +137,12 @@ function initElectronPlatformBridge() {
     renderPlatformDetectedNote();
   });
   electronRuntime.ipcRenderer.send("s67-request-platform-info");
+}
+
+function requestDevtoolsToggle() {
+  if (!electronRuntime?.ipcRenderer) return false;
+  electronRuntime.ipcRenderer.send("s67-toggle-devtools");
+  return true;
 }
 
 function screenShareCapabilitySnapshot() {
@@ -364,6 +375,7 @@ const DEFAULT_REACTIONS = ["👍", "❤️", "😂"];
 const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
+  { name: "devtools", args: "", description: "Toggle Electron DevTools." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
@@ -1462,7 +1474,9 @@ const xmppMucJoinStateByRoomJid = new Map();
 const xmppDiscoInfoCacheByJid = new Map();
 const xmppDiscoInfoInFlightByJid = new Map();
 const XMPP_DISCO_INFO_TTL_MS = 5 * 60 * 1000;
+const xmppAvailableFullJidsByBare = new Map();
 const xmppCallSessionById = new Map();
+const xmppCallSessionIdByInviteId = new Map();
 const xmppLatestIncomingCallSessionByPeer = new Map();
 const xmppLatestOutgoingCallSessionByPeer = new Map();
 const XMPP_CALL_SIGNAL_TIMEOUT_MS = 15_000;
@@ -4737,16 +4751,24 @@ function parseXmppCallInviteAction(stanza) {
     const rawId = (node.getAttribute("id") || "").toString().trim();
     const audio = node.getAttribute("audio");
     const video = node.getAttribute("video");
+    const jingleNode = [...node.getElementsByTagName("jingle")]
+      .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_NAMESPACE))
+      || [...node.getElementsByTagName("jingle")]
+        .find((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE))
+      || [...node.getElementsByTagName("jingle")]
+        .find((entry) => !(entry.getAttribute("xmlns") || "").toString().trim()) || null;
+    const jingleSid = (jingleNode?.getAttribute("sid") || "").toString().trim();
     const externals = [...node.getElementsByTagName("external")]
       .filter((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE))
       .map((entry) => (entry.getAttribute("uri") || entry.getAttribute("url") || "").toString().trim())
       .filter(Boolean);
     return {
       action,
-      id: action === "invite" ? "" : rawId,
-      audio: audio === "true",
-      video: video === "true",
-      externals
+      id: rawId,
+      audio: audio === "false" ? false : true,
+      video: video === "false" ? false : true,
+      externals,
+      jingleSid
     };
   }
   return null;
@@ -4754,6 +4776,7 @@ function parseXmppCallInviteAction(stanza) {
 
 function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   inviteId = "",
+  sessionId = "",
   url = "",
   audio = true,
   video = true
@@ -4764,6 +4787,7 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   const tag = (action || "").toString().trim().toLowerCase();
   if (!["invite", "accept", "reject", "retract", "left"].includes(tag)) return false;
   const trimmedInviteId = (inviteId || "").toString().trim();
+  const trimmedSessionId = (sessionId || "").toString().trim();
   const stanzaId = tag === "invite"
     ? (trimmedInviteId || `ci-${createId().slice(0, 12)}`)
     : `ci-${createId().slice(0, 12)}`;
@@ -4771,6 +4795,9 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   const attrs = { xmlns: XMPP_CALL_INVITES_NAMESPACE, audio: audio ? "true" : "false", video: video ? "true" : "false" };
   if (tag !== "invite") attrs.id = trimmedInviteId;
   const builder = globalThis.$msg({ to, type: "chat", id: stanzaId }).c(tag, attrs);
+  if ((tag === "invite" || tag === "accept") && trimmedSessionId) {
+    builder.c("jingle", { xmlns: XMPP_JINGLE_NAMESPACE, sid: trimmedSessionId }).up();
+  }
   if ((tag === "invite" || tag === "accept") && url) {
     builder.c("external", { uri: url }).up();
   }
@@ -5142,6 +5169,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
   if (!sid) return false;
   const session = xmppCallSessionById.get(sid) || null;
   const peerBare = xmppBareJid(session?.peerJid || "");
+  const peerTarget = xmppResolveSessionPeerJid(session, peerBare, { preferFull: true });
   if (!session || !peerBare) return false;
   if (session.state === "proceeded" || session.state === "accepted") {
     showToast("Call already accepted. Waiting for session-initiate.", { tone: "info", duration: 2400 });
@@ -5149,7 +5177,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
   }
   const isJinglePhase = (session.state || "").includes("session");
   if (isJinglePhase) {
-    const ok = await xmppSendJingleSessionAccept(peerBare, sid, {
+    const ok = await xmppSendJingleSessionAccept(peerTarget || peerBare, sid, {
       media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
       screenShare: Boolean(session?.screenShare)
     });
@@ -5160,32 +5188,41 @@ async function acceptIncomingXmppCall(sessionId = "") {
     openNativeXmppCallSurface(sid);
     return true;
   }
-  const sent = xmppSendJingleMessageAction(peerBare, "proceed", { sessionId: sid });
+  const callInviteId = (session.callInviteId || "").toString().trim();
+  const sentCallInviteAccept = callInviteId
+    ? Boolean(xmppSendCallInviteAction(peerTarget || peerBare, "accept", {
+      inviteId: callInviteId,
+      audio: session.media?.includes("audio") !== false,
+      video: session.media?.includes("video") !== false
+    }))
+    : false;
+  const sentProceed = xmppSendJingleMessageAction(peerTarget || peerBare, "proceed", {
+    sessionId: sid,
+    preferFull: true
+  });
+  // Compatibility: some peers still react to "accept" instead of "proceed".
+  const sentAcceptCompat = xmppSendJingleMessageAction(peerTarget || peerBare, "accept", {
+    sessionId: sid,
+    preferFull: true
+  });
+  const sent = Boolean(sentCallInviteAccept || sentProceed || sentAcceptCompat);
   if (sent) {
     const entry = xmppCallSessionById.get(sid);
     if (entry) {
       entry.state = "proceeded";
-      let shouldFallbackNow = false;
       try {
         const info = await xmppFetchDiscoInfoCached(peerBare, { force: false });
         const evalResult = xmppEvaluateCallFeatures(info?.features || new Set());
-        shouldFallbackNow = !evalResult.ready;
         addXmppDebugEvent("call", "Call interop check for incoming propose", {
           peer: peerBare,
           ready: evalResult.ready,
           features: [...(info?.features || [])]
         });
       } catch (error) {
-        shouldFallbackNow = true;
         addXmppDebugEvent("call", "Call interop check failed for incoming propose", {
           peer: peerBare,
           error: String(error?.message || error)
         });
-      }
-      if (shouldFallbackNow && !entry.fallbackInviteSent) {
-        entry.fallbackInviteSent = true;
-        showToast("Peer does not advertise native call support. Opening web call fallback.", { tone: "error", duration: 3200 });
-        launchConversationCall({ screenShare: Boolean(entry.screenShare), autoPost: true, allowNative: false });
       }
       if (!entry.fallbackInviteSent) {
         if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);
@@ -5216,11 +5253,22 @@ function declineIncomingXmppCall(sessionId = "") {
   if (!sid) return false;
   const session = xmppCallSessionById.get(sid) || null;
   const peerBare = xmppBareJid(session?.peerJid || "");
+  const peerTarget = xmppResolveSessionPeerJid(session, peerBare, { preferFull: true });
   if (!session || !peerBare) return false;
   const isJinglePhase = (session.state || "").includes("session");
+  const callInviteId = (session.callInviteId || "").toString().trim();
   const sent = isJinglePhase
-    ? xmppSendJingleSessionTerminate(peerBare, sid, { reason: "decline", text: "Call rejected" })
-    : xmppSendJingleMessageAction(peerBare, "reject", { sessionId: sid });
+    ? xmppSendJingleSessionTerminate(peerTarget || peerBare, sid, { reason: "decline", text: "Call rejected" })
+    : Boolean(
+      (callInviteId
+        ? xmppSendCallInviteAction(peerTarget || peerBare, "reject", {
+          inviteId: callInviteId,
+          audio: session.media?.includes("audio") !== false,
+          video: session.media?.includes("video") !== false
+        })
+        : false)
+      || xmppSendJingleMessageAction(peerTarget || peerBare, "reject", { sessionId: sid, preferFull: true })
+    );
   forgetXmppCallSession(sid);
   return sent;
 }
@@ -5641,6 +5689,11 @@ function forgetXmppCallSession(sessionId = "") {
   stopXmppCallSpeakingMonitor(id);
   xmppCloseSessionPeerConnection(id);
   clearXmppCallSignalTimeout(id);
+  const inviteId = (entry.callInviteId || "").toString().trim();
+  if (inviteId) xmppCallSessionIdByInviteId.delete(inviteId);
+  [...xmppCallSessionIdByInviteId.entries()].forEach(([key, value]) => {
+    if ((value || "").toString().trim() === id) xmppCallSessionIdByInviteId.delete(key);
+  });
   xmppCallSessionById.delete(id);
   if (xmppActiveNativeCallSessionId === id) closeMediaLightbox();
   const peer = xmppBareJid(entry.peerJid || "");
@@ -6129,10 +6182,17 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull });
   const id = (sessionId || "").toString().trim();
   if (!to || !id || !xmppConnection || relayStatus !== "connected" || !globalThis.$msg) return false;
+  const barePeer = xmppBareJid(to);
+  const cachedDisco = barePeer ? xmppDiscoInfoCacheByJid.get(barePeer) : null;
+  const featureList = Array.isArray(cachedDisco?.features) ? cachedDisco.features : [];
+  const featureSet = new Set(featureList);
+  const jmiNamespace = (!featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE) && featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1))
+    ? XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
+    : XMPP_JINGLE_MESSAGE_INIT_NAMESPACE;
   const tag = (action || "").toString().trim().toLowerCase();
-  if (!["propose", "proceed", "retract", "reject", "ringing"].includes(tag)) return false;
+  if (!["propose", "proceed", "accept", "retract", "reject", "ringing"].includes(tag)) return false;
   const builder = globalThis.$msg({ to, type: "chat" }).c(tag, {
-    xmlns: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+    xmlns: jmiNamespace,
     id
   });
   if (tag === "propose") {
@@ -6152,6 +6212,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     to,
     action: tag,
     id,
+    xmlns: jmiNamespace,
     media: tag === "propose" ? (media || []) : []
   });
   addXmppDebugEvent("message", "Sent XMPP jingle-message action", { to, action: tag, id });
@@ -7247,7 +7308,7 @@ async function xmppGatherLocalIceTransportInfo({
 }
 
 function xmppQueueTransportInfoGatherAndSend(peerJid, sessionId, { force = false } = {}) {
-  const to = xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid) return false;
   if (!force && xmppCallIceGatherInFlightBySessionId.has(sid)) return true;
@@ -7433,7 +7494,7 @@ function xmppSendJingleSessionInfo(peerJid, sessionId, {
   onSuccess = null,
   onError = null
 } = {}) {
-  const to = xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
   const infoName = (info || "ringing").toString().trim().toLowerCase();
@@ -7468,7 +7529,7 @@ function xmppSendJingleSessionInfo(peerJid, sessionId, {
 }
 
 function xmppSendJingleContentModify(peerJid, sessionId, contents = []) {
-  const to = xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
   const normalizedContents = Array.isArray(contents) ? contents.filter((entry) => entry && entry.media) : [];
@@ -7514,7 +7575,7 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
   onSuccess = null,
   onError = null
 } = {}) {
-  const to = xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
   const normalizedTransport = transport && typeof transport === "object"
@@ -7581,7 +7642,7 @@ async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
   onSuccess = null,
   onError = null
 } = {}) {
-  const to = xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
   const ownBare = xmppBareJid(getPreferences().xmppJid || "");
@@ -7678,7 +7739,7 @@ async function xmppSendJingleSessionAccept(peerJid, sessionId, {
   onSuccess = null,
   onError = null
 } = {}) {
-  const to = xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
   const ownBare = xmppBareJid(getPreferences().xmppJid || "");
@@ -7775,7 +7836,7 @@ function xmppSendJingleSessionTerminate(peerJid, sessionId, {
   onSuccess = null,
   onError = null
 } = {}) {
-  const to = xmppBareJid(peerJid);
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
   const iq = globalThis.$iq({ type: "set", to })
@@ -7982,10 +8043,10 @@ function parseXmppJingleIq(stanza) {
 
 function parseXmppJingleMessageAction(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const actions = ["propose", "proceed", "retract", "reject", "ringing"];
+  const actions = ["propose", "proceed", "accept", "retract", "reject", "ringing"];
   for (const action of actions) {
     const node = [...stanza.getElementsByTagName(action)]
-      .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE)) || null;
+      .find((entry) => xmppNodeHasAnyXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES)) || null;
     if (!node) continue;
     const id = (node.getAttribute("id") || "").toString().trim();
     const media = action === "propose"
@@ -8009,6 +8070,7 @@ function latestXmppCallSessionIdForPeer(peerJid, direction = "incoming") {
 function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShareFallback = false } = {}) {
   const peerFull = (peerJid || "").toString().trim();
   const peer = xmppBareJid(peerFull);
+  if (peerFull) xmppRememberPeerFullJid(peerFull);
   const replyTarget = xmppNormalizeCallTargetJid(peerFull || peer, { preferFull: true }) || peer;
   const action = (actionPayload?.action || "").toString();
   const id = (actionPayload?.id || "").toString();
@@ -8023,6 +8085,8 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       direction: "incoming",
       localJingleRole: "responder",
       remoteJingleRole: "initiator",
+      inviteSignal: "jmi",
+      callInviteId: "",
       state: "proposed",
       createdAt: Date.now(),
       media: Array.isArray(actionPayload.media) ? actionPayload.media : []
@@ -8072,12 +8136,12 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
     }
     return true;
   }
-  if (action === "proceed") {
+  if (action === "proceed" || action === "accept") {
     if (session?.direction === "outgoing") {
       session.state = "proceeded";
       session.peerFullJid = peerFull || session.peerFullJid || "";
       clearXmppCallSignalTimeout(id);
-      addXmppDebugEvent("message", "Received XMPP jingle proceed", { from: peer, id });
+      addXmppDebugEvent("message", "Received XMPP jingle proceed", { from: peer, id, action });
       showToast("XMPP peer accepted call proposal.");
       if (addSystemDmMessageByPeerJid(peer, `XMPP peer accepted call proposal (${id.slice(0, 8)}).`)) {
         refreshDmUiForPeerJid(peer);
@@ -8171,9 +8235,11 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     targetCount: interop.targets.length
   });
   const peerJid = xmppPeerJidForConversation(conversation, getCurrentAccount());
+  const peerTargetJid = xmppNormalizeCallTargetJid(peerJid, { preferFull: true }) || peerJid;
   const hasFeatureEvidence = interop.details.some((entry) => Array.isArray(entry?.featureList) && entry.featureList.length > 0);
   const hasDiscoErrors = interop.details.some((entry) => Boolean(entry?.error));
   const allowOptimistic = conversation.type === "dm" && peerJid && (!hasFeatureEvidence || hasDiscoErrors);
+  const forceNativeAttempt = conversation.type === "dm" && Boolean(peerJid);
   if (!interop.ready) {
     const missing = interop.details[0]?.evalResult || null;
     const missingParts = [];
@@ -8181,7 +8247,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     if (!missing?.hasMedia) missingParts.push("rtp-media");
     if (!missing?.hasTransport) missingParts.push("ice-udp");
     if (!missing?.hasInvite) missingParts.push("invite");
-    if (!allowOptimistic) {
+    if (!allowOptimistic && !forceNativeAttempt) {
       const suffix = missingParts.length > 0 ? ` missing: ${missingParts.join(", ")}` : "";
       showToast(`Native XMPP call not interoperable with current target.${suffix} Falling back to Web Call.`, {
         tone: "error",
@@ -8192,17 +8258,24 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
       }
       return false;
     }
-    showToast("Native XMPP call interop could not be verified. Attempting call anyway.", {
+    showToast("Native XMPP call interop could not be verified. Attempting native signaling first.", {
       tone: "info",
       duration: 2800
     });
   }
   if (conversation.type === "dm" && peerJid && (!globalThis.startNativeXmppCallSession || typeof globalThis.startNativeXmppCallSession !== "function")) {
     const sessionId = `jmi-${createId().slice(0, 12)}`;
-    const sent = xmppSendJingleMessageAction(peerJid, "propose", {
+    const sentJmi = xmppSendJingleMessageAction(peerTargetJid || peerJid, "propose", {
       sessionId,
-      media: screenShare ? ["audio", "video"] : ["audio", "video"]
+      media: screenShare ? ["audio", "video"] : ["audio", "video"],
+      preferFull: true
     });
+    const sentCallInviteCompat = xmppSendCallInviteAction(peerTargetJid || peerJid, "invite", {
+      sessionId,
+      audio: true,
+      video: true
+    });
+    const sent = Boolean(sentJmi || sentCallInviteCompat);
     if (!sent) {
       showToast("Failed to send XMPP call proposal. Falling back to Web Call.", { tone: "error" });
       if (allowWebFallback) {
@@ -8223,6 +8296,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     xmppCallSessionById.set(sessionId, {
       id: sessionId,
       peerJid: peerBare,
+      peerFullJid: (peerTargetJid || "").includes("/") ? (peerTargetJid || "") : "",
       direction: "outgoing",
       localJingleRole: "initiator",
       remoteJingleRole: "responder",
@@ -8230,12 +8304,15 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
       createdAt: Date.now(),
       media: screenShare ? ["audio", "video"] : ["audio", "video"],
       screenShare: Boolean(screenShare),
+      inviteSignal: sentJmi ? "jmi" : "call-invite",
+      callInviteId: sentCallInviteCompat || "",
       timeoutId,
       room: conversationCallRoomName(conversation, ""),
       conversationId: conversation.id || "",
       conversationType: conversation.type || "dm",
       interopTarget: interop.chosenTarget || peerBare
     });
+    if (sentCallInviteCompat) xmppCallSessionIdByInviteId.set(sentCallInviteCompat, sessionId);
     xmppLatestOutgoingCallSessionByPeer.set(peerBare, sessionId);
     showToast("Sent XMPP call proposal. Waiting for peer response...");
     openNativeXmppCallSurface(sessionId);
@@ -8819,10 +8896,58 @@ function normalizePlatformOverride(value) {
   return "auto";
 }
 
+function xmppRememberPeerFullJid(jid = "", { seenAt = Date.now() } = {}) {
+  const normalized = normalizeXmppJid(jid).toLowerCase();
+  if (!normalized || !normalized.includes("/")) return;
+  const bare = xmppBareJid(normalized);
+  if (!bare) return;
+  const pool = xmppAvailableFullJidsByBare.get(bare) || new Map();
+  pool.set(normalized, Number(seenAt) || Date.now());
+  if (pool.size > 8) {
+    const oldest = [...pool.entries()].sort((a, b) => (Number(a[1]) || 0) - (Number(b[1]) || 0))[0]?.[0] || "";
+    if (oldest) pool.delete(oldest);
+  }
+  xmppAvailableFullJidsByBare.set(bare, pool);
+}
+
+function xmppForgetPeerFullJid(jid = "") {
+  const normalized = normalizeXmppJid(jid).toLowerCase();
+  if (!normalized) return;
+  if (!normalized.includes("/")) {
+    xmppAvailableFullJidsByBare.delete(xmppBareJid(normalized));
+    return;
+  }
+  const bare = xmppBareJid(normalized);
+  if (!bare) return;
+  const pool = xmppAvailableFullJidsByBare.get(bare);
+  if (!(pool instanceof Map)) return;
+  pool.delete(normalized);
+  if (pool.size <= 0) {
+    xmppAvailableFullJidsByBare.delete(bare);
+    return;
+  }
+  xmppAvailableFullJidsByBare.set(bare, pool);
+}
+
+function xmppMostRecentPeerFullJid(jid = "") {
+  const normalized = normalizeXmppJid(jid).toLowerCase();
+  if (!normalized) return "";
+  if (normalized.includes("/")) return normalized;
+  const bare = xmppBareJid(normalized);
+  if (!bare) return "";
+  const pool = xmppAvailableFullJidsByBare.get(bare);
+  if (!(pool instanceof Map) || pool.size <= 0) return "";
+  return [...pool.entries()].sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))[0]?.[0] || "";
+}
+
 function xmppNormalizeCallTargetJid(peerJid, { preferFull = false } = {}) {
   const raw = (peerJid || "").toString().trim();
   if (!raw) return "";
-  if (preferFull && raw.includes("/")) return raw;
+  if (preferFull) {
+    if (raw.includes("/")) return raw;
+    const recent = xmppMostRecentPeerFullJid(raw);
+    if (recent) return recent;
+  }
   const bare = xmppBareJid(raw);
   return bare || raw;
 }
@@ -8832,7 +8957,11 @@ function xmppResolveSessionPeerJid(session, fallback = "", { preferFull = true }
   if (preferFull && full) return full;
   const raw = (fallback || session?.peerJid || "").toString().trim();
   if (!raw) return "";
-  if (preferFull && raw.includes("/")) return raw;
+  if (preferFull) {
+    if (raw.includes("/")) return raw;
+    const recent = xmppMostRecentPeerFullJid(raw);
+    if (recent) return recent;
+  }
   const bare = xmppBareJid(raw);
   return bare || raw;
 }
@@ -9760,6 +9889,11 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
 function xmppNodeHasXmlns(node, xmlns) {
   if (!node || typeof node.getAttribute !== "function") return false;
   return (node.getAttribute("xmlns") || "").toLowerCase() === (xmlns || "").toLowerCase();
+}
+
+function xmppNodeHasAnyXmlns(node, xmlnsList = []) {
+  const list = Array.isArray(xmlnsList) ? xmlnsList : [xmlnsList];
+  return list.some((xmlns) => xmppNodeHasXmlns(node, xmlns));
 }
 
 function xmppNodeText(node) {
@@ -12066,6 +12200,8 @@ function teardownXmppConnection() {
   xmppMucJoinStateByRoomJid.clear();
   xmppDiscoInfoCacheByJid.clear();
   xmppDiscoInfoInFlightByJid.clear();
+  xmppAvailableFullJidsByBare.clear();
+  xmppCallSessionIdByInviteId.clear();
   xmppCallSessionById.forEach((entry, sid) => {
     if (entry?.timeoutId) clearTimeout(entry.timeoutId);
     xmppCloseSessionPeerConnection(sid);
@@ -12721,6 +12857,7 @@ function connectRelaySocket({ force = false } = {}) {
           if (!peer || peer.id === current.id) return;
           const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
           if (!dmRoom) return;
+          if (!ownAuthor && from.includes("/")) xmppRememberPeerFullJid(from);
           const jingleAction = parseXmppJingleMessageAction(stanza);
           if (jingleAction && !ownAuthor) {
             addXmppDebugEvent("call", "Incoming Jingle Message", {
@@ -12739,18 +12876,23 @@ function connectRelaySocket({ force = false } = {}) {
           const callInvite = parseXmppCallInviteAction(stanza);
           if (callInvite && !ownAuthor) {
             const inviteId = callInvite.action === "invite"
-              ? (xmppStanzaStableId(stanza) || stanzaMessageId)
+              ? (callInvite.id || xmppStanzaStableId(stanza) || stanzaMessageId)
               : callInvite.id || "";
             const inviteUrl = (callInvite.externals || [])
               .map((entry) => normalizeCallInviteUrl(entry))
               .find(Boolean) || "";
+            const mappedSessionId = inviteId
+              ? (xmppCallSessionIdByInviteId.get(inviteId) || "")
+              : "";
             addXmppDebugEvent("call", "Incoming call-invite", {
               from: peerBare,
               action: callInvite.action,
               id: inviteId,
               url: inviteUrl,
               audio: callInvite.audio,
-              video: callInvite.video
+              video: callInvite.video,
+              jingleSid: callInvite.jingleSid || "",
+              mappedSessionId
             });
             if (callInvite.action === "invite" && inviteUrl) {
               const inferred = parseCallInviteFromText(text);
@@ -12765,7 +12907,54 @@ function connectRelaySocket({ force = false } = {}) {
                 },
                 history
               });
+            } else if (callInvite.action === "invite" && !history) {
+              const existingIncomingId = latestXmppCallSessionIdForPeer(peerBare, "incoming");
+              const existingIncoming = existingIncomingId ? (xmppCallSessionById.get(existingIncomingId) || null) : null;
+              let nativeSessionId = (callInvite.jingleSid || "").toString().trim();
+              if (!nativeSessionId && existingIncomingId) nativeSessionId = existingIncomingId;
+              if (!nativeSessionId) nativeSessionId = `ci-${createId().slice(0, 12)}`;
+              const incomingMedia = [
+                callInvite.audio ? "audio" : "",
+                callInvite.video ? "video" : ""
+              ].filter(Boolean);
+              const media = incomingMedia.length > 0 ? incomingMedia : ["audio", "video"];
+              const fullFrom = (stanza.getAttribute("from") || "").toString().trim();
+              const session = xmppCallSessionById.get(nativeSessionId) || existingIncoming || null;
+              const entry = {
+                ...(session || {}),
+                id: nativeSessionId,
+                peerJid: peerBare,
+                peerFullJid: fullFrom || session?.peerFullJid || "",
+                direction: "incoming",
+                localJingleRole: session?.localJingleRole || "responder",
+                remoteJingleRole: session?.remoteJingleRole || "initiator",
+                inviteSignal: "call-invite",
+                callInviteId: inviteId || (session?.callInviteId || ""),
+                state: "proposed",
+                createdAt: Number(session?.createdAt) || Date.now(),
+                media
+              };
+              xmppCallSessionById.set(nativeSessionId, entry);
+              xmppLatestIncomingCallSessionByPeer.set(peerBare, nativeSessionId);
+              if (inviteId) xmppCallSessionIdByInviteId.set(inviteId, nativeSessionId);
+              if (entry.peerFullJid) xmppRememberPeerFullJid(entry.peerFullJid);
+              startWebCallRingtone(nativeSessionId);
+              showIncomingXmppCallPrompt({
+                sessionId: nativeSessionId,
+                peerLabel: peerBare,
+                screenShare: false
+              });
+              showToast(`Incoming XMPP call from ${peerBare}. Use /callxmpp accept ${nativeSessionId.slice(0, 8)} or /callxmpp reject ${nativeSessionId.slice(0, 8)}.`);
+              if (addSystemDmMessageByPeerJid(peerBare, `Incoming XMPP call invite (${nativeSessionId.slice(0, 8)}). Use /callxmpp accept ${nativeSessionId.slice(0, 8)} or /callxmpp reject ${nativeSessionId.slice(0, 8)}.`)) {
+                refreshDmUiForPeerJid(peerBare);
+              }
             } else if (callInvite.action === "retract" && inviteId) {
+              if (mappedSessionId) {
+                handleXmppJingleMessageAction({ action: "retract", id: mappedSessionId }, {
+                  peerJid: stanza.getAttribute("from") || peerBare,
+                  screenShareFallback: false
+                });
+              }
               const token = xmppCallInviteTokenById.get(inviteId);
               if (token) {
                 stopWebCallRingtone(token);
@@ -12773,10 +12962,26 @@ function connectRelaySocket({ force = false } = {}) {
                 xmppCallInviteTokenById.delete(inviteId);
                 closeMediaLightbox();
               }
+              xmppCallSessionIdByInviteId.delete(inviteId);
               if (addSystemDmMessageByPeerJid(peerBare, `XMPP call invite retracted (${inviteId.slice(0, 8)}).`)) {
                 refreshDmUiForPeerJid(peerBare);
               }
             } else if (["accept", "reject", "left"].includes(callInvite.action)) {
+              const targetSessionId = mappedSessionId
+                || latestXmppCallSessionIdForPeer(peerBare, "outgoing")
+                || latestXmppCallSessionIdForPeer(peerBare, "incoming");
+              if (targetSessionId) {
+                const mappedAction = callInvite.action === "accept"
+                  ? "accept"
+                  : (callInvite.action === "left" ? "retract" : callInvite.action);
+                handleXmppJingleMessageAction({ action: mappedAction, id: targetSessionId }, {
+                  peerJid: stanza.getAttribute("from") || peerBare,
+                  screenShareFallback: false
+                });
+              }
+              if (inviteId && ["reject", "left"].includes(callInvite.action)) {
+                xmppCallSessionIdByInviteId.delete(inviteId);
+              }
               if (addSystemDmMessageByPeerJid(peerBare, `XMPP call invite ${callInvite.action} (${(inviteId || "").slice(0, 8)}).`)) {
                 refreshDmUiForPeerJid(peerBare);
               }
@@ -13311,6 +13516,7 @@ function connectRelaySocket({ force = false } = {}) {
           const type = (stanza?.getAttribute("type") || "").toLowerCase();
           if (type !== "set") return true;
           const fromFull = (stanza?.getAttribute("from") || "").toString().trim();
+          if (fromFull) xmppRememberPeerFullJid(fromFull);
           const fromBare = xmppBareJid(fromFull);
           const jingle = parseXmppJingleIq(stanza);
           if (!jingle || !fromBare || !jingle.sid) return true;
@@ -13322,7 +13528,19 @@ function connectRelaySocket({ force = false } = {}) {
             raw: trimXmppRaw(xmppSerializePayload(stanza))
           });
           xmppSendIqResultForIncomingSet(stanza);
-          const existing = xmppCallSessionById.get(jingle.sid) || null;
+          let existing = xmppCallSessionById.get(jingle.sid) || null;
+          if (!existing && jingle.action === "session-initiate") {
+            const previousIncomingId = latestXmppCallSessionIdForPeer(fromBare, "incoming");
+            const previousIncoming = previousIncomingId ? (xmppCallSessionById.get(previousIncomingId) || null) : null;
+            if (previousIncoming && previousIncomingId !== jingle.sid && previousIncoming.inviteSignal === "call-invite") {
+              if (previousIncoming.callInviteId) xmppCallSessionIdByInviteId.set(previousIncoming.callInviteId, jingle.sid);
+              xmppCallSessionById.delete(previousIncomingId);
+              existing = {
+                ...previousIncoming,
+                id: jingle.sid
+              };
+            }
+          }
           const session = existing || {
             id: jingle.sid,
             peerJid: fromBare,
@@ -13749,6 +13967,8 @@ function connectRelaySocket({ force = false } = {}) {
           if (!isXmppMucRoomJid(roomJid, prefsSnapshot)) {
             const ownBare = xmppBareJid(prefsSnapshot.xmppJid || "");
             if (!roomJid || (ownBare && roomJid === ownBare)) return true;
+            if (type === "unavailable") xmppForgetPeerFullJid(from);
+            else xmppRememberPeerFullJid(from);
             if (type === "subscribe") {
               upsertXmppContactRequest("incoming", roomJid, { source: "presence" });
               addXmppDebugEvent("presence", "Incoming contact request", { jid: roomJid });
@@ -14619,7 +14839,7 @@ function xmppClientDiscoFeatures() {
     XMPP_JINGLE_RTP_NAMESPACE,
     XMPP_JINGLE_RTP_INFO_NAMESPACE,
     XMPP_JINGLE_ICE_UDP_NAMESPACE,
-    XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+    ...XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES,
     XMPP_CALL_INVITES_NAMESPACE,
     XMPP_JINGLE_AUDIO_NAMESPACE,
     XMPP_JINGLE_VIDEO_NAMESPACE,
@@ -14643,7 +14863,7 @@ function xmppRequiredCallFeatureBuckets() {
     core: [XMPP_JINGLE_NAMESPACE],
     media: [XMPP_JINGLE_RTP_NAMESPACE, XMPP_JINGLE_AUDIO_NAMESPACE, XMPP_JINGLE_VIDEO_NAMESPACE],
     transport: [XMPP_JINGLE_ICE_UDP_NAMESPACE],
-    invite: [XMPP_JINGLE_MESSAGE_INIT_NAMESPACE, XMPP_CALL_INVITES_NAMESPACE]
+    invite: [...XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES, XMPP_CALL_INVITES_NAMESPACE]
   };
 }
 
@@ -19825,6 +20045,13 @@ function handleSlashCommand(rawText, channel, account) {
 
   if (command === "shortcuts") {
     openShortcutsDialog();
+    return true;
+  }
+
+  if (command === "devtools") {
+    if (!requestDevtoolsToggle()) {
+      addSystemMessage(channel, "DevTools toggle is only available in the Electron app.");
+    }
     return true;
   }
 
@@ -27888,6 +28115,16 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       loadBtn.disabled = true;
       loadBtn.textContent = "HTML preview loaded";
     });
+    const shouldAutoLoad = !shouldGateMediaUrl(mediaUrl) || isMediaAttachmentAllowedOnce(attachment, swfKey);
+    if (shouldAutoLoad) {
+      frame.dataset.loaded = "on";
+      frame.hidden = false;
+      frame.src = mediaUrl;
+      loadBtn.disabled = true;
+      loadBtn.hidden = true;
+      loadBtn.textContent = "HTML preview loaded";
+      note.textContent = "HTML preview loaded.";
+    }
     wrap.appendChild(loadBtn);
     const openBtn = document.createElement("a");
     openBtn.className = "message-swf-link";
@@ -34870,6 +35107,12 @@ ui.messageForm.addEventListener("submit", (event) => {
         ui.dmSearchInput?.select?.();
       } else {
         ui.messageInput.focus();
+      }
+      return;
+    }
+    if (dmCommand === "devtools") {
+      if (!requestDevtoolsToggle()) {
+        showToast("DevTools toggle is only available in the Electron app.", { tone: "error" });
       }
       return;
     }
