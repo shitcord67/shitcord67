@@ -110,14 +110,67 @@ const UI_I18N = {
     "dm.home.friends.subtitle": "See who is online and what they are currently doing.",
     "dm.home.library.title": "Library",
     "dm.home.library.subtitle": "Quick access to your saved media and custom packs.",
+    "dm.home.library.stat.mediaItems": "custom media items",
+    "dm.home.library.stat.savedSwfs": "saved SWFs",
+    "dm.home.library.stat.gifFavorites": "GIF favorites",
+    "dm.home.library.stat.gifGroups": "GIF groups",
+    "dm.home.library.action.openPicker": "Open Media Picker",
+    "dm.home.library.action.toggleShelf": "Toggle SWF Shelf",
     "dm.home.requests.title": "Message Requests",
     "dm.home.requests.subtitle": "Incoming and outgoing XMPP contact requests.",
+    "dm.home.requests.stat.incoming": "incoming requests",
+    "dm.home.requests.stat.outgoing": "outgoing requests",
+    "dm.home.requests.bulk.noneIncoming": "No incoming requests to accept.",
+    "dm.home.requests.bulk.noneOutgoing": "No outgoing requests to cancel.",
+    "dm.home.requests.entry.unknown": "Unknown",
     "dm.home.nitro.title": "Nitro",
     "dm.home.nitro.subtitle": "Customize your profile and unlock cosmetic perks.",
+    "dm.home.nitro.action.editProfile": "Edit Profile",
+    "dm.home.nitro.action.openCosmetics": "Open Cosmetics",
     "dm.home.shop.title": "Shop",
     "dm.home.shop.subtitle": "Browse cosmetics and seasonal bundles.",
+    "dm.home.shop.action.open": "Open Shop",
     "dm.home.quests.title": "Quests",
     "dm.home.quests.subtitle": "Track quest progress and earned badges.",
+    "dm.home.quests.stat.badges": "quest badges",
+    "dm.home.quests.placeholder.signIn": "Sign in to view quest progress.",
+    "dm.search.placeholder": "Find or start DM",
+    "dm.button.addFriend": "+ Add Friend",
+    "dm.empty.none": "No direct messages yet.",
+    "dm.empty.filtered": "No DMs or contact requests match your search.",
+    "dm.requests.pendingOutgoing": "Pending outgoing requests: {count}",
+    "dm.requests.none": "No message requests right now.",
+    "dm.requests.incoming": "Incoming",
+    "dm.requests.outgoing": "Outgoing",
+    "dm.requests.filter.all": "All",
+    "dm.requests.filter.incoming": "Incoming",
+    "dm.requests.filter.outgoing": "Outgoing",
+    "dm.requests.bulk.acceptAll": "Accept All",
+    "dm.requests.bulk.declineAll": "Decline All",
+    "dm.requests.bulk.cancelAll": "Cancel All",
+    "common.accept": "Accept",
+    "common.decline": "Decline",
+    "common.cancel": "Cancel",
+    "dm.home.nitro.placeholder": "Nitro-style perks are available through profile cosmetics and effects in this client.",
+    "dm.home.shop.placeholder": "Browse and unlock decorations, effects, and seasonal bundles.",
+    "dm.home.library.empty": "No DM friends yet. Use + Add Friend in the sidebar.",
+    "settings.nav.title": "User Settings",
+    "settings.tab.my-account": "My Account",
+    "settings.tab.profiles": "Profiles",
+    "settings.tab.notifications": "Notifications",
+    "settings.tab.appearance": "Appearance",
+    "settings.tab.advanced": "Advanced",
+    "settings.appearance.title": "Appearance",
+    "settings.appearance.uiScale": "UI Scale",
+    "settings.appearance.theme": "Theme",
+    "settings.appearance.language": "Language",
+    "settings.appearance.compactMembers": "Compact member list",
+    "settings.appearance.save": "Save Appearance",
+    "settings.theme.oled": "OLED",
+    "settings.theme.discord": "Discord-like",
+    "settings.theme.highContrast": "High Contrast",
+    "settings.compact.off": "Off",
+    "settings.compact.on": "On",
     "settings.language.auto": "Auto detect"
   },
   de: {
@@ -132,14 +185,67 @@ const UI_I18N = {
     "dm.home.friends.subtitle": "Sieh, wer online ist und was gerade gemacht wird.",
     "dm.home.library.title": "Bibliothek",
     "dm.home.library.subtitle": "Schneller Zugriff auf gespeicherte Medien und Packs.",
+    "dm.home.library.stat.mediaItems": "benutzerdefinierte Medien",
+    "dm.home.library.stat.savedSwfs": "gespeicherte SWFs",
+    "dm.home.library.stat.gifFavorites": "GIF-Favoriten",
+    "dm.home.library.stat.gifGroups": "GIF-Gruppen",
+    "dm.home.library.action.openPicker": "Medienauswahl öffnen",
+    "dm.home.library.action.toggleShelf": "SWF-Regal umschalten",
     "dm.home.requests.title": "Nachrichtenanfragen",
     "dm.home.requests.subtitle": "Eingehende und ausgehende XMPP-Kontaktanfragen.",
+    "dm.home.requests.stat.incoming": "eingehende Anfragen",
+    "dm.home.requests.stat.outgoing": "ausgehende Anfragen",
+    "dm.home.requests.bulk.noneIncoming": "Keine eingehenden Anfragen zum Annehmen.",
+    "dm.home.requests.bulk.noneOutgoing": "Keine ausgehenden Anfragen zum Abbrechen.",
+    "dm.home.requests.entry.unknown": "Unbekannt",
     "dm.home.nitro.title": "Nitro",
     "dm.home.nitro.subtitle": "Profil anpassen und kosmetische Vorteile erhalten.",
+    "dm.home.nitro.action.editProfile": "Profil bearbeiten",
+    "dm.home.nitro.action.openCosmetics": "Kosmetik öffnen",
     "dm.home.shop.title": "Shop",
     "dm.home.shop.subtitle": "Kosmetika und saisonale Bundles durchsuchen.",
+    "dm.home.shop.action.open": "Shop öffnen",
     "dm.home.quests.title": "Quests",
     "dm.home.quests.subtitle": "Quest-Fortschritt und Abzeichen verfolgen.",
+    "dm.home.quests.stat.badges": "Quest-Abzeichen",
+    "dm.home.quests.placeholder.signIn": "Zum Anzeigen des Quest-Fortschritts anmelden.",
+    "dm.search.placeholder": "DM finden oder starten",
+    "dm.button.addFriend": "+ Freund hinzufügen",
+    "dm.empty.none": "Noch keine Direktnachrichten.",
+    "dm.empty.filtered": "Keine DMs oder Kontaktanfragen passen zur Suche.",
+    "dm.requests.pendingOutgoing": "Ausgehende Anfragen ausstehend: {count}",
+    "dm.requests.none": "Aktuell keine Nachrichtenanfragen.",
+    "dm.requests.incoming": "Eingehend",
+    "dm.requests.outgoing": "Ausgehend",
+    "dm.requests.filter.all": "Alle",
+    "dm.requests.filter.incoming": "Eingehend",
+    "dm.requests.filter.outgoing": "Ausgehend",
+    "dm.requests.bulk.acceptAll": "Alle annehmen",
+    "dm.requests.bulk.declineAll": "Alle ablehnen",
+    "dm.requests.bulk.cancelAll": "Alle abbrechen",
+    "common.accept": "Annehmen",
+    "common.decline": "Ablehnen",
+    "common.cancel": "Abbrechen",
+    "dm.home.nitro.placeholder": "Nitro-ähnliche Vorteile gibt es hier über Profil-Kosmetik und Effekte.",
+    "dm.home.shop.placeholder": "Durchsuche und entsperre Dekorationen, Effekte und saisonale Bundles.",
+    "dm.home.library.empty": "Noch keine DM-Freunde. Nutze + Freund hinzufügen in der Seitenleiste.",
+    "settings.nav.title": "Benutzereinstellungen",
+    "settings.tab.my-account": "Mein Konto",
+    "settings.tab.profiles": "Profile",
+    "settings.tab.notifications": "Benachrichtigungen",
+    "settings.tab.appearance": "Erscheinungsbild",
+    "settings.tab.advanced": "Erweitert",
+    "settings.appearance.title": "Erscheinungsbild",
+    "settings.appearance.uiScale": "UI-Skalierung",
+    "settings.appearance.theme": "Design",
+    "settings.appearance.language": "Sprache",
+    "settings.appearance.compactMembers": "Kompakte Mitgliederliste",
+    "settings.appearance.save": "Erscheinungsbild speichern",
+    "settings.theme.oled": "OLED",
+    "settings.theme.discord": "Discord-ähnlich",
+    "settings.theme.highContrast": "Hoher Kontrast",
+    "settings.compact.off": "Aus",
+    "settings.compact.on": "An",
     "settings.language.auto": "Automatisch erkennen"
   }
 };
@@ -1471,6 +1577,7 @@ let contextMenuFocusIndex = 0;
 let contextMenuSubmenuAnchor = null;
 let channelFilterTerm = "";
 let dmSearchTerm = "";
+let dmHomeRequestsFilter = "all";
 let selectedUserPopoutId = null;
 let mediaPickerOpen = false;
 let mediaPickerTab = "gif";
@@ -2141,6 +2248,7 @@ const ui = {
   swfViewerCloseBtn: document.getElementById("swfViewerCloseBtn"),
   contextMenu: document.getElementById("contextMenu"),
   settingsNavItems: [...document.querySelectorAll(".settings-nav__item")],
+  settingsNavTitle: document.querySelector(".settings-nav__title"),
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
 
@@ -10151,6 +10259,12 @@ function normalizeDmHomeTab(value) {
   return DM_HOME_TABS.includes(token) ? token : "friends";
 }
 
+function normalizeDmHomeRequestsFilter(value) {
+  const token = (value || "").toString().trim().toLowerCase();
+  if (token === "incoming" || token === "outgoing") return token;
+  return "all";
+}
+
 function detectBrowserUiLocale() {
   const explicit = (navigator.language || "").toString().trim().toLowerCase();
   if (explicit.startsWith("de")) return "de";
@@ -10168,6 +10282,13 @@ function tUi(key, fallback = "") {
   const table = UI_I18N[locale] || UI_I18N.en;
   const english = UI_I18N.en || {};
   return table[key] || english[key] || fallback || key;
+}
+
+function tUiFmt(key, vars = {}, fallback = "") {
+  const template = tUi(key, fallback);
+  return Object.entries(vars || {}).reduce((acc, [name, value]) => (
+    acc.replaceAll(`{${name}}`, String(value))
+  ), template);
 }
 
 function accountActivitySummary(account) {
@@ -12757,6 +12878,14 @@ function declineXmppContactRequest(jid) {
   if (!bare || !xmppConnection || relayStatus !== "connected" || !globalThis.$pres) return false;
   xmppConnection.send(globalThis.$pres({ to: bare, type: "unsubscribed" }));
   clearXmppContactRequest("incoming", bare);
+  return true;
+}
+
+function cancelXmppOutgoingContactRequest(jid) {
+  const bare = xmppBareJid(jid);
+  if (!bare || !xmppConnection || relayStatus !== "connected" || !globalThis.$pres) return false;
+  xmppConnection.send(globalThis.$pres({ to: bare, type: "unsubscribe" }));
+  clearXmppContactRequest("outgoing", bare);
   return true;
 }
 
@@ -30292,7 +30421,7 @@ function renderDmList() {
       actions.className = "dm-request-item__actions";
       const acceptBtn = document.createElement("button");
       acceptBtn.type = "button";
-      acceptBtn.textContent = "Accept";
+      acceptBtn.textContent = tUi("common.accept", "Accept");
       acceptBtn.addEventListener("click", () => {
         const ok = acceptXmppContactRequest(entry.jid);
         if (!ok) {
@@ -30307,7 +30436,7 @@ function renderDmList() {
       });
       const declineBtn = document.createElement("button");
       declineBtn.type = "button";
-      declineBtn.textContent = "Decline";
+      declineBtn.textContent = tUi("common.decline", "Decline");
       declineBtn.addEventListener("click", () => {
         const ok = declineXmppContactRequest(entry.jid);
         if (!ok) {
@@ -30328,13 +30457,15 @@ function renderDmList() {
   if (outgoingRequests.length > 0 && !filter) {
     const row = document.createElement("div");
     row.className = "channel-empty";
-    row.textContent = `Pending outgoing requests: ${outgoingRequests.length}`;
+    row.textContent = tUiFmt("dm.requests.pendingOutgoing", { count: outgoingRequests.length }, `Pending outgoing requests: ${outgoingRequests.length}`);
     ui.dmList.appendChild(row);
   }
   if (threads.length === 0 && filteredIncoming.length === 0) {
     const empty = document.createElement("div");
     empty.className = "channel-empty";
-    empty.textContent = filter ? "No DMs or contact requests match your search." : "No direct messages yet.";
+    empty.textContent = filter
+      ? tUi("dm.empty.filtered", "No DMs or contact requests match your search.")
+      : tUi("dm.empty.none", "No direct messages yet.");
     ui.dmList.appendChild(empty);
     return;
   }
@@ -30495,6 +30626,8 @@ function renderChannels() {
   ui.guildSection.classList.toggle("panel-section--hidden", dmMode);
   if (ui.dmHomeNav) ui.dmHomeNav.hidden = !dmMode;
   if (ui.dmHomeDivider) ui.dmHomeDivider.hidden = !dmMode;
+  if (ui.dmSearchInput) ui.dmSearchInput.placeholder = tUi("dm.search.placeholder", "Find or start DM");
+  if (ui.newDmBtn) ui.newDmBtn.textContent = tUi("dm.button.addFriend", "+ Add Friend");
   ui.dmSection.classList.toggle("panel-section--collapsed", prefs.collapseDmSection === "on");
   ui.guildSection.classList.toggle("panel-section--collapsed", prefs.collapseGuildSection === "on");
   if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = dmMode;
@@ -31972,20 +32105,20 @@ function renderDmHome() {
     );
     const stats = document.createElement("div");
     stats.className = "dm-home__stat-grid";
-    stats.appendChild(appendStatCard(totalMedia, "custom media items"));
-    stats.appendChild(appendStatCard(state.savedSwfs.length, "saved SWFs"));
-    stats.appendChild(appendStatCard((getPreferences().gifFavorites || []).length, "GIF favorites"));
-    stats.appendChild(appendStatCard((getPreferences().gifGroups || []).length, "GIF groups"));
+    stats.appendChild(appendStatCard(totalMedia, tUi("dm.home.library.stat.mediaItems", "custom media items")));
+    stats.appendChild(appendStatCard(state.savedSwfs.length, tUi("dm.home.library.stat.savedSwfs", "saved SWFs")));
+    stats.appendChild(appendStatCard((getPreferences().gifFavorites || []).length, tUi("dm.home.library.stat.gifFavorites", "GIF favorites")));
+    stats.appendChild(appendStatCard((getPreferences().gifGroups || []).length, tUi("dm.home.library.stat.gifGroups", "GIF groups")));
     section.appendChild(stats);
     const actions = document.createElement("div");
     actions.className = "dm-home__action-row";
     const mediaBtn = document.createElement("button");
     mediaBtn.type = "button";
-    mediaBtn.textContent = "Open Media Picker";
+    mediaBtn.textContent = tUi("dm.home.library.action.openPicker", "Open Media Picker");
     mediaBtn.addEventListener("click", () => openMediaPickerWithTab("gif"));
     const shelfBtn = document.createElement("button");
     shelfBtn.type = "button";
-    shelfBtn.textContent = "Toggle SWF Shelf";
+    shelfBtn.textContent = tUi("dm.home.library.action.toggleShelf", "Toggle SWF Shelf");
     shelfBtn.addEventListener("click", () => {
       if (!ui.toggleSwfShelfBtn) return;
       ui.toggleSwfShelfBtn.click();
@@ -31998,13 +32131,94 @@ function renderDmHome() {
     const outgoing = listXmppContactRequests("outgoing");
     const stats = document.createElement("div");
     stats.className = "dm-home__stat-grid";
-    stats.appendChild(appendStatCard(incoming.length, "incoming requests"));
-    stats.appendChild(appendStatCard(outgoing.length, "outgoing requests"));
+    stats.appendChild(appendStatCard(incoming.length, tUi("dm.home.requests.stat.incoming", "incoming requests")));
+    stats.appendChild(appendStatCard(outgoing.length, tUi("dm.home.requests.stat.outgoing", "outgoing requests")));
     section.appendChild(stats);
-    if (incoming.length <= 0 && outgoing.length <= 0) {
-      appendPlaceholder("No message requests right now.");
-    } else {
-      incoming.slice(0, 20).forEach((entry) => {
+    const filterWrap = document.createElement("div");
+    filterWrap.className = "dm-home__action-row";
+    ["all", "incoming", "outgoing"].forEach((mode) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = tUi(`dm.requests.filter.${mode}`, mode);
+      if (normalizeDmHomeRequestsFilter(dmHomeRequestsFilter) === mode) btn.classList.add("active");
+      btn.addEventListener("click", () => {
+        dmHomeRequestsFilter = mode;
+        renderMessages();
+      });
+      filterWrap.appendChild(btn);
+    });
+    section.appendChild(filterWrap);
+
+    const bulk = document.createElement("div");
+    bulk.className = "dm-home__action-row";
+    const acceptAllBtn = document.createElement("button");
+    acceptAllBtn.type = "button";
+    acceptAllBtn.textContent = tUi("dm.requests.bulk.acceptAll", "Accept All");
+    acceptAllBtn.addEventListener("click", () => {
+      if (incoming.length <= 0) {
+        showToast(tUi("dm.home.requests.bulk.noneIncoming", "No incoming requests to accept."), { tone: "error" });
+        return;
+      }
+      let changed = 0;
+      incoming.forEach((entry) => {
+        if (!acceptXmppContactRequest(entry.jid)) return;
+        const peer = ensureAccountByXmppJid(entry.jid, entry.name || "");
+        if (peer && current) getOrCreateDmThread(current, peer);
+        changed += 1;
+      });
+      if (changed > 0) {
+        saveState();
+        render();
+      }
+    });
+    const declineAllBtn = document.createElement("button");
+    declineAllBtn.type = "button";
+    declineAllBtn.textContent = tUi("dm.requests.bulk.declineAll", "Decline All");
+    declineAllBtn.addEventListener("click", () => {
+      if (incoming.length <= 0) {
+        showToast(tUi("dm.home.requests.bulk.noneIncoming", "No incoming requests to accept."), { tone: "error" });
+        return;
+      }
+      let changed = 0;
+      incoming.forEach((entry) => {
+        if (!declineXmppContactRequest(entry.jid)) return;
+        changed += 1;
+      });
+      if (changed > 0) {
+        saveState();
+        render();
+      }
+    });
+    const cancelAllBtn = document.createElement("button");
+    cancelAllBtn.type = "button";
+    cancelAllBtn.textContent = tUi("dm.requests.bulk.cancelAll", "Cancel All");
+    cancelAllBtn.addEventListener("click", () => {
+      if (outgoing.length <= 0) {
+        showToast(tUi("dm.home.requests.bulk.noneOutgoing", "No outgoing requests to cancel."), { tone: "error" });
+        return;
+      }
+      let changed = 0;
+      outgoing.forEach((entry) => {
+        if (!cancelXmppOutgoingContactRequest(entry.jid)) return;
+        changed += 1;
+      });
+      if (changed > 0) {
+        saveState();
+        render();
+      }
+    });
+    bulk.appendChild(acceptAllBtn);
+    bulk.appendChild(declineAllBtn);
+    bulk.appendChild(cancelAllBtn);
+    section.appendChild(bulk);
+
+    const filterMode = normalizeDmHomeRequestsFilter(dmHomeRequestsFilter);
+    const incomingVisible = filterMode === "all" || filterMode === "incoming";
+    const outgoingVisible = filterMode === "all" || filterMode === "outgoing";
+    if (!incomingVisible && !outgoingVisible) dmHomeRequestsFilter = "all";
+    let renderedRows = 0;
+    if (incomingVisible) {
+      incoming.slice(0, 40).forEach((entry) => {
         const row = document.createElement("div");
         row.className = "dm-home__item dm-home__item--wide";
         const body = document.createElement("div");
@@ -32012,9 +32226,9 @@ function renderDmHome() {
         const top = document.createElement("div");
         top.className = "dm-home__top";
         const name = document.createElement("strong");
-        name.textContent = entry.name || entry.jid || "Unknown";
+        name.textContent = entry.name || entry.jid || tUi("dm.home.requests.entry.unknown", "Unknown");
         const meta = document.createElement("small");
-        meta.textContent = "Incoming";
+        meta.textContent = tUi("dm.requests.incoming", "Incoming");
         top.appendChild(name);
         top.appendChild(meta);
         const jid = document.createElement("small");
@@ -32025,7 +32239,7 @@ function renderDmHome() {
         actions.className = "dm-home__action-row";
         const acceptBtn = document.createElement("button");
         acceptBtn.type = "button";
-        acceptBtn.textContent = "Accept";
+        acceptBtn.textContent = tUi("common.accept", "Accept");
         acceptBtn.addEventListener("click", () => {
           if (!acceptXmppContactRequest(entry.jid)) {
             showToast("Could not accept request.", { tone: "error" });
@@ -32038,7 +32252,7 @@ function renderDmHome() {
         });
         const declineBtn = document.createElement("button");
         declineBtn.type = "button";
-        declineBtn.textContent = "Decline";
+        declineBtn.textContent = tUi("common.decline", "Decline");
         declineBtn.addEventListener("click", () => {
           if (!declineXmppContactRequest(entry.jid)) {
             showToast("Could not decline request.", { tone: "error" });
@@ -32052,33 +32266,72 @@ function renderDmHome() {
         row.appendChild(body);
         row.appendChild(actions);
         section.appendChild(row);
+        renderedRows += 1;
       });
-      if (outgoing.length > 0) {
-        appendPlaceholder(`Pending outgoing requests: ${outgoing.length}`);
-      }
+    }
+    if (outgoingVisible) {
+      outgoing.slice(0, 40).forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "dm-home__item dm-home__item--wide";
+        const body = document.createElement("div");
+        body.className = "dm-home__body";
+        const top = document.createElement("div");
+        top.className = "dm-home__top";
+        const name = document.createElement("strong");
+        name.textContent = entry.name || entry.jid || tUi("dm.home.requests.entry.unknown", "Unknown");
+        const meta = document.createElement("small");
+        meta.textContent = tUi("dm.requests.outgoing", "Outgoing");
+        top.appendChild(name);
+        top.appendChild(meta);
+        const jid = document.createElement("small");
+        jid.textContent = entry.jid || "";
+        body.appendChild(top);
+        body.appendChild(jid);
+        const actions = document.createElement("div");
+        actions.className = "dm-home__action-row";
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.textContent = tUi("common.cancel", "Cancel");
+        cancelBtn.addEventListener("click", () => {
+          if (!cancelXmppOutgoingContactRequest(entry.jid)) {
+            showToast("Could not cancel request.", { tone: "error" });
+            return;
+          }
+          saveState();
+          render();
+        });
+        actions.appendChild(cancelBtn);
+        row.appendChild(body);
+        row.appendChild(actions);
+        section.appendChild(row);
+        renderedRows += 1;
+      });
+    }
+    if (renderedRows <= 0) {
+      appendPlaceholder(tUi("dm.requests.none", "No message requests right now."));
     }
   } else if (homeTab === "nitro") {
-    appendPlaceholder("Nitro-style perks are available through profile cosmetics and effects in this client.");
+    appendPlaceholder(tUi("dm.home.nitro.placeholder", "Nitro-style perks are available through profile cosmetics and effects in this client."));
     const actions = document.createElement("div");
     actions.className = "dm-home__action-row";
     const profileBtn = document.createElement("button");
     profileBtn.type = "button";
-    profileBtn.textContent = "Edit Profile";
+    profileBtn.textContent = tUi("dm.home.nitro.action.editProfile", "Edit Profile");
     profileBtn.addEventListener("click", () => openProfileEditor());
     const cosmeticsBtn = document.createElement("button");
     cosmeticsBtn.type = "button";
-    cosmeticsBtn.textContent = "Open Cosmetics";
+    cosmeticsBtn.textContent = tUi("dm.home.nitro.action.openCosmetics", "Open Cosmetics");
     cosmeticsBtn.addEventListener("click", () => openCosmeticsDialog("effect"));
     actions.appendChild(profileBtn);
     actions.appendChild(cosmeticsBtn);
     section.appendChild(actions);
   } else if (homeTab === "shop") {
-    appendPlaceholder("Browse and unlock decorations, effects, and seasonal bundles.");
+    appendPlaceholder(tUi("dm.home.shop.placeholder", "Browse and unlock decorations, effects, and seasonal bundles."));
     const actions = document.createElement("div");
     actions.className = "dm-home__action-row";
     const openShopBtn = document.createElement("button");
     openShopBtn.type = "button";
-    openShopBtn.textContent = "Open Shop";
+    openShopBtn.textContent = tUi("dm.home.shop.action.open", "Open Shop");
     openShopBtn.addEventListener("click", () => openCosmeticsDialog("decor"));
     actions.appendChild(openShopBtn);
     section.appendChild(actions);
@@ -32086,9 +32339,9 @@ function renderDmHome() {
     const badgeCount = current ? resolveQuestBadgesForAccount(current.id).length : 0;
     const stats = document.createElement("div");
     stats.className = "dm-home__stat-grid";
-    stats.appendChild(appendStatCard(badgeCount, "quest badges"));
+    stats.appendChild(appendStatCard(badgeCount, tUi("dm.home.quests.stat.badges", "quest badges")));
     section.appendChild(stats);
-    appendPlaceholder(current ? formatQuestSummaryText(current.id) : "Sign in to view quest progress.");
+    appendPlaceholder(current ? formatQuestSummaryText(current.id) : tUi("dm.home.quests.placeholder.signIn", "Sign in to view quest progress."));
   }
 
   shell.appendChild(section);
@@ -34559,13 +34812,13 @@ function renderPinsDialog() {
 
 function setSettingsTab(tabId) {
   const tabTitles = {
-    "my-account": "My Account",
-    profiles: "Profiles",
-    notifications: "Notifications",
-    appearance: "Appearance",
-    advanced: "Advanced"
+    "my-account": tUi("settings.tab.my-account", "My Account"),
+    profiles: tUi("settings.tab.profiles", "Profiles"),
+    notifications: tUi("settings.tab.notifications", "Notifications"),
+    appearance: tUi("settings.tab.appearance", "Appearance"),
+    advanced: tUi("settings.tab.advanced", "Advanced")
   };
-  ui.settingsTitle.textContent = tabTitles[tabId] || "User Settings";
+  ui.settingsTitle.textContent = tabTitles[tabId] || tUi("settings.nav.title", "User Settings");
   ui.settingsNavItems.forEach((item) => {
     item.classList.toggle("active", item.dataset.settingsTab === tabId);
   });
@@ -34662,15 +34915,50 @@ function renderSettingsScreen() {
   const guild = getActiveGuild();
   const prefs = getPreferences();
   if (!account) return;
+  if (ui.settingsNavTitle) ui.settingsNavTitle.textContent = tUi("settings.nav.title", "User Settings");
+  ui.settingsNavItems.forEach((item) => {
+    const tab = (item.dataset.settingsTab || "").toString();
+    if (!tab) return;
+    item.textContent = tUi(`settings.tab.${tab}`, item.textContent || tab);
+  });
   ui.settingsDisplayName.textContent = displayNameForAccount(account, guild?.id || null);
   ui.settingsUsername.textContent = `@${account.username}`;
   ui.settingsCurrentStatus.textContent = displayStatus(account, guild?.id || null);
   ui.uiScaleInput.value = String(prefs.uiScale);
   ui.themeInput.value = prefs.theme;
+  const appearancePanel = ui.appearanceForm;
+  if (appearancePanel) {
+    const title = appearancePanel.querySelector("h3");
+    if (title) title.textContent = tUi("settings.appearance.title", "Appearance");
+    const uiScaleLabel = appearancePanel.querySelector('label[for="uiScaleInput"]');
+    if (uiScaleLabel) uiScaleLabel.textContent = tUi("settings.appearance.uiScale", "UI Scale");
+    const themeLabel = appearancePanel.querySelector('label[for="themeInput"]');
+    if (themeLabel) themeLabel.textContent = tUi("settings.appearance.theme", "Theme");
+    const languageLabel = appearancePanel.querySelector('label[for="languageInput"]');
+    if (languageLabel) languageLabel.textContent = tUi("settings.appearance.language", "Language");
+    const compactLabel = appearancePanel.querySelector('label[for="compactModeInput"]');
+    if (compactLabel) compactLabel.textContent = tUi("settings.appearance.compactMembers", "Compact member list");
+    const submitBtn = appearancePanel.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.textContent = tUi("settings.appearance.save", "Save Appearance");
+  }
+  if (ui.themeInput) {
+    const oled = ui.themeInput.querySelector('option[value="oled"]');
+    if (oled) oled.textContent = tUi("settings.theme.oled", "OLED");
+    const discord = ui.themeInput.querySelector('option[value="discord"]');
+    if (discord) discord.textContent = tUi("settings.theme.discord", "Discord-like");
+    const highContrast = ui.themeInput.querySelector('option[value="high-contrast"]');
+    if (highContrast) highContrast.textContent = tUi("settings.theme.highContrast", "High Contrast");
+  }
   if (ui.languageInput) {
     ui.languageInput.value = prefs.language;
     const autoOption = ui.languageInput.querySelector('option[value="auto"]');
     if (autoOption) autoOption.textContent = tUi("settings.language.auto", "Auto detect");
+  }
+  if (ui.compactModeInput) {
+    const off = ui.compactModeInput.querySelector('option[value="off"]');
+    if (off) off.textContent = tUi("settings.compact.off", "Off");
+    const on = ui.compactModeInput.querySelector('option[value="on"]');
+    if (on) on.textContent = tUi("settings.compact.on", "On");
   }
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;

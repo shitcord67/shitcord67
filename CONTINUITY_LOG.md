@@ -2051,3 +2051,12 @@ Then could you support the DiscordRPC stuff? E.g. in Discord on each user profil
 
 ## 2026-02-27T13:40:36Z
 Oh also I hope you did not stop working on the stuff I asked earlier just because of this now. If so, please continue on the earlier stuff and only then work on the stuff I just asked
+
+## 2026-02-27T15:58:25Z
+Yes
+
+## 2026-02-27T15:58:53Z
+Also any XEPs or features Movim has that we should add?
+
+## 2026-02-27T16:02:29Z
+Also any XEPs or features Movim has that we should add?
