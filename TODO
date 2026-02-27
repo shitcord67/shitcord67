@@ -87,6 +87,10 @@
 - [done] Added debounced per-session re-prime request coalescing for overlapping content/transport updates.
 - [done] Added in-UI DM header diagnostics for native XMPP call session internals (state/queue/re-prime/candidate counters).
 - [done] Extended `/callxmpp status` and XMPP console runtime output with native call session snapshots for faster diagnosis.
+- [done] Kept native/web call lightbox surfaces sticky during active sessions so accidental backdrop/Escape close no longer drops the call UI.
+- [done] Incoming XMPP call accept now transitions directly into the native call surface instead of leaving the accept prompt hanging.
+- [done] Added native call in-surface local audio test control (`Test Audio` / `Stop Test`) for `rickroll.ogg`.
+- [done] Broadened incoming XMPP call invite parsing (namespace/id/url heuristics) for better Movim/Dino interoperability.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.

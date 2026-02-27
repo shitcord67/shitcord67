@@ -31,11 +31,13 @@ const XMPP_JINGLE_RTP_INFO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:info:1";
 const XMPP_JINGLE_ICE_UDP_NAMESPACE = "urn:xmpp:jingle:transports:ice-udp:1";
 const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE = "urn:xmpp:jingle-message:0";
 const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1 = "urn:xmpp:jingle-message:1";
+const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX = "urn:xmpp:jingle-message";
 const XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES = [
   XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
   XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
 ];
 const XMPP_CALL_INVITES_NAMESPACE = "urn:xmpp:call-invites:0";
+const XMPP_CALL_INVITES_NAMESPACE_PREFIX = "urn:xmpp:call-invites";
 const XMPP_JINGLE_AUDIO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:audio";
 const XMPP_JINGLE_VIDEO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:video";
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
@@ -1501,6 +1503,8 @@ let webCallRingtoneInterval = null;
 let webCallRingtoneToken = "";
 let activeWebCallLightbox = null;
 let xmppActiveNativeCallSessionId = "";
+let nativeCallAudioTestElement = null;
+let nativeCallAudioTestSessionId = "";
 let relayStatus = "disconnected";
 let relayLastError = "";
 let relayJoinedRoom = "";
@@ -4072,6 +4076,7 @@ function ensureMediaLightbox() {
     if (target.closest("[data-lightbox-close=\"1\"]")) return false;
     if (target.closest(".media-lightbox__media")) return true;
     if (target.closest(".media-lightbox__actions")) return true;
+    if (target.closest(".native-call-surface")) return true;
     if (target.closest(".message-swf-link")) return true;
     if (target.closest(".external-link-gate")) return true;
     if (target.closest(".incoming-call-gate")) return true;
@@ -4091,9 +4096,91 @@ function ensureMediaLightbox() {
   return overlay;
 }
 
-function closeMediaLightbox() {
+function hasPinnedNativeCallLightbox() {
+  const sid = (xmppActiveNativeCallSessionId || "").toString().trim();
+  if (!sid) return false;
+  if (!xmppCallSessionById.has(sid)) return false;
   const overlay = document.getElementById("mediaLightbox");
-  if (!overlay) return;
+  if (!overlay || overlay.hidden) return false;
+  return Boolean(overlay.querySelector(".native-call-surface"));
+}
+
+function hasPinnedWebCallLightbox() {
+  if (!activeWebCallLightbox) return false;
+  const overlay = document.getElementById("mediaLightbox");
+  if (!overlay || overlay.hidden) return false;
+  return true;
+}
+
+function isNativeCallAudioTestActive(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid || nativeCallAudioTestSessionId !== sid) return false;
+  const audio = nativeCallAudioTestElement;
+  if (!(audio instanceof HTMLAudioElement)) return false;
+  return !audio.paused && !audio.ended;
+}
+
+function stopNativeCallAudioTest() {
+  const audio = nativeCallAudioTestElement;
+  if (audio instanceof HTMLAudioElement) {
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute("src");
+      audio.load();
+    } catch {
+      // Ignore audio cleanup failures.
+    }
+    audio.onended = null;
+    audio.onerror = null;
+  }
+  nativeCallAudioTestElement = null;
+  nativeCallAudioTestSessionId = "";
+}
+
+async function startNativeCallAudioTest(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const clipUrl = resolveMediaUrl("./rickroll.ogg");
+  if (!clipUrl) return false;
+  if (nativeCallAudioTestSessionId && nativeCallAudioTestSessionId !== sid) {
+    stopNativeCallAudioTest();
+  }
+  let audio = nativeCallAudioTestElement;
+  if (!(audio instanceof HTMLAudioElement)) {
+    audio = new Audio();
+    audio.preload = "auto";
+    nativeCallAudioTestElement = audio;
+  }
+  nativeCallAudioTestSessionId = sid;
+  audio.onended = () => {
+    stopNativeCallAudioTest();
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  };
+  audio.onerror = () => {
+    stopNativeCallAudioTest();
+    showToast("Could not play local rickroll.ogg clip.", { tone: "error", duration: 2600 });
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  };
+  try {
+    audio.pause();
+    audio.src = clipUrl;
+    audio.currentTime = 0;
+    await audio.play();
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    return true;
+  } catch {
+    stopNativeCallAudioTest();
+    showToast("Audio playback was blocked. Click the page and try again.", { tone: "error", duration: 2800 });
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    return false;
+  }
+}
+
+function closeMediaLightbox({ force = false } = {}) {
+  if (!force && (hasPinnedNativeCallLightbox() || hasPinnedWebCallLightbox())) return false;
+  const overlay = document.getElementById("mediaLightbox");
+  if (!overlay) return false;
   overlay.hidden = true;
   const stage = overlay.querySelector(".media-lightbox__stage");
   if (stage) stage.innerHTML = "";
@@ -4113,7 +4200,9 @@ function closeMediaLightbox() {
     }
   }
   stopWebCallRingtone();
+  stopNativeCallAudioTest();
   document.body.style.removeProperty("overflow");
+  return true;
 }
 
 function xmppRemoteStreamListForSession(sessionId = "") {
@@ -4218,6 +4307,23 @@ function renderNativeXmppCallSurface(sessionId = "") {
     }
     await xmppSwitchLocalMediaMode(sid, screenActive ? "camera" : "screen");
   });
+  const audioTestBtn = document.createElement("button");
+  audioTestBtn.type = "button";
+  audioTestBtn.className = "native-call-surface__toggle";
+  const audioTestActive = isNativeCallAudioTestActive(sid);
+  audioTestBtn.textContent = audioTestActive ? "Stop Test" : "Test Audio";
+  audioTestBtn.title = audioTestActive
+    ? "Stop local audio test clip"
+    : "Play local rickroll.ogg to test output audio";
+  if (audioTestActive) audioTestBtn.classList.add("is-active");
+  audioTestBtn.addEventListener("click", () => {
+    if (isNativeCallAudioTestActive(sid)) {
+      stopNativeCallAudioTest();
+      if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+      return;
+    }
+    void startNativeCallAudioTest(sid);
+  });
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.textContent = "Copy SID";
@@ -4246,6 +4352,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   actions.appendChild(micBtn);
   actions.appendChild(camBtn);
   actions.appendChild(screenBtn);
+  actions.appendChild(audioTestBtn);
   actions.appendChild(copyBtn);
   actions.appendChild(refreshBtn);
   actions.appendChild(endBtn);
@@ -4378,6 +4485,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
 function openNativeXmppCallSurface(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
+  if (nativeCallAudioTestSessionId && nativeCallAudioTestSessionId !== sid) {
+    stopNativeCallAudioTest();
+  }
   xmppActiveNativeCallSessionId = sid;
   const overlay = ensureMediaLightbox();
   renderNativeXmppCallSurface(sid);
@@ -4706,6 +4816,22 @@ function stripTrailingUrlPunctuation(value = "") {
   return (value || "").toString().replace(/[)\].,!?]+$/g, "");
 }
 
+function looksLikeConferenceCallUrl(rawUrl = "") {
+  const candidateUrl = normalizeCallInviteUrl(rawUrl);
+  if (!candidateUrl) return false;
+  try {
+    const parsed = new URL(candidateUrl);
+    const host = (parsed.host || "").toString().trim().toLowerCase();
+    const pathBits = `${parsed.pathname || ""} ${parsed.search || ""} ${parsed.hash || ""}`.toLowerCase();
+    if (/(^|[.-])(jitsi|meet|visio|call|calls|conference|webrtc|videochat)([.-]|$)/.test(host)) return true;
+    if (/(\/|^)(j|call|calls|meet|room|rooms|conference|conf|video|join)(\/|$|[?#])/i.test(pathBits)) return true;
+    if (pathBits.includes("startscreensharing=true")) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 function parseCallInviteFromText(text = "") {
   const raw = (text || "").toString().trim();
   if (!raw) return null;
@@ -4728,12 +4854,13 @@ function parseCallInviteFromText(text = "") {
     urlHost = "";
   }
   const providerMatches = Boolean(baseHost && urlHost && baseHost === urlHost);
+  const conferenceLikeUrl = looksLikeConferenceCallUrl(candidateUrl);
   const urlLower = candidateUrl.toLowerCase();
   const screenShare = lower.includes("screen-share")
     || lower.includes("screen share")
     || lower.includes("screenshare")
     || urlLower.includes("startscreensharing=true");
-  if (!hasCallHint && !providerMatches) return null;
+  if (!hasCallHint && !providerMatches && !conferenceLikeUrl) return null;
   return {
     url: candidateUrl,
     screenShare,
@@ -4746,7 +4873,10 @@ function parseXmppCallInviteAction(stanza) {
   const actions = ["invite", "accept", "reject", "retract", "left"];
   for (const action of actions) {
     const node = [...stanza.getElementsByTagName(action)]
-      .find((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)) || null;
+      .find((entry) => (
+        xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
+        || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
+      )) || null;
     if (!node) continue;
     const rawId = (node.getAttribute("id") || "").toString().trim();
     const audio = node.getAttribute("audio");
@@ -4754,12 +4884,20 @@ function parseXmppCallInviteAction(stanza) {
     const jingleNode = [...node.getElementsByTagName("jingle")]
       .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_NAMESPACE))
       || [...node.getElementsByTagName("jingle")]
-        .find((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE))
+        .find((entry) => (
+          xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
+          || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
+        ))
       || [...node.getElementsByTagName("jingle")]
         .find((entry) => !(entry.getAttribute("xmlns") || "").toString().trim()) || null;
     const jingleSid = (jingleNode?.getAttribute("sid") || "").toString().trim();
     const externals = [...node.getElementsByTagName("external")]
-      .filter((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE))
+      .filter((entry) => {
+        const scoped = xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
+          || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX);
+        const unscopedChild = !xmppNodeXmlns(entry) && entry.parentNode === node;
+        return scoped || unscopedChild;
+      })
       .map((entry) => (entry.getAttribute("uri") || entry.getAttribute("url") || "").toString().trim())
       .filter(Boolean);
     return {
@@ -5234,8 +5372,10 @@ async function acceptIncomingXmppCall(sessionId = "") {
             refreshDmUiForPeerJid(peerBare);
           }
           if (!current.fallbackInviteSent) {
+            const fallbackScreenShare = Boolean(current.screenShare);
             current.fallbackInviteSent = true;
-            launchConversationCall({ screenShare: Boolean(current.screenShare), autoPost: true, allowNative: false });
+            forgetXmppCallSession(sid);
+            launchConversationCall({ screenShare: fallbackScreenShare, autoPost: true, allowNative: false });
           }
         }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
       }
@@ -5243,6 +5383,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
     if (addSystemDmMessageByPeerJid(peerBare, `Accepted XMPP call proposal (${sid.slice(0, 8)}). Waiting for session-initiate.`)) {
       refreshDmUiForPeerJid(peerBare);
     }
+    openNativeXmppCallSurface(sid);
     refreshCallBarForPeer(peerBare);
   }
   return sent;
@@ -5339,7 +5480,21 @@ function maybeHandleIncomingWebCallInvite({
   if (!conversation || !message || history) return;
   const current = getCurrentAccount();
   if (current && message.userId === current.id) return;
-  const invite = parseCallInviteFromText(message.text || "");
+  let invite = parseCallInviteFromText(message.text || "");
+  if (!invite) {
+    const attachmentUrl = Array.isArray(message.attachments)
+      ? message.attachments
+        .map((entry) => normalizeCallInviteUrl((entry?.url || "").toString()))
+        .find((entry) => entry && looksLikeConferenceCallUrl(entry))
+      : "";
+    if (attachmentUrl) {
+      invite = {
+        url: attachmentUrl,
+        screenShare: false,
+        providerMatches: false
+      };
+    }
+  }
   if (!invite || !invite.url) return;
   const sentAt = toTimestampMs(message.ts);
   if (!Number.isFinite(sentAt)) return;
@@ -5489,7 +5644,7 @@ function openConferenceLightbox(url, { title = "Realtime call" } = {}) {
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.textContent = "Close";
-  closeBtn.addEventListener("click", () => closeMediaLightbox());
+  closeBtn.addEventListener("click", () => closeMediaLightbox({ force: true }));
 
   controls.appendChild(externalBtn);
   controls.appendChild(copyBtn);
@@ -5689,11 +5844,16 @@ function forgetXmppCallSession(sessionId = "") {
   stopXmppCallSpeakingMonitor(id);
   xmppCloseSessionPeerConnection(id);
   clearXmppCallSignalTimeout(id);
+  if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);
+  entry.acceptTimeoutId = null;
   const inviteId = (entry.callInviteId || "").toString().trim();
   if (inviteId) xmppCallSessionIdByInviteId.delete(inviteId);
   [...xmppCallSessionIdByInviteId.entries()].forEach(([key, value]) => {
     if ((value || "").toString().trim() === id) xmppCallSessionIdByInviteId.delete(key);
   });
+  if (nativeCallAudioTestSessionId === id) {
+    stopNativeCallAudioTest();
+  }
   xmppCallSessionById.delete(id);
   if (xmppActiveNativeCallSessionId === id) closeMediaLightbox();
   const peer = xmppBareJid(entry.peerJid || "");
@@ -8046,14 +8206,26 @@ function parseXmppJingleMessageAction(stanza) {
   const actions = ["propose", "proceed", "accept", "retract", "reject", "ringing"];
   for (const action of actions) {
     const node = [...stanza.getElementsByTagName(action)]
-      .find((entry) => xmppNodeHasAnyXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES)) || null;
+      .find((entry) => (
+        xmppNodeHasAnyXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES)
+        || xmppNodeHasXmlnsPrefix(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX)
+      )) || null;
     if (!node) continue;
-    const id = (node.getAttribute("id") || "").toString().trim();
+    const id = (node.getAttribute("id") || stanza.getAttribute("id") || "").toString().trim();
     const media = action === "propose"
-      ? [...node.getElementsByTagName("description")]
-        .filter((desc) => xmppNodeHasXmlns(desc, XMPP_JINGLE_RTP_NAMESPACE))
-        .map((desc) => (desc.getAttribute("media") || "").toString().trim().toLowerCase())
-        .filter((entry) => entry === "audio" || entry === "video")
+      ? [...new Set(
+        [...node.getElementsByTagName("description")]
+          .map((desc) => {
+            const hinted = (desc.getAttribute("media") || "").toString().trim().toLowerCase();
+            if (hinted === "audio" || hinted === "video") return hinted;
+            const xmlns = xmppNodeXmlns(desc);
+            if (xmlns === XMPP_JINGLE_AUDIO_NAMESPACE || xmlns.endsWith(":audio")) return "audio";
+            if (xmlns === XMPP_JINGLE_VIDEO_NAMESPACE || xmlns.endsWith(":video")) return "video";
+            if (xmppNodeHasXmlns(desc, XMPP_JINGLE_RTP_NAMESPACE) && hinted) return hinted;
+            return "";
+          })
+          .filter((entry) => entry === "audio" || entry === "video")
+      )]
       : [];
     return { action, id, media };
   }
@@ -8073,7 +8245,16 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
   if (peerFull) xmppRememberPeerFullJid(peerFull);
   const replyTarget = xmppNormalizeCallTargetJid(peerFull || peer, { preferFull: true }) || peer;
   const action = (actionPayload?.action || "").toString();
-  const id = (actionPayload?.id || "").toString();
+  let id = (actionPayload?.id || "").toString().trim();
+  if (!id && action === "propose") {
+    id = `jmi-${createId().slice(0, 12)}`;
+  } else if (!id) {
+    const preferredDirection = action === "ringing" || action === "proceed" || action === "accept"
+      ? "outgoing"
+      : "incoming";
+    id = latestXmppCallSessionIdForPeer(peer, preferredDirection)
+      || latestXmppCallSessionIdForPeer(peer, preferredDirection === "outgoing" ? "incoming" : "outgoing");
+  }
   if (!peer || !action || !id) return false;
   if (action === "propose") {
     const existingIncomingId = latestXmppCallSessionIdForPeer(peer, "incoming");
@@ -9886,9 +10067,20 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
   return `${node}@${mucService}`;
 }
 
+function xmppNodeXmlns(node) {
+  if (!node || typeof node.getAttribute !== "function") return "";
+  return (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
+}
+
 function xmppNodeHasXmlns(node, xmlns) {
-  if (!node || typeof node.getAttribute !== "function") return false;
-  return (node.getAttribute("xmlns") || "").toLowerCase() === (xmlns || "").toLowerCase();
+  return xmppNodeXmlns(node) === (xmlns || "").toString().trim().toLowerCase();
+}
+
+function xmppNodeHasXmlnsPrefix(node, prefix = "") {
+  const normalizedPrefix = (prefix || "").toString().trim().toLowerCase();
+  if (!normalizedPrefix) return false;
+  const value = xmppNodeXmlns(node);
+  return value === normalizedPrefix || value.startsWith(`${normalizedPrefix}:`);
 }
 
 function xmppNodeHasAnyXmlns(node, xmlnsList = []) {
