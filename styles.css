@@ -33,6 +33,73 @@ body[data-theme="discord"] {
   --line: #1b1c1f;
 }
 
+body[data-theme="oled"] {
+  --bg-main: #000000;
+  --bg-dark: #000000;
+  --bg-mid: #000000;
+  --bg-light: #000000;
+  --bg-member: #000000;
+  --line: #000000;
+  --text-main: #f4f6f8;
+  --text-muted: #aab0b8;
+  --accent: #5a6bff;
+}
+
+body[data-theme="oled"] .server-item,
+body[data-theme="oled"] .icon-btn,
+body[data-theme="oled"] .channel-filter,
+body[data-theme="oled"] .channel-item.active,
+body[data-theme="oled"] .dm-request-item,
+body[data-theme="oled"] .dm-home__item,
+body[data-theme="oled"] .dm-home__empty,
+body[data-theme="oled"] .dm-home__stat-card,
+body[data-theme="oled"] .dm-home__placeholder,
+body[data-theme="oled"] .message-form,
+body[data-theme="oled"] .account-dock,
+body[data-theme="oled"] .chat-header,
+body[data-theme="oled"] .chat-topic-edit,
+body[data-theme="oled"] .settings-card,
+body[data-theme="oled"] .modal-form,
+body[data-theme="oled"] .member-item {
+  background: #000 !important;
+  border-color: #131313 !important;
+}
+
+body[data-theme="oled"] .channel-item.active {
+  box-shadow: inset 0 0 0 1px #2f3c61;
+}
+
+body[data-theme="high-contrast"] {
+  --bg-main: #000000;
+  --bg-dark: #000000;
+  --bg-mid: #050505;
+  --bg-light: #101010;
+  --bg-member: #000000;
+  --line: #ffffff;
+  --text-main: #ffffff;
+  --text-muted: #f1f1f1;
+  --accent: #00e5ff;
+  --call-speaking: #00ff7a;
+}
+
+body[data-theme="high-contrast"] .channel-item.active,
+body[data-theme="high-contrast"] .dm-home-nav__item.active {
+  background: #111 !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 2px #00e5ff;
+}
+
+body[data-theme="high-contrast"] .chat-topic-edit,
+body[data-theme="high-contrast"] .channel-filter,
+body[data-theme="high-contrast"] .message-form,
+body[data-theme="high-contrast"] .dm-home__stat-card,
+body[data-theme="high-contrast"] .dm-home__placeholder,
+body[data-theme="high-contrast"] .settings-card,
+body[data-theme="high-contrast"] .modal-form {
+  background: #000;
+  border: 1px solid #ffffff;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -645,6 +712,40 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .channel-list--dm {
   margin-bottom: 0.35rem;
+}
+
+.dm-home-nav {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0 0 0.35rem;
+}
+
+.dm-home-nav__item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: #c9cfda;
+  border-radius: 6px;
+  padding: 0.36rem 0.45rem;
+  font-size: 0.73rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.dm-home-nav__item:hover {
+  background: rgba(79, 84, 92, 0.28);
+}
+
+.dm-home-nav__item.active {
+  background: #3f434c;
+  color: #ffffff;
+  border-color: #4a4f5b;
+}
+
+.dm-home-divider {
+  height: 1px;
+  margin: 0.28rem 0 0.45rem;
+  background: #30343b;
 }
 
 #dmSection.panel-section--hidden,
@@ -2734,10 +2835,81 @@ body[data-hide-channel-panel="on"] .chat-panel {
   border: 1px solid #393b42;
 }
 
+.dm-home__item--wide {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .dm-home__body {
   min-width: 0;
   display: grid;
   gap: 0.16rem;
+}
+
+.dm-home__friends {
+  display: grid;
+  gap: 0.48rem;
+}
+
+.dm-home__friend-status {
+  color: #c6ccd7;
+  font-size: 0.72rem;
+}
+
+.dm-home__friend-activity {
+  color: #9fc8ff;
+  font-size: 0.7rem;
+}
+
+.dm-home__section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.dm-home__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.dm-home__stat-card {
+  border-radius: 10px;
+  border: 1px solid #3a3d45;
+  background: #2c2f35;
+  padding: 0.58rem 0.65rem;
+}
+
+.dm-home__stat-card strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.dm-home__stat-card small {
+  color: #acb3be;
+  font-size: 0.72rem;
+}
+
+.dm-home__placeholder {
+  border: 1px dashed #3f434e;
+  border-radius: 10px;
+  background: #1f2228;
+  color: #c5ccda;
+  padding: 0.7rem;
+  font-size: 0.78rem;
+}
+
+.dm-home__action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.dm-home__action-row button {
+  background: #4a4f5f;
+  color: #fff;
+  padding: 0.38rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .dm-home__top {

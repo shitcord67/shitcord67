@@ -96,6 +96,53 @@ const EMOJI_DATASET_SOURCES = [
 const SHITCORD_BRAND_EMOJI = "🫪";
 const SHITCORD_EMOJI_FALLBACK_GLYPH = "\u{10FFFF}";
 const XMPP_CAPS_NODE = "urn:shitcord67:caps";
+const DM_HOME_TABS = ["friends", "library", "requests", "nitro", "shop", "quests"];
+const UI_I18N = {
+  en: {
+    "dm.tab.friends": "Friends",
+    "dm.tab.library": "Library",
+    "dm.tab.requests": "Message Requests",
+    "dm.tab.nitro": "Nitro",
+    "dm.tab.shop": "Shop",
+    "dm.tab.quests": "Quests",
+    "dm.sidebar.directMessages": "Direct Messages",
+    "dm.home.friends.title": "Friends",
+    "dm.home.friends.subtitle": "See who is online and what they are currently doing.",
+    "dm.home.library.title": "Library",
+    "dm.home.library.subtitle": "Quick access to your saved media and custom packs.",
+    "dm.home.requests.title": "Message Requests",
+    "dm.home.requests.subtitle": "Incoming and outgoing XMPP contact requests.",
+    "dm.home.nitro.title": "Nitro",
+    "dm.home.nitro.subtitle": "Customize your profile and unlock cosmetic perks.",
+    "dm.home.shop.title": "Shop",
+    "dm.home.shop.subtitle": "Browse cosmetics and seasonal bundles.",
+    "dm.home.quests.title": "Quests",
+    "dm.home.quests.subtitle": "Track quest progress and earned badges.",
+    "settings.language.auto": "Auto detect"
+  },
+  de: {
+    "dm.tab.friends": "Freunde",
+    "dm.tab.library": "Bibliothek",
+    "dm.tab.requests": "Nachrichtenanfragen",
+    "dm.tab.nitro": "Nitro",
+    "dm.tab.shop": "Shop",
+    "dm.tab.quests": "Quests",
+    "dm.sidebar.directMessages": "Direktnachrichten",
+    "dm.home.friends.title": "Freunde",
+    "dm.home.friends.subtitle": "Sieh, wer online ist und was gerade gemacht wird.",
+    "dm.home.library.title": "Bibliothek",
+    "dm.home.library.subtitle": "Schneller Zugriff auf gespeicherte Medien und Packs.",
+    "dm.home.requests.title": "Nachrichtenanfragen",
+    "dm.home.requests.subtitle": "Eingehende und ausgehende XMPP-Kontaktanfragen.",
+    "dm.home.nitro.title": "Nitro",
+    "dm.home.nitro.subtitle": "Profil anpassen und kosmetische Vorteile erhalten.",
+    "dm.home.shop.title": "Shop",
+    "dm.home.shop.subtitle": "Kosmetika und saisonale Bundles durchsuchen.",
+    "dm.home.quests.title": "Quests",
+    "dm.home.quests.subtitle": "Quest-Fortschritt und Abzeichen verfolgen.",
+    "settings.language.auto": "Automatisch erkennen"
+  }
+};
 
 function detectRuntimePlatform() {
   const ua = String(navigator.userAgent || "").toLowerCase();
@@ -930,6 +977,8 @@ function buildInitialState() {
     preferences: {
       uiScale: 100,
       theme: "discord",
+      language: "auto",
+      dmHomeTab: "friends",
       compactMembers: "off",
       developerMode: "off",
       debugOverlay: "off",
@@ -1012,6 +1061,8 @@ function createAccount(username, displayName = "") {
     guildTagGuildId: "",
     profileEffect: "none",
     profileNameplateSvg: "",
+    activityText: "",
+    activities: [],
     ownedCosmetics: {
       decor: [],
       nameplate: [],
@@ -1127,6 +1178,21 @@ function migrateState(raw) {
       guildTagGuildId: normalizeGuildTagGuildId(account?.guildTagGuildId),
       profileEffect: normalizeProfileEffect(account?.profileEffect),
       profileNameplateSvg: (account?.profileNameplateSvg || "").toString().slice(0, 280),
+      activityText: (account?.activityText || "").toString().slice(0, 180),
+      activities: Array.isArray(account?.activities)
+        ? account.activities
+          .map((entry) => (
+            entry && typeof entry === "object"
+              ? {
+                name: (entry.name || "").toString().slice(0, 120),
+                details: (entry.details || "").toString().slice(0, 160),
+                state: (entry.state || "").toString().slice(0, 160)
+              }
+              : null
+          ))
+          .filter(Boolean)
+          .slice(0, 6)
+        : [],
       ownedCosmetics: normalizeOwnedCosmetics(account?.ownedCosmetics),
       cosmeticPurchases: normalizeCosmeticPurchases(account?.cosmeticPurchases)
     })).map((account) => {
@@ -1693,6 +1759,9 @@ const ui = {
   channelList: document.getElementById("channelList"),
   dmList: document.getElementById("dmList"),
   dmSearchInput: document.getElementById("dmSearchInput"),
+  dmHomeNav: document.getElementById("dmHomeNav"),
+  dmHomeTabButtons: [...document.querySelectorAll(".dm-home-nav__item[data-dm-home-tab]")],
+  dmHomeDivider: document.getElementById("dmHomeDivider"),
   newDmBtn: document.getElementById("newDmBtn"),
   addFriendDialog: document.getElementById("addFriendDialog"),
   addFriendForm: document.getElementById("addFriendForm"),
@@ -1937,6 +2006,7 @@ const ui = {
   appearanceForm: document.getElementById("appearanceForm"),
   uiScaleInput: document.getElementById("uiScaleInput"),
   themeInput: document.getElementById("themeInput"),
+  languageInput: document.getElementById("languageInput"),
   compactModeInput: document.getElementById("compactModeInput"),
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
@@ -10066,7 +10136,56 @@ function normalizeSwfQuickAudioMode(value) {
 }
 
 function normalizeTheme(value) {
-  return value === "oled" ? "oled" : "discord";
+  if (value === "oled" || value === "high-contrast") return value;
+  return "discord";
+}
+
+function normalizeLanguage(value) {
+  const token = (value || "").toString().trim().toLowerCase();
+  if (token === "en" || token === "de") return token;
+  return "auto";
+}
+
+function normalizeDmHomeTab(value) {
+  const token = (value || "").toString().trim().toLowerCase();
+  return DM_HOME_TABS.includes(token) ? token : "friends";
+}
+
+function detectBrowserUiLocale() {
+  const explicit = (navigator.language || "").toString().trim().toLowerCase();
+  if (explicit.startsWith("de")) return "de";
+  return "en";
+}
+
+function resolveUiLocale(prefs = getPreferences()) {
+  const selected = normalizeLanguage(prefs?.language || "auto");
+  if (selected === "auto") return detectBrowserUiLocale();
+  return selected;
+}
+
+function tUi(key, fallback = "") {
+  const locale = resolveUiLocale();
+  const table = UI_I18N[locale] || UI_I18N.en;
+  const english = UI_I18N.en || {};
+  return table[key] || english[key] || fallback || key;
+}
+
+function accountActivitySummary(account) {
+  if (!account || typeof account !== "object") return "";
+  const explicit = (account.activityText || "").toString().trim();
+  if (explicit) return explicit.slice(0, 140);
+  if (Array.isArray(account.activities)) {
+    const first = account.activities.find((entry) => entry && typeof entry === "object");
+    if (first) {
+      const parts = [
+        (first.name || "").toString().trim(),
+        (first.details || "").toString().trim(),
+        (first.state || "").toString().trim()
+      ].filter(Boolean);
+      if (parts.length > 0) return parts.join(" · ").slice(0, 160);
+    }
+  }
+  return "";
 }
 
 function normalizeGuildNotificationMode(value) {
@@ -10378,6 +10497,8 @@ function getPreferences() {
   return {
     uiScale: Number.isFinite(Number(current.uiScale)) ? Math.min(115, Math.max(90, Number(current.uiScale))) : defaults.uiScale,
     theme: normalizeTheme(current.theme),
+    language: normalizeLanguage(current.language),
+    dmHomeTab: normalizeDmHomeTab(current.dmHomeTab),
     compactMembers: normalizeToggle(current.compactMembers),
     developerMode: normalizeToggle(current.developerMode),
     debugOverlay: normalizeToggle(current.debugOverlay),
@@ -15212,6 +15333,8 @@ function connectRelaySocket({ force = false } = {}) {
             );
             if (!account) return true;
             const showNode = stanza.getElementsByTagName("show")[0] || null;
+            const statusNode = xmppDirectChildByLocalName(stanza, "status");
+            const statusText = decodeHtmlEntities(xmppNodeText(statusNode)).trim().slice(0, 180);
             const idleSince = xmppPresenceIdleSince(stanza);
             const nextPresence = type === "unavailable" ? "invisible" : xmppPresenceShowToPresence(showNode);
             const previousPresence = normalizePresence(account.presence || "online");
@@ -15251,6 +15374,8 @@ function connectRelaySocket({ force = false } = {}) {
             }
             const presenceChanged = nextPresence !== previousPresence;
             const idleChanged = nextIdleSince !== previousIdleSince || nextLastActiveAt !== previousLastActiveAt;
+            const previousActivity = (account.activityText || "").toString();
+            let activityChanged = false;
             if (presenceChanged) {
               account.presence = nextPresence;
             }
@@ -15258,7 +15383,14 @@ function connectRelaySocket({ force = false } = {}) {
               account.xmppIdleSince = nextIdleSince;
               account.xmppLastActiveAt = nextLastActiveAt;
             }
-            if (presenceChanged || idleChanged) {
+            if (type !== "unavailable") {
+              const nextActivity = statusText;
+              if (nextActivity !== previousActivity) {
+                account.activityText = nextActivity;
+                activityChanged = true;
+              }
+            }
+            if (presenceChanged || idleChanged || activityChanged) {
               renderDmList();
               renderMemberList();
               renderMessages();
@@ -15271,6 +15403,7 @@ function connectRelaySocket({ force = false } = {}) {
               type: type || "available",
               presence: nextPresence,
               idleSince,
+              activity: account.activityText || "",
               lastActiveAt: account.xmppLastActiveAt || ""
             });
             return true;
@@ -22472,8 +22605,11 @@ function setMobilePane(pane, { persist = true, rerender = true } = {}) {
 
 function applyPreferencesToUI() {
   const prefs = getPreferences();
+  const locale = resolveUiLocale(prefs);
   const narrowMobile = isMobileNarrowLayout();
+  document.documentElement.lang = locale;
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
+  document.body.dataset.locale = locale;
   document.body.dataset.theme = prefs.theme;
   document.body.dataset.compactMembers = prefs.compactMembers;
   document.body.dataset.developerMode = prefs.developerMode;
@@ -30006,17 +30142,87 @@ function renderServers() {
     .forEach((guild) => renderGuildButton(guild));
 }
 
+function currentDmHomeTab() {
+  return normalizeDmHomeTab(getPreferences().dmHomeTab);
+}
+
+function setDmHomeTab(tab, { persist = true, rerender = true } = {}) {
+  const next = normalizeDmHomeTab(tab);
+  state.preferences = getPreferences();
+  const changed = state.preferences.dmHomeTab !== next || getViewMode() !== "dm" || Boolean(state.activeDmId);
+  state.viewMode = "dm";
+  state.activeDmId = null;
+  state.preferences.mobilePane = "nav";
+  state.preferences.dmHomeTab = next;
+  if (persist) saveState();
+  if (rerender) {
+    renderChannels();
+    renderMessages();
+    renderMemberList();
+  }
+  return changed;
+}
+
+function listDmPeerAccounts(current = getCurrentAccount()) {
+  if (!current) return [];
+  const seen = new Set();
+  const rows = [];
+  state.dmThreads.forEach((thread) => {
+    if (!Array.isArray(thread?.participantIds) || !thread.participantIds.includes(current.id)) return;
+    const peerId = thread.participantIds.find((id) => id && id !== current.id);
+    if (!peerId || seen.has(peerId)) return;
+    const account = getAccountById(peerId);
+    if (!account) return;
+    seen.add(peerId);
+    const lastMessageTs = toTimestampMs(thread.messages?.[thread.messages.length - 1]?.ts || "");
+    rows.push({ account, lastMessageTs });
+  });
+  return rows
+    .sort((a, b) => {
+      const aOnline = normalizePresence(a.account?.presence || "online") === "invisible" ? 0 : 1;
+      const bOnline = normalizePresence(b.account?.presence || "online") === "invisible" ? 0 : 1;
+      if (aOnline !== bOnline) return bOnline - aOnline;
+      if (a.lastMessageTs !== b.lastMessageTs) return b.lastMessageTs - a.lastMessageTs;
+      return displayNameForAccount(a.account, null).localeCompare(displayNameForAccount(b.account, null));
+    })
+    .map((entry) => entry.account);
+}
+
+function renderDmHomeSidebarNav() {
+  if (!Array.isArray(ui.dmHomeTabButtons) || ui.dmHomeTabButtons.length <= 0) return;
+  const activeTab = currentDmHomeTab();
+  const active = getViewMode() === "dm" && !state.activeDmId ? activeTab : "";
+  const incomingRequests = listXmppContactRequests("incoming");
+  const current = getCurrentAccount();
+  const questBadges = current ? resolveQuestBadgesForAccount(current.id).length : 0;
+  ui.dmHomeTabButtons.forEach((button) => {
+    const tab = normalizeDmHomeTab(button.dataset.dmHomeTab || "friends");
+    let label = tUi(`dm.tab.${tab}`, tab);
+    if (tab === "requests" && incomingRequests.length > 0) {
+      label = `${label} (${incomingRequests.length})`;
+    }
+    if (tab === "quests" && questBadges > 0) {
+      label = `${label} (${questBadges})`;
+    }
+    button.textContent = label;
+    const selected = tab === active;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+  });
+}
+
 function renderDmList() {
   ui.dmList.innerHTML = "";
   const currentAccount = getCurrentAccount();
   if (!currentAccount) return;
+  renderDmHomeSidebarNav();
   const incomingRequests = listXmppContactRequests("incoming");
   const outgoingRequests = listXmppContactRequests("outgoing");
   if (ui.toggleDmSectionBtn) {
     const heading = ui.toggleDmSectionBtn.querySelector("span");
     const unreadTotals = getTotalDmUnreadStats(currentAccount);
     const draftCount = countDraftsForCurrentAccountDms(currentAccount);
-    const chunks = ["Direct Messages"];
+    const chunks = [tUi("dm.sidebar.directMessages", "Direct Messages")];
     if (unreadTotals.unread > 0) chunks.push(unreadTotals.unread > 99 ? "99+" : String(unreadTotals.unread));
     if (incomingRequests.length > 0) chunks.push(`${incomingRequests.length} requests`);
     if (draftCount > 0) chunks.push(`${draftCount} drafts`);
@@ -30287,6 +30493,8 @@ function renderChannels() {
   const showXmppWarning = prefs.relayMode === "xmpp" && !hideNonXmpp;
   ui.dmSection.classList.toggle("panel-section--hidden", !dmMode);
   ui.guildSection.classList.toggle("panel-section--hidden", dmMode);
+  if (ui.dmHomeNav) ui.dmHomeNav.hidden = !dmMode;
+  if (ui.dmHomeDivider) ui.dmHomeDivider.hidden = !dmMode;
   ui.dmSection.classList.toggle("panel-section--collapsed", prefs.collapseDmSection === "on");
   ui.guildSection.classList.toggle("panel-section--collapsed", prefs.collapseGuildSection === "on");
   if (ui.openGuildSettingsBtn) ui.openGuildSettingsBtn.hidden = dmMode;
@@ -30720,6 +30928,7 @@ function renderUserPopout(
   const displayName = account ? displayNameForAccount(account, guildId) : fallbackName;
   const bio = account?.bio?.trim() || "No bio yet.";
   const current = getCurrentAccount();
+  const activity = accountActivitySummary(account);
 
   ui.userPopoutName.textContent = displayName;
   const activeServer = getActiveConversation()?.type === "channel" ? getActiveServer() : null;
@@ -30737,7 +30946,8 @@ function renderUserPopout(
     chip.addEventListener("click", () => showGuildTagInfo(account));
     ui.userPopoutName.appendChild(chip);
   }
-  ui.userPopoutStatus.textContent = account ? displayStatus(account, guildId) : "Offline";
+  const popoutStatus = account ? displayStatus(account, guildId) : "Offline";
+  ui.userPopoutStatus.textContent = activity ? `${popoutStatus} · ${activity}` : popoutStatus;
   let userXmppNeedsRefresh = false;
   if (ui.userPopoutXmppMeta) {
     const dmThread = account?.id && current?.id
@@ -30865,8 +31075,12 @@ function renderUserProfileExtendedDialog() {
   if (!current || !account || !ui.userProfileExtendedDialog?.open) return;
   const guildId = getActiveConversation()?.type === "channel" ? getActiveGuild()?.id || null : null;
   const displayName = displayNameForAccount(account, guildId);
+  const activity = accountActivitySummary(account);
   if (ui.userProfileExtendedName) ui.userProfileExtendedName.textContent = displayName;
-  if (ui.userProfileExtendedStatus) ui.userProfileExtendedStatus.textContent = displayStatus(account, guildId);
+  if (ui.userProfileExtendedStatus) {
+    const status = displayStatus(account, guildId);
+    ui.userProfileExtendedStatus.textContent = activity ? `${status} · ${activity}` : status;
+  }
   if (ui.userProfileExtendedAvatar) {
     applyAvatarStyle(ui.userProfileExtendedAvatar, account, guildId);
     applyAvatarDecoration(ui.userProfileExtendedAvatar, account);
@@ -30944,7 +31158,9 @@ function renderUserProfileExtendedDialog() {
         const name = document.createElement("strong");
         name.textContent = displayNameForAccount(friend, null);
         const meta = document.createElement("small");
-        meta.textContent = displayStatus(friend, null);
+        const friendStatus = displayStatus(friend, null);
+        const friendActivity = accountActivitySummary(friend);
+        meta.textContent = friendActivity ? `${friendStatus} · ${friendActivity}` : friendStatus;
         text.appendChild(name);
         text.appendChild(meta);
         row.appendChild(avatar);
@@ -31616,6 +31832,8 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
 
 function renderDmHome() {
   const current = getCurrentAccount();
+  const homeTab = currentDmHomeTab();
+  renderDmHomeSidebarNav();
   if (ui.openCallBtn) {
     ui.openCallBtn.hidden = true;
     ui.openCallBtn.disabled = true;
@@ -31632,8 +31850,10 @@ function renderDmHome() {
     ui.openWhiteboardBtn.hidden = true;
     ui.openWhiteboardBtn.disabled = true;
   }
-  setActiveChannelHeader("Friends", "@", "Friends", "Direct messages");
-  setActiveChannelTopic("Direct Messages");
+  const headerTitle = tUi(`dm.home.${homeTab}.title`, tUi(`dm.tab.${homeTab}`, "Friends"));
+  const headerSubtitle = tUi(`dm.home.${homeTab}.subtitle`, "Direct messages");
+  setActiveChannelHeader(headerTitle, "@", headerTitle, "Direct messages");
+  setActiveChannelTopic(headerSubtitle);
   ui.messageInput.placeholder = "Pick a DM to start chatting";
   if (ui.markChannelReadBtn) ui.markChannelReadBtn.hidden = true;
   if (ui.nextUnreadBtn) ui.nextUnreadBtn.hidden = true;
@@ -31646,72 +31866,232 @@ function renderDmHome() {
   const shell = document.createElement("section");
   shell.className = "dm-home";
   const title = document.createElement("h3");
-  title.textContent = "Direct Messages";
+  title.textContent = headerTitle;
   shell.appendChild(title);
   const subtitle = document.createElement("p");
-  subtitle.textContent = "Pick a conversation or start a new DM.";
+  subtitle.textContent = headerSubtitle;
   shell.appendChild(subtitle);
-  const list = document.createElement("div");
-  list.className = "dm-home__list";
-  const threads = state.dmThreads
-    .filter((thread) => Array.isArray(thread.participantIds) && current && thread.participantIds.includes(current.id))
-    .slice()
-    .sort((a, b) => {
-      const aTs = toTimestampMs(a.messages[a.messages.length - 1]?.ts || "");
-      const bTs = toTimestampMs(b.messages[b.messages.length - 1]?.ts || "");
-      return bTs - aTs;
-    });
-  if (threads.length === 0) {
+  const section = document.createElement("section");
+  section.className = "dm-home__section";
+
+  const appendPlaceholder = (text) => {
     const empty = document.createElement("div");
-    empty.className = "dm-home__empty";
-    empty.textContent = "No DMs yet. Use + New DM in the sidebar.";
-    list.appendChild(empty);
-  } else {
-    threads.forEach((thread) => {
-      const peerId = thread.participantIds.find((id) => id !== current?.id);
-      const peer = peerId ? getAccountById(peerId) : null;
-      const card = document.createElement("button");
-      card.type = "button";
-      card.className = "dm-home__item";
-      const last = thread.messages[thread.messages.length - 1];
-      const avatar = document.createElement("div");
-      avatar.className = "dm-home__avatar";
-      if (peer) {
+    empty.className = "dm-home__placeholder";
+    empty.textContent = text;
+    section.appendChild(empty);
+  };
+
+  const appendStatCard = (value, label) => {
+    const card = document.createElement("div");
+    card.className = "dm-home__stat-card";
+    const strong = document.createElement("strong");
+    strong.textContent = String(value);
+    const small = document.createElement("small");
+    small.textContent = label;
+    card.appendChild(strong);
+    card.appendChild(small);
+    return card;
+  };
+
+  if (homeTab === "friends") {
+    const list = document.createElement("div");
+    list.className = "dm-home__friends";
+    const peers = listDmPeerAccounts(current);
+    if (peers.length <= 0) {
+      appendPlaceholder("No DM friends yet. Use + Add Friend in the sidebar.");
+    } else {
+      peers.slice(0, 80).forEach((peer) => {
+        const thread = state.dmThreads.find((entry) => (
+          Array.isArray(entry?.participantIds)
+          && entry.participantIds.includes(current?.id || "")
+          && entry.participantIds.includes(peer.id)
+        )) || null;
+        if (!thread) return;
+        const last = thread.messages?.[thread.messages.length - 1] || null;
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "dm-home__item";
+        const avatar = document.createElement("div");
+        avatar.className = "dm-home__avatar";
         applyAvatarStyle(avatar, peer, null);
         applyAvatarDecoration(avatar, peer);
         const dot = document.createElement("span");
         dot.className = `presence-dot presence-${normalizePresence(peer.presence)}`;
         avatar.appendChild(dot);
-      } else {
-        avatar.textContent = "?";
-      }
-      const body = document.createElement("div");
-      body.className = "dm-home__body";
-      const top = document.createElement("div");
-      top.className = "dm-home__top";
-      const name = document.createElement("strong");
-      name.textContent = peer ? dmPrimaryLabelForAccount(peer) : "unknown";
-      const ts = document.createElement("small");
-      ts.className = "dm-home__time";
-      ts.textContent = last?.ts ? formatTime(last.ts) : "";
-      top.appendChild(name);
-      top.appendChild(ts);
-      const preview = document.createElement("small");
-      preview.textContent = (last?.text || "(no messages)").slice(0, 80);
-      body.appendChild(top);
-      body.appendChild(preview);
-      card.appendChild(avatar);
-      card.appendChild(body);
-      card.addEventListener("click", () => {
-        state.viewMode = "dm";
-        state.activeDmId = thread.id;
-        saveState();
-        render();
+        const body = document.createElement("div");
+        body.className = "dm-home__body";
+        const top = document.createElement("div");
+        top.className = "dm-home__top";
+        const name = document.createElement("strong");
+        name.textContent = dmPrimaryLabelForAccount(peer);
+        const ts = document.createElement("small");
+        ts.className = "dm-home__time";
+        ts.textContent = last?.ts ? formatTime(last.ts) : "";
+        top.appendChild(name);
+        top.appendChild(ts);
+        const status = document.createElement("small");
+        status.className = "dm-home__friend-status";
+        status.textContent = displayStatus(peer, null);
+        body.appendChild(top);
+        body.appendChild(status);
+        const activity = accountActivitySummary(peer);
+        if (activity) {
+          const activityRow = document.createElement("small");
+          activityRow.className = "dm-home__friend-activity";
+          activityRow.textContent = activity;
+          body.appendChild(activityRow);
+        } else {
+          const preview = document.createElement("small");
+          preview.textContent = (last?.text || "(no messages)").slice(0, 80);
+          body.appendChild(preview);
+        }
+        card.appendChild(avatar);
+        card.appendChild(body);
+        card.addEventListener("click", () => {
+          state.viewMode = "dm";
+          state.activeDmId = thread.id;
+          saveState();
+          render();
+        });
+        list.appendChild(card);
       });
-      list.appendChild(card);
+      section.appendChild(list);
+    }
+  } else if (homeTab === "library") {
+    const guilds = listAccessibleGuildsForAccount(current);
+    const countFromKey = (key) => guilds.reduce((sum, guild) => sum + (Array.isArray(guild?.[key]) ? guild[key].length : 0), 0);
+    const totalMedia = (
+      countFromKey("customGifs")
+      + countFromKey("customStickers")
+      + countFromKey("customSvgs")
+      + countFromKey("customPdfs")
+      + countFromKey("customTexts")
+      + countFromKey("customDocs")
+      + countFromKey("customSwfs")
+      + countFromKey("customHtmls")
+    );
+    const stats = document.createElement("div");
+    stats.className = "dm-home__stat-grid";
+    stats.appendChild(appendStatCard(totalMedia, "custom media items"));
+    stats.appendChild(appendStatCard(state.savedSwfs.length, "saved SWFs"));
+    stats.appendChild(appendStatCard((getPreferences().gifFavorites || []).length, "GIF favorites"));
+    stats.appendChild(appendStatCard((getPreferences().gifGroups || []).length, "GIF groups"));
+    section.appendChild(stats);
+    const actions = document.createElement("div");
+    actions.className = "dm-home__action-row";
+    const mediaBtn = document.createElement("button");
+    mediaBtn.type = "button";
+    mediaBtn.textContent = "Open Media Picker";
+    mediaBtn.addEventListener("click", () => openMediaPickerWithTab("gif"));
+    const shelfBtn = document.createElement("button");
+    shelfBtn.type = "button";
+    shelfBtn.textContent = "Toggle SWF Shelf";
+    shelfBtn.addEventListener("click", () => {
+      if (!ui.toggleSwfShelfBtn) return;
+      ui.toggleSwfShelfBtn.click();
     });
+    actions.appendChild(mediaBtn);
+    actions.appendChild(shelfBtn);
+    section.appendChild(actions);
+  } else if (homeTab === "requests") {
+    const incoming = listXmppContactRequests("incoming");
+    const outgoing = listXmppContactRequests("outgoing");
+    const stats = document.createElement("div");
+    stats.className = "dm-home__stat-grid";
+    stats.appendChild(appendStatCard(incoming.length, "incoming requests"));
+    stats.appendChild(appendStatCard(outgoing.length, "outgoing requests"));
+    section.appendChild(stats);
+    if (incoming.length <= 0 && outgoing.length <= 0) {
+      appendPlaceholder("No message requests right now.");
+    } else {
+      incoming.slice(0, 20).forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "dm-home__item dm-home__item--wide";
+        const body = document.createElement("div");
+        body.className = "dm-home__body";
+        const top = document.createElement("div");
+        top.className = "dm-home__top";
+        const name = document.createElement("strong");
+        name.textContent = entry.name || entry.jid || "Unknown";
+        const meta = document.createElement("small");
+        meta.textContent = "Incoming";
+        top.appendChild(name);
+        top.appendChild(meta);
+        const jid = document.createElement("small");
+        jid.textContent = entry.jid || "";
+        body.appendChild(top);
+        body.appendChild(jid);
+        const actions = document.createElement("div");
+        actions.className = "dm-home__action-row";
+        const acceptBtn = document.createElement("button");
+        acceptBtn.type = "button";
+        acceptBtn.textContent = "Accept";
+        acceptBtn.addEventListener("click", () => {
+          if (!acceptXmppContactRequest(entry.jid)) {
+            showToast("Could not accept request.", { tone: "error" });
+            return;
+          }
+          const peer = ensureAccountByXmppJid(entry.jid, entry.name || "");
+          if (peer && current) getOrCreateDmThread(current, peer);
+          saveState();
+          render();
+        });
+        const declineBtn = document.createElement("button");
+        declineBtn.type = "button";
+        declineBtn.textContent = "Decline";
+        declineBtn.addEventListener("click", () => {
+          if (!declineXmppContactRequest(entry.jid)) {
+            showToast("Could not decline request.", { tone: "error" });
+            return;
+          }
+          saveState();
+          render();
+        });
+        actions.appendChild(acceptBtn);
+        actions.appendChild(declineBtn);
+        row.appendChild(body);
+        row.appendChild(actions);
+        section.appendChild(row);
+      });
+      if (outgoing.length > 0) {
+        appendPlaceholder(`Pending outgoing requests: ${outgoing.length}`);
+      }
+    }
+  } else if (homeTab === "nitro") {
+    appendPlaceholder("Nitro-style perks are available through profile cosmetics and effects in this client.");
+    const actions = document.createElement("div");
+    actions.className = "dm-home__action-row";
+    const profileBtn = document.createElement("button");
+    profileBtn.type = "button";
+    profileBtn.textContent = "Edit Profile";
+    profileBtn.addEventListener("click", () => openProfileEditor());
+    const cosmeticsBtn = document.createElement("button");
+    cosmeticsBtn.type = "button";
+    cosmeticsBtn.textContent = "Open Cosmetics";
+    cosmeticsBtn.addEventListener("click", () => openCosmeticsDialog("effect"));
+    actions.appendChild(profileBtn);
+    actions.appendChild(cosmeticsBtn);
+    section.appendChild(actions);
+  } else if (homeTab === "shop") {
+    appendPlaceholder("Browse and unlock decorations, effects, and seasonal bundles.");
+    const actions = document.createElement("div");
+    actions.className = "dm-home__action-row";
+    const openShopBtn = document.createElement("button");
+    openShopBtn.type = "button";
+    openShopBtn.textContent = "Open Shop";
+    openShopBtn.addEventListener("click", () => openCosmeticsDialog("decor"));
+    actions.appendChild(openShopBtn);
+    section.appendChild(actions);
+  } else {
+    const badgeCount = current ? resolveQuestBadgesForAccount(current.id).length : 0;
+    const stats = document.createElement("div");
+    stats.className = "dm-home__stat-grid";
+    stats.appendChild(appendStatCard(badgeCount, "quest badges"));
+    section.appendChild(stats);
+    appendPlaceholder(current ? formatQuestSummaryText(current.id) : "Sign in to view quest progress.");
   }
-  shell.appendChild(list);
+
+  shell.appendChild(section);
   ui.messageList.appendChild(shell);
   updateJumpToBottomButton();
   renderComposerMeta();
@@ -33509,7 +33889,8 @@ function renderMemberList() {
       account.displayName,
       displayNameForAccount(account, guildId),
       displayStatus(account, guildId),
-      presenceLabel(account.presence)
+      presenceLabel(account.presence),
+      accountActivitySummary(account)
     ].join(" ").toLowerCase();
     return haystack.includes(filter);
   };
@@ -33558,7 +33939,9 @@ function renderMemberList() {
         }
         const status = document.createElement("small");
         status.className = "member-meta__status";
-        status.textContent = presenceLabel(account.presence);
+        const dmStatus = presenceLabel(account.presence);
+        const dmActivity = accountActivitySummary(account);
+        status.textContent = dmActivity ? `${dmStatus} · ${dmActivity}` : dmStatus;
         meta.appendChild(label);
         meta.appendChild(status);
         row.appendChild(avatar);
@@ -33955,7 +34338,9 @@ function renderMemberList() {
       }
       const status = document.createElement("small");
       status.className = "member-meta__status";
-      status.textContent = displayStatus(account, server.id);
+      const guildStatus = displayStatus(account, server.id);
+      const guildActivity = accountActivitySummary(account);
+      status.textContent = guildActivity ? `${guildStatus} · ${guildActivity}` : guildStatus;
       meta.appendChild(label);
       meta.appendChild(status);
 
@@ -34051,7 +34436,9 @@ function renderSelfPopout() {
     chip.addEventListener("click", () => showGuildTagInfo(account));
     ui.selfPopoutName.appendChild(chip);
   }
-  ui.selfPopoutStatus.textContent = displayStatus(account, getActiveGuild()?.id || null);
+  const selfStatus = displayStatus(account, getActiveGuild()?.id || null);
+  const selfActivity = accountActivitySummary(account);
+  ui.selfPopoutStatus.textContent = selfActivity ? `${selfStatus} · ${selfActivity}` : selfStatus;
   let selfXmppNeedsRefresh = false;
   if (ui.selfPopoutXmppMeta) {
     const xmppMeta = accountXmppPresenceMeta(account, { fallbackLastActive: account?.xmppLastActiveAt || "" });
@@ -34280,6 +34667,11 @@ function renderSettingsScreen() {
   ui.settingsCurrentStatus.textContent = displayStatus(account, guild?.id || null);
   ui.uiScaleInput.value = String(prefs.uiScale);
   ui.themeInput.value = prefs.theme;
+  if (ui.languageInput) {
+    ui.languageInput.value = prefs.language;
+    const autoOption = ui.languageInput.querySelector('option[value="auto"]');
+    if (autoOption) autoOption.textContent = tUi("settings.language.auto", "Auto detect");
+  }
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;
@@ -36015,6 +36407,8 @@ function createOrSwitchAccount(usernameInput, options = {}) {
     if (typeof account.xmppLastActiveAt !== "string") account.xmppLastActiveAt = "";
     if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
     if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
+    if (typeof account.activityText !== "string") account.activityText = "";
+    if (!Array.isArray(account.activities)) account.activities = [];
     ensureAccountCosmetics(account);
   }
 
@@ -37812,12 +38206,7 @@ ui.createServerBtn.addEventListener("click", () => {
 });
 
 ui.serverBrand.addEventListener("click", () => {
-  state.viewMode = "dm";
-  state.activeDmId = null;
-  state.preferences = getPreferences();
-  state.preferences.mobilePane = "nav";
-  saveState();
-  render();
+  setDmHomeTab("friends");
 });
 
 ui.serverBrand.addEventListener("contextmenu", (event) => {
@@ -37828,12 +38217,7 @@ ui.serverBrand.addEventListener("contextmenu", (event) => {
     {
       label: "Open DM Home",
       action: () => {
-        state.viewMode = "dm";
-        state.activeDmId = null;
-        state.preferences = getPreferences();
-        state.preferences.mobilePane = "nav";
-        saveState();
-        render();
+        setDmHomeTab("friends");
       }
     },
     {
@@ -37852,6 +38236,13 @@ ui.serverBrand.addEventListener("contextmenu", (event) => {
       }
     }
   ]);
+});
+
+ui.dmHomeTabButtons?.forEach((button) => {
+  button.addEventListener("click", () => {
+    const tab = normalizeDmHomeTab(button.dataset.dmHomeTab || "friends");
+    setDmHomeTab(tab);
+  });
 });
 
 ui.activeChannelName?.addEventListener("click", () => {
@@ -38962,6 +39353,7 @@ ui.appearanceForm.addEventListener("submit", (event) => {
   state.preferences = getPreferences();
   state.preferences.uiScale = Math.min(115, Math.max(90, Number(ui.uiScaleInput.value) || 100));
   state.preferences.theme = normalizeTheme(ui.themeInput.value);
+  state.preferences.language = normalizeLanguage(ui.languageInput?.value || "auto");
   state.preferences.compactMembers = normalizeToggle(ui.compactModeInput.value);
   saveState();
   render();

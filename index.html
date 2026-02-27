@@ -109,6 +109,15 @@
               <span id="toggleDmSectionChevron" class="channel-section-toggle__chevron" aria-hidden="true">▾</span>
             </button>
             <input id="dmSearchInput" class="channel-filter" type="text" maxlength="40" placeholder="Find or start DM" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <div id="dmHomeNav" class="dm-home-nav" role="tablist" aria-label="Direct message home sections">
+              <button type="button" class="dm-home-nav__item active" data-dm-home-tab="friends" aria-selected="true">Friends</button>
+              <button type="button" class="dm-home-nav__item" data-dm-home-tab="library" aria-selected="false">Library</button>
+              <button type="button" class="dm-home-nav__item" data-dm-home-tab="requests" aria-selected="false">Message Requests</button>
+              <button type="button" class="dm-home-nav__item" data-dm-home-tab="nitro" aria-selected="false">Nitro</button>
+              <button type="button" class="dm-home-nav__item" data-dm-home-tab="shop" aria-selected="false">Shop</button>
+              <button type="button" class="dm-home-nav__item" data-dm-home-tab="quests" aria-selected="false">Quests</button>
+            </div>
+            <div id="dmHomeDivider" class="dm-home-divider" aria-hidden="true"></div>
             <div id="dmList" class="channel-list channel-list--dm"></div>
             <button id="newDmBtn" class="channel-create">+ Add Friend</button>
           </section>
@@ -304,6 +313,13 @@
             <select id="themeInput">
               <option value="oled">OLED</option>
               <option value="discord">Discord-like</option>
+              <option value="high-contrast">High Contrast</option>
+            </select>
+            <label for="languageInput">Language</label>
+            <select id="languageInput">
+              <option value="auto">Auto detect</option>
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
             </select>
             <label for="compactModeInput">Compact member list</label>
             <select id="compactModeInput">
