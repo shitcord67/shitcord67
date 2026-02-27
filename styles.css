@@ -4792,6 +4792,81 @@ body[data-compact-members="on"] .member-item {
   padding: 0.7rem;
 }
 
+.native-call-debug {
+  border: 1px solid #36445f;
+  border-radius: 10px;
+  background: #111923;
+  padding: 0.58rem 0.62rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.native-call-debug__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.native-call-debug__header strong {
+  font-size: 0.74rem;
+  color: #eaf1ff;
+}
+
+.native-call-debug__header button {
+  border-radius: 999px;
+  border: 1px solid #4c5872;
+  background: #2a3247;
+  color: #f4f7ff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.18rem 0.58rem;
+}
+
+.native-call-debug__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.32rem;
+}
+
+.native-call-debug__actions button {
+  border-radius: 999px;
+  border: 1px solid #4d5976;
+  background: #253046;
+  color: #f4f7ff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.56rem;
+}
+
+.native-call-debug__actions button.is-danger {
+  border-color: #7b3941;
+  background: #5a2a30;
+}
+
+.native-call-debug__hint {
+  margin: 0;
+  color: #a7b5d2;
+  font-size: 0.67rem;
+  line-height: 1.35;
+}
+
+.native-call-debug__pre {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid #2f3d56;
+  border-radius: 8px;
+  background: #0b121a;
+  color: #d8e8ff;
+  padding: 0.45rem 0.52rem;
+  font-size: 0.64rem;
+  line-height: 1.35;
+  font-family: "Fira Code", "Consolas", monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .in-app-confirm {
   width: min(480px, calc(100vw - 2.8rem));
   background: #1f232d;

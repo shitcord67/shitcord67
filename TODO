@@ -106,7 +106,7 @@
 - [priority] Map real browser SDP offer/answer details back into outbound Jingle content (instead of synthetic content-only mapping) for stronger interop.
 - [priority] Polish native call surface UX for web/Linux/Android (responsive layouts, reconnect indicators, device-change handling).
 - [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
-- [priority] Add a dedicated Native Call Debug dialog with per-session force actions (reprime, transport-info, terminate) beyond compact header/console snapshots.
+- [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).
 - [priority] Track and implement XEP-0503 (Draft) spaces model for Discord-like server/space hierarchy.
 - [done] Per-guild notification settings (mute/mentions only/all).

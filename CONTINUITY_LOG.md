@@ -1552,3 +1552,9 @@ Okay when I start a call from shitcord67 then Dino and Movim get call notificati
 2026-02-27T04:43:00+01:00 | Is there anything else you think needs improvement and stuff I should really test?
 2026-02-27T04:44:03+01:00 | Yes implement the stuff. Only ask me to test after you are done
 2026-02-27T04:52:27+01:00 | PROMPT: Yes implement the stuff. Only ask me to test after you are done
+
+## 2026-02-27T00:00:00Z
+Can you continue and also tell me what I should test?
+
+[2026-02-27T06:37:32+01:00] Can you continue?
+[2026-02-27T06:38:59+01:00] You also need to tell me what I should test and how I can test

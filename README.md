@@ -312,7 +312,8 @@ Notes:
 - `/callxmpp status` now reports a compact native session diagnostic snapshot (state, roles, queue/re-prime flags, candidate counts) alongside interop readiness.
 - XMPP console runtime snapshot now includes active native call session diagnostics for quicker interop troubleshooting.
 - Native Jingle session-initiate/session-accept now attempt local media attachment to peer connections (`getUserMedia` for AV, `getDisplayMedia` for screen mode with optional mic merge) as practical groundwork toward real in-client media.
-- Native XMPP sessions now open an in-app media surface (local preview + remote stream tiles) with quick actions (`Copy SID`, `Refresh`, `End`) for real-time AV/screen-share validation.
+- Native XMPP sessions now open an in-app media surface (local preview + remote stream tiles) with quick actions (`Copy SID`, `Refresh`, `Debug`, `End`) for real-time AV/screen-share validation.
+- The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
