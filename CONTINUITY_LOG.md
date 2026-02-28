@@ -2063,3 +2063,6 @@ Also any XEPs or features Movim has that we should add?
 
 ## 2026-02-27T16:10:39Z
 Yeah maybe that makes sense to add! Oh also especially this is interesting cause here they talk about features that are coming, e.g. spaces: https://mov.im/community/pubsub.movim.eu/Movim. I want you to beat them and implement their 2026 Goals faster! And yeah the call interop should also be worked on!
+
+## 2026-02-28T00:57:53Z
+Can you continue? Especially look at the issues file.

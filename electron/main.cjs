@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
-const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "auto").toLowerCase();
+const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "tmp").toLowerCase();
 const PACKAGED_LINUX_RUNTIME_DIR = String(process.env.S67_PACKAGED_LINUX_RUNTIME_DIR || "").trim();
 
 function canAccessDir(candidate) {
@@ -198,7 +198,7 @@ if (IS_PACKAGED_LINUX) {
 
 if (process.platform === "linux") {
   if (!IS_PACKAGED_LINUX) {
-    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "auto").toLowerCase();
+    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "tmp").toLowerCase();
     const shmDecision = resolveShmMode(devShmMode);
     if (shmDecision.mode === "tmp") {
       // Some restricted Linux/dev environments do not expose writable /dev/shm (e.g. sandboxes/containers).

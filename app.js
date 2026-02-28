@@ -27,8 +27,10 @@ const XMPP_CAPS_NAMESPACE = "http://jabber.org/protocol/caps";
 const XMPP_IDLE_NAMESPACE = "urn:xmpp:idle:1";
 const XMPP_JINGLE_NAMESPACE = "urn:xmpp:jingle:1";
 const XMPP_JINGLE_RTP_NAMESPACE = "urn:xmpp:jingle:apps:rtp:1";
+const XMPP_JINGLE_GROUPING_NAMESPACE = "urn:xmpp:jingle:apps:grouping:0";
 const XMPP_JINGLE_RTP_INFO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:info:1";
 const XMPP_JINGLE_ICE_UDP_NAMESPACE = "urn:xmpp:jingle:transports:ice-udp:1";
+const XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE = "urn:xmpp:jingle:apps:rtp:rtcp-mux:0";
 const XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE = "urn:xmpp:jingle:apps:rtp:rtcp-fb:0";
 const XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE = "urn:xmpp:jingle:apps:rtp:rtp-hdrext:0";
 const XMPP_JINGLE_RTP_SSMA_NAMESPACE = "urn:xmpp:jingle:apps:rtp:ssma:0";
@@ -8371,10 +8373,12 @@ function xmppQueueTransportInfoGatherAndSend(peerJid, sessionId, { force = false
 
 function xmppBuildJingleRtpContent(builder, {
   media = "audio",
+  name = "",
   creator = "initiator",
   senders = "both",
   transport = null,
   dtls = null,
+  rtcpMux = true,
   payloadTypes = [],
   rtcpFeedback = [],
   extmaps = [],
@@ -8382,8 +8386,9 @@ function xmppBuildJingleRtpContent(builder, {
   sourceGroups = []
 } = {}) {
   const mediaType = media === "video" ? "video" : "audio";
+  const contentName = (name || mediaType).toString().trim() || mediaType;
   builder
-    .c("content", { creator, name: mediaType, senders: (senders || "both").toString().trim().toLowerCase() || "both" })
+    .c("content", { creator, name: contentName, senders: (senders || "both").toString().trim().toLowerCase() || "both" })
     .c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType });
   const normalizedPayloads = Array.isArray(payloadTypes) && payloadTypes.length > 0
     ? payloadTypes
@@ -8455,6 +8460,9 @@ function xmppBuildJingleRtpContent(builder, {
     });
     builder.up();
   });
+  if (rtcpMux !== false) {
+    builder.c("rtcp-mux", { xmlns: XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE }).up();
+  }
   const creds = transport && typeof transport === "object"
     ? {
       ufrag: (transport.ufrag || "").toString().trim(),
@@ -8490,6 +8498,25 @@ function xmppBuildJingleRtpContent(builder, {
   builder
     .up()
     .up();
+  return builder;
+}
+
+function xmppBuildJingleBundleGroup(builder, contentNames = []) {
+  if (!builder || typeof builder.c !== "function") return builder;
+  const names = [...new Set(
+    (Array.isArray(contentNames) ? contentNames : [])
+      .map((entry) => (entry || "").toString().trim())
+      .filter(Boolean)
+  )];
+  if (names.length < 2) return builder;
+  builder.c("group", {
+    xmlns: XMPP_JINGLE_GROUPING_NAMESPACE,
+    semantics: "BUNDLE"
+  });
+  names.forEach((name) => {
+    builder.c("content", { name }).up();
+  });
+  builder.up();
   return builder;
 }
 
@@ -8782,27 +8809,41 @@ async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
     });
   }
   if (contents.length > 0) {
-    contents.forEach((content) => xmppBuildJingleRtpContent(iq, {
-      media: content.media,
-      creator: "initiator",
-      senders: content.senders,
-      transport: content.transport || localTransport,
-      dtls: content.transport
-        ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
-        : localDtls,
-      payloadTypes: content.payloadTypes,
-      rtcpFeedback: content.rtcpFeedback,
-      extmaps: content.extmaps,
-      sources: content.sources,
-      sourceGroups: content.sourceGroups
-    }));
+    const contentNames = [];
+    contents.forEach((content, index) => {
+      const contentName = (content.name || `${content.media}${index}`).toString().trim() || `${content.media}${index}`;
+      contentNames.push(contentName);
+      xmppBuildJingleRtpContent(iq, {
+        media: content.media,
+        name: contentName,
+        creator: "initiator",
+        senders: content.senders,
+        transport: content.transport || localTransport,
+        dtls: content.transport
+          ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
+          : localDtls,
+        payloadTypes: content.payloadTypes,
+        rtcpFeedback: content.rtcpFeedback,
+        extmaps: content.extmaps,
+        sources: content.sources,
+        sourceGroups: content.sourceGroups
+      });
+    });
+    xmppBuildJingleBundleGroup(iq, contentNames);
   } else {
-    medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
-      media: mediaType,
-      creator: "initiator",
-      transport: localTransport,
-      dtls: localDtls
-    }));
+    const contentNames = [];
+    medias.forEach((mediaType) => {
+      const contentName = mediaType.toString();
+      contentNames.push(contentName);
+      xmppBuildJingleRtpContent(iq, {
+        media: mediaType,
+        name: contentName,
+        creator: "initiator",
+        transport: localTransport,
+        dtls: localDtls
+      });
+    });
+    xmppBuildJingleBundleGroup(iq, contentNames);
   }
   xmppConnection.sendIQ(
     iq,
@@ -8890,27 +8931,41 @@ async function xmppSendJingleSessionAccept(peerJid, sessionId, {
     });
   }
   if (contents.length > 0) {
-    contents.forEach((content) => xmppBuildJingleRtpContent(iq, {
-      media: content.media,
-      creator: "responder",
-      senders: content.senders,
-      transport: content.transport || localTransport,
-      dtls: content.transport
-        ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
-        : localDtls,
-      payloadTypes: content.payloadTypes,
-      rtcpFeedback: content.rtcpFeedback,
-      extmaps: content.extmaps,
-      sources: content.sources,
-      sourceGroups: content.sourceGroups
-    }));
+    const contentNames = [];
+    contents.forEach((content, index) => {
+      const contentName = (content.name || `${content.media}${index}`).toString().trim() || `${content.media}${index}`;
+      contentNames.push(contentName);
+      xmppBuildJingleRtpContent(iq, {
+        media: content.media,
+        name: contentName,
+        creator: "responder",
+        senders: content.senders,
+        transport: content.transport || localTransport,
+        dtls: content.transport
+          ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
+          : localDtls,
+        payloadTypes: content.payloadTypes,
+        rtcpFeedback: content.rtcpFeedback,
+        extmaps: content.extmaps,
+        sources: content.sources,
+        sourceGroups: content.sourceGroups
+      });
+    });
+    xmppBuildJingleBundleGroup(iq, contentNames);
   } else {
-    medias.forEach((mediaType) => xmppBuildJingleRtpContent(iq, {
-      media: mediaType,
-      creator: "responder",
-      transport: localTransport,
-      dtls: localDtls
-    }));
+    const contentNames = [];
+    medias.forEach((mediaType) => {
+      const contentName = mediaType.toString();
+      contentNames.push(contentName);
+      xmppBuildJingleRtpContent(iq, {
+        media: mediaType,
+        name: contentName,
+        creator: "responder",
+        transport: localTransport,
+        dtls: localDtls
+      });
+    });
+    xmppBuildJingleBundleGroup(iq, contentNames);
   }
   xmppConnection.sendIQ(
     iq,
@@ -12001,13 +12056,22 @@ function xmppExtractOobAttachments(stanza) {
     .forEach((node) => {
       const src = (node.getAttribute?.("src") || "").toString().trim();
       if (!src) return;
-      const bobEntry = resolveInlineBobFromUri(src);
-      if (!bobEntry) return;
       const alt = (node.getAttribute?.("alt") || node.getAttribute?.("title") || "").toString().trim();
+      const hintedMime = (node.getAttribute?.("type") || node.getAttribute?.("data-mime") || "").toString().trim();
+      const bobEntry = resolveInlineBobFromUri(src);
+      if (bobEntry) {
+        upsert({
+          url: src,
+          name: alt || bobEntry.name,
+          mime: bobEntry.mime
+        });
+        return;
+      }
+      if (!/^(https?:\/\/|xmpp:https?:\/\/|data:image\/|blob:)/i.test(src)) return;
       upsert({
         url: src,
-        name: alt || bobEntry.name,
-        mime: bobEntry.mime
+        name: alt || src.split("/").pop() || "image",
+        mime: hintedMime
       });
     });
   return out.slice(0, 6);
@@ -16587,7 +16651,8 @@ function xmppClientDiscoFeatures() {
     XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
     XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
     XMPP_JINGLE_RTP_SSMA_NAMESPACE,
-    "urn:xmpp:jingle:apps:rtp:rtcp-mux:0",
+    XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE,
+    XMPP_JINGLE_GROUPING_NAMESPACE,
     "http://jabber.org/protocol/nick",
     "urn:xmpp:jingle:apps:dtls:0",
     "urn:xmpp:reference:0",

@@ -12,7 +12,7 @@ Status labels:
 | XEP | Name | Status | Notes |
 |---|---|---|---|
 | XEP-0045 | Multi-User Chat (MUC) | Partial | Join rooms, parse occupants/presence, groupchat send/receive. Advanced moderation/config/admin flows are not complete. |
-| XEP-0071 | XHTML-IM | Partial | Incoming XHTML content is converted to chat markdown/text (basic formatting and links). |
+| XEP-0071 | XHTML-IM | Partial | Incoming XHTML content is converted to chat markdown/text (basic formatting and links), and XHTML `<img src>` media hints are consumed as attachments for sticker/image rendering (including Movim-style external image URLs). |
 | XEP-0231 | Bits of Binary | Partial | Inbound inline BoB payloads (`urn:xmpp:bob`) are parsed for attachment rendering (including `cid:` references and XHTML `<img src='cid:...'>` paths) to improve Movim sticker/emoji interoperability. Outbound BoB publish is not implemented. |
 | XEP-0085 | Chat State Notifications | Implemented | Sends and receives composing/paused style states for MUC/DM typing indicators. |
 | XEP-0184 | Message Delivery Receipts | Partial | Direct-message sends now request receipts and mark outbound DM messages as delivered when receipts arrive. Groupchat receipts are not tracked. |
@@ -51,8 +51,8 @@ Status labels:
 |---|---|---|---|
 | XEP-0384 | OMEMO Encryption | Planned | Encrypted payloads are detected but cannot be decrypted yet. |
 | XEP-0084 | User Avatar | Planned | Avatar PubSub (`urn:xmpp:avatar:*`) read path is incomplete. |
-| XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, `session-info`, `transport-info`, `transport-replace`, `content-modify`, `content-remove`, and `session-terminate`, with per-session peer-connection candidate apply/queue behavior; full media transport/session negotiation is still incomplete. |
-| XEP-0167 | Jingle RTP Sessions | Partial | RTP content/session-info signaling scaffolding is now handled (`session-initiate`, `session-accept`, `session-info/ringing`), while full codec/SDP/WebRTC media negotiation remains incomplete. |
+| XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, `session-info`, `transport-info`, `transport-replace`, `content-modify`, `content-remove`, and `session-terminate`, with per-session peer-connection candidate apply/queue behavior. Outbound sessions now preserve SDP-derived content names and emit BUNDLE grouping metadata for stronger cross-client interop; full media transport/session negotiation is still incomplete. |
+| XEP-0167 | Jingle RTP Sessions | Partial | RTP content/session-info signaling scaffolding is now handled (`session-initiate`, `session-accept`, `session-info/ringing`). Outbound RTP descriptions now include `rtcp-mux` plus richer SDP-derived content metadata, while full codec/SDP/WebRTC media negotiation remains incomplete. |
 | XEP-0353 | Jingle Message Initiation | Partial | DM call signaling scaffolding now handles `propose/proceed/ringing/reject/retract` with interoperability checks and fallback; full native media session wiring is still incomplete. |
 | XEP-0320 | Use of DTLS-SRTP in Jingle Sessions | Partial | DTLS fingerprint/setup metadata is now parsed/propagated in Jingle signaling and SDP priming scaffolding; full secure media establishment across clients is still incomplete. |
 | XEP-0503 (Draft) | Spaces | Planned | Tracked as the target for Discord-like server-space hierarchy once implementation and server compatibility work lands. |
