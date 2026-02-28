@@ -2085,3 +2085,5 @@ Like fully implemented. And for things that are worked on or partially implement
 [2026-02-28T04:16:25.919717] Can you continue working? The Movim stuff and OMEMO messages for example
 
 [2026-02-28T04:16:44.582615] Also the spaces thing is very high priority as well I heard
+
+[2026-02-28T04:33:51.522916] You may also update the XEP documents at any time you like (but do not try to fetch new stuff until explicitely asked or granted after you ask for it if you deem it necessary). Note that down in LLM instructions. Then please tell me what I should test now.

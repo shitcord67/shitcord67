@@ -40,3 +40,6 @@ These instructions are project-local continuity notes for future LLM instances.
 - Run syntax/tests after changes whenever feasible.
 - Perform end-to-end checks for transport-related features.
 - Record meaningful outcomes in commit messages and README when behavior changes.
+
+## XEP Docs Policy
+- XEP documents in this repo may be updated anytime, but do not fetch new external sources unless explicitly asked or granted after requesting approval.
