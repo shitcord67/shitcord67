@@ -2348,3 +2348,5 @@ Oh btw. can you make the app use the shitcord67 logo? On Android and ideally als
 I thought you would work on my higher priority issues, spaces, some low hanging fruit XEPs we can implement and Movim calls, inspecting movim repo for that...
 
 [2026-02-28T09:10:59Z] USER PROMPT: Please continue
+
+[2026-02-28T09:29:42Z] USER PROMPT: Next stuff please. Also the Android files may also be commited?

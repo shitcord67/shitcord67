@@ -122,6 +122,7 @@ clean_electron() {
 build_electron() {
   local electron_platform="${ELECTRON_BUILD_PLATFORM:-linux}"
   local electron_arch="${ELECTRON_BUILD_ARCH:-x64}"
+  local electron_icon="${ROOT_DIR}/assets/icons/shitcord67-logo-512.png"
   log "packaging electron app (${electron_platform}/${electron_arch})"
   mkdir -p "${DIST_DIR}/electron"
   (
@@ -129,10 +130,34 @@ build_electron() {
     npx @electron/packager . shitcord67 \
       --platform="${electron_platform}" \
       --arch="${electron_arch}" \
+      --icon="${electron_icon}" \
       --no-asar \
       --out="${DIST_DIR}/electron" \
       --overwrite
   )
+  if [[ "${electron_platform}" == "linux" ]]; then
+    local app_dir="${DIST_DIR}/electron/shitcord67-linux-${electron_arch}"
+    local app_exec="${app_dir}/shitcord67"
+    local app_icon="${app_dir}/shitcord67.png"
+    local desktop_entry="${app_dir}/shitcord67.desktop"
+    if [[ -f "${app_exec}" ]]; then
+      cp -f "${electron_icon}" "${app_icon}"
+      cat > "${desktop_entry}" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=shitcord67
+Comment=shitcord67 desktop client
+Exec=${app_exec} %U
+Icon=${app_icon}
+Terminal=false
+Categories=Network;Chat;InstantMessaging;
+StartupNotify=true
+EOF
+      chmod +x "${desktop_entry}"
+      log "linux desktop entry: ${desktop_entry}"
+    fi
+  fi
   log "electron output: dist/electron"
 }
 
