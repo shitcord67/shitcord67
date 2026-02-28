@@ -296,6 +296,7 @@ Notes:
 - Added call slash commands: `/call [join|screen|link|copy] [room]`, `/callweb ...`, `/callscreen [room]`, and `/callxmpp [start|screen|status|accept|reject|cancel|ring|transport|end]`.
 - `/callxmpp status` now runs an XMPP `disco#info` interoperability check for the active peer/room and reports missing call feature buckets.
 - `/callxmpp accept|reject|cancel|end [id]` now controls DM-native XMPP call signaling (Jingle Message Initiation and session lifecycle actions).
+- Room-level `call-invites:0` Muji proposals now create actionable incoming sessions, map Muji rooms into `XMPP Spaces`, and support accept/reject/left groupchat signaling for better Movim interoperability.
 - Native DM Jingle scaffolding now also handles ringing/session updates and ICE transport update stanzas (`ringing`, `session-info`, `transport-info`) for broader external-client compatibility.
 - `transport-info` now queues local ICE candidate gathering via browser `RTCPeerConnection` and sends gathered candidates (with fallback to minimal transport credentials).
 - Per-session native `RTCPeerConnection` state is now tracked for XMPP calls, with remote ICE candidates applied when possible and queued until the session is ready.
@@ -379,6 +380,7 @@ Notes:
 - Joined/seen XMPP MUC rooms now auto-materialize as channels under `XMPP Spaces`, so room traffic does not fall back into the wrong active channel.
 - Incoming XMPP direct room invites (`jabber:x:conference`, XEP-0249) are now detected in DMs, invited rooms are mapped into `XMPP Spaces`, and invite notes include `/joinxmpp <room-jid>` quick-join guidance.
 - DM slash controls now support `/joinxmpp` and `/invitexmpp` so you can join invited rooms and send direct XMPP room invites (`jabber:x:conference`) from one-to-one chats.
+- Added `/spacesxmpp [list|open|sync|discover|join ...]` command in channels/DMs to list mapped rooms, sync bookmarks+discovery into `XMPP Spaces`, and quick-join target MUC rooms.
 - XMPP room joins now request room history via MAM (`urn:xmpp:mam:2`) in incremental pages (latest first, then older pages on demand while scrolling up or via `Load older messages`).
 - XMPP room history loading now keeps a per-room MAM cursor (`RSM before`) so older pages can be fetched progressively instead of preloading everything at room-open time.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.

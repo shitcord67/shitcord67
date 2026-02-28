@@ -651,6 +651,7 @@ const SLASH_COMMANDS = [
   { name: "xmppinspect", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Alias for /xmppconsole." },
   { name: "joinxmpp", args: "<room@conference.domain>", description: "Join an XMPP MUC room and map it into XMPP Spaces." },
   { name: "invitexmpp", args: "<room@conference.domain> [| reason [| password]]", description: "Send XMPP direct room invite to current DM peer." },
+  { name: "spacesxmpp", args: "[list|open|sync|discover|join <room@conference.domain>]", description: "Manage mapped XMPP Spaces rooms and discovery." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
@@ -5965,11 +5966,17 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   url = "",
   fallbackBody = "",
   preferFull = false,
+  messageType = "chat",
   audio = true,
   video = true
 } = {}) {
   if (!xmppConnection || !globalThis.$msg || relayStatus !== "connected") return false;
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull }) || xmppBareJid(peerJid);
+  const stanzaType = (messageType || "chat").toString().trim().toLowerCase() === "groupchat"
+    ? "groupchat"
+    : "chat";
+  const to = stanzaType === "groupchat"
+    ? xmppBareJid(peerJid)
+    : (xmppNormalizeCallTargetJid(peerJid, { preferFull }) || xmppBareJid(peerJid));
   if (!to) return false;
   const tag = (action || "").toString().trim().toLowerCase();
   if (!["invite", "accept", "reject", "retract", "left"].includes(tag)) return false;
@@ -5983,7 +5990,7 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   const attrs = { xmlns: XMPP_CALL_INVITES_NAMESPACE, audio: audio ? "true" : "false", video: video ? "true" : "false" };
   if (tag === "invite") attrs.id = stanzaId;
   else attrs.id = trimmedInviteId;
-  const stanza = globalThis.$msg({ to, type: "chat", id: stanzaId });
+  const stanza = globalThis.$msg({ to, type: stanzaType, id: stanzaId });
   const builder = stanza.c(tag, attrs);
   if ((tag === "invite" || tag === "accept") && trimmedSessionId) {
     builder.c("jingle", { xmlns: XMPP_JINGLE_NAMESPACE, sid: trimmedSessionId }).up();
@@ -5998,6 +6005,7 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   xmppConnection.send(stanza);
   addXmppDebugEvent("call", `Sent call-invite ${tag}`, {
     to,
+    messageType: stanzaType,
     id: trimmedInviteId || stanzaId,
     url,
     audio,
@@ -6390,6 +6398,36 @@ async function acceptIncomingXmppCall(sessionId = "") {
     openNativeXmppCallSurface(sid);
     return true;
   }
+  if (xmppSessionIsMujiCallInvite(session)) {
+    const sent = xmppSendMujiCallInviteActionForSession(session, "accept");
+    const mujiRoom = xmppBareJid(session?.mujiRoomJid || "");
+    const joinResult = mujiRoom
+      ? handleJoinXmppCommand(mujiRoom, getCurrentAccount(), { focus: true })
+      : { ok: false, joined: false, roomJid: "", message: "" };
+    const latest = xmppCallSessionById.get(sid) || null;
+    if (latest) {
+      latest.state = "accepted";
+      if (joinResult?.roomJid) latest.mujiRoomJid = joinResult.roomJid;
+      latest.mujiJoined = Boolean(joinResult?.joined);
+    }
+    const roomLabel = (mujiRoom || peerBare).split("@")[0] || mujiRoom || peerBare;
+    const summary = [
+      sent ? "Accepted Muji call invite." : "Joined Muji room without sending explicit accept.",
+      joinResult?.roomJid
+        ? (joinResult.joined
+          ? `Joining ${joinResult.roomJid}.`
+          : `Mapped ${joinResult.roomJid} into XMPP Spaces.`)
+        : ""
+    ].filter(Boolean).join(" ");
+    showToast(summary || `Accepted room call invite for ${roomLabel}.`);
+    const conversation = resolveConversationById(latest?.conversationId || "", latest?.conversationType || "");
+    if (conversation) {
+      if (addSystemMessageToConversation(conversation, summary || `Accepted room call invite (${sid.slice(0, 8)}).`)) {
+        refreshConversationUi(conversation);
+      }
+    }
+    return Boolean(sent || joinResult?.ok);
+  }
   const callInviteId = (session.callInviteId || "").toString().trim();
   const callInviteOnly = Boolean(
     callInviteId
@@ -6471,6 +6509,14 @@ function declineIncomingXmppCall(sessionId = "") {
   const peerBare = xmppBareJid(session?.peerJid || "");
   const peerTarget = xmppResolveSessionPeerJid(session, peerBare, { preferFull: true });
   if (!session || !peerBare) return false;
+  if (xmppSessionIsMujiCallInvite(session)) {
+    const action = ["accepted", "joined", "in-room"].includes((session.state || "").toString().trim().toLowerCase())
+      ? "left"
+      : "reject";
+    const sent = xmppSendMujiCallInviteActionForSession(session, action);
+    forgetXmppCallSession(sid);
+    return sent;
+  }
   const isJinglePhase = (session.state || "").includes("session");
   const callInviteId = (session.callInviteId || "").toString().trim();
   const sent = isJinglePhase
@@ -16083,23 +16129,93 @@ function connectRelaySocket({ force = false } = {}) {
             .map((entry) => normalizeCallInviteUrl(entry))
             .find(Boolean) || "";
           const inviteRoom = xmppBareJid(roomCallInvite.mujiRoom || "");
+          const roomJoinState = xmppMucJoinStateByRoomJid.get(roomJid) || {};
+          const ownNick = (roomJoinState.nick || sanitizeChannelName(current?.username || "user", "user")).toLowerCase();
+          const ownRoomMessage = Boolean(nick && ownNick && nick.toLowerCase() === ownNick);
           addXmppDebugEvent("call", "Incoming room call-invite", {
             roomJid,
             from,
             action: roomCallInvite.action,
             id: inviteId,
             url: inviteUrl,
-            mujiRoom: inviteRoom
+            mujiRoom: inviteRoom,
+            ownRoomMessage
           });
           const roomLabel = roomJid.split("@")[0] || roomJid;
+          const activeConversation = getActiveConversation();
+          const roomChannel = findXmppRoomChannelByJid(roomJid);
           if (roomCallInvite.action === "invite") {
-            const note = inviteUrl
-              ? `Incoming room call invite in ${roomLabel}: ${inviteUrl}`
-              : (inviteRoom
-                ? `Incoming room call invite in ${roomLabel} (Muji room: ${inviteRoom}).`
-                : `Incoming room call invite in ${roomLabel}.`);
-            const activeConversation = getActiveConversation();
-            const roomChannel = findXmppRoomChannelByJid(roomJid);
+            const incomingMedia = [
+              roomCallInvite.audio ? "audio" : "",
+              roomCallInvite.video ? "video" : ""
+            ].filter(Boolean);
+            const media = incomingMedia.length > 0 ? incomingMedia : XMPP_CALL_DEFAULT_MEDIA;
+            let pendingSessionId = "";
+            if (inviteRoom) {
+              const inviteRoomToken = `xmpp:${inviteRoom}`;
+              xmppRoomByJid.set(inviteRoom, inviteRoomToken);
+              const mappedInviteRoom = upsertXmppRoomChannel(inviteRoom, {
+                roomToken: inviteRoomToken,
+                roomName: inviteRoom.split("@")[0] || "",
+                account: current,
+                persist: false
+              });
+              if (mappedInviteRoom.changed) {
+                saveState();
+                renderServers();
+                renderChannels();
+              }
+            }
+            if (!ownRoomMessage && inviteRoom) {
+              const existingIncomingId = latestXmppCallSessionIdForPeer(roomJid, "incoming");
+              const existingIncoming = existingIncomingId
+                ? (xmppCallSessionById.get(existingIncomingId) || null)
+                : null;
+              pendingSessionId = (inviteId ? (xmppCallSessionIdByInviteId.get(inviteId) || "") : "")
+                || (roomCallInvite.jingleSid || "").toString().trim()
+                || existingIncomingId
+                || `muji-${createId().slice(0, 12)}`;
+              const currentSession = xmppCallSessionById.get(pendingSessionId) || existingIncoming || null;
+              const entry = {
+                ...(currentSession || {}),
+                id: pendingSessionId,
+                peerJid: roomJid,
+                peerFullJid: from || currentSession?.peerFullJid || "",
+                direction: "incoming",
+                localJingleRole: currentSession?.localJingleRole || "responder",
+                remoteJingleRole: currentSession?.remoteJingleRole || "initiator",
+                inviteSignal: "muji-call-invite",
+                callInviteId: inviteId || currentSession?.callInviteId || "",
+                callInviteHasJingleSid: false,
+                callInviteRoomJid: roomJid,
+                callInviteMessageType: "groupchat",
+                mujiRoomJid: inviteRoom,
+                state: "proposed",
+                createdAt: Number(currentSession?.createdAt) || Date.now(),
+                media,
+                conversationId: roomChannel?.id || currentSession?.conversationId || "",
+                conversationType: "channel"
+              };
+              xmppCallSessionById.set(pendingSessionId, entry);
+              xmppLatestIncomingCallSessionByPeer.set(roomJid, pendingSessionId);
+              if (inviteId) xmppCallSessionIdByInviteId.set(inviteId, pendingSessionId);
+              if (entry.peerFullJid) xmppRememberPeerFullJid(entry.peerFullJid);
+              startWebCallRingtone(pendingSessionId);
+              showIncomingXmppCallPrompt({
+                sessionId: pendingSessionId,
+                peerLabel: roomLabel,
+                screenShare: false
+              });
+            }
+            const noteParts = [];
+            if (inviteUrl) noteParts.push(`Incoming room call invite in ${roomLabel}: ${inviteUrl}`);
+            else if (inviteRoom) noteParts.push(`Incoming room call invite in ${roomLabel} (Muji room: ${inviteRoom}).`);
+            else noteParts.push(`Incoming room call invite in ${roomLabel}.`);
+            if (inviteRoom) noteParts.push(`Muji room is mapped into XMPP Spaces as ${inviteRoom}.`);
+            if (pendingSessionId) {
+              noteParts.push(`Use /callxmpp accept ${pendingSessionId.slice(0, 8)} or /callxmpp reject ${pendingSessionId.slice(0, 8)}.`);
+            }
+            const note = noteParts.join(" ");
             if (roomChannel) {
               if (addSystemMessage(roomChannel, note)) {
                 saveState();
@@ -16123,7 +16239,39 @@ function connectRelaySocket({ force = false } = {}) {
                 });
               }
             }
-            showToast(`Incoming XMPP room call invite: ${roomLabel}`);
+            if (!ownRoomMessage) {
+              showToast(`Incoming XMPP room call invite: ${roomLabel}`);
+            }
+            return;
+          }
+          if (["accept", "reject", "retract", "left"].includes(roomCallInvite.action)) {
+            const targetSessionId = (inviteId ? (xmppCallSessionIdByInviteId.get(inviteId) || "") : "")
+              || latestXmppCallSessionIdForPeer(roomJid, "incoming")
+              || latestXmppCallSessionIdForPeer(roomJid, "outgoing");
+            const targetSession = targetSessionId ? (xmppCallSessionById.get(targetSessionId) || null) : null;
+            if (targetSession && roomCallInvite.action === "accept") {
+              targetSession.state = "accepted";
+              stopWebCallRingtone(targetSessionId);
+            } else if (targetSessionId && ["reject", "retract", "left"].includes(roomCallInvite.action)) {
+              stopWebCallRingtone(targetSessionId);
+              forgetXmppCallSession(targetSessionId);
+            }
+            if (inviteId && ["retract", "reject", "left"].includes(roomCallInvite.action)) {
+              xmppCallSessionIdByInviteId.delete(inviteId);
+            }
+            const actionNote = `XMPP room call invite ${roomCallInvite.action}${inviteId ? ` (${inviteId.slice(0, 8)})` : ""}.`;
+            if (roomChannel && addSystemMessage(roomChannel, actionNote)) {
+              saveState();
+              renderChannels();
+              if (activeConversation?.type === "channel" && activeConversation.channel?.id === roomChannel.id) {
+                renderMessages();
+              } else {
+                renderServers();
+              }
+            }
+            if (!ownRoomMessage) {
+              showToast(`XMPP room call ${roomCallInvite.action}: ${roomLabel}`);
+            }
             return;
           }
         }
@@ -21059,6 +21207,139 @@ function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focu
   };
 }
 
+function xmppCallInviteSignal(session = null) {
+  return (session?.inviteSignal || "").toString().trim().toLowerCase();
+}
+
+function xmppSessionIsMujiCallInvite(session = null) {
+  return xmppCallInviteSignal(session) === "muji-call-invite";
+}
+
+function xmppSendMujiCallInviteActionForSession(session = null, action = "accept") {
+  if (!session || !xmppSessionIsMujiCallInvite(session)) return false;
+  const callInviteId = (session.callInviteId || "").toString().trim();
+  const roomJid = xmppBareJid(session.callInviteRoomJid || session.peerJid || "");
+  if (!callInviteId || !roomJid) return false;
+  return Boolean(xmppSendCallInviteAction(roomJid, action, {
+    inviteId: callInviteId,
+    audio: session.media?.includes("audio") !== false,
+    video: session.media?.includes("video") !== false,
+    preferFull: false,
+    messageType: "groupchat"
+  }));
+}
+
+function xmppKnownSpacesRooms(prefs = getPreferences()) {
+  const merged = new Map();
+  for (const guild of state.guilds || []) {
+    if (!guild || !Array.isArray(guild.channels)) continue;
+    for (const channel of guild.channels) {
+      const jid = xmppBareJid(channel?.xmppRoomJid || "");
+      if (!jid || !looksLikeXmppMucJid(jid, prefs)) continue;
+      const roomName = decodeHtmlEntities((channel?.xmppRoomName || channel?.name || "").toString()).replace(/\s+/g, " ").trim();
+      merged.set(jid, {
+        jid,
+        channelId: (channel?.id || "").toString(),
+        name: roomName || jid.split("@")[0] || jid
+      });
+    }
+  }
+  for (const [jid] of xmppRoomByJid.entries()) {
+    const bare = xmppBareJid(jid);
+    if (!bare || !looksLikeXmppMucJid(bare, prefs) || merged.has(bare)) continue;
+    merged.set(bare, {
+      jid: bare,
+      channelId: "",
+      name: bare.split("@")[0] || bare
+    });
+  }
+  return [...merged.values()].sort((a, b) => (a.jid || "").localeCompare(b.jid || ""));
+}
+
+function xmppSpacesRoomStateLabel(roomJid = "") {
+  const bare = xmppBareJid(roomJid);
+  if (!bare) return "unknown";
+  const joinState = xmppMucJoinStateByRoomJid.get(bare) || {};
+  if (joinState.pending) return "joining";
+  if ((joinState.lastErrorCondition || "").toString().trim()) {
+    return `error:${joinState.lastErrorCondition}`;
+  }
+  if (xmppRoomByJid.has(bare)) return "joined";
+  return "mapped";
+}
+
+function xmppSpacesSummaryLines({ limit = 12, prefs = getPreferences() } = {}) {
+  const rows = xmppKnownSpacesRooms(prefs)
+    .slice(0, Math.max(1, Number(limit) || 12))
+    .map((entry) => `- ${entry.name} (${entry.jid}) [${xmppSpacesRoomStateLabel(entry.jid)}]`);
+  return rows;
+}
+
+function focusXmppSpacesGuild(account = getCurrentAccount(), prefs = getPreferences()) {
+  const guild = ensureXmppSpacesGuild(prefs, account);
+  if (!guild) return false;
+  const nextChannel = guild.channels.find((entry) => isXmppBackedChannel(entry))
+    || guild.channels[0]
+    || null;
+  let changed = false;
+  if (state.viewMode !== "guild") {
+    state.viewMode = "guild";
+    changed = true;
+  }
+  if (state.activeGuildId !== guild.id) {
+    state.activeGuildId = guild.id;
+    changed = true;
+  }
+  if (nextChannel && state.activeChannelId !== nextChannel.id) {
+    state.activeChannelId = nextChannel.id;
+    changed = true;
+  }
+  if (changed) {
+    saveState();
+    render();
+  }
+  return true;
+}
+
+async function syncXmppSpacesNow({
+  account = getCurrentAccount(),
+  prefs = getPreferences(),
+  forceDiscovery = false
+} = {}) {
+  if (!xmppConnection || relayStatus !== "connected") {
+    return {
+      ok: false,
+      message: "XMPP relay is not connected. Connect first, then retry /spacesxmpp sync."
+    };
+  }
+  const [bookmarkResult, discoveryResult] = await Promise.allSettled([
+    fetchXmppBookmarks(xmppConnection),
+    discoverXmppMucRooms({
+      connection: xmppConnection,
+      prefs,
+      force: forceDiscovery
+    })
+  ]);
+  const bookmarkItems = bookmarkResult.status === "fulfilled" ? bookmarkResult.value : [];
+  const discoveredRooms = discoveryResult.status === "fulfilled" ? discoveryResult.value : [];
+  const mergedRooms = mergeXmppBookmarks(bookmarkItems, discoveredRooms);
+  if (mergedRooms.length > 0) {
+    upsertXmppSpaceChannels(mergedRooms, prefs, account);
+  }
+  let joinedAutoCount = 0;
+  mergedRooms.forEach((entry) => {
+    if (entry?.autojoin !== true) return;
+    const roomJid = xmppBareJid(entry.jid || "");
+    if (!roomJid) return;
+    if (joinXmppRoom(`xmpp:${roomJid}`, account)) joinedAutoCount += 1;
+  });
+  const mappedCount = xmppKnownSpacesRooms(prefs).length;
+  return {
+    ok: true,
+    message: `Synced XMPP Spaces: ${mappedCount} mapped room(s) · ${bookmarkItems.length} bookmark(s) · ${discoveredRooms.length} discovered · ${joinedAutoCount} autojoined.`
+  };
+}
+
 function handleSlashCommand(rawText, channel, account) {
   if (!rawText.startsWith("/")) return false;
   const [commandRaw, ...rest] = rawText.slice(1).split(" ");
@@ -22326,10 +22607,13 @@ function handleSlashCommand(rawText, channel, account) {
     }
     if (sub === "accept" || sub === "reject" || sub === "cancel" || sub === "ring" || sub === "transport" || sub === "end") {
       const conversation = getActiveConversation();
-      const peerJid = xmppPeerJidForConversation(conversation, getCurrentAccount());
-      const peerBare = xmppBareJid(peerJid);
+      const dmPeer = xmppPeerJidForConversation(conversation, getCurrentAccount());
+      const roomPeer = conversation?.type === "channel"
+        ? xmppBareJid(conversation.channel?.xmppRoomJid || "")
+        : "";
+      const peerBare = xmppBareJid(dmPeer || roomPeer);
       if (!peerBare) {
-        addSystemMessage(channel, "XMPP call controls currently work in DMs.");
+        addSystemMessage(channel, "XMPP call controls require an XMPP DM or XMPP room channel.");
         return true;
       }
       const targetId = token
@@ -22340,13 +22624,33 @@ function handleSlashCommand(rawText, channel, account) {
         return true;
       }
       const session = xmppCallSessionById.get(targetId) || null;
+      const peerTarget = xmppResolveSessionPeerJid(session, peerBare, { preferFull: true }) || peerBare;
+      if (xmppSessionIsMujiCallInvite(session)) {
+        if (sub === "ring" || sub === "transport") {
+          addSystemMessage(channel, "Muji room invites do not use /callxmpp ring or /callxmpp transport.");
+          return true;
+        }
+        if (sub === "accept") {
+          void acceptIncomingXmppCall(targetId).then((ok) => {
+            addSystemMessage(channel, ok
+              ? `Accepted Muji room call invite (${targetId.slice(0, 8)}).`
+              : "Failed to accept Muji room call invite.");
+          });
+          return true;
+        }
+        const sentMuji = declineIncomingXmppCall(targetId);
+        addSystemMessage(channel, sentMuji
+          ? `Sent Muji ${sub === "end" ? "leave" : "reject"} for ${targetId.slice(0, 8)}.`
+          : "Failed to send Muji call action.");
+        return true;
+      }
       stopWebCallRingtone(targetId);
       const isJinglePhase = (session?.state || "").includes("session");
       const action = sub === "accept" ? "proceed" : (sub === "reject" ? "reject" : "retract");
       let sent = false;
       if (sub === "accept" && isJinglePhase) {
         void (async () => {
-          const ok = await xmppSendJingleSessionAccept(peerBare, targetId, {
+          const ok = await xmppSendJingleSessionAccept(peerTarget, targetId, {
             media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : XMPP_CALL_DEFAULT_MEDIA,
             screenShare: Boolean(session?.screenShare)
           });
@@ -22362,22 +22666,22 @@ function handleSlashCommand(rawText, channel, account) {
         })();
         return true;
       } else if (sub === "end") {
-        sent = xmppSendJingleSessionTerminate(peerBare, targetId, {
+        sent = xmppSendJingleSessionTerminate(peerTarget, targetId, {
           reason: "success",
           text: "Ended by local user"
         });
       } else if (sub === "ring") {
         sent = isJinglePhase
-          ? xmppSendJingleSessionInfo(peerBare, targetId, { info: "ringing" })
-          : xmppSendJingleMessageAction(peerBare, "ringing", { sessionId: targetId });
+          ? xmppSendJingleSessionInfo(peerTarget, targetId, { info: "ringing" })
+          : xmppSendJingleMessageAction(peerTarget, "ringing", { sessionId: targetId });
       } else if (sub === "transport") {
         const localTransport = session?.localTransport && typeof session.localTransport === "object"
           ? session.localTransport
           : xmppBuildJingleTransportCreds();
         if (session) session.localTransport = localTransport;
-        sent = xmppQueueTransportInfoGatherAndSend(peerBare, targetId, { force: true });
+        sent = xmppQueueTransportInfoGatherAndSend(peerTarget, targetId, { force: true });
       } else {
-        sent = xmppSendJingleMessageAction(peerBare, action, { sessionId: targetId });
+        sent = xmppSendJingleMessageAction(peerTarget, action, { sessionId: targetId });
       }
       if (!sent) {
         addSystemMessage(channel, "Failed to send XMPP call action.");
@@ -22423,6 +22727,51 @@ function handleSlashCommand(rawText, channel, account) {
       channel,
       "This command works in XMPP DMs. Use /invitexmpp <room@conference.domain> [| reason [| password]] in a DM."
     );
+    return true;
+  }
+
+  if (command === "spacesxmpp" || command === "xmppspaces") {
+    const raw = (arg || "").trim();
+    const [subRaw, ...restParts] = raw.split(/\s+/).filter(Boolean);
+    const sub = (subRaw || "list").toLowerCase();
+    if (sub === "join") {
+      const result = handleJoinXmppCommand(restParts.join(" "), account, { focus: true });
+      addSystemMessage(channel, result.message);
+      return true;
+    }
+    if (sub === "open") {
+      const opened = focusXmppSpacesGuild(account, getPreferences());
+      addSystemMessage(channel, opened ? "Opened XMPP Spaces." : "Could not open XMPP Spaces.");
+      return true;
+    }
+    if (sub === "sync" || sub === "discover") {
+      addSystemMessage(channel, `Syncing XMPP Spaces (${sub === "discover" ? "forced discovery" : "cached discovery"})...`);
+      void syncXmppSpacesNow({
+        account,
+        prefs: getPreferences(),
+        forceDiscovery: sub === "discover"
+      }).then((result) => {
+        addSystemMessage(channel, result.message);
+        if (result.ok) {
+          renderServers();
+          renderChannels();
+        }
+      }).catch(() => {
+        addSystemMessage(channel, "Failed to sync XMPP Spaces.");
+      });
+      return true;
+    }
+    if (sub === "list" || sub === "status") {
+      const lines = xmppSpacesSummaryLines({ limit: 20, prefs: getPreferences() });
+      addSystemMessage(
+        channel,
+        lines.length > 0
+          ? `XMPP Spaces rooms:\n${lines.join("\n")}`
+          : "No XMPP Spaces rooms mapped yet. Use /spacesxmpp sync or /joinxmpp <room@conference.domain>."
+      );
+      return true;
+    }
+    addSystemMessage(channel, "Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>]");
     return true;
   }
 
@@ -39064,12 +39413,32 @@ ui.messageForm.addEventListener("submit", (event) => {
           return;
         }
         const session = xmppCallSessionById.get(targetId) || null;
+        const peerTarget = xmppResolveSessionPeerJid(session, peerBare, { preferFull: true }) || peerBare;
+        if (xmppSessionIsMujiCallInvite(session)) {
+          if (sub === "ring" || sub === "transport") {
+            showToast("Muji room invites do not use /callxmpp ring or /callxmpp transport.", { tone: "error" });
+            return;
+          }
+          if (sub === "accept") {
+            void acceptIncomingXmppCall(targetId).then((ok) => {
+              showToast(ok
+                ? `Accepted Muji room call invite (${targetId.slice(0, 8)}).`
+                : "Failed to accept Muji room call invite.", { tone: ok ? "info" : "error" });
+            });
+            return;
+          }
+          const sentMuji = declineIncomingXmppCall(targetId);
+          showToast(sentMuji
+            ? `Sent Muji ${sub === "end" ? "leave" : "reject"} (${targetId.slice(0, 8)}).`
+            : "Failed to send Muji call action.", { tone: sentMuji ? "info" : "error" });
+          return;
+        }
         const isJinglePhase = (session?.state || "").includes("session");
         const action = sub === "accept" ? "proceed" : (sub === "reject" ? "reject" : "retract");
         let sent = false;
         if (sub === "accept" && isJinglePhase) {
           void (async () => {
-            const ok = await xmppSendJingleSessionAccept(peerBare, targetId, {
+            const ok = await xmppSendJingleSessionAccept(peerTarget, targetId, {
               media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : XMPP_CALL_DEFAULT_MEDIA,
               screenShare: Boolean(session?.screenShare)
             });
@@ -39085,22 +39454,22 @@ ui.messageForm.addEventListener("submit", (event) => {
           })();
           return;
         } else if (sub === "end") {
-          sent = xmppSendJingleSessionTerminate(peerBare, targetId, {
+          sent = xmppSendJingleSessionTerminate(peerTarget, targetId, {
             reason: "success",
             text: "Ended by local user"
           });
         } else if (sub === "ring") {
           sent = isJinglePhase
-            ? xmppSendJingleSessionInfo(peerBare, targetId, { info: "ringing" })
-            : xmppSendJingleMessageAction(peerBare, "ringing", { sessionId: targetId });
+            ? xmppSendJingleSessionInfo(peerTarget, targetId, { info: "ringing" })
+            : xmppSendJingleMessageAction(peerTarget, "ringing", { sessionId: targetId });
         } else if (sub === "transport") {
           const localTransport = session?.localTransport && typeof session.localTransport === "object"
             ? session.localTransport
             : xmppBuildJingleTransportCreds();
           if (session) session.localTransport = localTransport;
-          sent = xmppQueueTransportInfoGatherAndSend(peerBare, targetId, { force: true });
+          sent = xmppQueueTransportInfoGatherAndSend(peerTarget, targetId, { force: true });
         } else {
-          sent = xmppSendJingleMessageAction(peerBare, action, { sessionId: targetId });
+          sent = xmppSendJingleMessageAction(peerTarget, action, { sessionId: targetId });
         }
         if (!sent) {
           showToast("Failed to send XMPP call action.", { tone: "error" });
@@ -39194,6 +39563,64 @@ ui.messageForm.addEventListener("submit", (event) => {
         refreshDmUiForPeerJid(peerBare);
       }
       showToast("XMPP room invite sent.");
+      return;
+    }
+    if (dmCommand === "spacesxmpp" || dmCommand === "xmppspaces") {
+      const raw = (dmArg || "").trim();
+      const [subRaw, ...restParts] = raw.split(/\s+/).filter(Boolean);
+      const sub = (subRaw || "list").toLowerCase();
+      const dmConversation = { type: "dm", id: conversation.thread?.id || "", thread: conversation.thread };
+      if (sub === "join") {
+        const result = handleJoinXmppCommand(restParts.join(" "), account, { focus: true });
+        if (addSystemMessageToConversation(dmConversation, result.message)) {
+          refreshConversationUi(dmConversation);
+        }
+        showToast(result.message, { tone: result.ok ? "info" : "error", duration: result.ok ? 2200 : 3200 });
+        return;
+      }
+      if (sub === "open") {
+        const opened = focusXmppSpacesGuild(account, getPreferences());
+        showToast(opened ? "Opened XMPP Spaces." : "Could not open XMPP Spaces.", { tone: opened ? "info" : "error" });
+        return;
+      }
+      if (sub === "sync" || sub === "discover") {
+        showToast(`Syncing XMPP Spaces (${sub === "discover" ? "forced discovery" : "cached discovery"})...`, { duration: 2400 });
+        void syncXmppSpacesNow({
+          account,
+          prefs: getPreferences(),
+          forceDiscovery: sub === "discover"
+        }).then((result) => {
+          showToast(result.message, { tone: result.ok ? "info" : "error", duration: result.ok ? 3200 : 3600 });
+          if (addSystemMessageToConversation(dmConversation, result.message)) {
+            refreshConversationUi(dmConversation);
+          }
+          if (result.ok) {
+            renderServers();
+            renderChannels();
+          }
+        }).catch(() => {
+          showToast("Failed to sync XMPP Spaces.", { tone: "error" });
+        });
+        return;
+      }
+      if (sub === "list" || sub === "status") {
+        const lines = xmppSpacesSummaryLines({ limit: 20, prefs: getPreferences() });
+        const summaryText = lines.length > 0
+          ? `XMPP Spaces rooms:\n${lines.join("\n")}`
+          : "No XMPP Spaces rooms mapped yet. Use /spacesxmpp sync or /joinxmpp <room@conference.domain>.";
+        if (addSystemMessageToConversation(dmConversation, summaryText)) {
+          refreshConversationUi(dmConversation);
+        }
+        showToast(lines.length > 0 ? `XMPP Spaces: ${lines.length} room(s).` : "No XMPP Spaces rooms mapped.", {
+          tone: lines.length > 0 ? "info" : "error",
+          duration: 2600
+        });
+        return;
+      }
+      showToast("Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>]", {
+        tone: "error",
+        duration: 3200
+      });
       return;
     }
     if (dmCommand === "focus") {

@@ -91,10 +91,12 @@
 - [done] Incoming XMPP call accept now transitions directly into the native call surface instead of leaving the accept prompt hanging.
 - [done] Added native call in-surface local audio test control (`Test Audio` / `Stop Test`) for `rickroll.ogg`.
 - [done] Broadened incoming XMPP call invite parsing (namespace/id/url heuristics) for better Movim/Dino interoperability.
+- [done] Added Movim-focused Muji room call-invite handling (`groupchat` accept/reject/left flow) with incoming prompt/session mapping into XMPP spaces.
 - [done] Redesigned picker privacy UX to a single picker-level banner (removed per-card privacy gates in picker tabs).
 - [done] Sticker picker now hides disallowed external media entries according to privacy/block rules.
 - [done] Added advanced-settings management for media allow/deny rules (add + remove without slash commands).
 - [done] Added explicit call failure surfaces (ICE/PC failure hints, no-remote-track hints, media-access error toasts).
+- [done] Added `/spacesxmpp` command (`list|open|sync|discover|join`) to prioritize practical XMPP Spaces management and discovery.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.

@@ -2350,3 +2350,8 @@ I thought you would work on my higher priority issues, spaces, some low hanging 
 [2026-02-28T09:10:59Z] USER PROMPT: Please continue
 
 [2026-02-28T09:29:42Z] USER PROMPT: Next stuff please. Also the Android files may also be commited?
+
+[2026-02-28T09:37:05Z] USER PROMPT: Did you investigate the movim folder yet to fix the issues mentioned in issues and especially the call related stuff? Also spaces support? This spaces stuff is very high priority.
+
+## 2026-02-28T09:38:16Z
+Did you investigate the movim folder yet to fix the issues mentioned in issues and especially the call related stuff? Also spaces support? This spaces stuff is very high priority.
