@@ -5625,13 +5625,20 @@ function parseXmppCallInviteAction(stanza) {
         || ""
       ).toString().trim())
       .filter(Boolean);
+    const mujiNode = xmppElementsByLocalName(node, "muji")
+      .find((entry) => (
+        xmppNodeHasXmlns(entry, "urn:xmpp:jingle:muji:0")
+        || (!xmppNodeXmlns(entry) && entry.parentNode === node)
+      )) || null;
+    const mujiRoom = (mujiNode?.getAttribute("room") || "").toString().trim();
     return {
       action,
       id: rawId,
       audio: audio === "false" ? false : true,
       video: video === "false" ? false : true,
       externals,
-      jingleSid
+      jingleSid,
+      mujiRoom
     };
   }
   return null;
@@ -12389,11 +12396,41 @@ function xmppExtractLooseAttachmentEntries(stanza, { hintName = "", hintMime = "
   if (!serialized && typeof stanza.textContent === "string") serialized = stanza.textContent;
   const seen = new Set();
   const out = [];
+  const isLikelyLooseAttachmentUrl = (rawUrl = "") => {
+    const candidate = (rawUrl || "").toString().trim();
+    if (!/^https?:\/\//i.test(candidate)) return false;
+    let parsed = null;
+    try {
+      parsed = new URL(candidate);
+    } catch {
+      return false;
+    }
+    const host = (parsed.hostname || "").toLowerCase();
+    const path = (parsed.pathname || "").toLowerCase();
+    if (
+      ["jabber.org", "www.jabber.org", "w3.org", "www.w3.org", "xmpp.org", "www.xmpp.org"].includes(host)
+      && (
+        /\/protocol\//.test(path)
+        || /\/tr\//.test(path)
+        || /\/ns\//.test(path)
+        || /xhtml/.test(path)
+      )
+    ) {
+      return false;
+    }
+    const inferred = inferAttachmentTypeFromUrl(candidate) || inferAttachmentTypeFromMime(mimeHint);
+    if (inferred && inferred !== "file") return true;
+    if (/\.(png|jpe?g|gif|webp|apng|lottie|mp4|webm|mov|m4v|mp3|ogg|wav|m4a|flac|svg|pdf)(\?|$|#|&)/i.test(candidate)) {
+      return true;
+    }
+    if (/\/(stickers?|uploads?|attachments?|media|files?)\//i.test(path)) return true;
+    return false;
+  };
   const pattern = /https?:\/\/[^\s<>"']+/gi;
   let match = pattern.exec(serialized);
   while (match) {
     const candidate = (match[0] || "").toString().replace(/[)\],.!?]+$/g, "").trim();
-    if (candidate && !seen.has(candidate.toLowerCase())) {
+    if (candidate && !seen.has(candidate.toLowerCase()) && isLikelyLooseAttachmentUrl(candidate)) {
       seen.add(candidate.toLowerCase());
       out.push({
         url: candidate,
@@ -15368,6 +15405,57 @@ function connectRelaySocket({ force = false } = {}) {
               authorDisplay: nick || ""
             }
           });
+        }
+        const roomCallInvite = parseXmppCallInviteAction(stanza);
+        if (roomCallInvite && !history) {
+          const inviteId = roomCallInvite.id || xmppStanzaStableId(stanza) || stanzaMessageId || "";
+          const inviteUrl = (roomCallInvite.externals || [])
+            .map((entry) => normalizeCallInviteUrl(entry))
+            .find(Boolean) || "";
+          const inviteRoom = xmppBareJid(roomCallInvite.mujiRoom || "");
+          addXmppDebugEvent("call", "Incoming room call-invite", {
+            roomJid,
+            from,
+            action: roomCallInvite.action,
+            id: inviteId,
+            url: inviteUrl,
+            mujiRoom: inviteRoom
+          });
+          const roomLabel = roomJid.split("@")[0] || roomJid;
+          if (roomCallInvite.action === "invite") {
+            const note = inviteUrl
+              ? `Incoming room call invite in ${roomLabel}: ${inviteUrl}`
+              : (inviteRoom
+                ? `Incoming room call invite in ${roomLabel} (Muji room: ${inviteRoom}).`
+                : `Incoming room call invite in ${roomLabel}.`);
+            const activeConversation = getActiveConversation();
+            const roomChannel = findXmppRoomChannelByJid(roomJid);
+            if (roomChannel) {
+              if (addSystemMessage(roomChannel, note)) {
+                saveState();
+                renderChannels();
+                if (activeConversation?.type === "channel" && activeConversation.channel?.id === roomChannel.id) {
+                  renderMessages();
+                } else {
+                  renderServers();
+                }
+              }
+              if (inviteUrl) {
+                maybeHandleIncomingXmppCallInvite({
+                  conversation: { type: "channel", id: roomChannel.id, channel: roomChannel },
+                  peerJid: from || roomJid,
+                  invite: {
+                    id: inviteId,
+                    url: inviteUrl,
+                    screenShare: false
+                  },
+                  history
+                });
+              }
+            }
+            showToast(`Incoming XMPP room call invite: ${roomLabel}`);
+            return;
+          }
         }
         if (
           hasSubjectNode
@@ -19391,6 +19479,20 @@ function doesMediaRuleMatchHost(rule, host) {
   return host === rule;
 }
 
+function isBuiltInTrustedMediaHost(host = "") {
+  const normalized = (host || "").toString().trim().toLowerCase();
+  if (!normalized) return false;
+  const builtInRules = [
+    "jabber.org",
+    "*.jabber.org",
+    "w3.org",
+    "*.w3.org",
+    "xmpp.org",
+    "*.xmpp.org"
+  ];
+  return builtInRules.some((rule) => doesMediaRuleMatchHost(rule, normalized));
+}
+
 function normalizeMediaRuleToken(rule) {
   return (rule || "").toString().trim().toLowerCase();
 }
@@ -19415,6 +19517,7 @@ function isTrustedMediaUrl(url) {
   if (accountDomain && (host === accountDomain || host.endsWith(`.${accountDomain}`))) {
     return true;
   }
+  if (isBuiltInTrustedMediaHost(host)) return true;
   return prefs.mediaTrustRules.some((rule) => doesMediaRuleMatchHost(rule, host));
 }
 

@@ -201,6 +201,8 @@ if (IS_PACKAGED_LINUX) {
 }
 
 if (process.platform === "linux") {
+  // Always force /tmp-backed shared memory on Linux for better compatibility in sandboxed/containers.
+  app.commandLine.appendSwitch("disable-dev-shm-usage");
   if (!IS_PACKAGED_LINUX) {
     const disableSandbox = !LINUX_SANDBOX_ENABLED;
     if (disableSandbox) {
@@ -428,7 +430,12 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
   if (!windowInstance.webContents || windowInstance.webContents.isDestroyed?.()) return false;
   try {
     lastDevtoolsToggleAt = now;
-    windowInstance.webContents.toggleDevTools();
+    if (windowInstance.webContents.isDevToolsOpened()) {
+      windowInstance.webContents.closeDevTools();
+    } else {
+      // Prefer docked DevTools to avoid detached-process shared-memory failures in restricted Linux environments.
+      windowInstance.webContents.openDevTools({ mode: "right", activate: true });
+    }
     return true;
   } catch (error) {
     log("failed to toggle DevTools", String(error?.message || error));
