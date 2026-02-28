@@ -1956,6 +1956,7 @@ const ui = {
   chatHeader: document.querySelector(".chat-header"),
   chatHeaderRight: document.querySelector(".chat-header__right"),
   relayHeaderBadge: document.getElementById("relayHeaderBadge"),
+  omemoHeaderBtn: document.getElementById("omemoHeaderBtn"),
   openCallBtn: document.getElementById("openCallBtn"),
   openXmppCallBtn: document.getElementById("openXmppCallBtn"),
   copyCallLinkBtn: document.getElementById("copyCallLinkBtn"),
@@ -14971,6 +14972,42 @@ function xmppOmemoTryDecryptIntoMessage({
   task.finally(() => {
     xmppOmemoDecryptInFlightByMessageId.delete(messageId);
   });
+}
+
+function resolveOmemoHeaderState(conversation, account = getCurrentAccount()) {
+  if (!conversation || conversation.type !== "dm" || !account) return { visible: false };
+  const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
+  const peerBare = xmppBareJid(peerJid || "");
+  if (!peerBare) return { visible: false };
+  const prefs = getPreferences();
+  const enabled = xmppOmemoEnabledForPeer(peerBare, prefs);
+  const runtimeReady = xmppOmemoRuntimeAvailable();
+  const connected = prefs.relayMode === "xmpp" && relayStatus === "connected";
+  return {
+    visible: true,
+    peerBare,
+    enabled,
+    runtimeReady,
+    connected
+  };
+}
+
+function updateOmemoHeaderControl(conversation = getActiveConversation(), account = getCurrentAccount()) {
+  if (!ui.omemoHeaderBtn) return;
+  const state = resolveOmemoHeaderState(conversation, account);
+  if (!state.visible) {
+    ui.omemoHeaderBtn.hidden = true;
+    ui.omemoHeaderBtn.setAttribute("aria-hidden", "true");
+    return;
+  }
+  ui.omemoHeaderBtn.hidden = false;
+  ui.omemoHeaderBtn.setAttribute("aria-hidden", "false");
+  ui.omemoHeaderBtn.textContent = state.enabled ? "🔒" : "🔓";
+  ui.omemoHeaderBtn.setAttribute("aria-pressed", state.enabled ? "true" : "false");
+  const detail = !state.runtimeReady
+    ? "OMEMO runtime unavailable"
+    : (!state.connected ? "XMPP offline" : "XMPP connected");
+  ui.omemoHeaderBtn.title = `OMEMO ${state.enabled ? "on" : "off"} · ${detail}`;
 }
 
 function ensureXmppMamState(roomJid) {
@@ -35759,6 +35796,7 @@ function renderMessages() {
     const peerPrimary = peer ? dmPrimaryLabelForAccount(peer) : "dm";
     const peerSecondary = peer ? dmSecondaryLabelForAccount(peer) : "@dm";
     setActiveChannelHeader(peerPrimary, "@", peerSecondary, peerSecondary);
+    updateOmemoHeaderControl(conversation, current);
     const dmRoom = relayRoomForDmThread(dmThread) || relayRoomForActiveConversation();
     const typingSummary = formatTypingSummary(typingNamesForRoom(dmRoom));
     const headerMeta = dmHeaderStatusMeta(dmThread, current?.id, { typingSummary });
@@ -35768,6 +35806,7 @@ function renderMessages() {
     setActiveChannelTopic(topicBits.join(" · "));
     ui.messageInput.placeholder = peer ? `Message ${peerPrimary}` : "Message DM";
   } else {
+    updateOmemoHeaderControl(conversation, getCurrentAccount());
     const guild = getActiveGuild();
     const current = getCurrentAccount();
     if (channel && guild && current && !canAccountViewChannel(guild, channel, current.id)) {
@@ -43013,6 +43052,79 @@ ui.debugCloseBtn.addEventListener("click", () => {
 
 ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
   renderXmppConsoleDialog();
+});
+
+ui.omemoHeaderBtn?.addEventListener("click", () => {
+  const conversation = getActiveConversation();
+  const account = getCurrentAccount();
+  const state = resolveOmemoHeaderState(conversation, account);
+  if (!state.visible) return;
+  if (!state.runtimeReady) {
+    showToast("OMEMO runtime is not available in this build.", { tone: "error" });
+    return;
+  }
+  if (!state.peerBare) return;
+  const nextEnabled = !state.enabled;
+  xmppOmemoSetPeerEnabled(state.peerBare, nextEnabled);
+  const label = nextEnabled ? "enabled" : "disabled";
+  if (addSystemDmMessageByPeerJid(state.peerBare, `OMEMO ${label} for this DM.`)) {
+    refreshDmUiForPeerJid(state.peerBare);
+  }
+  showToast(`OMEMO ${label}.`, { tone: "info" });
+  if (nextEnabled) {
+    const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+    void (async () => {
+      if (!ownBare) return;
+      await xmppOmemoEnsureOwnBundle(ownBare);
+      await xmppOmemoFetchDeviceList(state.peerBare);
+      await xmppOmemoEnsurePeerSessions(state.peerBare, ownBare);
+    })();
+  }
+  updateOmemoHeaderControl(conversation, account);
+});
+
+ui.omemoHeaderBtn?.addEventListener("contextmenu", (event) => {
+  const conversation = getActiveConversation();
+  const account = getCurrentAccount();
+  const state = resolveOmemoHeaderState(conversation, account);
+  if (!state.visible) return;
+  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+  openContextMenu(event, [
+    {
+      label: state.enabled ? "Disable OMEMO" : "Enable OMEMO",
+      disabled: !state.runtimeReady,
+      action: () => {
+        xmppOmemoSetPeerEnabled(state.peerBare, !state.enabled);
+        updateOmemoHeaderControl(conversation, account);
+        if (addSystemDmMessageByPeerJid(state.peerBare, `OMEMO ${state.enabled ? "disabled" : "enabled"} for this DM.`)) {
+          refreshDmUiForPeerJid(state.peerBare);
+        }
+      }
+    },
+    {
+      label: "Refresh OMEMO Sessions",
+      disabled: !state.runtimeReady || !ownBare,
+      action: async () => {
+        await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+        await xmppOmemoFetchDeviceList(state.peerBare);
+        await xmppOmemoEnsurePeerSessions(state.peerBare, ownBare);
+        showToast("OMEMO sessions refreshed.", { tone: "info" });
+      }
+    },
+    {
+      label: "Show OMEMO Devices",
+      disabled: !state.runtimeReady,
+      action: async () => {
+        const devices = await xmppOmemoFetchDeviceList(state.peerBare);
+        const text = devices.length > 0
+          ? `OMEMO devices for ${state.peerBare}: ${devices.join(", ")}`
+          : `No OMEMO device list for ${state.peerBare} yet.`;
+        if (addSystemDmMessageByPeerJid(state.peerBare, text)) {
+          refreshDmUiForPeerJid(state.peerBare);
+        }
+      }
+    }
+  ]);
 });
 
 ui.copyXmppConsoleBtn?.addEventListener("click", () => {
