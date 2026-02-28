@@ -2087,3 +2087,28 @@ Like fully implemented. And for things that are worked on or partially implement
 [2026-02-28T04:16:44.582615] Also the spaces thing is very high priority as well I heard
 
 [2026-02-28T04:33:51.522916] You may also update the XEP documents at any time you like (but do not try to fetch new stuff until explicitely asked or granted after you ask for it if you deem it necessary). Note that down in LLM instructions. Then please tell me what I should test now.
+## 2026-02-28T05:06:05+01:00
+
+Ein Sticker wurde versendet". Devtools still don't open and I get this in terminal: "[454839:0228/045414.778854:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory
+  in /tmp/.org.chromium.Chromium.j3xU1M failed: No such process (3)
+  [454839:0228/045414.778928:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+  [454868:0228/045414.778928:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+  [454844:0228/045414.779305:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.7ZbZ7C failed: No such process (3)
+  [454844:0228/045414.779357:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+  [454844:0228/045414.779428:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.PYJDJm failed: No such process (3)
+  [454844:0228/045414.779459:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+  [455643:0228/045432.663047:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.UeuXOq failed: No such process (3)
+  [455643:0228/045432.663121:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+  [455783:0228/045438.607077:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.LPZaqZ failed: No such process (3)
+  [455783:0228/045438.607154:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+  [455814:0228/045440.150297:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.3P4m9u failed: No such process (3)
+  [455814:0228/045440.150367:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+  " Still: [This message is OMEMO encrypted] instead of actual message content or some attempt to exchange keys or whatever. Then calls from Movim to shitcord67 still don't appear. And
+  when I join a call started from shitcord67 via Movim then I don't see the other person joining and the call overlay closes and I get a notification with No something something. In chat I
+  also only see "Sent XMPP call proposal (jmi-78d9). Waiting for peer response." Also is there even some audio output selection btw? Also are webcams working? You can test it by running
+  ffmpeg -re -i /home/duda/Medien/Dateien/MP4/rent-a-girlfriend.mp4 -vcodec rawvideo -pix_fmt yuv420p -s 1280x720 -r 30 -f v4l2 /dev/video1 for example to create a virtual webcam with some
+  file feed into. Oh and when I start a call from Dino and then click accept then I get "Anruf abgelehnt" in Dino. And a bit later my account sends a Jitsi voicecall invite link to the
+  other user?! This is stupid. Btw. could we have XMPP logs per room/user/chat/dm as well? Cause global XMPP log might be too long. Also how to open XMPP inspector similar to how fluux-messenger has it (I cloned the repo for you to inspect)? Or do we already have it?
+
+
+[2026-02-28T04:22:19Z] USER PROMPT: Please continue. Oh, also: Regarding how movim does some things, you can also inspect their repo... I cloned movim repo. Please keep that in mind for the future.

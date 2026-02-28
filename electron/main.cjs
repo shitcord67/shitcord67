@@ -2,7 +2,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
-const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "tmp").toLowerCase();
+const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "auto").toLowerCase();
+const LINUX_SANDBOX_MODE = String(process.env.S67_LINUX_SANDBOX || "off").toLowerCase();
 const PACKAGED_LINUX_RUNTIME_DIR = String(process.env.S67_PACKAGED_LINUX_RUNTIME_DIR || "").trim();
 
 function canAccessDir(candidate) {
@@ -121,6 +122,9 @@ const IS_PACKAGED_LINUX = process.platform === "linux" && app.isPackaged;
 const PACKAGED_LINUX_SANDBOX_ENABLED = !IS_PACKAGED_LINUX
   ? true
   : PACKAGED_LINUX_SANDBOX_MODE === "on";
+const LINUX_SANDBOX_ENABLED = process.platform !== "linux"
+  ? true
+  : LINUX_SANDBOX_MODE === "on";
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const STACK_SCRIPT = path.join(ROOT_DIR, "scripts", "run-client-stack.sh");
@@ -198,7 +202,13 @@ if (IS_PACKAGED_LINUX) {
 
 if (process.platform === "linux") {
   if (!IS_PACKAGED_LINUX) {
-    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "tmp").toLowerCase();
+    const disableSandbox = !LINUX_SANDBOX_ENABLED;
+    if (disableSandbox) {
+      app.commandLine.appendSwitch("no-sandbox");
+      app.commandLine.appendSwitch("disable-setuid-sandbox");
+      app.commandLine.appendSwitch("disable-gpu-sandbox");
+    }
+    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "auto").toLowerCase();
     const shmDecision = resolveShmMode(devShmMode);
     if (shmDecision.mode === "tmp") {
       // Some restricted Linux/dev environments do not expose writable /dev/shm (e.g. sandboxes/containers).
@@ -216,6 +226,10 @@ if (process.platform === "linux") {
         "[electron] linux shm fallback: neither /dev/shm nor /tmp is writable; shared memory errors are likely."
       );
     }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[electron] linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${shmDecision.mode}`
+    );
   }
   if (ELECTRON_PIPEWIRE !== "off") {
     appendChromiumFeatureFlag("WebRTCPipeWireCapturer");
@@ -504,7 +518,9 @@ function attachDeveloperShortcuts(windowInstance) {
 }
 
 async function createMainWindow({ startupWarning = "" } = {}) {
-  const windowSandbox = IS_PACKAGED_LINUX ? PACKAGED_LINUX_SANDBOX_ENABLED : true;
+  const windowSandbox = process.platform === "linux"
+    ? (IS_PACKAGED_LINUX ? PACKAGED_LINUX_SANDBOX_ENABLED : LINUX_SANDBOX_ENABLED)
+    : true;
   const browser = new BrowserWindow({
     width: 1400,
     height: 900,

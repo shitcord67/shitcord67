@@ -621,6 +621,8 @@ const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
   { name: "devtools", args: "", description: "Toggle Electron DevTools." },
+  { name: "xmppconsole", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Open XMPP inspector/log console (supports DM/room scoping)." },
+  { name: "xmppinspect", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Alias for /xmppconsole." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
@@ -1151,6 +1153,7 @@ function buildInitialState() {
       callAutoPost: "on",
       callAudioInputId: "",
       callVideoInputId: "",
+      callAudioOutputId: "",
       platformOverride: "auto",
       whiteboardProviderUrl: "https://wbo.ophir.dev/boards",
       whiteboardRoomPrefix: "shitcord67-wb",
@@ -1800,6 +1803,8 @@ const attachmentTextPreviewCache = new Map();
 const attachmentTextPreviewInFlight = new Map();
 const attachmentBinaryPreviewCache = new Map();
 const attachmentBinaryPreviewInFlight = new Map();
+const xmppBobCacheByCid = new Map();
+const xmppBobFetchInFlightByCid = new Map();
 const avatarUrlRenderabilityByUrl = new Map();
 const avatarUrlRenderabilityInFlight = new Set();
 let avatarUrlRenderRefreshRaf = 0;
@@ -1813,7 +1818,7 @@ let loginXmppProgressStartedAt = 0;
 let loginXmppProgressTimerId = null;
 let xmppCapsHash = "";
 let xmppCapsPromise = null;
-let mediaDeviceSnapshot = { audio: [], video: [], ready: false, loading: false };
+let mediaDeviceSnapshot = { audio: [], video: [], output: [], ready: false, loading: false };
 let platformRuntimeInfo = {
   platform: detectRuntimePlatform().isAndroid ? "android" : (detectRuntimePlatform().isiOS ? "ios" : "web"),
   sessionType: "n/a",
@@ -4469,6 +4474,7 @@ async function startNativeCallAudioTest(sessionId = "") {
     audio.pause();
     audio.src = clipUrl;
     audio.currentTime = 0;
+    void applyAudioOutputDeviceToElement(audio, getPreferences().callAudioOutputId || "");
     await audio.play();
     if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
     return true;
@@ -5050,6 +5056,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
   audioSelect.className = "native-call-surface__select";
   const videoSelect = document.createElement("select");
   videoSelect.className = "native-call-surface__select";
+  const outputSelect = document.createElement("select");
+  outputSelect.className = "native-call-surface__select";
   const buildSelectOptions = (select, items, selectedId, fallbackLabel) => {
     select.innerHTML = "";
     const defaultOption = document.createElement("option");
@@ -5077,6 +5085,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   };
   buildSelectOptions(audioSelect, mediaDeviceSnapshot.audio || [], prefs.callAudioInputId, "Default Mic");
   buildSelectOptions(videoSelect, mediaDeviceSnapshot.video || [], prefs.callVideoInputId, "Default Camera");
+  buildSelectOptions(outputSelect, mediaDeviceSnapshot.output || [], prefs.callAudioOutputId, "Default Speaker");
   audioSelect.addEventListener("change", () => {
     state.preferences = getPreferences();
     state.preferences.callAudioInputId = audioSelect.value;
@@ -5091,6 +5100,20 @@ function renderNativeXmppCallSurface(sessionId = "") {
     void xmppReacquireLocalMediaForSession(sid);
     showToast("Camera device updated.");
   });
+  outputSelect.addEventListener("change", () => {
+    state.preferences = getPreferences();
+    state.preferences.callAudioOutputId = outputSelect.value;
+    saveState();
+    const remoteVideos = shell.querySelectorAll(".native-call-surface__tile video:not([muted])");
+    remoteVideos.forEach((video) => {
+      void applyAudioOutputDeviceToElement(video, outputSelect.value);
+    });
+    if (!canSetAudioOutputDevice()) {
+      showToast("Audio output switching is not supported in this runtime.", { tone: "error" });
+      return;
+    }
+    showToast("Audio output device updated.");
+  });
   const audioWrap = document.createElement("label");
   audioWrap.className = "native-call-surface__device";
   audioWrap.textContent = "Mic";
@@ -5099,8 +5122,13 @@ function renderNativeXmppCallSurface(sessionId = "") {
   videoWrap.className = "native-call-surface__device";
   videoWrap.textContent = "Cam";
   videoWrap.appendChild(videoSelect);
+  const outputWrap = document.createElement("label");
+  outputWrap.className = "native-call-surface__device";
+  outputWrap.textContent = "Out";
+  outputWrap.appendChild(outputSelect);
   devicesRow.appendChild(audioWrap);
   devicesRow.appendChild(videoWrap);
+  devicesRow.appendChild(outputWrap);
   const debugDialog = renderNativeXmppCallDebugDialog(sid);
   const grid = document.createElement("div");
   grid.className = "native-call-surface__grid";
@@ -5138,6 +5166,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     video.autoplay = true;
     video.playsInline = true;
     video.srcObject = stream;
+    void applyAudioOutputDeviceToElement(video, prefs.callAudioOutputId || "");
     const label = document.createElement("span");
     label.className = "native-call-surface__label";
     const baseLabel = index === 0 ? (peer || "Peer") : `${peer || "Peer"} ${index + 1}`;
@@ -6040,28 +6069,37 @@ async function acceptIncomingXmppCall(sessionId = "") {
     return true;
   }
   const callInviteId = (session.callInviteId || "").toString().trim();
+  const callInviteOnly = Boolean(
+    callInviteId
+    && (session.inviteSignal || "").toString().trim().toLowerCase() === "call-invite"
+    && !session.callInviteHasJingleSid
+  );
   const sentCallInviteAccept = callInviteId
     ? Boolean(xmppSendCallInviteAction(peerTarget || peerBare, "accept", {
       inviteId: callInviteId,
-      sessionId: sid,
+      ...(callInviteOnly ? {} : { sessionId: sid }),
       audio: session.media?.includes("audio") !== false,
       video: session.media?.includes("video") !== false
     }))
     : false;
-  const sentProceed = xmppSendJingleMessageAction(peerTarget || peerBare, "proceed", {
-    sessionId: sid,
-    preferFull: true
-  });
+  const sentProceed = callInviteOnly
+    ? false
+    : xmppSendJingleMessageAction(peerTarget || peerBare, "proceed", {
+      sessionId: sid,
+      preferFull: true
+    });
   // Compatibility: some peers still react to "accept" instead of "proceed".
-  const sentAcceptCompat = xmppSendJingleMessageAction(peerTarget || peerBare, "accept", {
-    sessionId: sid,
-    preferFull: true
-  });
+  const sentAcceptCompat = callInviteOnly
+    ? false
+    : xmppSendJingleMessageAction(peerTarget || peerBare, "accept", {
+      sessionId: sid,
+      preferFull: true
+    });
   const sent = Boolean(sentCallInviteAccept || sentProceed || sentAcceptCompat);
   if (sent) {
     const entry = xmppCallSessionById.get(sid);
     if (entry) {
-      entry.state = "proceeded";
+      entry.state = callInviteOnly ? "accepted" : "proceeded";
       try {
         const info = await xmppFetchDiscoInfoCached(peerBare, { force: false });
         const evalResult = xmppEvaluateCallFeatures(info?.features || new Set());
@@ -6082,19 +6120,20 @@ async function acceptIncomingXmppCall(sessionId = "") {
           const current = xmppCallSessionById.get(sid);
           if (!current || (current.state || "").includes("session")) return;
           showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
-          if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). The caller may not support native calls.`)) {
+          if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Opening local Web Call fallback without auto-inviting peer.`)) {
             refreshDmUiForPeerJid(peerBare);
           }
           if (!current.fallbackInviteSent) {
             const fallbackScreenShare = Boolean(current.screenShare);
             current.fallbackInviteSent = true;
             forgetXmppCallSession(sid);
-            launchConversationCall({ screenShare: fallbackScreenShare, autoPost: true, allowNative: false });
+            launchConversationCall({ screenShare: fallbackScreenShare, autoPost: false, allowNative: false });
           }
         }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
       }
     }
-    if (addSystemDmMessageByPeerJid(peerBare, `Accepted XMPP call proposal (${sid.slice(0, 8)}). Waiting for session-initiate.`)) {
+    const acceptedLabel = callInviteOnly ? "invite" : "proposal";
+    if (addSystemDmMessageByPeerJid(peerBare, `Accepted XMPP call ${acceptedLabel} (${sid.slice(0, 8)}). Waiting for session-initiate.`)) {
       refreshDmUiForPeerJid(peerBare);
     }
     openNativeXmppCallSurface(sid);
@@ -6959,6 +6998,23 @@ function formatMediaDeviceLabel(device, fallback) {
   return label || fallback;
 }
 
+function canSetAudioOutputDevice() {
+  return typeof HTMLMediaElement !== "undefined"
+    && typeof HTMLMediaElement.prototype?.setSinkId === "function";
+}
+
+async function applyAudioOutputDeviceToElement(element, deviceId = "") {
+  if (!(element instanceof HTMLMediaElement)) return false;
+  if (!canSetAudioOutputDevice()) return false;
+  const targetId = normalizeMediaDeviceId(deviceId);
+  try {
+    await element.setSinkId(targetId || "");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function refreshMediaDeviceSnapshot({ force = false } = {}) {
   if (!navigator.mediaDevices?.enumerateDevices) return mediaDeviceSnapshot;
   if (mediaDeviceSnapshot.loading) return mediaDeviceSnapshot;
@@ -6972,9 +7028,13 @@ async function refreshMediaDeviceSnapshot({ force = false } = {}) {
     const video = devices
       .filter((device) => device.kind === "videoinput")
       .map((device) => ({ id: device.deviceId, label: device.label || "" }));
+    const output = devices
+      .filter((device) => device.kind === "audiooutput")
+      .map((device) => ({ id: device.deviceId, label: device.label || "" }));
     mediaDeviceSnapshot = {
       audio,
       video,
+      output,
       ready: true,
       loading: false
     };
@@ -9315,6 +9375,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       remoteJingleRole: "initiator",
       inviteSignal: "jmi",
       callInviteId: "",
+      callInviteHasJingleSid: true,
       state: "proposed",
       createdAt: Date.now(),
       media: Array.isArray(actionPayload.media) ? actionPayload.media : []
@@ -9559,6 +9620,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
       screenShare: Boolean(screenShare),
       inviteSignal: sentJmi ? "jmi" : "call-invite",
       callInviteId: sentCallInviteCompat || "",
+      callInviteHasJingleSid: true,
       timeoutId,
       room: conversationCallRoomName(conversation, ""),
       conversationId: conversation.id || "",
@@ -10740,6 +10802,7 @@ function getPreferences() {
     callAutoPost: normalizeToggle(current.callAutoPost ?? "on"),
     callAudioInputId: normalizeMediaDeviceId(current.callAudioInputId),
     callVideoInputId: normalizeMediaDeviceId(current.callVideoInputId),
+    callAudioOutputId: normalizeMediaDeviceId(current.callAudioOutputId),
     platformOverride: normalizePlatformOverride(current.platformOverride),
     whiteboardProviderUrl: normalizeWhiteboardProviderUrl(current.whiteboardProviderUrl),
     whiteboardRoomPrefix: normalizeWhiteboardRoomPrefix(current.whiteboardRoomPrefix),
@@ -11912,6 +11975,164 @@ function xmppInlineBobEntries(stanza) {
   return out.slice(0, 6);
 }
 
+function xmppParseBobDataNode(node) {
+  if (!node || !xmppNodeHasXmlns(node, XMPP_BOB_NAMESPACE)) return null;
+  const rawCid = (node.getAttribute?.("cid") || "").toString().trim();
+  const cidKey = xmppNormalizeBobCid(rawCid);
+  if (!cidKey) return null;
+  const payload = (xmppNodeText(node) || "").toString().replace(/\s+/g, "");
+  if (!payload || payload.length > (8 * 1024 * 1024)) return null;
+  const cleanPayload = payload.replace(/[^a-z0-9+/=]/gi, "");
+  if (!cleanPayload) return null;
+  const rawMime = (node.getAttribute?.("type") || "").toString().trim().toLowerCase();
+  const mime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(rawMime) ? rawMime : "application/octet-stream";
+  return {
+    cid: rawCid || cidKey,
+    cidKey,
+    name: rawCid || cidKey,
+    mime,
+    url: `data:${mime};base64,${cleanPayload}`
+  };
+}
+
+function xmppExtractBobCidCandidates(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+  const out = [];
+  const seen = new Set();
+  const add = (raw = "", { name = "", mime = "" } = {}) => {
+    const value = (raw || "").toString().trim();
+    if (!value || !/^(xmpp:)?cid:/i.test(value)) return;
+    const cidKey = xmppNormalizeBobCid(value);
+    if (!cidKey || seen.has(cidKey)) return;
+    seen.add(cidKey);
+    out.push({
+      cid: value,
+      cidKey,
+      name: (name || "").toString().trim().slice(0, 120),
+      mime: (mime || "").toString().trim().toLowerCase().slice(0, 120)
+    });
+  };
+  xmppElementsByLocalName(stanza, "img").forEach((node) => {
+    add(node.getAttribute?.("src") || "", {
+      name: node.getAttribute?.("alt") || node.getAttribute?.("title") || "",
+      mime: node.getAttribute?.("type") || node.getAttribute?.("data-mime") || ""
+    });
+  });
+  xmppElementsByLocalName(stanza, "a").forEach((node) => {
+    add(node.getAttribute?.("href") || "", {
+      name: node.getAttribute?.("title") || node.getAttribute?.("data-name") || "",
+      mime: node.getAttribute?.("type") || node.getAttribute?.("data-mime") || ""
+    });
+  });
+  xmppElementsByLocalName(stanza, "reference")
+    .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
+    .forEach((node) => {
+      const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
+      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
+      add(node.getAttribute("uri") || xmppNodeText(uriNode) || "", {
+        name: node.getAttribute("name") || "",
+        mime: node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || ""
+      });
+    });
+  return out.slice(0, 6);
+}
+
+async function xmppFetchBobByCid(rawCid = "", { toCandidates = [], connection = xmppConnection } = {}) {
+  const cidValue = (rawCid || "").toString().trim();
+  const cidKey = xmppNormalizeBobCid(cidValue);
+  if (!cidKey || !connection || !globalThis.$iq) return null;
+  const cached = xmppBobCacheByCid.get(cidKey);
+  if (cached?.url) return cached;
+  if (xmppBobFetchInFlightByCid.has(cidKey)) {
+    return xmppBobFetchInFlightByCid.get(cidKey);
+  }
+  const requestCidCandidates = [...new Set(
+    [cidValue, cidKey]
+      .map((entry) => (entry || "").toString().trim())
+      .filter(Boolean)
+  )];
+  const toList = [...new Set(
+    (Array.isArray(toCandidates) ? toCandidates : [])
+      .map((entry) => (entry || "").toString().trim())
+      .filter(Boolean)
+  )];
+  const requestTask = (async () => {
+    for (const to of toList.length > 0 ? toList : [""]) {
+      for (const requestCid of requestCidCandidates) {
+        try {
+          const stanza = await xmppSendIqPromise(
+            connection,
+            globalThis.$iq({ type: "get", ...(to ? { to } : {}) }).c("data", { xmlns: XMPP_BOB_NAMESPACE, cid: requestCid }),
+            7000
+          );
+          const dataNode = xmppElementsByLocalName(stanza, "data")
+            .find((node) => xmppNodeHasXmlns(node, XMPP_BOB_NAMESPACE)) || null;
+          const parsed = xmppParseBobDataNode(dataNode);
+          if (!parsed?.url) continue;
+          xmppBobCacheByCid.set(parsed.cidKey, parsed);
+          return parsed;
+        } catch {
+          // Try the next target/cid candidate.
+        }
+      }
+    }
+    return null;
+  })().finally(() => {
+    xmppBobFetchInFlightByCid.delete(cidKey);
+  });
+  xmppBobFetchInFlightByCid.set(cidKey, requestTask);
+  return requestTask;
+}
+
+function xmppResolveDeferredBobForMessage({
+  stanza,
+  message = null,
+  from = "",
+  fallbackAttachmentText = false,
+  onUpdated = null
+} = {}) {
+  if (!stanza || !message) return;
+  const cidCandidates = xmppExtractBobCidCandidates(stanza);
+  if (cidCandidates.length === 0) return;
+  const existing = normalizeAttachments(Array.isArray(message.attachments) ? message.attachments : []);
+  const prefersSticker = fallbackAttachmentText || xmppLooksLikeAttachmentFallbackText(message.text || "");
+  const toCandidates = [
+    (from || "").toString().trim(),
+    xmppBareJid(from || "")
+  ].filter(Boolean);
+  void (async () => {
+    const entries = [];
+    for (const candidate of cidCandidates) {
+      const resolved = await xmppFetchBobByCid(candidate.cid || candidate.cidKey, { toCandidates });
+      if (!resolved?.url) continue;
+      entries.push({
+        url: resolved.url,
+        name: candidate.name || (prefersSticker ? "sticker" : resolved.name || ""),
+        mime: candidate.mime || resolved.mime || ""
+      });
+    }
+    if (entries.length === 0) return;
+    const resolvedAttachments = xmppAttachmentsFromOobEntries(entries);
+    if (resolvedAttachments.length === 0) return;
+    const nextAttachments = normalizeAttachments([...existing, ...resolvedAttachments]);
+    if (nextAttachments.length === 0) return;
+    const previousSerialized = JSON.stringify(existing);
+    const nextSerialized = JSON.stringify(nextAttachments);
+    let changed = false;
+    if (previousSerialized !== nextSerialized) {
+      message.attachments = nextAttachments;
+      changed = true;
+    }
+    if (prefersSticker && xmppLooksLikeAttachmentFallbackText(message.text || "") && nextAttachments.length > 0) {
+      message.text = "";
+      changed = true;
+    }
+    if (!changed) return;
+    saveState();
+    if (typeof onUpdated === "function") onUpdated();
+  })();
+}
+
 function xmppExtractOobAttachments(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
   const out = [];
@@ -12155,6 +12376,37 @@ function xmppExtractOobUrls(stanza) {
   return xmppExtractOobAttachments(stanza).map((entry) => entry.url);
 }
 
+function xmppExtractLooseAttachmentEntries(stanza, { hintName = "", hintMime = "" } = {}) {
+  if (!stanza) return [];
+  const nameHint = (hintName || "").toString().trim().slice(0, 120);
+  const mimeHint = (hintMime || "").toString().trim().toLowerCase().slice(0, 120);
+  let serialized = "";
+  try {
+    serialized = xmppSerializePayload(stanza);
+  } catch {
+    serialized = "";
+  }
+  if (!serialized && typeof stanza.textContent === "string") serialized = stanza.textContent;
+  const seen = new Set();
+  const out = [];
+  const pattern = /https?:\/\/[^\s<>"']+/gi;
+  let match = pattern.exec(serialized);
+  while (match) {
+    const candidate = (match[0] || "").toString().replace(/[)\],.!?]+$/g, "").trim();
+    if (candidate && !seen.has(candidate.toLowerCase())) {
+      seen.add(candidate.toLowerCase());
+      out.push({
+        url: candidate,
+        name: nameHint || candidate.split("/").pop() || "attachment",
+        mime: mimeHint
+      });
+      if (out.length >= 6) break;
+    }
+    match = pattern.exec(serialized);
+  }
+  return out;
+}
+
 function xmppAttachmentsFromOobEntries(entries) {
   if (!Array.isArray(entries) || entries.length === 0) return [];
   const out = [];
@@ -12171,7 +12423,7 @@ function xmppAttachmentsFromOobEntries(entries) {
       || /\baufkleber\b/i.test(preferredName)
       || (/image\/webp/i.test(preferredMime) && /\bsticker\b/i.test(preferredName))
       || /\/stickers?\//i.test(clean);
-    if (type === "gif" && stickerHint) type = "sticker";
+    if ((type === "gif" || type === "file") && stickerHint) type = "sticker";
     out.push({
       type,
       url: clean,
@@ -14639,6 +14891,7 @@ function connectRelaySocket({ force = false } = {}) {
         const encryptedInfo = xmppEncryptedPayloadInfo(stanza);
         const encrypted = encryptedInfo.encrypted;
         const attachmentHint = xmppHasOobAttachmentHint(stanza);
+        const fallbackAttachmentText = xmppLooksLikeAttachmentFallbackText(bodyText);
         let text = bodyText;
         if (!text && subjectText) {
           text = type === "groupchat" ? `[Room subject] ${subjectText}` : subjectText;
@@ -14648,11 +14901,17 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         let attachmentEntries = xmppExtractOobAttachments(stanza);
-        if (attachmentEntries.length === 0 && xmppLooksLikeAttachmentFallbackText(text)) {
+        if (attachmentEntries.length === 0 && fallbackAttachmentText) {
           attachmentEntries = xmppInlineBobEntries(stanza);
         }
+        if (attachmentEntries.length === 0 && fallbackAttachmentText) {
+          attachmentEntries = xmppExtractLooseAttachmentEntries(stanza, {
+            hintName: /\b(sticker|aufkleber)\b/i.test(bodyText) ? "sticker" : "",
+            hintMime: ""
+          });
+        }
         const attachments = xmppAttachmentsFromOobEntries(attachmentEntries);
-        if (attachments.length > 0 && xmppLooksLikeAttachmentFallbackText(text)) {
+        if (attachments.length > 0 && fallbackAttachmentText) {
           text = "";
         }
         if (!text && !encrypted && attachments.length === 0 && attachmentHint) {
@@ -14740,6 +14999,7 @@ function connectRelaySocket({ force = false } = {}) {
               const existingIncomingId = latestXmppCallSessionIdForPeer(peerBare, "incoming");
               const existingIncoming = existingIncomingId ? (xmppCallSessionById.get(existingIncomingId) || null) : null;
               let nativeSessionId = (callInvite.jingleSid || "").toString().trim();
+              const inviteHasJingleSid = Boolean(nativeSessionId);
               if (!nativeSessionId && existingIncomingId) nativeSessionId = existingIncomingId;
               if (!nativeSessionId) nativeSessionId = `ci-${createId().slice(0, 12)}`;
               const incomingMedia = [
@@ -14757,8 +15017,9 @@ function connectRelaySocket({ force = false } = {}) {
                 direction: "incoming",
                 localJingleRole: session?.localJingleRole || "responder",
                 remoteJingleRole: session?.remoteJingleRole || "initiator",
-                inviteSignal: "call-invite",
+                inviteSignal: (session?.inviteSignal || "").toString().trim().toLowerCase() === "jmi" ? "jmi" : "call-invite",
                 callInviteId: inviteId || (session?.callInviteId || ""),
+                callInviteHasJingleSid: inviteHasJingleSid || Boolean(session?.callInviteHasJingleSid),
                 state: "proposed",
                 createdAt: Number(session?.createdAt) || Date.now(),
                 media
@@ -15056,6 +15317,20 @@ function connectRelaySocket({ force = false } = {}) {
               const activeConversation = getActiveConversation();
               if (activeConversation?.type === "dm") renderMessages();
             }
+            xmppResolveDeferredBobForMessage({
+              stanza,
+              message: inserted,
+              from,
+              fallbackAttachmentText,
+              onUpdated: () => {
+                renderDmList();
+                const activeConversation = getActiveConversation();
+                if (activeConversation?.type !== "dm") return;
+                const activePeer = xmppBareJid(xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount()));
+                if (!activePeer || activePeer !== peerBare) return;
+                renderMessages();
+              }
+            });
           }
           if (!ownAuthor) {
             maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
@@ -15311,6 +15586,21 @@ function connectRelaySocket({ force = false } = {}) {
             saveState();
             if (state.activeChannelId === findXmppRoomChannelByJid(roomJid)?.id) renderMessages();
           }
+          xmppResolveDeferredBobForMessage({
+            stanza,
+            message: inserted,
+            from,
+            fallbackAttachmentText,
+            onUpdated: () => {
+              renderChannels();
+              const activeChannel = getActiveChannel();
+              if (activeChannel?.xmppRoomJid && xmppBareJid(activeChannel.xmppRoomJid) === roomJid) {
+                renderMessages();
+              } else {
+                renderServers();
+              }
+            }
+          });
         }
         if (authorJid) {
           const photoHash = xmppPresencePhotoHash(stanza);
@@ -19284,6 +19574,51 @@ function openXmppConsoleDialog() {
   ui.xmppConsoleDialog?.showModal();
 }
 
+function xmppConsoleScopeTargetFromConversation(conversation = getActiveConversation(), account = getCurrentAccount()) {
+  if (!conversation) return { kind: "", token: "" };
+  if (conversation.type === "dm" && conversation.thread) {
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
+    const token = xmppBareJid(peerJid);
+    if (token) return { kind: "dm", token };
+  }
+  if (conversation.type === "channel" && conversation.channel?.xmppRoomJid) {
+    const token = xmppBareJid(conversation.channel.xmppRoomJid);
+    if (token) return { kind: "room", token };
+  }
+  return { kind: "", token: "" };
+}
+
+function applyXmppConsoleScopeArg(rawArg = "", conversation = getActiveConversation(), account = getCurrentAccount()) {
+  const argText = (rawArg || "").toString().trim();
+  if (!argText || /^all$/i.test(argText) || /^clear$/i.test(argText) || /^reset$/i.test(argText)) {
+    xmppDebugSearch = "";
+    return { ok: true, scoped: false, token: "", message: "Opened full XMPP inspector log." };
+  }
+  const scopeFromConversation = xmppConsoleScopeTargetFromConversation(conversation, account);
+  const [scopeRaw, ...rest] = argText.split(/\s+/).filter(Boolean);
+  const scope = (scopeRaw || "").toString().trim().toLowerCase();
+  let token = "";
+  if (scope === "here") {
+    token = scopeFromConversation.token;
+  } else if (scope === "dm" || scope === "peer" || scope === "jid" || scope === "user") {
+    token = xmppBareJid(rest.join(" ")) || (scopeFromConversation.kind === "dm" ? scopeFromConversation.token : "");
+  } else if (scope === "room" || scope === "channel" || scope === "muc") {
+    token = xmppBareJid(rest.join(" ")) || (scopeFromConversation.kind === "room" ? scopeFromConversation.token : "");
+  } else {
+    token = xmppBareJid(argText) || argText.toLowerCase();
+  }
+  if (!token) {
+    return {
+      ok: false,
+      scoped: false,
+      token: "",
+      message: "No XMPP DM/room scope was found. Try /xmppconsole all."
+    };
+  }
+  xmppDebugSearch = token;
+  return { ok: true, scoped: true, token, message: `Opened XMPP inspector scoped to "${token}".` };
+}
+
 function formatDebugLogs() {
   const runtime = {
     location: window.location.href,
@@ -22117,6 +22452,13 @@ function handleSlashCommand(rawText, channel, account) {
 
   if (command === "shortcuts") {
     openShortcutsDialog();
+    return true;
+  }
+
+  if (command === "xmppconsole" || command === "xmppinspect") {
+    const scoped = applyXmppConsoleScopeArg(arg, { type: "channel", channel }, getCurrentAccount());
+    openXmppConsoleDialog();
+    addSystemMessage(channel, scoped.message);
     return true;
   }
 
@@ -37793,6 +38135,12 @@ ui.messageForm.addEventListener("submit", (event) => {
       if (!requestDevtoolsToggle()) {
         showToast("DevTools toggle is only available in the Electron app.", { tone: "error" });
       }
+      return;
+    }
+    if (dmCommand === "xmppconsole" || dmCommand === "xmppinspect") {
+      const scoped = applyXmppConsoleScopeArg(dmArg, { type: "dm", thread: conversation.thread }, getCurrentAccount());
+      openXmppConsoleDialog();
+      showToast(scoped.message, { tone: scoped.ok ? "info" : "error" });
       return;
     }
     if (dmCommand === "relay") {
