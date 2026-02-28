@@ -172,8 +172,8 @@ select {
 
 body[data-platform="android"] {
   --android-touch-size: 40px;
-  --android-safe-extra-top: 22px;
-  --android-safe-extra-bottom: 20px;
+  --android-safe-extra-top: 28px;
+  --android-safe-extra-bottom: 26px;
 }
 
 body[data-platform="android"] #app {
@@ -222,6 +222,10 @@ body[data-platform="android"] .member-filter-btn {
 
 body[data-platform="android"] .message-form {
   padding: 0.4rem 0.55rem;
+}
+
+body[data-platform="android"] .composer-stack {
+  padding-bottom: calc(1.1rem + (var(--android-safe-extra-bottom) * 0.45));
 }
 
 body[data-platform="android"] .message-form textarea {
@@ -6452,6 +6456,10 @@ body[data-debug-overlay="on"] .chat-panel {
 
   .composer-stack {
     padding: 0.24rem 0.55rem 0.72rem;
+  }
+
+  body[data-platform="android"] .composer-stack {
+    padding-bottom: calc(0.72rem + (var(--android-safe-extra-bottom) * 0.45));
   }
 
   .media-picker {

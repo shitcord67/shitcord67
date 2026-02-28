@@ -548,6 +548,7 @@ function updateRuntimeSafeArea() {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   if (!root) return;
+  const isAndroid = document.body?.dataset?.platform === "android";
   const nativeInsets = normalizeNativeAndroidInsets(window.__shitcord67AndroidInsets);
   const viewport = window.visualViewport;
   let safeTop = 0;
@@ -571,6 +572,14 @@ function updateRuntimeSafeArea() {
     safeRight = Math.max(safeRight, nativeInsets.right);
     safeBottom = Math.max(safeBottom, nativeInsets.bottom);
     safeLeft = Math.max(safeLeft, nativeInsets.left);
+  }
+  if (isAndroid) {
+    const viewportHeight = viewport && Number.isFinite(viewport.height) ? viewport.height : window.innerHeight;
+    const viewportOffsetTop = viewport && Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
+    const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
+    const keyboardLikelyOpen = keyboardGap >= 110;
+    safeTop = Math.max(safeTop, 24);
+    if (!keyboardLikelyOpen) safeBottom = Math.max(safeBottom, 24);
   }
   root.style.setProperty("--runtime-safe-top", `${Math.round(safeTop)}px`);
   root.style.setProperty("--runtime-safe-right", `${Math.round(safeRight)}px`);
@@ -15281,6 +15290,32 @@ function connectRelaySocket({ force = false } = {}) {
             });
             if (handledJingle) return;
           }
+          if (jingleAction && ownAuthor && allowSelf && !history && ["reject", "retract"].includes(jingleAction.action)) {
+            const localFullJid = normalizeXmppJid(xmppConnection?.jid || getPreferences().xmppJid || "");
+            const fromFullJid = normalizeXmppJid(stanza.getAttribute("from") || "");
+            const fromOtherOwnResource = Boolean(fromFullJid && localFullJid && fromFullJid !== localFullJid);
+            if (fromOtherOwnResource) {
+              const stopId = (jingleAction.id || "").toString().trim()
+                || latestXmppCallSessionIdForPeer(peerBare, "outgoing")
+                || latestXmppCallSessionIdForPeer(peerBare, "incoming");
+              if (stopId) {
+                stopWebCallRingtone(stopId);
+                forgetXmppCallSession(stopId);
+              }
+              addXmppDebugEvent("call", "Observed own-resource jingle stop action", {
+                from: fromFullJid,
+                peer: peerBare,
+                action: jingleAction.action,
+                id: stopId || ""
+              });
+              const label = jingleAction.action === "reject" ? "rejected" : "cancelled";
+              showToast(`Call ${label} from another logged-in XMPP client.`);
+              if (addSystemDmMessageByPeerJid(peerBare, `XMPP call proposal ${label} from another logged-in client (${(stopId || "").slice(0, 8)}).`)) {
+                refreshDmUiForPeerJid(peerBare);
+              }
+              return;
+            }
+          }
           const callInvite = parseXmppCallInviteAction(stanza);
           if (callInvite && !ownAuthor && !history) {
             const inviteId = callInvite.action === "invite"
@@ -25010,6 +25045,12 @@ function rtfToPlainText(rtf) {
 
 async function loadSwfLibrary() {
   const manifestCandidates = [
+    "/swf/index.json",
+    "/swf/swf-index.json",
+    "/swf-index.json",
+    "./swf/index.json",
+    "./swf/swf-index.json",
+    "./swf-index.json",
     "swf/index.json",
     "swf/swf-index.json",
     "swf-index.json"
@@ -28880,14 +28921,44 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       refreshSwfRuntimeHealthUi(runtimeKey);
       requestSwfRuntimeLayoutSync();
     }
-    const proxyCandidate = resolveMediaPlaybackUrl(mediaUrl, { kind: "swf" });
-    const urlCandidates = [...new Set([proxyCandidate, mediaUrl].filter(Boolean))];
-    try {
-      const decoded = decodeURI(mediaUrl);
-      if (!urlCandidates.includes(decoded)) urlCandidates.push(decoded);
-    } catch {
-      // ignore
-    }
+    const rawAttachmentUrl = (attachment?.url || "").toString().trim();
+    const addUrlVariant = (target, candidate) => {
+      const value = (candidate || "").toString().trim();
+      if (!value) return;
+      if (!target.includes(value)) target.push(value);
+    };
+    const buildSwfUrlCandidates = () => {
+      const candidates = [];
+      addUrlVariant(candidates, resolveMediaPlaybackUrl(mediaUrl, { kind: "swf" }));
+      addUrlVariant(candidates, mediaUrl);
+      try {
+        addUrlVariant(candidates, decodeURI(mediaUrl));
+      } catch {
+        // ignore decode failures
+      }
+      if (rawAttachmentUrl) {
+        const rawWithoutDotSlash = rawAttachmentUrl.replace(/^\.\//, "");
+        addUrlVariant(candidates, rawAttachmentUrl);
+        addUrlVariant(candidates, rawWithoutDotSlash);
+        addUrlVariant(candidates, `./${rawWithoutDotSlash}`);
+        addUrlVariant(candidates, `/${rawWithoutDotSlash.replace(/^\/+/, "")}`);
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(rawWithoutDotSlash) && !rawWithoutDotSlash.startsWith("swf/")) {
+          addUrlVariant(candidates, `swf/${rawWithoutDotSlash.replace(/^\/+/, "")}`);
+          addUrlVariant(candidates, `/swf/${rawWithoutDotSlash.replace(/^\/+/, "")}`);
+        }
+        if (rawWithoutDotSlash.startsWith("swf/")) {
+          const stripped = rawWithoutDotSlash.slice(4);
+          addUrlVariant(candidates, stripped);
+          addUrlVariant(candidates, `/${stripped.replace(/^\/+/, "")}`);
+        }
+      }
+      const resolvedCandidates = [];
+      candidates.forEach((candidate) => {
+        addUrlVariant(resolvedCandidates, resolveMediaPlaybackUrl(candidate, { kind: "swf" }) || resolveMediaUrl(candidate) || candidate);
+      });
+      return resolvedCandidates;
+    };
+    const urlCandidates = buildSwfUrlCandidates();
     const loadWithFallback = async () => {
       const resolveLoadState = () => {
         const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
