@@ -378,6 +378,7 @@ Notes:
 - XMPP roster push updates (`iq type='set'` roster) now apply live and update mapped DM contacts without reconnecting.
 - Joined/seen XMPP MUC rooms now auto-materialize as channels under `XMPP Spaces`, so room traffic does not fall back into the wrong active channel.
 - Incoming XMPP direct room invites (`jabber:x:conference`, XEP-0249) are now detected in DMs, invited rooms are mapped into `XMPP Spaces`, and invite notes include `/joinxmpp <room-jid>` quick-join guidance.
+- DM slash controls now support `/joinxmpp` and `/invitexmpp` so you can join invited rooms and send direct XMPP room invites (`jabber:x:conference`) from one-to-one chats.
 - XMPP room joins now request room history via MAM (`urn:xmpp:mam:2`) in incremental pages (latest first, then older pages on demand while scrolling up or via `Load older messages`).
 - XMPP room history loading now keeps a per-room MAM cursor (`RSM before`) so older pages can be fetched progressively instead of preloading everything at room-open time.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.

@@ -650,6 +650,7 @@ const SLASH_COMMANDS = [
   { name: "xmppconsole", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Open XMPP inspector/log console (supports DM/room scoping)." },
   { name: "xmppinspect", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Alias for /xmppconsole." },
   { name: "joinxmpp", args: "<room@conference.domain>", description: "Join an XMPP MUC room and map it into XMPP Spaces." },
+  { name: "invitexmpp", args: "<room@conference.domain> [| reason [| password]]", description: "Send XMPP direct room invite to current DM peer." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
@@ -5837,6 +5838,68 @@ function rememberXmppDirectMucInviteSeen(key = "") {
     xmppSeenDirectMucInviteKeys.delete(oldest);
   }
   return true;
+}
+
+function normalizeXmppRoomJoinArg(rawArg = "") {
+  return xmppBareJid((rawArg || "").toString().trim().replace(/^xmpp:/i, ""));
+}
+
+function parseXmppDirectMucInviteCommandArg(rawArg = "") {
+  const [roomTokenRaw, reasonRaw = "", passwordRaw = ""] = (rawArg || "").toString().split("|");
+  const roomJid = normalizeXmppRoomJoinArg(roomTokenRaw);
+  const reason = decodeHtmlEntities((reasonRaw || "").toString()).replace(/\s+/g, " ").trim().slice(0, 280);
+  const password = (passwordRaw || "").toString().trim().slice(0, 120);
+  return { roomJid, reason, password };
+}
+
+function xmppSendDirectMucInvite(peerJid = "", roomJid = "", {
+  reason = "",
+  password = "",
+  thread = "",
+  continueThread = false,
+  preferFull = true
+} = {}) {
+  if (!xmppConnection || !globalThis.$msg || relayStatus !== "connected") {
+    return { ok: false, reason: "xmpp-offline" };
+  }
+  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull }) || xmppBareJid(peerJid);
+  const roomBare = normalizeXmppRoomJoinArg(roomJid);
+  if (!to) return { ok: false, reason: "invalid-peer" };
+  if (!roomBare) return { ok: false, reason: "invalid-room" };
+  const stanzaId = `mucinv-${createId().slice(0, 12)}`;
+  const reasonText = (reason || "").toString().trim().slice(0, 280);
+  const passwordText = (password || "").toString().trim().slice(0, 120);
+  const threadText = (thread || "").toString().trim().slice(0, 160);
+  const attrs = {
+    xmlns: XMPP_DIRECT_MUC_INVITE_NAMESPACE,
+    jid: roomBare
+  };
+  if (reasonText) attrs.reason = reasonText;
+  if (passwordText) attrs.password = passwordText;
+  if (threadText) attrs.thread = threadText;
+  if (continueThread) attrs.continue = "true";
+  const stanza = globalThis.$msg({ to, type: "chat", id: stanzaId });
+  const inviteBuilder = stanza.c("x", attrs);
+  if (reasonText) inviteBuilder.c("reason").t(reasonText).up();
+  if (passwordText) inviteBuilder.c("password").t(passwordText).up();
+  inviteBuilder.up();
+  const fallbackBody = `XMPP room invite: ${roomBare}${reasonText ? ` (${reasonText})` : ""}`;
+  stanza.c("body").t(fallbackBody.slice(0, 320)).up();
+  xmppConnection.send(stanza);
+  addXmppDebugEvent("message", "Sent direct MUC invite", {
+    to,
+    roomJid: roomBare,
+    id: stanzaId,
+    reason: reasonText || "",
+    hasPassword: Boolean(passwordText),
+    continueThread: Boolean(continueThread)
+  });
+  return {
+    ok: true,
+    id: stanzaId,
+    to,
+    roomJid: roomBare
+  };
 }
 
 function parseXmppCallInviteAction(stanza) {
@@ -20942,6 +21005,60 @@ function parseTimestampArg(arg) {
   return Math.floor(parsed / 1000);
 }
 
+function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focus = false } = {}) {
+  const roomJid = normalizeXmppRoomJoinArg(rawRoomArg);
+  if (!roomJid) {
+    return {
+      ok: false,
+      joined: false,
+      roomJid: "",
+      message: "Usage: /joinxmpp <room@conference.example.org>"
+    };
+  }
+  const roomToken = `xmpp:${roomJid}`;
+  xmppRoomByJid.set(roomJid, roomToken);
+  const mapped = upsertXmppRoomChannel(roomJid, {
+    roomName: roomJid.split("@")[0] || "",
+    roomToken,
+    account,
+    prefs: getPreferences(),
+    persist: false
+  });
+  let focusChanged = false;
+  if (focus && mapped.channel) {
+    const guild = findGuildByChannelId(mapped.channel.id);
+    if (guild) {
+      if (state.viewMode !== "guild") {
+        state.viewMode = "guild";
+        focusChanged = true;
+      }
+      if (state.activeGuildId !== guild.id) {
+        state.activeGuildId = guild.id;
+        focusChanged = true;
+      }
+      if (state.activeChannelId !== mapped.channel.id) {
+        state.activeChannelId = mapped.channel.id;
+        focusChanged = true;
+      }
+    }
+  }
+  const joined = joinXmppRoom(roomToken, account);
+  if (mapped.changed || focusChanged) {
+    saveState();
+    render();
+  } else if (joined) {
+    renderChannels();
+  }
+  return {
+    ok: true,
+    joined,
+    roomJid,
+    message: joined
+      ? `Joining XMPP room ${roomJid}.`
+      : `Added room ${roomJid} to XMPP Spaces. Connect XMPP relay and run /joinxmpp ${roomJid} again for live join.`
+  };
+}
+
 function handleSlashCommand(rawText, channel, account) {
   if (!rawText.startsWith("/")) return false;
   const [commandRaw, ...rest] = rawText.slice(1).split(" ");
@@ -22296,34 +22413,16 @@ function handleSlashCommand(rawText, channel, account) {
   }
 
   if (command === "joinxmpp" || command === "joinmuc") {
-    const roomArg = (arg || "").trim().replace(/^xmpp:/i, "");
-    const roomJid = xmppBareJid(roomArg);
-    if (!roomJid) {
-      addSystemMessage(channel, "Usage: /joinxmpp <room@conference.example.org>");
-      return true;
-    }
-    const roomToken = `xmpp:${roomJid}`;
-    xmppRoomByJid.set(roomJid, roomToken);
-    const mapped = upsertXmppRoomChannel(roomJid, {
-      roomName: roomJid.split("@")[0] || "",
-      roomToken,
-      account,
-      prefs: getPreferences(),
-      persist: false
-    });
-    if (mapped.changed) {
-      renderServers();
-      renderChannels();
-    }
-    const joined = joinXmppRoom(roomToken, account);
-    if (joined) {
-      addSystemMessage(channel, `Joining XMPP room ${roomJid}.`);
-    } else {
-      addSystemMessage(
-        channel,
-        `Added room ${roomJid} to XMPP Spaces. Connect XMPP relay and run /joinxmpp ${roomJid} again for live join.`
-      );
-    }
+    const result = handleJoinXmppCommand(arg, account, { focus: true });
+    addSystemMessage(channel, result.message);
+    return true;
+  }
+
+  if (command === "invitexmpp" || command === "invitemuc") {
+    addSystemMessage(
+      channel,
+      "This command works in XMPP DMs. Use /invitexmpp <room@conference.domain> [| reason [| password]] in a DM."
+    );
     return true;
   }
 
@@ -39057,6 +39156,44 @@ ui.messageForm.addEventListener("submit", (event) => {
       }
       const wantsPost = action === "post" || action === "fallback";
       launchConversationWhiteboard({ roomOverride, autoPost: wantsPost });
+      return;
+    }
+    if (dmCommand === "joinxmpp" || dmCommand === "joinmuc") {
+      const result = handleJoinXmppCommand(dmArg, account, { focus: true });
+      showToast(result.message, { tone: result.ok ? "info" : "error", duration: result.ok ? 2200 : 3200 });
+      return;
+    }
+    if (dmCommand === "invitexmpp" || dmCommand === "invitemuc") {
+      const peerBare = xmppBareJid(xmppPeerJidForDmThread(conversation.thread, account));
+      if (!peerBare) {
+        showToast("Active DM is not XMPP-backed.", { tone: "error" });
+        return;
+      }
+      const inviteArgs = parseXmppDirectMucInviteCommandArg(dmArg);
+      if (!inviteArgs.roomJid) {
+        showToast("Usage: /invitexmpp <room@conference.example.org> [| reason [| password]]", { tone: "error" });
+        return;
+      }
+      const sent = xmppSendDirectMucInvite(peerBare, inviteArgs.roomJid, {
+        reason: inviteArgs.reason,
+        password: inviteArgs.password,
+        thread: (conversation.thread?.id || "").toString().trim().slice(0, 120),
+        continueThread: false,
+        preferFull: true
+      });
+      if (!sent.ok) {
+        const reason = sent.reason === "xmpp-offline"
+          ? "XMPP relay is not connected."
+          : (sent.reason === "invalid-room"
+            ? "Invalid XMPP room JID."
+            : "Could not send XMPP room invite.");
+        showToast(reason, { tone: "error" });
+        return;
+      }
+      if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP room invite: ${inviteArgs.roomJid}${inviteArgs.reason ? ` (${inviteArgs.reason})` : ""}.`)) {
+        refreshDmUiForPeerJid(peerBare);
+      }
+      showToast("XMPP room invite sent.");
       return;
     }
     if (dmCommand === "focus") {
