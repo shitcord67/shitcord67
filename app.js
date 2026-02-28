@@ -12056,6 +12056,23 @@ function xmppExtractOobAttachments(stanza) {
   xmppElementsByLocalName(stanza, "media-sharing")
     .filter((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE))
     .forEach((node) => upsertMediaSharingNode(node));
+  xmppElementsByLocalName(stanza, "file")
+    .filter((node) => xmppNodeHasXmlns(node, XMPP_FILE_METADATA_NAMESPACE))
+    .forEach((node) => {
+      const nameNode = xmppElementsByLocalName(node, "name")[0] || null;
+      const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
+      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
+      const uriNodes = xmppElementsByLocalName(node, "uri");
+      const fileName = (xmppNodeText(nameNode) || xmppNodeText(descNode) || "").toString().trim();
+      const fileMime = (xmppNodeText(mediaTypeNode) || "").toString().trim();
+      uriNodes.forEach((uriNode) => {
+        upsert({
+          url: xmppNodeText(uriNode) || uriNode?.getAttribute?.("uri") || "",
+          name: fileName,
+          mime: fileMime
+        });
+      });
+    });
   xmppElementsByLocalName(stanza, "img")
     .forEach((node) => {
       const src = (node.getAttribute?.("src") || "").toString().trim();
@@ -12078,6 +12095,31 @@ function xmppExtractOobAttachments(stanza) {
         mime: hintedMime
       });
     });
+  const shouldTreatLinkAsAttachment = (href, hintedMime = "", hintedType = "") => {
+    const normalizedHref = (href || "").toString().trim();
+    if (!normalizedHref) return false;
+    const inferred = inferAttachmentTypeFromUrl(normalizedHref);
+    if (inferred && inferred !== "file") return true;
+    const mimeType = (hintedMime || "").toString().trim();
+    const inferredFromMime = inferAttachmentTypeFromMime(mimeType);
+    if (inferredFromMime && inferredFromMime !== "file") return true;
+    const typeHint = (hintedType || "").toString().toLowerCase();
+    if (/(sticker|image|img|gif|video|audio)/i.test(typeHint)) return true;
+    return false;
+  };
+  xmppElementsByLocalName(stanza, "a")
+    .forEach((node) => {
+      const href = (node.getAttribute?.("href") || "").toString().trim();
+      if (!href) return;
+      const hintedMime = (node.getAttribute?.("type") || node.getAttribute?.("data-mime") || "").toString().trim();
+      const hintedType = (node.getAttribute?.("data-type") || "").toString().trim();
+      if (!shouldTreatLinkAsAttachment(href, hintedMime, hintedType)) return;
+      upsert({
+        url: href,
+        name: (node.getAttribute?.("title") || node.getAttribute?.("data-name") || "").toString().trim(),
+        mime: hintedMime
+      });
+    });
   return out.slice(0, 6);
 }
 
@@ -12092,6 +12134,9 @@ function xmppHasOobAttachmentHint(stanza) {
   const hasMediaSharing = xmppElementsByLocalName(stanza, "media-sharing")
     .some((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE));
   if (hasMediaSharing) return true;
+  const hasFileMetadata = xmppElementsByLocalName(stanza, "file")
+    .some((node) => xmppNodeHasXmlns(node, XMPP_FILE_METADATA_NAMESPACE));
+  if (hasFileMetadata) return true;
   return xmppElementsByLocalName(stanza, "reference")
     .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
     .some((node) => {
@@ -12151,6 +12196,8 @@ function xmppLooksLikeAttachmentFallbackText(text = "") {
     .trim();
   if (!normalized) return false;
   if (/^(ein|a)\s+sticker\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
+  if (/^sent\s+a\s+sticker\b/.test(normalized)) return true;
+  if (/^sticker\s+sent\b/.test(normalized)) return true;
   if (/^\bsticker\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
   if (/^(ein|a)\s+aufkleber\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
   return false;
@@ -13287,17 +13334,32 @@ function reportXmppMucJoinError(roomJid, nick, stanza) {
   if (mappedChannel && state.activeChannelId === mappedChannel.id) renderMessages();
 }
 
-function xmppHasEncryptedPayload(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return false;
-  const hasLegacyOmemo = [...stanza.getElementsByTagName("encrypted")]
+function xmppEncryptedPayloadInfo(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") {
+    return { encrypted: false, type: "", label: "" };
+  }
+  const encryptedNodes = [...stanza.getElementsByTagName("encrypted")];
+  const hasLegacyOmemo = encryptedNodes
     .some((node) => xmppNodeHasXmlns(node, "eu.siacs.conversations.axolotl"));
-  if (hasLegacyOmemo) return true;
-  const hasOmemo2 = [...stanza.getElementsByTagName("encrypted")]
-    .some((node) => xmppNodeHasXmlns(node, "urn:xmpp:omemo:2"));
-  if (hasOmemo2) return true;
+  if (hasLegacyOmemo) return { encrypted: true, type: "omemo", label: "OMEMO" };
+  const hasOmemo = encryptedNodes
+    .some((node) => xmppNodeHasXmlnsPrefix(node, "urn:xmpp:omemo:"));
+  if (hasOmemo) return { encrypted: true, type: "omemo2", label: "OMEMO" };
   const hasPgp = [...stanza.getElementsByTagName("x")]
     .some((node) => xmppNodeHasXmlns(node, "jabber:x:encrypted"));
-  return hasPgp;
+  if (hasPgp) return { encrypted: true, type: "pgp", label: "OpenPGP" };
+  return { encrypted: false, type: "", label: "" };
+}
+
+function xmppHasEncryptedPayload(stanza) {
+  return xmppEncryptedPayloadInfo(stanza).encrypted;
+}
+
+function xmppEncryptedPlaceholderLabel(info) {
+  if (!info || !info.encrypted) return "";
+  const label = (info.label || "").toString().trim();
+  if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
+  return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
 }
 
 function ensureXmppMamState(roomJid) {
@@ -14377,6 +14439,9 @@ function applyRelayIncomingMessage(packet) {
     xmppStanzaId: remoteClientId.startsWith("xmpp:") ? remoteMessageId : "",
     xmppRefIds: remoteClientId.startsWith("xmpp:") ? remoteXmppRefIds : [],
     xmppNick: remoteClientId.startsWith("xmpp:") ? (remoteMessage.authorDisplay || remoteMessage.authorUsername || "") : "",
+    xmppEncrypted: remoteClientId.startsWith("xmpp:") ? Boolean(remoteMessage.xmppEncrypted) : false,
+    xmppEncryptedType: remoteClientId.startsWith("xmpp:") ? (remoteMessage.xmppEncryptedType || "").toString() : "",
+    xmppEncryptedLabel: remoteClientId.startsWith("xmpp:") ? (remoteMessage.xmppEncryptedLabel || "").toString() : "",
     userId: remoteAccount.id,
     authorName: "",
     text: clampMessageTextForStorage(decodeHtmlEntities((remoteMessage.text || "").toString())),
@@ -14571,14 +14636,15 @@ function connectRelaySocket({ force = false } = {}) {
         const subjectNode = xmppDirectChildByLocalName(stanza, "subject");
         const bodyText = (preferredBodyText || decodeHtmlEntities(xmppNodeText(bodyNode))).trim();
         const subjectText = decodeHtmlEntities(xmppNodeText(subjectNode)).trim();
-        const encrypted = xmppHasEncryptedPayload(stanza);
+        const encryptedInfo = xmppEncryptedPayloadInfo(stanza);
+        const encrypted = encryptedInfo.encrypted;
         const attachmentHint = xmppHasOobAttachmentHint(stanza);
         let text = bodyText;
         if (!text && subjectText) {
           text = type === "groupchat" ? `[Room subject] ${subjectText}` : subjectText;
         }
         if (!text && encrypted) {
-          text = "[Encrypted XMPP message (OMEMO/PGP) — decryption is not available in this client yet]";
+          text = `[${xmppEncryptedPlaceholderLabel(encryptedInfo)}]`;
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         let attachmentEntries = xmppExtractOobAttachments(stanza);
@@ -14971,6 +15037,9 @@ function connectRelaySocket({ force = false } = {}) {
               authorDisplay,
               authorJid,
               xmppRefIds: stanzaRefs,
+              xmppEncrypted: encrypted,
+              xmppEncryptedType: encryptedInfo.type || "",
+              xmppEncryptedLabel: encryptedInfo.label || "",
               attachments,
               replyTo: replyMeta,
               history,
@@ -15222,6 +15291,9 @@ function connectRelaySocket({ force = false } = {}) {
             authorDisplay: nick || "",
             authorJid,
             xmppRefIds: stanzaRefs,
+            xmppEncrypted: encrypted,
+            xmppEncryptedType: encryptedInfo.type || "",
+            xmppEncryptedLabel: encryptedInfo.label || "",
             attachments,
             replyTo: replyMeta,
             history,
@@ -33858,6 +33930,16 @@ function renderMessages() {
         showToast(copied ? "Timestamp copied." : "Failed to copy timestamp.", { tone: copied ? "info" : "error" });
       });
     });
+    let encryptedBadge = null;
+    if (message.xmppEncrypted) {
+      const label = (message.xmppEncryptedLabel || "").toString().trim() || "Encrypted";
+      encryptedBadge = document.createElement("span");
+      encryptedBadge.className = "message-encrypted";
+      encryptedBadge.textContent = label;
+      encryptedBadge.title = label !== "Encrypted"
+        ? `Encrypted XMPP message (${label})`
+        : "Encrypted XMPP message";
+    }
     let deliveryBadge = null;
     if (isDm && currentAccount?.id && message.userId === currentAccount.id) {
       const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
@@ -34104,6 +34186,7 @@ function renderMessages() {
     head.appendChild(userButton);
     if (userTagButton) head.appendChild(userTagButton);
     head.appendChild(time);
+    if (encryptedBadge) head.appendChild(encryptedBadge);
     if (deliveryBadge) head.appendChild(deliveryBadge);
     if (collaborativeBadge) head.appendChild(collaborativeBadge);
     if (editedBadge) head.appendChild(editedBadge);

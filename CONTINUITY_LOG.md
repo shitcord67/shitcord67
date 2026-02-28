@@ -2081,3 +2081,7 @@ Also can't we mark in the wishlist which XEPs we already have implemented by usi
 
 ## 2026-02-28T02:21:58Z
 Like fully implemented. And for things that are worked on or partially implemented for shitcord67 🚧 maybe? You may also use other emojis
+
+[2026-02-28T04:16:25.919717] Can you continue working? The Movim stuff and OMEMO messages for example
+
+[2026-02-28T04:16:44.582615] Also the spaces thing is very high priority as well I heard

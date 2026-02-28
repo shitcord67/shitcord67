@@ -108,7 +108,7 @@
 - [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
 - [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).
-- [priority] Track and implement XEP-0503 (Draft) spaces model for Discord-like server/space hierarchy.
+- [priority] (High) Track and implement XEP-0503 (Draft) spaces model for Discord-like server/space hierarchy.
 - [done] Per-guild notification settings (mute/mentions only/all).
 - [done] Slash command `/relay reconnect` to force transport reconnect without changing mode.
 - [done] Slash command `/relay autoconnect <on|off|status>` to manage transport auto-connect behavior.
