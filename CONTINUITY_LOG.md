@@ -2069,3 +2069,6 @@ Can you continue? Especially look at the issues file.
 
 ## 2026-02-28T01:28:40Z
 And this most definitely makes the devtools appear? Also maybe more improvements to make movim? And please rewrite the git author history
+
+## 2026-02-28T02:08:33Z
+Is there also some XEP wishlist / list of unsupported XEPs + rating and sorting on how much it makes sense to implement or if we should not implement it at all + reasons?
