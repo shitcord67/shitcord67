@@ -48,6 +48,8 @@ const XMPP_JINGLE_VIDEO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:video";
 const XMPP_SIMS_NAMESPACE = "urn:xmpp:sims:1";
 const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
+const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
+const XMPP_OCCUPANT_ID_NAMESPACE = "urn:xmpp:occupant-id:0";
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
 const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
@@ -647,6 +649,7 @@ const SLASH_COMMANDS = [
   { name: "devtools", args: "", description: "Toggle Electron DevTools." },
   { name: "xmppconsole", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Open XMPP inspector/log console (supports DM/room scoping)." },
   { name: "xmppinspect", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Alias for /xmppconsole." },
+  { name: "joinxmpp", args: "<room@conference.domain>", description: "Join an XMPP MUC room and map it into XMPP Spaces." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
@@ -1763,6 +1766,8 @@ const xmppHttpUploadDiscoveryInFlight = new Map();
 const xmppMucAvatarByOccupantKey = new Map();
 const xmppMucAvatarFetchInFlight = new Set();
 const xmppKnownMucOccupantJidByKey = new Map();
+const xmppSeenDirectMucInviteKeys = new Set();
+const XMPP_DIRECT_MUC_INVITE_SEEN_MAX = 512;
 const xmppIncomingContactRequestsByJid = new Map();
 const xmppOutgoingContactRequestsByJid = new Map();
 const xmppMucJoinStateByRoomJid = new Map();
@@ -5786,6 +5791,52 @@ function parseCallInviteFromText(text = "") {
     screenShare,
     providerMatches
   };
+}
+
+function parseXmppDirectMucInvite(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const inviteNode = xmppElementsByLocalName(stanza, "x")
+    .find((entry) => (
+      xmppNodeHasXmlns(entry, XMPP_DIRECT_MUC_INVITE_NAMESPACE)
+      || (entry.parentNode === stanza && !xmppNodeXmlns(entry) && Boolean(entry.getAttribute("jid")))
+    )) || null;
+  if (!inviteNode) return null;
+  const roomJid = normalizeXmppJid(inviteNode.getAttribute("jid") || "").toLowerCase();
+  if (!roomJid) return null;
+  const reasonNode = xmppDirectChildByLocalName(inviteNode, "reason");
+  const passwordNode = xmppDirectChildByLocalName(inviteNode, "password");
+  const reason = decodeHtmlEntities((
+    inviteNode.getAttribute("reason")
+    || xmppNodeText(reasonNode)
+    || ""
+  ).toString()).replace(/\s+/g, " ").trim().slice(0, 280);
+  const password = (
+    inviteNode.getAttribute("password")
+    || xmppNodeText(passwordNode)
+    || ""
+  ).toString().trim().slice(0, 120);
+  const thread = (inviteNode.getAttribute("thread") || "").toString().trim().slice(0, 160);
+  const continueRaw = (inviteNode.getAttribute("continue") || "").toString().trim().toLowerCase();
+  return {
+    roomJid,
+    reason,
+    password,
+    thread,
+    continueThread: ["true", "1", "yes"].includes(continueRaw)
+  };
+}
+
+function rememberXmppDirectMucInviteSeen(key = "") {
+  const normalized = (key || "").toString().trim();
+  if (!normalized) return false;
+  if (xmppSeenDirectMucInviteKeys.has(normalized)) return false;
+  xmppSeenDirectMucInviteKeys.add(normalized);
+  while (xmppSeenDirectMucInviteKeys.size > XMPP_DIRECT_MUC_INVITE_SEEN_MAX) {
+    const oldest = xmppSeenDirectMucInviteKeys.values().next().value;
+    if (!oldest) break;
+    xmppSeenDirectMucInviteKeys.delete(oldest);
+  }
+  return true;
 }
 
 function parseXmppCallInviteAction(stanza) {
@@ -13721,6 +13772,16 @@ function xmppPresenceIdleSince(stanza) {
   return new Date(stampMs).toISOString();
 }
 
+function xmppOccupantIdFromStanza(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  const node = xmppElementsByLocalName(stanza, "occupant-id")
+    .find((entry) => (
+      xmppNodeHasXmlns(entry, XMPP_OCCUPANT_ID_NAMESPACE)
+      || xmppNodeHasXmlnsPrefix(entry, XMPP_OCCUPANT_ID_NAMESPACE)
+    )) || null;
+  return (node?.getAttribute("id") || "").toString().trim().slice(0, 200);
+}
+
 function xmppMucMessageAuthorJid(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
   const mucUserNode = [...stanza.getElementsByTagName("x")]
@@ -13737,6 +13798,17 @@ function xmppMucOccupantByNick(roomJid, nick = "") {
   if (!occupants || occupants.size === 0) return null;
   return [...occupants.values()].find((entry) => (
     (entry?.nick || "").toString().trim().toLowerCase() === nickValue
+  )) || null;
+}
+
+function xmppMucOccupantById(roomJid, occupantId = "") {
+  const bareRoom = xmppBareJid(roomJid);
+  const idValue = (occupantId || "").toString().trim();
+  if (!bareRoom || !idValue) return null;
+  const occupants = xmppOccupantsByRoomJid.get(bareRoom);
+  if (!occupants || occupants.size === 0) return null;
+  return [...occupants.values()].find((entry) => (
+    (entry?.occupantId || "").toString().trim() === idValue
   )) || null;
 }
 
@@ -13788,33 +13860,46 @@ function inferXmppAuthorJidFromRoomHistory(roomJid, nick = "") {
   return "";
 }
 
-function resolveXmppRoomActorUserId(roomJid, nick = "", stanza = null) {
+function resolveXmppRoomActorUserId(roomJid, nick = "", stanza = null, occupantIdHint = "") {
   const bareRoom = xmppBareJid(roomJid);
   const nickValue = (nick || "").toString().trim();
-  if (!bareRoom || !nickValue) return "";
+  const occupantId = (occupantIdHint || xmppOccupantIdFromStanza(stanza)).toString().trim();
+  if (!bareRoom || (!nickValue && !occupantId)) return "";
   const current = getCurrentAccount();
   const joinState = xmppMucJoinStateByRoomJid.get(bareRoom) || {};
   if (
     current?.id
+    && nickValue
     && joinState.nick
     && joinState.nick.toString().trim().toLowerCase() === nickValue.toLowerCase()
   ) {
     return current.id;
   }
+  const occupantById = occupantId ? xmppMucOccupantById(bareRoom, occupantId) : null;
+  const occupantByNick = nickValue ? xmppMucOccupantByNick(bareRoom, nickValue) : null;
+  const occupant = occupantById || occupantByNick;
+  if (occupant?.accountId) return occupant.accountId;
   let actorJid = xmppMucMessageAuthorJid(stanza);
-  if (!actorJid) {
-    const occupant = xmppMucOccupantByNick(bareRoom, nickValue);
-    if (occupant?.jid) actorJid = xmppBareJid(occupant.jid);
-    if (!actorJid && occupant?.accountId) {
-      const account = getAccountById(occupant.accountId);
-      actorJid = xmppBareJid(account?.xmppJid || "");
-    }
+  if (!actorJid && occupant?.jid) actorJid = xmppBareJid(occupant.jid);
+  if (!actorJid && occupant?.accountId) {
+    const account = getAccountById(occupant.accountId);
+    actorJid = xmppBareJid(account?.xmppJid || "");
   }
-  if (!actorJid) actorJid = inferXmppAuthorJidFromRoomHistory(bareRoom, nickValue);
-  if (!actorJid) return "";
-  rememberKnownXmppMucOccupantJid(bareRoom, nickValue, actorJid);
-  const actorAccount = ensureAccountByXmppJid(actorJid, nickValue || actorJid.split("@")[0] || "");
-  return actorAccount?.id || "";
+  if (!actorJid && nickValue) actorJid = inferXmppAuthorJidFromRoomHistory(bareRoom, nickValue);
+  if (!actorJid) return occupant?.accountId || "";
+  if (nickValue) rememberKnownXmppMucOccupantJid(bareRoom, nickValue, actorJid);
+  const actorAccount = ensureAccountByXmppJid(
+    actorJid,
+    nickValue || occupant?.nick || actorJid.split("@")[0] || ""
+  );
+  return actorAccount?.id || occupant?.accountId || "";
+}
+
+function xmppRoomAliasActorIdForOccupant(roomJid, occupantId = "") {
+  const bareRoom = xmppBareJid(roomJid);
+  const idValue = (occupantId || "").toString().trim();
+  if (!bareRoom || !idValue) return "";
+  return `xmpp-room:${bareRoom}/occupant-id:${encodeURIComponent(idValue)}`;
 }
 
 function parseXmppRoomAliasActorId(actorUserId = "") {
@@ -13824,15 +13909,21 @@ function parseXmppRoomAliasActorId(actorUserId = "") {
   const slashIndex = raw.indexOf("/");
   if (slashIndex <= 0) return null;
   const roomJid = xmppBareJid(raw.slice(0, slashIndex));
-  let nick = raw.slice(slashIndex + 1).trim();
+  let actorToken = raw.slice(slashIndex + 1).trim();
   try {
-    nick = decodeURIComponent(nick);
+    actorToken = decodeURIComponent(actorToken);
   } catch {
-    // Keep undecoded nick if URI decoding fails.
+    // Keep undecoded token if URI decoding fails.
   }
-  nick = nick.trim();
-  if (!roomJid || !nick) return null;
-  return { roomJid, nick };
+  actorToken = actorToken.trim();
+  if (!roomJid || !actorToken) return null;
+  const lowerToken = actorToken.toLowerCase();
+  if (lowerToken.startsWith("occupant-id:")) {
+    const occupantId = actorToken.slice("occupant-id:".length).trim();
+    if (!occupantId) return null;
+    return { roomJid, nick: "", occupantId };
+  }
+  return { roomJid, nick: actorToken, occupantId: "" };
 }
 
 function canonicalXmppRoomReactionActorId(roomJid, actorUserId = "") {
@@ -13844,7 +13935,12 @@ function canonicalXmppRoomReactionActorId(roomJid, actorUserId = "") {
   const effectiveRoom = bareRoom || parsedAlias.roomJid;
   if (!effectiveRoom) return actorId;
   if (bareRoom && parsedAlias.roomJid !== bareRoom) return actorId;
-  const resolved = resolveXmppRoomActorUserId(effectiveRoom, parsedAlias.nick, null);
+  const resolved = resolveXmppRoomActorUserId(
+    effectiveRoom,
+    parsedAlias.nick || "",
+    null,
+    parsedAlias.occupantId || ""
+  );
   return resolved || actorId;
 }
 
@@ -14736,6 +14832,7 @@ function teardownXmppConnection() {
   xmppMucAvatarByOccupantKey.clear();
   xmppMucAvatarFetchInFlight.clear();
   xmppKnownMucOccupantJidByKey.clear();
+  xmppSeenDirectMucInviteKeys.clear();
   xmppIncomingContactRequestsByJid.clear();
   xmppOutgoingContactRequestsByJid.clear();
   xmppMucJoinStateByRoomJid.clear();
@@ -15580,6 +15677,49 @@ function connectRelaySocket({ force = false } = {}) {
               }
             }
           }
+          const directMucInvite = parseXmppDirectMucInvite(stanza);
+          if (directMucInvite && !ownAuthor && !history) {
+            const inviteRef = xmppStanzaStableId(stanza) || stanzaMessageId || directMucInvite.roomJid;
+            const inviteKey = `${peerBare}|${directMucInvite.roomJid}|${inviteRef}`;
+            if (rememberXmppDirectMucInviteSeen(inviteKey)) {
+              const roomToken = `xmpp:${directMucInvite.roomJid}`;
+              xmppRoomByJid.set(directMucInvite.roomJid, roomToken);
+              const mapped = upsertXmppRoomChannel(directMucInvite.roomJid, {
+                roomName: directMucInvite.roomJid.split("@")[0] || "",
+                roomToken,
+                account: current,
+                prefs: getPreferences(),
+                persist: false
+              });
+              if (mapped.changed) {
+                saveState();
+                renderServers();
+                renderChannels();
+              }
+              const roomLabel = mapped.channel?.xmppRoomName
+                || mapped.channel?.name
+                || directMucInvite.roomJid.split("@")[0]
+                || directMucInvite.roomJid;
+              const systemParts = [
+                `XMPP room invite to ${directMucInvite.roomJid}.`,
+                directMucInvite.reason ? `Reason: ${directMucInvite.reason}.` : "",
+                directMucInvite.password ? "Invite includes a room password." : "",
+                `Use /joinxmpp ${directMucInvite.roomJid} to join.`
+              ].filter(Boolean);
+              if (addSystemDmMessageByPeerJid(peerBare, systemParts.join(" "))) {
+                refreshDmUiForPeerJid(peerBare);
+              }
+              showToast(`XMPP room invite from ${peerBare}: ${roomLabel}`);
+              addXmppDebugEvent("message", "Incoming direct MUC invite", {
+                from: peerBare,
+                roomJid: directMucInvite.roomJid,
+                reason: directMucInvite.reason || "",
+                hasPassword: Boolean(directMucInvite.password),
+                thread: directMucInvite.thread || "",
+                continueThread: directMucInvite.continueThread
+              });
+            }
+          }
           if (!ownAuthor && receiptRequest && stanzaMessageId && xmppConnection) {
             const receiptAck = globalThis.$msg({ to: peerBare, type: "chat" })
               .c("received", { xmlns: "urn:xmpp:receipts", id: stanzaMessageId });
@@ -15844,6 +15984,7 @@ function connectRelaySocket({ force = false } = {}) {
         const roomJid = bareFrom;
         const fallbackRoomToken = roomJid ? `xmpp:${roomJid}` : "";
         const roomToken = xmppRoomByJid.get(roomJid) || fallbackRoomToken || `xmpp:${roomJid}`;
+        const occupantId = xmppOccupantIdFromStanza(stanza);
         if (roomJid) {
           xmppRoomByJid.set(roomJid, roomToken);
           const synced = upsertXmppRoomChannel(roomJid, {
@@ -15950,10 +16091,12 @@ function connectRelaySocket({ force = false } = {}) {
           return;
         }
         if (reactionPayload) {
-          const fallbackActorId = roomJid && nick
-            ? `xmpp-room:${roomJid}/${nick.toLowerCase()}`
-            : "";
-          let actorUserId = resolveXmppRoomActorUserId(roomJid, nick, stanza) || "";
+          const fallbackActorId = occupantId
+            ? xmppRoomAliasActorIdForOccupant(roomJid, occupantId)
+            : (roomJid && nick
+              ? `xmpp-room:${roomJid}/${encodeURIComponent(nick.toLowerCase())}`
+              : "");
+          let actorUserId = resolveXmppRoomActorUserId(roomJid, nick, stanza, occupantId) || "";
           if (!actorUserId) actorUserId = fallbackActorId;
           const reactionUpdate = {
             actorUserId,
@@ -16093,14 +16236,17 @@ function connectRelaySocket({ force = false } = {}) {
           replyId: replyMeta?.stanzaId || ""
         });
         let authorJid = xmppMucMessageAuthorJid(stanza);
-        if (!authorJid && roomJid && nick) {
-          const occupant = xmppMucOccupantByNick(roomJid, nick);
-          if (occupant?.jid) authorJid = xmppBareJid(occupant.jid);
-          if (!authorJid && occupant?.accountId) {
-            const account = getAccountById(occupant.accountId);
+        if (!authorJid && roomJid) {
+          const occupant = occupantId
+            ? xmppMucOccupantById(roomJid, occupantId)
+            : null;
+          const fallbackOccupant = occupant || (nick ? xmppMucOccupantByNick(roomJid, nick) : null);
+          if (fallbackOccupant?.jid) authorJid = xmppBareJid(fallbackOccupant.jid);
+          if (!authorJid && fallbackOccupant?.accountId) {
+            const account = getAccountById(fallbackOccupant.accountId);
             authorJid = xmppBareJid(account?.xmppJid || "");
           }
-          if (!authorJid) maybeFetchXmppMucAvatar(roomJid, nick, from);
+          if (!authorJid && nick) maybeFetchXmppMucAvatar(roomJid, nick, from);
         }
         if (!authorJid && roomJid && nick) {
           authorJid = inferXmppAuthorJidFromRoomHistory(roomJid, nick);
@@ -16119,6 +16265,7 @@ function connectRelaySocket({ force = false } = {}) {
             authorUsername: nick || roomJid.split("@")[0] || "xmpp",
             authorDisplay: nick || "",
             authorJid,
+            xmppOccupantId: occupantId || "",
             xmppRefIds: stanzaRefs,
             xmppEncrypted: encrypted,
             xmppEncryptedType: encryptedInfo.type || "",
@@ -16832,6 +16979,7 @@ function connectRelaySocket({ force = false } = {}) {
             .find((node) => (node.getAttribute("xmlns") || "").toLowerCase() === "http://jabber.org/protocol/muc#user") || null;
           const itemNode = mucUserNode ? mucUserNode.getElementsByTagName("item")[0] : null;
           const occupantJid = xmppBareJid(itemNode?.getAttribute("jid") || "");
+          const occupantId = xmppOccupantIdFromStanza(stanza);
           const role = (itemNode?.getAttribute("role") || "").toString().trim().toLowerCase();
           const affiliation = (itemNode?.getAttribute("affiliation") || "").toString().trim().toLowerCase();
           const photoHash = xmppPresencePhotoHash(stanza);
@@ -16839,6 +16987,10 @@ function connectRelaySocket({ force = false } = {}) {
           if (type === "unavailable") {
             if (occupantJid) occupants.delete(occupantJid);
             for (const [key, value] of [...occupants.entries()]) {
+              if (occupantId && (value?.occupantId || "").toString().trim() === occupantId) {
+                occupants.delete(key);
+                continue;
+              }
               if ((value?.nick || "").toString().toLowerCase() === nick.toLowerCase()) {
                 occupants.delete(key);
               }
@@ -16851,6 +17003,7 @@ function connectRelaySocket({ force = false } = {}) {
             addXmppDebugEvent("presence", "MUC occupant left", {
               roomJid,
               nick,
+              occupantId: occupantId || "",
               jid: occupantJid || "",
               role,
               affiliation
@@ -16868,20 +17021,30 @@ function connectRelaySocket({ force = false } = {}) {
                 if ((value?.nick || "").toString().toLowerCase() === nick.toLowerCase()) {
                   occupants.delete(key);
                 }
+                if (occupantId && (value?.occupantId || "").toString().trim() === occupantId) {
+                  occupants.delete(key);
+                }
+              }
+            } else if (occupantId) {
+              for (const [key, value] of [...occupants.entries()]) {
+                if ((value?.occupantId || "").toString().trim() !== occupantId) continue;
+                occupants.delete(key);
               }
             }
-            const occupantKey = occupantJid || nick.toLowerCase();
+            const occupantKey = occupantJid || (occupantId ? `occupant:${occupantId}` : nick.toLowerCase());
             occupants.set(occupantKey, {
               nick,
               jid: occupantJid,
               role,
               affiliation,
-              accountId: account?.id || ""
+              accountId: account?.id || "",
+              occupantId
             });
             xmppOccupantsByRoomJid.set(roomJid, occupants);
             addXmppDebugEvent("presence", "MUC occupant updated", {
               roomJid,
               nick,
+              occupantId: occupantId || "",
               jid: occupantJid || "",
               role,
               affiliation
@@ -17600,6 +17763,8 @@ function xmppClientDiscoFeatures() {
     XMPP_MESSAGE_RETRACT_NAMESPACE,
     XMPP_FASTEN_NAMESPACE,
     XMPP_CHAT_MARKERS_NAMESPACE,
+    XMPP_DIRECT_MUC_INVITE_NAMESPACE,
+    XMPP_OCCUPANT_ID_NAMESPACE,
     XMPP_IDLE_NAMESPACE,
     "urn:xmpp:ping"
   ];
@@ -19480,6 +19645,15 @@ function reactionDisplayNameForActorId(actorUserId, { conversation = null, guild
   const account = getAccountById(actorId);
   if (account) return displayNameForAccount(account, guildId);
   const alias = parseXmppRoomAliasActorId(actorId);
+  if (alias?.occupantId) {
+    const occupant = xmppMucOccupantById(alias.roomJid, alias.occupantId);
+    if (occupant?.accountId) {
+      const linked = getAccountById(occupant.accountId);
+      if (linked) return displayNameForAccount(linked, guildId);
+    }
+    if (occupant?.nick) return occupant.nick;
+    return `occupant ${alias.occupantId.slice(0, 8)}`;
+  }
   if (alias?.nick) return alias.nick;
   return actorId;
 }
@@ -22118,6 +22292,38 @@ function handleSlashCommand(rawText, channel, account) {
     const lowerRaw = raw.toLowerCase();
     const screenShare = lowerRaw === "screen" || lowerRaw === "screenshare" || lowerRaw === "share";
     launchNativeXmppConversationCall({ screenShare });
+    return true;
+  }
+
+  if (command === "joinxmpp" || command === "joinmuc") {
+    const roomArg = (arg || "").trim().replace(/^xmpp:/i, "");
+    const roomJid = xmppBareJid(roomArg);
+    if (!roomJid) {
+      addSystemMessage(channel, "Usage: /joinxmpp <room@conference.example.org>");
+      return true;
+    }
+    const roomToken = `xmpp:${roomJid}`;
+    xmppRoomByJid.set(roomJid, roomToken);
+    const mapped = upsertXmppRoomChannel(roomJid, {
+      roomName: roomJid.split("@")[0] || "",
+      roomToken,
+      account,
+      prefs: getPreferences(),
+      persist: false
+    });
+    if (mapped.changed) {
+      renderServers();
+      renderChannels();
+    }
+    const joined = joinXmppRoom(roomToken, account);
+    if (joined) {
+      addSystemMessage(channel, `Joining XMPP room ${roomJid}.`);
+    } else {
+      addSystemMessage(
+        channel,
+        `Added room ${roomJid} to XMPP Spaces. Connect XMPP relay and run /joinxmpp ${roomJid} again for live join.`
+      );
+    }
     return true;
   }
 

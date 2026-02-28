@@ -2341,3 +2341,10 @@ Oh btw. can you make the app use the shitcord67 logo? On Android and ideally als
 [2026-02-28T08:23:10Z] No. Also please continue working
 
 [2026-02-28T08:25:46Z] Not sure? As long as it doesn't call native windows from my operating system..
+
+[2026-02-28T08:57:47Z] I thought you would work on my higher priority issues, spaces, some low hanging fruit XEPs we can implement and Movim calls, inspecting movim repo for that...
+
+[2026-02-28T09:01:26Z]
+I thought you would work on my higher priority issues, spaces, some low hanging fruit XEPs we can implement and Movim calls, inspecting movim repo for that...
+
+[2026-02-28T09:10:59Z] USER PROMPT: Please continue

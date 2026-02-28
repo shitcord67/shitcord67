@@ -14,6 +14,7 @@ Status labels:
 | XEP-0045 | Multi-User Chat (MUC) | Partial | Join rooms, parse occupants/presence, groupchat send/receive. Advanced moderation/config/admin flows are not complete. |
 | XEP-0071 | XHTML-IM | Partial | Incoming XHTML content is converted to chat markdown/text (basic formatting and links), and XHTML `<img src>` media hints are consumed as attachments for sticker/image rendering (including Movim-style external image URLs). |
 | XEP-0231 | Bits of Binary | Partial | Inbound inline BoB payloads (`urn:xmpp:bob`) are parsed for attachment rendering (including `cid:` references and XHTML `<img src='cid:...'>` paths), and unresolved `cid:` sticker/media references now trigger BoB IQ fetch attempts to hydrate Movim-style stickers. Outbound BoB publish is not implemented. |
+| XEP-0249 | Direct MUC Invitations | Partial | Parses incoming `jabber:x:conference` direct room invites in DMs, maps invited rooms into `XMPP Spaces`, and surfaces join guidance (`/joinxmpp <room-jid>`). Outbound direct invites are not implemented yet. |
 | XEP-0085 | Chat State Notifications | Implemented | Sends and receives composing/paused style states for MUC/DM typing indicators. |
 | XEP-0184 | Message Delivery Receipts | Partial | Direct-message sends now request receipts and mark outbound DM messages as delivered when receipts arrive. Groupchat receipts are not tracked. |
 | XEP-0333 | Chat Markers | Partial | DM sends now include `markable` hints, inbound markable DMs receive `received` markers, incoming `displayed`/`acknowledged` markers upgrade outbound DM status to read, and local DM read updates publish `displayed` markers. |
@@ -39,6 +40,7 @@ Status labels:
 | XEP-0482 | Call Invites | Partial | Sends and consumes `urn:xmpp:call-invites:0` for DM call invites (external URL only); accept/reject/retract are handled for web-call fallback. |
 | XEP-0402 | PEP Native Bookmarks | Partial | Reads modern bookmarks via PubSub, with legacy fallback. |
 | XEP-0410 | MUC Self-Ping | Partial | Joined MUC rooms now run periodic self-pings and trigger controlled rejoin attempts after repeated ping failures to improve room session continuity. |
+| XEP-0421 | Anonymous unique occupant identifiers for MUCs | Partial | Parses `urn:xmpp:occupant-id:0` in MUC message/presence stanzas and uses it to stabilize occupant/reaction actor mapping even when nicks change or real JIDs are hidden. |
 | XEP-0461 | Message Replies | Partial | Parses incoming reply metadata and now also publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |
 | XEP-0428 | Fallback Indication | Partial | Consumes fallback ranges to clean reply fallback text for `XEP-0461` messages. |
 | XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`). |
