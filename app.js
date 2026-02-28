@@ -50,6 +50,11 @@ const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
 const XMPP_OCCUPANT_ID_NAMESPACE = "urn:xmpp:occupant-id:0";
+const XMPP_OMEMO_NAMESPACE = "eu.siacs.conversations.axolotl";
+const XMPP_OMEMO_DEVICELIST_NODE = "eu.siacs.conversations.axolotl.devicelist";
+const XMPP_OMEMO_BUNDLE_NODE_PREFIX = "eu.siacs.conversations.axolotl.bundles:";
+const XMPP_OMEMO_PREKEY_COUNT = 48;
+const XMPP_OMEMO_SIGNED_PREKEY_ID = 1;
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
 const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
@@ -649,6 +654,7 @@ const SLASH_COMMANDS = [
   { name: "devtools", args: "", description: "Toggle Electron DevTools." },
   { name: "xmppconsole", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Open XMPP inspector/log console (supports DM/room scoping)." },
   { name: "xmppinspect", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Alias for /xmppconsole." },
+  { name: "omemo", args: "[on|off|status|devices|refresh]", description: "Control OMEMO encryption for the active XMPP DM." },
   { name: "joinxmpp", args: "<room@conference.domain>", description: "Join an XMPP MUC room and map it into XMPP Spaces." },
   { name: "invitexmpp", args: "<room@conference.domain> [| reason [| password]]", description: "Send XMPP direct room invite to current DM peer." },
   { name: "spacesxmpp", args: "[list|open|sync|discover|join <room@conference.domain>]", description: "Manage mapped XMPP Spaces rooms and discovery." },
@@ -1177,6 +1183,7 @@ function buildInitialState() {
       xmppWsUrl: "",
       xmppMucService: "",
       xmppHideNonXmpp: "on",
+      xmppOmemoEnabledByJid: {},
       callProviderUrl: "https://meet.jit.si",
       callRoomPrefix: "shitcord67",
       callAutoPost: "on",
@@ -1778,6 +1785,10 @@ const xmppDiscoInfoCacheByJid = new Map();
 const xmppDiscoInfoInFlightByJid = new Map();
 const xmppRoomDiscoveryCacheByService = new Map();
 const xmppRoomDiscoveryInFlightByService = new Map();
+const xmppOmemoDeviceListByJid = new Map();
+const xmppOmemoBundleByJidDevice = new Map();
+const xmppOmemoSessionSetupInFlight = new Map();
+const xmppOmemoDecryptInFlightByMessageId = new Map();
 const XMPP_DISCO_INFO_TTL_MS = 5 * 60 * 1000;
 const xmppAvailableFullJidsByBare = new Map();
 const xmppCallSessionById = new Map();
@@ -2178,6 +2189,8 @@ const ui = {
   swfAutoplayInput: document.getElementById("swfAutoplayInput"),
   swfPauseOnMuteInput: document.getElementById("swfPauseOnMuteInput"),
   swfVuMeterInput: document.getElementById("swfVuMeterInput"),
+  androidSafeManualTopInput: document.getElementById("androidSafeManualTopInput"),
+  androidSafeManualBottomInput: document.getElementById("androidSafeManualBottomInput"),
   mediaRuleInput: document.getElementById("mediaRuleInput"),
   mediaRuleKindInput: document.getElementById("mediaRuleKindInput"),
   addMediaRuleBtn: document.getElementById("addMediaRuleBtn"),
@@ -11120,6 +11133,16 @@ function normalizeLastChannelByGuildMap(value) {
   }, {});
 }
 
+function normalizeXmppOmemoEnabledByJid(value) {
+  if (!value || typeof value !== "object") return {};
+  return Object.entries(value).reduce((acc, [jid, enabled]) => {
+    const bare = xmppBareJid(jid || "");
+    if (!bare) return acc;
+    acc[bare] = normalizeToggle(enabled);
+    return acc;
+  }, {});
+}
+
 function normalizeMediaPrivacyMode(value) {
   return value === "off" ? "off" : "safe";
 }
@@ -11404,6 +11427,7 @@ function getPreferences() {
     xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),
     xmppMucService: normalizeXmppMucService(current.xmppMucService),
     xmppHideNonXmpp: normalizeToggle(current.xmppHideNonXmpp ?? "on"),
+    xmppOmemoEnabledByJid: normalizeXmppOmemoEnabledByJid(current.xmppOmemoEnabledByJid),
     callProviderUrl: normalizeConferenceProviderUrl(current.callProviderUrl),
     callRoomPrefix: normalizeConferenceRoomPrefix(current.callRoomPrefix),
     callAutoPost: normalizeToggle(current.callAutoPost ?? "on"),
@@ -14296,6 +14320,659 @@ function xmppEncryptedPlaceholderLabel(info) {
   return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
 }
 
+function base64ToArrayBuffer(base64) {
+  const cleaned = (base64 || "").toString().trim();
+  if (!cleaned) return new ArrayBuffer(0);
+  const binary = atob(cleaned);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function arrayBufferToBase64(buffer) {
+  if (!buffer) return "";
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function concatArrayBuffers(first, second) {
+  const a = first ? new Uint8Array(first) : new Uint8Array(0);
+  const b = second ? new Uint8Array(second) : new Uint8Array(0);
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out.buffer;
+}
+
+class XmppOmemoStore {
+  constructor(jid) {
+    this.jid = xmppBareJid(jid || "");
+    this.storageVersion = "s67.omemo.v1";
+    this.Direction = {
+      SENDING: 1,
+      RECEIVING: 2
+    };
+  }
+
+  prefix() {
+    return `${this.storageVersion}.${this.jid}.`;
+  }
+
+  key(key) {
+    return `${this.prefix()}${key}`;
+  }
+
+  putString(key, value) {
+    if (!key) throw new Error("OMEMO store missing key");
+    localStorage.setItem(this.key(key), value == null ? "" : String(value));
+  }
+
+  getString(key, fallback) {
+    if (!key) throw new Error("OMEMO store missing key");
+    const value = localStorage.getItem(this.key(key));
+    if (value === null || value === undefined) return fallback;
+    return value;
+  }
+
+  putJson(key, value) {
+    this.putString(key, JSON.stringify(value));
+  }
+
+  getJson(key, fallback) {
+    const raw = this.getString(key, null);
+    if (!raw) return fallback;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return fallback;
+    }
+  }
+
+  remove(key) {
+    if (!key) return;
+    localStorage.removeItem(this.key(key));
+  }
+
+  filter(prefix) {
+    const base = this.key(prefix);
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const localKey = localStorage.key(i);
+      if (localKey && localKey.startsWith(base)) keys.push(localKey);
+    }
+    return keys;
+  }
+
+  async setIdentityKeyPair(identityKeyPair) {
+    this.putJson("identityKey", {
+      privKey: arrayBufferToBase64(identityKeyPair.privKey),
+      pubKey: arrayBufferToBase64(identityKeyPair.pubKey)
+    });
+  }
+
+  async getIdentityKeyPair() {
+    const data = this.getJson("identityKey", null);
+    if (!data) return Promise.reject(new Error("Missing identity key"));
+    return {
+      privKey: base64ToArrayBuffer(data.privKey || ""),
+      pubKey: base64ToArrayBuffer(data.pubKey || "")
+    };
+  }
+
+  async setLocalRegistrationId(registrationId) {
+    this.putString("registrationId", String(registrationId));
+  }
+
+  async getLocalRegistrationId() {
+    const raw = this.getString("registrationId", "");
+    return raw ? Number(raw) : null;
+  }
+
+  async isTrustedIdentity(identifier, identityKey) {
+    if (!identifier || !(identityKey instanceof ArrayBuffer)) return false;
+    const stored = this.getString(`identityKey:${identifier}`, "");
+    if (!stored) return true;
+    return arrayBufferToBase64(identityKey) === stored;
+  }
+
+  async loadIdentityKey(identifier) {
+    const stored = this.getString(`identityKey:${identifier}`, "");
+    return stored ? base64ToArrayBuffer(stored) : null;
+  }
+
+  async saveIdentity(identifier, identityKey) {
+    if (!identifier || !(identityKey instanceof ArrayBuffer)) return false;
+    const key = arrayBufferToBase64(identityKey);
+    const existing = this.getString(`identityKey:${identifier}`, "");
+    this.putString(`identityKey:${identifier}`, key);
+    return Boolean(existing && existing !== key);
+  }
+
+  async loadPreKey(keyId) {
+    const data = this.getJson(`preKey:${keyId}`, null);
+    if (!data) return null;
+    return {
+      pubKey: base64ToArrayBuffer(data.pubKey || ""),
+      privKey: base64ToArrayBuffer(data.privKey || "")
+    };
+  }
+
+  async storePreKey(keyId, keyPair) {
+    this.putJson(`preKey:${keyId}`, {
+      pubKey: arrayBufferToBase64(keyPair.pubKey),
+      privKey: arrayBufferToBase64(keyPair.privKey)
+    });
+  }
+
+  async removePreKey(keyId) {
+    this.remove(`preKey:${keyId}`);
+  }
+
+  loadCompleteSignedPreKey(keyId) {
+    const data = this.getJson(`signedPreKey:${keyId}`, null);
+    if (!data) return null;
+    return {
+      keyId,
+      keyPair: {
+        pubKey: base64ToArrayBuffer(data.keyPair?.pubKey || ""),
+        privKey: base64ToArrayBuffer(data.keyPair?.privKey || "")
+      },
+      signature: base64ToArrayBuffer(data.signature || "")
+    };
+  }
+
+  async loadSignedPreKey(keyId) {
+    const data = this.loadCompleteSignedPreKey(keyId);
+    return data ? data.keyPair : null;
+  }
+
+  async storeSignedPreKey(keyId, key) {
+    this.putJson(`signedPreKey:${keyId}`, {
+      keyPair: {
+        pubKey: arrayBufferToBase64(key.keyPair.pubKey),
+        privKey: arrayBufferToBase64(key.keyPair.privKey)
+      },
+      signature: arrayBufferToBase64(key.signature || new ArrayBuffer(0))
+    });
+  }
+
+  async removeSignedPreKey(keyId) {
+    this.remove(`signedPreKey:${keyId}`);
+  }
+
+  async loadSession(identifier) {
+    return this.getString(`session:${identifier}`, null);
+  }
+
+  async storeSession(identifier, record) {
+    this.putString(`session:${identifier}`, record);
+  }
+
+  async removeSession(identifier) {
+    this.remove(`session:${identifier}`);
+  }
+
+  async removeAllSessionsForJid(identifier) {
+    const keys = this.filter(`session:${identifier}`);
+    keys.forEach((key) => localStorage.removeItem(key));
+  }
+
+  getSessionsIds(identifier) {
+    const keys = this.filter(`session:${identifier}`);
+    return keys.map((key) => key.split(".").pop()).filter(Boolean);
+  }
+}
+
+const xmppOmemoStoreByAccountJid = new Map();
+
+function xmppOmemoRuntimeAvailable() {
+  return Boolean(globalThis.libsignal && globalThis.libsignal.KeyHelper && globalThis.crypto?.subtle);
+}
+
+function xmppOmemoStoreForAccount(jid) {
+  const bare = xmppBareJid(jid || "");
+  if (!bare) return null;
+  if (!xmppOmemoStoreByAccountJid.has(bare)) {
+    xmppOmemoStoreByAccountJid.set(bare, new XmppOmemoStore(bare));
+  }
+  return xmppOmemoStoreByAccountJid.get(bare) || null;
+}
+
+function xmppOmemoEnabledForPeer(peerBare, prefs = getPreferences()) {
+  const enabled = prefs?.xmppOmemoEnabledByJid?.[peerBare];
+  return normalizeToggle(enabled) === "on";
+}
+
+function xmppOmemoSetPeerEnabled(peerBare, enabled, prefs = getPreferences()) {
+  if (!peerBare) return;
+  state.preferences = prefs;
+  state.preferences.xmppOmemoEnabledByJid = {
+    ...prefs.xmppOmemoEnabledByJid,
+    [peerBare]: normalizeToggle(enabled ? "on" : "off")
+  };
+  saveState();
+}
+
+async function xmppOmemoEnsureLocalIdentity(ownBare) {
+  if (!xmppOmemoRuntimeAvailable()) return null;
+  const store = xmppOmemoStoreForAccount(ownBare);
+  if (!store) return null;
+  let registrationId = await store.getLocalRegistrationId();
+  if (!registrationId) {
+    registrationId = globalThis.libsignal.KeyHelper.generateRegistrationId();
+    await store.setLocalRegistrationId(registrationId);
+  }
+  try {
+    await store.getIdentityKeyPair();
+  } catch {
+    const identityKeyPair = await globalThis.libsignal.KeyHelper.generateIdentityKeyPair();
+    await store.setIdentityKeyPair(identityKeyPair);
+  }
+  return store;
+}
+
+async function xmppOmemoFetchDeviceList(jid, { connection = xmppConnection } = {}) {
+  const bare = xmppBareJid(jid || "");
+  if (!bare || !connection || !globalThis.$iq) return [];
+  const iq = globalThis.$iq({ type: "get", to: bare })
+    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+    .c("items", { node: XMPP_OMEMO_DEVICELIST_NODE });
+  try {
+    const stanza = await xmppSendIqPromise(connection, iq, 7000);
+    const listNode = [...stanza.getElementsByTagName("list")]
+      .find((node) => xmppNodeHasXmlns(node, XMPP_OMEMO_NAMESPACE)) || null;
+    if (!listNode) return [];
+    const devices = [...listNode.getElementsByTagName("device")]
+      .map((node) => (node.getAttribute("id") || "").toString().trim())
+      .filter(Boolean);
+    const unique = [...new Set(devices)];
+    xmppOmemoDeviceListByJid.set(bare, unique);
+    return unique;
+  } catch (error) {
+    addXmppDebugEvent("error", "OMEMO device list fetch failed", {
+      jid: bare,
+      error: String(error?.message || error)
+    });
+    return [];
+  }
+}
+
+async function xmppOmemoPublishDeviceList(ownBare, deviceIds, { connection = xmppConnection } = {}) {
+  if (!ownBare || !connection || !globalThis.$iq) return false;
+  const ids = [...new Set((deviceIds || []).map((id) => String(id)).filter(Boolean))];
+  if (ids.length === 0) return false;
+  const iq = globalThis.$iq({ type: "set", to: ownBare })
+    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+    .c("publish", { node: XMPP_OMEMO_DEVICELIST_NODE })
+    .c("item", { id: "current" })
+    .c("list", { xmlns: XMPP_OMEMO_NAMESPACE });
+  ids.forEach((id) => {
+    iq.c("device", { id }).up();
+  });
+  try {
+    await xmppSendIqPromise(connection, iq, 7000);
+    xmppOmemoDeviceListByJid.set(ownBare, ids);
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "OMEMO device list publish failed", {
+      jid: ownBare,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
+}
+
+async function xmppOmemoPublishBundle(ownBare, bundle, { connection = xmppConnection } = {}) {
+  if (!ownBare || !bundle || !connection || !globalThis.$iq) return false;
+  const iq = globalThis.$iq({ type: "set", to: ownBare })
+    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+    .c("publish", { node: `${XMPP_OMEMO_BUNDLE_NODE_PREFIX}${bundle.deviceId}` })
+    .c("item", { id: "current" })
+    .c("bundle", { xmlns: XMPP_OMEMO_NAMESPACE });
+  iq.c("signedPreKeyPublic", { signedPreKeyId: String(bundle.signedPreKeyId || XMPP_OMEMO_SIGNED_PREKEY_ID) })
+    .t(bundle.signedPreKeyPublic || "")
+    .up();
+  iq.c("signedPreKeySignature").t(bundle.signedPreKeySignature || "").up();
+  iq.c("identityKey").t(bundle.identityKey || "").up();
+  iq.c("prekeys");
+  (bundle.preKeys || []).forEach((entry) => {
+    iq.c("preKeyPublic", { preKeyId: String(entry.id) }).t(entry.key || "").up();
+  });
+  iq.up();
+  try {
+    await xmppSendIqPromise(connection, iq, 7000);
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "OMEMO bundle publish failed", {
+      jid: ownBare,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
+}
+
+async function xmppOmemoEnsureOwnBundle(ownBare, { force = false } = {}) {
+  if (!ownBare) return false;
+  const store = await xmppOmemoEnsureLocalIdentity(ownBare);
+  if (!store) return false;
+  const registrationId = await store.getLocalRegistrationId();
+  if (!registrationId) return false;
+  let deviceList = xmppOmemoDeviceListByJid.get(ownBare);
+  if (!deviceList || deviceList.length === 0) {
+    deviceList = await xmppOmemoFetchDeviceList(ownBare);
+  }
+  const nextList = [...new Set([...(deviceList || []), String(registrationId)])];
+  if (force || !deviceList || !deviceList.includes(String(registrationId))) {
+    await xmppOmemoPublishDeviceList(ownBare, nextList);
+  }
+  let identityKeyPair;
+  try {
+    identityKeyPair = await store.getIdentityKeyPair();
+  } catch {
+    identityKeyPair = await globalThis.libsignal.KeyHelper.generateIdentityKeyPair();
+    await store.setIdentityKeyPair(identityKeyPair);
+  }
+  let signedPreKey = store.loadCompleteSignedPreKey(XMPP_OMEMO_SIGNED_PREKEY_ID);
+  if (!signedPreKey || force) {
+    signedPreKey = await globalThis.libsignal.KeyHelper.generateSignedPreKey(identityKeyPair, XMPP_OMEMO_SIGNED_PREKEY_ID);
+    await store.storeSignedPreKey(signedPreKey.keyId, signedPreKey);
+  }
+  let preKeys = [];
+  if (!force) {
+    for (let i = 0; i < XMPP_OMEMO_PREKEY_COUNT; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const existing = await store.loadPreKey(i + 1);
+      if (!existing) {
+        preKeys = [];
+        break;
+      }
+      preKeys.push({ id: i + 1, key: arrayBufferToBase64(existing.pubKey) });
+    }
+  }
+  if (preKeys.length === 0) {
+    preKeys = [];
+    for (let i = 0; i < XMPP_OMEMO_PREKEY_COUNT; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const preKey = await globalThis.libsignal.KeyHelper.generatePreKey(i + 1);
+      // eslint-disable-next-line no-await-in-loop
+      await store.storePreKey(preKey.keyId, preKey.keyPair);
+      preKeys.push({ id: preKey.keyId, key: arrayBufferToBase64(preKey.keyPair.pubKey) });
+    }
+  }
+  const bundle = {
+    deviceId: registrationId,
+    identityKey: arrayBufferToBase64(identityKeyPair.pubKey),
+    signedPreKeyId: signedPreKey.keyId || XMPP_OMEMO_SIGNED_PREKEY_ID,
+    signedPreKeyPublic: arrayBufferToBase64(signedPreKey.keyPair?.pubKey || signedPreKey.keyPair?.publicKey || new ArrayBuffer(0)),
+    signedPreKeySignature: arrayBufferToBase64(signedPreKey.signature || new ArrayBuffer(0)),
+    preKeys
+  };
+  return xmppOmemoPublishBundle(ownBare, bundle);
+}
+
+async function xmppOmemoFetchBundle(jid, deviceId, { connection = xmppConnection } = {}) {
+  const bare = xmppBareJid(jid || "");
+  if (!bare || !deviceId || !connection || !globalThis.$iq) return null;
+  const cacheKey = `${bare}|${deviceId}`;
+  if (xmppOmemoBundleByJidDevice.has(cacheKey)) {
+    return xmppOmemoBundleByJidDevice.get(cacheKey) || null;
+  }
+  const iq = globalThis.$iq({ type: "get", to: bare })
+    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+    .c("items", { node: `${XMPP_OMEMO_BUNDLE_NODE_PREFIX}${deviceId}` });
+  try {
+    const stanza = await xmppSendIqPromise(connection, iq, 7000);
+    const bundleNode = [...stanza.getElementsByTagName("bundle")]
+      .find((node) => xmppNodeHasXmlns(node, XMPP_OMEMO_NAMESPACE)) || null;
+    if (!bundleNode) return null;
+    const signedPreKeyPublicNode = bundleNode.getElementsByTagName("signedPreKeyPublic")[0] || null;
+    const signedPreKeySignatureNode = bundleNode.getElementsByTagName("signedPreKeySignature")[0] || null;
+    const identityKeyNode = bundleNode.getElementsByTagName("identityKey")[0] || null;
+    const prekeysNode = bundleNode.getElementsByTagName("prekeys")[0] || null;
+    const preKeyNodes = prekeysNode ? [...prekeysNode.getElementsByTagName("preKeyPublic")] : [];
+    const bundle = {
+      identityKey: xmppNodeText(identityKeyNode).trim(),
+      signedPreKeyId: Number(signedPreKeyPublicNode?.getAttribute("signedPreKeyId") || XMPP_OMEMO_SIGNED_PREKEY_ID),
+      signedPreKeyPublic: xmppNodeText(signedPreKeyPublicNode).trim(),
+      signedPreKeySignature: xmppNodeText(signedPreKeySignatureNode).trim(),
+      preKeys: preKeyNodes.map((node) => ({
+        id: Number(node.getAttribute("preKeyId") || 0),
+        key: xmppNodeText(node).trim()
+      })).filter((entry) => entry.id && entry.key)
+    };
+    xmppOmemoBundleByJidDevice.set(cacheKey, bundle);
+    return bundle;
+  } catch (error) {
+    addXmppDebugEvent("error", "OMEMO bundle fetch failed", {
+      jid: bare,
+      deviceId,
+      error: String(error?.message || error)
+    });
+    return null;
+  }
+}
+
+async function xmppOmemoEnsureSession(peerBare, deviceId, ownBare) {
+  if (!peerBare || !deviceId || !ownBare || !xmppOmemoRuntimeAvailable()) return false;
+  const store = xmppOmemoStoreForAccount(ownBare);
+  if (!store) return false;
+  const sessionId = `${peerBare}.${deviceId}`;
+  const existing = await store.loadSession(sessionId);
+  if (existing) return true;
+  const inflightKey = `${ownBare}|${peerBare}|${deviceId}`;
+  if (xmppOmemoSessionSetupInFlight.has(inflightKey)) {
+    return xmppOmemoSessionSetupInFlight.get(inflightKey) || false;
+  }
+  const promise = (async () => {
+    const bundle = await xmppOmemoFetchBundle(peerBare, deviceId);
+    if (!bundle) return false;
+    const preKey = bundle.preKeys[Math.floor(Math.random() * bundle.preKeys.length)];
+    if (!preKey) return false;
+    const address = new globalThis.libsignal.SignalProtocolAddress(peerBare, Number(deviceId));
+    const builder = new globalThis.libsignal.SessionBuilder(store, address);
+    await builder.processPreKey({
+      registrationId: Number(deviceId),
+      identityKey: base64ToArrayBuffer(bundle.identityKey),
+      signedPreKey: {
+        keyId: Number(bundle.signedPreKeyId || XMPP_OMEMO_SIGNED_PREKEY_ID),
+        publicKey: base64ToArrayBuffer(bundle.signedPreKeyPublic),
+        signature: base64ToArrayBuffer(bundle.signedPreKeySignature)
+      },
+      preKey: {
+        keyId: Number(preKey.id),
+        publicKey: base64ToArrayBuffer(preKey.key)
+      }
+    });
+    return true;
+  })();
+  xmppOmemoSessionSetupInFlight.set(inflightKey, promise);
+  try {
+    return await promise;
+  } finally {
+    xmppOmemoSessionSetupInFlight.delete(inflightKey);
+  }
+}
+
+async function xmppOmemoEnsurePeerSessions(peerBare, ownBare) {
+  const devices = xmppOmemoDeviceListByJid.get(peerBare) || await xmppOmemoFetchDeviceList(peerBare);
+  if (!devices || devices.length === 0) return [];
+  const results = await Promise.all(devices.map((deviceId) => xmppOmemoEnsureSession(peerBare, deviceId, ownBare)));
+  return devices.filter((_, index) => results[index]);
+}
+
+function xmppOmemoParseEncryptedPayload(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const encryptedNode = [...stanza.getElementsByTagName("encrypted")]
+    .find((node) => xmppNodeHasXmlns(node, XMPP_OMEMO_NAMESPACE)) || null;
+  if (!encryptedNode) return null;
+  const headerNode = encryptedNode.getElementsByTagName("header")[0] || null;
+  if (!headerNode) return null;
+  const sid = (headerNode.getAttribute("sid") || "").toString().trim();
+  const ivNode = headerNode.getElementsByTagName("iv")[0] || null;
+  const payloadNode = encryptedNode.getElementsByTagName("payload")[0] || null;
+  const keys = {};
+  [...headerNode.getElementsByTagName("key")].forEach((node) => {
+    const rid = (node.getAttribute("rid") || "").toString().trim();
+    if (!rid) return;
+    keys[rid] = {
+      payload: xmppNodeText(node).trim(),
+      prekey: (node.getAttribute("prekey") || "").toString() === "1"
+    };
+  });
+  return {
+    sid,
+    keys,
+    iv: xmppNodeText(ivNode).trim(),
+    payload: xmppNodeText(payloadNode).trim()
+  };
+}
+
+function appendXmppOmemoEncryptedNode(stanza, payload) {
+  if (!stanza || !payload) return stanza;
+  const encrypted = stanza.c("encrypted", { xmlns: XMPP_OMEMO_NAMESPACE });
+  const header = encrypted.c("header", { sid: payload.sid || "" });
+  Object.entries(payload.keys || {}).forEach(([rid, entry]) => {
+    if (!rid || !entry?.payload) return;
+    const attrs = { rid };
+    if (entry.prekey) attrs.prekey = "1";
+    header.c("key", attrs).t(entry.payload).up();
+  });
+  header.c("iv").t(payload.iv || "").up();
+  header.up();
+  encrypted.c("payload").t(payload.payload || "").up();
+  encrypted.up();
+  return stanza;
+}
+
+async function xmppOmemoEncryptMessage(peerBare, plaintext, ownBare) {
+  if (!xmppOmemoRuntimeAvailable()) return null;
+  const store = await xmppOmemoEnsureLocalIdentity(ownBare);
+  if (!store) return null;
+  const deviceId = await store.getLocalRegistrationId();
+  if (!deviceId) return null;
+  const targetDevices = await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
+  if (targetDevices.length === 0) return null;
+  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 128 }, true, ["encrypt", "decrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext || "");
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, key, encoded);
+  const encryptedBytes = new Uint8Array(encrypted);
+  const tagLength = 16;
+  const ciphertext = encryptedBytes.slice(0, Math.max(0, encryptedBytes.length - tagLength));
+  const tag = encryptedBytes.slice(encryptedBytes.length - tagLength);
+  const rawKey = new Uint8Array(await crypto.subtle.exportKey("raw", key));
+  const tagBuffer = tag.byteLength > 0
+    ? tag.buffer.slice(tag.byteOffset, tag.byteOffset + tag.byteLength)
+    : new ArrayBuffer(0);
+  const keyAndTag = concatArrayBuffers(rawKey.buffer, tagBuffer);
+  const messageKeys = {};
+  let successCount = 0;
+  for (const device of targetDevices) {
+    const address = new globalThis.libsignal.SignalProtocolAddress(peerBare, Number(device));
+    const sessionCipher = new globalThis.libsignal.SessionCipher(store, address);
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const payload = await sessionCipher.encrypt(keyAndTag);
+      messageKeys[device] = {
+        payload: btoa(payload.body || ""),
+        prekey: Number(payload.type) === 3
+      };
+      successCount += 1;
+    } catch (error) {
+      addXmppDebugEvent("error", "OMEMO encryption failed for device", {
+        peer: peerBare,
+        device,
+        error: String(error?.message || error)
+      });
+    }
+  }
+  if (successCount === 0) return null;
+  return {
+    sid: String(deviceId),
+    keys: messageKeys,
+    iv: arrayBufferToBase64(iv.buffer),
+    payload: arrayBufferToBase64(ciphertext.buffer)
+  };
+}
+
+async function xmppOmemoDecryptPayload(peerBare, payload, ownBare) {
+  if (!xmppOmemoRuntimeAvailable()) return null;
+  if (!payload || !payload.keys) return null;
+  const store = await xmppOmemoEnsureLocalIdentity(ownBare);
+  if (!store) return null;
+  const deviceId = await store.getLocalRegistrationId();
+  if (!deviceId) return null;
+  const keyEntry = payload.keys[String(deviceId)];
+  if (!keyEntry || !keyEntry.payload) return null;
+  const senderDevice = payload.sid;
+  if (!senderDevice) return null;
+  if (!keyEntry.prekey) {
+    await xmppOmemoEnsureSession(peerBare, senderDevice, ownBare);
+  }
+  const address = new globalThis.libsignal.SignalProtocolAddress(peerBare, Number(senderDevice || 0));
+  const sessionCipher = new globalThis.libsignal.SessionCipher(store, address);
+  const cipherBytes = base64ToArrayBuffer(keyEntry.payload);
+  const keyAndTag = keyEntry.prekey
+    ? await sessionCipher.decryptPreKeyWhisperMessage(cipherBytes, "binary")
+    : await sessionCipher.decryptWhisperMessage(cipherBytes, "binary");
+  const keyBytes = new Uint8Array(keyAndTag);
+  if (keyBytes.length < 16) return null;
+  const keyBytesPart = keyBytes.slice(0, 16);
+  const tagBytes = keyBytes.slice(16);
+  const iv = base64ToArrayBuffer(payload.iv);
+  const ciphertext = base64ToArrayBuffer(payload.payload);
+  const tagBuffer = tagBytes.byteLength > 0
+    ? tagBytes.buffer.slice(tagBytes.byteOffset, tagBytes.byteOffset + tagBytes.byteLength)
+    : new ArrayBuffer(0);
+  const ciphertextAndTag = concatArrayBuffers(ciphertext, tagBuffer);
+  const importedKey = await crypto.subtle.importKey("raw", keyBytesPart, "AES-GCM", false, ["decrypt"]);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(iv), tagLength: 128 }, importedKey, ciphertextAndTag);
+  return new TextDecoder().decode(decrypted);
+}
+
+function xmppOmemoTryDecryptIntoMessage({
+  stanza,
+  message,
+  peerBare,
+  ownBare,
+  onUpdated
+}) {
+  if (!stanza || !message || !peerBare || !ownBare) return;
+  if (!xmppOmemoRuntimeAvailable()) return;
+  const omemoPayload = xmppOmemoParseEncryptedPayload(stanza);
+  if (!omemoPayload) return;
+  const messageId = `${peerBare}|${message.id || xmppStanzaStableId(stanza) || createId().slice(0, 8)}`;
+  if (xmppOmemoDecryptInFlightByMessageId.has(messageId)) return;
+  const task = (async () => {
+    try {
+      const plaintext = await xmppOmemoDecryptPayload(peerBare, omemoPayload, ownBare);
+      if (!plaintext) return;
+      message.text = plaintext;
+      message.xmppEncrypted = true;
+      message.xmppEncryptedType = "omemo";
+      message.xmppEncryptedLabel = "OMEMO";
+      message.xmppOmemoDecrypted = true;
+      saveState();
+      if (typeof onUpdated === "function") onUpdated();
+    } catch (error) {
+      addXmppDebugEvent("error", "OMEMO decrypt failed", {
+        peer: peerBare,
+        error: String(error?.message || error)
+      });
+    }
+  })();
+  xmppOmemoDecryptInFlightByMessageId.set(messageId, task);
+  task.finally(() => {
+    xmppOmemoDecryptInFlightByMessageId.delete(messageId);
+  });
+}
+
 function ensureXmppMamState(roomJid) {
   const bareRoom = xmppBareJid(roomJid);
   if (!bareRoom) return null;
@@ -16083,6 +16760,22 @@ function connectRelaySocket({ force = false } = {}) {
                 renderMessages();
               }
             });
+            if (encryptedInfo.type === "omemo") {
+              xmppOmemoTryDecryptIntoMessage({
+                stanza,
+                message: inserted,
+                peerBare,
+                ownBare,
+                onUpdated: () => {
+                  renderDmList();
+                  const activeConversation = getActiveConversation();
+                  if (activeConversation?.type !== "dm") return;
+                  const activePeer = xmppBareJid(xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount()));
+                  if (!activePeer || activePeer !== peerBare) return;
+                  renderMessages();
+                }
+              });
+            }
           }
           if (!ownAuthor) {
             maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
@@ -17299,6 +17992,10 @@ function connectRelaySocket({ force = false } = {}) {
           refreshXmppCsiCapability(xmppConnection);
           syncXmppClientStateHint({ force: true, reason: "connected" });
           enableXmppCarbons(xmppConnection);
+          const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+          if (ownBare && xmppOmemoRuntimeAvailable()) {
+            void xmppOmemoEnsureOwnBundle(ownBare, { force: false });
+          }
           startXmppPingLoop(xmppConnection);
           const initialRoom = relayRoomForActiveConversation();
           const directPeerJid = xmppPeerJidForRelayRoom(initialRoom, current);
@@ -17948,7 +18645,7 @@ function xmppCallCapabilityTargetsForConversation(conversation = getActiveConver
 }
 
 function xmppClientDiscoFeatures() {
-  return [
+  const features = [
     XMPP_CAPS_NAMESPACE,
     XMPP_JINGLE_NAMESPACE,
     XMPP_JINGLE_RTP_NAMESPACE,
@@ -17979,6 +18676,10 @@ function xmppClientDiscoFeatures() {
     XMPP_IDLE_NAMESPACE,
     "urn:xmpp:ping"
   ];
+  if (xmppOmemoRuntimeAvailable()) {
+    features.push(XMPP_OMEMO_NAMESPACE);
+  }
+  return features;
 }
 
 function xmppRequiredCallFeatureBuckets() {
@@ -18801,22 +19502,60 @@ function publishRelayDirectMessage(thread, message, account) {
       return false;
     }
     void (async () => {
-      await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: thread.id || "" });
       if (!xmppConnection || relayStatus !== "connected") return;
       if (peerJid) {
+        const peerBare = xmppBareJid(peerJid);
+        const omemoEnabled = peerBare ? xmppOmemoEnabledForPeer(peerBare, prefs) : false;
+        const hasAttachments = normalizeAttachments(message.attachments).length > 0;
+        if (omemoEnabled && hasAttachments) {
+          showToast("OMEMO DM encryption does not support attachments yet.", { tone: "error" });
+          if (peerBare && addSystemDmMessageByPeerJid(peerBare, "OMEMO does not support attachments yet; message was not sent.")) {
+            refreshDmUiForPeerJid(peerBare);
+          }
+          addXmppDebugEvent("message", "Blocked OMEMO DM send with attachments", {
+            to: peerBare || "",
+            attachments: normalizeAttachments(message.attachments).length
+          });
+          return;
+        }
+        if (!omemoEnabled) {
+          await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: thread.id || "" });
+          if (!xmppConnection || relayStatus !== "connected") return;
+        }
         const stanzaId = `s67-${createId().slice(0, 12)}`;
         const originId = `s67-origin-${createId().slice(0, 12)}`;
         const replyMeta = resolveXmppReplyMetaForDm(thread, message, account, peerJid);
         const bodyPayload = buildXmppMessageBody(message, replyMeta);
         if (!(bodyPayload.body || "").trim()) return;
-        const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId })
-          .c("body")
-          .t(bodyPayload.body);
+        const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId });
+        stanza.c("body").t(omemoEnabled ? "This message is encrypted with OMEMO." : bodyPayload.body).up();
         appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
         appendXmppOriginIdNode(stanza, originId);
-        appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+        if (omemoEnabled) {
+          const ownBare = xmppBareJid(prefs.xmppJid || "");
+          if (!ownBare) {
+            showToast("OMEMO encryption requires a valid XMPP JID.", { tone: "error" });
+            return;
+          }
+          await xmppOmemoEnsureOwnBundle(ownBare);
+          const encryptedPayload = await xmppOmemoEncryptMessage(peerBare, bodyPayload.body, ownBare);
+          if (!encryptedPayload) {
+            showToast("OMEMO encryption failed. Message not sent.", { tone: "error" });
+            addXmppDebugEvent("error", "OMEMO DM encryption failed", {
+              to: peerBare || ""
+            });
+            return;
+          }
+          appendXmppOmemoEncryptedNode(stanza, encryptedPayload);
+          message.xmppEncrypted = true;
+          message.xmppEncryptedType = "omemo";
+          message.xmppEncryptedLabel = "OMEMO";
+          saveState();
+        } else {
+          appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+        }
         const callInvite = parseCallInviteFromText(message.text || "");
-        if (callInvite?.url) {
+        if (!omemoEnabled && callInvite?.url) {
           appendXmppCallInviteNode(stanza, {
             url: callInvite.url,
             audio: true,
@@ -18844,6 +19583,8 @@ function publishRelayDirectMessage(thread, message, account) {
         rememberXmppDmMessage(peerJid, originId, message);
         return;
       }
+      await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: thread.id || "" });
+      if (!xmppConnection || relayStatus !== "connected") return;
       joinXmppRoom(room, account);
       const stanzaId = `s67-${createId().slice(0, 12)}`;
       const originId = `s67-origin-${createId().slice(0, 12)}`;
@@ -22727,6 +23468,83 @@ function handleSlashCommand(rawText, channel, account) {
       channel,
       "This command works in XMPP DMs. Use /invitexmpp <room@conference.domain> [| reason [| password]] in a DM."
     );
+    return true;
+  }
+
+  if (command === "omemo") {
+    const conversation = getActiveConversation();
+    if (!conversation || conversation.type !== "dm") {
+      addSystemMessage(channel, "OMEMO controls only work inside an XMPP DM.");
+      return true;
+    }
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
+    const peerBare = xmppBareJid(peerJid || "");
+    if (!peerBare) {
+      addSystemMessage(channel, "OMEMO requires an XMPP DM peer.");
+      return true;
+    }
+    if (!xmppOmemoRuntimeAvailable()) {
+      addSystemMessage(channel, "OMEMO runtime is not available in this build.");
+      return true;
+    }
+    const sub = (arg || "status").trim().toLowerCase();
+    const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+    if (!ownBare) {
+      addSystemMessage(channel, "OMEMO requires a valid XMPP JID for this account.");
+      return true;
+    }
+    if (sub === "on" || sub === "enable") {
+      xmppOmemoSetPeerEnabled(peerBare, true);
+      addSystemMessage(channel, `OMEMO enabled for ${peerBare}.`);
+      void (async () => {
+        await xmppOmemoEnsureOwnBundle(ownBare);
+        await xmppOmemoFetchDeviceList(peerBare);
+        await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
+        showToast(`OMEMO sessions ready for ${peerBare}.`, { tone: "info" });
+      })();
+      return true;
+    }
+    if (sub === "off" || sub === "disable") {
+      xmppOmemoSetPeerEnabled(peerBare, false);
+      addSystemMessage(channel, `OMEMO disabled for ${peerBare}.`);
+      return true;
+    }
+    if (sub === "refresh") {
+      void (async () => {
+        await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+        const devices = await xmppOmemoFetchDeviceList(peerBare);
+        await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
+        addSystemMessage(channel, `OMEMO refresh complete (${devices.length} device${devices.length === 1 ? "" : "s"}).`);
+      })();
+      return true;
+    }
+    if (sub === "devices") {
+      void (async () => {
+        const devices = await xmppOmemoFetchDeviceList(peerBare);
+        addSystemMessage(channel, devices.length > 0
+          ? `OMEMO devices for ${peerBare}: ${devices.join(", ")}`
+          : `No OMEMO device list for ${peerBare} yet.`);
+      })();
+      return true;
+    }
+    if (sub === "status") {
+      void (async () => {
+        const enabled = xmppOmemoEnabledForPeer(peerBare);
+        const store = xmppOmemoStoreForAccount(ownBare);
+        const localId = store ? await store.getLocalRegistrationId() : null;
+        const devices = xmppOmemoDeviceListByJid.get(peerBare) || [];
+        addSystemMessage(
+          channel,
+          [
+            `OMEMO for ${peerBare}: ${enabled ? "enabled" : "disabled"}`,
+            localId ? `Local device ID: ${localId}` : "Local device ID: not set",
+            `Known peer devices: ${devices.length}`
+          ].join(" · ")
+        );
+      })();
+      return true;
+    }
+    addSystemMessage(channel, "Usage: /omemo [on|off|status|devices|refresh]");
     return true;
   }
 

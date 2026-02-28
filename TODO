@@ -171,6 +171,7 @@
 - Full user settings breadth (privacy, notifications, keybinds, accessibility, voice/video).
 
 ## Others (user added to TODO, feel free to reposition)
+- Try to split the application into modules/parts/plugins. e.g. every XEP could be its own plugin or support for IRC/Discord, some UI elements, etc. 
 - Clients should build a P2P network and attachments should be stored there to make expensive server storage unnecessary
 - Group servers/guild together
 - Vencord-like plugins

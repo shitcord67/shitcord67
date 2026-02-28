@@ -46,12 +46,12 @@ Status labels:
 | XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`). |
 | XEP-0048 | Bookmarks (legacy) | Partial | Legacy bookmark storage fallback is supported. |
 | XEP-0054 | vcard-temp | Partial | vCard retrieval is used for avatar lookup. |
+| XEP-0384 | OMEMO Encryption | Partial | DM-only OMEMO v0 (`eu.siacs.conversations.axolotl`) encrypt/decrypt for text payloads, with device list + bundle publish/fetch and per-device session setup; attachments and groupchat OMEMO are not yet supported. |
 
 ## Planned / Not Yet Implemented
 
 | XEP | Name | Status | Notes |
 |---|---|---|---|
-| XEP-0384 | OMEMO Encryption | Planned | Encrypted payloads are detected but cannot be decrypted yet. |
 | XEP-0084 | User Avatar | Planned | Avatar PubSub (`urn:xmpp:avatar:*`) read path is incomplete. |
 | XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, `session-info`, `transport-info`, `transport-replace`, `content-modify`, `content-remove`, and `session-terminate`, with per-session peer-connection candidate apply/queue behavior. Outbound sessions now preserve SDP-derived content names and emit BUNDLE grouping metadata for stronger cross-client interop; full media transport/session negotiation is still incomplete. |
 | XEP-0167 | Jingle RTP Sessions | Partial | RTP content/session-info signaling scaffolding is now handled (`session-initiate`, `session-accept`, `session-info/ringing`). Outbound RTP descriptions now include `rtcp-mux` plus richer SDP-derived content metadata, while full codec/SDP/WebRTC media negotiation remains incomplete. |
