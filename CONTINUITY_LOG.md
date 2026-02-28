@@ -2330,3 +2330,14 @@ Oh also this might help you for your current task: {
 }
 
 [Large XMPP runtime log omitted here in this continuity entry due size; source is the same user prompt in chat immediately following this JSON block.]
+
+[2026-02-28T06:16:28Z] User prompt:
+Oh btw. can you make the app use the shitcord67 logo? On Android and ideally also on Linux by using .desktop files or something.
+
+[2026-02-28T07:52:13Z] Please continue. Oh also the Android layout top/bottom is still not how I want it. And Ruffle still doesn't load the SWFs there "failed to fetch https://localhost/swf/renaming.swf" Also on my Linux\n  desktop I noticed that I get native X11 windows that ask me if I want to open a URL when a SWF tries to open a website. Please NEVER use OS-native windows but just show a alert with\n  confirm/deny buttons in shitcort67.
+
+[2026-02-28T08:05:50Z] Yes. Also I noticed that you steal system-wide Ctrl+Shift+I and F12 shortcuts while shitcord67 is running. This prevents other apps from receiving it, e.g. my web browser or Discord which I want to inspect...
+
+[2026-02-28T08:23:10Z] No. Also please continue working
+
+[2026-02-28T08:25:46Z] Not sure? As long as it doesn't call native windows from my operating system..

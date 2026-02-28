@@ -578,8 +578,11 @@ function updateRuntimeSafeArea() {
     const viewportOffsetTop = viewport && Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
     const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
     const keyboardLikelyOpen = keyboardGap >= 110;
-    safeTop = Math.max(safeTop, 24);
-    if (!keyboardLikelyOpen) safeBottom = Math.max(safeBottom, 24);
+    const hasNativeInsets = nativeInsets && (nativeInsets.top || nativeInsets.right || nativeInsets.bottom || nativeInsets.left);
+    const fallbackTop = hasNativeInsets ? 0 : 28;
+    const fallbackBottom = hasNativeInsets ? 0 : 26;
+    root.style.setProperty("--android-safe-extra-top", `${fallbackTop}px`);
+    root.style.setProperty("--android-safe-extra-bottom", `${keyboardLikelyOpen ? 0 : fallbackBottom}px`);
   }
   root.style.setProperty("--runtime-safe-top", `${Math.round(safeTop)}px`);
   root.style.setProperty("--runtime-safe-right", `${Math.round(safeRight)}px`);
@@ -4327,10 +4330,10 @@ async function copyText(value) {
     const copied = document.execCommand("copy");
     if (copied) return true;
     // Manual fallback for browsers that block clipboard writes on non-secure origins.
-    window.prompt("Copy logs manually (Ctrl/Cmd+C, Enter):", text);
+    await showInAppCopyDialog(text);
     return false;
   } catch {
-    window.prompt("Copy logs manually (Ctrl/Cmd+C, Enter):", text);
+    await showInAppCopyDialog(text);
     return false;
   } finally {
     area.remove();
@@ -5328,7 +5331,8 @@ function showInAppConfirmDialog({
   message = "",
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
-  danger = false
+  danger = false,
+  hideCancel = false
 } = {}) {
   return new Promise((resolve) => {
     const overlay = ensureMediaLightbox();
@@ -5352,9 +5356,6 @@ function showInAppConfirmDialog({
     confirmBtn.type = "button";
     confirmBtn.textContent = confirmLabel;
     if (danger) confirmBtn.classList.add("is-danger");
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.textContent = cancelLabel;
     let settled = false;
     const finish = (result) => {
       if (settled) return;
@@ -5363,9 +5364,14 @@ function showInAppConfirmDialog({
       resolve(Boolean(result));
     };
     confirmBtn.addEventListener("click", () => finish(true));
-    cancelBtn.addEventListener("click", () => finish(false));
     actions.appendChild(confirmBtn);
-    actions.appendChild(cancelBtn);
+    if (!hideCancel) {
+      const cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.textContent = cancelLabel;
+      cancelBtn.addEventListener("click", () => finish(false));
+      actions.appendChild(cancelBtn);
+    }
     card.appendChild(heading);
     if (message) card.appendChild(body);
     card.appendChild(actions);
@@ -5374,6 +5380,150 @@ function showInAppConfirmDialog({
     overlay.hidden = false;
     document.body.style.overflow = "hidden";
     overlay.focus({ preventScroll: true });
+  });
+}
+
+function showInAppAlertDialog({
+  title = "Notice",
+  message = "",
+  confirmLabel = "OK"
+} = {}) {
+  return showInAppConfirmDialog({
+    title,
+    message,
+    confirmLabel,
+    hideCancel: true
+  });
+}
+
+function showInAppPromptDialog({
+  title = "Enter value",
+  message = "",
+  defaultValue = "",
+  placeholder = "",
+  confirmLabel = "OK",
+  cancelLabel = "Cancel",
+  multiline = false
+} = {}) {
+  return new Promise((resolve) => {
+    const overlay = ensureMediaLightbox();
+    const stage = overlay.querySelector(".media-lightbox__stage");
+    const caption = overlay.querySelector(".media-lightbox__caption");
+    if (!stage || !caption) {
+      resolve(null);
+      return;
+    }
+    stage.innerHTML = "";
+    const card = document.createElement("div");
+    card.className = "in-app-confirm";
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    const body = document.createElement("div");
+    body.className = "in-app-confirm__body";
+    body.textContent = message || "";
+    const input = multiline ? document.createElement("textarea") : document.createElement("input");
+    input.className = "in-app-confirm__input";
+    input.value = (defaultValue ?? "").toString();
+    input.placeholder = placeholder || "";
+    if (!multiline) input.type = "text";
+    const actions = document.createElement("div");
+    actions.className = "in-app-confirm__actions";
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.textContent = confirmLabel;
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.textContent = cancelLabel;
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      closeMediaLightbox();
+      resolve(value);
+    };
+    confirmBtn.addEventListener("click", () => finish(input.value));
+    cancelBtn.addEventListener("click", () => finish(null));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        finish(null);
+        return;
+      }
+      if (!multiline && event.key === "Enter") {
+        event.preventDefault();
+        finish(input.value);
+      }
+    });
+    actions.appendChild(confirmBtn);
+    actions.appendChild(cancelBtn);
+    card.appendChild(heading);
+    if (message) card.appendChild(body);
+    card.appendChild(input);
+    card.appendChild(actions);
+    stage.appendChild(card);
+    caption.textContent = "Input";
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    overlay.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      try {
+        input.focus();
+        input.select?.();
+      } catch {
+        // Ignore focus failures.
+      }
+    });
+  });
+}
+
+function showInAppCopyDialog(text = "") {
+  return new Promise((resolve) => {
+    const overlay = ensureMediaLightbox();
+    const stage = overlay.querySelector(".media-lightbox__stage");
+    const caption = overlay.querySelector(".media-lightbox__caption");
+    if (!stage || !caption) {
+      resolve(false);
+      return;
+    }
+    stage.innerHTML = "";
+    const card = document.createElement("div");
+    card.className = "in-app-confirm";
+    const heading = document.createElement("strong");
+    heading.textContent = "Copy text";
+    const body = document.createElement("div");
+    body.className = "in-app-confirm__body";
+    body.textContent = "Select the text below and copy it.";
+    const area = document.createElement("textarea");
+    area.className = "in-app-confirm__input";
+    area.readOnly = true;
+    area.value = (text ?? "").toString();
+    const actions = document.createElement("div");
+    actions.className = "in-app-confirm__actions";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", () => {
+      closeMediaLightbox();
+      resolve(true);
+    });
+    actions.appendChild(closeBtn);
+    card.appendChild(heading);
+    card.appendChild(body);
+    card.appendChild(area);
+    card.appendChild(actions);
+    stage.appendChild(card);
+    caption.textContent = "Manual copy";
+    overlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    overlay.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      try {
+        area.focus();
+        area.select();
+      } catch {
+        // Ignore focus failures.
+      }
+    });
   });
 }
 
@@ -5450,7 +5600,7 @@ function openMediaLightbox({ url, label = "", video = false } = {}) {
   overlay.focus({ preventScroll: true });
 }
 
-function showExternalLinkPrompt(targetUrl) {
+function showExternalLinkPrompt(targetUrl, { allowEmbed = true } = {}) {
   const overlay = ensureMediaLightbox();
   const stage = overlay.querySelector(".media-lightbox__stage");
   const caption = overlay.querySelector(".media-lightbox__caption");
@@ -5465,10 +5615,15 @@ function showExternalLinkPrompt(targetUrl) {
   preview.textContent = targetUrl;
   const actions = document.createElement("div");
   actions.className = "external-link-gate__actions";
-  const openEmbeddedBtn = document.createElement("button");
-  openEmbeddedBtn.type = "button";
-  openEmbeddedBtn.textContent = "Open Here";
-  openEmbeddedBtn.addEventListener("click", () => {
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.textContent = "Confirm";
+  confirmBtn.addEventListener("click", () => {
+    if (!allowEmbed) {
+      showToast("External protocols are blocked in-app.", { tone: "warn" });
+      closeMediaLightbox();
+      return;
+    }
     stage.innerHTML = "";
     const frame = document.createElement("iframe");
     frame.className = "media-lightbox__media media-lightbox__media--frame";
@@ -5478,39 +5633,21 @@ function showExternalLinkPrompt(targetUrl) {
     frame.allow = "fullscreen";
     const controls = document.createElement("div");
     controls.className = "external-link-gate__actions";
-    const copyBtn = document.createElement("button");
-    copyBtn.type = "button";
-    copyBtn.textContent = "Copy URL";
-    copyBtn.addEventListener("click", async () => {
-      const copied = await copyText(targetUrl);
-      showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
-    });
-    const backBtn = document.createElement("button");
-    backBtn.type = "button";
-    backBtn.textContent = "Back";
-    backBtn.addEventListener("click", () => {
-      showExternalLinkPrompt(targetUrl);
-    });
-    controls.appendChild(copyBtn);
-    controls.appendChild(backBtn);
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", () => closeMediaLightbox());
+    controls.appendChild(closeBtn);
     stage.appendChild(frame);
     stage.appendChild(controls);
     caption.textContent = targetUrl;
   });
-  const copyBtn = document.createElement("button");
-  copyBtn.type = "button";
-  copyBtn.textContent = "Copy URL";
-  copyBtn.addEventListener("click", async () => {
-    const copied = await copyText(targetUrl);
-    showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
-  });
-  const cancelBtn = document.createElement("button");
-  cancelBtn.type = "button";
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.addEventListener("click", () => closeMediaLightbox());
-  actions.appendChild(openEmbeddedBtn);
-  actions.appendChild(copyBtn);
-  actions.appendChild(cancelBtn);
+  const denyBtn = document.createElement("button");
+  denyBtn.type = "button";
+  denyBtn.textContent = "Deny";
+  denyBtn.addEventListener("click", () => closeMediaLightbox());
+  actions.appendChild(confirmBtn);
+  actions.appendChild(denyBtn);
   gate.appendChild(title);
   gate.appendChild(preview);
   gate.appendChild(actions);
@@ -5523,14 +5660,19 @@ function showExternalLinkPrompt(targetUrl) {
 
 function openExternalUrlInClient(rawUrl) {
   const targetUrl = resolveMediaUrl((rawUrl || "").toString().trim());
-  if (!/^https?:\/\//i.test(targetUrl)) return;
-  showExternalLinkPrompt(targetUrl);
+  if (!targetUrl) return;
+  const allowEmbed = /^https?:\/\//i.test(targetUrl);
+  showExternalLinkPrompt(targetUrl, { allowEmbed });
 }
 
 if (nativeWindowOpen && window.__s67ExternalOpenProxy !== true) {
   window.__s67ExternalOpenProxy = true;
   window.open = (url) => {
-    openExternalUrlInClient(url || "");
+    const targetUrl = (url || "").toString();
+    if (/^s67:/i.test(targetUrl)) {
+      return nativeWindowOpen(targetUrl, "_blank", "noopener");
+    }
+    openExternalUrlInClient(targetUrl);
     return null;
   };
 }
@@ -10053,11 +10195,17 @@ function renameGuildById(guildId) {
   openGuildSettingsDialog(guild);
 }
 
-function deleteGuildById(guildId) {
+async function deleteGuildById(guildId) {
   if (state.guilds.length <= 1) return;
   const guild = state.guilds.find((entry) => entry.id === guildId);
   if (!guild) return;
-  const confirmed = confirm(`Delete guild "${guild.name}"? This removes all channels and messages in it.`);
+  const confirmed = await showInAppConfirmDialog({
+    title: "Delete guild?",
+    message: `Delete guild "${guild.name}"? This removes all channels and messages in it.`,
+    confirmLabel: "Delete",
+    cancelLabel: "Cancel",
+    danger: true
+  });
   if (!confirmed) return;
   removeGuildFromFolders(guildId);
   state.guilds = state.guilds.filter((entry) => entry.id !== guildId);
@@ -23481,12 +23629,13 @@ function bumpComposerTemporaryLimit() {
   showToast(`Temporary message limit raised to ${composerLimitForConversation(conversation)} chars.`);
 }
 
-function configureDefaultComposerLimit() {
+async function configureDefaultComposerLimit() {
   const prefs = getPreferences();
-  const typed = prompt(
-    `Set default message limit (${MESSAGE_CHAR_LIMIT_MIN}-${MESSAGE_CHAR_LIMIT_MAX})`,
-    String(prefs.messageCharLimit || MESSAGE_CHAR_LIMIT_DEFAULT)
-  );
+  const typed = await showInAppPromptDialog({
+    title: "Default message limit",
+    message: `Set default message limit (${MESSAGE_CHAR_LIMIT_MIN}-${MESSAGE_CHAR_LIMIT_MAX})`,
+    defaultValue: String(prefs.messageCharLimit || MESSAGE_CHAR_LIMIT_DEFAULT)
+  });
   if (typed === null) return;
   const parsed = Number(typed.trim());
   if (!Number.isFinite(parsed)) {
@@ -25637,13 +25786,17 @@ function toggleGifGroupMembership(url, groupId) {
   return updated?.urls.includes(gifUrl) || false;
 }
 
-function promptGifGroupForUrl(url) {
+async function promptGifGroupForUrl(url) {
   const gifUrl = (url || "").toString().trim();
   if (!gifUrl) return false;
   state.preferences = getPreferences();
   const groups = normalizeGifGroups(state.preferences.gifGroups);
   if (groups.length === 0) {
-    const createdName = prompt("Create GIF group name", "Favorites");
+    const createdName = await showInAppPromptDialog({
+      title: "Create GIF group",
+      message: "Create GIF group name",
+      defaultValue: "Favorites"
+    });
     if (typeof createdName !== "string") return false;
     const groupId = upsertGifGroup(createdName);
     if (!groupId) return false;
@@ -25654,7 +25807,11 @@ function promptGifGroupForUrl(url) {
     return Boolean(added);
   }
   const defaultName = groups[0].name;
-  const selectedName = prompt("Add GIF to group (existing or new name)", defaultName);
+  const selectedName = await showInAppPromptDialog({
+    title: "Add GIF to group",
+    message: "Add GIF to group (existing or new name)",
+    defaultValue: defaultName
+  });
   if (typeof selectedName !== "string") return false;
   const groupId = upsertGifGroup(selectedName) || groups.find((entry) => entry.name.toLowerCase() === selectedName.trim().toLowerCase())?.id || "";
   if (!groupId) return false;
@@ -26290,15 +26447,6 @@ function sendMediaAttachment(entry, type) {
   }
 }
 
-function safeNativePrompt(message, defaultValue = "") {
-  if (!(typeof window !== "undefined" && typeof window.prompt === "function")) return null;
-  try {
-    return window.prompt(message, defaultValue);
-  } catch {
-    return null;
-  }
-}
-
 function settleMediaUrlDialog(result = null) {
   if (!(mediaUrlDialogResolver instanceof Function)) return;
   const resolve = mediaUrlDialogResolver;
@@ -26306,14 +26454,22 @@ function settleMediaUrlDialog(result = null) {
   resolve(result);
 }
 
-function openMediaUrlEntryDialog(tab) {
+async function openMediaUrlEntryDialog(tab) {
   const nameLabel = tab === "emoji" ? "emoji short name" : `${tab} name`;
   if (!ui.mediaUrlDialog || !ui.mediaUrlNameInput || !ui.mediaUrlInput) {
-    const typedName = safeNativePrompt(`Add ${nameLabel}`, "");
-    if (typedName === null) return Promise.resolve(null);
-    const typedUrl = safeNativePrompt(`Add ${tab.toUpperCase()} URL`, "https://");
-    if (!typedUrl) return Promise.resolve(null);
-    return Promise.resolve({ typedName, typedUrl });
+    const typedName = await showInAppPromptDialog({
+      title: `Add ${tab.toUpperCase()} name`,
+      message: `Add ${nameLabel}`,
+      defaultValue: ""
+    });
+    if (typedName === null) return null;
+    const typedUrl = await showInAppPromptDialog({
+      title: `Add ${tab.toUpperCase()} URL`,
+      message: `Add ${tab.toUpperCase()} URL`,
+      defaultValue: "https://"
+    });
+    if (!typedUrl) return null;
+    return { typedName, typedUrl };
   }
   if (mediaUrlDialogResolver instanceof Function) settleMediaUrlDialog(null);
   if (ui.mediaUrlDialogTitle) ui.mediaUrlDialogTitle.textContent = `Add ${tab.toUpperCase()} URL`;
@@ -26669,8 +26825,12 @@ function renderMediaPicker() {
       const newGroupBtn = document.createElement("button");
       newGroupBtn.type = "button";
       newGroupBtn.textContent = "New Group";
-      newGroupBtn.addEventListener("click", () => {
-        const nextName = prompt("New GIF group name", "Favorites");
+      newGroupBtn.addEventListener("click", async () => {
+        const nextName = await showInAppPromptDialog({
+          title: "New GIF group",
+          message: "New GIF group name",
+          defaultValue: "Favorites"
+        });
         if (typeof nextName !== "string") return;
         const groupId = upsertGifGroup(nextName);
         if (!groupId) return;
@@ -26689,9 +26849,13 @@ function renderMediaPicker() {
         : null;
       renameGroupBtn.disabled = !currentGroup;
       deleteGroupBtn.disabled = !currentGroup;
-      renameGroupBtn.addEventListener("click", () => {
+      renameGroupBtn.addEventListener("click", async () => {
         if (!currentGroup) return;
-        const nextName = prompt("Rename GIF group", currentGroup.name);
+        const nextName = await showInAppPromptDialog({
+          title: "Rename GIF group",
+          message: "Rename GIF group",
+          defaultValue: currentGroup.name
+        });
         if (typeof nextName !== "string") return;
         state.preferences = getPreferences();
         state.preferences.gifGroups = normalizeGifGroups(state.preferences.gifGroups).map((group) => (
@@ -26702,9 +26866,16 @@ function renderMediaPicker() {
         saveState();
         renderMediaPicker();
       });
-      deleteGroupBtn.addEventListener("click", () => {
+      deleteGroupBtn.addEventListener("click", async () => {
         if (!currentGroup) return;
-        if (!confirm(`Delete GIF group "${currentGroup.name}"?`)) return;
+        const confirmed = await showInAppConfirmDialog({
+          title: "Delete GIF group?",
+          message: `Delete GIF group "${currentGroup.name}"?`,
+          confirmLabel: "Delete",
+          cancelLabel: "Cancel",
+          danger: true
+        });
+        if (!confirmed) return;
         state.preferences = getPreferences();
         state.preferences.gifGroups = normalizeGifGroups(state.preferences.gifGroups).filter((group) => group.id !== currentGroup.id);
         state.preferences.gifScope = "all";
@@ -26996,7 +27167,7 @@ function renderMediaPicker() {
         ? (inActiveGroup ? `Remove from ${activeGroup.name}` : `Add to ${activeGroup.name}`)
         : "Add to GIF group";
       groupBtn.classList.toggle("is-active", inActiveGroup);
-      groupBtn.addEventListener("click", (event) => {
+      groupBtn.addEventListener("click", async (event) => {
         event.preventDefault();
         event.stopPropagation();
         if (activeGroup) {
@@ -27005,7 +27176,7 @@ function renderMediaPicker() {
           showToast(added ? `Added to ${activeGroup.name}.` : `Removed from ${activeGroup.name}.`);
           return;
         }
-        const added = promptGifGroupForUrl(gifUrl);
+        const added = await promptGifGroupForUrl(gifUrl);
         renderMediaPicker();
         if (added) showToast("GIF added to group.");
       });
@@ -28956,7 +29127,26 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       candidates.forEach((candidate) => {
         addUrlVariant(resolvedCandidates, resolveMediaPlaybackUrl(candidate, { kind: "swf" }) || resolveMediaUrl(candidate) || candidate);
       });
-      return resolvedCandidates;
+      const withLocalhostFallbacks = [];
+      const addLocalhostVariants = (value) => {
+        addUrlVariant(withLocalhostFallbacks, value);
+        try {
+          const parsed = new URL(value);
+          const host = (parsed.hostname || "").toLowerCase();
+          if (!["localhost", "127.0.0.1"].includes(host)) return;
+          if (parsed.protocol === "https:") {
+            parsed.protocol = "http:";
+            addUrlVariant(withLocalhostFallbacks, parsed.toString());
+          } else if (parsed.protocol === "http:") {
+            parsed.protocol = "https:";
+            addUrlVariant(withLocalhostFallbacks, parsed.toString());
+          }
+        } catch {
+          // ignore URL parse failures
+        }
+      };
+      resolvedCandidates.forEach(addLocalhostVariants);
+      return withLocalhostFallbacks;
     };
     const urlCandidates = buildSwfUrlCandidates();
     const loadWithFallback = async () => {
@@ -29033,7 +29223,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             scale: "showAll",
             forceScale: true,
             letterbox: "on",
-            openUrlMode: "confirm"
+            openUrlMode: "allow"
           }));
           addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
           loaded = true;
@@ -30628,14 +30818,18 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     customRuleBtn.className = "message-media-gate__option";
     customRuleBtn.textContent = "Rule";
     customRuleBtn.disabled = !host;
-    customRuleBtn.addEventListener("click", (event) => {
+    customRuleBtn.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
       if (!host) {
         showToast("Could not detect media host for custom rule.", { tone: "error" });
         return;
       }
-      const nextRule = prompt("Media trust rule (domain, *.domain, or /regex/)", host);
+      const nextRule = await showInAppPromptDialog({
+        title: "Media trust rule",
+        message: "Media trust rule (domain, *.domain, or /regex/)",
+        defaultValue: host
+      });
       if (typeof nextRule !== "string") return;
       const added = addMediaTrustRule(nextRule);
       if (!added) {
@@ -31470,8 +31664,12 @@ function renderServers() {
         ),
         {
           label: "Create Folder With Guild",
-          action: () => {
-            const folderName = prompt("Folder name", "New Folder");
+          action: async () => {
+            const folderName = await showInAppPromptDialog({
+              title: "Create folder",
+              message: "Folder name",
+              defaultValue: "New Folder"
+            });
             if (typeof folderName !== "string") return;
             const cleaned = folderName.trim().slice(0, 24);
             if (!cleaned) return;
@@ -31485,9 +31683,14 @@ function renderServers() {
         {
           label: "Move To Folder…",
           disabled: state.guildFolders.length === 0,
-          action: () => {
+          action: async () => {
             const folderNames = state.guildFolders.map((folder, index) => `${index + 1}. ${folder.name}`).join("\n");
-            const pick = prompt(`Choose folder number:\n${folderNames}`, "1");
+            const pick = await showInAppPromptDialog({
+              title: "Move to folder",
+              message: `Choose folder number:\n${folderNames}`,
+              defaultValue: "1",
+              multiline: true
+            });
             const index = Math.max(1, Number(pick || 0)) - 1;
             const folder = state.guildFolders[index];
             if (!folder) return;
@@ -31573,7 +31776,9 @@ function renderServers() {
               {
                 label: "Delete Guild",
                 danger: true,
-                action: () => deleteGuildById(server.id)
+                action: async () => {
+                  await deleteGuildById(server.id);
+                }
               }
             ]
             : []
@@ -32278,8 +32483,12 @@ function renderChannels() {
             submenu: [
               {
                 label: "Add Tag…",
-                action: () => {
-                  const raw = prompt("Forum tag name", "discussion");
+                action: async () => {
+                  const raw = await showInAppPromptDialog({
+                    title: "Add forum tag",
+                    message: "Forum tag name",
+                    defaultValue: "discussion"
+                  });
                   if (typeof raw !== "string") return;
                   const name = sanitizeForumTagName(raw);
                   if (!name) return;
@@ -35204,8 +35413,11 @@ function renderMessages() {
         {
           label: "View Edit History",
           disabled: messageEditHistory(message).length === 0,
-          action: () => {
-            alert(formatMessageEditHistory(message));
+          action: async () => {
+            await showInAppAlertDialog({
+              title: "Edit history",
+              message: formatMessageEditHistory(message)
+            });
           }
         },
         ...(
@@ -39233,13 +39445,13 @@ ui.composerCharCount?.addEventListener("click", () => {
   }, 220);
 });
 
-ui.composerCharCount?.addEventListener("dblclick", (event) => {
+ui.composerCharCount?.addEventListener("dblclick", async (event) => {
   event.preventDefault();
   if (composerCharCountClickTimer) {
     clearTimeout(composerCharCountClickTimer);
     composerCharCountClickTimer = null;
   }
-  configureDefaultComposerLimit();
+  await configureDefaultComposerLimit();
 });
 
 ui.openMediaPickerBtn.addEventListener("click", () => {
@@ -40770,7 +40982,7 @@ ui.guildSettingsForm?.addEventListener("submit", (event) => {
   ui.guildSettingsDialog.close();
   render();
 });
-ui.deleteGuildBtn?.addEventListener("click", () => {
+ui.deleteGuildBtn?.addEventListener("click", async () => {
   const guild = getActiveGuild();
   const current = getCurrentAccount();
   if (!guild) return;
@@ -40780,7 +40992,7 @@ ui.deleteGuildBtn?.addEventListener("click", () => {
   }
   const guildId = guild.id;
   ui.guildSettingsDialog.close();
-  deleteGuildById(guildId);
+  await deleteGuildById(guildId);
 });
 
 ui.channelSettingsForm.addEventListener("submit", (event) => {
@@ -41282,9 +41494,15 @@ ui.importSwfSavesInput.addEventListener("change", async () => {
       imported += 1;
     });
     addDebugLog("info", "Imported SWF save entries", { imported });
-    alert(`Imported ${imported} SWF save entr${imported === 1 ? "y" : "ies"}.`);
+    await showInAppAlertDialog({
+      title: "SWF saves imported",
+      message: `Imported ${imported} SWF save entr${imported === 1 ? "y" : "ies"}.`
+    });
   } catch {
-    alert("Failed to import SWF saves JSON.");
+    await showInAppAlertDialog({
+      title: "SWF import failed",
+      message: "Failed to import SWF saves JSON."
+    });
   } finally {
     ui.importSwfSavesInput.value = "";
   }

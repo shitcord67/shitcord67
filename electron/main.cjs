@@ -61,7 +61,7 @@ if (process.platform === "linux") {
   applyEarlyRuntimeEnv(EARLY_RUNTIME_DIR);
 }
 
-const { app, BrowserWindow, dialog, session, ipcMain, globalShortcut } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const https = require("node:https");
@@ -471,26 +471,10 @@ function handleInternalS67Url(target, windowInstance) {
 
 function registerDevtoolsGlobalShortcuts() {
   if (devtoolsShortcutsRegistered) return;
-  const accelerators = ["F12", "CommandOrControl+Shift+I", "Command+Alt+I"];
-  let registeredAny = false;
-  accelerators.forEach((accelerator) => {
-    try {
-      const ok = globalShortcut.register(accelerator, () => {
-        toggleDevtoolsForWindow(undefined, { dedupeMs: 220 });
-      });
-      if (ok) registeredAny = true;
-    } catch (error) {
-      log("failed to register DevTools shortcut", `${accelerator} ${String(error?.message || error)}`);
-    }
-  });
-  devtoolsShortcutsRegistered = registeredAny;
+  devtoolsShortcutsRegistered = false;
 }
 
 function unregisterDevtoolsGlobalShortcuts() {
-  if (!devtoolsShortcutsRegistered) return;
-  globalShortcut.unregister("F12");
-  globalShortcut.unregister("CommandOrControl+Shift+I");
-  globalShortcut.unregister("Command+Alt+I");
   devtoolsShortcutsRegistered = false;
 }
 
