@@ -1,0 +1,690 @@
+approver,number,last_updated,accepted,short_name,type,id,title,url,status,version
+Council,,2008-12-11,0,xtls,Standards Track,0,XMPP Transport Layer Security,https://xmpp.org/extensions/inbox/xtls.html,ProtoXEP,0.0.5
+Council,,2009-02-10,0,jingle-ibb,Standards Track,1,Jingle In-Band Bytestreams Transport,https://xmpp.org/extensions/inbox/jingle-ibb.html,ProtoXEP,0.0.1
+Council,,2009-02-14,0,calendaring,Standards Track,2,Calendaring Extensions to Publish-Subscribe,https://xmpp.org/extensions/inbox/calendaring.html,ProtoXEP,0.0.3.1
+Council,,2009-02-18,0,jingle-s5b,Standards Track,3,Jingle SOCKS5 Bytestreams Transport Method,https://xmpp.org/extensions/inbox/jingle-s5b.html,ProtoXEP,0.0.3
+Council,,2009-02-21,0,jingle-xtls,Standards Track,4,XMPP Transport Layer Security,https://xmpp.org/extensions/inbox/jingle-xtls.html,ProtoXEP,0.0.4
+Council,,2009-02-24,0,jingle-zrtp,Standards Track,5,Use of ZRTP in Jingle RTP Sessions,https://xmpp.org/extensions/inbox/jingle-zrtp.html,ProtoXEP,0.0.2
+Council,,2009-03-04,0,jingle-rtp-mti,Standards Track,6,Mandatory-to-Implement Technologies for Jingle RTP Sessions,https://xmpp.org/extensions/inbox/jingle-rtp-mti.html,ProtoXEP,0.0.2
+Council,,2009-03-10,0,sic,Standards Track,7,Server IP Check,https://xmpp.org/extensions/inbox/sic.html,ProtoXEP,0.0.2
+Council,,2009-03-10,0,thumbs,Standards Track,8,File Transfer Thumbnails,https://xmpp.org/extensions/inbox/thumbs.html,ProtoXEP,0.0.3
+Council,,2009-03-14,0,tictactoe-mug,Standards Track,9,Server-based Tic-tac-toe,https://xmpp.org/extensions/inbox/tictactoe-mug.html,ProtoXEP,0.0.1
+Council,,2009-03-14,0,instant-gaming,Standards Track,10,Instant Gaming,https://xmpp.org/extensions/inbox/instant-gaming.html,ProtoXEP,0.0.1
+Council,,2009-03-14,0,tictactoe,Standards Track,11,Tic-tac-toe,https://xmpp.org/extensions/inbox/tictactoe.html,ProtoXEP,0.0.1
+Council,,2009-03-30,0,outofband,Standards Track,12,Out-of-Band Stream Data,https://xmpp.org/extensions/inbox/outofband.html,ProtoXEP,0.0.2
+Council,,2009-04-04,0,jingle-rtp-codecs,Informational,13,Codecs for Jingle RTP Sessions,https://xmpp.org/extensions/inbox/jingle-rtp-codecs.html,ProtoXEP,0.0.4
+Council,,2009-04-10,0,forwarding-delivery,Standards Track,14,Stanza Forwarding,https://xmpp.org/extensions/inbox/forwarding-delivery.html,ProtoXEP,0.0.5
+Council,,2009-04-13,0,problem-reporting,Standards Track,15,Problem Reporting,https://xmpp.org/extensions/inbox/problem-reporting.html,ProtoXEP,0.0.1
+Council,,2009-04-20,0,multi-user_gaming,Standards Track,16,Multi-User Gaming,https://xmpp.org/extensions/inbox/multi-user_gaming.html,ProtoXEP,0.0.3
+Council,,2009-04-30,0,incident-reporting,Standards Track,17,Incident Reporting,https://xmpp.org/extensions/inbox/incident-reporting.html,ProtoXEP,0.0.3
+Council,,2009-04-30,0,server-rosters,Standards Track,18,Server Rosters,https://xmpp.org/extensions/inbox/server-rosters.html,ProtoXEP,0.0.1
+Council,,2009-05-13,0,shared-bosh,Standards Track,19,Shared BOSH,https://xmpp.org/extensions/inbox/shared-bosh.html,ProtoXEP,0.0.1
+Telepathy project,,2009-06-09,0,muji,Extension,20,Muji,https://xmpp.org/extensions/inbox/muji.html,ProtoXep,0.0.0.2
+Council,,2009-07-27,0,dna,Standards Track,21,Domain Name Assertions,https://xmpp.org/extensions/inbox/dna.html,ProtoXEP,0.0.1
+Council,,2009-08-14,0,sift,Standards Track,22,Stanza Interception and Filtering Technology,https://xmpp.org/extensions/inbox/sift.html,ProtoXEP,0.0.8
+Council,,2009-08-20,0,dsig-design,Informational,23,Design Considerations for Digital Signatures in XMPP,https://xmpp.org/extensions/inbox/dsig-design.html,ProtoXEP,0.0.090820
+Council,,2009-09-18,0,lop,Standards Track,24,Linked Process Protocol,https://xmpp.org/extensions/inbox/lop.html,ProtoXEP,0.0.1
+Council,,2009-12-17,0,jingle-nodes,Standards Track,25,Jingle Relay Nodes,https://xmpp.org/extensions/inbox/jingle-nodes.html,ProtoXEP,0.0.1
+Council,,2010-01-11,0,reputation,Standards Track,26,Entity Reputation,https://xmpp.org/extensions/inbox/reputation.html,ProtoXEP,0.0.1
+Council,,2010-01-17,0,decloak,Standards track,27,Presence Decloaking,https://xmpp.org/extensions/inbox/decloak.html,ProtoXEP,0.0.2
+Council,,2010-02-05,0,distributedmuc,Standards Track,28,Distributed Multi-User Chat,https://xmpp.org/extensions/inbox/distributedmuc.html,ProtoXEP,0.0.2
+Council,,2010-02-25,0,carbons,Standards Track,29,Message Carbons,https://xmpp.org/extensions/inbox/carbons.html,ProtoXEP,0.0.1
+Council,,2010-03-10,0,dsig,Technical Specification,30,Digital Signatures in XMPP,https://xmpp.org/extensions/inbox/dsig.html,ProtoXEP,0.0
+Council,,2010-05-07,0,json,Standards Track,31,JSON Content Type support,https://xmpp.org/extensions/inbox/json.html,ProtoXEP,0.0.1
+Council,,2010-05-24,0,fmuc,Standards Track,32,Federated MUC for constrained environments,https://xmpp.org/extensions/inbox/fmuc.html,ProtoXEP,0.0.1
+Council,,2010-06-08,0,sxe,Standards Track,33,Shared XML Editing,https://xmpp.org/extensions/inbox/sxe.html,ProtoXEP,0.0.10
+Council,,2010-06-09,0,moved,Standards Track,34,Moved,https://xmpp.org/extensions/inbox/moved.html,ProtoXEP,0.0.7
+Council,,2010-07-13,0,mobile,Informational,35,XMPP on Mobile Devices,https://xmpp.org/extensions/inbox/mobile.html,ProtoXEP,0.0.1
+Council,,2010-09-13,0,spim,Standards Track,36,Spim Markers and Reports,https://xmpp.org/extensions/inbox/spim.html,ProtoXEP,0.1
+Council,,2010-09-13,0,bidi,Standards Track,37,Bidirectional Server-to-Server Connections,https://xmpp.org/extensions/inbox/bidi.html,ProtoXEP,0.0.2
+Council,,2011-01-25,0,dmuc3,Standards Track,38,DMUC3: Distributed MUC,https://xmpp.org/extensions/inbox/dmuc3.html,ProtoXEP,0.0.1
+Council,,2011-04-08,0,sensors,Standards Track,39,Sensor-Over-XMPP,https://xmpp.org/extensions/inbox/sensors.html,ProtoXEP,0.0.18
+Council,,2011-07-17,0,account-management,Standards Track,40,Account Management,https://xmpp.org/extensions/inbox/account-management.html,ProtoXEP,0.0.1
+Council,,2011-11-11,0,ft-metadata,Standards Track,41,File Transfer Metadata,https://xmpp.org/extensions/inbox/ft-metadata.html,ProtoXEP,0.0.1
+Council,,2012-01-14,0,pubsub-uri,Standards Track,42,The 'xmpp.pubsub' URI Scheme,https://xmpp.org/extensions/inbox/pubsub-uri.html,ProtoXEP,0.0.1
+Council,,2012-02-29,0,pubsub-since,Standards Track,43,PubSub Since,https://xmpp.org/extensions/inbox/pubsub-since.html,ProtoXEP,0.0.2
+Council,,2012-09-25,0,muc-admin,Standards Track,44,Multi-User Chat Administration,https://xmpp.org/extensions/inbox/muc-admin.html,ProtoXEP,0.0.1
+Council,,2013-09-05,0,jingle-sdp,Standards Track,45,Jingle SDP Content,https://xmpp.org/extensions/inbox/jingle-sdp.html,ProtoXEP,0.0.1
+Council,,2013-10-28,0,peptzo,Standards Track,46,User Time Zone,https://xmpp.org/extensions/inbox/peptzo.html,ProtoXEP,0.1
+Council,,2013-12-02,0,sox,Standards Track,47,SIP/SDP Over XMPP (SoX),https://xmpp.org/extensions/inbox/sox.html,ProtoXEP,0.0.2
+Council,,2013-12-19,0,user-auth,Standards Strack,48,Two-factor user authentication with a shared secret,https://xmpp.org/extensions/inbox/user-auth.html,ProtoXEP,0.0.1
+Council,,2014-04-29,0,buddycloud-channels,Standards Track,49,Buddycloud Channels,https://xmpp.org/extensions/inbox/buddycloud-channels.html,ProtoXEP,0.0.2
+Council,,2014-07-20,0,rsf,Standards Track,50,Recipient Server Side Notifications Filtering,https://xmpp.org/extensions/inbox/rsf.html,ProtoXEP,0.0.2
+Council,,2014-08-13,0,iot-events,Standards Track,51,Internet of Things - Events,https://xmpp.org/extensions/inbox/iot-events.html,ProtoXEP,0.0.1
+Council,,2014-08-14,0,client-state-notification,Standards Track,52,Client State Indication,https://xmpp.org/extensions/inbox/client-state-notification.html,ProtoXEP,0.0.1
+Council,,2014-09-22,0,cmr,Standards Track,53,Customizable Message Routing,https://xmpp.org/extensions/inbox/cmr.html,ProtoXEP,0.0.1
+Council,,2015-01-20,0,s2s-components,Standards Track,54,S2S Components,https://xmpp.org/extensions/inbox/s2s-components.html,ProtoXEP,0.0.1
+Council,,2015-04-07,0,nsver,Informational,55,Namespace Versioning in urn:xmpp,https://xmpp.org/extensions/inbox/nsver.html,Experimental,0.0.2
+Council,,2015-05-11,0,rest,Standards Track,56,REST with XMPP,https://xmpp.org/extensions/inbox/rest.html,ProtoXEP,0.0.1
+Council,,2015-09-02,0,omemo-filetransfer,Standards Track,57,OMEMO Encrypted Jingle File Transfer,https://xmpp.org/extensions/inbox/omemo-filetransfer.html,ProtoXEP,0.0.1
+Council,,2015-10-12,0,mix,Standards Track,58,Mediated Information eXchange (MIX),https://xmpp.org/extensions/inbox/mix.html,ProtoXEP,0.0.1
+Council,,2015-10-29,0,muc-light,Standards Track,59,Multi-User Chat Light,https://xmpp.org/extensions/inbox/muc-light.html,ProtoXEP,0.0.1
+Council,,2015-11-12,0,qos,Standards Track,60,Quality of Service,https://xmpp.org/extensions/inbox/qos.html,ProtoXEP,0.0.1
+Council,,2015-12-09,0,notification-inbox,Standards Track,61,Notification Inbox,https://xmpp.org/extensions/inbox/notification-inbox.html,ProtoXEP,0.0.2
+Council,,2016-01-15,0,content-types,Standards Track,62,Content Types in Messages,https://xmpp.org/extensions/inbox/content-types.html,ProtoXEP,0.0.1
+Council,,2016-01-16,0,jid-mention,Standards Track,63,JID Mention,https://xmpp.org/extensions/inbox/jid-mention.html,ProtoXEP,0.0.1
+Council,,2016-02-03,0,multistage-ibr,Standards Track,64,Multi-stage IBR,https://xmpp.org/extensions/inbox/multistage-ibr.html,ProtoXEP,0.0.1
+Council,,2016-02-16,0,token-reconnection,Standards Track,65,Token-based reconnection,https://xmpp.org/extensions/inbox/token-reconnection.html,ProtoXEP,0.0.2
+Council,,2016-03-11,0,isr,Standards Track,66,Instant Stream Resumption,https://xmpp.org/extensions/inbox/isr.html,ProtoXEP,0.0.2
+Council,,2016-05-21,0,userrating,Standards Track,67,User Rating,https://xmpp.org/extensions/inbox/userrating.html,ProtoXEP,0.0.1
+Council,,2017-02-07,0,sasl2,Standards Track,68,Extensible SASL Profile,https://xmpp.org/extensions/inbox/sasl2.html,ProtoXEP,0.0.1
+Council,,2017-10-06,0,cap,Standards Track,69,Atomically Compare-And-Publish PubSub Items,https://xmpp.org/extensions/inbox/cap.html,ProtoXEP,0.0.3
+Council,,2017-10-14,0,bmh,Standards Track,70,Body Markup Hints,https://xmpp.org/extensions/inbox/bmh.html,ProtoXEP,0.0.1
+Council,,2017-11-30,0,isr-sasl2,Standards Track,71,Instant Stream Resumption,https://xmpp.org/extensions/inbox/isr-sasl2.html,ProtoXEP,0.0.5
+Council,,2017-12-18,0,pep-vcard-conversion,Standards Track,72,User Avatar to vCard-Based Avatars Conversion,https://xmpp.org/extensions/inbox/pep-vcard-conversion.html,ProtoXEP,0.1.0
+Council,,2018-01-08,0,client-key,Standards Track,73,Client Key Support,https://xmpp.org/extensions/inbox/client-key.html,ProtoXEP,0.0.1
+Council,,2018-01-08,0,totp-2fa,Standards Track,74,Multi-Factor Authentication with TOTP,https://xmpp.org/extensions/inbox/totp-2fa.html,ProtoXEP,0.0.2
+Council,,2018-03-29,0,im-ng,Standards Track,75,IM Routing-NG,https://xmpp.org/extensions/inbox/im-ng.html,ProtoXEP,0.0.2
+Council,,2018-05-16,0,hacx,Standards Track,76,XMPP Connections across HTTPS (HACX),https://xmpp.org/extensions/inbox/hacx.html,ProtoXEP,0.0.2
+Council,,2018-05-22,0,tos,Standards Track,77,Terms of Services,https://xmpp.org/extensions/inbox/tos.html,ProtoXEP,0.0.1
+Council,,2018-05-22,0,gdpr,Informational,78,Best practices for GDPR compliant deployment of XMPP,https://xmpp.org/extensions/inbox/gdpr.html,ProtoXEP,0.0.1
+Council,,2018-08-06,0,muc-selfping,Standards Track,79,MUC Self-Ping (Schrödinger's Chat),https://xmpp.org/extensions/inbox/muc-selfping.html,ProtoXEP,0.0.2
+Council,,2018-08-21,0,fsn,Standards Track,80,File Sharing Notifications,https://xmpp.org/extensions/inbox/fsn.html,ProtoXEP,0.0.4
+Council,,2018-09-18,0,bookmarks-conversion,Standards Track,81,Bookmarks Conversion,https://xmpp.org/extensions/inbox/bookmarks-conversion.html,ProtoXEP,0.1.0
+Council,,2018-09-30,0,buttons,Standards Track,82,Simple Buttons,https://xmpp.org/extensions/inbox/buttons.html,ProtoXEP,0.0.2
+Council,,2018-12-08,0,cs-2019,Standards Track,83,XMPP Compliance Suites 2019,https://xmpp.org/extensions/inbox/cs-2019.html,ProtoXEP,0.0.1
+Council,,2018-12-08,0,cs-2020,Standards Track,84,XMPP Compliance Suites 2020,https://xmpp.org/extensions/inbox/cs-2020.html,ProtoXEP,0.0.1
+Council,,2019-01-05,0,order-by,Standards Track,85,Order-By,https://xmpp.org/extensions/inbox/order-by.html,ProtoXEP,0.0.1
+Council,,2019-01-13,0,hash-recommendations,Informational,86,Cryptographic Hash Function Recommendations for XMPP,https://xmpp.org/extensions/inbox/hash-recommendations.html,ProtoXEP,0.0.1
+Council,,2019-02-08,0,eax,Standards Track,87,E2E Authentication in XMPP,https://xmpp.org/extensions/inbox/eax.html,ProtoXEP,0.0.1
+Board,,2019-02-08,0,eax-car,Procedural,88,E2E Authentication in XMPP: CA Requirements,https://xmpp.org/extensions/inbox/eax-car.html,ProtoXEP,0.0.1
+Council,,2019-02-08,0,xor,Standards Track,89,XMPP Over RELOAD (XOR),https://xmpp.org/extensions/inbox/xor.html,ProtoXEP,0.0.1
+Council,,2019-03-11,0,dox,Standards Track,90,DNS Queries over XMPP (DoX),https://xmpp.org/extensions/inbox/dox.html,ProtoXEP,0.0.1
+Council,,2019-03-11,0,eax-cir,Standards Track,91,E2E Authentication in XMPP: Certificate Issuance and Revocation,https://xmpp.org/extensions/inbox/eax-cir.html,ProtoXEP,0.0.1
+Council,,2019-03-22,0,automatic-trust-transfer,Standards Track,92,Automatic Trust Transfer (ATT),https://xmpp.org/extensions/inbox/automatic-trust-transfer.html,ProtoXEP,0.0.1
+Editor,,2019-04-01,0,baseline-security,Humorous,93,Improving Baseline Security in XMPP,https://xmpp.org/extensions/inbox/baseline-security.html,ProtoXEP,0.0.1
+Council,,2019-06-03,0,xep-sce,Standards Track,94,Stanza Content Encryption,https://xmpp.org/extensions/inbox/xep-sce.html,ProtoXEP,0.0.1
+Council,,2019-07-13,0,occupant-id,Standards Track,95,Anonymous unique occupant identifiers for MUCs,https://xmpp.org/extensions/inbox/occupant-id.html,ProtoXEP,0.0.1
+Council,,2019-07-14,0,reactions,Standards Track,96,Message Reactions,https://xmpp.org/extensions/inbox/reactions.html,ProtoXEP,0.0.1
+Council,,2019-09-04,0,fasten,Standards Track,97,Message Fastening,https://xmpp.org/extensions/inbox/fasten.html,ProtoXEP,0.0.1
+Council,,2019-09-11,0,auth-tokens,Standards Track,98,Authorization Tokens,https://xmpp.org/extensions/inbox/auth-tokens.html,ProtoXEP,0.0.1
+Council,,2019-12-19,0,mamfc,Standards Track,99,MAM Fastening Collation,https://xmpp.org/extensions/inbox/mamfc.html,ProtoXEP,0.0.1
+Council,,2019-12-30,0,inbox,Standards Track,100,Inbox,https://xmpp.org/extensions/inbox/inbox.html,ProtoXEP,0.0.1
+Council,,2019-12-30,0,sige2ee,Procedural,101,Special Interests Group End to End Encryption,https://xmpp.org/extensions/inbox/sige2ee.html,ProtoXEP,0.0.1
+Council,,2019-12-30,0,fallback,Standards Track,102,Fallback Indication,https://xmpp.org/extensions/inbox/fallback.html,ProtoXEP,0.0.1
+Council,,2020-01-21,0,fulltext,Standards Track,103,Full Text Search in MAM,https://xmpp.org/extensions/inbox/fulltext.html,ProtoXEP,0.0.1
+Council,,2020-01-28,0,xep-iwe,Standards Track,104,Implicit XMPP WebSocket Endpoints,https://xmpp.org/extensions/inbox/xep-iwe.html,ProtoXEP,0.0.1
+Council,,2020-02-13,0,udt,Standards Track,105,Simple JSON Messaging,https://xmpp.org/extensions/inbox/udt.html,ProtoXEP,0.0.2
+Council,,2020-02-15,0,trust-messages,Standards Track,106,Trust Messages,https://xmpp.org/extensions/inbox/trust-messages.html,ProtoXEP,0.0.1
+Council,,2020-02-17,0,reminders,Standards Track,107,Reminders,https://xmpp.org/extensions/inbox/reminders.html,ProtoXEP,0.0.1
+Council,,2020-02-19,0,extended-channel-search,Standards Track,108,Extended Channel Search,https://xmpp.org/extensions/inbox/extended-channel-search.html,ProtoXEP,0.0.1
+Council,,2020-03-30,0,muc-presence-versioning,Standards Track,109,MUC presence versioning,https://xmpp.org/extensions/inbox/muc-presence-versioning.html,ProtoXEP,0.0.1
+Council,,2020-04-13,0,room-activity-indicators,Standards Track,110,Room Activity Indicators,https://xmpp.org/extensions/inbox/room-activity-indicators.html,ProtoXEP,0.0.1
+Council,,2020-04-19,0,password-storage,Informational,111,Best practices for password hashing and storage,https://xmpp.org/extensions/inbox/password-storage.html,ProtoXEP,0.0.1
+Council,,2020-04-20,0,quick-response,Standards Track,112,Quick Response,https://xmpp.org/extensions/inbox/quick-response.html,ProtoXEP,0.0.1
+Council,,2020-05-01,0,cb-pseudomechanisms,Standards Track,113,Channel Binding Pseudomechanisms,https://xmpp.org/extensions/inbox/cb-pseudomechanisms.html,ProtoXEP,0.0.1
+Council,,2020-05-17,0,bookmark-pinning,Standards Track,114,Bookmark Pinning,https://xmpp.org/extensions/inbox/bookmark-pinning.html,ProtoXEP,0.0.1
+Council,,2020-05-20,0,xep-sasl-cb-types,Standards Track,115,SASL Channel-Binding Type Capability,https://xmpp.org/extensions/inbox/xep-sasl-cb-types.html,ProtoXEP,0.0.1
+Council,,2020-09-02,0,cs-2021,Standards Track,116,XMPP Compliance Suites 2021,https://xmpp.org/extensions/inbox/cs-2021.html,ProtoXEP,0.0.1
+Council,,2020-10-28,0,ibr-token,Standards Track,117,Pre-Authenticated In-Band Registration,https://xmpp.org/extensions/inbox/ibr-token.html,ProtoXEP,0.1.0
+Council,,2020-11-03,0,file-metadata,Standards Track,118,File metadata element,https://xmpp.org/extensions/inbox/file-metadata.html,ProtoXEP,0.0.1
+Council,,2020-11-03,0,stickers,Standards Track,119,Stickers,https://xmpp.org/extensions/inbox/stickers.html,ProtoXEP,0.0.1
+Council,,2020-11-05,0,automatic-trust-management,Standards Track,120,Automatic Trust Management (ATM),https://xmpp.org/extensions/inbox/automatic-trust-management.html,ProtoXEP,0.0.1
+Council,,2020-11-10,0,sfs,Standards Track,121,Stateless file sharing,https://xmpp.org/extensions/inbox/sfs.html,ProtoXEP,0.0.1
+Council,,2020-11-10,0,esfs,Standards Track,122,Encryption for stateless file sharing,https://xmpp.org/extensions/inbox/esfs.html,ProtoXEP,0.0.1
+Council,,2020-12-03,0,mux,Standards Track,123,Stanza Multiplexing,https://xmpp.org/extensions/inbox/mux.html,ProtoXEP,0.0.1
+Council,,2020-12-17,0,muc-mention-notifications,Standards Track,124,MUC Mention Notifications,https://xmpp.org/extensions/inbox/muc-mention-notifications.html,ProtoXEP,0.0.1
+Council,,2021-01-10,0,doap-usage-in-xmpp,Informational,125,DOAP usage in XMPP,https://xmpp.org/extensions/inbox/doap-usage-in-xmpp.html,ProtoXEP,0.0.1
+Council,,2021-01-10,0,omemo-media-sharing,Historical,126,OMEMO Media sharing,https://xmpp.org/extensions/inbox/omemo-media-sharing.html,ProtoXEP,0.0.2
+Council,,2021-01-18,0,service-outage-status,Standards Track,127,Service Outage Status,https://xmpp.org/extensions/inbox/service-outage-status.html,ProtoXEP,0.0.1
+Council,,2021-02-03,0,cs-2022,Standards Track,128,XMPP Compliance Suites 2022,https://xmpp.org/extensions/inbox/cs-2022.html,ProtoXEP,0.0.1
+Council,,2021-03-03,0,content-ratings,Standards Track,129,Content Rating Labels,https://xmpp.org/extensions/inbox/content-ratings.html,ProtoXEP,0.0.1
+Council,,2021-06-05,0,moved2,Standards Track,130,Moved 2.0,https://xmpp.org/extensions/inbox/moved2.html,ProtoXEP,0.0.1
+Council,,2021-06-06,0,preauth-ibr,Standards Track,131,Pre-auth Registration Key Generation and Validation,https://xmpp.org/extensions/inbox/preauth-ibr.html,ProtoXEP,0.0.1
+Council,,2021-07-19,0,pubsub-caching-hints,Standards Track,132,Pubsub Caching Hints,https://xmpp.org/extensions/inbox/pubsub-caching-hints.html,ProtoXEP,0.0.1
+Council,,2021-07-22,0,disco-feature-attachment,Standards Track,133,Disco Feature Attachment,https://xmpp.org/extensions/inbox/disco-feature-attachment.html,ProtoXEP,0.0.1
+Council,,2021-12-25,0,pubsub-ns,Standards Track,134,PubSub Namespaces,https://xmpp.org/extensions/inbox/pubsub-ns.html,ProtoXEP,0.0.1
+Council,,2022-01-01,0,compatibility-fallback,Standards Track,135,Compatibility Fallbacks,https://xmpp.org/extensions/inbox/compatibility-fallback.html,ProtoXEP,0.0.1
+Council,,2022-01-01,0,call-invites,Standards Track,136,Call Invites,https://xmpp.org/extensions/inbox/call-invites.html,ProtoXEP,0.0.1
+Council,,2022-01-01,0,replies,Standards Track,137,Message Replies,https://xmpp.org/extensions/inbox/replies.html,ProtoXEP,0.0.1
+Council,,2022-02-01,0,pubsub-filter,Standards Track,138,PubSub Type Filtering,https://xmpp.org/extensions/inbox/pubsub-filter.html,ProtoXEP,0.0.1
+Council,,2022-02-12,0,muc-affiliations-versioning,Standards Track,139,MUC Affiliations Versioning,https://xmpp.org/extensions/inbox/muc-affiliations-versioning.html,ProtoXEP,0.0.1
+Council,,2022-03-30,0,pubsub-public-subscriptions,Standards Track,140,Pubsub Public Subscriptions,https://xmpp.org/extensions/inbox/pubsub-public-subscriptions.html,ProtoXEP,0.0.1
+Council,,2022-04-16,0,ephemeral-messages-v2,Standards Track,141,Ephemeral Messages,https://xmpp.org/extensions/inbox/ephemeral-messages-v2.html,ProtoXEP,0.0.2
+Council,,2022-06-13,0,xmpp-over-quic,Standards Track,142,XMPP over QUIC,https://xmpp.org/extensions/inbox/xmpp-over-quic.html,ProtoXEP,0.0.1
+Council,,2022-06-13,0,websocket-s2s,Standards Track,143,WebSocket S2S,https://xmpp.org/extensions/inbox/websocket-s2s.html,ProtoXEP,0.0.1
+Council,,2022-07-11,0,pubsub-attachments,Standards Track,144,Pubsub Attachments,https://xmpp.org/extensions/inbox/pubsub-attachments.html,ProtoXEP,0.0.1
+Council,,2022-09-08,0,events,Standards Track,145,Events,https://xmpp.org/extensions/inbox/events.html,ProtoXEP,0.0.1
+Council,,2022-09-26,0,pubsub-social-feed,Standards Track,146,PubSub Social Feed,https://xmpp.org/extensions/inbox/pubsub-social-feed.html,ProtoXEP,0.0.1
+Council,,2022-10-11,0,xep-downgrade-prevention,Standards Track,147,SASL SCRAM Downgrade Protection,https://xmpp.org/extensions/inbox/xep-downgrade-prevention.html,ProtoXEP,0.0.1
+Council,,2022-10-12,0,pubsub-encryption,Standards Track,148,OpenPGP for XMPP Pubsub,https://xmpp.org/extensions/inbox/pubsub-encryption.html,ProtoXEP,0.0.6
+Council,,2022-10-19,0,xep-fast,Standards Track,149,Fast Authentication Streamlining Tokens,https://xmpp.org/extensions/inbox/xep-fast.html,ProtoXEP,0.0.1
+Council,,2022-10-20,0,xep-sla,Standards Track,150,Stream Limits Advertisement,https://xmpp.org/extensions/inbox/xep-sla.html,ProtoXEP,0.0.1
+Council,,2022-10-20,0,pubsub-signing,Standards Track,151,Pubsub Signing,https://xmpp.org/extensions/inbox/pubsub-signing.html,ProtoXEP,0.0.2
+Council,,2022-10-29,0,pubsub-signing-openpgp,Standards Track,152,Pubsub Signing: OpenPGP Profile,https://xmpp.org/extensions/inbox/pubsub-signing-openpgp.html,ProtoXEP,0.0.1
+Council,,2022-10-31,0,pubsub-targeted-encryption,Standards Track,153,Pubsub Targeted Encryption,https://xmpp.org/extensions/inbox/pubsub-targeted-encryption.html,ProtoXEP,0.0.1
+Council,,2022-12-30,0,xep-scram-upgrade,Standards Track,154,SASL Upgrade Tasks,https://xmpp.org/extensions/inbox/xep-scram-upgrade.html,ProtoXEP,0.0.2
+Council,,2023-01-25,0,cs-2023,Standards Track,155,XMPP Compliance Suites 2023,https://xmpp.org/extensions/inbox/cs-2023.html,ProtoXEP,0.0.1
+Council,,2023-02-15,0,muc-avatars,Historical,156,MUC Avatars,https://xmpp.org/extensions/inbox/muc-avatars.html,ProtoXEP,0.0.3
+Council,,2023-03-13,0,xep-ai,Standards Track,157,Communicate & Ask to AI,https://xmpp.org/extensions/inbox/xep-ai.html,ProtoXEP,0.0.1
+Council,,2023-06-28,0,xep-reporting-account-affiliations,Standards Track,158,Reporting Account Affiliations,https://xmpp.org/extensions/inbox/xep-reporting-account-affiliations.html,ProtoXEP,0.0.1
+Council,,2023-08-15,0,muc-token-invite,Standards Track,159,MUC Token Invite,https://xmpp.org/extensions/inbox/muc-token-invite.html,ProtoXEP,0.0.1
+Council,,2023-09-12,0,xep-http_online_meetings,Standards Track,160,HTTP Online Meetings,https://xmpp.org/extensions/inbox/xep-http_online_meetings.html,ProtoXEP,0.0.3
+Council,,2023-11-19,0,host-meta-2,Standards Track,161,Host Meta 2 - One Method To Rule Them All,https://xmpp.org/extensions/inbox/host-meta-2.html,ProtoXEP,0.0.1
+Council,,2023-12-19,0,pubsub-server-info,Standards Track,162,PubSub Server Information,https://xmpp.org/extensions/inbox/pubsub-server-info.html,ProtoXEP,0.0.1
+Council,,2024-02-08,0,notification-filter,Standards Track,163,Chat notification settings,https://xmpp.org/extensions/inbox/notification-filter.html,ProtoXEP,0.0.2
+Council,,2024-02-28,0,xep-slow-mode,Standards Track,164,MUC Slow Mode,https://xmpp.org/extensions/inbox/xep-slow-mode.html,ProtoXEP,0.0.1
+Board,1,2024-03-11,1,,Procedural,165,XMPP Extension Protocols,https://xmpp.org/extensions/xep-0001.html,Active,1.25.0
+Board,2,2002-01-11,1,,Procedural,166,Special Interest Groups (SIGs),https://xmpp.org/extensions/xep-0002.html,Active,1.1
+Council,3,2009-06-03,1,,Historical,167,Proxy Accept Socket Service (PASS),https://xmpp.org/extensions/xep-0003.html,Obsolete,1.4
+Council,4,2024-08-30,1,,Standards Track,168,Data Forms,https://xmpp.org/extensions/xep-0004.html,Final,2.13.2
+Council,5,2002-05-08,1,,Informational,169,Jabber Interest Groups,https://xmpp.org/extensions/xep-0005.html,Obsolete,1.1
+Board,6,2002-05-08,1,,SIG Formation,170,Profiles,https://xmpp.org/extensions/xep-0006.html,Obsolete,1.1
+Board,7,2002-05-08,1,,SIG Proposal,171,Conferencing SIG,https://xmpp.org/extensions/xep-0007.html,Obsolete,1.1
+Council,8,2022-03-08,1,,Historical,172,IQ-Based Avatars,https://xmpp.org/extensions/xep-0008.html,Obsolete,0.3.1
+Council,9,2021-03-04,1,,Standards Track,173,Jabber-RPC,https://xmpp.org/extensions/xep-0009.html,Final,2.2.1
+Board,10,2002-05-08,1,,SIG Formation,174,Whiteboarding SIG,https://xmpp.org/extensions/xep-0010.html,Obsolete,1.1
+Council,11,2021-03-04,1,,Historical,175,Jabber Browsing,https://xmpp.org/extensions/xep-0011.html,Obsolete,1.3.1
+Council,12,2008-11-26,1,,Standards Track,176,Last Activity,https://xmpp.org/extensions/xep-0012.html,Final,2.0
+Council,13,2021-05-04,1,,Standards Track,177,Flexible Offline Message Retrieval,https://xmpp.org/extensions/xep-0013.html,Deprecated,1.3
+Council,14,2002-01-16,1,,Standards Track,178,Message Tone,https://xmpp.org/extensions/xep-0014.html,Rejected,0.2
+Council,15,2002-04-18,1,,Standards Track,179,Account Transfer,https://xmpp.org/extensions/xep-0015.html,Rejected,0.4
+Council,16,2017-05-20,1,,Standards Track,180,Privacy Lists,https://xmpp.org/extensions/xep-0016.html,Deprecated,1.7
+Council,17,2002-02-19,1,,Informational,181,Naive Packet Framing Protocol,https://xmpp.org/extensions/xep-0017.html,Rejected,0.3
+Council,18,2003-09-26,1,,Informational,182,Invisible Presence,https://xmpp.org/extensions/xep-0018.html,Rejected,0.2
+Board,19,2022-11-03,1,,Procedural,183,Streamlining the SIGs,https://xmpp.org/extensions/xep-0019.html,Active,1.1
+Council,20,2018-03-07,1,,Standards Track,184,Feature Negotiation,https://xmpp.org/extensions/xep-0020.html,Deprecated,1.6
+Council,21,2003-04-22,1,,Standards Track,185,Jabber Event Notification Service (ENS),https://xmpp.org/extensions/xep-0021.html,Retracted,0.2
+Council,22,2009-05-27,1,,Historical,186,Message Events,https://xmpp.org/extensions/xep-0022.html,Obsolete,1.4
+Council,23,2009-06-03,1,,Historical,187,Message Expiration,https://xmpp.org/extensions/xep-0023.html,Obsolete,1.3
+Council,24,2003-04-22,1,,Standards Track,188,Publish/Subscribe,https://xmpp.org/extensions/xep-0024.html,Retracted,0.2
+Council,25,2009-06-03,1,,Historical,189,Jabber HTTP Polling,https://xmpp.org/extensions/xep-0025.html,Obsolete,1.2
+Council,26,2003-11-05,1,,Standards Track,190,Internationalization (I18N),https://xmpp.org/extensions/xep-0026.html,Retracted,0.2
+Council,27,2014-03-14,1,,Historical,191,Current Jabber OpenPGP Usage,https://xmpp.org/extensions/xep-0027.html,Obsolete,1.4
+Council,28,2001-08-20,1,,Informational,192,No Such XEP,https://xmpp.org/extensions/xep-0028.html,Retracted,0.1
+Council,29,2022-09-23,1,,Standards Track,193,Definition of Jabber Identifiers (JIDs),https://xmpp.org/extensions/xep-0029.html,Retracted,1.1.1
+Council,30,2024-04-30,1,,Standards Track,194,Service Discovery,https://xmpp.org/extensions/xep-0030.html,Final,2.5.0
+Council,31,2002-07-09,1,,Standards Track,195,A Framework For Securing Jabber Conversations,https://xmpp.org/extensions/xep-0031.html,Deferred,0.2
+Council,32,2003-09-02,1,,Standards Track,196,Jabber URI Scheme,https://xmpp.org/extensions/xep-0032.html,Retracted,0.4
+Council,33,2017-01-11,1,,Standards Track,197,Extended Stanza Addressing,https://xmpp.org/extensions/xep-0033.html,Stable,1.2.1
+Council,34,2003-11-05,1,,Standards Track,198,SASL Integration,https://xmpp.org/extensions/xep-0034.html,Retracted,1.1
+Council,35,2003-11-05,1,,Standards Track,199,SSL/TLS Integration,https://xmpp.org/extensions/xep-0035.html,Retracted,0.2
+Council,36,2003-04-22,1,,Standards Track,200,Pub-Sub Subscriptions,https://xmpp.org/extensions/xep-0036.html,Retracted,0.2
+Council,37,2016-10-04,1,,Standards Track,201,DSPS - Data Stream Proxy Service,https://xmpp.org/extensions/xep-0037.html,Rejected,0.8.1
+Council,38,2022-03-08,1,,Standards Track,202,Icon Styles,https://xmpp.org/extensions/xep-0038.html,Obsolete,0.5.1
+Council,39,2002-11-05,1,,Standards Track,203,Statistics Gathering,https://xmpp.org/extensions/xep-0039.html,Deferred,0.6.0
+Council,40,2004-07-26,1,,Standards Track,204,Jabber Robust Publish-Subscribe,https://xmpp.org/extensions/xep-0040.html,Retracted,0.2
+Council,41,2003-09-30,1,,Standards Track,205,Reliable Entity Link,https://xmpp.org/extensions/xep-0041.html,Retracted,0.2
+Council,42,2003-04-11,1,,Standards Track,206,Jabber OOB Broadcast Service (JOBS),https://xmpp.org/extensions/xep-0042.html,Retracted,0.5
+Council,43,2003-10-20,1,,Standards Track,207,Jabber Database Access,https://xmpp.org/extensions/xep-0043.html,Retracted,0.2
+Council,44,2002-08-26,1,,Standards Track,208,Full Namespace Support for XML Streams,https://xmpp.org/extensions/xep-0044.html,Deferred,0.1
+Council,45,2024-09-17,1,,Standards Track,209,Multi-User Chat,https://xmpp.org/extensions/xep-0045.html,Stable,1.35.1
+Council,46,2003-04-11,1,,Standards Track,210,DTCP,https://xmpp.org/extensions/xep-0046.html,Retracted,0.8
+Council,47,2021-01-12,1,,Standards Track,211,In-Band Bytestreams,https://xmpp.org/extensions/xep-0047.html,Final,2.0.1
+Council,48,2020-08-04,1,,Standards Track,212,Bookmarks,https://xmpp.org/extensions/xep-0048.html,Deprecated,1.2
+Council,49,2004-03-01,1,,Historical,213,Private XML Storage,https://xmpp.org/extensions/xep-0049.html,Active,1.2
+Council,50,2020-06-09,1,,Standards Track,214,Ad-Hoc Commands,https://xmpp.org/extensions/xep-0050.html,Stable,1.3.0
+Council,51,2022-03-08,1,,Standards Track,215,Connection Transfer,https://xmpp.org/extensions/xep-0051.html,Obsolete,0.2.1
+Council,52,2018-11-03,1,,Standards Track,216,File Transfer,https://xmpp.org/extensions/xep-0052.html,Retracted,0.2.1
+Board,53,2016-12-01,1,,Procedural,217,XMPP Registrar Function,https://xmpp.org/extensions/xep-0053.html,Active,1.7
+Council,54,2024-06-27,1,,Historical,218,vcard-temp,https://xmpp.org/extensions/xep-0054.html,Active,1.3.0
+Council,55,2009-09-15,1,,Historical,219,Jabber Search,https://xmpp.org/extensions/xep-0055.html,Active,1.3
+Council,56,2018-11-03,1,,Standards Track,220,Business Data Interchange,https://xmpp.org/extensions/xep-0056.html,Deferred,0.3.1
+Council,57,2003-04-28,1,,Standards Track,221,Extended Roster,https://xmpp.org/extensions/xep-0057.html,Retracted,0.2
+Council,58,2002-11-12,1,,Standards Track,222,Multi-User Text Editing,https://xmpp.org/extensions/xep-0058.html,Deferred,0.1
+Council,59,2006-09-20,1,,Standards Track,223,Result Set Management,https://xmpp.org/extensions/xep-0059.html,Stable,1.0
+Council,60,2023-09-07,1,,Standards Track,224,Publish-Subscribe,https://xmpp.org/extensions/xep-0060.html,Stable,1.26.0
+Council,61,2003-09-30,1,,Informational,225,Shared Notes,https://xmpp.org/extensions/xep-0061.html,Deferred,0.2
+Council,62,2021-03-04,1,,Informational,226,Packet Filtering,https://xmpp.org/extensions/xep-0062.html,Deferred,0.2.2
+Council,63,2003-09-30,1,,Informational,227,Basic Filtering Operations,https://xmpp.org/extensions/xep-0063.html,Deferred,0.2
+Council,64,2003-09-30,1,,Informational,228,XPath Filtering,https://xmpp.org/extensions/xep-0064.html,Deferred,0.2
+Council,65,2021-03-04,1,,Standards Track,229,SOCKS5 Bytestreams,https://xmpp.org/extensions/xep-0065.html,Stable,1.8.2
+Council,66,2006-08-16,1,,Standards Track,230,Out of Band Data,https://xmpp.org/extensions/xep-0066.html,Stable,1.5
+Council,67,2003-07-19,1,,Standards Track,231,Stock Data Transmission,https://xmpp.org/extensions/xep-0067.html,Deferred,0.3
+Council,68,2020-05-05,1,,Informational,232,Field Standardization for Data Forms,https://xmpp.org/extensions/xep-0068.html,Active,1.3.0
+Council,69,2003-01-29,1,,SIG Formation,233,Compliance SIG,https://xmpp.org/extensions/xep-0069.html,Deferred,0.1
+Council,70,2016-12-09,1,,Standards Track,234,Verifying HTTP Requests via XMPP,https://xmpp.org/extensions/xep-0070.html,Stable,1.0.1
+Council,71,2018-03-08,1,,Standards Track,235,XHTML-IM,https://xmpp.org/extensions/xep-0071.html,Deprecated,1.5.4
+Council,72,2022-03-22,1,,Standards Track,236,SOAP Over XMPP,https://xmpp.org/extensions/xep-0072.html,Stable,1.0.1
+Council,73,2021-03-04,1,,Standards Track,237,Basic IM Protocol Suite,https://xmpp.org/extensions/xep-0073.html,Obsolete,1.2.1
+Council,74,2003-10-20,1,,Standards Track,238,Simple Access Control,https://xmpp.org/extensions/xep-0074.html,Retracted,0.2
+Council,75,2003-05-22,1,,Standards Track,239,Jabber Object Access Protocol (JOAP),https://xmpp.org/extensions/xep-0075.html,Deferred,0.3
+Council,76,2019-10-09,1,,Humorous,240,Malicious Stanzas,https://xmpp.org/extensions/xep-0076.html,Active,1.0.1
+Council,77,2012-01-25,1,,Standards Track,241,In-Band Registration,https://xmpp.org/extensions/xep-0077.html,Final,2.4
+Council,78,2008-10-29,1,,Standards Track,242,Non-SASL Authentication,https://xmpp.org/extensions/xep-0078.html,Obsolete,2.5
+Council,79,2005-11-30,1,,Standards Track,243,Advanced Message Processing,https://xmpp.org/extensions/xep-0079.html,Stable,1.2
+Council,80,2025-06-13,1,,Standards Track,244,User Location,https://xmpp.org/extensions/xep-0080.html,Stable,1.10.0
+Council,81,2005-07-19,1,,Standards Track,245,Jabber MIME Type,https://xmpp.org/extensions/xep-0081.html,Retracted,0.5
+Council,82,2021-08-31,1,,Informational,246,XMPP Date and Time Profiles,https://xmpp.org/extensions/xep-0082.html,Active,1.1.1
+Council,83,2004-10-11,1,,Informational,247,Nested Roster Groups,https://xmpp.org/extensions/xep-0083.html,Active,1.0
+Council,84,2019-09-20,1,,Standards Track,248,User Avatar,https://xmpp.org/extensions/xep-0084.html,Stable,1.1.4
+Council,85,2009-09-23,1,,Standards Track,249,Chat State Notifications,https://xmpp.org/extensions/xep-0085.html,Final,2.1
+Council,86,2004-02-17,1,,Informational,250,Error Condition Mappings,https://xmpp.org/extensions/xep-0086.html,Deprecated,1.0
+Council,87,2022-03-22,1,,Standards Track,251,Stream Initiation,https://xmpp.org/extensions/xep-0087.html,Retracted,0.1.1
+Council,88,2004-03-14,1,,Informational,252,Client Webtabs,https://xmpp.org/extensions/xep-0088.html,Deferred,0.4
+Council,89,2003-05-16,1,,Standards Track,253,Generic Alerts,https://xmpp.org/extensions/xep-0089.html,Deferred,0.2
+Council,90,2009-05-27,1,,Historical,254,Legacy Entity Time,https://xmpp.org/extensions/xep-0090.html,Obsolete,1.2
+Council,91,2009-05-27,1,,Historical,255,Legacy Delayed Delivery,https://xmpp.org/extensions/xep-0091.html,Obsolete,1.4
+Council,92,2007-02-15,1,,Standards Track,256,Software Version,https://xmpp.org/extensions/xep-0092.html,Stable,1.1
+Council,93,2005-08-26,1,,Historical,257,Roster Item Exchange,https://xmpp.org/extensions/xep-0093.html,Deprecated,1.2
+Council,94,2003-10-08,1,,Historical,258,Agent Information,https://xmpp.org/extensions/xep-0094.html,Obsolete,0.3
+Council,95,2017-11-29,1,,Standards Track,259,Stream Initiation,https://xmpp.org/extensions/xep-0095.html,Deprecated,1.2
+Council,96,2022-03-22,1,,Standards Track,260,SI File Transfer,https://xmpp.org/extensions/xep-0096.html,Deprecated,1.3.1
+Council,97,2003-06-10,1,,Standards Track,261,iCal Envelope,https://xmpp.org/extensions/xep-0097.html,Deferred,0.1
+Council,98,2003-06-25,1,,Standards Track,262,Enhanced Private XML Storage,https://xmpp.org/extensions/xep-0098.html,Deferred,0.1
+Council,99,2018-11-03,1,,Standards Track,263,IQ Query Action Protocol,https://xmpp.org/extensions/xep-0099.html,Deferred,0.1.1
+Council,100,2005-10-05,1,,Informational,264,Gateway Interaction,https://xmpp.org/extensions/xep-0100.html,Active,1.0
+Council,101,2018-11-03,1,,Standards Track,265,HTTP Authentication using Jabber Tickets,https://xmpp.org/extensions/xep-0101.html,Deferred,0.2.1
+Council,102,2003-06-25,1,,Standards Track,266,Security Extensions,https://xmpp.org/extensions/xep-0102.html,Deferred,0.1
+Council,103,2018-11-03,1,,Standards Track,267,URL Address Information,https://xmpp.org/extensions/xep-0103.html,Deferred,0.4.1
+Council,104,2020-12-30,1,,Standards Track,268,HTTP Scheme for URL Data,https://xmpp.org/extensions/xep-0104.html,Deferred,0.3.1
+Council,105,2018-11-03,1,,Standards Track,269,Tree Transfer Stream Initiation Profile,https://xmpp.org/extensions/xep-0105.html,Deferred,0.3.1
+Council,106,2016-07-08,1,,Standards Track,270,JID Escaping,https://xmpp.org/extensions/xep-0106.html,Stable,1.1.1
+Council,107,2024-06-20,1,,Standards Track,271,User Mood,https://xmpp.org/extensions/xep-0107.html,Stable,1.2.2
+Council,108,2008-10-29,1,,Standards Track,272,User Activity,https://xmpp.org/extensions/xep-0108.html,Stable,1.3
+Council,109,2022-03-22,1,,Standards Track,273,Out-of-Office Messages,https://xmpp.org/extensions/xep-0109.html,Deferred,0.3.2
+Council,110,2003-07-28,1,,Standards Track,274,Generic Maps,https://xmpp.org/extensions/xep-0110.html,Deferred,0.1
+Council,111,2005-12-21,1,,Standards Track,275,A Transport for Initiating and Negotiating Sessions (TINS),https://xmpp.org/extensions/xep-0111.html,Retracted,0.8
+Council,112,2004-10-12,1,,Standards Track,276,User Physical Location,https://xmpp.org/extensions/xep-0112.html,Obsolete,1.0
+Council,113,2003-09-07,1,,Informational,277,Simple Whiteboarding,https://xmpp.org/extensions/xep-0113.html,Deferred,0.2
+Council,114,2012-01-25,1,,Historical,278,Jabber Component Protocol,https://xmpp.org/extensions/xep-0114.html,Active,1.6
+Council,115,2022-03-08,1,,Standards Track,279,Entity Capabilities,https://xmpp.org/extensions/xep-0115.html,Stable,1.6.0
+Council,116,2007-05-30,1,,Standards Track,280,Encrypted Session Negotiation,https://xmpp.org/extensions/xep-0116.html,Deferred,0.16
+Council,117,2007-10-30,1,,Standards Track,281,Intermediate IM Protocol Suite,https://xmpp.org/extensions/xep-0117.html,Obsolete,1.1
+Council,118,2020-10-20,1,,Standards Track,282,User Tune,https://xmpp.org/extensions/xep-0118.html,Stable,1.3.0
+Council,119,2006-08-08,1,,Standards Track,283,Extended Presence Protocol Suite,https://xmpp.org/extensions/xep-0119.html,Retracted,0.8
+Council,120,2004-01-22,1,,Standards Track,284,Infobits,https://xmpp.org/extensions/xep-0120.html,Retracted,0.5
+Council,121,2003-12-15,1,,Informational,285,Dublin Core Infobits Mapping,https://xmpp.org/extensions/xep-0121.html,Retracted,0.6
+Council,122,2018-03-21,1,,Standards Track,286,Data Forms Validation,https://xmpp.org/extensions/xep-0122.html,Stable,1.0.2
+Council,123,2003-12-16,1,,Standards Track,287,Entity Metadata,https://xmpp.org/extensions/xep-0123.html,Retracted,0.3
+Council,124,2021-05-22,1,,Standards Track,288,Bidirectional-streams Over Synchronous HTTP (BOSH),https://xmpp.org/extensions/xep-0124.html,Stable,1.11.2
+Council,125,2003-12-15,1,,Informational,289,vCard Infobits Mapping,https://xmpp.org/extensions/xep-0125.html,Retracted,0.1
+Council,126,2005-08-19,1,,Informational,290,Invisibility,https://xmpp.org/extensions/xep-0126.html,Deprecated,1.1
+Council,127,2004-12-09,1,,Informational,291,Common Alerting Protocol (CAP) Over XMPP,https://xmpp.org/extensions/xep-0127.html,Active,1.0
+Council,128,2019-07-30,1,,Informational,292,Service Discovery Extensions,https://xmpp.org/extensions/xep-0128.html,Active,1.0.1
+Council,129,2007-04-19,1,,Standards Track,293,WebDAV File Transfers,https://xmpp.org/extensions/xep-0129.html,Deferred,0.3
+Council,130,2021-03-04,1,,Historical,294,Waiting Lists,https://xmpp.org/extensions/xep-0130.html,Deprecated,1.4.1
+Council,131,2006-07-12,1,,Standards Track,295,Stanza Headers and Internet Metadata,https://xmpp.org/extensions/xep-0131.html,Stable,1.2
+Council,132,2004-04-01,1,,Humorous,296,Presence Obtained via Kinesthetic Excitation (POKE),https://xmpp.org/extensions/xep-0132.html,Active,1.0
+Council,133,2024-09-01,1,,Informational,297,Service Administration,https://xmpp.org/extensions/xep-0133.html,Active,1.3.1
+Council,134,2004-12-09,1,,Informational,298,XMPP Design Guidelines,https://xmpp.org/extensions/xep-0134.html,Active,1.1
+Council,135,2004-06-04,1,,Standards Track,299,File Sharing,https://xmpp.org/extensions/xep-0135.html,Deferred,0.1
+Council,136,2021-03-04,1,,Standards Track,300,Message Archiving,https://xmpp.org/extensions/xep-0136.html,Deprecated,1.3.1
+Council,137,2018-02-28,1,,Standards Track,301,Publishing Stream Initiation Requests,https://xmpp.org/extensions/xep-0137.html,Deprecated,1.1
+Council,138,2022-02-10,1,,Standards Track,302,Stream Compression,https://xmpp.org/extensions/xep-0138.html,Obsolete,2.1
+Council,139,2004-09-15,1,,SIG Formation,303,Security SIG,https://xmpp.org/extensions/xep-0139.html,Retracted,0.2
+Council,140,2004-10-27,1,,Informational,304,Shared Groups,https://xmpp.org/extensions/xep-0140.html,Retracted,0.2
+Council,141,2005-05-12,1,,Standards Track,305,Data Forms Layout,https://xmpp.org/extensions/xep-0141.html,Stable,1.0
+Council,142,2018-11-03,1,,Standards Track,306,Workgroup Queues,https://xmpp.org/extensions/xep-0142.html,Deferred,0.3.1
+Council,143,2016-12-02,1,,Procedural,307,Guidelines for Authors of XMPP Extension Protocols,https://xmpp.org/extensions/xep-0143.html,Active,1.1.2
+Council,144,2017-11-28,1,,Standards Track,308,Roster Item Exchange,https://xmpp.org/extensions/xep-0144.html,Stable,1.1.1
+Council,145,2006-03-23,1,,Historical,309,Annotations,https://xmpp.org/extensions/xep-0145.html,Active,1.0
+Council,146,2017-11-07,1,,Informational,310,Remote Controlling Clients,https://xmpp.org/extensions/xep-0146.html,Obsolete,1.1
+Council,147,2006-09-13,1,,Informational,311,XMPP URI Scheme Query Components,https://xmpp.org/extensions/xep-0147.html,Active,1.2
+Council,148,2022-11-03,1,,Humorous,312,Instant Messaging Intelligence Quotient (IM IQ),https://xmpp.org/extensions/xep-0148.html,Active,1.1
+Council,149,2006-01-24,1,,Informational,313,Time Periods,https://xmpp.org/extensions/xep-0149.html,Active,1.0
+Council,150,2005-08-09,1,,Informational,314,Use of Entity Tags in XMPP Extensions,https://xmpp.org/extensions/xep-0150.html,Deferred,0.2
+Council,151,2005-07-05,1,,Standards Track,315,Virtual Presence,https://xmpp.org/extensions/xep-0151.html,Deferred,0.2
+Council,152,2014-02-25,1,,Standards Track,316,Reachability Addresses,https://xmpp.org/extensions/xep-0152.html,Stable,1.0
+Council,153,2024-06-10,1,,Historical,317,vCard-Based Avatars,https://xmpp.org/extensions/xep-0153.html,Active,1.1.1
+Council,154,2021-03-04,1,,Standards Track,318,User Profile,https://xmpp.org/extensions/xep-0154.html,Deferred,0.6.1
+Council,155,2016-01-20,1,,Standards Track,319,Stanza Session Negotiation,https://xmpp.org/extensions/xep-0155.html,Stable,1.2
+Council,156,2022-02-10,1,,Standards Track,320,Discovering Alternative XMPP Connection Methods,https://xmpp.org/extensions/xep-0156.html,Stable,1.4.0
+Council,157,2021-03-04,1,,Informational,321,Contact Addresses for XMPP Services,https://xmpp.org/extensions/xep-0157.html,Active,1.1.1
+Council,158,2019-11-07,1,,Standards Track,322,CAPTCHA Forms,https://xmpp.org/extensions/xep-0158.html,Stable,1.0.1
+Council,159,2006-07-11,1,,Standards Track,323,Spim-Blocking Control,https://xmpp.org/extensions/xep-0159.html,Deferred,0.3
+Council,160,2016-10-07,1,,Informational,324,Best Practices for Handling Offline Messages,https://xmpp.org/extensions/xep-0160.html,Active,1.0.1
+Council,161,2007-05-06,1,,Standards Track,325,Abuse Reporting,https://xmpp.org/extensions/xep-0161.html,Deferred,0.4
+Council,162,2020-06-25,1,,Informational,326,Best Practices for Roster and Subscription Management,https://xmpp.org/extensions/xep-0162.html,Deferred,0.2.1
+Council,163,2022-02-16,1,,Standards Track,327,Personal Eventing Protocol,https://xmpp.org/extensions/xep-0163.html,Stable,1.2.2
+Council,164,2005-11-16,1,,Standards Track,328,vCard Filtering,https://xmpp.org/extensions/xep-0164.html,Deferred,0.1
+Council,165,2007-12-13,1,,Informational,329,Best Practices to Discourage JID Mimicking,https://xmpp.org/extensions/xep-0165.html,Deferred,0.6
+Council,166,2018-09-19,1,,Standards Track,330,Jingle,https://xmpp.org/extensions/xep-0166.html,Stable,1.1.2
+Council,167,2025-07-04,1,,Standards Track,331,Jingle RTP Sessions,https://xmpp.org/extensions/xep-0167.html,Stable,1.2.3
+Council,168,2008-09-26,1,,Standards Track,332,Resource Application Priority,https://xmpp.org/extensions/xep-0168.html,Deferred,0.7
+Council,169,2021-03-04,1,,Humorous,333,Twas The Night Before Christmas (Jabber Version),https://xmpp.org/extensions/xep-0169.html,Active,1.1.1
+Council,170,2007-01-04,1,,Informational,334,Recommended Order of Stream Feature Negotiation,https://xmpp.org/extensions/xep-0170.html,Active,1.0
+Council,171,2015-10-15,1,,Standards Track,335,Language Translation,https://xmpp.org/extensions/xep-0171.html,Stable,1.1.1
+Council,172,2012-03-21,1,,Standards Track,336,User Nickname,https://xmpp.org/extensions/xep-0172.html,Stable,1.1
+Council,173,2006-02-09,1,,Historical,337,Pubsub Subscription Storage,https://xmpp.org/extensions/xep-0173.html,Deferred,0.1
+Council,174,2018-02-08,1,,Standards Track,338,Serverless Messaging,https://xmpp.org/extensions/xep-0174.html,Final,2.0.1
+Council,175,2009-09-30,1,,Informational,339,Best Practices for Use of SASL ANONYMOUS,https://xmpp.org/extensions/xep-0175.html,Active,1.2
+Council,176,2021-03-04,1,,Standards Track,340,Jingle ICE-UDP Transport Method,https://xmpp.org/extensions/xep-0176.html,Stable,1.1.1
+Council,177,2020-12-10,1,,Standards Track,341,Jingle Raw UDP Transport Method,https://xmpp.org/extensions/xep-0177.html,Stable,1.1.1
+Council,178,2020-08-19,1,,Informational,342,Best Practices for Use of SASL EXTERNAL with Certificates,https://xmpp.org/extensions/xep-0178.html,Active,1.2
+Council,179,2006-03-23,1,,Standards Track,343,Jingle IAX Transport Method,https://xmpp.org/extensions/xep-0179.html,Deferred,0.2
+Council,180,2008-06-04,1,,Standards Track,344,Jingle Video via RTP,https://xmpp.org/extensions/xep-0180.html,Retracted,0.13
+Council,181,2009-10-02,1,,Standards Track,345,Jingle DTMF,https://xmpp.org/extensions/xep-0181.html,Deferred,0.12
+Council,182,2008-03-05,1,,Procedural,346,Application-Specific Error Conditions,https://xmpp.org/extensions/xep-0182.html,Active,1.1
+Council,183,2006-04-01,1,,Humorous,347,Jingle Telepathy Transport,https://xmpp.org/extensions/xep-0183.html,Active,1.0
+Council,184,2018-08-02,1,,Standards Track,348,Message Delivery Receipts,https://xmpp.org/extensions/xep-0184.html,Stable,1.4.0
+Council,185,2007-02-15,1,,Informational,349,Dialback Key Generation and Validation,https://xmpp.org/extensions/xep-0185.html,Active,1.0
+Council,186,2018-12-06,1,,Standards Track,350,Invisible Command,https://xmpp.org/extensions/xep-0186.html,Deferred,0.14.0
+Council,187,2007-05-30,1,,Standards Track,351,Offline Encrypted Sessions,https://xmpp.org/extensions/xep-0187.html,Deferred,0.5
+Council,188,2007-05-30,1,,Informational,352,Cryptographic Design of Encrypted Sessions,https://xmpp.org/extensions/xep-0188.html,Deferred,0.6
+Council,189,2010-07-15,1,,Standards Track,353,Public Key Publishing,https://xmpp.org/extensions/xep-0189.html,Deferred,0.14
+Council,190,2012-03-06,1,,Informational,354,Best Practice for Closing Idle Streams,https://xmpp.org/extensions/xep-0190.html,Obsolete,1.1
+Council,191,2015-03-12,1,,Standards Track,355,Blocking Command,https://xmpp.org/extensions/xep-0191.html,Stable,1.3
+Council,192,2012-02-08,1,,Standards Track,356,Proposed Stream Feature Improvements,https://xmpp.org/extensions/xep-0192.html,Obsolete,1.2
+Council,193,2012-02-08,1,,Standards Track,357,Proposed Resource Binding Improvements,https://xmpp.org/extensions/xep-0193.html,Obsolete,1.2
+Council,194,2008-09-25,1,,Standards Track,358,User Chatting,https://xmpp.org/extensions/xep-0194.html,Deferred,0.3
+Council,195,2008-09-25,1,,Standards Track,359,User Browsing,https://xmpp.org/extensions/xep-0195.html,Deferred,0.3
+Council,196,2008-09-25,1,,Standards Track,360,User Gaming,https://xmpp.org/extensions/xep-0196.html,Deferred,0.3
+Council,197,2008-09-25,1,,Standards Track,361,User Viewing,https://xmpp.org/extensions/xep-0197.html,Deferred,0.3
+Council,198,2025-07-28,1,,Standards Track,362,Stream Management,https://xmpp.org/extensions/xep-0198.html,Stable,1.6.3
+Council,199,2019-03-26,1,,Standards Track,363,XMPP Ping,https://xmpp.org/extensions/xep-0199.html,Final,2.0.1
+Council,200,2007-05-30,1,,Standards Track,364,Stanza Encryption,https://xmpp.org/extensions/xep-0200.html,Deferred,0.2
+Council,201,2010-11-29,1,,Informational,365,Best Practices for Message Threads,https://xmpp.org/extensions/xep-0201.html,Active,1.0
+Council,202,2009-09-11,1,,Standards Track,366,Entity Time,https://xmpp.org/extensions/xep-0202.html,Final,2.0
+Council,203,2009-09-15,1,,Standards Track,367,Delayed Delivery,https://xmpp.org/extensions/xep-0203.html,Final,2.0
+Council,204,2007-01-17,1,,Standards Track,368,Collaborative Data Objects,https://xmpp.org/extensions/xep-0204.html,Deferred,0.1
+Council,205,2021-03-04,1,,Informational,369,Best Practices to Discourage Denial of Service Attacks,https://xmpp.org/extensions/xep-0205.html,Active,1.0.2
+Council,206,2014-04-09,1,,Standards Track,370,XMPP Over BOSH,https://xmpp.org/extensions/xep-0206.html,Stable,1.4
+Council,207,2007-04-01,1,,Humorous,371,XMPP Eventing via Pubsub,https://xmpp.org/extensions/xep-0207.html,Active,1.0
+Council,208,2009-01-06,1,,Informational,372,Bootstrapping Implementation of Jingle,https://xmpp.org/extensions/xep-0208.html,Retracted,0.4
+Council,209,2007-04-10,1,,Standards Track,373,Metacontacts,https://xmpp.org/extensions/xep-0209.html,Deferred,0.1
+Council,210,2007-05-30,1,,Standards Track,374,Requirements for Encrypted Sessions,https://xmpp.org/extensions/xep-0210.html,Deferred,0.2
+Council,211,2007-07-11,1,,Standards Track,375,XMPP Basic Client 2008,https://xmpp.org/extensions/xep-0211.html,Obsolete,1.0
+Council,212,2007-07-11,1,,Standards Track,376,XMPP Basic Server 2008,https://xmpp.org/extensions/xep-0212.html,Obsolete,1.0
+Council,213,2007-07-11,1,,Standards Track,377,XMPP Intermediate IM Client 2008,https://xmpp.org/extensions/xep-0213.html,Obsolete,1.0
+Council,214,2022-03-22,1,,Standards Track,378,File Repository and Sharing,https://xmpp.org/extensions/xep-0214.html,Deferred,0.3.1
+Council,215,2022-08-23,1,,Standards Track,379,External Service Discovery,https://xmpp.org/extensions/xep-0215.html,Stable,1.0.0
+Council,216,2007-07-11,1,,Standards Track,380,XMPP Intermediate IM Server 2008,https://xmpp.org/extensions/xep-0216.html,Obsolete,1.0
+Council,217,2007-05-30,1,,Standards Track,381,Simplified Encrypted Session Negotiation,https://xmpp.org/extensions/xep-0217.html,Deferred,0.1
+Council,218,2007-05-30,1,,Informational,382,Bootstrapping Implementation of Encrypted Sessions,https://xmpp.org/extensions/xep-0218.html,Deferred,0.1
+Council,219,2008-06-12,1,,Standards Track,383,Hop Check,https://xmpp.org/extensions/xep-0219.html,Retracted,0.3
+Council,220,2015-03-12,1,,Standards Track,384,Server Dialback,https://xmpp.org/extensions/xep-0220.html,Stable,1.1.1
+Council,221,2008-09-03,1,,Standards Track,385,Data Forms Media Element,https://xmpp.org/extensions/xep-0221.html,Stable,1.0
+Council,222,2008-09-08,1,,Informational,386,Persistent Storage of Public Data via PubSub,https://xmpp.org/extensions/xep-0222.html,Active,1.0
+Council,223,2023-03-23,1,,Informational,387,Persistent Storage of Private Data via PubSub,https://xmpp.org/extensions/xep-0223.html,Active,1.1.1
+Council,224,2008-11-13,1,,Standards Track,388,Attention,https://xmpp.org/extensions/xep-0224.html,Stable,1.0
+Council,225,2008-10-06,1,,Standards Track,389,Component Connections,https://xmpp.org/extensions/xep-0225.html,Deferred,0.2
+Council,226,2008-11-05,1,,Informational,390,Message Stanza Profiles,https://xmpp.org/extensions/xep-0226.html,Deferred,0.3
+Council,227,2021-06-02,1,,Standards Track,391,Portable Import/Export Format for XMPP-IM Servers,https://xmpp.org/extensions/xep-0227.html,Stable,1.1
+Council,228,2007-08-22,1,,Standards Track,392,Requirements for Shared Editing,https://xmpp.org/extensions/xep-0228.html,Deferred,0.1
+Council,229,2022-02-10,1,,Standards Track,393,Stream Compression with LZW,https://xmpp.org/extensions/xep-0229.html,Obsolete,1.1
+Council,230,2018-09-08,1,,Standards Track,394,Service Discovery Notifications,https://xmpp.org/extensions/xep-0230.html,Deferred,0.1.2
+Council,231,2022-07-25,1,,Standards Track,395,Bits of Binary,https://xmpp.org/extensions/xep-0231.html,Stable,1.1
+Council,232,2009-02-26,1,,Standards Track,396,Software Information,https://xmpp.org/extensions/xep-0232.html,Deferred,0.3
+Council,233,2017-03-16,1,,Standards Track,397,XMPP Server Registration for use with Kerberos V5,https://xmpp.org/extensions/xep-0233.html,Stable,1.0.0
+Council,234,2019-06-19,1,,Standards Track,398,Jingle File Transfer,https://xmpp.org/extensions/xep-0234.html,Deferred,0.19.1
+Council,235,2009-03-24,1,,Standards Track,399,OAuth Over XMPP,https://xmpp.org/extensions/xep-0235.html,Deferred,0.7
+Council,236,2008-05-09,1,,Standards Track,400,Abuse Reporting,https://xmpp.org/extensions/xep-0236.html,Retracted,0.2
+Council,237,2012-02-08,1,,Standards Track,401,Roster Versioning,https://xmpp.org/extensions/xep-0237.html,Obsolete,1.3
+Council,238,2008-03-31,1,,Informational,402,XMPP Protocol Flows for Inter-Domain Federation,https://xmpp.org/extensions/xep-0238.html,Deferred,0.1
+Council,239,2008-04-01,1,,Humorous,403,Binary XMPP,https://xmpp.org/extensions/xep-0239.html,Active,1.0
+Council,240,2008-04-30,1,,Standards Track,404,Auto-Discovery of JabberIDs,https://xmpp.org/extensions/xep-0240.html,Deferred,0.1
+Council,241,2008-04-30,1,,Standards Track,405,Encryption of Archived Messages,https://xmpp.org/extensions/xep-0241.html,Deferred,0.1
+Council,242,2008-09-08,1,,Standards Track,406,XMPP Client Compliance 2009,https://xmpp.org/extensions/xep-0242.html,Obsolete,1.0
+Council,243,2008-09-08,1,,Standards Track,407,XMPP Server Compliance 2009,https://xmpp.org/extensions/xep-0243.html,Obsolete,1.0
+Council,244,2008-06-18,1,,Standards Track,408,IO Data,https://xmpp.org/extensions/xep-0244.html,Deferred,0.1
+Council,245,2009-01-21,1,,Informational,409,The /me Command,https://xmpp.org/extensions/xep-0245.html,Active,1.0
+Council,246,2016-01-20,1,,Standards Track,410,End-to-End XML Streams,https://xmpp.org/extensions/xep-0246.html,Deferred,0.1.1
+Council,247,2009-02-20,1,,Standards Track,411,Jingle XML Streams,https://xmpp.org/extensions/xep-0247.html,Deferred,0.2
+Council,248,2021-08-03,1,,Standards Track,412,PubSub Collection Nodes,https://xmpp.org/extensions/xep-0248.html,Deferred,0.3.0
+Council,249,2011-09-22,1,,Standards Track,413,Direct MUC Invitations,https://xmpp.org/extensions/xep-0249.html,Stable,1.2
+Council,250,2008-09-08,1,,Standards Track,414,C2C Authentication Using TLS,https://xmpp.org/extensions/xep-0250.html,Deferred,0.2
+Council,251,2009-10-05,1,,Standards Track,415,Jingle Session Transfer,https://xmpp.org/extensions/xep-0251.html,Deferred,0.2
+Council,252,2008-10-31,1,,Historical,416,BOSH Script Syntax,https://xmpp.org/extensions/xep-0252.html,Deferred,0.1
+Council,253,2009-11-18,1,,Standards Track,417,PubSub Chaining,https://xmpp.org/extensions/xep-0253.html,Deferred,0.2
+Council,254,2008-11-13,1,,Standards Track,418,PubSub Queueing,https://xmpp.org/extensions/xep-0254.html,Deferred,0.1
+Council,255,2018-11-03,1,,Standards Track,419,Location Query,https://xmpp.org/extensions/xep-0255.html,Deferred,0.6.1
+Council,256,2009-09-15,1,,Standards Track,420,Last Activity in Presence,https://xmpp.org/extensions/xep-0256.html,Deprecated,1.1
+Council,257,2012-07-18,1,,Standards Track,421,Client Certificate Management for SASL EXTERNAL,https://xmpp.org/extensions/xep-0257.html,Deferred,0.3
+Council,258,2018-11-03,1,,Standards Track,422,Security Labels in XMPP,https://xmpp.org/extensions/xep-0258.html,Stable,1.1.1
+Council,259,2009-01-21,1,,Standards Track,423,Message Mine-ing,https://xmpp.org/extensions/xep-0259.html,Deferred,0.1
+Council,260,2018-05-15,1,,Standards Track,424,Jingle SOCKS5 Bytestreams Transport Method,https://xmpp.org/extensions/xep-0260.html,Stable,1.0.3
+Council,261,2011-09-23,1,,Standards Track,425,Jingle In-Band Bytestreams Transport Method,https://xmpp.org/extensions/xep-0261.html,Stable,1.0
+Council,262,2011-06-15,1,,Standards Track,426,Use of ZRTP in Jingle RTP Sessions,https://xmpp.org/extensions/xep-0262.html,Stable,1.0
+Council,263,2009-04-01,1,,Humorous,427,ECO-XMPP,https://xmpp.org/extensions/xep-0263.html,Active,1.0
+Council,264,2024-07-24,1,,Standards Track,428,Jingle Content Thumbnails,https://xmpp.org/extensions/xep-0264.html,Experimental,0.4.2
+Council,265,2009-04-02,1,,Standards Track,429,Out-of-Band Stream Data,https://xmpp.org/extensions/xep-0265.html,Deferred,0.1
+Council,266,2013-03-01,1,,Standards Track,430,Codecs for Jingle Audio,https://xmpp.org/extensions/xep-0266.html,Stable,1.1.0-rc.1
+Council,267,2012-05-29,1,,Standards Track,431,Server Buddies,https://xmpp.org/extensions/xep-0267.html,Deferred,0.5
+Council,268,2012-05-29,1,,Standards Track,432,Incident Handling,https://xmpp.org/extensions/xep-0268.html,Deferred,0.6
+Council,269,2009-05-19,1,,Standards Track,433,Jingle Early Media,https://xmpp.org/extensions/xep-0269.html,Deferred,0.1
+Council,270,2017-01-28,1,,Standards Track,434,XMPP Compliance Suites 2010,https://xmpp.org/extensions/xep-0270.html,Obsolete,1.1
+Council,271,2009-06-26,1,,Informational,435,XMPP Nodes,https://xmpp.org/extensions/xep-0271.html,Deferred,0.1
+Council,272,2024-08-21,1,,Standards Track,436,Multiparty Jingle (Muji),https://xmpp.org/extensions/xep-0272.html,Experimental,0.2.0
+Council,273,2011-06-27,1,,Standards Track,437,Stanza Interception and Filtering Technology (SIFT),https://xmpp.org/extensions/xep-0273.html,Deferred,0.4
+Council,274,2018-11-03,1,,Informational,438,Design Considerations for Digital Signatures in XMPP,https://xmpp.org/extensions/xep-0274.html,Deferred,0.4.1
+Council,275,2021-03-04,1,,Standards Track,439,Entity Reputation,https://xmpp.org/extensions/xep-0275.html,Deferred,0.2.1
+Council,276,2012-07-13,1,,Standards Track,440,Presence Decloaking,https://xmpp.org/extensions/xep-0276.html,Deferred,0.3
+Council,277,2022-02-15,1,,Standards Track,441,Microblogging over XMPP,https://xmpp.org/extensions/xep-0277.html,Deferred,0.6.5
+Council,278,2021-03-04,1,,Standards Track,442,Jingle Relay Nodes,https://xmpp.org/extensions/xep-0278.html,Deferred,0.4.1
+Council,279,2013-04-17,1,,Standards Track,443,Server IP Check,https://xmpp.org/extensions/xep-0279.html,Deferred,0.2
+Council,280,2021-12-26,1,,Standards Track,444,Message Carbons,https://xmpp.org/extensions/xep-0280.html,Stable,1.0.1
+Council,281,2010-07-20,1,,Standards Track,445,DMUC1: Distributed Multi-User Chat,https://xmpp.org/extensions/xep-0281.html,Retracted,0.2
+Council,282,2021-03-04,1,,Standards Track,446,DMUC2: Distributed MUC,https://xmpp.org/extensions/xep-0282.html,Deferred,0.1.1
+Council,283,2021-07-20,1,,Standards Track,447,Moved,https://xmpp.org/extensions/xep-0283.html,Experimental,0.2.0
+Council,284,2020-03-10,1,,Standards Track,448,Shared XML Editing,https://xmpp.org/extensions/xep-0284.html,Experimental,0.1.4
+Council,285,2011-01-12,1,,Standards Track,449,Encapsulating Digital Signatures in XMPP,https://xmpp.org/extensions/xep-0285.html,Deferred,0.3
+Council,286,2018-01-25,1,,Informational,450,Mobile Considerations on LTE Networks,https://xmpp.org/extensions/xep-0286.html,Active,1.0.0
+Council,287,2010-10-04,1,,Standards Track,451,Spim Markers and Reports,https://xmpp.org/extensions/xep-0287.html,Deferred,0.1
+Council,288,2016-10-17,1,,Standards Track,452,Bidirectional Server-to-Server Connections,https://xmpp.org/extensions/xep-0288.html,Stable,1.0.1
+Council,289,2021-03-04,1,,Standards Track,453,Federated MUC for Constrained Environments,https://xmpp.org/extensions/xep-0289.html,Deferred,0.2.1
+Council,290,2011-01-28,1,,Standards Track,454,Encapsulated Digital Signatures in XMPP,https://xmpp.org/extensions/xep-0290.html,Deferred,0.2
+Council,291,2011-01-26,1,,Standards Track,455,Service Delegation,https://xmpp.org/extensions/xep-0291.html,Deferred,0.1
+Council,292,2023-03-14,1,,Standards Track,456,vCard4 Over XMPP,https://xmpp.org/extensions/xep-0292.html,Experimental,0.12.0
+Council,293,2022-08-26,1,,Standards Track,457,Jingle RTP Feedback Negotiation,https://xmpp.org/extensions/xep-0293.html,Stable,1.0.2
+Council,294,2022-08-27,1,,Standards Track,458,Jingle RTP Header Extensions Negotiation,https://xmpp.org/extensions/xep-0294.html,Stable,1.1.2
+Council,295,2011-04-01,1,,Humorous,459,JSON Encodings for XMPP,https://xmpp.org/extensions/xep-0295.html,Active,1.0
+Council,296,2011-08-18,1,,Informational,460,Best Practices for Resource Locking,https://xmpp.org/extensions/xep-0296.html,Deferred,0.2
+Council,297,2013-10-02,1,,Standards Track,461,Stanza Forwarding,https://xmpp.org/extensions/xep-0297.html,Stable,1.0
+Council,298,2015-07-02,1,,Standards Track,462,Delivering Conference Information to Jingle Participants (Coin),https://xmpp.org/extensions/xep-0298.html,Deferred,0.2
+Council,299,2011-06-12,1,,Standards Track,463,Codecs for Jingle Video,https://xmpp.org/extensions/xep-0299.html,Deferred,0.1
+Council,300,2019-11-13,1,,Standards Track,464,Use of Cryptographic Hash Functions in XMPP,https://xmpp.org/extensions/xep-0300.html,Stable,1.0.0
+Council,301,2013-10-08,1,,Standards Track,465,In-Band Real Time Text,https://xmpp.org/extensions/xep-0301.html,Stable,1.0
+Council,302,2011-07-21,1,,Standards Track,466,XMPP Compliance Suites 2012,https://xmpp.org/extensions/xep-0302.html,Obsolete,0.1
+Council,303,2011-07-28,1,,Standards Track,467,Commenting,https://xmpp.org/extensions/xep-0303.html,Deferred,0.1
+Council,304,2011-08-18,1,,Standards Track,468,Whitespace Keepalive Negotiation,https://xmpp.org/extensions/xep-0304.html,Deferred,0.1
+Council,305,2013-03-01,1,,Standards Track,469,XMPP Quickstart,https://xmpp.org/extensions/xep-0305.html,Deferred,0.3
+Council,306,2016-06-07,1,,Standards Track,470,Extensible Status Conditions for Multi-User Chat,https://xmpp.org/extensions/xep-0306.html,Deferred,0.2.1
+Council,307,2011-11-10,1,,Standards Track,471,Unique Room Names for Multi-User Chat,https://xmpp.org/extensions/xep-0307.html,Deferred,0.1
+Council,308,2022-05-17,1,,Standards Track,472,Last Message Correction,https://xmpp.org/extensions/xep-0308.html,Stable,1.2.1
+Council,309,2012-05-29,1,,Standards Track,473,Service Directories,https://xmpp.org/extensions/xep-0309.html,Deferred,0.3
+Council,310,2012-01-10,1,,Standards Track,474,Presence State Annotations,https://xmpp.org/extensions/xep-0310.html,Deferred,0.1
+Council,311,2012-01-25,1,,Standards Track,475,MUC Fast Reconnect,https://xmpp.org/extensions/xep-0311.html,Deferred,0.1
+Council,312,2012-05-29,1,,Standards Track,476,PubSub Since,https://xmpp.org/extensions/xep-0312.html,Deferred,0.3
+Council,313,2025-04-09,1,,Standards Track,477,Message Archive Management,https://xmpp.org/extensions/xep-0313.html,Stable,1.1.3
+Council,314,2012-07-27,1,,Standards Track,478,Security Labels in PubSub,https://xmpp.org/extensions/xep-0314.html,Deferred,0.1
+Council,315,2019-06-19,1,,Standards Track,479,Data Forms XML Element,https://xmpp.org/extensions/xep-0315.html,Deferred,0.1.1
+Council,316,2013-01-03,1,,Standards Track,480,MUC Eventing Protocol,https://xmpp.org/extensions/xep-0316.html,Deferred,0.1
+Council,317,2025-04-30,1,,Standards Track,481,Hats,https://xmpp.org/extensions/xep-0317.html,Experimental,0.3.0
+Council,318,2013-08-06,1,,Informational,482,Best Practices for Client Initiated Presence Probes,https://xmpp.org/extensions/xep-0318.html,Deferred,0.2
+Council,319,2017-07-17,1,,Standards Track,483,Last User Interaction in Presence,https://xmpp.org/extensions/xep-0319.html,Stable,1.0.2
+Council,320,2020-05-26,1,,Standards Track,484,Use of DTLS-SRTP in Jingle Sessions,https://xmpp.org/extensions/xep-0320.html,Stable,1.0.0
+Council,321,2018-11-03,1,,Standards Track,485,Remote Roster Management,https://xmpp.org/extensions/xep-0321.html,Deferred,0.1.1
+Council,322,2018-01-25,1,,Standards Track,486,Efficient XML Interchange (EXI) Format,https://xmpp.org/extensions/xep-0322.html,Deferred,0.6.0
+Council,323,2017-05-20,1,,Standards Track,487,Internet of Things - Sensor Data,https://xmpp.org/extensions/xep-0323.html,Retracted,0.6
+Council,324,2021-03-04,1,,Standards Track,488,Internet of Things - Provisioning,https://xmpp.org/extensions/xep-0324.html,Retracted,0.5.1
+Council,325,2021-03-04,1,,Standards Track,489,Internet of Things - Control,https://xmpp.org/extensions/xep-0325.html,Retracted,0.5.1
+Council,326,2017-05-20,1,,Standards Track,490,Internet of Things - Concentrators,https://xmpp.org/extensions/xep-0326.html,Retracted,0.4
+Council,327,2018-11-03,1,,Standards Track,491,Rayo,https://xmpp.org/extensions/xep-0327.html,Deferred,0.8.1
+Council,328,2019-12-16,1,,Standards Track,492,JID Preparation and Validation Service,https://xmpp.org/extensions/xep-0328.html,Deferred,0.2.1
+Council,329,2020-06-14,1,,Standards Track,493,File Information Sharing,https://xmpp.org/extensions/xep-0329.html,Deferred,0.4.1
+Council,330,2013-06-11,1,,Standards Track,494,Pubsub Subscription,https://xmpp.org/extensions/xep-0330.html,Deferred,0.1
+Council,331,2015-11-09,1,,Standards Track,495,Data Forms - Color Field Types,https://xmpp.org/extensions/xep-0331.html,Deferred,0.3
+Council,332,2020-03-31,1,,Standards Track,496,HTTP over XMPP transport,https://xmpp.org/extensions/xep-0332.html,Deferred,0.5.1
+Council,333,2024-04-17,1,,Standards Track,497,Displayed Markers,https://xmpp.org/extensions/xep-0333.html,Stable,1.0.0
+Council,334,2024-04-17,1,,Standards Track,498,Message Processing Hints,https://xmpp.org/extensions/xep-0334.html,Stable,1.0.0
+Council,335,2018-09-26,1,,Standards Track,499,JSON Containers,https://xmpp.org/extensions/xep-0335.html,Deferred,0.1.1
+Council,336,2015-11-09,1,,Standards Track,500,Data Forms - Dynamic Forms,https://xmpp.org/extensions/xep-0336.html,Deferred,0.2
+Council,337,2017-09-11,1,,Standards Track,501,Event Logging over XMPP,https://xmpp.org/extensions/xep-0337.html,Deferred,0.3
+Council,338,2020-07-21,1,,Standards Track,502,Jingle Grouping Framework,https://xmpp.org/extensions/xep-0338.html,Stable,1.0.0
+Council,339,2021-10-23,1,,Standards Track,503,Source-Specific Media Attributes in Jingle,https://xmpp.org/extensions/xep-0339.html,Stable,1.0.1
+Council,340,2017-09-11,1,,Standards Track,504,COnferences with LIghtweight BRIdging (COLIBRI),https://xmpp.org/extensions/xep-0340.html,Deferred,0.2
+Council,341,2017-09-11,1,,Standards Track,505,Rayo CPA,https://xmpp.org/extensions/xep-0341.html,Deferred,0.2
+Council,342,2018-11-03,1,,Standards Track,506,Rayo Fax,https://xmpp.org/extensions/xep-0342.html,Deferred,0.3.1
+Council,343,2020-03-20,1,,Standards Track,507,Signaling WebRTC datachannels in Jingle,https://xmpp.org/extensions/xep-0343.html,Deferred,0.3.1
+Council,344,2017-09-11,1,,Standards Track,508,Impact of TLS and DNSSEC on Dialback,https://xmpp.org/extensions/xep-0344.html,Deferred,0.4
+Board,345,2020-02-18,1,,Procedural,509,Form of Membership Applications,https://xmpp.org/extensions/xep-0345.html,Active,1.0.0
+Council,346,2017-09-11,1,,Standards Track,510,Form Discovery and Publishing,https://xmpp.org/extensions/xep-0346.html,Deferred,0.2
+Council,347,2018-11-03,1,,Standards Track,511,Internet of Things - Discovery,https://xmpp.org/extensions/xep-0347.html,Deferred,0.5.1
+Council,348,2017-09-11,1,,Standards Track,512,Signing Forms,https://xmpp.org/extensions/xep-0348.html,Deferred,0.3
+Council,349,2017-09-11,1,,Standards Track,513,Rayo Clustering,https://xmpp.org/extensions/xep-0349.html,Deferred,0.2
+Council,350,2017-09-11,1,,Standards Track,514,Data Forms Geolocation Element,https://xmpp.org/extensions/xep-0350.html,Deferred,0.2
+Council,351,2017-09-11,1,,Standards Track,515,Recipient Server Side Notifications Filtering,https://xmpp.org/extensions/xep-0351.html,Deferred,0.2
+Council,352,2020-10-14,1,,Standards Track,516,Client State Indication,https://xmpp.org/extensions/xep-0352.html,Stable,1.0.0
+Council,353,2022-01-29,1,,Standards Track,517,Jingle Message Initiation,https://xmpp.org/extensions/xep-0353.html,Experimental,0.6.0
+Council,354,2017-09-11,1,,Standards Track,518,Customizable Message Routing,https://xmpp.org/extensions/xep-0354.html,Deferred,0.2
+Council,355,2021-10-15,1,,Standards Track,519,Namespace Delegation,https://xmpp.org/extensions/xep-0355.html,Experimental,0.5
+Council,356,2023-04-24,1,,Standards Track,520,Privileged Entity,https://xmpp.org/extensions/xep-0356.html,Experimental,0.4.1
+Council,357,2020-02-11,1,,Standards Track,521,Push Notifications,https://xmpp.org/extensions/xep-0357.html,Deferred,0.4.1
+Council,358,2017-09-11,1,,Standards Track,522,Publishing Available Jingle Sessions,https://xmpp.org/extensions/xep-0358.html,Deferred,0.4
+Council,359,2023-02-20,1,,Standards Track,523,Unique and Stable Stanza IDs,https://xmpp.org/extensions/xep-0359.html,Experimental,0.7.0
+Council,360,2017-09-11,1,,Standards Track,524,Nonzas (are not Stanzas),https://xmpp.org/extensions/xep-0360.html,Rejected,0.2
+Council,361,2017-09-11,1,,Informational,525,Zero Handshake Server to Server Protocol,https://xmpp.org/extensions/xep-0361.html,Deferred,0.3
+Council,362,2017-09-11,1,,Standards Track,526,Raft over XMPP,https://xmpp.org/extensions/xep-0362.html,Deferred,0.2
+Council,363,2025-06-17,1,,Standards Track,527,HTTP File Upload,https://xmpp.org/extensions/xep-0363.html,Stable,1.2.0
+Council,364,2019-08-20,1,,Informational,528,Current Off-the-Record Messaging Usage,https://xmpp.org/extensions/xep-0364.html,Deferred,0.3.2
+Council,365,2022-03-28,1,,Standards Track,529,Server to Server communication over STANAG 5066 ARQ,https://xmpp.org/extensions/xep-0365.html,Experimental,0.3
+Council,366,2016-12-21,1,,Standards Track,530,Entity Versioning,https://xmpp.org/extensions/xep-0366.html,Deferred,0.1.2
+Council,367,2018-08-18,1,,Standards Track,531,Message Attaching,https://xmpp.org/extensions/xep-0367.html,Deferred,0.3
+Council,368,2019-08-20,1,,Standards Track,532,SRV records for XMPP over TLS,https://xmpp.org/extensions/xep-0368.html,Stable,1.1.0
+Council,369,2020-12-01,1,,Standards Track,533,Mediated Information eXchange (MIX),https://xmpp.org/extensions/xep-0369.html,Experimental,0.14.6
+Council,370,2017-09-11,1,,Standards Track,534,Jingle HTTP Transport Method,https://xmpp.org/extensions/xep-0370.html,Deferred,0.2
+Council,371,2021-03-04,1,,Standards Track,535,Jingle ICE Transport Method,https://xmpp.org/extensions/xep-0371.html,Deferred,0.3.1
+Council,372,2020-12-09,1,,Standards Track,536,References,https://xmpp.org/extensions/xep-0372.html,Experimental,0.5.0
+Council,373,2021-05-04,1,,Standards Track,537,OpenPGP for XMPP,https://xmpp.org/extensions/xep-0373.html,Experimental,0.7.0
+Council,374,2018-01-25,1,,Standards Track,538,OpenPGP for XMPP Instant Messaging,https://xmpp.org/extensions/xep-0374.html,Deferred,0.2.0
+Council,375,2016-07-20,1,,Standards Track,539,XMPP Compliance Suites 2016,https://xmpp.org/extensions/xep-0375.html,Retracted,0.3
+Council,376,2017-09-11,1,,Standards Track,540,Pubsub Account Management,https://xmpp.org/extensions/xep-0376.html,Deferred,0.2
+Council,377,2025-04-09,1,,Standards Track,541,Spam Reporting,https://xmpp.org/extensions/xep-0377.html,Experimental,0.4.0
+Council,378,2017-09-11,1,,Standards Track,542,OTR Discovery,https://xmpp.org/extensions/xep-0378.html,Deferred,0.1
+Council,379,2021-03-04,1,,Standards Track,543,Pre-Authenticated Roster Subscription,https://xmpp.org/extensions/xep-0379.html,Proposed,0.3.3
+Council,380,2021-11-18,1,,Standards Track,544,Explicit Message Encryption,https://xmpp.org/extensions/xep-0380.html,Deferred,0.4.0
+Council,381,2021-07-27,1,,Procedural,545,Internet of Things Special Interest Group (IoT SIG),https://xmpp.org/extensions/xep-0381.html,Active,1.0.0
+Council,382,2018-01-25,1,,Standards Track,546,Spoiler messages,https://xmpp.org/extensions/xep-0382.html,Deferred,0.2.0
+Council,383,2021-07-10,1,,Standards Track,547,Burner JIDs,https://xmpp.org/extensions/xep-0383.html,Experimental,0.2.0
+Council,384,2025-04-07,1,,Standards Track,548,OMEMO Encryption,https://xmpp.org/extensions/xep-0384.html,Experimental,0.9.0
+Council,385,2018-01-25,1,,Standards Track,549,Stateless Inline Media Sharing (SIMS),https://xmpp.org/extensions/xep-0385.html,Deferred,0.2.1
+Council,386,2024-07-02,1,,Standards Track,550,Bind 2,https://xmpp.org/extensions/xep-0386.html,Stable,1.0.1
+Council,387,2018-01-25,1,,Standards Track,551,XMPP Compliance Suites 2018,https://xmpp.org/extensions/xep-0387.html,Obsolete,1.0.0
+Council,388,2025-08-25,1,,Standards Track,552,Extensible SASL Profile,https://xmpp.org/extensions/xep-0388.html,Stable,1.0.4
+Council,389,2020-11-17,1,,Standards Track,553,Extensible In-Band Registration,https://xmpp.org/extensions/xep-0389.html,Experimental,0.6.0
+Council,390,2018-03-05,1,,Standards Track,554,Entity Capabilities 2.0,https://xmpp.org/extensions/xep-0390.html,Deferred,0.3.2
+Council,391,2018-07-31,1,,Standards Track,555,Jingle Encrypted Transports,https://xmpp.org/extensions/xep-0391.html,Deferred,0.1.2
+Council,392,2024-03-27,1,,Standards Track,556,Consistent Color Generation,https://xmpp.org/extensions/xep-0392.html,Stable,1.0.0
+Council,393,2021-04-04,1,,Standards Track,557,Message Styling,https://xmpp.org/extensions/xep-0393.html,Stable,1.1.1
+Council,394,2024-07-13,1,,Standards Track,558,Message Markup,https://xmpp.org/extensions/xep-0394.html,Experimental,0.3.0
+Council,395,2018-12-06,1,,Standards Track,559,Atomically Compare-And-Publish PubSub Items,https://xmpp.org/extensions/xep-0395.html,Deferred,0.2.0
+Council,396,2018-12-06,1,,Standards Track,560,Jingle Encrypted Transports - OMEMO,https://xmpp.org/extensions/xep-0396.html,Deferred,0.2.0
+Council,397,2018-11-03,1,,Standards Track,561,Instant Stream Resumption,https://xmpp.org/extensions/xep-0397.html,Deferred,0.1.1
+Council,398,2024-05-06,1,,Standards Track,562,User Avatar to vCard-Based Avatars Conversion,https://xmpp.org/extensions/xep-0398.html,Stable,1.0.0
+Council,399,2018-01-25,1,,Standards Track,563,Client Key Support,https://xmpp.org/extensions/xep-0399.html,Deferred,0.1.0
+Council,400,2018-01-25,1,,Standards Track,564,Multi-Factor Authentication with TOTP,https://xmpp.org/extensions/xep-0400.html,Deferred,0.1.0
+Council,401,2021-10-06,1,,Standards Track,565,Ad-hoc Account Invitation Generation,https://xmpp.org/extensions/xep-0401.html,Proposed,0.5.0
+Council,402,2024-08-15,1,,Standards Track,566,PEP Native Bookmarks,https://xmpp.org/extensions/xep-0402.html,Stable,1.2.0
+Council,403,2020-12-01,1,,Standards Track,567,Mediated Information eXchange (MIX): Presence Support.,https://xmpp.org/extensions/xep-0403.html,Deferred,0.3.2
+Council,404,2020-12-01,1,,Standards Track,568,Mediated Information eXchange (MIX): JID Hidden Channels.,https://xmpp.org/extensions/xep-0404.html,Deferred,0.3.1
+Council,405,2022-07-15,1,,Standards Track,569,Mediated Information eXchange (MIX): Participant Server Requirements,https://xmpp.org/extensions/xep-0405.html,Experimental,0.5.3
+Council,406,2022-03-22,1,,Standards Track,570,Mediated Information eXchange (MIX): MIX Administration,https://xmpp.org/extensions/xep-0406.html,Deferred,0.3.1
+Council,407,2020-11-03,1,,Standards Track,571,Mediated Information eXchange (MIX): Miscellaneous Capabilities,https://xmpp.org/extensions/xep-0407.html,Deferred,0.1.2
+Council,408,2021-03-09,1,,Standards Track,572,Mediated Information eXchange (MIX): Co-existence with MUC,https://xmpp.org/extensions/xep-0408.html,Deferred,0.2.0
+Council,409,2018-06-05,1,,Standards Track,573,IM Routing-NG,https://xmpp.org/extensions/xep-0409.html,Deferred,0.1.0
+Council,410,2019-09-25,1,,Standards Track,574,MUC Self-Ping (Schrödinger's Chat),https://xmpp.org/extensions/xep-0410.html,Stable,1.1.0
+Council,411,2021-10-19,1,,Standards Track,575,Bookmarks Conversion,https://xmpp.org/extensions/xep-0411.html,Deprecated,1.1.0
+Council,412,2020-01-28,1,,Standards Track,576,XMPP Compliance Suites 2019,https://xmpp.org/extensions/xep-0412.html,Obsolete,1.0.1
+Council,413,2021-07-21,1,,Standards Track,577,Order-By,https://xmpp.org/extensions/xep-0413.html,Experimental,0.2
+Council,414,2020-05-23,1,,Informational,578,Cryptographic Hash Function Recommendations for XMPP,https://xmpp.org/extensions/xep-0414.html,Deferred,0.4.0
+Council,415,2019-03-06,1,,Standards Track,579,XMPP Over RELOAD (XOR),https://xmpp.org/extensions/xep-0415.html,Deferred,0.1.0
+Council,416,2019-03-06,1,,Standards Track,580,E2E Authentication in XMPP,https://xmpp.org/extensions/xep-0416.html,Deferred,0.1.0
+Council,417,2019-03-29,1,,Standards Track,581,E2E Authentication in XMPP: Certificate Issuance and Revocation,https://xmpp.org/extensions/xep-0417.html,Deferred,0.1.0
+Council,418,2019-03-29,1,,Standards Track,582,DNS Queries over XMPP (DoX),https://xmpp.org/extensions/xep-0418.html,Deferred,0.1.0
+Editor,419,2019-04-01,1,,Humorous,583,Improving Baseline Security in XMPP,https://xmpp.org/extensions/xep-0419.html,Active,1.0.0
+Council,420,2021-11-18,1,,Standards Track,584,Stanza Content Encryption,https://xmpp.org/extensions/xep-0420.html,Experimental,0.4.1
+Council,421,2025-04-09,1,,Standards Track,585,Occupant identifiers for semi-anonymous MUCs,https://xmpp.org/extensions/xep-0421.html,Stable,1.0.1
+Council,422,2019-12-30,1,,Standards Track,586,Message Fastening,https://xmpp.org/extensions/xep-0422.html,Deferred,0.2.0
+Council,423,2022-02-15,1,,Standards Track,587,XMPP Compliance Suites 2020,https://xmpp.org/extensions/xep-0423.html,Obsolete,1.0.1
+Council,424,2025-01-18,1,,Standards Track,588,Message Retraction,https://xmpp.org/extensions/xep-0424.html,Proposed,0.4.2
+Council,425,2023-03-02,1,,Standards Track,589,Moderated Message Retraction,https://xmpp.org/extensions/xep-0425.html,Experimental,0.3.0
+Council,426,2022-12-27,1,,Informational,590,Character counting in message bodies,https://xmpp.org/extensions/xep-0426.html,Experimental,0.3.0
+Council,427,2020-01-28,1,,Standards Track,591,MAM Fastening Collation,https://xmpp.org/extensions/xep-0427.html,Deferred,0.1.0
+Council,428,2024-03-20,1,,Standards Track,592,Fallback Indication,https://xmpp.org/extensions/xep-0428.html,Experimental,0.2.1
+Council,429,2021-08-10,1,,Procedural,593,Special Interests Group End to End Encryption,https://xmpp.org/extensions/xep-0429.html,Active,1.1.0
+Council,430,2020-02-03,1,,Standards Track,594,Inbox,https://xmpp.org/extensions/xep-0430.html,Deferred,0.2.0
+Council,431,2020-01-29,1,,Standards Track,595,Full Text Search in MAM,https://xmpp.org/extensions/xep-0431.html,Deferred,0.2.0
+Council,432,2022-04-12,1,,Standards Track,596,Simple JSON Messaging,https://xmpp.org/extensions/xep-0432.html,Deferred,0.1.1
+Council,433,2020-02-27,1,,Standards Track,597,Extended Channel Search,https://xmpp.org/extensions/xep-0433.html,Deferred,0.1.0
+Council,434,2021-10-04,1,,Standards Track,598,Trust Messages (TM),https://xmpp.org/extensions/xep-0434.html,Experimental,0.6.0
+Council,435,2020-03-31,1,,Standards Track,599,Reminders,https://xmpp.org/extensions/xep-0435.html,Deferred,0.1.0
+Council,436,2020-05-10,1,,Standards Track,600,MUC presence versioning,https://xmpp.org/extensions/xep-0436.html,Deferred,0.2.0
+Council,437,2020-05-05,1,,Standards Track,601,Room Activity Indicators,https://xmpp.org/extensions/xep-0437.html,Deferred,0.2.0
+Council,438,2020-10-30,1,,Informational,602,Best practices for password hashing and storage,https://xmpp.org/extensions/xep-0438.html,Experimental,0.2.0
+Council,439,2020-05-05,1,,Standards Track,603,Quick Response,https://xmpp.org/extensions/xep-0439.html,Deferred,0.1.0
+Council,440,2024-07-02,1,,Standards Track,604,SASL Channel-Binding Type Capability,https://xmpp.org/extensions/xep-0440.html,Experimental,0.4.2
+Council,441,2020-08-25,1,,Standards Track,605,Message Archive Management Preferences,https://xmpp.org/extensions/xep-0441.html,Experimental,0.2.0
+Council,442,2020-08-25,1,,Standards Track,606,Pubsub Message Archive Management,https://xmpp.org/extensions/xep-0442.html,Experimental,0.2.0
+Council,443,2020-11-24,1,,Standards Track,607,XMPP Compliance Suites 2021,https://xmpp.org/extensions/xep-0443.html,Obsolete,1.0.0
+Council,444,2024-04-15,1,,Standards Track,608,Message Reactions,https://xmpp.org/extensions/xep-0444.html,Experimental,0.2.1
+Council,445,2020-11-24,1,,Standards Track,609,Pre-Authenticated In-Band Registration,https://xmpp.org/extensions/xep-0445.html,Proposed,0.2.0
+Council,446,2022-07-17,1,,Standards Track,610,File metadata element,https://xmpp.org/extensions/xep-0446.html,Experimental,0.2.0
+Council,447,2024-01-01,1,,Standards Track,611,Stateless file sharing,https://xmpp.org/extensions/xep-0447.html,Experimental,0.3.1
+Council,448,2022-07-17,1,,Standards Track,612,Encryption for stateless file sharing,https://xmpp.org/extensions/xep-0448.html,Experimental,0.2.0
+Council,449,2022-02-10,1,,Standards Track,613,Stickers,https://xmpp.org/extensions/xep-0449.html,Experimental,0.1.1
+Council,450,2021-10-04,1,,Standards Track,614,Automatic Trust Management (ATM),https://xmpp.org/extensions/xep-0450.html,Experimental,0.4.0
+Council,451,2021-01-19,1,,Standards Track,615,Stanza Multiplexing,https://xmpp.org/extensions/xep-0451.html,Experimental,0.1.0
+Council,452,2022-01-11,1,,Standards Track,616,MUC Mention Notifications,https://xmpp.org/extensions/xep-0452.html,Experimental,0.2.2
+Council,453,2023-07-04,1,,Informational,617,DOAP usage in XMPP,https://xmpp.org/extensions/xep-0453.html,Experimental,0.1.2
+Council,454,2021-01-26,1,,Historical,618,OMEMO Media sharing,https://xmpp.org/extensions/xep-0454.html,Experimental,0.1.0
+Council,455,2025-08-15,1,,Standards Track,619,Service Outage Status,https://xmpp.org/extensions/xep-0455.html,Experimental,0.4.0
+Council,456,2021-03-28,1,,Standards Track,620,Content Rating Labels,https://xmpp.org/extensions/xep-0456.html,Experimental,0.2.0
+Editor,457,2021-04-01,1,,Humorous,621,Message Fancying,https://xmpp.org/extensions/xep-0457.html,Active,1.0.0
+Board,458,2024-01-15,1,,Procedural,622,Community Code of Conduct,https://xmpp.org/extensions/xep-0458.html,Active,1.0.0
+Council,459,2021-12-01,1,,Standards Track,623,XMPP Compliance Suites 2022,https://xmpp.org/extensions/xep-0459.html,Obsolete,1.1.0
+Council,460,2021-08-10,1,,Standards Track,624,Pubsub Caching Hints,https://xmpp.org/extensions/xep-0460.html,Experimental,0.1.0
+Council,461,2022-12-09,1,,Standards Track,625,Message Replies,https://xmpp.org/extensions/xep-0461.html,Experimental,0.2.0
+Council,462,2022-04-22,1,,Standards Track,626,PubSub Type Filtering,https://xmpp.org/extensions/xep-0462.html,Experimental,0.1.1
+Council,463,2022-03-08,1,,Standards Track,627,MUC Affiliations Versioning,https://xmpp.org/extensions/xep-0463.html,Experimental,0.1.0
+Council,464,2022-04-01,1,,Humorous,628,Cookies,https://xmpp.org/extensions/xep-0464.html,Active,1.0
+Council,465,2022-07-25,1,,Standards Track,629,Pubsub Public Subscriptions,https://xmpp.org/extensions/xep-0465.html,Experimental,0.1.1
+Council,466,2022-05-17,1,,Standards Track,630,Ephemeral Messages,https://xmpp.org/extensions/xep-0466.html,Experimental,0.1.0
+Council,467,2022-07-13,1,,Standards Track,631,XMPP over QUIC,https://xmpp.org/extensions/xep-0467.html,Experimental,0.1.0
+Council,468,2022-07-13,1,,Standards Track,632,WebSocket S2S,https://xmpp.org/extensions/xep-0468.html,Experimental,0.1.0
+Council,469,2022-08-23,1,,Standards Track,633,Bookmark Pinning,https://xmpp.org/extensions/xep-0469.html,Experimental,0.1.0
+Council,470,2022-08-25,1,,Standards Track,634,Pubsub Attachments,https://xmpp.org/extensions/xep-0470.html,Experimental,0.2.0
+Council,471,2022-12-13,1,,Standards Track,635,Events,https://xmpp.org/extensions/xep-0471.html,Experimental,0.1.0
+Council,472,2023-04-03,1,,Standards Track,636,Pubsub Social Feed,https://xmpp.org/extensions/xep-0472.html,Experimental,0.2.0
+Council,473,2022-12-13,1,,Standards Track,637,OpenPGP for XMPP Pubsub,https://xmpp.org/extensions/xep-0473.html,Experimental,0.1.0
+Council,475,2022-12-20,1,,Standards Track,638,Pubsub Signing,https://xmpp.org/extensions/xep-0475.html,Experimental,0.1.0
+Council,476,2022-12-20,1,,Standards Track,639,Pubsub Signing: OpenPGP Profile,https://xmpp.org/extensions/xep-0476.html,Experimental,0.1.0
+Council,477,2022-12-20,1,,Standards Track,640,Pubsub Targeted Encryption,https://xmpp.org/extensions/xep-0477.html,Experimental,0.1.0
+Council,478,2024-08-02,1,,Standards Track,641,Stream Limits Advertisement,https://xmpp.org/extensions/xep-0478.html,Experimental,0.2.0
+Council,479,2023-05-04,1,,Standards Track,642,XMPP Compliance Suites 2023,https://xmpp.org/extensions/xep-0479.html,Experimental,0.1.0
+Council,480,2024-12-01,1,,Standards Track,643,SASL Upgrade Tasks,https://xmpp.org/extensions/xep-0480.html,Experimental,0.2.0
+Council,481,2023-05-04,1,,Standards Track,644,Content Types in Messages,https://xmpp.org/extensions/xep-0481.html,Experimental,0.1.0
+Council,482,2023-05-04,1,,Standards Track,645,Call Invites,https://xmpp.org/extensions/xep-0482.html,Experimental,0.1.0
+Council,483,2023-12-12,1,,Standards Track,646,HTTP Online Meetings,https://xmpp.org/extensions/xep-0483.html,Experimental,0.2.0
+Council,,2024-04-26,0,xep-mds,Standards Track,647,Message Displayed Synchronization,https://xmpp.org/extensions/inbox/xep-mds.html,ProtoXEP,0.0.3
+Council,,2024-05-11,0,remote-control,Standards Track,648,Jingle Remote Control,https://xmpp.org/extensions/inbox/remote-control.html,ProtoXEP,0.0.1
+Council,,2024-06-05,0,webxdc,Standards Track,649,WebXDC,https://xmpp.org/extensions/inbox/webxdc.html,ProtoXEP,0.0.1
+Council,484,2024-06-30,1,,Standards Track,650,Fast Authentication Streamlining Tokens,https://xmpp.org/extensions/xep-0484.html,Proposed,0.2.0
+Council,486,2024-03-10,1,,Historical,651,MUC Avatars,https://xmpp.org/extensions/xep-0486.html,Experimental,0.1.0
+Council,487,2024-03-10,1,,Standards Track,652,Host Meta 2 - One Method To Rule Them All,https://xmpp.org/extensions/xep-0487.html,Experimental,0.1.0
+Council,488,2024-03-11,1,,Standards Track,653,MUC Token Invite,https://xmpp.org/extensions/xep-0488.html,Experimental,0.1.0
+Council,489,2024-03-11,1,,Standards Track,654,Reporting Account Affiliations,https://xmpp.org/extensions/xep-0489.html,Experimental,0.1.0
+Council,,2024-07-29,0,av_conferences,Standards Track,655,Jingle Audio/Video Conferences,https://xmpp.org/extensions/inbox/av_conferences.html,ProtoXEP,0.0.1
+Council,,2024-08-20,0,xep-oauth-client-login,Informational,656,OAuth Client Login,https://xmpp.org/extensions/inbox/xep-oauth-client-login.html,ProtoXEP,0.0.1
+Council,,2024-08-20,0,xep-client-access-management,Standards Track,657,Client Access Management,https://xmpp.org/extensions/inbox/xep-client-access-management.html,ProtoXEP,0.0.1
+Council,,2024-09-19,0,xep-happy-eyeballs,Standards Track,658,Happy Eyeballs,https://xmpp.org/extensions/inbox/xep-happy-eyeballs.html,ProtoXEP,1.0.0
+Council,,2024-10-09,0,pubsub-node-relationships,Standards Track,659,Pubsub Node Relationships,https://xmpp.org/extensions/inbox/pubsub-node-relationships.html,ProtoXEP,0.0.1
+Council,,2024-10-15,0,pubsub-extended-subscription,Standards Track,660,Pubsub Extended Subscriptions,https://xmpp.org/extensions/inbox/pubsub-extended-subscription.html,ProtoXEP,0.0.1
+Council,490,2024-11-20,1,,Standards Track,661,Message Displayed Synchronization,https://xmpp.org/extensions/xep-0490.html,Stable,1.0.1
+Council,491,2024-10-17,1,,Standards Track,662,WebXDC,https://xmpp.org/extensions/xep-0491.html,Experimental,0.1.3
+Council,492,2024-07-01,1,,Standards Track,663,Chat notification settings,https://xmpp.org/extensions/xep-0492.html,Experimental,0.1.0
+Council,493,2024-09-17,1,,Informational,664,OAuth Client Login,https://xmpp.org/extensions/xep-0493.html,Experimental,0.1.0
+Council,494,2024-09-17,1,,Standards Track,665,Client Access Management,https://xmpp.org/extensions/xep-0494.html,Experimental,0.1.0
+Council,,2024-10-17,0,pubsub-extended-discovery,Standards Track,666,Pubsub Extended Discovery,https://xmpp.org/extensions/inbox/pubsub-extended-discovery.html,ProtoXEP,0.0.1
+Council,495,2024-10-17,1,,Standards Track,667,Happy Eyeballs,https://xmpp.org/extensions/xep-0495.html,Experimental,0.1.0
+Council,,2024-10-19,0,pubsub-file-sharing,Standards Track,668,Pubsub File Sharing,https://xmpp.org/extensions/inbox/pubsub-file-sharing.html,ProtoXEP,0.0.1
+Council,496,2024-11-20,1,,Standards Track,669,Pubsub Node Relationships,https://xmpp.org/extensions/xep-0496.html,Experimental,0.1.0
+Council,497,2024-11-20,1,,Standards Track,670,Pubsub Extended Subscriptions,https://xmpp.org/extensions/xep-0497.html,Experimental,0.1.0
+Council,499,2024-11-20,1,,Standards Track,671,Pubsub Extended Discovery,https://xmpp.org/extensions/xep-0499.html,Experimental,0.1.0
+Council,,2024-11-29,0,muc-activity,Standards Track,672,MUC Activity Indicator,https://xmpp.org/extensions/inbox/muc-activity.html,ProtoXEP,0.0.1
+Council,,2024-12-03,0,stories,Standards Track,673,Pubsub Stories,https://xmpp.org/extensions/inbox/stories.html,ProtoXEP,0.0.1
+Council,500,2024-12-03,1,,Standards Track,674,MUC Slow Mode,https://xmpp.org/extensions/xep-0500.html,Experimental,0.1.1
+Council,501,2024-12-20,1,,Standards Track,675,Pubsub Stories,https://xmpp.org/extensions/xep-0501.html,Experimental,0.2.0
+Council,502,2024-12-23,1,,Standards Track,676,MUC Activity Indicator,https://xmpp.org/extensions/xep-0502.html,Experimental,0.1.0
+Council,,2025-01-12,0,gre-encrypter-openpgp,Standards Track,677,GRE Encrypter: OpenPGP,https://xmpp.org/extensions/inbox/gre-encrypter-openpgp.html,ProtoXEP,0.0.1
+Council,,2025-01-12,0,gateway-relayed-encryption,Standards Track,678,Gateway Relayed Encryption,https://xmpp.org/extensions/inbox/gateway-relayed-encryption.html,ProtoXEP,0.0.1
+Council,,2025-01-12,0,gre-formatter-mime,Standards Track,679,GRE Formatter: MIME,https://xmpp.org/extensions/inbox/gre-formatter-mime.html,ProtoXEP,0.0.1
+Council,474,2025-01-24,1,,Standards Track,680,SASL SCRAM Downgrade Protection,https://xmpp.org/extensions/xep-0474.html,Experimental,0.4.0
+Council,,2025-02-23,0,spaces,Standards Track,681,Server-side spaces,https://xmpp.org/extensions/inbox/spaces.html,ProtoXEP,0.0.1
+Council,485,2025-06-06,1,,Standards Track,682,PubSub Server Information,https://xmpp.org/extensions/xep-0485.html,Experimental,0.1.1
+Council,503,2025-03-11,1,,Standards Track,683,Server-side spaces,https://xmpp.org/extensions/xep-0503.html,Experimental,0.1.0
+Council,,2025-06-13,0,data_policy,Standards Track,684,Data Policy,https://xmpp.org/extensions/inbox/data_policy.html,ProtoXEP,0.0.1
+Council,,2025-06-15,0,data-form-file-element,Standards Track,685,Data Forms File Input Element,https://xmpp.org/extensions/inbox/data-form-file-element.html,ProtoXEP,0.0.1
+Council,498,2025-06-16,1,,Standards Track,686,Pubsub File Sharing,https://xmpp.org/extensions/xep-0498.html,Experimental,0.1.1
+Council,504,2025-07-09,1,,Standards Track,687,Data Policy,https://xmpp.org/extensions/xep-0504.html,Experimental,0.1.0
+Council,505,2025-07-09,1,,Standards Track,688,Data Forms File Input Element,https://xmpp.org/extensions/xep-0505.html,Experimental,0.1.0

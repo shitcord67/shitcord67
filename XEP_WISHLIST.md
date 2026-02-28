@@ -41,3 +41,18 @@ This file tracks XEPs that are currently unsupported or only partially supported
 - `Avoid` does not mean break compatibility; it means no major new feature investment beyond minimal parsing/fallback behavior.
 - Re-score items when real-world interop pain appears (for example, Movim/Dino regressions) or when product direction changes.
 - If a draft XEP matures or changes substantially, re-evaluate score and recommendation.
+
+## Full xmpp.org coverage
+
+- A generated, ranked list covering all rows currently published by xmpp.org is available in `XEP_WISHLIST_ALL.md`.
+- Source datasets used for generation:
+  - `data/xep/xeps.csv`
+  - `data/xep/implementation_counts.csv`
+- Generator:
+  - `scripts/generate-xep-wishlist.mjs`
+
+Regeneration command:
+
+```bash
+node scripts/generate-xep-wishlist.mjs
+```

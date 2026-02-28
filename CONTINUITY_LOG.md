@@ -2072,3 +2072,6 @@ And this most definitely makes the devtools appear? Also maybe more improvements
 
 ## 2026-02-28T02:08:33Z
 Is there also some XEP wishlist / list of unsupported XEPs + rating and sorting on how much it makes sense to implement or if we should not implement it at all + reasons?
+
+## 2026-02-28T02:11:39Z
+Can't you extend this list to all existing XEPs from xmpp.org?

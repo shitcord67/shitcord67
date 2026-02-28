@@ -1,0 +1,690 @@
+number,title,implementation_count
+280,Message Carbons,44
+30,Service Discovery,44
+115,Entity Capabilities,42
+45,Multi-User Chat,42
+199,XMPP Ping,40
+313,Message Archive Management,40
+4,Data Forms,40
+198,Stream Management,39
+363,HTTP File Upload,39
+184,Message Delivery Receipts,37
+54,vcard-temp,36
+85,Chat State Notifications,36
+48,Bookmarks,33
+60,Publish-Subscribe,33
+92,Software Version,33
+153,vCard-Based Avatars,31
+163,Personal Eventing Protocol,31
+249,Direct MUC Invitations,31
+191,Blocking Command,30
+384,OMEMO Encryption,30
+77,In-Band Registration,30
+203,Delayed Delivery,29
+308,Last Message Correction,29
+84,User Avatar,29
+333,Displayed Markers,28
+368,SRV records for XMPP over TLS,27
+59,Result Set Management,27
+352,Client State Indication,26
+359,Unique and Stable Stanza IDs,26
+172,User Nickname,25
+50,Ad-Hoc Commands,23
+215,External Service Discovery,22
+245,The /me Command,22
+49,Private XML Storage,22
+66,Out of Band Data,22
+357,Push Notifications,21
+237,Roster Versioning,20
+223,Persistent Storage of Private Data via PubSub,19
+424,Message Retraction,19
+82,XMPP Date and Time Profiles,19
+334,Message Processing Hints,18
+392,Consistent Color Generation,18
+402,PEP Native Bookmarks,18
+176,Jingle ICE-UDP Transport Method,17
+398,User Avatar to vCard-Based Avatars Conversion,17
+12,Last Activity,16
+319,Last User Interaction in Presence,16
+410,MUC Self-Ping (Schrödinger's Chat),16
+425,Moderated Message Retraction,16
+454,OMEMO Media sharing,16
+166,Jingle,15
+167,Jingle RTP Sessions,15
+231,Bits of Binary,15
+297,Stanza Forwarding,15
+353,Jingle Message Initiation,15
+444,Message Reactions,15
+118,User Tune,14
+202,Entity Time,14
+380,Explicit Message Encryption,14
+421,Occupant identifiers for semi-anonymous MUCs,14
+293,Jingle RTP Feedback Negotiation,13
+294,Jingle RTP Header Extensions Negotiation,13
+320,Use of DTLS-SRTP in Jingle Sessions,13
+65,SOCKS5 Bytestreams,13
+157,Contact Addresses for XMPP Services,12
+388,Extensible SASL Profile,12
+91,Legacy Delayed Delivery,12
+108,User Activity,11
+175,Best Practices for Use of SASL ANONYMOUS,11
+206,XMPP Over BOSH,11
+221,Data Forms Media Element,11
+27,Current Jabber OpenPGP Usage,11
+338,Jingle Grouping Framework,11
+339,Source-Specific Media Attributes in Jingle,11
+369,Mediated Information eXchange (MIX),11
+386,Bind 2,11
+393,Message Styling,11
+428,Fallback Indication,11
+47,In-Band Bytestreams,11
+107,User Mood,10
+114,Jabber Component Protocol,10
+124,Bidirectional-streams Over Synchronous HTTP (BOSH),10
+16,Privacy Lists,10
+178,Best Practices for Use of SASL EXTERNAL with Certificates,10
+405,Mediated Information eXchange (MIX): Participant Server Requirements,10
+70,Verifying HTTP Requests via XMPP,10
+80,User Location,10
+106,JID Escaping,9
+128,Service Discovery Extensions,9
+138,Stream Compression,9
+160,Best Practices for Handling Offline Messages,9
+224,Attention,9
+234,Jingle File Transfer,9
+264,Jingle Content Thumbnails,9
+300,Use of Cryptographic Hash Functions in XMPP,9
+317,Hats,9
+377,Spam Reporting,9
+440,SASL Channel-Binding Type Capability,9
+55,Jabber Search,9
+71,XHTML-IM,9
+156,Discovering Alternative XMPP Connection Methods,8
+158,CAPTCHA Forms,8
+220,Server Dialback,8
+260,Jingle SOCKS5 Bytestreams Transport Method,8
+33,Extended Stanza Addressing,8
+461,Message Replies,8
+484,Fast Authentication Streamlining Tokens,8
+78,Non-SASL Authentication,8
+96,SI File Transfer,8
+122,Data Forms Validation,7
+133,Service Administration,7
+147,XMPP URI Scheme Query Components,7
+261,Jingle In-Band Bytestreams Transport Method,7
+411,Bookmarks Conversion,7
+422,Message Fastening,7
+441,Message Archive Management Preferences,7
+474,SASL SCRAM Downgrade Protection,7
+486,MUC Avatars,7
+490,Message Displayed Synchronization,7
+83,Nested Roster Groups,7
+86,Error Condition Mappings,7
+100,Gateway Interaction,6
+13,Flexible Offline Message Retrieval,6
+170,Recommended Order of Stream Feature Negotiation,6
+185,Dialback Key Generation and Validation,6
+292,vCard4 Over XMPP,6
+372,References,6
+385,Stateless Inline Media Sharing (SIMS),6
+406,Mediated Information eXchange (MIX): MIX Administration,6
+407,Mediated Information eXchange (MIX): Miscellaneous Capabilities,6
+446,File metadata element,6
+447,Stateless file sharing,6
+453,DOAP usage in XMPP,6
+95,Stream Initiation,6
+205,Best Practices to Discourage Denial of Service Attacks,5
+279,Server IP Check,5
+328,JID Preparation and Validation Service,5
+382,Spoiler messages,5
+391,Jingle Encrypted Transports,5
+396,Jingle Encrypted Transports - OMEMO,5
+420,Stanza Content Encryption,5
+68,Field Standardization for Data Forms,5
+126,Invisibility,4
+131,Stanza Headers and Internet Metadata,4
+144,Roster Item Exchange,4
+189,Public Key Publishing,4
+196,User Gaming,4
+22,Message Events,4
+222,Persistent Storage of Public Data via PubSub,4
+248,PubSub Collection Nodes,4
+258,Security Labels in XMPP,4
+277,Microblogging over XMPP,4
+286,Mobile Considerations on LTE Networks,4
+288,Bidirectional Server-to-Server Connections,4
+302,XMPP Compliance Suites 2012,4
+371,Jingle ICE Transport Method,4
+373,OpenPGP for XMPP,4
+379,Pre-Authenticated Roster Subscription,4
+39,Statistics Gathering,4
+401,Ad-hoc Account Invitation Generation,4
+448,Encryption for stateless file sharing,4
+480,SASL Upgrade Tasks,4
+482,Call Invites,4
+79,Advanced Message Processing,4
+9,Jabber-RPC,4
+136,Message Archiving,3
+145,Annotations,3
+146,Remote Controlling Clients,3
+148,Instant Messaging Intelligence Quotient (IM IQ),3
+177,Jingle Raw UDP Transport Method,3
+182,Application-Specific Error Conditions,3
+209,Metacontacts,3
+212,XMPP Basic Server 2008,3
+225,Component Connections,3
+227,Portable Import/Export Format for XMPP-IM Servers,3
+23,Message Expiration,3
+256,Last Activity in Presence,3
+257,Client Certificate Management for SASL EXTERNAL,3
+272,Multiparty Jingle (Muji),3
+278,Jingle Relay Nodes,3
+356,Privileged Entity,3
+364,Current Off-the-Record Messaging Usage,3
+367,Message Attaching,3
+390,Entity Capabilities 2.0,3
+423,XMPP Compliance Suites 2020,3
+433,Extended Channel Search,3
+437,Room Activity Indicators,3
+469,Bookmark Pinning,3
+478,Stream Limits Advertisement,3
+485,PubSub Server Information,3
+492,Chat notification settings,3
+73,Basic IM Protocol Suite,3
+90,Legacy Entity Time,3
+142,Workgroup Queues,2
+190,Best Practice for Closing Idle Streams,2
+194,User Chatting,2
+195,User Browsing,2
+197,User Viewing,2
+20,Feature Negotiation,2
+233,XMPP Server Registration for use with Kerberos V5,2
+253,PubSub Chaining,2
+283,Moved,2
+284,Shared XML Editing,2
+298,Delivering Conference Information to Jingle Participants (Coin),2
+307,Unique Room Names for Multi-User Chat,2
+335,JSON Containers,2
+343,Signaling WebRTC datachannels in Jingle,2
+355,Namespace Delegation,2
+375,XMPP Compliance Suites 2016,2
+387,XMPP Compliance Suites 2018,2
+394,Message Markup,2
+403,Mediated Information eXchange (MIX): Presence Support.,2
+426,Character counting in message bodies,2
+431,Full Text Search in MAM,2
+434,Trust Messages (TM),2
+445,Pre-Authenticated In-Band Registration,2
+449,Stickers,2
+450,Automatic Trust Management (ATM),2
+455,Service Outage Status,2
+483,HTTP Online Meetings,2
+11,Jabber Browsing,1
+113,Simple Whiteboarding,1
+129,WebDAV File Transfers,1
+152,Reachability Addresses,1
+159,Spim-Blocking Control,1
+162,Best Practices for Roster and Subscription Management,1
+18,Invisible Presence,1
+186,Invisible Command,1
+200,Stanza Encryption,1
+201,Best Practices for Message Threads,1
+211,XMPP Basic Client 2008,1
+213,XMPP Intermediate IM Client 2008,1
+232,Software Information,1
+235,OAuth Over XMPP,1
+242,XMPP Client Compliance 2009,1
+25,Jabber HTTP Polling,1
+251,Jingle Session Transfer,1
+252,BOSH Script Syntax,1
+262,Use of ZRTP in Jingle RTP Sessions,1
+263,ECO-XMPP,1
+267,Server Buddies,1
+268,Incident Handling,1
+270,XMPP Compliance Suites 2010,1
+273,Stanza Interception and Filtering Technology (SIFT),1
+28,No Such XEP,1
+289,Federated MUC for Constrained Environments,1
+296,Best Practices for Resource Locking,1
+301,In-Band Real Time Text,1
+305,XMPP Quickstart,1
+306,Extensible Status Conditions for Multi-User Chat,1
+309,Service Directories,1
+318,Best Practices for Client Initiated Presence Probes,1
+321,Remote Roster Management,1
+322,Efficient XML Interchange (EXI) Format,1
+323,Internet of Things - Sensor Data,1
+325,Internet of Things - Control,1
+330,Pubsub Subscription,1
+332,HTTP over XMPP transport,1
+336,Data Forms - Dynamic Forms,1
+340,COnferences with LIghtweight BRIdging (COLIBRI),1
+344,Impact of TLS and DNSSEC on Dialback,1
+374,OpenPGP for XMPP Instant Messaging,1
+38,Icon Styles,1
+404,Mediated Information eXchange (MIX): JID Hidden Channels.,1
+414,Cryptographic Hash Function Recommendations for XMPP,1
+417,E2E Authentication in XMPP: Certificate Issuance and Revocation,1
+430,Inbox,1
+432,Simple JSON Messaging,1
+438,Best practices for password hashing and storage,1
+439,Quick Response,1
+44,Full Namespace Support for XML Streams,1
+472,Pubsub Social Feed,1
+494,Client Access Management,1
+495,Happy Eyeballs,1
+501,Pubsub Stories,1
+502,MUC Activity Indicator,1
+93,Roster Item Exchange,1
+94,Agent Information,1
+,XMPP Transport Layer Security,0
+,Jingle In-Band Bytestreams Transport,0
+,Calendaring Extensions to Publish-Subscribe,0
+,Jingle SOCKS5 Bytestreams Transport Method,0
+,XMPP Transport Layer Security,0
+,Use of ZRTP in Jingle RTP Sessions,0
+,Mandatory-to-Implement Technologies for Jingle RTP Sessions,0
+,Server IP Check,0
+,File Transfer Thumbnails,0
+,Server-based Tic-tac-toe,0
+,Instant Gaming,0
+,Tic-tac-toe,0
+,Out-of-Band Stream Data,0
+,Codecs for Jingle RTP Sessions,0
+,Stanza Forwarding,0
+,Problem Reporting,0
+,Multi-User Gaming,0
+,Incident Reporting,0
+,Server Rosters,0
+,Shared BOSH,0
+,Muji,0
+,Domain Name Assertions,0
+,Stanza Interception and Filtering Technology,0
+,Design Considerations for Digital Signatures in XMPP,0
+,Linked Process Protocol,0
+,Jingle Relay Nodes,0
+,Entity Reputation,0
+,Presence Decloaking,0
+,Distributed Multi-User Chat,0
+,Message Carbons,0
+,Digital Signatures in XMPP,0
+,JSON Content Type support,0
+,Federated MUC for constrained environments,0
+,Shared XML Editing,0
+,Moved,0
+,XMPP on Mobile Devices,0
+,Spim Markers and Reports,0
+,Bidirectional Server-to-Server Connections,0
+,DMUC3: Distributed MUC,0
+,Sensor-Over-XMPP,0
+,Account Management,0
+,File Transfer Metadata,0
+,The 'xmpp.pubsub' URI Scheme,0
+,PubSub Since,0
+,Multi-User Chat Administration,0
+,Jingle SDP Content,0
+,User Time Zone,0
+,SIP/SDP Over XMPP (SoX),0
+,Two-factor user authentication with a shared secret,0
+,Buddycloud Channels,0
+,Recipient Server Side Notifications Filtering,0
+,Internet of Things - Events,0
+,Client State Indication,0
+,Customizable Message Routing,0
+,S2S Components,0
+,Namespace Versioning in urn:xmpp,0
+,REST with XMPP,0
+,OMEMO Encrypted Jingle File Transfer,0
+,Mediated Information eXchange (MIX),0
+,Multi-User Chat Light,0
+,Quality of Service,0
+,Notification Inbox,0
+,Content Types in Messages,0
+,JID Mention,0
+,Multi-stage IBR,0
+,Token-based reconnection,0
+,Instant Stream Resumption,0
+,User Rating,0
+,Extensible SASL Profile,0
+,Atomically Compare-And-Publish PubSub Items,0
+,Body Markup Hints,0
+,Instant Stream Resumption,0
+,User Avatar to vCard-Based Avatars Conversion,0
+,Client Key Support,0
+,Multi-Factor Authentication with TOTP,0
+,IM Routing-NG,0
+,XMPP Connections across HTTPS (HACX),0
+,Terms of Services,0
+,Best practices for GDPR compliant deployment of XMPP,0
+,MUC Self-Ping (Schrödinger's Chat),0
+,File Sharing Notifications,0
+,Bookmarks Conversion,0
+,Simple Buttons,0
+,XMPP Compliance Suites 2019,0
+,XMPP Compliance Suites 2020,0
+,Order-By,0
+,Cryptographic Hash Function Recommendations for XMPP,0
+,E2E Authentication in XMPP,0
+,E2E Authentication in XMPP: CA Requirements,0
+,XMPP Over RELOAD (XOR),0
+,DNS Queries over XMPP (DoX),0
+,E2E Authentication in XMPP: Certificate Issuance and Revocation,0
+,Automatic Trust Transfer (ATT),0
+,Improving Baseline Security in XMPP,0
+,Stanza Content Encryption,0
+,Anonymous unique occupant identifiers for MUCs,0
+,Message Reactions,0
+,Message Fastening,0
+,Authorization Tokens,0
+,MAM Fastening Collation,0
+,Inbox,0
+,Special Interests Group End to End Encryption,0
+,Fallback Indication,0
+,Full Text Search in MAM,0
+,Implicit XMPP WebSocket Endpoints,0
+,Simple JSON Messaging,0
+,Trust Messages,0
+,Reminders,0
+,Extended Channel Search,0
+,MUC presence versioning,0
+,Room Activity Indicators,0
+,Best practices for password hashing and storage,0
+,Quick Response,0
+,Channel Binding Pseudomechanisms,0
+,Bookmark Pinning,0
+,SASL Channel-Binding Type Capability,0
+,XMPP Compliance Suites 2021,0
+,Pre-Authenticated In-Band Registration,0
+,File metadata element,0
+,Stickers,0
+,Automatic Trust Management (ATM),0
+,Stateless file sharing,0
+,Encryption for stateless file sharing,0
+,Stanza Multiplexing,0
+,MUC Mention Notifications,0
+,DOAP usage in XMPP,0
+,OMEMO Media sharing,0
+,Service Outage Status,0
+,XMPP Compliance Suites 2022,0
+,Content Rating Labels,0
+,Moved 2.0,0
+,Pre-auth Registration Key Generation and Validation,0
+,Pubsub Caching Hints,0
+,Disco Feature Attachment,0
+,PubSub Namespaces,0
+,Compatibility Fallbacks,0
+,Call Invites,0
+,Message Replies,0
+,PubSub Type Filtering,0
+,MUC Affiliations Versioning,0
+,Pubsub Public Subscriptions,0
+,Ephemeral Messages,0
+,XMPP over QUIC,0
+,WebSocket S2S,0
+,Pubsub Attachments,0
+,Events,0
+,PubSub Social Feed,0
+,SASL SCRAM Downgrade Protection,0
+,OpenPGP for XMPP Pubsub,0
+,Fast Authentication Streamlining Tokens,0
+,Stream Limits Advertisement,0
+,Pubsub Signing,0
+,Pubsub Signing: OpenPGP Profile,0
+,Pubsub Targeted Encryption,0
+,SASL Upgrade Tasks,0
+,XMPP Compliance Suites 2023,0
+,MUC Avatars,0
+,Communicate & Ask to AI,0
+,Reporting Account Affiliations,0
+,MUC Token Invite,0
+,HTTP Online Meetings,0
+,Host Meta 2 - One Method To Rule Them All,0
+,PubSub Server Information,0
+,Chat notification settings,0
+,MUC Slow Mode,0
+,Message Displayed Synchronization,0
+,Jingle Remote Control,0
+,WebXDC,0
+,Jingle Audio/Video Conferences,0
+,OAuth Client Login,0
+,Client Access Management,0
+,Happy Eyeballs,0
+,Pubsub Node Relationships,0
+,Pubsub Extended Subscriptions,0
+,Pubsub Extended Discovery,0
+,Pubsub File Sharing,0
+,MUC Activity Indicator,0
+,Pubsub Stories,0
+,GRE Encrypter: OpenPGP,0
+,Gateway Relayed Encryption,0
+,GRE Formatter: MIME,0
+,Server-side spaces,0
+,Data Policy,0
+,Data Forms File Input Element,0
+1,XMPP Extension Protocols,0
+10,Whiteboarding SIG,0
+101,HTTP Authentication using Jabber Tickets,0
+102,Security Extensions,0
+103,URL Address Information,0
+104,HTTP Scheme for URL Data,0
+105,Tree Transfer Stream Initiation Profile,0
+109,Out-of-Office Messages,0
+110,Generic Maps,0
+111,A Transport for Initiating and Negotiating Sessions (TINS),0
+112,User Physical Location,0
+116,Encrypted Session Negotiation,0
+117,Intermediate IM Protocol Suite,0
+119,Extended Presence Protocol Suite,0
+120,Infobits,0
+121,Dublin Core Infobits Mapping,0
+123,Entity Metadata,0
+125,vCard Infobits Mapping,0
+127,Common Alerting Protocol (CAP) Over XMPP,0
+130,Waiting Lists,0
+132,Presence Obtained via Kinesthetic Excitation (POKE),0
+134,XMPP Design Guidelines,0
+135,File Sharing,0
+137,Publishing Stream Initiation Requests,0
+139,Security SIG,0
+14,Message Tone,0
+140,Shared Groups,0
+141,Data Forms Layout,0
+143,Guidelines for Authors of XMPP Extension Protocols,0
+149,Time Periods,0
+15,Account Transfer,0
+150,Use of Entity Tags in XMPP Extensions,0
+151,Virtual Presence,0
+154,User Profile,0
+155,Stanza Session Negotiation,0
+161,Abuse Reporting,0
+164,vCard Filtering,0
+165,Best Practices to Discourage JID Mimicking,0
+168,Resource Application Priority,0
+169,Twas The Night Before Christmas (Jabber Version),0
+17,Naive Packet Framing Protocol,0
+171,Language Translation,0
+173,Pubsub Subscription Storage,0
+174,Serverless Messaging,0
+179,Jingle IAX Transport Method,0
+180,Jingle Video via RTP,0
+181,Jingle DTMF,0
+183,Jingle Telepathy Transport,0
+187,Offline Encrypted Sessions,0
+188,Cryptographic Design of Encrypted Sessions,0
+19,Streamlining the SIGs,0
+192,Proposed Stream Feature Improvements,0
+193,Proposed Resource Binding Improvements,0
+2,Special Interest Groups (SIGs),0
+204,Collaborative Data Objects,0
+207,XMPP Eventing via Pubsub,0
+208,Bootstrapping Implementation of Jingle,0
+21,Jabber Event Notification Service (ENS),0
+210,Requirements for Encrypted Sessions,0
+214,File Repository and Sharing,0
+216,XMPP Intermediate IM Server 2008,0
+217,Simplified Encrypted Session Negotiation,0
+218,Bootstrapping Implementation of Encrypted Sessions,0
+219,Hop Check,0
+226,Message Stanza Profiles,0
+228,Requirements for Shared Editing,0
+229,Stream Compression with LZW,0
+230,Service Discovery Notifications,0
+236,Abuse Reporting,0
+238,XMPP Protocol Flows for Inter-Domain Federation,0
+239,Binary XMPP,0
+24,Publish/Subscribe,0
+240,Auto-Discovery of JabberIDs,0
+241,Encryption of Archived Messages,0
+243,XMPP Server Compliance 2009,0
+244,IO Data,0
+246,End-to-End XML Streams,0
+247,Jingle XML Streams,0
+250,C2C Authentication Using TLS,0
+254,PubSub Queueing,0
+255,Location Query,0
+259,Message Mine-ing,0
+26,Internationalization (I18N),0
+265,Out-of-Band Stream Data,0
+266,Codecs for Jingle Audio,0
+269,Jingle Early Media,0
+271,XMPP Nodes,0
+274,Design Considerations for Digital Signatures in XMPP,0
+275,Entity Reputation,0
+276,Presence Decloaking,0
+281,DMUC1: Distributed Multi-User Chat,0
+282,DMUC2: Distributed MUC,0
+285,Encapsulating Digital Signatures in XMPP,0
+287,Spim Markers and Reports,0
+29,Definition of Jabber Identifiers (JIDs),0
+290,Encapsulated Digital Signatures in XMPP,0
+291,Service Delegation,0
+295,JSON Encodings for XMPP,0
+299,Codecs for Jingle Video,0
+3,Proxy Accept Socket Service (PASS),0
+303,Commenting,0
+304,Whitespace Keepalive Negotiation,0
+31,A Framework For Securing Jabber Conversations,0
+310,Presence State Annotations,0
+311,MUC Fast Reconnect,0
+312,PubSub Since,0
+314,Security Labels in PubSub,0
+315,Data Forms XML Element,0
+316,MUC Eventing Protocol,0
+32,Jabber URI Scheme,0
+324,Internet of Things - Provisioning,0
+326,Internet of Things - Concentrators,0
+327,Rayo,0
+329,File Information Sharing,0
+331,Data Forms - Color Field Types,0
+337,Event Logging over XMPP,0
+34,SASL Integration,0
+341,Rayo CPA,0
+342,Rayo Fax,0
+345,Form of Membership Applications,0
+346,Form Discovery and Publishing,0
+347,Internet of Things - Discovery,0
+348,Signing Forms,0
+349,Rayo Clustering,0
+35,SSL/TLS Integration,0
+350,Data Forms Geolocation Element,0
+351,Recipient Server Side Notifications Filtering,0
+354,Customizable Message Routing,0
+358,Publishing Available Jingle Sessions,0
+36,Pub-Sub Subscriptions,0
+360,Nonzas (are not Stanzas),0
+361,Zero Handshake Server to Server Protocol,0
+362,Raft over XMPP,0
+365,Server to Server communication over STANAG 5066 ARQ,0
+366,Entity Versioning,0
+37,DSPS - Data Stream Proxy Service,0
+370,Jingle HTTP Transport Method,0
+376,Pubsub Account Management,0
+378,OTR Discovery,0
+381,Internet of Things Special Interest Group (IoT SIG),0
+383,Burner JIDs,0
+389,Extensible In-Band Registration,0
+395,Atomically Compare-And-Publish PubSub Items,0
+397,Instant Stream Resumption,0
+399,Client Key Support,0
+40,Jabber Robust Publish-Subscribe,0
+400,Multi-Factor Authentication with TOTP,0
+408,Mediated Information eXchange (MIX): Co-existence with MUC,0
+409,IM Routing-NG,0
+41,Reliable Entity Link,0
+412,XMPP Compliance Suites 2019,0
+413,Order-By,0
+415,XMPP Over RELOAD (XOR),0
+416,E2E Authentication in XMPP,0
+418,DNS Queries over XMPP (DoX),0
+419,Improving Baseline Security in XMPP,0
+42,Jabber OOB Broadcast Service (JOBS),0
+427,MAM Fastening Collation,0
+429,Special Interests Group End to End Encryption,0
+43,Jabber Database Access,0
+435,Reminders,0
+436,MUC presence versioning,0
+442,Pubsub Message Archive Management,0
+443,XMPP Compliance Suites 2021,0
+451,Stanza Multiplexing,0
+452,MUC Mention Notifications,0
+456,Content Rating Labels,0
+457,Message Fancying,0
+458,Community Code of Conduct,0
+459,XMPP Compliance Suites 2022,0
+46,DTCP,0
+460,Pubsub Caching Hints,0
+462,PubSub Type Filtering,0
+463,MUC Affiliations Versioning,0
+464,Cookies,0
+465,Pubsub Public Subscriptions,0
+466,Ephemeral Messages,0
+467,XMPP over QUIC,0
+468,WebSocket S2S,0
+470,Pubsub Attachments,0
+471,Events,0
+473,OpenPGP for XMPP Pubsub,0
+475,Pubsub Signing,0
+476,Pubsub Signing: OpenPGP Profile,0
+477,Pubsub Targeted Encryption,0
+479,XMPP Compliance Suites 2023,0
+481,Content Types in Messages,0
+487,Host Meta 2 - One Method To Rule Them All,0
+488,MUC Token Invite,0
+489,Reporting Account Affiliations,0
+491,WebXDC,0
+493,OAuth Client Login,0
+496,Pubsub Node Relationships,0
+497,Pubsub Extended Subscriptions,0
+498,Pubsub File Sharing,0
+499,Pubsub Extended Discovery,0
+5,Jabber Interest Groups,0
+500,MUC Slow Mode,0
+503,Server-side spaces,0
+504,Data Policy,0
+505,Data Forms File Input Element,0
+51,Connection Transfer,0
+52,File Transfer,0
+53,XMPP Registrar Function,0
+56,Business Data Interchange,0
+57,Extended Roster,0
+58,Multi-User Text Editing,0
+6,Profiles,0
+61,Shared Notes,0
+62,Packet Filtering,0
+63,Basic Filtering Operations,0
+64,XPath Filtering,0
+67,Stock Data Transmission,0
+69,Compliance SIG,0
+7,Conferencing SIG,0
+72,SOAP Over XMPP,0
+74,Simple Access Control,0
+75,Jabber Object Access Protocol (JOAP),0
+76,Malicious Stanzas,0
+8,IQ-Based Avatars,0
+81,Jabber MIME Type,0
+87,Stream Initiation,0
+88,Client Webtabs,0
+89,Generic Alerts,0
+97,iCal Envelope,0
+98,Enhanced Private XML Storage,0
+99,IQ Query Action Protocol,0
