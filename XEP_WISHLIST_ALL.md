@@ -1,6 +1,6 @@
 # XEP Wishlist (All xmpp.org Rows)
 
-Generated from: `data/xep/xeps.csv` + `data/xep/implementation_counts.csv` at 2026-02-28T02:16:22.210Z.
+Generated from: `data/xep/xeps.csv` + `data/xep/implementation_counts.csv` at 2026-02-28T02:19:26.329Z.
 
 Coverage:
 - Total rows from xmpp.org dataset: 689
@@ -11,6 +11,27 @@ Columns:
 - `Action`: `Implement`, `Maintain`, `Defer`, or `Avoid`.
 - `Project State`: current `shitcord67` state from `SUPPORTED_XEPS.md` where available.
 - `Score`: computed `0-10` implementation value score.
+
+Lifecycle statuses present in this dataset:
+- Final: 11
+- Stable: 78
+- Active: 50
+- Experimental: 86
+- Proposed: 5
+- Deferred: 178
+- Deprecated: 15
+- Obsolete: 40
+- Rejected: 6
+- Retracted: 37
+- ProtoXEP: 183
+
+Dormant handling:
+- `Dormant` is not currently emitted as a literal status in this xmpp.org export.
+- The closest practical bucket is `Deferred`; see `XEP_STATUS_INDEX.md` for grouped status views.
+
+Deprecated/Obsolete handling:
+- Deprecated/obsolete/retracted/rejected entries are explicitly listed and filterable in `XEP_STATUS_INDEX.md` and `data/xep/xep_status_index.csv`.
+- Source CSV does not include superseding-XEP metadata, so replacement guidance requires checking each XEP page.
 
 | Rank | Action | Score | XEP | Title | xmpp.org Status | Type | Impl Count | Project State | Reason |
 |---|---|---|---|---|---|---|---|---|---|
@@ -653,7 +674,7 @@ Columns:
 | 637 | Avoid | 0.05 | ProtoXEP-23 | [Design Considerations for Digital Signatures in XMPP](https://xmpp.org/extensions/inbox/dsig-design.html) | ProtoXEP | Informational | 0 | Unsupported | Very early and low-adoption proposal; monitor maturity before major investment. |
 | 638 | Avoid | 0.05 | ProtoXEP-78 | [Best practices for GDPR compliant deployment of XMPP](https://xmpp.org/extensions/inbox/gdpr.html) | ProtoXEP | Informational | 0 | Unsupported | Very early and low-adoption proposal; monitor maturity before major investment. |
 | 639 | Avoid | 0.00 | ProtoXEP-1 | [Jingle In-Band Bytestreams Transport](https://xmpp.org/extensions/inbox/jingle-ibb.html) | ProtoXEP | Standards Track | 0 | Unsupported | High realtime interoperability impact, especially with Movim and other modern clients. |
-| 640 | Avoid | 0.00 | ProtoXEP-20 | [Muji](https://xmpp.org/extensions/inbox/muji.html) | ProtoXep | Extension | 0 | Unsupported | Very early and low-adoption proposal; monitor maturity before major investment. |
+| 640 | Avoid | 0.00 | ProtoXEP-20 | [Muji](https://xmpp.org/extensions/inbox/muji.html) | ProtoXEP | Extension | 0 | Unsupported | Very early and low-adoption proposal; monitor maturity before major investment. |
 | 641 | Avoid | 0.00 | ProtoXEP-3 | [Jingle SOCKS5 Bytestreams Transport Method](https://xmpp.org/extensions/inbox/jingle-s5b.html) | ProtoXEP | Standards Track | 0 | Unsupported | High realtime interoperability impact, especially with Movim and other modern clients. |
 | 642 | Avoid | 0.00 | ProtoXEP-30 | [Digital Signatures in XMPP](https://xmpp.org/extensions/inbox/dsig.html) | ProtoXEP | Technical Specification | 0 | Unsupported | Very early and low-adoption proposal; monitor maturity before major investment. |
 | 643 | Avoid | 0.00 | XEP-0003 | [Proxy Accept Socket Service (PASS)](https://xmpp.org/extensions/xep-0003.html) | Obsolete | Historical | 0 | Unsupported | Marked historical/humorous, so implementation value is generally low for core product goals. |

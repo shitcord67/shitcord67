@@ -45,9 +45,12 @@ This file tracks XEPs that are currently unsupported or only partially supported
 ## Full xmpp.org coverage
 
 - A generated, ranked list covering all rows currently published by xmpp.org is available in `XEP_WISHLIST_ALL.md`.
+- A status-bucket index (including explicit deferred/deprecated/obsolete groups) is available in `XEP_STATUS_INDEX.md`.
 - Source datasets used for generation:
   - `data/xep/xeps.csv`
   - `data/xep/implementation_counts.csv`
+- Additional generated status CSV:
+  - `data/xep/xep_status_index.csv`
 - Generator:
   - `scripts/generate-xep-wishlist.mjs`
 

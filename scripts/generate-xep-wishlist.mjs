@@ -9,6 +9,23 @@ const IMPL_CSV = path.join(ROOT, "data", "xep", "implementation_counts.csv");
 const SUPPORTED_XEPS_MD = path.join(ROOT, "SUPPORTED_XEPS.md");
 const OUTPUT_MD = path.join(ROOT, "XEP_WISHLIST_ALL.md");
 const OUTPUT_CSV = path.join(ROOT, "data", "xep", "xep_wishlist_all.csv");
+const OUTPUT_STATUS_MD = path.join(ROOT, "XEP_STATUS_INDEX.md");
+const OUTPUT_STATUS_CSV = path.join(ROOT, "data", "xep", "xep_status_index.csv");
+
+const STATUS_ORDER = [
+  "Final",
+  "Stable",
+  "Active",
+  "Experimental",
+  "Proposed",
+  "Deferred",
+  "Deprecated",
+  "Obsolete",
+  "Rejected",
+  "Retracted",
+  "ProtoXEP",
+  "Unknown"
+];
 
 function parseCsv(text) {
   const rows = [];
@@ -83,7 +100,7 @@ function parseSupportedXepState(mdText) {
 }
 
 function scoreStatus(status) {
-  const s = (status || "").toLowerCase();
+  const s = normalizeStatus(status).toLowerCase();
   if (s.includes("final")) return 1.1;
   if (s.includes("active")) return 0.9;
   if (s.includes("stable")) return 0.8;
@@ -94,6 +111,30 @@ function scoreStatus(status) {
   if (s.includes("obsolete") || s.includes("retracted") || s.includes("rejected")) return -2.4;
   if (s.includes("protoxep")) return -0.9;
   return 0;
+}
+
+function normalizeStatus(status) {
+  const raw = (status || "").toString().trim();
+  if (!raw) return "Unknown";
+  if (/^protoxep$/i.test(raw) || /^protoxep$/i.test(raw.replace(/\s+/g, ""))) return "ProtoXEP";
+  return raw;
+}
+
+function statusSortKey(status) {
+  const normalized = normalizeStatus(status);
+  const index = STATUS_ORDER.findIndex((entry) => entry.toLowerCase() === normalized.toLowerCase());
+  return index >= 0 ? index : STATUS_ORDER.length + 1;
+}
+
+function compareByXepTag(a, b) {
+  const aNum = Number(a.number || 0);
+  const bNum = Number(b.number || 0);
+  const aHas = Number.isFinite(aNum) && aNum > 0;
+  const bHas = Number.isFinite(bNum) && bNum > 0;
+  if (aHas && bHas && aNum !== bNum) return aNum - bNum;
+  if (aHas && !bHas) return -1;
+  if (!aHas && bHas) return 1;
+  return a.xepTag.localeCompare(b.xepTag);
 }
 
 function scoreType(type) {
@@ -132,10 +173,10 @@ function deriveAction({
   if (state === "Implemented") return "Maintain";
   if (state === "Partial" || state === "Planned") return "Implement";
   if (/(historical|humorous)/i.test(type || "")) return "Avoid";
-  const lowValueStatus = /(obsolete|retracted|rejected|historical)/i.test(status || "");
+  const lowValueStatus = /(obsolete|retracted|rejected|historical)/i.test(normalizeStatus(status));
   const legacyTitle = /(bytestream|stream initiation|si file transfer|message events)/i.test(title || "");
   if (lowValueStatus || legacyTitle) return "Avoid";
-  if (/protoxep/i.test(status || "") && implementationCount <= 4) return "Avoid";
+  if (/protoxep/i.test(normalizeStatus(status)) && implementationCount <= 4) return "Avoid";
   if (score >= 7) return "Implement";
   if (score >= 4.2) return "Defer";
   return "Avoid";
@@ -158,10 +199,18 @@ function deriveReason({
   if (/(push|notification|mobile)/.test(t)) return "Important for reliable background/mobile delivery and user retention.";
   if (/(file|upload|sharing|reference|thumbnail|oob)/.test(t)) return "Strong media/file UX payoff and broad cross-client compatibility value.";
   if (implementationCount >= 30) return "Widely implemented in ecosystem; high compatibility return for moderate effort.";
-  if (/(obsolete|retracted|rejected|historical)/i.test(status || "")) return "Low ecosystem value and/or superseded by newer approaches.";
+  if (/(obsolete|retracted|rejected|historical)/i.test(normalizeStatus(status))) return "Low ecosystem value and/or superseded by newer approaches.";
   if (/(bytestream|stream initiation|si file transfer|message events)/.test(t)) return "Legacy mechanism with low payoff for modern web/electron transport architecture.";
-  if (/protoxep/i.test(status || "") && implementationCount <= 1) return "Very early and low-adoption proposal; monitor maturity before major investment.";
+  if (/protoxep/i.test(normalizeStatus(status)) && implementationCount <= 1) return "Very early and low-adoption proposal; monitor maturity before major investment.";
   return "Useful, but currently lower priority than security, call interop, and transport reliability work.";
+}
+
+function replacementAvailabilityNote(status) {
+  const s = normalizeStatus(status).toLowerCase();
+  if (["deprecated", "obsolete", "retracted", "rejected", "deferred"].some((token) => s.includes(token))) {
+    return "Not provided by source CSV; inspect XEP page for superseding guidance.";
+  }
+  return "-";
 }
 
 function padXepNumber(number) {
@@ -199,7 +248,7 @@ function main() {
       ? `XEP-${padXepNumber(number)}`
       : `ProtoXEP-${String(Number(row.id || 0) || 0)}`;
     const title = (row.title || "").trim();
-    const status = (row.status || "").trim();
+    const status = normalizeStatus(row.status || "");
     const type = (row.type || "").trim();
     const url = (row.url || "").trim();
     const implementationCount = number ? (countByNumber.get(number) || 0) : 0;
@@ -238,7 +287,8 @@ function main() {
       state,
       score,
       action,
-      reason
+      reason,
+      replacement: replacementAvailabilityNote(status)
     };
   });
 
@@ -257,6 +307,18 @@ function main() {
   });
 
   const generatedAt = new Date().toISOString();
+  const statusCounts = new Map();
+  all.forEach((row) => {
+    statusCounts.set(row.status, (statusCounts.get(row.status) || 0) + 1);
+  });
+  const statusSummaryLines = [...statusCounts.entries()]
+    .sort((a, b) => {
+      const keyDiff = statusSortKey(a[0]) - statusSortKey(b[0]);
+      if (keyDiff !== 0) return keyDiff;
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([status, count]) => `- ${status}: ${count}`);
+
   const header = [
     "# XEP Wishlist (All xmpp.org Rows)",
     "",
@@ -271,6 +333,17 @@ function main() {
     "- `Action`: `Implement`, `Maintain`, `Defer`, or `Avoid`.",
     "- `Project State`: current `shitcord67` state from `SUPPORTED_XEPS.md` where available.",
     "- `Score`: computed `0-10` implementation value score.",
+    "",
+    "Lifecycle statuses present in this dataset:",
+    ...statusSummaryLines,
+    "",
+    "Dormant handling:",
+    "- `Dormant` is not currently emitted as a literal status in this xmpp.org export.",
+    "- The closest practical bucket is `Deferred`; see `XEP_STATUS_INDEX.md` for grouped status views.",
+    "",
+    "Deprecated/Obsolete handling:",
+    "- Deprecated/obsolete/retracted/rejected entries are explicitly listed and filterable in `XEP_STATUS_INDEX.md` and `data/xep/xep_status_index.csv`.",
+    "- Source CSV does not include superseding-XEP metadata, so replacement guidance requires checking each XEP page.",
     "",
     "| Rank | Action | Score | XEP | Title | xmpp.org Status | Type | Impl Count | Project State | Reason |",
     "|---|---|---|---|---|---|---|---|---|---|"
@@ -318,8 +391,81 @@ function main() {
   });
   fs.writeFileSync(OUTPUT_CSV, `${csvLines.join("\n")}\n`, "utf8");
 
+  const byStatus = new Map();
+  all.forEach((row) => {
+    const key = row.status || "Unknown";
+    const current = byStatus.get(key) || [];
+    current.push(row);
+    byStatus.set(key, current);
+  });
+  const sortedStatuses = [...byStatus.keys()].sort((a, b) => {
+    const keyDiff = statusSortKey(a) - statusSortKey(b);
+    if (keyDiff !== 0) return keyDiff;
+    return a.localeCompare(b);
+  });
+  const statusDocLines = [
+    "# XEP Status Index (All xmpp.org Rows)",
+    "",
+    `Generated from: \`data/xep/xeps.csv\` at ${generatedAt}.`,
+    "",
+    "This file is sorted by lifecycle status buckets so deferred/deprecated/obsolete sets are easy to audit.",
+    "",
+    "Status buckets present:",
+    ...sortedStatuses.map((status) => `- ${status}: ${byStatus.get(status)?.length || 0}`),
+    "",
+    "Dormant note:",
+    "- xmpp.org export currently does not include a literal `Dormant` status bucket.",
+    "- Treat `Deferred` as the closest maintenance-planning bucket.",
+    ""
+  ];
+  for (const status of sortedStatuses) {
+    const entries = (byStatus.get(status) || []).slice().sort(compareByXepTag);
+    statusDocLines.push(`## ${status} (${entries.length})`);
+    statusDocLines.push("");
+    statusDocLines.push("| XEP | Title | Action | Score | Project State | Replacement / Superseding Note |");
+    statusDocLines.push("|---|---|---|---|---|---|");
+    entries.forEach((entry) => {
+      const titleCell = entry.url ? `[${entry.title}](${entry.url})` : entry.title;
+      statusDocLines.push(
+        `| ${entry.xepTag} | ${titleCell} | ${entry.action} | ${entry.score.toFixed(2)} | ${entry.state} | ${entry.replacement} |`
+      );
+    });
+    statusDocLines.push("");
+  }
+  fs.writeFileSync(OUTPUT_STATUS_MD, `${statusDocLines.join("\n")}\n`, "utf8");
+
+  const statusCsvHeader = [
+    "status",
+    "xep_tag",
+    "number",
+    "title",
+    "url",
+    "action",
+    "score",
+    "project_state",
+    "replacement_note"
+  ];
+  const statusCsvLines = [statusCsvHeader.join(",")];
+  sortedStatuses.forEach((status) => {
+    const entries = (byStatus.get(status) || []).slice().sort(compareByXepTag);
+    entries.forEach((entry) => {
+      statusCsvLines.push([
+        status,
+        entry.xepTag,
+        entry.number,
+        entry.title,
+        entry.url,
+        entry.action,
+        entry.score.toFixed(2),
+        entry.state,
+        entry.replacement
+      ].map(toCsvCell).join(","));
+    });
+  });
+  fs.writeFileSync(OUTPUT_STATUS_CSV, `${statusCsvLines.join("\n")}\n`, "utf8");
+
   // eslint-disable-next-line no-console
-  console.log(`Generated ${OUTPUT_MD} and ${OUTPUT_CSV} with ${all.length} rows.`);
+  console.log(`Generated ${OUTPUT_MD}, ${OUTPUT_CSV}, ${OUTPUT_STATUS_MD}, and ${OUTPUT_STATUS_CSV} with ${all.length} rows.`);
 }
 
 main();
