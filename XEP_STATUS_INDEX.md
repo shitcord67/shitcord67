@@ -1,6 +1,6 @@
 # XEP Status Index (All xmpp.org Rows)
 
-Generated from: `data/xep/xeps.csv` at 2026-02-28T02:19:26.329Z.
+Generated from: `data/xep/xeps.csv` at 2026-02-28T02:22:26.588Z.
 
 This file is sorted by lifecycle status buckets so deferred/deprecated/obsolete sets are easy to audit.
 
@@ -21,6 +21,10 @@ Dormant note:
 - xmpp.org export currently does not include a literal `Dormant` status bucket.
 - Treat `Deferred` as the closest maintenance-planning bucket.
 
+Implementation marker legend:
+- `✅`: fully implemented in `shitcord67`.
+- `🚧`: partial/in-progress in `shitcord67`.
+
 ## Final (11)
 
 | XEP | Title | Action | Score | Project State | Replacement / Superseding Note |
@@ -28,26 +32,26 @@ Dormant note:
 | XEP-0004 | [Data Forms](https://xmpp.org/extensions/xep-0004.html) | Defer | 6.45 | Unsupported | - |
 | XEP-0009 | [Jabber-RPC](https://xmpp.org/extensions/xep-0009.html) | Defer | 5.77 | Unsupported | - |
 | XEP-0012 | [Last Activity](https://xmpp.org/extensions/xep-0012.html) | Defer | 6.45 | Unsupported | - |
-| XEP-0030 | [Service Discovery](https://xmpp.org/extensions/xep-0030.html) | Implement | 6.45 | Partial | - |
+| 🚧 XEP-0030 | [Service Discovery](https://xmpp.org/extensions/xep-0030.html) | Implement | 6.45 | Partial | - |
 | XEP-0047 | [In-Band Bytestreams](https://xmpp.org/extensions/xep-0047.html) | Avoid | 3.65 | Unsupported | - |
 | XEP-0077 | [In-Band Registration](https://xmpp.org/extensions/xep-0077.html) | Defer | 6.45 | Unsupported | - |
-| XEP-0085 | [Chat State Notifications](https://xmpp.org/extensions/xep-0085.html) | Maintain | 8.95 | Implemented | - |
+| ✅ XEP-0085 | [Chat State Notifications](https://xmpp.org/extensions/xep-0085.html) | Maintain | 8.95 | Implemented | - |
 | XEP-0174 | [Serverless Messaging](https://xmpp.org/extensions/xep-0174.html) | Defer | 4.35 | Unsupported | - |
-| XEP-0199 | [XMPP Ping](https://xmpp.org/extensions/xep-0199.html) | Maintain | 6.45 | Implemented | - |
+| ✅ XEP-0199 | [XMPP Ping](https://xmpp.org/extensions/xep-0199.html) | Maintain | 6.45 | Implemented | - |
 | XEP-0202 | [Entity Time](https://xmpp.org/extensions/xep-0202.html) | Defer | 6.45 | Unsupported | - |
-| XEP-0203 | [Delayed Delivery](https://xmpp.org/extensions/xep-0203.html) | Implement | 6.45 | Partial | - |
+| 🚧 XEP-0203 | [Delayed Delivery](https://xmpp.org/extensions/xep-0203.html) | Implement | 6.45 | Partial | - |
 
 ## Stable (78)
 
 | XEP | Title | Action | Score | Project State | Replacement / Superseding Note |
 |---|---|---|---|---|---|
 | XEP-0033 | [Extended Stanza Addressing](https://xmpp.org/extensions/xep-0033.html) | Defer | 6.15 | Unsupported | - |
-| XEP-0045 | [Multi-User Chat](https://xmpp.org/extensions/xep-0045.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0045 | [Multi-User Chat](https://xmpp.org/extensions/xep-0045.html) | Implement | 7.25 | Partial | - |
 | XEP-0050 | [Ad-Hoc Commands](https://xmpp.org/extensions/xep-0050.html) | Defer | 6.15 | Unsupported | - |
-| XEP-0059 | [Result Set Management](https://xmpp.org/extensions/xep-0059.html) | Implement | 6.15 | Partial | - |
+| 🚧 XEP-0059 | [Result Set Management](https://xmpp.org/extensions/xep-0059.html) | Implement | 6.15 | Partial | - |
 | XEP-0060 | [Publish-Subscribe](https://xmpp.org/extensions/xep-0060.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0065 | [SOCKS5 Bytestreams](https://xmpp.org/extensions/xep-0065.html) | Avoid | 3.35 | Unsupported | - |
-| XEP-0066 | [Out of Band Data](https://xmpp.org/extensions/xep-0066.html) | Implement | 6.15 | Partial | - |
+| 🚧 XEP-0066 | [Out of Band Data](https://xmpp.org/extensions/xep-0066.html) | Implement | 6.15 | Partial | - |
 | XEP-0070 | [Verifying HTTP Requests via XMPP](https://xmpp.org/extensions/xep-0070.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0072 | [SOAP Over XMPP](https://xmpp.org/extensions/xep-0072.html) | Avoid | 3.15 | Unsupported | - |
 | XEP-0079 | [Advanced Message Processing](https://xmpp.org/extensions/xep-0079.html) | Defer | 6.57 | Unsupported | - |
@@ -57,7 +61,7 @@ Dormant note:
 | XEP-0106 | [JID Escaping](https://xmpp.org/extensions/xep-0106.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0107 | [User Mood](https://xmpp.org/extensions/xep-0107.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0108 | [User Activity](https://xmpp.org/extensions/xep-0108.html) | Defer | 6.15 | Unsupported | - |
-| XEP-0115 | [Entity Capabilities](https://xmpp.org/extensions/xep-0115.html) | Implement | 6.15 | Partial | - |
+| 🚧 XEP-0115 | [Entity Capabilities](https://xmpp.org/extensions/xep-0115.html) | Implement | 6.15 | Partial | - |
 | XEP-0118 | [User Tune](https://xmpp.org/extensions/xep-0118.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0122 | [Data Forms Validation](https://xmpp.org/extensions/xep-0122.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0124 | [Bidirectional-streams Over Synchronous HTTP (BOSH)](https://xmpp.org/extensions/xep-0124.html) | Defer | 6.15 | Unsupported | - |
@@ -69,13 +73,13 @@ Dormant note:
 | XEP-0156 | [Discovering Alternative XMPP Connection Methods](https://xmpp.org/extensions/xep-0156.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0158 | [CAPTCHA Forms](https://xmpp.org/extensions/xep-0158.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0163 | [Personal Eventing Protocol](https://xmpp.org/extensions/xep-0163.html) | Defer | 6.15 | Unsupported | - |
-| XEP-0166 | [Jingle](https://xmpp.org/extensions/xep-0166.html) | Implement | 8.05 | Partial | - |
-| XEP-0167 | [Jingle RTP Sessions](https://xmpp.org/extensions/xep-0167.html) | Implement | 8.05 | Partial | - |
+| 🚧 XEP-0166 | [Jingle](https://xmpp.org/extensions/xep-0166.html) | Implement | 8.05 | Partial | - |
+| 🚧 XEP-0167 | [Jingle RTP Sessions](https://xmpp.org/extensions/xep-0167.html) | Implement | 8.05 | Partial | - |
 | XEP-0171 | [Language Translation](https://xmpp.org/extensions/xep-0171.html) | Avoid | 3.15 | Unsupported | - |
 | XEP-0172 | [User Nickname](https://xmpp.org/extensions/xep-0172.html) | Implement | 7.15 | Unsupported | - |
 | XEP-0176 | [Jingle ICE-UDP Transport Method](https://xmpp.org/extensions/xep-0176.html) | Implement | 8.05 | Unsupported | - |
 | XEP-0177 | [Jingle Raw UDP Transport Method](https://xmpp.org/extensions/xep-0177.html) | Implement | 7.05 | Unsupported | - |
-| XEP-0184 | [Message Delivery Receipts](https://xmpp.org/extensions/xep-0184.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0184 | [Message Delivery Receipts](https://xmpp.org/extensions/xep-0184.html) | Implement | 7.25 | Partial | - |
 | XEP-0191 | [Blocking Command](https://xmpp.org/extensions/xep-0191.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0198 | [Stream Management](https://xmpp.org/extensions/xep-0198.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0206 | [XMPP Over BOSH](https://xmpp.org/extensions/xep-0206.html) | Defer | 6.15 | Unsupported | - |
@@ -84,7 +88,7 @@ Dormant note:
 | XEP-0221 | [Data Forms Media Element](https://xmpp.org/extensions/xep-0221.html) | Implement | 8.05 | Unsupported | - |
 | XEP-0224 | [Attention](https://xmpp.org/extensions/xep-0224.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0227 | [Portable Import/Export Format for XMPP-IM Servers](https://xmpp.org/extensions/xep-0227.html) | Defer | 6.05 | Unsupported | - |
-| XEP-0231 | [Bits of Binary](https://xmpp.org/extensions/xep-0231.html) | Implement | 6.15 | Partial | - |
+| 🚧 XEP-0231 | [Bits of Binary](https://xmpp.org/extensions/xep-0231.html) | Implement | 6.15 | Partial | - |
 | XEP-0233 | [XMPP Server Registration for use with Kerberos V5](https://xmpp.org/extensions/xep-0233.html) | Defer | 5.63 | Unsupported | - |
 | XEP-0249 | [Direct MUC Invitations](https://xmpp.org/extensions/xep-0249.html) | Implement | 7.25 | Unsupported | - |
 | XEP-0258 | [Security Labels in XMPP](https://xmpp.org/extensions/xep-0258.html) | Implement | 7.87 | Unsupported | - |
@@ -92,31 +96,31 @@ Dormant note:
 | XEP-0261 | [Jingle In-Band Bytestreams Transport Method](https://xmpp.org/extensions/xep-0261.html) | Avoid | 5.25 | Unsupported | - |
 | XEP-0262 | [Use of ZRTP in Jingle RTP Sessions](https://xmpp.org/extensions/xep-0262.html) | Defer | 6.05 | Unsupported | - |
 | XEP-0266 | [Codecs for Jingle Audio](https://xmpp.org/extensions/xep-0266.html) | Defer | 5.05 | Unsupported | - |
-| XEP-0280 | [Message Carbons](https://xmpp.org/extensions/xep-0280.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0280 | [Message Carbons](https://xmpp.org/extensions/xep-0280.html) | Implement | 7.25 | Partial | - |
 | XEP-0288 | [Bidirectional Server-to-Server Connections](https://xmpp.org/extensions/xep-0288.html) | Defer | 6.37 | Unsupported | - |
 | XEP-0293 | [Jingle RTP Feedback Negotiation](https://xmpp.org/extensions/xep-0293.html) | Implement | 8.05 | Unsupported | - |
 | XEP-0294 | [Jingle RTP Header Extensions Negotiation](https://xmpp.org/extensions/xep-0294.html) | Implement | 8.05 | Unsupported | - |
-| XEP-0297 | [Stanza Forwarding](https://xmpp.org/extensions/xep-0297.html) | Implement | 6.15 | Partial | - |
+| 🚧 XEP-0297 | [Stanza Forwarding](https://xmpp.org/extensions/xep-0297.html) | Implement | 6.15 | Partial | - |
 | XEP-0300 | [Use of Cryptographic Hash Functions in XMPP](https://xmpp.org/extensions/xep-0300.html) | Implement | 8.55 | Unsupported | - |
 | XEP-0301 | [In-Band Real Time Text](https://xmpp.org/extensions/xep-0301.html) | Avoid | 4.15 | Unsupported | - |
-| XEP-0308 | [Last Message Correction](https://xmpp.org/extensions/xep-0308.html) | Implement | 7.25 | Partial | - |
-| XEP-0313 | [Message Archive Management](https://xmpp.org/extensions/xep-0313.html) | Implement | 7.25 | Partial | - |
-| XEP-0319 | [Last User Interaction in Presence](https://xmpp.org/extensions/xep-0319.html) | Implement | 7.25 | Partial | - |
-| XEP-0320 | [Use of DTLS-SRTP in Jingle Sessions](https://xmpp.org/extensions/xep-0320.html) | Implement | 10.00 | Partial | - |
-| XEP-0333 | [Displayed Markers](https://xmpp.org/extensions/xep-0333.html) | Implement | 6.15 | Partial | - |
+| 🚧 XEP-0308 | [Last Message Correction](https://xmpp.org/extensions/xep-0308.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0313 | [Message Archive Management](https://xmpp.org/extensions/xep-0313.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0319 | [Last User Interaction in Presence](https://xmpp.org/extensions/xep-0319.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0320 | [Use of DTLS-SRTP in Jingle Sessions](https://xmpp.org/extensions/xep-0320.html) | Implement | 10.00 | Partial | - |
+| 🚧 XEP-0333 | [Displayed Markers](https://xmpp.org/extensions/xep-0333.html) | Implement | 6.15 | Partial | - |
 | XEP-0334 | [Message Processing Hints](https://xmpp.org/extensions/xep-0334.html) | Implement | 7.25 | Unsupported | - |
 | XEP-0338 | [Jingle Grouping Framework](https://xmpp.org/extensions/xep-0338.html) | Implement | 8.05 | Unsupported | - |
 | XEP-0339 | [Source-Specific Media Attributes in Jingle](https://xmpp.org/extensions/xep-0339.html) | Implement | 8.05 | Unsupported | - |
-| XEP-0352 | [Client State Indication](https://xmpp.org/extensions/xep-0352.html) | Implement | 6.15 | Partial | - |
-| XEP-0363 | [HTTP File Upload](https://xmpp.org/extensions/xep-0363.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0352 | [Client State Indication](https://xmpp.org/extensions/xep-0352.html) | Implement | 6.15 | Partial | - |
+| 🚧 XEP-0363 | [HTTP File Upload](https://xmpp.org/extensions/xep-0363.html) | Implement | 7.25 | Partial | - |
 | XEP-0368 | [SRV records for XMPP over TLS](https://xmpp.org/extensions/xep-0368.html) | Implement | 8.55 | Unsupported | - |
 | XEP-0386 | [Bind 2](https://xmpp.org/extensions/xep-0386.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0388 | [Extensible SASL Profile](https://xmpp.org/extensions/xep-0388.html) | Implement | 10.00 | Unsupported | - |
 | XEP-0392 | [Consistent Color Generation](https://xmpp.org/extensions/xep-0392.html) | Defer | 6.15 | Unsupported | - |
 | XEP-0393 | [Message Styling](https://xmpp.org/extensions/xep-0393.html) | Implement | 7.25 | Unsupported | - |
 | XEP-0398 | [User Avatar to vCard-Based Avatars Conversion](https://xmpp.org/extensions/xep-0398.html) | Implement | 7.15 | Unsupported | - |
-| XEP-0402 | [PEP Native Bookmarks](https://xmpp.org/extensions/xep-0402.html) | Implement | 7.25 | Partial | - |
-| XEP-0410 | [MUC Self-Ping (Schrödinger's Chat)](https://xmpp.org/extensions/xep-0410.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0402 | [PEP Native Bookmarks](https://xmpp.org/extensions/xep-0402.html) | Implement | 7.25 | Partial | - |
+| 🚧 XEP-0410 | [MUC Self-Ping (Schrödinger's Chat)](https://xmpp.org/extensions/xep-0410.html) | Implement | 7.25 | Partial | - |
 | XEP-0421 | [Occupant identifiers for semi-anonymous MUCs](https://xmpp.org/extensions/xep-0421.html) | Implement | 7.25 | Unsupported | - |
 | XEP-0490 | [Message Displayed Synchronization](https://xmpp.org/extensions/xep-0490.html) | Implement | 7.25 | Unsupported | - |
 
@@ -129,7 +133,7 @@ Dormant note:
 | XEP-0019 | [Streamlining the SIGs](https://xmpp.org/extensions/xep-0019.html) | Avoid | 2.10 | Unsupported | - |
 | XEP-0049 | [Private XML Storage](https://xmpp.org/extensions/xep-0049.html) | Avoid | 3.85 | Unsupported | - |
 | XEP-0053 | [XMPP Registrar Function](https://xmpp.org/extensions/xep-0053.html) | Avoid | 2.10 | Unsupported | - |
-| XEP-0054 | [vcard-temp](https://xmpp.org/extensions/xep-0054.html) | Implement | 4.85 | Partial | - |
+| 🚧 XEP-0054 | [vcard-temp](https://xmpp.org/extensions/xep-0054.html) | Implement | 4.85 | Partial | - |
 | XEP-0055 | [Jabber Search](https://xmpp.org/extensions/xep-0055.html) | Avoid | 3.85 | Unsupported | - |
 | XEP-0068 | [Field Standardization for Data Forms](https://xmpp.org/extensions/xep-0068.html) | Defer | 5.13 | Unsupported | - |
 | XEP-0076 | [Malicious Stanzas](https://xmpp.org/extensions/xep-0076.html) | Avoid | 1.50 | Unsupported | - |
@@ -147,7 +151,7 @@ Dormant note:
 | XEP-0147 | [XMPP URI Scheme Query Components](https://xmpp.org/extensions/xep-0147.html) | Defer | 5.55 | Unsupported | - |
 | XEP-0148 | [Instant Messaging Intelligence Quotient (IM IQ)](https://xmpp.org/extensions/xep-0148.html) | Avoid | 3.50 | Unsupported | - |
 | XEP-0149 | [Time Periods](https://xmpp.org/extensions/xep-0149.html) | Avoid | 2.55 | Unsupported | - |
-| XEP-0153 | [vCard-Based Avatars](https://xmpp.org/extensions/xep-0153.html) | Implement | 4.85 | Partial | - |
+| 🚧 XEP-0153 | [vCard-Based Avatars](https://xmpp.org/extensions/xep-0153.html) | Implement | 4.85 | Partial | - |
 | XEP-0157 | [Contact Addresses for XMPP Services](https://xmpp.org/extensions/xep-0157.html) | Defer | 5.55 | Unsupported | - |
 | XEP-0160 | [Best Practices for Handling Offline Messages](https://xmpp.org/extensions/xep-0160.html) | Defer | 6.65 | Unsupported | - |
 | XEP-0169 | [Twas The Night Before Christmas (Jabber Version)](https://xmpp.org/extensions/xep-0169.html) | Avoid | 1.50 | Unsupported | - |
@@ -185,13 +189,13 @@ Dormant note:
 | XEP-0284 | [Shared XML Editing](https://xmpp.org/extensions/xep-0284.html) | Avoid | 4.18 | Unsupported | - |
 | XEP-0292 | [vCard4 Over XMPP](https://xmpp.org/extensions/xep-0292.html) | Defer | 6.41 | Unsupported | - |
 | XEP-0317 | [Hats](https://xmpp.org/extensions/xep-0317.html) | Defer | 5.60 | Unsupported | - |
-| XEP-0353 | [Jingle Message Initiation](https://xmpp.org/extensions/xep-0353.html) | Implement | 8.60 | Partial | - |
+| 🚧 XEP-0353 | [Jingle Message Initiation](https://xmpp.org/extensions/xep-0353.html) | Implement | 8.60 | Partial | - |
 | XEP-0355 | [Namespace Delegation](https://xmpp.org/extensions/xep-0355.html) | Defer | 5.08 | Unsupported | - |
 | XEP-0356 | [Privileged Entity](https://xmpp.org/extensions/xep-0356.html) | Defer | 4.60 | Unsupported | - |
-| XEP-0359 | [Unique and Stable Stanza IDs](https://xmpp.org/extensions/xep-0359.html) | Implement | 5.60 | Partial | - |
+| 🚧 XEP-0359 | [Unique and Stable Stanza IDs](https://xmpp.org/extensions/xep-0359.html) | Implement | 5.60 | Partial | - |
 | XEP-0365 | [Server to Server communication over STANAG 5066 ARQ](https://xmpp.org/extensions/xep-0365.html) | Avoid | 3.50 | Unsupported | - |
 | XEP-0369 | [Mediated Information eXchange (MIX)](https://xmpp.org/extensions/xep-0369.html) | Implement | 7.50 | Unsupported | - |
-| XEP-0372 | [References](https://xmpp.org/extensions/xep-0372.html) | Implement | 6.51 | Partial | - |
+| 🚧 XEP-0372 | [References](https://xmpp.org/extensions/xep-0372.html) | Implement | 6.51 | Partial | - |
 | XEP-0373 | [OpenPGP for XMPP](https://xmpp.org/extensions/xep-0373.html) | Defer | 4.92 | Unsupported | - |
 | XEP-0377 | [Spam Reporting](https://xmpp.org/extensions/xep-0377.html) | Defer | 5.60 | Unsupported | - |
 | XEP-0383 | [Burner JIDs](https://xmpp.org/extensions/xep-0383.html) | Avoid | 2.60 | Unsupported | - |
@@ -203,14 +207,14 @@ Dormant note:
 | XEP-0420 | [Stanza Content Encryption](https://xmpp.org/extensions/xep-0420.html) | Implement | 7.58 | Unsupported | - |
 | XEP-0425 | [Moderated Message Retraction](https://xmpp.org/extensions/xep-0425.html) | Defer | 6.70 | Unsupported | - |
 | XEP-0426 | [Character counting in message bodies](https://xmpp.org/extensions/xep-0426.html) | Defer | 4.58 | Unsupported | - |
-| XEP-0428 | [Fallback Indication](https://xmpp.org/extensions/xep-0428.html) | Implement | 5.60 | Partial | - |
+| 🚧 XEP-0428 | [Fallback Indication](https://xmpp.org/extensions/xep-0428.html) | Implement | 5.60 | Partial | - |
 | XEP-0434 | [Trust Messages (TM)](https://xmpp.org/extensions/xep-0434.html) | Defer | 5.28 | Unsupported | - |
 | XEP-0438 | [Best practices for password hashing and storage](https://xmpp.org/extensions/xep-0438.html) | Avoid | 2.90 | Unsupported | - |
 | XEP-0440 | [SASL Channel-Binding Type Capability](https://xmpp.org/extensions/xep-0440.html) | Implement | 8.90 | Unsupported | - |
 | XEP-0441 | [Message Archive Management Preferences](https://xmpp.org/extensions/xep-0441.html) | Implement | 7.80 | Unsupported | - |
 | XEP-0442 | [Pubsub Message Archive Management](https://xmpp.org/extensions/xep-0442.html) | Avoid | 3.70 | Unsupported | - |
-| XEP-0444 | [Message Reactions](https://xmpp.org/extensions/xep-0444.html) | Implement | 6.70 | Partial | - |
-| XEP-0446 | [File metadata element](https://xmpp.org/extensions/xep-0446.html) | Implement | 6.51 | Partial | - |
+| 🚧 XEP-0444 | [Message Reactions](https://xmpp.org/extensions/xep-0444.html) | Implement | 6.70 | Partial | - |
+| 🚧 XEP-0446 | [File metadata element](https://xmpp.org/extensions/xep-0446.html) | Implement | 6.51 | Partial | - |
 | XEP-0447 | [Stateless file sharing](https://xmpp.org/extensions/xep-0447.html) | Defer | 6.51 | Unsupported | - |
 | XEP-0448 | [Encryption for stateless file sharing](https://xmpp.org/extensions/xep-0448.html) | Implement | 8.42 | Unsupported | - |
 | XEP-0449 | [Stickers](https://xmpp.org/extensions/xep-0449.html) | Avoid | 4.18 | Unsupported | - |
@@ -222,7 +226,7 @@ Dormant note:
 | XEP-0455 | [Service Outage Status](https://xmpp.org/extensions/xep-0455.html) | Avoid | 4.18 | Unsupported | - |
 | XEP-0456 | [Content Rating Labels](https://xmpp.org/extensions/xep-0456.html) | Avoid | 2.60 | Unsupported | - |
 | XEP-0460 | [Pubsub Caching Hints](https://xmpp.org/extensions/xep-0460.html) | Avoid | 2.60 | Unsupported | - |
-| XEP-0461 | [Message Replies](https://xmpp.org/extensions/xep-0461.html) | Implement | 6.70 | Partial | - |
+| 🚧 XEP-0461 | [Message Replies](https://xmpp.org/extensions/xep-0461.html) | Implement | 6.70 | Partial | - |
 | XEP-0462 | [PubSub Type Filtering](https://xmpp.org/extensions/xep-0462.html) | Avoid | 2.60 | Unsupported | - |
 | XEP-0463 | [MUC Affiliations Versioning](https://xmpp.org/extensions/xep-0463.html) | Avoid | 3.70 | Unsupported | - |
 | XEP-0465 | [Pubsub Public Subscriptions](https://xmpp.org/extensions/xep-0465.html) | Avoid | 2.60 | Unsupported | - |
@@ -242,7 +246,7 @@ Dormant note:
 | XEP-0479 | [XMPP Compliance Suites 2023](https://xmpp.org/extensions/xep-0479.html) | Avoid | 2.60 | Unsupported | - |
 | XEP-0480 | [SASL Upgrade Tasks](https://xmpp.org/extensions/xep-0480.html) | Implement | 7.32 | Unsupported | - |
 | XEP-0481 | [Content Types in Messages](https://xmpp.org/extensions/xep-0481.html) | Avoid | 3.70 | Unsupported | - |
-| XEP-0482 | [Call Invites](https://xmpp.org/extensions/xep-0482.html) | Implement | 6.82 | Partial | - |
+| 🚧 XEP-0482 | [Call Invites](https://xmpp.org/extensions/xep-0482.html) | Implement | 6.82 | Partial | - |
 | XEP-0483 | [HTTP Online Meetings](https://xmpp.org/extensions/xep-0483.html) | Avoid | 4.18 | Unsupported | - |
 | XEP-0485 | [PubSub Server Information](https://xmpp.org/extensions/xep-0485.html) | Defer | 5.50 | Unsupported | - |
 | XEP-0486 | [MUC Avatars](https://xmpp.org/extensions/xep-0486.html) | Avoid | 5.30 | Unsupported | - |
@@ -272,7 +276,7 @@ Dormant note:
 |---|---|---|---|---|---|
 | XEP-0379 | [Pre-Authenticated Roster Subscription](https://xmpp.org/extensions/xep-0379.html) | Implement | 8.32 | Unsupported | - |
 | XEP-0401 | [Ad-hoc Account Invitation Generation](https://xmpp.org/extensions/xep-0401.html) | Defer | 4.82 | Unsupported | - |
-| XEP-0424 | [Message Retraction](https://xmpp.org/extensions/xep-0424.html) | Implement | 6.60 | Partial | - |
+| 🚧 XEP-0424 | [Message Retraction](https://xmpp.org/extensions/xep-0424.html) | Implement | 6.60 | Partial | - |
 | XEP-0445 | [Pre-Authenticated In-Band Registration](https://xmpp.org/extensions/xep-0445.html) | Defer | 6.48 | Unsupported | - |
 | XEP-0484 | [Fast Authentication Streamlining Tokens](https://xmpp.org/extensions/xep-0484.html) | Implement | 7.90 | Unsupported | - |
 
@@ -429,7 +433,7 @@ Dormant note:
 | XEP-0378 | [OTR Discovery](https://xmpp.org/extensions/xep-0378.html) | Avoid | 1.90 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0380 | [Explicit Message Encryption](https://xmpp.org/extensions/xep-0380.html) | Implement | 8.40 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0382 | [Spoiler messages](https://xmpp.org/extensions/xep-0382.html) | Defer | 5.58 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
-| XEP-0385 | [Stateless Inline Media Sharing (SIMS)](https://xmpp.org/extensions/xep-0385.html) | Implement | 7.71 | Partial | Not provided by source CSV; inspect XEP page for superseding guidance. |
+| 🚧 XEP-0385 | [Stateless Inline Media Sharing (SIMS)](https://xmpp.org/extensions/xep-0385.html) | Implement | 7.71 | Partial | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0390 | [Entity Capabilities 2.0](https://xmpp.org/extensions/xep-0390.html) | Avoid | 3.90 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0391 | [Jingle Encrypted Transports](https://xmpp.org/extensions/xep-0391.html) | Implement | 8.78 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0395 | [Atomically Compare-And-Publish PubSub Items](https://xmpp.org/extensions/xep-0395.html) | Avoid | 3.80 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
@@ -466,8 +470,8 @@ Dormant note:
 | XEP-0013 | [Flexible Offline Message Retrieval](https://xmpp.org/extensions/xep-0013.html) | Defer | 6.26 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0016 | [Privacy Lists](https://xmpp.org/extensions/xep-0016.html) | Defer | 5.35 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0020 | [Feature Negotiation](https://xmpp.org/extensions/xep-0020.html) | Avoid | 3.93 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
-| XEP-0048 | [Bookmarks](https://xmpp.org/extensions/xep-0048.html) | Implement | 6.45 | Partial | Not provided by source CSV; inspect XEP page for superseding guidance. |
-| XEP-0071 | [XHTML-IM](https://xmpp.org/extensions/xep-0071.html) | Implement | 5.35 | Partial | Not provided by source CSV; inspect XEP page for superseding guidance. |
+| 🚧 XEP-0048 | [Bookmarks](https://xmpp.org/extensions/xep-0048.html) | Implement | 6.45 | Partial | Not provided by source CSV; inspect XEP page for superseding guidance. |
+| 🚧 XEP-0071 | [XHTML-IM](https://xmpp.org/extensions/xep-0071.html) | Implement | 5.35 | Partial | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0086 | [Error Condition Mappings](https://xmpp.org/extensions/xep-0086.html) | Defer | 4.65 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0093 | [Roster Item Exchange](https://xmpp.org/extensions/xep-0093.html) | Avoid | 2.05 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |
 | XEP-0095 | [Stream Initiation](https://xmpp.org/extensions/xep-0095.html) | Avoid | 2.36 | Unsupported | Not provided by source CSV; inspect XEP page for superseding guidance. |

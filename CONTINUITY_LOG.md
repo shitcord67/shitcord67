@@ -2075,3 +2075,9 @@ Is there also some XEP wishlist / list of unsupported XEPs + rating and sorting 
 
 ## 2026-02-28T02:11:39Z
 Can't you extend this list to all existing XEPs from xmpp.org?
+
+## 2026-02-28T02:20:32Z
+Also can't we mark in the wishlist which XEPs we already have implemented by using a ✅ at the beginning?
+
+## 2026-02-28T02:21:58Z
+Like fully implemented. And for things that are worked on or partially implemented for shitcord67 🚧 maybe? You may also use other emojis

@@ -213,6 +213,15 @@ function replacementAvailabilityNote(status) {
   return "-";
 }
 
+function xepDisplayTag(row) {
+  if (!row) return "";
+  const base = (row.xepTag || "").toString();
+  const state = (row.state || "").toString();
+  if (state === "Implemented") return `✅ ${base}`;
+  if (state === "Partial") return `🚧 ${base}`;
+  return base;
+}
+
 function padXepNumber(number) {
   const numeric = Number(number);
   if (!Number.isFinite(numeric) || numeric <= 0) return "";
@@ -333,6 +342,7 @@ function main() {
     "- `Action`: `Implement`, `Maintain`, `Defer`, or `Avoid`.",
     "- `Project State`: current `shitcord67` state from `SUPPORTED_XEPS.md` where available.",
     "- `Score`: computed `0-10` implementation value score.",
+    "- `XEP`: `✅` is fully implemented, `🚧` is partial/in-progress implementation.",
     "",
     "Lifecycle statuses present in this dataset:",
     ...statusSummaryLines,
@@ -352,8 +362,9 @@ function main() {
   const lines = [...header];
   all.forEach((row, index) => {
     const titleCell = row.url ? `[${row.title}](${row.url})` : row.title;
+    const xepCell = xepDisplayTag(row);
     lines.push(
-      `| ${index + 1} | ${row.action} | ${row.score.toFixed(2)} | ${row.xepTag} | ${titleCell} | ${row.status || "-"} | ${row.type || "-"} | ${row.implementationCount} | ${row.state} | ${row.reason} |`
+      `| ${index + 1} | ${row.action} | ${row.score.toFixed(2)} | ${xepCell} | ${titleCell} | ${row.status || "-"} | ${row.type || "-"} | ${row.implementationCount} | ${row.state} | ${row.reason} |`
     );
   });
   fs.writeFileSync(OUTPUT_MD, `${lines.join("\n")}\n`, "utf8");
@@ -363,6 +374,7 @@ function main() {
     "action",
     "score",
     "xep_tag",
+    "xep_display",
     "number",
     "title",
     "url",
@@ -379,6 +391,7 @@ function main() {
       row.action,
       row.score.toFixed(2),
       row.xepTag,
+      xepDisplayTag(row),
       row.number,
       row.title,
       row.url,
@@ -416,6 +429,10 @@ function main() {
     "Dormant note:",
     "- xmpp.org export currently does not include a literal `Dormant` status bucket.",
     "- Treat `Deferred` as the closest maintenance-planning bucket.",
+    "",
+    "Implementation marker legend:",
+    "- `✅`: fully implemented in `shitcord67`.",
+    "- `🚧`: partial/in-progress in `shitcord67`.",
     ""
   ];
   for (const status of sortedStatuses) {
@@ -426,8 +443,9 @@ function main() {
     statusDocLines.push("|---|---|---|---|---|---|");
     entries.forEach((entry) => {
       const titleCell = entry.url ? `[${entry.title}](${entry.url})` : entry.title;
+      const xepCell = xepDisplayTag(entry);
       statusDocLines.push(
-        `| ${entry.xepTag} | ${titleCell} | ${entry.action} | ${entry.score.toFixed(2)} | ${entry.state} | ${entry.replacement} |`
+        `| ${xepCell} | ${titleCell} | ${entry.action} | ${entry.score.toFixed(2)} | ${entry.state} | ${entry.replacement} |`
       );
     });
     statusDocLines.push("");
@@ -437,6 +455,7 @@ function main() {
   const statusCsvHeader = [
     "status",
     "xep_tag",
+    "xep_display",
     "number",
     "title",
     "url",
@@ -452,6 +471,7 @@ function main() {
       statusCsvLines.push([
         status,
         entry.xepTag,
+        xepDisplayTag(entry),
         entry.number,
         entry.title,
         entry.url,
