@@ -405,11 +405,15 @@ function installClientSecurityHeaders() {
 }
 
 let devtoolsShortcutsRegistered = false;
+let lastDevtoolsToggleAt = 0;
 
-function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow() || mainWindow) {
+function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs = 180 } = {}) {
+  const now = Date.now();
+  if (dedupeMs > 0 && now - lastDevtoolsToggleAt < dedupeMs) return true;
   if (!windowInstance || windowInstance.isDestroyed?.()) return false;
   if (!windowInstance.webContents || windowInstance.webContents.isDestroyed?.()) return false;
   try {
+    lastDevtoolsToggleAt = now;
     windowInstance.webContents.toggleDevTools();
     return true;
   } catch (error) {
@@ -436,7 +440,7 @@ function registerDevtoolsGlobalShortcuts() {
   accelerators.forEach((accelerator) => {
     try {
       const ok = globalShortcut.register(accelerator, () => {
-        toggleDevtoolsForWindow();
+        toggleDevtoolsForWindow(undefined, { dedupeMs: 220 });
       });
       if (ok) registeredAny = true;
     } catch (error) {
@@ -495,7 +499,7 @@ function attachDeveloperShortcuts(windowInstance) {
     const wantsCmdAltI = key === "I" && input.meta && input.alt;
     if (!wantsF12 && !wantsCtrlShiftI && !wantsCmdAltI) return;
     event.preventDefault();
-    toggleDevtoolsForWindow(windowInstance);
+    toggleDevtoolsForWindow(windowInstance, { dedupeMs: 220 });
   });
 }
 
@@ -545,8 +549,9 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       ozoneHint: ELECTRON_OZONE_HINT || "auto"
     });
   });
-  ipcMain.on("s67-toggle-devtools", () => {
-    toggleDevtoolsForWindow(mainWindow);
+  ipcMain.on("s67-toggle-devtools", (event) => {
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    toggleDevtoolsForWindow(senderWindow || mainWindow, { dedupeMs: 220 });
   });
 
   let loadedClient = false;

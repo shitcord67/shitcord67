@@ -51,6 +51,7 @@ const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
 const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
+const XMPP_CALL_DEFAULT_MEDIA = ["audio"];
 const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
 const XMPP_HTTP_UPLOAD_SLOT_TIMEOUT_MS = 12000;
 const XMPP_HTTP_UPLOAD_PUT_TIMEOUT_MS = 45000;
@@ -339,6 +340,9 @@ function requestDevtoolsToggle() {
   }
   if (!looksLikeElectronUserAgent() || typeof window === "undefined") return false;
   try {
+    if (typeof window.open === "function") {
+      window.open("s67://devtools/toggle", "_blank", "noopener");
+    }
     window.location.href = "s67://devtools/toggle";
     return true;
   } catch {
@@ -6025,7 +6029,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
   const isJinglePhase = (session.state || "").includes("session");
   if (isJinglePhase) {
     const ok = await xmppSendJingleSessionAccept(peerTarget || peerBare, sid, {
-      media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+      media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : XMPP_CALL_DEFAULT_MEDIA,
       screenShare: Boolean(session?.screenShare)
     });
     if (!ok) return false;
@@ -7108,7 +7112,7 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
 
 function xmppSendJingleMessageAction(peerJid, action = "propose", {
   sessionId = "",
-  media = ["audio", "video"],
+  media = XMPP_CALL_DEFAULT_MEDIA,
   preferFull = false
 } = {}) {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull });
@@ -7136,13 +7140,13 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
       id
     });
     if (tag === "propose") {
-      const wanted = Array.isArray(media) ? media : ["audio", "video"];
+      const wanted = Array.isArray(media) ? media : XMPP_CALL_DEFAULT_MEDIA;
       const normalizedMedia = [...new Set(
         wanted
           .map((item) => (item || "").toString().trim().toLowerCase())
           .filter((item) => item === "audio" || item === "video")
       )];
-      const medias = normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"];
+      const medias = normalizedMedia.length > 0 ? normalizedMedia : XMPP_CALL_DEFAULT_MEDIA;
       medias.forEach((mediaType) => {
         builder.c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType }).up();
       });
@@ -7360,7 +7364,7 @@ function xmppCallSessionMediaList(session = null) {
       .map((item) => (item || "").toString().trim().toLowerCase())
       .filter((item) => item === "audio" || item === "video")
   )];
-  return media.length > 0 ? media : ["audio", "video"];
+  return media.length > 0 ? media : XMPP_CALL_DEFAULT_MEDIA;
 }
 
 function xmppResolveLocalDtlsForSession(sessionId = "", { fallbackSetup = "actpass" } = {}) {
@@ -8743,7 +8747,7 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
 }
 
 async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
-  media = ["audio", "video"],
+  media = XMPP_CALL_DEFAULT_MEDIA,
   screenShare = false,
   onSuccess = null,
   onError = null
@@ -8760,13 +8764,13 @@ async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
       initiator: ownBare || ""
     });
   const sessionEntry = xmppCallSessionById.get(sid) || null;
-  const wanted = Array.isArray(media) ? media : ["audio", "video"];
+  const wanted = Array.isArray(media) ? media : XMPP_CALL_DEFAULT_MEDIA;
   const normalizedMedia = [...new Set(
     wanted
       .map((item) => (item || "").toString().trim().toLowerCase())
       .filter((item) => item === "audio" || item === "video")
   )];
-  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"]);
+  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : XMPP_CALL_DEFAULT_MEDIA);
   const useMinimalRtp = xmppShouldUseMinimalRtpForPeer(to, medias);
   const entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid: to,
@@ -8865,7 +8869,7 @@ async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
 }
 
 async function xmppSendJingleSessionAccept(peerJid, sessionId, {
-  media = ["audio", "video"],
+  media = XMPP_CALL_DEFAULT_MEDIA,
   screenShare = false,
   onSuccess = null,
   onError = null
@@ -8882,13 +8886,13 @@ async function xmppSendJingleSessionAccept(peerJid, sessionId, {
       responder: ownBare || ""
     });
   const sessionEntry = xmppCallSessionById.get(sid) || null;
-  const wanted = Array.isArray(media) ? media : ["audio", "video"];
+  const wanted = Array.isArray(media) ? media : XMPP_CALL_DEFAULT_MEDIA;
   const normalizedMedia = [...new Set(
     wanted
       .map((item) => (item || "").toString().trim().toLowerCase())
       .filter((item) => item === "audio" || item === "video")
   )];
-  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : ["audio", "video"]);
+  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : XMPP_CALL_DEFAULT_MEDIA);
   const useMinimalRtp = xmppShouldUseMinimalRtpForPeer(to, medias);
   const entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid: to,
@@ -9407,7 +9411,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       }
       void (async () => {
         const initiated = await xmppSendJingleSessionInitiate(session.peerFullJid || peer, id, {
-          media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+          media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : XMPP_CALL_DEFAULT_MEDIA,
           screenShare: Boolean(session?.screenShare),
           onSuccess: () => {
             const current = xmppCallSessionById.get(id);
@@ -9481,7 +9485,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
   });
   const peerJid = xmppPeerJidForConversation(conversation, getCurrentAccount());
   const peerTargetJid = xmppNormalizeCallTargetJid(peerJid, { preferFull: true }) || peerJid;
-  const requestedMedia = screenShare ? ["audio", "video"] : ["audio", "video"];
+  const requestedMedia = screenShare ? ["audio", "video"] : XMPP_CALL_DEFAULT_MEDIA;
   const negotiatedMedia = xmppNegotiatedCallMediaForPeer(peerTargetJid || peerJid, requestedMedia);
   const hasFeatureEvidence = interop.details.some((entry) => Array.isArray(entry?.featureList) && entry.featureList.length > 0);
   const hasDiscoErrors = interop.details.some((entry) => Boolean(entry?.error));
@@ -14676,7 +14680,7 @@ function connectRelaySocket({ force = false } = {}) {
                 callInvite.audio ? "audio" : "",
                 callInvite.video ? "video" : ""
               ].filter(Boolean);
-              const media = incomingMedia.length > 0 ? incomingMedia : ["audio", "video"];
+              const media = incomingMedia.length > 0 ? incomingMedia : XMPP_CALL_DEFAULT_MEDIA;
               const fullFrom = (stanza.getAttribute("from") || "").toString().trim();
               const session = xmppCallSessionById.get(nativeSessionId) || existingIncoming || null;
               const entry = {
@@ -16701,15 +16705,18 @@ function xmppCachedCallFeaturesForPeer(peerJid = "") {
   return new Set(cached.features);
 }
 
-function xmppNegotiatedCallMediaForPeer(peerJid = "", requestedMedia = ["audio", "video"]) {
+function xmppNegotiatedCallMediaForPeer(peerJid = "", requestedMedia = XMPP_CALL_DEFAULT_MEDIA) {
   const wanted = [...new Set(
-    (Array.isArray(requestedMedia) ? requestedMedia : ["audio", "video"])
+    (Array.isArray(requestedMedia) ? requestedMedia : XMPP_CALL_DEFAULT_MEDIA)
       .map((item) => (item || "").toString().trim().toLowerCase())
       .filter((item) => item === "audio" || item === "video")
   )];
-  const normalizedWanted = wanted.length > 0 ? wanted : ["audio", "video"];
+  const normalizedWanted = wanted.length > 0 ? wanted : XMPP_CALL_DEFAULT_MEDIA;
   const features = xmppCachedCallFeaturesForPeer(peerJid);
-  if (features.size <= 0) return normalizedWanted;
+  if (features.size <= 0) {
+    if (normalizedWanted.includes("audio")) return ["audio"];
+    return normalizedWanted.slice(0, 1);
+  }
   const supportsAudio = features.has(XMPP_JINGLE_AUDIO_NAMESPACE);
   const supportsVideo = features.has(XMPP_JINGLE_VIDEO_NAMESPACE);
   if (!supportsAudio && !supportsVideo) return normalizedWanted;
@@ -21049,7 +21056,7 @@ function handleSlashCommand(rawText, channel, account) {
       if (sub === "accept" && isJinglePhase) {
         void (async () => {
           const ok = await xmppSendJingleSessionAccept(peerBare, targetId, {
-            media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+            media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : XMPP_CALL_DEFAULT_MEDIA,
             screenShare: Boolean(session?.screenShare)
           });
           if (!ok) {
@@ -37602,7 +37609,7 @@ ui.messageForm.addEventListener("submit", (event) => {
         if (sub === "accept" && isJinglePhase) {
           void (async () => {
             const ok = await xmppSendJingleSessionAccept(peerBare, targetId, {
-              media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : ["audio", "video"],
+              media: Array.isArray(session?.media) && session.media.length > 0 ? session.media : XMPP_CALL_DEFAULT_MEDIA,
               screenShare: Boolean(session?.screenShare)
             });
             if (!ok) {
