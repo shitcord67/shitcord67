@@ -14351,6 +14351,71 @@ function concatArrayBuffers(first, second) {
   return out.buffer;
 }
 
+function bytesToHex(bytes) {
+  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  return [...input].map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(hex = "") {
+  const cleaned = (hex || "").toString().trim().toLowerCase();
+  if (!cleaned || cleaned.length % 2 !== 0) return new Uint8Array();
+  const out = new Uint8Array(cleaned.length / 2);
+  for (let i = 0; i < cleaned.length; i += 2) {
+    out[i / 2] = Number.parseInt(cleaned.slice(i, i + 2), 16);
+  }
+  return out;
+}
+
+function isAesgcmUrl(value) {
+  return /^aesgcm:\/\//i.test((value || "").toString().trim());
+}
+
+function buildAesgcmUrl(httpsUrl, ivBytes, keyBytes) {
+  const url = (httpsUrl || "").toString().trim();
+  if (!/^https:\/\//i.test(url)) return "";
+  const ivHex = bytesToHex(ivBytes);
+  const keyHex = bytesToHex(keyBytes);
+  if (ivHex.length !== 24 || keyHex.length !== 64) return "";
+  return `aesgcm://${url.slice("https://".length)}#${ivHex}${keyHex}`;
+}
+
+function parseAesgcmUrl(value = "") {
+  const raw = (value || "").toString().trim();
+  if (!/^aesgcm:\/\//i.test(raw)) return null;
+  const [schemePart, fragment = ""] = raw.split("#");
+  const hex = fragment.trim().toLowerCase();
+  if (hex.length !== 88) return null;
+  const ivHex = hex.slice(0, 24);
+  const keyHex = hex.slice(24);
+  const iv = hexToBytes(ivHex);
+  const key = hexToBytes(keyHex);
+  if (iv.length !== 12 || key.length !== 32) return null;
+  const httpsUrl = `https://${schemePart.replace(/^aesgcm:\/\//i, "")}`;
+  return { httpsUrl, iv, key };
+}
+
+function extractAesgcmUrls(text = "") {
+  const urls = [];
+  const regex = /aesgcm:\/\/[^\s]+/gi;
+  const raw = (text || "").toString();
+  let match = regex.exec(raw);
+  while (match) {
+    const candidate = match[0];
+    if (parseAesgcmUrl(candidate)) urls.push(candidate);
+    match = regex.exec(raw);
+  }
+  return [...new Set(urls)];
+}
+
+function stripAesgcmUrls(text = "") {
+  const raw = (text || "").toString();
+  return raw
+    .split(/\r?\n/)
+    .filter((line) => !isAesgcmUrl(line.trim()))
+    .join("\n")
+    .trim();
+}
+
 class XmppOmemoStore {
   constructor(jid) {
     this.jid = xmppBareJid(jid || "");
@@ -14852,13 +14917,48 @@ function appendXmppOmemoEncryptedNode(stanza, payload) {
 }
 
 async function xmppOmemoEncryptMessage(peerBare, plaintext, ownBare) {
+  return xmppOmemoEncryptMessageForPeers([peerBare], plaintext, ownBare);
+}
+
+async function xmppOmemoGatherDeviceTargets(peers = [], ownBare = "") {
+  const uniquePeers = [...new Set(peers.map((entry) => xmppBareJid(entry || "")).filter(Boolean))];
+  const targets = [];
+  const seenIds = new Map();
+  for (const peer of uniquePeers) {
+    // eslint-disable-next-line no-await-in-loop
+    const devices = await xmppOmemoFetchDeviceList(peer);
+    if (peer === ownBare && devices.length === 0) {
+      const store = xmppOmemoStoreForAccount(ownBare);
+      const localId = store ? await store.getLocalRegistrationId() : null;
+      if (localId) devices.push(String(localId));
+    }
+    devices.forEach((deviceId) => {
+      if (!deviceId) return;
+      const existing = seenIds.get(deviceId);
+      if (existing && existing !== peer) {
+        throw new Error(`OMEMO device id collision (${deviceId}) between ${existing} and ${peer}`);
+      }
+      seenIds.set(deviceId, peer);
+      targets.push({ jid: peer, deviceId });
+    });
+  }
+  return targets;
+}
+
+async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
   if (!xmppOmemoRuntimeAvailable()) return null;
   const store = await xmppOmemoEnsureLocalIdentity(ownBare);
   if (!store) return null;
-  const deviceId = await store.getLocalRegistrationId();
-  if (!deviceId) return null;
-  const targetDevices = await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
-  if (targetDevices.length === 0) return null;
+  const senderDeviceId = await store.getLocalRegistrationId();
+  if (!senderDeviceId) return null;
+  let targets = [];
+  try {
+    targets = await xmppOmemoGatherDeviceTargets([...peers, ownBare], ownBare);
+  } catch (error) {
+    addXmppDebugEvent("error", "OMEMO device collision", { error: String(error?.message || error) });
+    return null;
+  }
+  if (targets.length === 0) return null;
   const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 128 }, true, ["encrypt", "decrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const encoded = new TextEncoder().encode(plaintext || "");
@@ -14874,28 +14974,29 @@ async function xmppOmemoEncryptMessage(peerBare, plaintext, ownBare) {
   const keyAndTag = concatArrayBuffers(rawKey.buffer, tagBuffer);
   const messageKeys = {};
   let successCount = 0;
-  for (const device of targetDevices) {
-    const address = new globalThis.libsignal.SignalProtocolAddress(peerBare, Number(device));
+  for (const target of targets) {
+    const address = new globalThis.libsignal.SignalProtocolAddress(target.jid, Number(target.deviceId));
+    await xmppOmemoEnsureSession(target.jid, target.deviceId, ownBare);
     const sessionCipher = new globalThis.libsignal.SessionCipher(store, address);
     try {
       // eslint-disable-next-line no-await-in-loop
       const payload = await sessionCipher.encrypt(keyAndTag);
-      messageKeys[device] = {
+      messageKeys[target.deviceId] = {
         payload: btoa(payload.body || ""),
         prekey: Number(payload.type) === 3
       };
       successCount += 1;
     } catch (error) {
       addXmppDebugEvent("error", "OMEMO encryption failed for device", {
-        peer: peerBare,
-        device,
+        peer: target.jid,
+        device: target.deviceId,
         error: String(error?.message || error)
       });
     }
   }
   if (successCount === 0) return null;
   return {
-    sid: String(deviceId),
+    sid: String(senderDeviceId),
     keys: messageKeys,
     iv: arrayBufferToBase64(iv.buffer),
     payload: arrayBufferToBase64(ciphertext.buffer)
@@ -14954,7 +15055,21 @@ function xmppOmemoTryDecryptIntoMessage({
     try {
       const plaintext = await xmppOmemoDecryptPayload(peerBare, omemoPayload, ownBare);
       if (!plaintext) return;
-      message.text = plaintext;
+      const aesgcmUrls = extractAesgcmUrls(plaintext);
+      const cleanText = stripAesgcmUrls(plaintext);
+      if (aesgcmUrls.length > 0) {
+        const encryptedAttachments = aesgcmUrls.map((url) => ({
+          type: "file",
+          url,
+          name: "Encrypted attachment",
+          format: "aesgcm"
+        }));
+        message.attachments = normalizeAttachments([
+          ...encryptedAttachments,
+          ...normalizeAttachments(message.attachments)
+        ]);
+      }
+      message.text = cleanText || message.text || "";
       message.xmppEncrypted = true;
       message.xmppEncryptedType = "omemo";
       message.xmppEncryptedLabel = "OMEMO";
@@ -16265,9 +16380,11 @@ function connectRelaySocket({ force = false } = {}) {
         return out;
       };
       const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false, history = false } = {}) => {
-        const from = stanza.getAttribute("from") || "";
-        const type = (stanza.getAttribute("type") || "").toLowerCase();
-        if (type && !["groupchat", "chat", "normal", "headline", ""].includes(type)) return;
+      const from = stanza.getAttribute("from") || "";
+      const type = (stanza.getAttribute("type") || "").toLowerCase();
+      const earlyJingleAction = parseXmppJingleMessageAction(stanza);
+      const earlyCallInvite = parseXmppCallInviteAction(stanza);
+      if (type && !["groupchat", "chat", "normal", "headline", ""].includes(type) && !(earlyJingleAction || earlyCallInvite)) return;
         const bareFrom = xmppBareJid(from);
         const nick = (from.split("/")[1] || "").toString();
         const ownBare = xmppBareJid(getPreferences().xmppJid || "");
@@ -16343,7 +16460,7 @@ function connectRelaySocket({ force = false } = {}) {
           const dmRoom = relayRoomForDmParticipantAccounts([current, peer]) || "";
           if (!dmRoom) return;
           if (!ownAuthor && from.includes("/")) xmppRememberPeerFullJid(from);
-          const jingleAction = parseXmppJingleMessageAction(stanza);
+          const jingleAction = earlyJingleAction;
           if (jingleAction && !ownAuthor && !history) {
             addXmppDebugEvent("call", "Incoming Jingle Message", {
               from: bareFrom,
@@ -16384,7 +16501,7 @@ function connectRelaySocket({ force = false } = {}) {
               return;
             }
           }
-          const callInvite = parseXmppCallInviteAction(stanza);
+          const callInvite = earlyCallInvite;
           if (callInvite && !ownAuthor && !history) {
             const inviteId = callInvite.action === "invite"
               ? (callInvite.id || xmppStanzaStableId(stanza) || stanzaMessageId)
@@ -16852,7 +16969,7 @@ function connectRelaySocket({ force = false } = {}) {
             }
           });
         }
-        const roomCallInvite = parseXmppCallInviteAction(stanza);
+        const roomCallInvite = earlyCallInvite;
         if (roomCallInvite && !history) {
           const inviteId = roomCallInvite.id || xmppStanzaStableId(stanza) || stanzaMessageId || "";
           const inviteUrl = (roomCallInvite.externals || [])
@@ -17243,6 +17360,24 @@ function connectRelaySocket({ force = false } = {}) {
               }
             }
           });
+          if (encryptedInfo.type === "omemo" && authorJid) {
+            const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+            xmppOmemoTryDecryptIntoMessage({
+              stanza,
+              message: inserted,
+              peerBare: xmppBareJid(authorJid),
+              ownBare,
+              onUpdated: () => {
+                renderChannels();
+                const activeChannel = getActiveChannel();
+                if (activeChannel?.xmppRoomJid && xmppBareJid(activeChannel.xmppRoomJid) === roomJid) {
+                  renderMessages();
+                } else {
+                  renderServers();
+                }
+              }
+            });
+          }
         }
         if (authorJid) {
           const photoHash = xmppPresencePhotoHash(stanza);
@@ -19120,6 +19255,101 @@ async function xmppHttpUploadPutFile(slot, payload) {
   }
 }
 
+async function encryptAttachmentForOmemo(payload) {
+  const keyBytes = crypto.getRandomValues(new Uint8Array(32));
+  const ivBytes = crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt"]);
+  const plainBuffer = await payload.blob.arrayBuffer();
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
+    key,
+    plainBuffer
+  );
+  const encryptedBlob = new Blob([encryptedBuffer], { type: "application/octet-stream" });
+  return {
+    encryptedBlob,
+    keyBytes,
+    ivBytes
+  };
+}
+
+async function xmppOmemoEncryptAndUploadAttachments(message, { conversationId = "" } = {}) {
+  const currentAttachments = normalizeAttachments(message?.attachments);
+  if (currentAttachments.length === 0) return { attachments: [], urls: [], failed: 0 };
+  const serviceInfo = await discoverXmppHttpUploadService();
+  if (!serviceInfo) {
+    addXmppDebugEvent("message", "OMEMO HTTP upload unavailable", {
+      localAttachmentCount: relayUnshareableAttachmentCount(currentAttachments)
+    });
+    return { attachments: [], urls: [], failed: currentAttachments.length };
+  }
+  const maxByService = Math.max(0, Number(serviceInfo.maxFileSize) || 0);
+  const hardLimit = maxByService > 0
+    ? Math.min(XMPP_HTTP_UPLOAD_MAX_BYTES, maxByService)
+    : XMPP_HTTP_UPLOAD_MAX_BYTES;
+  const encryptedAttachments = [];
+  const aesgcmUrls = [];
+  let failedCount = 0;
+  for (const entry of currentAttachments) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const payload = await xmppAttachmentPayloadFromEntry(entry);
+      if (!payload) {
+        failedCount += 1;
+        continue;
+      }
+      if (payload.size <= 0 || payload.size > hardLimit) {
+        failedCount += 1;
+        addXmppDebugEvent("warn", "Skipped OMEMO attachment size limit", {
+          name: entry?.name || "",
+          bytes: payload.size,
+          hardLimit
+        });
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const encrypted = await encryptAttachmentForOmemo(payload);
+      // eslint-disable-next-line no-await-in-loop
+      const slot = await xmppHttpUploadRequestSlot(serviceInfo, {
+        fileName: payload.fileName,
+        contentType: "application/octet-stream",
+        size: encrypted.encryptedBlob.size,
+        blob: encrypted.encryptedBlob
+      });
+      // eslint-disable-next-line no-await-in-loop
+      await xmppHttpUploadPutFile(slot, {
+        blob: encrypted.encryptedBlob,
+        contentType: "application/octet-stream"
+      });
+      const aesgcmUrl = buildAesgcmUrl(slot.getUrl, encrypted.ivBytes, encrypted.keyBytes);
+      if (!aesgcmUrl) {
+        failedCount += 1;
+        continue;
+      }
+      aesgcmUrls.push(aesgcmUrl);
+      encryptedAttachments.push({
+        type: "file",
+        url: aesgcmUrl,
+        name: payload.fileName,
+        format: "aesgcm"
+      });
+    } catch (error) {
+      failedCount += 1;
+      addXmppDebugEvent("error", "OMEMO attachment encryption failed", {
+        name: entry?.name || "",
+        error: String(error?.message || error)
+      });
+    }
+  }
+  if (encryptedAttachments.length > 0 && message && typeof message === "object") {
+    message.attachments = normalizeAttachments(encryptedAttachments);
+    saveState();
+    const activeConversation = getActiveConversation();
+    if (conversationId && activeConversation?.id === conversationId) renderMessages();
+  }
+  return { attachments: encryptedAttachments, urls: aesgcmUrls, failed: failedCount };
+}
+
 function attachmentSignatureForXmppUpload(attachments) {
   return normalizeAttachments(attachments)
     .map((entry) => `${entry.type}|${entry.url}|${entry.name}|${entry.format}`)
@@ -19446,19 +19676,66 @@ function publishRelayChannelMessage(channel, message, account) {
     }
     joinXmppRoom(room, account);
     void (async () => {
-      await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: channel.id || "" });
       if (!xmppConnection || relayStatus !== "connected") return;
+      const roomBare = xmppBareJid(roomJid);
+      const omemoEnabled = roomBare ? xmppOmemoEnabledForPeer(roomBare, prefs) : false;
+      let omemoAttachmentUrls = [];
+      if (omemoEnabled && roomBare) {
+        const omemoAttachments = await xmppOmemoEncryptAndUploadAttachments(message, { conversationId: channel.id || "" });
+        omemoAttachmentUrls = omemoAttachments.urls || [];
+        if (normalizeAttachments(message.attachments).length > 0 && omemoAttachmentUrls.length === 0) {
+          showToast("OMEMO attachment encryption failed. Message not sent.", { tone: "error" });
+          return;
+        }
+      } else {
+        await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: channel.id || "" });
+        if (!xmppConnection || relayStatus !== "connected") return;
+      }
       const replyMeta = resolveXmppReplyMetaForRoom(channel, message, roomJid);
       const bodyPayload = buildXmppMessageBody(message, replyMeta);
-      if (!(bodyPayload.body || "").trim()) return;
+      let baseBody = (bodyPayload.body || "").trim();
+      if (!baseBody && omemoAttachmentUrls.length === 0) return;
+      if (omemoEnabled && omemoAttachmentUrls.length > 0 && baseBody) {
+        showToast("OMEMO attachments must be sent without extra text. Text was not sent.", { tone: "error" });
+        baseBody = "";
+        message.text = "";
+      }
+      const omemoBody = omemoAttachmentUrls.length > 0
+        ? omemoAttachmentUrls.join("\n")
+        : baseBody;
       const stanzaId = `s67-${createId().slice(0, 12)}`;
       const originId = `s67-origin-${createId().slice(0, 12)}`;
       const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
         .c("body")
-        .t(bodyPayload.body);
+        .t(omemoEnabled ? "This message is encrypted with OMEMO." : baseBody);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       appendXmppOriginIdNode(stanza, originId);
-      appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+      if (omemoEnabled && roomBare) {
+        const ownBare = xmppBareJid(prefs.xmppJid || "");
+        if (ownBare) {
+          await xmppOmemoEnsureOwnBundle(ownBare);
+          const occupantMap = xmppOccupantsByRoomJid.get(roomBare);
+          const recipientJids = occupantMap
+            ? [...occupantMap.values()].map((entry) => xmppBareJid(entry?.jid || "")).filter(Boolean)
+            : [];
+          if (recipientJids.length === 0) {
+            showToast("OMEMO groupchat requires real JIDs (non-anonymous room).", { tone: "error" });
+            return;
+          }
+          const encryptedPayload = await xmppOmemoEncryptMessageForPeers(recipientJids, omemoBody, ownBare);
+          if (!encryptedPayload) {
+            showToast("OMEMO groupchat encryption failed.", { tone: "error" });
+            return;
+          }
+          appendXmppOmemoEncryptedNode(stanza, encryptedPayload);
+          message.xmppEncrypted = true;
+          message.xmppEncryptedType = "omemo";
+          message.xmppEncryptedLabel = "OMEMO";
+          saveState();
+        }
+      } else {
+        appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
+      }
       xmppConnection.send(stanza);
       rememberXmppLocalSentRefs([stanzaId, originId]);
       message.xmppStanzaId = stanzaId;
@@ -19544,16 +19821,17 @@ function publishRelayDirectMessage(thread, message, account) {
         const peerBare = xmppBareJid(peerJid);
         const omemoEnabled = peerBare ? xmppOmemoEnabledForPeer(peerBare, prefs) : false;
         const hasAttachments = normalizeAttachments(message.attachments).length > 0;
+        let omemoAttachmentUrls = [];
         if (omemoEnabled && hasAttachments) {
-          showToast("OMEMO DM encryption does not support attachments yet.", { tone: "error" });
-          if (peerBare && addSystemDmMessageByPeerJid(peerBare, "OMEMO does not support attachments yet; message was not sent.")) {
-            refreshDmUiForPeerJid(peerBare);
+          const omemoAttachments = await xmppOmemoEncryptAndUploadAttachments(message, { conversationId: thread.id || "" });
+          omemoAttachmentUrls = omemoAttachments.urls || [];
+          if (omemoAttachmentUrls.length === 0) {
+            showToast("OMEMO attachment encryption failed. Message not sent.", { tone: "error" });
+            if (peerBare && addSystemDmMessageByPeerJid(peerBare, "OMEMO attachment encryption failed; message was not sent.")) {
+              refreshDmUiForPeerJid(peerBare);
+            }
+            return;
           }
-          addXmppDebugEvent("message", "Blocked OMEMO DM send with attachments", {
-            to: peerBare || "",
-            attachments: normalizeAttachments(message.attachments).length
-          });
-          return;
         }
         if (!omemoEnabled) {
           await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: thread.id || "" });
@@ -19563,9 +19841,18 @@ function publishRelayDirectMessage(thread, message, account) {
         const originId = `s67-origin-${createId().slice(0, 12)}`;
         const replyMeta = resolveXmppReplyMetaForDm(thread, message, account, peerJid);
         const bodyPayload = buildXmppMessageBody(message, replyMeta);
-        if (!(bodyPayload.body || "").trim()) return;
+        let baseBody = (bodyPayload.body || "").trim();
+        if (!baseBody && omemoAttachmentUrls.length === 0) return;
+        if (omemoEnabled && omemoAttachmentUrls.length > 0 && baseBody) {
+          showToast("OMEMO attachments must be sent without extra text. Text was not sent.", { tone: "error" });
+          baseBody = "";
+          message.text = "";
+        }
+        const omemoBody = omemoAttachmentUrls.length > 0
+          ? omemoAttachmentUrls.join("\n")
+          : baseBody;
         const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId });
-        stanza.c("body").t(omemoEnabled ? "This message is encrypted with OMEMO." : bodyPayload.body).up();
+        stanza.c("body").t(omemoEnabled ? "This message is encrypted with OMEMO." : baseBody).up();
         appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
         appendXmppOriginIdNode(stanza, originId);
         if (omemoEnabled) {
@@ -19575,7 +19862,7 @@ function publishRelayDirectMessage(thread, message, account) {
             return;
           }
           await xmppOmemoEnsureOwnBundle(ownBare);
-          const encryptedPayload = await xmppOmemoEncryptMessage(peerBare, bodyPayload.body, ownBare);
+          const encryptedPayload = await xmppOmemoEncryptMessageForPeers([peerBare], omemoBody, ownBare);
           if (!encryptedPayload) {
             showToast("OMEMO encryption failed. Message not sent.", { tone: "error" });
             addXmppDebugEvent("error", "OMEMO DM encryption failed", {
@@ -22018,7 +22305,8 @@ function xmppKnownSpacesRooms(prefs = getPreferences()) {
       merged.set(jid, {
         jid,
         channelId: (channel?.id || "").toString(),
-        name: roomName || jid.split("@")[0] || jid
+        name: roomName || jid.split("@")[0] || jid,
+        autojoin: channel?.xmppSpaceAutojoin === true
       });
     }
   }
@@ -22028,7 +22316,8 @@ function xmppKnownSpacesRooms(prefs = getPreferences()) {
     merged.set(bare, {
       jid: bare,
       channelId: "",
-      name: bare.split("@")[0] || bare
+      name: bare.split("@")[0] || bare,
+      autojoin: false
     });
   }
   return [...merged.values()].sort((a, b) => (a.jid || "").localeCompare(b.jid || ""));
@@ -22049,7 +22338,11 @@ function xmppSpacesRoomStateLabel(roomJid = "") {
 function xmppSpacesSummaryLines({ limit = 12, prefs = getPreferences() } = {}) {
   const rows = xmppKnownSpacesRooms(prefs)
     .slice(0, Math.max(1, Number(limit) || 12))
-    .map((entry) => `- ${entry.name} (${entry.jid}) [${xmppSpacesRoomStateLabel(entry.jid)}]`);
+    .map((entry) => {
+      const state = xmppSpacesRoomStateLabel(entry.jid);
+      const suffix = entry.autojoin ? " · autojoin" : "";
+      return `- ${entry.name} (${entry.jid}) [${state}${suffix}]`;
+    });
   return rows;
 }
 
@@ -23510,14 +23803,26 @@ function handleSlashCommand(rawText, channel, account) {
 
   if (command === "omemo") {
     const conversation = getActiveConversation();
-    if (!conversation || conversation.type !== "dm") {
-      addSystemMessage(channel, "OMEMO controls only work inside an XMPP DM.");
+    if (!conversation) {
+      addSystemMessage(channel, "Open a conversation first.");
       return true;
     }
-    const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
-    const peerBare = xmppBareJid(peerJid || "");
-    if (!peerBare) {
-      addSystemMessage(channel, "OMEMO requires an XMPP DM peer.");
+    let peerBare = "";
+    if (conversation.type === "dm") {
+      const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
+      peerBare = xmppBareJid(peerJid || "");
+      if (!peerBare) {
+        addSystemMessage(channel, "OMEMO requires an XMPP DM peer.");
+        return true;
+      }
+    } else if (conversation.type === "channel" && isXmppBackedChannel(conversation.channel)) {
+      peerBare = xmppBareJid(conversation.channel?.xmppRoomJid || "");
+      if (!peerBare) {
+        addSystemMessage(channel, "OMEMO requires an XMPP room.");
+        return true;
+      }
+    } else {
+      addSystemMessage(channel, "OMEMO controls only work inside an XMPP DM or XMPP room.");
       return true;
     }
     if (!xmppOmemoRuntimeAvailable()) {
@@ -23538,6 +23843,13 @@ function handleSlashCommand(rawText, channel, account) {
         await xmppOmemoFetchDeviceList(peerBare);
         await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
         showToast(`OMEMO sessions ready for ${peerBare}.`, { tone: "info" });
+        if (conversation.type === "channel") {
+          const occupants = xmppOccupantsByRoomJid.get(peerBare);
+          const hasJids = occupants && [...occupants.values()].some((entry) => xmppBareJid(entry?.jid || ""));
+          if (!hasJids) {
+            addSystemMessage(channel, "OMEMO groupchat requires a non-anonymous room (real JIDs).");
+          }
+        }
       })();
       return true;
     }
@@ -28902,6 +29214,35 @@ async function downloadAttachmentFile(attachment, fallbackExt = "bin") {
   if (!attachment?.url) return false;
   const rawName = (attachment.name || `download.${fallbackExt}`).trim();
   const fileName = rawName.includes(".") ? rawName : `${rawName}.${fallbackExt}`;
+  if (isAesgcmUrl(attachment.url)) {
+    try {
+      const parsed = parseAesgcmUrl(attachment.url);
+      if (!parsed) throw new Error("Invalid aesgcm URL");
+      const response = await fetch(parsed.httpsUrl, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const cipherBuffer = await response.arrayBuffer();
+      const key = await crypto.subtle.importKey("raw", parsed.key, "AES-GCM", false, ["decrypt"]);
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: parsed.iv, tagLength: 128 },
+        key,
+        cipherBuffer
+      );
+      const blob = new Blob([decrypted], { type: "application/octet-stream" });
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+      return true;
+    } catch (error) {
+      addDebugLog("warn", "Encrypted attachment download failed", {
+        url: attachment.url,
+        error: String(error?.message || error)
+      });
+      return false;
+    }
+  }
   const sourceUrl = resolveMediaUrl(attachment.url);
   try {
     const response = await fetch(sourceUrl, { cache: "no-store" });
@@ -32147,7 +32488,7 @@ function createDotLottieControlStrip(player, { label = "Sticker", mediaUrl = "" 
 function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
   if (!attachment || !attachment.url) return;
   const type = attachment.type || "gif";
-  const mediaUrl = resolveMediaUrl(attachment.url);
+  const mediaUrl = isAesgcmUrl(attachment.url) ? attachment.url : resolveMediaUrl(attachment.url);
   const wrap = document.createElement("div");
   wrap.className = `message-attachment message-attachment--${type}`;
   const bindAttachmentContextMenu = (
@@ -32178,6 +32519,40 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       openContextMenu(event, items);
     });
   };
+
+  if (isAesgcmUrl(attachment.url)) {
+    const card = document.createElement("div");
+    card.className = "message-swf message-embed-note";
+    const label = document.createElement("strong");
+    label.textContent = attachment.name || "Encrypted attachment";
+    const note = document.createElement("div");
+    note.textContent = "Encrypted file (AES-GCM). Click to decrypt and download.";
+    const downloadBtn = document.createElement("button");
+    downloadBtn.type = "button";
+    downloadBtn.className = "message-attachment-action";
+    downloadBtn.textContent = "Decrypt & Download";
+    downloadBtn.addEventListener("click", () => {
+      void downloadAttachmentFile(attachment, "bin");
+    });
+    card.addEventListener("contextmenu", (event) => {
+      openContextMenu(event, [
+        {
+          label: "Copy Encrypted URL",
+          action: () => copyText(attachment.url)
+        },
+        {
+          label: "Decrypt & Download",
+          action: () => downloadAttachmentFile(attachment, "bin")
+        }
+      ]);
+    });
+    card.appendChild(label);
+    card.appendChild(note);
+    card.appendChild(downloadBtn);
+    wrap.appendChild(card);
+    container.appendChild(wrap);
+    return;
+  }
 
   if (type !== "swf" && !isMediaAttachmentAllowedOnce(attachment, swfKey) && shouldGateMediaUrl(mediaUrl)) {
     const host = mediaUrlHost(mediaUrl);
@@ -38996,6 +39371,7 @@ function upsertXmppRoomChannel(roomJid, {
   roomName = null,
   roomDescription = null,
   roomToken = "",
+  autojoin = null,
   prefs = getPreferences(),
   account = getCurrentAccount(),
   persist = false
@@ -39038,7 +39414,8 @@ function upsertXmppRoomChannel(roomJid, {
       xmppRoomName: desiredDisplayName,
       xmppRoomDescription: normalizedRoomDescription,
       xmppRoomJid: normalizedRoomJid,
-      relayRoomToken: desiredToken
+      relayRoomToken: desiredToken,
+      xmppSpaceAutojoin: autojoin === true
     };
     guild.channels.push(channel);
     changed = true;
@@ -39086,6 +39463,10 @@ function upsertXmppRoomChannel(roomJid, {
     }
     if (channel.relayRoomToken !== desiredToken) {
       channel.relayRoomToken = desiredToken;
+      changed = true;
+    }
+    if (typeof autojoin === "boolean" && channel.xmppSpaceAutojoin !== autojoin) {
+      channel.xmppSpaceAutojoin = autojoin;
       changed = true;
     }
   }
@@ -39144,6 +39525,7 @@ function upsertXmppSpaceChannels(bookmarks, prefs = getPreferences(), account = 
     if (!looksLikeXmppMucJid(roomJid, prefs)) return;
     const upserted = upsertXmppRoomChannel(roomJid, {
       roomName: (entry?.name || "").toString(),
+      autojoin: entry?.autojoin === true,
       roomToken: `xmpp:${roomJid}`,
       prefs,
       account,
