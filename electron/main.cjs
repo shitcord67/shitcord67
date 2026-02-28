@@ -423,11 +423,25 @@ function installClientSecurityHeaders() {
 let devtoolsShortcutsRegistered = false;
 let lastDevtoolsToggleAt = 0;
 
+function notifyDevtoolsUnavailable(windowInstance, reason = "") {
+  try {
+    windowInstance?.webContents?.send("s67-devtools-unavailable", {
+      reason: (reason || "").toString()
+    });
+  } catch {
+    // no-op
+  }
+}
+
 function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs = 180 } = {}) {
   const now = Date.now();
   if (dedupeMs > 0 && now - lastDevtoolsToggleAt < dedupeMs) return true;
   if (!windowInstance || windowInstance.isDestroyed?.()) return false;
   if (!windowInstance.webContents || windowInstance.webContents.isDestroyed?.()) return false;
+  if (process.platform === "linux" && !canAccessDir("/tmp")) {
+    notifyDevtoolsUnavailable(windowInstance, "Chromium DevTools disabled: /tmp is not writable in this runtime.");
+    return false;
+  }
   try {
     lastDevtoolsToggleAt = now;
     if (windowInstance.webContents.isDevToolsOpened()) {
@@ -439,6 +453,7 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
     return true;
   } catch (error) {
     log("failed to toggle DevTools", String(error?.message || error));
+    notifyDevtoolsUnavailable(windowInstance, String(error?.message || error));
     return false;
   }
 }

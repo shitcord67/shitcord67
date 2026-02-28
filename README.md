@@ -129,7 +129,7 @@ Notes:
 - Discord-like media picker panel in the composer (tabs: GIFs, Stickers, Emojis, SWFs, SVGs, PDFs, Text, Docs, HTML).
 - GIF picker can load additional remote results on demand ("Load more GIFs").
 - Sticker picker can load additional remote results on demand ("Load more stickers").
-- Click-to-send media attachments from picker (GIF/sticker/SVG/SWF), including local SWF index support via `swf-index.json`.
+- Click-to-send media attachments from picker (GIF/sticker/SVG/SWF), including local SWF index support via `swf/index.json`, `swf/swf-index.json`, or `swf-index.json` fallback.
 - Video attachments render inline with native controls and open-in-tab fallback.
 - GIF media sent as MP4/WebM now autoplay + loop inline (no video control chrome).
 - Sticker picker supports image stickers plus `.apng` and `.lottie` resources.
@@ -441,7 +441,8 @@ Notes:
 - `styles.css`: Discord-inspired layout and theme.
 - `app.js`: state, rendering, actions, persistence.
 - `TODO`: roadmap for XMPP/Matrix and advanced features.
-- `swf-index.json`: searchable local SWF catalog for the picker.
+- `swf/`: local SWF assets directory.
+- `swf/index.json` (or `swf/swf-index.json` / legacy `swf-index.json`): searchable local SWF catalog for the picker.
 - `scripts/http-relay-server.mjs`: no-dependency Node HTTP/SSE relay for multi-user chat testing.
 - `scripts/ws-relay-server.mjs`: minimal Node WebSocket room relay for multi-user chat testing.
 

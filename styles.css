@@ -2201,6 +2201,20 @@ body[data-hide-channel-panel="on"] .chat-panel {
   background: var(--bg-main);
 }
 
+.composer-stack--collapsed #messageForm,
+.composer-stack--collapsed #composerReplyBar,
+.composer-stack--collapsed #composerAttachmentBar,
+.composer-stack--collapsed #slashCommandPopup,
+.composer-stack--collapsed #mediaPicker {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .composer-reply {
   display: flex;
   align-items: center;

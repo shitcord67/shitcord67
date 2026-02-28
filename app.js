@@ -318,6 +318,13 @@ function initElectronPlatformBridge() {
     if (typeof bridge.requestPlatformInfo === "function") {
       bridge.requestPlatformInfo();
     }
+    if (typeof bridge.onDevtoolsUnavailable === "function") {
+      bridge.onDevtoolsUnavailable((payload) => {
+        const reason = (payload?.reason || "").toString().trim();
+        showToast(reason || "DevTools is unavailable in this runtime.", { tone: "error", duration: 4200 });
+        if (typeof openXmppConsoleDialog === "function") openXmppConsoleDialog();
+      });
+    }
     return;
   }
   if (!runtime?.ipcRenderer) return;
@@ -326,6 +333,11 @@ function initElectronPlatformBridge() {
     renderPlatformDetectedNote();
   });
   runtime.ipcRenderer.send("s67-request-platform-info");
+  runtime.ipcRenderer.on("s67-devtools-unavailable", (_event, payload) => {
+    const reason = (payload?.reason || "").toString().trim();
+    showToast(reason || "DevTools is unavailable in this runtime.", { tone: "error", duration: 4200 });
+    if (typeof openXmppConsoleDialog === "function") openXmppConsoleDialog();
+  });
 }
 
 function requestDevtoolsToggle() {
@@ -8728,6 +8740,11 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
   if (contentCatalog.length === 0) {
     contentCatalog.push({ name: "audio", media: "audio" });
   }
+  const preferredMedia = xmppCallSessionMediaList(session);
+  const primaryContent = contentCatalog.find((entry) => preferredMedia.includes(entry.media))
+    || contentCatalog[0]
+    || { name: "audio", media: "audio" };
+  const contentTargets = [primaryContent];
   const normalizedCandidates = Array.isArray(candidates)
     ? candidates
       .filter((entry) => entry && typeof entry === "object")
@@ -8746,16 +8763,16 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
     candidatesByContentName.set(contentName, list);
   };
   normalizedCandidates.forEach((candidate) => {
-    const byName = contentCatalog.filter((content) => content.name === candidate.contentName);
+    const byName = contentTargets.filter((content) => content.name === candidate.contentName);
     const byMedia = byName.length > 0
       ? byName
-      : (candidate.media ? contentCatalog.filter((content) => content.media === candidate.media) : []);
+      : (candidate.media ? contentTargets.filter((content) => content.media === candidate.media) : []);
     const byIndex = byMedia.length > 0
       ? byMedia
-      : (Number.isFinite(candidate.sdpMLineIndex) && candidate.sdpMLineIndex >= 0 && candidate.sdpMLineIndex < contentCatalog.length
-        ? [contentCatalog[candidate.sdpMLineIndex]]
+      : (Number.isFinite(candidate.sdpMLineIndex) && candidate.sdpMLineIndex >= 0 && candidate.sdpMLineIndex < contentTargets.length
+        ? [contentTargets[candidate.sdpMLineIndex]]
         : []);
-    const targets = byIndex.length > 0 ? byIndex : contentCatalog;
+    const targets = byIndex.length > 0 ? byIndex : contentTargets;
     targets.forEach((content) => {
       pushCandidateForContent(content.name, candidate);
     });
@@ -8766,7 +8783,7 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
       action: "transport-info",
       sid
     });
-  contentCatalog.forEach((content) => {
+  contentTargets.forEach((content) => {
     const contentCandidates = candidatesByContentName.get(content.name) || [];
     iq
       .c("content", { creator: localRole, name: content.name })
@@ -20049,7 +20066,15 @@ function addSystemMessage(channel, text) {
 }
 
 function addSystemDmMessageByPeerJid(peerJid, text) {
-  const thread = findXmppDmThreadByPeerJid(peerJid);
+  const bare = xmppBareJid(peerJid);
+  if (!bare) return false;
+  let thread = findXmppDmThreadByPeerJid(bare);
+  if (!thread) {
+    const current = getCurrentAccount();
+    const peer = ensureAccountByXmppJid(bare, bare.split("@")[0] || "xmpp");
+    if (!current || !peer) return false;
+    thread = getOrCreateDmThread(current, peer);
+  }
   if (!thread || !Array.isArray(thread.messages) || !text) return false;
   thread.messages.push({
     id: createId(),
@@ -23099,6 +23124,30 @@ function renderComposerMeta() {
   }
 }
 
+function setComposerCollapsedState(collapsed = false) {
+  const isCollapsed = Boolean(collapsed);
+  if (ui.composerStack instanceof HTMLElement) {
+    ui.composerStack.classList.toggle("composer-stack--collapsed", isCollapsed);
+  }
+  if (!(ui.messageInput instanceof HTMLTextAreaElement)) return;
+  if (isCollapsed) {
+    closeMediaPicker();
+    clearReplyComposer();
+    ui.messageInput.readOnly = true;
+    ui.messageInput.placeholder = "Select a chat. Press / for commands.";
+    if (ui.composerSystemNotice) {
+      ui.composerSystemNotice.textContent = "Composer collapsed until a chat is selected.";
+      ui.composerSystemNotice.hidden = false;
+    }
+    setComposerTypingNoteText("");
+    return;
+  }
+  ui.messageInput.readOnly = false;
+  if (ui.composerSystemNotice && ui.composerSystemNotice.textContent === "Composer collapsed until a chat is selected.") {
+    ui.composerSystemNotice.hidden = true;
+  }
+}
+
 function bumpComposerTemporaryLimit() {
   const conversation = getActiveConversation();
   if (!conversation?.id) return;
@@ -24678,10 +24727,23 @@ function rtfToPlainText(rtf) {
 }
 
 async function loadSwfLibrary() {
+  const manifestCandidates = [
+    "swf/index.json",
+    "swf/swf-index.json",
+    "swf-index.json"
+  ];
   try {
-    const response = await fetch("swf-index.json", { cache: "no-cache" });
-    if (!response.ok) return;
-    const parsed = await response.json();
+    let parsed = null;
+    for (const manifestUrl of manifestCandidates) {
+      // eslint-disable-next-line no-await-in-loop
+      const response = await fetch(manifestUrl, { cache: "no-cache" }).catch(() => null);
+      if (!response?.ok) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const json = await response.json().catch(() => null);
+      if (!Array.isArray(json)) continue;
+      parsed = json;
+      break;
+    }
     if (!Array.isArray(parsed)) return;
     swfLibrary = parsed
       .filter((entry) => entry && typeof entry.url === "string" && typeof entry.name === "string")
@@ -33610,6 +33672,7 @@ function renderMessages() {
   lastRenderedConversationId = conversationId || null;
   syncComposerDraftConversation(conversationId);
   const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
+  setComposerCollapsedState(!conversationId);
   const activeFindId = getFindActiveMessageId();
   const messageSignature = conversationRenderSignature(conversationId, messageBucket, activeFindId || "");
   const hasLiveSwfRuntime = activeConversationHasLiveSwfRuntime(messageBucket);
@@ -38784,6 +38847,26 @@ ui.messageInput.addEventListener("input", () => {
 
 ui.messageInput.addEventListener("blur", () => {
   publishRelayTypingState(false, { force: true });
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key !== "/") return;
+  const conversation = getActiveConversation();
+  if (conversation?.id) return;
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+  event.preventDefault();
+  setComposerCollapsedState(false);
+  ui.messageInput.readOnly = false;
+  ui.messageInput.value = "/";
+  resizeComposerInput();
+  slashSelectionIndex = 0;
+  mentionSelectionIndex = 0;
+  renderSlashSuggestions();
+  renderComposerMeta();
+  ui.messageInput.focus();
 });
 
 ui.composerCharCount?.addEventListener("click", () => {

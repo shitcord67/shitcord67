@@ -11,11 +11,23 @@ const onPlatformInfo = (callback) => {
   };
 };
 
+const onDevtoolsUnavailable = (callback) => {
+  if (typeof callback !== "function") return () => {};
+  const handler = (_event, payload) => {
+    callback(payload || {});
+  };
+  ipcRenderer.on("s67-devtools-unavailable", handler);
+  return () => {
+    ipcRenderer.removeListener("s67-devtools-unavailable", handler);
+  };
+};
+
 contextBridge.exposeInMainWorld("s67Electron", {
   requestPlatformInfo() {
     ipcRenderer.send("s67-request-platform-info");
   },
   onPlatformInfo,
+  onDevtoolsUnavailable,
   toggleDevtools() {
     ipcRenderer.send("s67-toggle-devtools");
   }
