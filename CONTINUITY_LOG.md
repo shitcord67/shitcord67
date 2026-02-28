@@ -2303,3 +2303,6 @@ And /devtools does nothing. And how do I open the XMPP (fluuxer-messenger-like) 
 
 ## 2026-02-28T05:20:12Z
 Prompt: Okay could the SWFs at least be in a sub directory then? Also yeah the sticker stuff is working now. It shows the fallback text and then after a few seconds actually renders the sticker instead. Perfect. The electron devtools stuff is still broken... [full prompt in chat history]
+
+## 2026-02-28T05:24:56Z
+Prompt: Yes
