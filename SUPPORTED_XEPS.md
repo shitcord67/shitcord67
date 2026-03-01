@@ -29,7 +29,7 @@ Status labels:
 | XEP-0280 | Message Carbons | Partial | Client requests carbons and processes carbon forwarded stanzas. |
 | XEP-0115 | Entity Capabilities | Partial | Broadcasts caps hash in presence and answers disco#info queries with supported feature list. |
 | XEP-0297 | Stanza Forwarding | Partial | Forwarded stanzas are consumed for MAM/carbons handling. |
-| XEP-0313 | Message Archive Management (MAM) | Partial | Loads archived history for MUC and DM, with pagination support. |
+| XEP-0313 | Message Archive Management (MAM) | Partial | Loads archived history for MUC and DM, with module-driven paging/retry orchestration (including alternate DM archive targets), stale-load recovery, and richer page metadata parsing from `<fin/>` responses. |
 | XEP-0066 | Out of Band Data | Partial | Inbound `jabber:x:oob` attachment payloads are parsed into message attachments with namespace/local-name tolerant matching, and loose attachment URLs are extracted from compatible message payloads as a fallback. Unsupported OOB payloads keep visible fallback text instead of being silently dropped. |
 | XEP-0372 | References | Partial | Consumes `urn:xmpp:reference:0` attachment references (URI/name/media metadata) for DM/MUC attachment rendering with compatibility handling for prefixed stanzas. |
 | XEP-0385 | Stateless Inline Media Sharing (SIMS) | Partial | Parses inbound `urn:xmpp:sims:1` `media-sharing` payloads (including Movim-style nested references/URIs) into message attachments. Outbound attachment sends now include lightweight SIMS/file metadata URL hints, but full standalone SIMS publish workflows are still incomplete. |
@@ -45,7 +45,7 @@ Status labels:
 | XEP-0421 | Anonymous unique occupant identifiers for MUCs | Partial | Parses `urn:xmpp:occupant-id:0` in MUC message/presence stanzas and uses it to stabilize occupant/reaction actor mapping even when nicks change or real JIDs are hidden. |
 | XEP-0461 | Message Replies | Partial | Parses incoming reply metadata (including namespace-prefix tolerant fallback/reply parsing) and publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |
 | XEP-0428 | Fallback Indication | Partial | Consumes fallback ranges to clean reply fallback text for `XEP-0461` messages. |
-| XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`). |
+| XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`) and now parses returned `first`/`last`/`count` metadata from MAM result sets for more robust paging state updates. |
 | XEP-0048 | Bookmarks (legacy) | Partial | Legacy bookmark storage fallback is supported. |
 | XEP-0054 | vcard-temp | Partial | vCard retrieval is used for avatar lookup. |
 | XEP-0454 | OMEMO Media Sharing | Partial | Encrypts attachments with AES-256-GCM and shares `aesgcm://` URLs; inbound `aesgcm://` payloads can be decrypted/downloaded. |

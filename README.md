@@ -376,6 +376,7 @@ Notes:
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
 - DM MAM now retries alternate archive targets (`domain` then own bare JID) for broader server compatibility when archive queries fail on the first target.
+- MAM paging internals were moved into `xeps/xep-0313_mam-loading.js`, including `<fin/>`/RSM (`first`/`last`/`count`) parsing and shared MUC+DM request orchestration.
 - XMPP roster push updates (`iq type='set'` roster) now apply live and update mapped DM contacts without reconnecting.
 - Joined/seen XMPP MUC rooms now auto-materialize as channels under `XMPP Spaces`, so room traffic does not fall back into the wrong active channel.
 - Incoming XMPP direct room invites (`jabber:x:conference`, XEP-0249) are now detected in DMs, invited rooms are mapped into `XMPP Spaces`, and invite notes include `/joinxmpp <room-jid>` quick-join guidance.
