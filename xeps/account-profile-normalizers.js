@@ -56,11 +56,23 @@
       .slice(-240);
   }
 
+  function normalizeColorForPicker(value, fallback = "#5865f2") {
+    const raw = (value || "").toString().trim().toLowerCase();
+    if (/^#[0-9a-f]{3}$/i.test(raw)) {
+      return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`;
+    }
+    if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+    if (/^#[0-9a-f]{8}$/i.test(raw)) return `#${raw.slice(1, 7)}`;
+    if (fallback && fallback !== value) return normalizeColorForPicker(fallback, "#5865f2");
+    return "#5865f2";
+  }
+
   globalScope.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS = Object.freeze({
     normalizeUsername,
     normalizeComposerDrafts,
     normalizeOwnedCosmetics,
     normalizeGuildTagGuildId,
-    normalizeCosmeticPurchases
+    normalizeCosmeticPurchases,
+    normalizeColorForPicker
   });
 })(typeof window !== "undefined" ? window : globalThis);
