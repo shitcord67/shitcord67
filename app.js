@@ -8476,6 +8476,11 @@ function xmppSendDiscoInfoResultForIncomingGet(stanza) {
 }
 
 function xmppBuildJingleTransportCreds() {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleTransportCreds === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleTransportCreds({
+      createIdFn: createId
+    });
+  }
   return {
     ufrag: `u${createId().slice(0, 10)}`,
     pwd: `p${createId().replace(/-/g, "").slice(0, 22)}`
@@ -8483,6 +8488,9 @@ function xmppBuildJingleTransportCreds() {
 }
 
 function xmppGeneratePseudoDtlsFingerprint() {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppGeneratePseudoDtlsFingerprint === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppGeneratePseudoDtlsFingerprint();
+  }
   const chunks = [];
   const hex = "0123456789ABCDEF";
   for (let i = 0; i < 32; i += 1) {
@@ -8493,6 +8501,11 @@ function xmppGeneratePseudoDtlsFingerprint() {
 }
 
 function xmppJingleCandidateToRtcInit(candidate = {}, index = 0, { session = null } = {}) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppJingleCandidateToRtcInit === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppJingleCandidateToRtcInit(candidate, index, {
+      remoteContents: Array.isArray(session?.remoteContents) ? session.remoteContents : []
+    });
+  }
   const foundation = (candidate.foundation || `${index + 1}`).toString().trim();
   const component = Number(candidate.component || 1) || 1;
   const protocol = ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp");
@@ -8528,6 +8541,11 @@ function xmppJingleCandidateToRtcInit(candidate = {}, index = 0, { session = nul
 }
 
 function xmppCallSessionMediaList(session = null) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppCallSessionMediaList === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppCallSessionMediaList(session, {
+      defaultMedia: XMPP_CALL_DEFAULT_MEDIA
+    });
+  }
   const raw = Array.isArray(session?.media) ? session.media : [];
   const media = [...new Set(
     raw
@@ -8580,6 +8598,9 @@ function xmppResolveLocalJingleRole({ session = null, jingle = null } = {}) {
 }
 
 function xmppSdpDirectionFromJingleSenders(senders = "", localRole = "responder") {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppSdpDirectionFromJingleSenders === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppSdpDirectionFromJingleSenders(senders, localRole);
+  }
   const normalizedSenders = (senders || "").toString().trim().toLowerCase();
   const role = (localRole || "").toString().trim().toLowerCase() === "initiator" ? "initiator" : "responder";
   if (normalizedSenders === "none") return "inactive";
@@ -8589,6 +8610,9 @@ function xmppSdpDirectionFromJingleSenders(senders = "", localRole = "responder"
 }
 
 function xmppNormalizeSdpExtmapDirection(direction = "", localRole = "responder") {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppNormalizeSdpExtmapDirection === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppNormalizeSdpExtmapDirection(direction, localRole);
+  }
   const normalized = (direction || "").toString().trim().toLowerCase();
   if (["sendrecv", "sendonly", "recvonly", "inactive"].includes(normalized)) return normalized;
   if (["both", "initiator", "responder", "none"].includes(normalized)) {
@@ -8598,6 +8622,9 @@ function xmppNormalizeSdpExtmapDirection(direction = "", localRole = "responder"
 }
 
 function xmppJingleSendersFromSdpDirection(direction = "", localRole = "responder") {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppJingleSendersFromSdpDirection === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppJingleSendersFromSdpDirection(direction, localRole);
+  }
   const normalized = (direction || "").toString().trim().toLowerCase();
   const role = (localRole || "").toString().trim().toLowerCase() === "initiator" ? "initiator" : "responder";
   if (normalized === "inactive") return "none";
@@ -8608,11 +8635,17 @@ function xmppJingleSendersFromSdpDirection(direction = "", localRole = "responde
 }
 
 function xmppJingleSendersForLocalEnabled(enabled = true, localRole = "initiator") {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppJingleSendersForLocalEnabled === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppJingleSendersForLocalEnabled(enabled, localRole);
+  }
   if (enabled) return "both";
   return localRole === "initiator" ? "responder" : "initiator";
 }
 
 function xmppRemoteSendEnabledForSenders(senders = "both", localRole = "responder") {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppRemoteSendEnabledForSenders === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppRemoteSendEnabledForSenders(senders, localRole);
+  }
   const normalized = (senders || "").toString().trim().toLowerCase();
   const local = (localRole || "").toString().trim().toLowerCase() === "initiator" ? "initiator" : "responder";
   const remote = local === "initiator" ? "responder" : "initiator";
