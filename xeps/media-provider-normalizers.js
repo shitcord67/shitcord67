@@ -49,6 +49,19 @@
     return Math.max(minValue, Math.min(maxValue, Math.floor(parsed)));
   }
 
+  function normalizeRecentEmojis(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set();
+    const output = [];
+    value.forEach((entry) => {
+      const key = (entry || "").toString().trim();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      output.push(key);
+    });
+    return output.slice(0, 24);
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -57,6 +70,7 @@
     normalizeMediaDenyRules,
     normalizeProfileEffect,
     normalizeMediaTab,
-    normalizeMessageCharLimit
+    normalizeMessageCharLimit,
+    normalizeRecentEmojis
   });
 })(typeof window !== "undefined" ? window : globalThis);

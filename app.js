@@ -472,6 +472,9 @@ const normalizeMessageCharLimitViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLO
     maxValue: MESSAGE_CHAR_LIMIT_MAX
   }))
   : ((value) => Number(value) || MESSAGE_CHAR_LIMIT_DEFAULT);
+const normalizeRecentEmojisViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRecentEmojis === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRecentEmojis
+  : ((value) => (Array.isArray(value) ? value : []));
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11385,16 +11388,7 @@ function normalizeChannelPermissionOverrides(value, roleIds = []) {
 }
 
 function normalizeRecentEmojis(value) {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set();
-  const output = [];
-  value.forEach((entry) => {
-    const key = (entry || "").toString().trim();
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    output.push(key);
-  });
-  return output.slice(0, 24);
+  return normalizeRecentEmojisViaModule(value);
 }
 
 function normalizeGifFavorites(value) {
