@@ -15,7 +15,13 @@
     }
   }
 
+  function normalizeConferenceRoomPrefix(value) {
+    const token = (value || "").toString().trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+    return (token || "shitcord67").slice(0, 32);
+  }
+
   globalScope.SHITCORD67_CALL_ROOM_URL_UTILS = Object.freeze({
-    normalizeConferenceProviderUrl
+    normalizeConferenceProviderUrl,
+    normalizeConferenceRoomPrefix
   });
 })(typeof window !== "undefined" ? window : globalThis);

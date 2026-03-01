@@ -397,6 +397,9 @@ const isXmppLocalSentRefIdViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL
 const normalizeConferenceProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceProviderUrl === "function"
   ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceProviderUrl
   : ((value) => (value || "").toString().trim());
+const normalizeConferenceRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomPrefix === "function"
+  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomPrefix
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11231,8 +11234,7 @@ function normalizeConferenceProviderUrl(value) {
 }
 
 function normalizeConferenceRoomPrefix(value) {
-  const token = (value || "").toString().trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
-  return (token || "shitcord67").slice(0, 32);
+  return normalizeConferenceRoomPrefixViaModule(value);
 }
 
 function normalizeConferenceRoomToken(value) {
