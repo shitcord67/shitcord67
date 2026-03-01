@@ -88,6 +88,7 @@ const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant"
 const XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL = xepModule("xep-0166_0167-jingle-iq-parse", globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE);
 const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = xepModule("xep-0320_webrtc-sdp-basics", globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
+const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -293,6 +294,12 @@ const xmppParseRtcIceCandidateForJingle = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOB
 const xmppPresencePhotoHash = typeof XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash === "function"
   ? XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash
   : (() => "");
+const extractXmppAltConnectionUrls = typeof XEP_0156_HOST_META_PARSE_GLOBAL.extractXmppAltConnectionUrls === "function"
+  ? XEP_0156_HOST_META_PARSE_GLOBAL.extractXmppAltConnectionUrls
+  : (() => []);
+const parseXmppHostMetaXml = typeof XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaXml === "function"
+  ? XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaXml
+  : (() => []);
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
   : (() => "");
@@ -38173,37 +38180,6 @@ function renderChannelPermissionEditor() {
   if (ui.channelPermSendInput) ui.channelPermSendInput.value = getChannelPermissionOverride(channel, roleId, "sendMessages");
   if (ui.channelPermReactInput) ui.channelPermReactInput.value = getChannelPermissionOverride(channel, roleId, "addReactions");
   if (ui.channelPermThreadInput) ui.channelPermThreadInput.value = getChannelPermissionOverride(channel, roleId, "createThreads");
-}
-
-function extractXmppAltConnectionUrls(links) {
-  if (!Array.isArray(links)) return [];
-  const urls = [];
-  links.forEach((entry) => {
-    if (!entry || typeof entry !== "object") return;
-    const rel = (entry.rel || "").toString().toLowerCase();
-    if (!rel.includes("xmpp:alt-connections") || !rel.includes("websocket")) return;
-    const href = normalizeXmppWsUrl(entry.href || entry.url || "");
-    if (!href) return;
-    if (!urls.includes(href)) urls.push(href);
-  });
-  return urls;
-}
-
-function parseXmppHostMetaXml(rawXml) {
-  const xml = (rawXml || "").toString().trim();
-  if (!xml) return [];
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xml, "application/xml");
-    if (!doc) return [];
-    const links = [...doc.getElementsByTagName("Link")].map((node) => ({
-      rel: node.getAttribute("rel") || "",
-      href: node.getAttribute("href") || ""
-    }));
-    return extractXmppAltConnectionUrls(links);
-  } catch {
-    return [];
-  }
 }
 
 async function fetchWithTimeout(url, timeoutMs = XMPP_HOST_META_TIMEOUT_MS) {
