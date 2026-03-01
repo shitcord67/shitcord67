@@ -90,6 +90,7 @@ const XEP_0308_0424_0444_GLOBAL = xepModule("xep-0308_0424_0444-message-actions"
 const XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL = xepModule("xep-0353_jingle-message-parse", globalThis.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE);
 const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", globalThis.SHITCORD67_XEP_0203_0319_DELAY_IDLE);
 const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant", globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);
+const XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL = xepModule("xep-0421_0045-muc-actor-cache", globalThis.SHITCORD67_XEP_0421_0045_MUC_ACTOR_CACHE);
 const XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL = xepModule("xep-0166_0167-jingle-iq-parse", globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE);
 const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = xepModule("xep-0320_webrtc-sdp-basics", globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
 const XEP_0066_0071_0231_MEDIA_GLOBAL = xepModule("xep-0066_0071_0231-oob-media", globalThis.SHITCORD67_XEP_0066_0071_0231_MEDIA);
@@ -13028,137 +13029,109 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
 }
 
 function xmppMucOccupantByNick(roomJid, nick = "") {
-  const bareRoom = xmppBareJid(roomJid);
-  const nickValue = (nick || "").toString().trim().toLowerCase();
-  if (!bareRoom || !nickValue) return null;
-  const occupants = xmppOccupantsByRoomJid.get(bareRoom);
-  if (!occupants || occupants.size === 0) return null;
-  return [...occupants.values()].find((entry) => (
-    (entry?.nick || "").toString().trim().toLowerCase() === nickValue
-  )) || null;
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppMucOccupantByNick !== "function") return null;
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppMucOccupantByNick(roomJid, nick, {
+    xmppBareJidFn: xmppBareJid,
+    xmppOccupantsByRoomJid
+  });
 }
 
 function xmppMucOccupantById(roomJid, occupantId = "") {
-  const bareRoom = xmppBareJid(roomJid);
-  const idValue = (occupantId || "").toString().trim();
-  if (!bareRoom || !idValue) return null;
-  const occupants = xmppOccupantsByRoomJid.get(bareRoom);
-  if (!occupants || occupants.size === 0) return null;
-  return [...occupants.values()].find((entry) => (
-    (entry?.occupantId || "").toString().trim() === idValue
-  )) || null;
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppMucOccupantById !== "function") return null;
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppMucOccupantById(roomJid, occupantId, {
+    xmppBareJidFn: xmppBareJid,
+    xmppOccupantsByRoomJid
+  });
 }
 
 function xmppMucOccupantAvatarKey(roomJid, nick = "") {
-  const bareRoom = xmppBareJid(roomJid);
-  const nickValue = (nick || "").toString().trim().toLowerCase();
-  if (!bareRoom || !nickValue) return "";
-  return `${bareRoom}|${nickValue}`;
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppMucOccupantAvatarKey !== "function") return "";
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppMucOccupantAvatarKey(roomJid, nick, {
+    xmppBareJidFn: xmppBareJid
+  });
 }
 
 function xmppKnownMucOccupantKey(roomJid, nick = "") {
-  return xmppMucOccupantAvatarKey(roomJid, nick);
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppKnownMucOccupantKey !== "function") {
+    return xmppMucOccupantAvatarKey(roomJid, nick);
+  }
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppKnownMucOccupantKey(roomJid, nick, {
+    xmppBareJidFn: xmppBareJid
+  });
 }
 
 function rememberKnownXmppMucOccupantJid(roomJid, nick = "", jid = "") {
-  const key = xmppKnownMucOccupantKey(roomJid, nick);
-  const bareJid = xmppBareJid(jid);
-  if (!key || !bareJid) return false;
-  const previous = xmppKnownMucOccupantJidByKey.get(key) || "";
-  if (previous && previous === bareJid) return false;
-  xmppKnownMucOccupantJidByKey.set(key, bareJid);
-  return true;
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.rememberKnownXmppMucOccupantJid !== "function") return false;
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.rememberKnownXmppMucOccupantJid(roomJid, nick, jid, {
+    xmppBareJidFn: xmppBareJid,
+    xmppKnownMucOccupantJidByKey
+  });
 }
 
 function knownXmppMucOccupantJid(roomJid, nick = "") {
-  const key = xmppKnownMucOccupantKey(roomJid, nick);
-  if (!key) return "";
-  return (xmppKnownMucOccupantJidByKey.get(key) || "").toString();
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.knownXmppMucOccupantJid !== "function") return "";
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.knownXmppMucOccupantJid(roomJid, nick, {
+    xmppBareJidFn: xmppBareJid,
+    xmppKnownMucOccupantJidByKey
+  });
 }
 
 function inferXmppAuthorJidFromRoomHistory(roomJid, nick = "") {
-  const bareRoom = xmppBareJid(roomJid);
-  const nickValue = (nick || "").toString().trim().toLowerCase();
-  if (!bareRoom || !nickValue) return "";
-  const mapped = knownXmppMucOccupantJid(bareRoom, nickValue);
-  if (mapped) return mapped;
-  const channel = findXmppRoomChannelByJid(bareRoom);
-  if (!channel || !Array.isArray(channel.messages)) return "";
-  for (let i = channel.messages.length - 1; i >= 0; i -= 1) {
-    const entry = channel.messages[i];
-    if (!entry || !entry.userId) continue;
-    if ((entry.xmppNick || "").toString().trim().toLowerCase() !== nickValue) continue;
-    const account = getAccountById(entry.userId);
-    const accountJid = xmppBareJid(account?.xmppJid || "");
-    if (!accountJid) continue;
-    rememberKnownXmppMucOccupantJid(bareRoom, nickValue, accountJid);
-    return accountJid;
-  }
-  return "";
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.inferXmppAuthorJidFromRoomHistory !== "function") return "";
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.inferXmppAuthorJidFromRoomHistory(roomJid, nick, {
+    xmppBareJidFn: xmppBareJid,
+    xmppKnownMucOccupantJidByKey,
+    findXmppRoomChannelByJidFn: findXmppRoomChannelByJid,
+    getAccountByIdFn: getAccountById
+  });
 }
 
 function resolveXmppRoomActorUserId(roomJid, nick = "", stanza = null, occupantIdHint = "") {
-  const bareRoom = xmppBareJid(roomJid);
-  const nickValue = (nick || "").toString().trim();
-  const occupantId = (occupantIdHint || xmppOccupantIdFromStanza(stanza)).toString().trim();
-  if (!bareRoom || (!nickValue && !occupantId)) return "";
-  const current = getCurrentAccount();
-  const joinState = xmppMucJoinStateByRoomJid.get(bareRoom) || {};
-  if (
-    current?.id
-    && nickValue
-    && joinState.nick
-    && joinState.nick.toString().trim().toLowerCase() === nickValue.toLowerCase()
-  ) {
-    return current.id;
-  }
-  const occupantById = occupantId ? xmppMucOccupantById(bareRoom, occupantId) : null;
-  const occupantByNick = nickValue ? xmppMucOccupantByNick(bareRoom, nickValue) : null;
-  const occupant = occupantById || occupantByNick;
-  if (occupant?.accountId) return occupant.accountId;
-  let actorJid = xmppMucMessageAuthorJid(stanza);
-  if (!actorJid && occupant?.jid) actorJid = xmppBareJid(occupant.jid);
-  if (!actorJid && occupant?.accountId) {
-    const account = getAccountById(occupant.accountId);
-    actorJid = xmppBareJid(account?.xmppJid || "");
-  }
-  if (!actorJid && nickValue) actorJid = inferXmppAuthorJidFromRoomHistory(bareRoom, nickValue);
-  if (!actorJid) return occupant?.accountId || "";
-  if (nickValue) rememberKnownXmppMucOccupantJid(bareRoom, nickValue, actorJid);
-  const actorAccount = ensureAccountByXmppJid(
-    actorJid,
-    nickValue || occupant?.nick || actorJid.split("@")[0] || ""
-  );
-  return actorAccount?.id || occupant?.accountId || "";
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.resolveXmppRoomActorUserId !== "function") return "";
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.resolveXmppRoomActorUserId(roomJid, nick, stanza, occupantIdHint, {
+    xmppBareJidFn: xmppBareJid,
+    xmppOccupantIdFromStanzaFn: xmppOccupantIdFromStanza,
+    getCurrentAccountFn: getCurrentAccount,
+    xmppMucJoinStateByRoomJid,
+    xmppOccupantsByRoomJid,
+    xmppMucMessageAuthorJidFn: xmppMucMessageAuthorJid,
+    getAccountByIdFn: getAccountById,
+    xmppKnownMucOccupantJidByKey,
+    findXmppRoomChannelByJidFn: findXmppRoomChannelByJid,
+    ensureAccountByXmppJidFn: ensureAccountByXmppJid
+  });
 }
 
 function canonicalXmppRoomReactionActorId(roomJid, actorUserId = "") {
-  const actorId = (actorUserId || "").toString().trim();
-  if (!actorId) return "";
-  const parsedAlias = parseXmppRoomAliasActorId(actorId);
-  if (!parsedAlias) return actorId;
-  const bareRoom = xmppBareJid(roomJid || "");
-  const effectiveRoom = bareRoom || parsedAlias.roomJid;
-  if (!effectiveRoom) return actorId;
-  if (bareRoom && parsedAlias.roomJid !== bareRoom) return actorId;
-  const resolved = resolveXmppRoomActorUserId(
-    effectiveRoom,
-    parsedAlias.nick || "",
-    null,
-    parsedAlias.occupantId || ""
-  );
-  return resolved || actorId;
+  const fallbackActorId = (actorUserId || "").toString().trim();
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.canonicalXmppRoomReactionActorId !== "function") return fallbackActorId;
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.canonicalXmppRoomReactionActorId(roomJid, actorUserId, {
+    parseXmppRoomAliasActorIdFn: parseXmppRoomAliasActorId,
+    xmppBareJidFn: xmppBareJid,
+    xmppOccupantIdFromStanzaFn: xmppOccupantIdFromStanza,
+    getCurrentAccountFn: getCurrentAccount,
+    xmppMucJoinStateByRoomJid,
+    xmppOccupantsByRoomJid,
+    xmppMucMessageAuthorJidFn: xmppMucMessageAuthorJid,
+    getAccountByIdFn: getAccountById,
+    xmppKnownMucOccupantJidByKey,
+    findXmppRoomChannelByJidFn: findXmppRoomChannelByJid,
+    ensureAccountByXmppJidFn: ensureAccountByXmppJid
+  });
 }
 
 function xmppAvatarUrlForKnownRoomNick(roomJid, nick = "", guildId = null) {
-  const authorJid = inferXmppAuthorJidFromRoomHistory(roomJid, nick);
-  if (!authorJid) return "";
-  const account = getAccountByXmppJid(authorJid);
-  if (!account) return "";
-  const avatar = resolveAccountAvatar(account, guildId);
-  if (isRenderableAvatarUrl(avatar.url || "")) return avatar.url;
-  maybeFetchXmppAvatarForJid(authorJid);
-  return "";
+  if (typeof XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppAvatarUrlForKnownRoomNick !== "function") return "";
+  return XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL.xmppAvatarUrlForKnownRoomNick(roomJid, nick, guildId, {
+    xmppBareJidFn: xmppBareJid,
+    xmppKnownMucOccupantJidByKey,
+    findXmppRoomChannelByJidFn: findXmppRoomChannelByJid,
+    getAccountByIdFn: getAccountById,
+    getAccountByXmppJidFn: getAccountByXmppJid,
+    resolveAccountAvatarFn: resolveAccountAvatar,
+    isRenderableAvatarUrlFn: isRenderableAvatarUrl,
+    maybeFetchXmppAvatarForJidFn: maybeFetchXmppAvatarForJid
+  });
 }
 
 function xmppMucAvatarUrlForOccupant(roomJid, nick = "") {
