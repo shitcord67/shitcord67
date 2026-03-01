@@ -52,11 +52,19 @@
     });
   }
 
+  function xmppDomainFromJid(jid) {
+    const raw = (jid || "").toString().trim();
+    const at = raw.indexOf("@");
+    if (at < 0) return "";
+    return raw.slice(at + 1).toLowerCase();
+  }
+
   globalScope.SHITCORD67_XMPP_LOGIN_NORMALIZERS = Object.freeze({
     normalizeXmppJid,
     normalizeXmppPassword,
     normalizeXmppWsUrl,
     normalizeXmppMucService,
-    normalizeLocalXmppProfiles
+    normalizeLocalXmppProfiles,
+    xmppDomainFromJid
   });
 })(typeof window !== "undefined" ? window : globalThis);

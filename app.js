@@ -453,6 +453,9 @@ const normalizeLocalXmppProfilesViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL
     normalizeXmppPasswordFn: normalizeXmppPassword
   }))
   : (() => []);
+const xmppDomainFromJidViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.xmppDomainFromJid === "function"
+  ? XMPP_LOGIN_NORMALIZERS_GLOBAL.xmppDomainFromJid
+  : ((jid) => (jid || "").toString().trim().toLowerCase());
 const normalizeTenorApiKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey
   : ((value) => (value || "").toString().trim());
@@ -14805,10 +14808,7 @@ function isXmppBackedGuild(guild) {
 }
 
 function xmppDomainFromJid(jid) {
-  const raw = (jid || "").toString().trim();
-  const at = raw.indexOf("@");
-  if (at < 0) return "";
-  return raw.slice(at + 1).toLowerCase();
+  return xmppDomainFromJidViaModule(jid);
 }
 
 function shouldUsePlainOnlySasl(jid, wsUrl = "") {
