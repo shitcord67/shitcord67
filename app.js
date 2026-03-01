@@ -502,6 +502,12 @@ const normalizeLanguageViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeL
 const normalizeDmHomeTabViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeDmHomeTab === "function"
   ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeDmHomeTab(value, { dmHomeTabs: DM_HOME_TABS }))
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizeDmHomeRequestsFilterViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeDmHomeRequestsFilter === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeDmHomeRequestsFilter
+  : ((value) => {
+    const token = (value || "").toString().trim().toLowerCase();
+    return token === "incoming" || token === "outgoing" ? token : "all";
+  });
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11146,9 +11152,7 @@ function normalizeDmHomeTab(value) {
 }
 
 function normalizeDmHomeRequestsFilter(value) {
-  const token = (value || "").toString().trim().toLowerCase();
-  if (token === "incoming" || token === "outgoing") return token;
-  return "all";
+  return normalizeDmHomeRequestsFilterViaModule(value);
 }
 
 function detectBrowserUiLocale() {

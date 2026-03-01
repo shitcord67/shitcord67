@@ -49,6 +49,12 @@
     return Array.isArray(dmHomeTabs) && dmHomeTabs.includes(token) ? token : "friends";
   }
 
+  function normalizeDmHomeRequestsFilter(value) {
+    const token = (value || "").toString().trim().toLowerCase();
+    if (token === "incoming" || token === "outgoing") return token;
+    return "all";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -59,6 +65,7 @@
     normalizeSwfQuickAudioMode,
     normalizeTheme,
     normalizeLanguage,
-    normalizeDmHomeTab
+    normalizeDmHomeTab,
+    normalizeDmHomeRequestsFilter
   });
 })(typeof window !== "undefined" ? window : globalThis);
