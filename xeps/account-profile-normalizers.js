@@ -20,7 +20,18 @@
       .slice(0, 24);
   }
 
+  function normalizeComposerDrafts(value, {
+    maxLength = 2000
+  } = {}) {
+    if (!value || typeof value !== "object") return {};
+    const entries = Object.entries(value)
+      .filter(([conversationId]) => typeof conversationId === "string" && conversationId)
+      .map(([conversationId, draft]) => [conversationId, (draft || "").toString().slice(0, maxLength)]);
+    return Object.fromEntries(entries.filter(([, draft]) => draft.length > 0));
+  }
+
   globalScope.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS = Object.freeze({
-    normalizeUsername
+    normalizeUsername,
+    normalizeComposerDrafts
   });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -498,6 +498,11 @@ const normalizeGifScopeViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.norm
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizeComposerDraftsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeComposerDrafts === "function"
+  ? ((value) => ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeComposerDrafts(value, {
+    maxLength: MESSAGE_TEXT_STORAGE_MAX
+  }))
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -1632,11 +1637,7 @@ function sanitizeForumTagName(value) {
 }
 
 function normalizeComposerDrafts(value) {
-  if (!value || typeof value !== "object") return {};
-  const entries = Object.entries(value)
-    .filter(([conversationId]) => typeof conversationId === "string" && conversationId)
-    .map(([conversationId, draft]) => [conversationId, (draft || "").toString().slice(0, MESSAGE_TEXT_STORAGE_MAX)]);
-  return Object.fromEntries(entries.filter(([, draft]) => draft.length > 0));
+  return normalizeComposerDraftsViaModule(value);
 }
 
 function clampMessageTextForStorage(value) {
