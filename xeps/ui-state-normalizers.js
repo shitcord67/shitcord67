@@ -36,6 +36,12 @@
     return "discord";
   }
 
+  function normalizeLanguage(value) {
+    const token = (value || "").toString().trim().toLowerCase();
+    if (token === "en" || token === "de") return token;
+    return "auto";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -44,6 +50,7 @@
     normalizeSwfAudioScope,
     normalizeSwfAutoplay,
     normalizeSwfQuickAudioMode,
-    normalizeTheme
+    normalizeTheme,
+    normalizeLanguage
   });
 })(typeof window !== "undefined" ? window : globalThis);

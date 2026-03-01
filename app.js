@@ -496,6 +496,9 @@ const normalizeSwfQuickAudioModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.n
 const normalizeThemeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeTheme === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeTheme
   : ((value) => (value === "oled" || value === "high-contrast" ? value : "discord"));
+const normalizeLanguageViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeLanguage === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeLanguage
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11132,9 +11135,7 @@ function normalizeTheme(value) {
 }
 
 function normalizeLanguage(value) {
-  const token = (value || "").toString().trim().toLowerCase();
-  if (token === "en" || token === "de") return token;
-  return "auto";
+  return normalizeLanguageViaModule(value);
 }
 
 function normalizeDmHomeTab(value) {
