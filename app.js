@@ -432,6 +432,9 @@ const normalizeXmppJidViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalize
 const normalizeXmppPasswordViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppPassword === "function"
   ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppPassword
   : ((value) => (value || "").toString());
+const normalizeXmppWsUrlViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppWsUrl === "function"
+  ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppWsUrl
+  : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11297,9 +11300,7 @@ function normalizeXmppPassword(value) {
 }
 
 function normalizeXmppWsUrl(value) {
-  const raw = (value || "").toString().trim().slice(0, 180);
-  if (!raw) return "";
-  return /^wss?:\/\//i.test(raw) ? raw : "";
+  return normalizeXmppWsUrlViaModule(value);
 }
 
 function normalizeXmppMucService(value) {

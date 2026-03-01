@@ -9,8 +9,15 @@
     return (value || "").toString().slice(0, 120);
   }
 
+  function normalizeXmppWsUrl(value) {
+    const raw = (value || "").toString().trim().slice(0, 180);
+    if (!raw) return "";
+    return /^wss?:\/\//i.test(raw) ? raw : "";
+  }
+
   globalScope.SHITCORD67_XMPP_LOGIN_NORMALIZERS = Object.freeze({
     normalizeXmppJid,
-    normalizeXmppPassword
+    normalizeXmppPassword,
+    normalizeXmppWsUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);
