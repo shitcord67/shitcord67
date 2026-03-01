@@ -84,6 +84,7 @@ const XEP_0482_CALL_INVITE_PARSE_GLOBAL = xepModule("xep-0482_call-invite-parse"
 const XEP_0308_0424_0444_GLOBAL = xepModule("xep-0308_0424_0444-message-actions", globalThis.SHITCORD67_XEP_0308_0424_0444_ACTIONS);
 const XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL = xepModule("xep-0353_jingle-message-parse", globalThis.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE);
 const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", globalThis.SHITCORD67_XEP_0203_0319_DELAY_IDLE);
+const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant", globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -252,6 +253,12 @@ const xmppStanzaDelayTimestamp = typeof XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppStan
   : ((stanza, fallbackTs = "") => fallbackTs || new Date().toISOString());
 const xmppPresenceIdleSince = typeof XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppPresenceIdleSince === "function"
   ? XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppPresenceIdleSince
+  : (() => "");
+const xmppOccupantIdFromStanza = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppOccupantIdFromStanza === "function"
+  ? XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppOccupantIdFromStanza
+  : (() => "");
+const xmppMucMessageAuthorJid = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppMucMessageAuthorJid === "function"
+  ? ((stanza) => XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppMucMessageAuthorJid(stanza, { bareJidFn: xmppBareJid }))
   : (() => "");
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
@@ -13985,24 +13992,6 @@ function xmppPresencePhotoHash(stanza) {
     .find((entry) => xmppNodeHasXmlns(entry, "vcard-temp:x:update")) || null;
   const photoNode = node ? node.getElementsByTagName("photo")[0] : null;
   return xmppNodeText(photoNode).trim();
-}
-
-function xmppOccupantIdFromStanza(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const node = xmppElementsByLocalName(stanza, "occupant-id")
-    .find((entry) => (
-      xmppNodeHasXmlns(entry, XMPP_OCCUPANT_ID_NAMESPACE)
-      || xmppNodeHasXmlnsPrefix(entry, XMPP_OCCUPANT_ID_NAMESPACE)
-    )) || null;
-  return (node?.getAttribute("id") || "").toString().trim().slice(0, 200);
-}
-
-function xmppMucMessageAuthorJid(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const mucUserNode = [...stanza.getElementsByTagName("x")]
-    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/muc#user")) || null;
-  const itemNode = mucUserNode ? mucUserNode.getElementsByTagName("item")[0] : null;
-  return xmppBareJid(itemNode?.getAttribute("jid") || "");
 }
 
 function xmppMucOccupantByNick(roomJid, nick = "") {
