@@ -132,6 +132,65 @@ const xmppNodeText = XMPP_XML_GLOBAL.xmppNodeText || function xmppNodeTextFallba
   }
   return (node.textContent || "").toString();
 };
+const XEP_0454_UTILS_GLOBAL = globalThis.SHITCORD67_XEP_0454_UTILS || {};
+const bytesToHex = XEP_0454_UTILS_GLOBAL.bytesToHex || function bytesToHexFallback(bytes) {
+  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+  return [...input].map((value) => value.toString(16).padStart(2, "0")).join("");
+};
+const hexToBytes = XEP_0454_UTILS_GLOBAL.hexToBytes || function hexToBytesFallback(hex = "") {
+  const cleaned = (hex || "").toString().trim().toLowerCase();
+  if (!cleaned || cleaned.length % 2 !== 0) return new Uint8Array();
+  const out = new Uint8Array(cleaned.length / 2);
+  for (let i = 0; i < cleaned.length; i += 2) {
+    out[i / 2] = Number.parseInt(cleaned.slice(i, i + 2), 16);
+  }
+  return out;
+};
+const isAesgcmUrl = XEP_0454_UTILS_GLOBAL.isAesgcmUrl || function isAesgcmUrlFallback(value) {
+  return /^aesgcm:\/\//i.test((value || "").toString().trim());
+};
+const buildAesgcmUrl = XEP_0454_UTILS_GLOBAL.buildAesgcmUrl || function buildAesgcmUrlFallback(httpsUrl, ivBytes, keyBytes) {
+  const url = (httpsUrl || "").toString().trim();
+  if (!/^https:\/\//i.test(url)) return "";
+  const ivHex = bytesToHex(ivBytes);
+  const keyHex = bytesToHex(keyBytes);
+  if (ivHex.length !== 24 || keyHex.length !== 64) return "";
+  return `aesgcm://${url.slice("https://".length)}#${ivHex}${keyHex}`;
+};
+const parseAesgcmUrl = XEP_0454_UTILS_GLOBAL.parseAesgcmUrl || function parseAesgcmUrlFallback(value = "") {
+  const raw = (value || "").toString().trim();
+  if (!/^aesgcm:\/\//i.test(raw)) return null;
+  const [schemePart, fragment = ""] = raw.split("#");
+  const hex = fragment.trim().toLowerCase();
+  if (hex.length !== 88) return null;
+  const ivHex = hex.slice(0, 24);
+  const keyHex = hex.slice(24);
+  const iv = hexToBytes(ivHex);
+  const key = hexToBytes(keyHex);
+  if (iv.length !== 12 || key.length !== 32) return null;
+  const httpsUrl = `https://${schemePart.replace(/^aesgcm:\/\//i, "")}`;
+  return { httpsUrl, iv, key };
+};
+const extractAesgcmUrls = XEP_0454_UTILS_GLOBAL.extractAesgcmUrls || function extractAesgcmUrlsFallback(text = "") {
+  const urls = [];
+  const regex = /aesgcm:\/\/[^\s]+/gi;
+  const raw = (text || "").toString();
+  let match = regex.exec(raw);
+  while (match) {
+    const candidate = match[0];
+    if (parseAesgcmUrl(candidate)) urls.push(candidate);
+    match = regex.exec(raw);
+  }
+  return [...new Set(urls)];
+};
+const stripAesgcmUrls = XEP_0454_UTILS_GLOBAL.stripAesgcmUrls || function stripAesgcmUrlsFallback(text = "") {
+  const raw = (text || "").toString();
+  return raw
+    .split(/\r?\n/)
+    .filter((line) => !isAesgcmUrl(line.trim()))
+    .join("\n")
+    .trim();
+};
 const XEP_0384_OMEMO_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO || {};
 const xmppOmemoNamespaceNodeSet = XEP_0384_OMEMO_GLOBAL.xmppOmemoNamespaceNodeSet || function xmppOmemoNamespaceNodeSetFallback(namespace = XMPP_OMEMO_NAMESPACE) {
   const ns = (namespace || "").toString().trim().toLowerCase();
@@ -14489,71 +14548,6 @@ function concatArrayBuffers(first, second) {
   out.set(a, 0);
   out.set(b, a.length);
   return out.buffer;
-}
-
-function bytesToHex(bytes) {
-  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
-  return [...input].map((value) => value.toString(16).padStart(2, "0")).join("");
-}
-
-function hexToBytes(hex = "") {
-  const cleaned = (hex || "").toString().trim().toLowerCase();
-  if (!cleaned || cleaned.length % 2 !== 0) return new Uint8Array();
-  const out = new Uint8Array(cleaned.length / 2);
-  for (let i = 0; i < cleaned.length; i += 2) {
-    out[i / 2] = Number.parseInt(cleaned.slice(i, i + 2), 16);
-  }
-  return out;
-}
-
-function isAesgcmUrl(value) {
-  return /^aesgcm:\/\//i.test((value || "").toString().trim());
-}
-
-function buildAesgcmUrl(httpsUrl, ivBytes, keyBytes) {
-  const url = (httpsUrl || "").toString().trim();
-  if (!/^https:\/\//i.test(url)) return "";
-  const ivHex = bytesToHex(ivBytes);
-  const keyHex = bytesToHex(keyBytes);
-  if (ivHex.length !== 24 || keyHex.length !== 64) return "";
-  return `aesgcm://${url.slice("https://".length)}#${ivHex}${keyHex}`;
-}
-
-function parseAesgcmUrl(value = "") {
-  const raw = (value || "").toString().trim();
-  if (!/^aesgcm:\/\//i.test(raw)) return null;
-  const [schemePart, fragment = ""] = raw.split("#");
-  const hex = fragment.trim().toLowerCase();
-  if (hex.length !== 88) return null;
-  const ivHex = hex.slice(0, 24);
-  const keyHex = hex.slice(24);
-  const iv = hexToBytes(ivHex);
-  const key = hexToBytes(keyHex);
-  if (iv.length !== 12 || key.length !== 32) return null;
-  const httpsUrl = `https://${schemePart.replace(/^aesgcm:\/\//i, "")}`;
-  return { httpsUrl, iv, key };
-}
-
-function extractAesgcmUrls(text = "") {
-  const urls = [];
-  const regex = /aesgcm:\/\/[^\s]+/gi;
-  const raw = (text || "").toString();
-  let match = regex.exec(raw);
-  while (match) {
-    const candidate = match[0];
-    if (parseAesgcmUrl(candidate)) urls.push(candidate);
-    match = regex.exec(raw);
-  }
-  return [...new Set(urls)];
-}
-
-function stripAesgcmUrls(text = "") {
-  const raw = (text || "").toString();
-  return raw
-    .split(/\r?\n/)
-    .filter((line) => !isAesgcmUrl(line.trim()))
-    .join("\n")
-    .trim();
 }
 
 class XmppOmemoStore {

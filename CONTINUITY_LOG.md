@@ -2520,3 +2520,6 @@ You last message was: • Implemented and committed continuation work in commit 
 
 ## 2026-03-01T03:31:40Z
 Oh actually I think the .js files should ideally have the xep number in front. xep-200 for example. Then yeah work on what you like!
+
+## 2026-03-01T03:41:12Z
+Yes. Also does it make sense to use xep-0000 even? If some files don't belong to a xep then obviously don't append one.
