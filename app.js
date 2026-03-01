@@ -80,6 +80,7 @@ const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
 const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
 const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
 const XEP_0384_MESSAGE_CRYPTO_GLOBAL = globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
+const XEP_0384_DECRYPT_CONTENT_GLOBAL = globalThis.SHITCORD67_XEP_0384_DECRYPT_CONTENT || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -485,6 +486,27 @@ const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmpp
     ivBase64: encodeArrayBufferToBase64(iv.buffer),
     payloadBase64: encodeArrayBufferToBase64(ciphertext.buffer)
   };
+};
+const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || async function xmppOmemoDecryptContentFromKeyAndPayloadCoreFallback(keyAndTag, payload, {
+  base64ToArrayBuffer: decodeBase64ToArrayBuffer,
+  concatArrayBuffers: joinArrayBuffers
+} = {}) {
+  if (!keyAndTag || !payload) return null;
+  if (typeof decodeBase64ToArrayBuffer !== "function" || typeof joinArrayBuffers !== "function") return null;
+  if (!globalThis.crypto?.subtle) return null;
+  const keyBytes = new Uint8Array(keyAndTag);
+  if (keyBytes.length < 16) return null;
+  const keyBytesPart = keyBytes.slice(0, 16);
+  const tagBytes = keyBytes.slice(16);
+  const iv = decodeBase64ToArrayBuffer(payload.iv);
+  const ciphertext = decodeBase64ToArrayBuffer(payload.payload);
+  const tagBuffer = tagBytes.byteLength > 0
+    ? tagBytes.buffer.slice(tagBytes.byteOffset, tagBytes.byteOffset + tagBytes.byteLength)
+    : new ArrayBuffer(0);
+  const ciphertextAndTag = joinArrayBuffers(ciphertext, tagBuffer);
+  const importedKey = await crypto.subtle.importKey("raw", keyBytesPart, "AES-GCM", false, ["decrypt"]);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(iv), tagLength: 128 }, importedKey, ciphertextAndTag);
+  return new TextDecoder().decode(decrypted);
 };
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
@@ -15350,19 +15372,10 @@ async function xmppOmemoDecryptPayload(peerBare, payload, ownBare) {
   const keyAndTag = keyEntry.prekey
     ? await sessionCipher.decryptPreKeyWhisperMessage(cipherBytes, "binary")
     : await sessionCipher.decryptWhisperMessage(cipherBytes, "binary");
-  const keyBytes = new Uint8Array(keyAndTag);
-  if (keyBytes.length < 16) return null;
-  const keyBytesPart = keyBytes.slice(0, 16);
-  const tagBytes = keyBytes.slice(16);
-  const iv = base64ToArrayBuffer(payload.iv);
-  const ciphertext = base64ToArrayBuffer(payload.payload);
-  const tagBuffer = tagBytes.byteLength > 0
-    ? tagBytes.buffer.slice(tagBytes.byteOffset, tagBytes.byteOffset + tagBytes.byteLength)
-    : new ArrayBuffer(0);
-  const ciphertextAndTag = concatArrayBuffers(ciphertext, tagBuffer);
-  const importedKey = await crypto.subtle.importKey("raw", keyBytesPart, "AES-GCM", false, ["decrypt"]);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(iv), tagLength: 128 }, importedKey, ciphertextAndTag);
-  return new TextDecoder().decode(decrypted);
+  return xmppOmemoDecryptContentFromKeyAndPayloadCore(keyAndTag, payload, {
+    base64ToArrayBuffer,
+    concatArrayBuffers
+  });
 }
 
 function xmppOmemoTryDecryptIntoMessage({
