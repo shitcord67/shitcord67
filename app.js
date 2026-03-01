@@ -522,6 +522,9 @@ const normalizeForumCollapsedThreadsMapViaModule = typeof UI_STATE_NORMALIZERS_G
 const normalizeForumThreadReadStateMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadReadStateMap === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadReadStateMap
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeForumThreadSortMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadSortMap === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadSortMap
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11230,12 +11233,7 @@ function normalizeForumThreadReadStateMap(value) {
 }
 
 function normalizeForumThreadSortMap(value) {
-  if (!value || typeof value !== "object") return {};
-  return Object.entries(value).reduce((acc, [channelId, sortMode]) => {
-    if (!channelId) return acc;
-    acc[channelId] = sortMode === "created" ? "created" : "latest";
-    return acc;
-  }, {});
+  return normalizeForumThreadSortMapViaModule(value);
 }
 
 function normalizeForumThreadTagFilterMap(value) {

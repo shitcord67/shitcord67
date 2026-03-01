@@ -100,6 +100,15 @@
     }, {});
   }
 
+  function normalizeForumThreadSortMap(value) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [channelId, sortMode]) => {
+      if (!channelId) return acc;
+      acc[channelId] = sortMode === "created" ? "created" : "latest";
+      return acc;
+    }, {});
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -115,6 +124,7 @@
     normalizeGuildNotificationMode,
     normalizeGuildNotificationsMap,
     normalizeForumCollapsedThreadsMap,
-    normalizeForumThreadReadStateMap
+    normalizeForumThreadReadStateMap,
+    normalizeForumThreadSortMap
   });
 })(typeof window !== "undefined" ? window : globalThis);
