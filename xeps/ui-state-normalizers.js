@@ -55,6 +55,11 @@
     return "all";
   }
 
+  function normalizeGuildNotificationMode(value) {
+    if (value === "mentions" || value === "mute") return value;
+    return "all";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -66,6 +71,7 @@
     normalizeTheme,
     normalizeLanguage,
     normalizeDmHomeTab,
-    normalizeDmHomeRequestsFilter
+    normalizeDmHomeRequestsFilter,
+    normalizeGuildNotificationMode
   });
 })(typeof window !== "undefined" ? window : globalThis);

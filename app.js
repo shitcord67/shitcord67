@@ -508,6 +508,9 @@ const normalizeDmHomeRequestsFilterViaModule = typeof UI_STATE_NORMALIZERS_GLOBA
     const token = (value || "").toString().trim().toLowerCase();
     return token === "incoming" || token === "outgoing" ? token : "all";
   });
+const normalizeGuildNotificationModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationMode === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationMode
+  : ((value) => (value === "mentions" || value === "mute" ? value : "all"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11200,8 +11203,7 @@ function accountActivitySummary(account) {
 }
 
 function normalizeGuildNotificationMode(value) {
-  if (value === "mentions" || value === "mute") return value;
-  return "all";
+  return normalizeGuildNotificationModeViaModule(value);
 }
 
 function normalizeGuildNotificationsMap(value) {
