@@ -83,6 +83,7 @@ const XEP_0334_HINTS_GLOBAL = xepModule("xep-0334_processing-hints", globalThis.
 const XEP_0085_CHATSTATES_GLOBAL = xepModule("xep-0085-chatstates", globalThis.SHITCORD67_XEP_0085_CHATSTATES);
 const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints";
 const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalThis.SHITCORD67_XEP_0184_0333_MARKERS);
+const XEP_0184_0333_MARKER_FLOW_GLOBAL = xepModule("xep-0184_0333-marker-flow", globalThis.SHITCORD67_XEP_0184_0333_MARKER_FLOW);
 const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite", globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
 const XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL = xepModule("xep-0045_0402-roster-bookmarks", globalThis.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS);
 const XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL = xepModule("xep-0359_0424-message-ref-utils", globalThis.SHITCORD67_XEP_0359_0424_MESSAGE_REF_UTILS);
@@ -12173,52 +12174,40 @@ function xmppPeerJidForRelayRoom(roomToken, account = getCurrentAccount()) {
 }
 
 function latestXmppPeerMessageReferenceIdForDmThread(thread, accountId) {
-  if (!thread || !accountId || !Array.isArray(thread.messages)) return "";
-  const ownId = accountId.toString();
-  for (let i = thread.messages.length - 1; i >= 0; i -= 1) {
-    const message = thread.messages[i];
-    if (!message) continue;
-    const authorId = (message.userId || "").toString();
-    if (authorId && authorId === ownId) continue;
-    const referenceId = preferredXmppDmReferenceIdForMessage(message) || primaryXmppReferenceIdForMessage(message);
-    if (referenceId) return referenceId;
-  }
-  return "";
+  if (typeof XEP_0184_0333_MARKER_FLOW_GLOBAL.latestXmppPeerMessageReferenceIdForDmThread !== "function") return "";
+  return XEP_0184_0333_MARKER_FLOW_GLOBAL.latestXmppPeerMessageReferenceIdForDmThread(thread, accountId, {
+    preferredXmppDmReferenceIdForMessageFn: preferredXmppDmReferenceIdForMessage,
+    primaryXmppReferenceIdForMessageFn: primaryXmppReferenceIdForMessage
+  });
 }
 
 function maybePublishXmppDisplayedMarkerForDmThread(thread, accountId, { trigger = "" } = {}) {
-  const prefs = getPreferences();
-  if (prefs.relayMode !== "xmpp" || relayStatus !== "connected" || !xmppConnection || !globalThis.$msg) return false;
-  if (!thread || !accountId) return false;
-  const account = getAccountById(accountId);
-  if (!account) return false;
-  const peerJid = xmppPeerJidForDmThread(thread, account);
-  const peerBare = xmppBareJid(peerJid);
-  if (!peerBare) return false;
-  const markerTargetId = latestXmppPeerMessageReferenceIdForDmThread(thread, accountId);
-  if (!markerTargetId) return false;
-  return sendXmppDisplayedMarkerToPeer(peerBare, markerTargetId, { trigger: trigger || "thread-read" });
+  if (typeof XEP_0184_0333_MARKER_FLOW_GLOBAL.maybePublishXmppDisplayedMarkerForDmThread !== "function") return false;
+  return XEP_0184_0333_MARKER_FLOW_GLOBAL.maybePublishXmppDisplayedMarkerForDmThread(thread, accountId, { trigger }, {
+    relayStatus,
+    xmppConnection,
+    $msg: globalThis.$msg,
+    getPreferencesFn: getPreferences,
+    getAccountByIdFn: getAccountById,
+    xmppPeerJidForDmThreadFn: xmppPeerJidForDmThread,
+    xmppBareJidFn: xmppBareJid,
+    latestXmppPeerMessageReferenceIdForDmThreadFn: latestXmppPeerMessageReferenceIdForDmThread,
+    sendXmppDisplayedMarkerToPeerFn: sendXmppDisplayedMarkerToPeer
+  });
 }
 
 function sendXmppDisplayedMarkerToPeer(peerJid, markerTargetId, { trigger = "" } = {}) {
-  const peerBare = xmppBareJid(peerJid);
-  const targetId = (markerTargetId || "").toString().trim();
-  if (!peerBare || !targetId) return false;
-  if (shouldSkipXmppDisplayedMarker(peerBare, targetId)) return false;
-  const markerStanzaId = `s67-mark-${createId().slice(0, 12)}`;
-  const markerStanza = buildXmppDisplayedMarkerStanza(peerBare, targetId, markerStanzaId);
-  if (!markerStanza) return false;
-  xmppConnection.send(markerStanza);
-  rememberXmppLocalSentRefs([markerStanzaId]);
-  xmppLastSentDisplayedMarkerByPeerJid.set(peerBare, targetId);
-  addXmppDebugEvent("message", "Sent XMPP chat marker", {
-    to: peerBare,
-    marker: "displayed",
-    id: targetId,
-    stanzaId: markerStanzaId,
-    trigger: trigger || ""
+  if (typeof XEP_0184_0333_MARKER_FLOW_GLOBAL.sendXmppDisplayedMarkerToPeer !== "function") return false;
+  return XEP_0184_0333_MARKER_FLOW_GLOBAL.sendXmppDisplayedMarkerToPeer(peerJid, markerTargetId, { trigger }, {
+    xmppConnection,
+    xmppBareJidFn: xmppBareJid,
+    shouldSkipXmppDisplayedMarkerFn: shouldSkipXmppDisplayedMarker,
+    createIdFn: createId,
+    buildXmppDisplayedMarkerStanzaFn: buildXmppDisplayedMarkerStanza,
+    rememberXmppLocalSentRefsFn: rememberXmppLocalSentRefs,
+    lastSentDisplayedMarkerByPeerJid: xmppLastSentDisplayedMarkerByPeerJid,
+    addXmppDebugEventFn: addXmppDebugEvent
   });
-  return true;
 }
 
 function relayRoomForActiveConversation() {

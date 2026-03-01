@@ -367,6 +367,7 @@ Notes:
 - XMPP DM threads now use direct `chat` stanzas to peer JIDs (not only MUC mapping), so one-to-one messaging works for JID-backed DM contacts.
 - XMPP DM sends now request delivery receipts (`urn:xmpp:receipts`) and show sent/delivered status for outbound DM messages.
 - XMPP DM read-state now also uses chat markers (`urn:xmpp:chat-markers:0`, XEP-0333): outbound direct messages are marked `markable`, inbound markable DMs now receive `received` markers, incoming `displayed` markers mark your sent DMs as read, and opening/reading a DM publishes `displayed` markers back to peers.
+- DM displayed-marker publish flow is now centralized in `xeps/xep-0184_0333-marker-flow.js`, including fallback reference selection from known stanza/reference IDs when choosing the read target.
 - DM threads now show a Discord-like tail receipt: the latest read outbound DM message gets a small peer-avatar `Seen` indicator.
 - DM composer meta now includes a live status line in 1:1 chats (typing + delivery/read summary such as `Seen 14:32`).
 - DM header topic now updates live with peer status (custom status/presence and idle/offline `Last active` hints; typing state overrides while active).
