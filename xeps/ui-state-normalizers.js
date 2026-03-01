@@ -215,6 +215,25 @@
     return "inherit";
   }
 
+  function normalizeChannelPermissionOverrides(value, roleIds = [], {
+    normalizeChannelPermissionValueFn = normalizeChannelPermissionValue
+  } = {}) {
+    if (!value || typeof value !== "object") return {};
+    const validRoleIds = new Set(Array.isArray(roleIds) ? roleIds.filter(Boolean) : []);
+    const validKeys = ["viewChannel", "sendMessages", "addReactions", "createThreads"];
+    return Object.entries(value).reduce((acc, [roleId, config]) => {
+      if (!roleId || (validRoleIds.size > 0 && !validRoleIds.has(roleId))) return acc;
+      if (!config || typeof config !== "object") return acc;
+      const next = {};
+      validKeys.forEach((key) => {
+        const normalized = normalizeChannelPermissionValueFn(config[key]);
+        if (normalized !== "inherit") next[key] = normalized;
+      });
+      if (Object.keys(next).length > 0) acc[roleId] = next;
+      return acc;
+    }, {});
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -242,6 +261,7 @@
     normalizeXmppOmemoEnabledByJid,
     xmppShowValueForPresence,
     normalizeVoiceState,
-    normalizeChannelPermissionValue
+    normalizeChannelPermissionValue,
+    normalizeChannelPermissionOverrides
   });
 })(typeof window !== "undefined" ? window : globalThis);

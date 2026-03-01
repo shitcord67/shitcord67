@@ -572,6 +572,11 @@ const normalizeChannelPermissionValueViaModule = typeof UI_STATE_NORMALIZERS_GLO
     const token = (value || "").toString().toLowerCase();
     return token === "allow" || token === "deny" ? token : "inherit";
   });
+const normalizeChannelPermissionOverridesViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeChannelPermissionOverrides === "function"
+  ? ((value, roleIds = []) => UI_STATE_NORMALIZERS_GLOBAL.normalizeChannelPermissionOverrides(value, roleIds, {
+    normalizeChannelPermissionValueFn: normalizeChannelPermissionValue
+  }))
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11376,20 +11381,7 @@ function normalizeChannelPermissionValue(value) {
 }
 
 function normalizeChannelPermissionOverrides(value, roleIds = []) {
-  if (!value || typeof value !== "object") return {};
-  const validRoleIds = new Set(Array.isArray(roleIds) ? roleIds.filter(Boolean) : []);
-  const validKeys = ["viewChannel", "sendMessages", "addReactions", "createThreads"];
-  return Object.entries(value).reduce((acc, [roleId, config]) => {
-    if (!roleId || (validRoleIds.size > 0 && !validRoleIds.has(roleId))) return acc;
-    if (!config || typeof config !== "object") return acc;
-    const next = {};
-    validKeys.forEach((key) => {
-      const normalized = normalizeChannelPermissionValue(config[key]);
-      if (normalized !== "inherit") next[key] = normalized;
-    });
-    if (Object.keys(next).length > 0) acc[roleId] = next;
-    return acc;
-  }, {});
+  return normalizeChannelPermissionOverridesViaModule(value, roleIds);
 }
 
 function normalizeRecentEmojis(value) {
