@@ -25,9 +25,24 @@
     return token.slice(0, 64);
   }
 
+  function normalizeWhiteboardProviderUrl(value) {
+    const raw = (value || "").toString().trim().slice(0, 200);
+    if (!raw) return "https://wbo.ophir.dev/boards";
+    const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      const parsed = new URL(candidate);
+      if (!/^https?:$/i.test(parsed.protocol)) return "https://wbo.ophir.dev/boards";
+      const cleanPath = parsed.pathname.replace(/\/+$/, "");
+      return `${parsed.origin}${cleanPath}`.slice(0, 200);
+    } catch {
+      return "https://wbo.ophir.dev/boards";
+    }
+  }
+
   globalScope.SHITCORD67_CALL_ROOM_URL_UTILS = Object.freeze({
     normalizeConferenceProviderUrl,
     normalizeConferenceRoomPrefix,
-    normalizeConferenceRoomToken
+    normalizeConferenceRoomToken,
+    normalizeWhiteboardProviderUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);
