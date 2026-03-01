@@ -39,6 +39,16 @@
     return Array.isArray(allowedTabs) && allowedTabs.includes(tab) ? tab : "gif";
   }
 
+  function normalizeMessageCharLimit(value, {
+    defaultValue = 2000,
+    minValue = 200,
+    maxValue = 4000
+  } = {}) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return defaultValue;
+    return Math.max(minValue, Math.min(maxValue, Math.floor(parsed)));
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -46,6 +56,7 @@
     normalizeMediaTrustRules,
     normalizeMediaDenyRules,
     normalizeProfileEffect,
-    normalizeMediaTab
+    normalizeMediaTab,
+    normalizeMessageCharLimit
   });
 })(typeof window !== "undefined" ? window : globalThis);

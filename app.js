@@ -464,6 +464,13 @@ const normalizeMediaTabViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.norm
     allowedTabs: MEDIA_TABS
   }))
   : ((value) => (value || "").toString().toLowerCase());
+const normalizeMessageCharLimitViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMessageCharLimit === "function"
+  ? ((value) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMessageCharLimit(value, {
+    defaultValue: MESSAGE_CHAR_LIMIT_DEFAULT,
+    minValue: MESSAGE_CHAR_LIMIT_MIN,
+    maxValue: MESSAGE_CHAR_LIMIT_MAX
+  }))
+  : ((value) => Number(value) || MESSAGE_CHAR_LIMIT_DEFAULT);
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11261,9 +11268,7 @@ function normalizeMediaDenyRules(value) {
 }
 
 function normalizeMessageCharLimit(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return MESSAGE_CHAR_LIMIT_DEFAULT;
-  return Math.max(MESSAGE_CHAR_LIMIT_MIN, Math.min(MESSAGE_CHAR_LIMIT_MAX, Math.floor(parsed)));
+  return normalizeMessageCharLimitViaModule(value);
 }
 
 function normalizeProfileEffect(value) {
