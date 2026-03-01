@@ -83,6 +83,7 @@ const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite"
 const XEP_0482_CALL_INVITE_PARSE_GLOBAL = xepModule("xep-0482_call-invite-parse", globalThis.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
 const XEP_0308_0424_0444_GLOBAL = xepModule("xep-0308_0424_0444-message-actions", globalThis.SHITCORD67_XEP_0308_0424_0444_ACTIONS);
 const XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL = xepModule("xep-0353_jingle-message-parse", globalThis.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE);
+const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", globalThis.SHITCORD67_XEP_0203_0319_DELAY_IDLE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -246,6 +247,12 @@ const xmppReactionPayloadFromStanza = typeof XEP_0308_0424_0444_GLOBAL.xmppReact
 const parseXmppJingleMessageAction = typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.parseXmppJingleMessageAction === "function"
   ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.parseXmppJingleMessageAction
   : (() => null);
+const xmppStanzaDelayTimestamp = typeof XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppStanzaDelayTimestamp === "function"
+  ? XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppStanzaDelayTimestamp
+  : ((stanza, fallbackTs = "") => fallbackTs || new Date().toISOString());
+const xmppPresenceIdleSince = typeof XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppPresenceIdleSince === "function"
+  ? XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppPresenceIdleSince
+  : (() => "");
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
   : (() => "");
@@ -12307,17 +12314,6 @@ function detectImageMimeFromBase64(bin) {
   return "";
 }
 
-function xmppStanzaDelayTimestamp(stanza, fallbackTs = "") {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return fallbackTs || new Date().toISOString();
-  const delayNode = [...stanza.getElementsByTagName("delay")]
-    .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:delay")) || null;
-  const stamp = (delayNode?.getAttribute("stamp") || "").toString().trim();
-  if (!stamp) return fallbackTs || new Date().toISOString();
-  const parsed = new Date(stamp);
-  if (Number.isNaN(parsed.getTime())) return fallbackTs || new Date().toISOString();
-  return parsed.toISOString();
-}
-
 function messageMatchesXmppReference(message, referenceId) {
   const key = (referenceId || "").toString().trim();
   if (!message || !key) return false;
@@ -13989,16 +13985,6 @@ function xmppPresencePhotoHash(stanza) {
     .find((entry) => xmppNodeHasXmlns(entry, "vcard-temp:x:update")) || null;
   const photoNode = node ? node.getElementsByTagName("photo")[0] : null;
   return xmppNodeText(photoNode).trim();
-}
-
-function xmppPresenceIdleSince(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const node = [...stanza.getElementsByTagName("idle")]
-    .find((entry) => xmppNodeHasXmlns(entry, XMPP_IDLE_NAMESPACE)) || null;
-  const since = (node?.getAttribute("since") || "").toString().trim();
-  const stampMs = toTimestampMs(since);
-  if (!stampMs) return "";
-  return new Date(stampMs).toISOString();
 }
 
 function xmppOccupantIdFromStanza(stanza) {
