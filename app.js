@@ -537,6 +537,9 @@ const normalizeMediaDeviceIdViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.norma
 const normalizePlatformOverrideViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizePlatformOverride === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizePlatformOverride
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizePresenceViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizePresence === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizePresence
+  : ((value) => (value === "idle" || value === "dnd" || value === "invisible" ? value : "online"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -10958,8 +10961,7 @@ function presenceLabel(presence) {
 }
 
 function normalizePresence(value) {
-  if (value === "idle" || value === "dnd" || value === "invisible") return value;
-  return "online";
+  return normalizePresenceViaModule(value);
 }
 
 function normalizeMediaDeviceId(value) {

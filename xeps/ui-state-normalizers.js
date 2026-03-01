@@ -140,6 +140,11 @@
     return "auto";
   }
 
+  function normalizePresence(value) {
+    if (value === "idle" || value === "dnd" || value === "invisible") return value;
+    return "online";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -160,6 +165,7 @@
     normalizeForumThreadTagFilterMap,
     normalizeLastChannelByGuildMap,
     normalizeMediaDeviceId,
-    normalizePlatformOverride
+    normalizePlatformOverride,
+    normalizePresence
   });
 })(typeof window !== "undefined" ? window : globalThis);
