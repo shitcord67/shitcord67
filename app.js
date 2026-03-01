@@ -81,6 +81,7 @@ const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
 const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
 const XEP_0384_DEVICES_GLOBAL = globalThis.SHITCORD67_XEP_0384_DEVICES || {};
 const XEP_0384_BUNDLES_GLOBAL = globalThis.SHITCORD67_XEP_0384_BUNDLES || {};
+const XEP_0384_OWN_BUNDLE_GLOBAL = globalThis.SHITCORD67_XEP_0384_OWN_BUNDLE || {};
 const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
 const XEP_0384_MESSAGE_CRYPTO_GLOBAL = globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
 const XEP_0384_DECRYPT_CONTENT_GLOBAL = globalThis.SHITCORD67_XEP_0384_DECRYPT_CONTENT || {};
@@ -183,6 +184,7 @@ const xmppOmemoFetchDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoFetchDevic
 const xmppOmemoPublishDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoPublishDeviceListCore || (async () => false);
 const xmppOmemoPublishBundleCore = XEP_0384_BUNDLES_GLOBAL.xmppOmemoPublishBundleCore || (async () => false);
 const xmppOmemoFetchBundleCore = XEP_0384_BUNDLES_GLOBAL.xmppOmemoFetchBundleCore || (async () => null);
+const xmppOmemoEnsureOwnBundleCore = XEP_0384_OWN_BUNDLE_GLOBAL.xmppOmemoEnsureOwnBundleCore || (async () => false);
 const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGatherDeviceTargetsCore || (async () => []);
 const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || (async () => null);
 const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || (async () => null);
@@ -14778,62 +14780,17 @@ function xmppOmemoNamespaceForSend(targetJids = []) {
 }
 
 async function xmppOmemoEnsureOwnBundle(ownBare, { force = false } = {}) {
-  if (!ownBare) return false;
-  const store = await xmppOmemoEnsureLocalIdentity(ownBare);
-  if (!store) return false;
-  const registrationId = await store.getLocalRegistrationId();
-  if (!registrationId) return false;
-  let deviceList = xmppOmemoDeviceListByJid.get(ownBare);
-  if (!deviceList || deviceList.length === 0) {
-    deviceList = await xmppOmemoFetchDeviceList(ownBare);
-  }
-  const nextList = [...new Set([...(deviceList || []), String(registrationId)])];
-  if (force || !deviceList || !deviceList.includes(String(registrationId))) {
-    await xmppOmemoPublishDeviceList(ownBare, nextList);
-  }
-  let identityKeyPair;
-  try {
-    identityKeyPair = await store.getIdentityKeyPair();
-  } catch {
-    identityKeyPair = await globalThis.libsignal.KeyHelper.generateIdentityKeyPair();
-    await store.setIdentityKeyPair(identityKeyPair);
-  }
-  let signedPreKey = store.loadCompleteSignedPreKey(XMPP_OMEMO_SIGNED_PREKEY_ID);
-  if (!signedPreKey || force) {
-    signedPreKey = await globalThis.libsignal.KeyHelper.generateSignedPreKey(identityKeyPair, XMPP_OMEMO_SIGNED_PREKEY_ID);
-    await store.storeSignedPreKey(signedPreKey.keyId, signedPreKey);
-  }
-  let preKeys = [];
-  if (!force) {
-    for (let i = 0; i < XMPP_OMEMO_PREKEY_COUNT; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const existing = await store.loadPreKey(i + 1);
-      if (!existing) {
-        preKeys = [];
-        break;
-      }
-      preKeys.push({ id: i + 1, key: arrayBufferToBase64(existing.pubKey) });
-    }
-  }
-  if (preKeys.length === 0) {
-    preKeys = [];
-    for (let i = 0; i < XMPP_OMEMO_PREKEY_COUNT; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const preKey = await globalThis.libsignal.KeyHelper.generatePreKey(i + 1);
-      // eslint-disable-next-line no-await-in-loop
-      await store.storePreKey(preKey.keyId, preKey.keyPair);
-      preKeys.push({ id: preKey.keyId, key: arrayBufferToBase64(preKey.keyPair.pubKey) });
-    }
-  }
-  const bundle = {
-    deviceId: registrationId,
-    identityKey: arrayBufferToBase64(identityKeyPair.pubKey),
-    signedPreKeyId: signedPreKey.keyId || XMPP_OMEMO_SIGNED_PREKEY_ID,
-    signedPreKeyPublic: arrayBufferToBase64(signedPreKey.keyPair?.pubKey || signedPreKey.keyPair?.publicKey || new ArrayBuffer(0)),
-    signedPreKeySignature: arrayBufferToBase64(signedPreKey.signature || new ArrayBuffer(0)),
-    preKeys
-  };
-  return xmppOmemoPublishBundle(ownBare, bundle);
+  return xmppOmemoEnsureOwnBundleCore(ownBare, {
+    force,
+    ensureLocalIdentityFn: xmppOmemoEnsureLocalIdentity,
+    fetchDeviceListFn: xmppOmemoFetchDeviceList,
+    publishDeviceListFn: xmppOmemoPublishDeviceList,
+    publishBundleFn: xmppOmemoPublishBundle,
+    deviceListByJid: xmppOmemoDeviceListByJid,
+    preKeyCount: XMPP_OMEMO_PREKEY_COUNT,
+    signedPreKeyId: XMPP_OMEMO_SIGNED_PREKEY_ID,
+    arrayBufferToBase64
+  });
 }
 
 async function xmppOmemoFetchBundle(jid, deviceId, { connection = xmppConnection } = {}) {
