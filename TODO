@@ -407,6 +407,13 @@ https://discord.js.org/docs/packages/discord.js/main
 - [done] Moved XMPP login normalizers (`jid`, `password`, `wsUrl`, `mucService`) out of `app.js` into `xmpp-login-normalizers`.
 - [done] Added media/provider normalizer module `xeps/media-provider-normalizers.js`.
 - [done] Moved media/provider normalizers (`tenor api/client`, `media tab/privacy rules`, `profile effect`, `message char limit`) out of `app.js` into `media-provider-normalizers`.
+- [done] Added UI state normalizer module `xeps/ui-state-normalizers.js` and wired script loading.
+- [done] Moved UI normalizers out of `app.js` into `ui-state-normalizers` (`toggle`, member-presence filter, mobile pane, SWF audio/policy/scope/autoplay/quick-mode).
+- [done] Moved locale/UI normalizers out of `app.js` into `ui-state-normalizers` (`theme`, `language`, `DM home tab`, `DM requests filter`, browser-locale detection, locale resolve helper).
+- [done] Moved guild/forum preference normalizers out of `app.js` into `ui-state-normalizers` (`guild notifications map/mode`, forum thread maps, last-channel map).
+- [done] Moved account/presence/call-state helpers out of `app.js` into `ui-state-normalizers` (`presence`, XMPP show-value mapping, voice-state normalization).
+- [done] Moved channel permission normalization helpers out of `app.js` into `ui-state-normalizers` (`permission value`, per-role override map).
+- [done] Moved OMEMO enabled-by-jid normalization into `ui-state-normalizers`.
 - Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
 - Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.
