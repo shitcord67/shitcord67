@@ -543,6 +543,12 @@ const normalizePresenceViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeP
 const detectBrowserUiLocaleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.detectBrowserUiLocale === "function"
   ? (() => UI_STATE_NORMALIZERS_GLOBAL.detectBrowserUiLocale(navigator.language || ""))
   : (() => "en");
+const resolveUiLocaleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.resolveUiLocale === "function"
+  ? ((prefs = getPreferences()) => UI_STATE_NORMALIZERS_GLOBAL.resolveUiLocale(prefs, {
+    normalizeLanguageFn: normalizeLanguage,
+    detectBrowserUiLocaleFn: detectBrowserUiLocale
+  }))
+  : (() => "en");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11190,9 +11196,7 @@ function detectBrowserUiLocale() {
 }
 
 function resolveUiLocale(prefs = getPreferences()) {
-  const selected = normalizeLanguage(prefs?.language || "auto");
-  if (selected === "auto") return detectBrowserUiLocale();
-  return selected;
+  return resolveUiLocaleViaModule(prefs);
 }
 
 function tUi(key, fallback = "") {

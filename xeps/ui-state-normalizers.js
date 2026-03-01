@@ -151,6 +151,15 @@
     return "en";
   }
 
+  function resolveUiLocale(prefs = {}, {
+    normalizeLanguageFn = normalizeLanguage,
+    detectBrowserUiLocaleFn = () => "en"
+  } = {}) {
+    const selected = normalizeLanguageFn(prefs?.language || "auto");
+    if (selected === "auto") return detectBrowserUiLocaleFn();
+    return selected;
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -173,6 +182,7 @@
     normalizeMediaDeviceId,
     normalizePlatformOverride,
     normalizePresence,
-    detectBrowserUiLocale
+    detectBrowserUiLocale,
+    resolveUiLocale
   });
 })(typeof window !== "undefined" ? window : globalThis);
