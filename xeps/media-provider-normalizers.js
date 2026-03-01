@@ -13,9 +13,18 @@
     return value === "off" ? "off" : "safe";
   }
 
+  function normalizeMediaTrustRules(value) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry) => (entry || "").toString().trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 120);
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
-    normalizeMediaPrivacyMode
+    normalizeMediaPrivacyMode,
+    normalizeMediaTrustRules
   });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -448,6 +448,9 @@ const normalizeTenorClientKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBA
 const normalizeMediaPrivacyModeViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaPrivacyMode === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaPrivacyMode
   : ((value) => (value === "off" ? "off" : "safe"));
+const normalizeMediaTrustRulesViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaTrustRules === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaTrustRules
+  : ((value) => (Array.isArray(value) ? value : []));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11238,11 +11241,7 @@ function normalizeMediaTab(value) {
 }
 
 function normalizeMediaTrustRules(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((entry) => (entry || "").toString().trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 120);
+  return normalizeMediaTrustRulesViaModule(value);
 }
 
 function normalizeMediaDenyRules(value) {
