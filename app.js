@@ -442,6 +442,9 @@ const normalizeXmppMucServiceViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.no
 const normalizeTenorApiKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey
   : ((value) => (value || "").toString().trim());
+const normalizeTenorClientKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorClientKey === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorClientKey
+  : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11295,7 +11298,7 @@ function normalizeTenorApiKey(value) {
 }
 
 function normalizeTenorClientKey(value) {
-  return (value || "").toString().trim().slice(0, 120);
+  return normalizeTenorClientKeyViaModule(value);
 }
 
 function normalizeXmppJid(value) {
