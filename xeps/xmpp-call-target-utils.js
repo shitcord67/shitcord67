@@ -88,11 +88,42 @@
     return hasServiceUnavailable || hasSessionMissingText;
   }
 
+  function xmppResolveRetryCallTargetForSession(sessionId = "", attemptedTo = "", {
+    sessionById = null,
+    normalizeXmppJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    xmppMostRecentPeerFullJidFn = (value) => (value || "").toString().trim(),
+    xmppRememberPeerFullJidFn = () => {}
+  } = {}) {
+    if (!(sessionById instanceof Map)) return "";
+    const sid = (sessionId || "").toString().trim();
+    if (!sid) return "";
+    const session = sessionById.get(sid) || null;
+    if (!session) return "";
+    const attempted = normalizeXmppJidFn((attemptedTo || "").toString().trim()).toLowerCase();
+    const sessionBare = xmppBareJidFn(session.peerJid || session.peerFullJid || "");
+    if (!sessionBare) return "";
+    const recentFull = xmppMostRecentPeerFullJidFn(sessionBare);
+    const candidates = [];
+    if (recentFull && recentFull !== attempted) candidates.push(recentFull);
+    if (sessionBare && sessionBare !== attempted) candidates.push(sessionBare);
+    const retryTo = candidates.find(Boolean) || "";
+    if (!retryTo) return "";
+    if (retryTo.includes("/")) {
+      session.peerFullJid = retryTo;
+      xmppRememberPeerFullJidFn(retryTo);
+    } else {
+      session.peerFullJid = "";
+    }
+    return retryTo;
+  }
+
   globalScope.SHITCORD67_XMPP_CALL_TARGET_UTILS = Object.freeze({
     xmppRememberPeerFullJid,
     xmppForgetPeerFullJid,
     xmppMostRecentPeerFullJid,
     xmppNormalizeCallTargetJid,
-    xmppCallIqSessionNotFoundError
+    xmppCallIqSessionNotFoundError,
+    xmppResolveRetryCallTargetForSession
   });
 })(typeof window !== "undefined" ? window : globalThis);

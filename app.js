@@ -554,6 +554,15 @@ const xmppCallIqSessionNotFoundErrorViaModule = typeof XMPP_CALL_TARGET_UTILS_GL
     xmppSerializePayloadFn: xmppSerializePayload
   }))
   : (() => false);
+const xmppResolveRetryCallTargetForSessionViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppResolveRetryCallTargetForSession === "function"
+  ? ((sessionId = "", attemptedTo = "") => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppResolveRetryCallTargetForSession(sessionId, attemptedTo, {
+    sessionById: xmppCallSessionById,
+    normalizeXmppJidFn: normalizeXmppJid,
+    xmppBareJidFn: xmppBareJid,
+    xmppMostRecentPeerFullJidFn: xmppMostRecentPeerFullJid,
+    xmppRememberPeerFullJidFn: xmppRememberPeerFullJid
+  }))
+  : (() => "");
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11059,26 +11068,7 @@ function xmppCallIqSessionNotFoundError(errorStanza = null) {
 }
 
 function xmppResolveRetryCallTargetForSession(sessionId = "", attemptedTo = "") {
-  const sid = (sessionId || "").toString().trim();
-  if (!sid) return "";
-  const session = xmppCallSessionById.get(sid) || null;
-  if (!session) return "";
-  const attempted = normalizeXmppJid((attemptedTo || "").toString().trim()).toLowerCase();
-  const sessionBare = xmppBareJid(session.peerJid || session.peerFullJid || "");
-  if (!sessionBare) return "";
-  const recentFull = xmppMostRecentPeerFullJid(sessionBare);
-  const candidates = [];
-  if (recentFull && recentFull !== attempted) candidates.push(recentFull);
-  if (sessionBare && sessionBare !== attempted) candidates.push(sessionBare);
-  const retryTo = candidates.find(Boolean) || "";
-  if (!retryTo) return "";
-  if (retryTo.includes("/")) {
-    session.peerFullJid = retryTo;
-    xmppRememberPeerFullJid(retryTo);
-  } else {
-    session.peerFullJid = "";
-  }
-  return retryTo;
+  return xmppResolveRetryCallTargetForSessionViaModule(sessionId, attemptedTo);
 }
 
 function xmppResolveSessionPeerJid(session, fallback = "", { preferFull = true } = {}) {
