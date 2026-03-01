@@ -119,4 +119,7 @@
     appendXmppOmemoEncryptedNode,
     appendXmppEmeNode
   });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0384_omemo-stanza", globalScope.SHITCORD67_XEP_0384_OMEMO);
+  }
 })(typeof window !== "undefined" ? window : globalThis);
