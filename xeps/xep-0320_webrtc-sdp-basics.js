@@ -177,6 +177,94 @@
     return normalized === remote;
   }
 
+  function xmppNormalizeJingleRole(role = "", fallback = "responder") {
+    const normalized = (role || "").toString().trim().toLowerCase();
+    if (normalized === "initiator" || normalized === "responder") return normalized;
+    return (fallback || "").toString().trim().toLowerCase() === "initiator" ? "initiator" : "responder";
+  }
+
+  function xmppInferLocalJingleRoleFromDirection(direction = "incoming") {
+    return (direction || "").toString().trim().toLowerCase() === "outgoing" ? "initiator" : "responder";
+  }
+
+  function xmppInferRemoteJingleRole(localRole = "responder") {
+    return xmppNormalizeJingleRole(localRole) === "initiator" ? "responder" : "initiator";
+  }
+
+  function xmppResolveLocalJingleRole({ session = null, jingle = null } = {}, deps = {}) {
+    const persisted = xmppNormalizeJingleRole(session?.localJingleRole || "", "");
+    if (persisted) return persisted;
+    const bareJidFn = typeof deps.bareJidFn === "function"
+      ? deps.bareJidFn
+      : ((value) => (value || "").toString().trim().toLowerCase());
+    const ownBare = bareJidFn(deps.ownJid || "");
+    const initiator = bareJidFn(jingle?.initiator || "");
+    const responder = bareJidFn(jingle?.responder || "");
+    if (ownBare && initiator && ownBare === initiator) return "initiator";
+    if (ownBare && responder && ownBare === responder) return "responder";
+    return xmppInferLocalJingleRoleFromDirection(session?.direction || "incoming");
+  }
+
+  function xmppNormalizeDtlsInfo(dtls = null, { fallbackSetup = "actpass" } = {}) {
+    if (!dtls || typeof dtls !== "object") return null;
+    const value = (dtls.value || "").toString().trim();
+    if (!value) return null;
+    return {
+      hash: (dtls.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
+      value,
+      setup: (dtls.setup || fallbackSetup).toString().trim().toLowerCase() || fallbackSetup
+    };
+  }
+
+  function xmppBuildGeneratedLocalDtls({
+    fallbackSetup = "actpass"
+  } = {}, deps = {}) {
+    const genFn = typeof deps.generatePseudoDtlsFingerprintFn === "function"
+      ? deps.generatePseudoDtlsFingerprintFn
+      : xmppGeneratePseudoDtlsFingerprint;
+    return {
+      hash: "sha-256",
+      value: genFn(),
+      setup: fallbackSetup
+    };
+  }
+
+  function xmppResolveLocalDtlsFromPcSdp(localSdp = "", {
+    fallbackSetup = "actpass"
+  } = {}, deps = {}) {
+    const parseFn = typeof deps.parseDtlsFingerprintFromSdpFn === "function"
+      ? deps.parseDtlsFingerprintFromSdpFn
+      : xmppParseDtlsFingerprintFromSdp;
+    const parsed = parseFn(localSdp || "");
+    return xmppNormalizeDtlsInfo(parsed, { fallbackSetup });
+  }
+
+  function xmppResolveLocalDtlsForSession({
+    session = null,
+    localSdp = "",
+    fallbackSetup = "actpass"
+  } = {}, deps = {}) {
+    const fromPc = xmppResolveLocalDtlsFromPcSdp(localSdp, { fallbackSetup }, deps);
+    if (fromPc?.value) {
+      if (session && typeof session === "object") session.localDtls = fromPc;
+      return fromPc;
+    }
+    const persisted = xmppNormalizeDtlsInfo(session?.localDtls, { fallbackSetup });
+    if (persisted?.value) return persisted;
+    const generated = xmppBuildGeneratedLocalDtls({ fallbackSetup }, deps);
+    if (session && typeof session === "object") session.localDtls = generated;
+    return generated;
+  }
+
+  function xmppApplyResolvedRolesToSession(session = null, jingle = null, deps = {}) {
+    if (!session || typeof session !== "object") return null;
+    const localRole = xmppResolveLocalJingleRole({ session, jingle }, deps);
+    const remoteRole = xmppInferRemoteJingleRole(localRole);
+    session.localJingleRole = localRole;
+    session.remoteJingleRole = remoteRole;
+    return { localRole, remoteRole };
+  }
+
   globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS = Object.freeze({
     xmppParseIceCredsFromSdp,
     xmppParseDtlsFingerprintFromSdp,
@@ -189,7 +277,16 @@
     xmppNormalizeSdpExtmapDirection,
     xmppJingleSendersFromSdpDirection,
     xmppJingleSendersForLocalEnabled,
-    xmppRemoteSendEnabledForSenders
+    xmppRemoteSendEnabledForSenders,
+    xmppNormalizeJingleRole,
+    xmppInferLocalJingleRoleFromDirection,
+    xmppInferRemoteJingleRole,
+    xmppResolveLocalJingleRole,
+    xmppNormalizeDtlsInfo,
+    xmppBuildGeneratedLocalDtls,
+    xmppResolveLocalDtlsFromPcSdp,
+    xmppResolveLocalDtlsForSession,
+    xmppApplyResolvedRolesToSession
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0320_webrtc-sdp-basics", globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);

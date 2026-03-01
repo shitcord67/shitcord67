@@ -8583,6 +8583,19 @@ function xmppCallSessionMediaList(session = null) {
 }
 
 function xmppResolveLocalDtlsForSession(sessionId = "", { fallbackSetup = "actpass" } = {}) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppResolveLocalDtlsForSession === "function") {
+    const sid = (sessionId || "").toString().trim();
+    const session = xmppCallSessionById.get(sid) || null;
+    const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppResolveLocalDtlsForSession({
+      session,
+      localSdp: pcEntry?.pc?.localDescription?.sdp || "",
+      fallbackSetup
+    }, {
+      parseDtlsFingerprintFromSdpFn: xmppParseDtlsFingerprintFromSdp,
+      generatePseudoDtlsFingerprintFn: xmppGeneratePseudoDtlsFingerprint
+    });
+  }
   const sid = (sessionId || "").toString().trim();
   const session = xmppCallSessionById.get(sid) || null;
   const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
@@ -8614,6 +8627,12 @@ function xmppResolveLocalDtlsForSession(sessionId = "", { fallbackSetup = "actpa
 }
 
 function xmppResolveLocalJingleRole({ session = null, jingle = null } = {}) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppResolveLocalJingleRole === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppResolveLocalJingleRole({ session, jingle }, {
+      ownJid: getPreferences().xmppJid || "",
+      bareJidFn: xmppBareJid
+    });
+  }
   const persisted = (session?.localJingleRole || "").toString().trim().toLowerCase();
   if (persisted === "initiator" || persisted === "responder") return persisted;
   const ownBare = xmppBareJid(getPreferences().xmppJid || "");
