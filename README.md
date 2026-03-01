@@ -366,6 +366,7 @@ Notes:
 - XMPP roster sync now seeds DM contacts; XMPP bookmarks/groups are mapped into an `XMPP Spaces` guild/channel surface.
 - XMPP DM threads now use direct `chat` stanzas to peer JIDs (not only MUC mapping), so one-to-one messaging works for JID-backed DM contacts.
 - XMPP DM sends now request delivery receipts (`urn:xmpp:receipts`) and show sent/delivered status for outbound DM messages.
+- XEP-0184 marker/receipt stanza builders are now fully delegated to `xeps/xep-0184_0333-message-markers.js`, including idempotent receipt-request insertion to avoid duplicate `<request/>` elements on reused builders.
 - XMPP DM read-state now also uses chat markers (`urn:xmpp:chat-markers:0`, XEP-0333): outbound direct messages are marked `markable`, inbound markable DMs now receive `received` markers, incoming `displayed` markers mark your sent DMs as read, and opening/reading a DM publishes `displayed` markers back to peers.
 - DM displayed-marker publish flow is now centralized in `xeps/xep-0184_0333-marker-flow.js`, including fallback reference selection from known stanza/reference IDs when choosing the read target.
 - DM threads now show a Discord-like tail receipt: the latest read outbound DM message gets a small peer-avatar `Seen` indicator.

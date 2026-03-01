@@ -48,6 +48,7 @@
 
   function appendXmppReceiptRequestNode(stanza, deps = {}) {
     if (!stanza) return stanza;
+    if (xmppReceiptRequestNode(stanza)) return stanza;
     if (typeof deps.xmppEnsureBuilderAtMessageNodeFn === "function") deps.xmppEnsureBuilderAtMessageNodeFn(stanza);
     stanza.c("request", { xmlns: deps.receiptsNamespace || XMPP_RECEIPTS_NAMESPACE }).up();
     return stanza;

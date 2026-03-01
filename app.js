@@ -17315,40 +17315,27 @@ function appendXmppMessageReplaceNode(stanza, targetRefId) {
 }
 
 function appendXmppReceiptRequestNode(stanza) {
-  if (typeof XEP_0184_0333_GLOBAL.appendXmppReceiptRequestNode !== "function") {
-    if (!stanza) return stanza;
-    return stanza.c("request", { xmlns: "urn:xmpp:receipts" }).up();
-  }
+  if (typeof XEP_0184_0333_GLOBAL.appendXmppReceiptRequestNode !== "function") return stanza;
   return XEP_0184_0333_GLOBAL.appendXmppReceiptRequestNode(stanza, {
     xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
-    receiptsNamespace: "urn:xmpp:receipts"
+    receiptsNamespace: XMPP_RECEIPTS_NAMESPACE
   });
 }
 
 function buildXmppReceiptAckStanza(to, stanzaMessageId, { type = "chat" } = {}) {
-  if (typeof XEP_0184_0333_GLOBAL.buildXmppReceiptAckStanza !== "function") {
-    const safeTo = (to || "").toString().trim();
-    const safeId = (stanzaMessageId || "").toString().trim();
-    if (!safeTo || !safeId || typeof globalThis.$msg !== "function") return null;
-    return globalThis.$msg({ to: safeTo, type }).c("received", { xmlns: "urn:xmpp:receipts", id: safeId });
-  }
+  if (typeof XEP_0184_0333_GLOBAL.buildXmppReceiptAckStanza !== "function") return null;
   return XEP_0184_0333_GLOBAL.buildXmppReceiptAckStanza({
     to,
     id: stanzaMessageId,
     type
   }, {
     $msg: globalThis.$msg,
-    receiptsNamespace: "urn:xmpp:receipts"
+    receiptsNamespace: XMPP_RECEIPTS_NAMESPACE
   });
 }
 
 function buildXmppChatMarkerAckStanza(to, stanzaMessageId, { type = "chat", marker = "received" } = {}) {
-  if (typeof XEP_0184_0333_GLOBAL.buildXmppChatMarkerAckStanza !== "function") {
-    const safeTo = (to || "").toString().trim();
-    const safeId = (stanzaMessageId || "").toString().trim();
-    if (!safeTo || !safeId || typeof globalThis.$msg !== "function") return null;
-    return globalThis.$msg({ to: safeTo, type }).c(marker, { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: safeId });
-  }
+  if (typeof XEP_0184_0333_GLOBAL.buildXmppChatMarkerAckStanza !== "function") return null;
   return XEP_0184_0333_GLOBAL.buildXmppChatMarkerAckStanza({
     to,
     id: stanzaMessageId,
@@ -17361,14 +17348,7 @@ function buildXmppChatMarkerAckStanza(to, stanzaMessageId, { type = "chat", mark
 }
 
 function buildXmppDisplayedMarkerStanza(to, markerTargetId, markerStanzaId = "") {
-  if (typeof XEP_0184_0333_GLOBAL.buildXmppDisplayedMarkerStanza !== "function") {
-    const safeTo = (to || "").toString().trim();
-    const safeTargetId = (markerTargetId || "").toString().trim();
-    if (!safeTo || !safeTargetId || typeof globalThis.$msg !== "function") return null;
-    const attrs = { to: safeTo, type: "chat" };
-    if (markerStanzaId) attrs.id = markerStanzaId;
-    return globalThis.$msg(attrs).c("displayed", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: safeTargetId });
-  }
+  if (typeof XEP_0184_0333_GLOBAL.buildXmppDisplayedMarkerStanza !== "function") return null;
   return XEP_0184_0333_GLOBAL.buildXmppDisplayedMarkerStanza({
     to,
     id: markerTargetId,
@@ -17380,10 +17360,7 @@ function buildXmppDisplayedMarkerStanza(to, markerTargetId, markerStanzaId = "")
 }
 
 function shouldSkipXmppDisplayedMarker(peerBare = "", targetId = "") {
-  if (typeof XEP_0184_0333_GLOBAL.shouldSkipXmppDisplayedMarker !== "function") {
-    if (!peerBare || !targetId) return true;
-    return (xmppLastSentDisplayedMarkerByPeerJid.get(peerBare) || "") === targetId;
-  }
+  if (typeof XEP_0184_0333_GLOBAL.shouldSkipXmppDisplayedMarker !== "function") return true;
   return XEP_0184_0333_GLOBAL.shouldSkipXmppDisplayedMarker(peerBare, targetId, {
     lastSentDisplayedMarkerByPeerJid: xmppLastSentDisplayedMarkerByPeerJid
   });
