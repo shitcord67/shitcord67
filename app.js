@@ -92,6 +92,7 @@ const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", gl
 const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant", globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);
 const XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL = xepModule("xep-0166_0167-jingle-iq-parse", globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE);
 const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = xepModule("xep-0320_webrtc-sdp-basics", globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
+const XEP_0066_0071_0231_MEDIA_GLOBAL = xepModule("xep-0066_0071_0231-oob-media", globalThis.SHITCORD67_XEP_0066_0071_0231_MEDIA);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -12235,20 +12236,10 @@ function sendXmppMucSelfPing(roomJid = "", { reason = "manual" } = {}) {
 }
 
 function decodeHtmlEntities(text) {
-  const raw = (text || "").toString();
-  if (!raw) return raw;
-  let value = raw;
-  for (let i = 0; i < 3; i += 1) {
-    if (!/&(?:[a-z][a-z0-9]+|#\d+|#x[a-f0-9]+);/i.test(value)) break;
-    const area = document.createElement("textarea");
-    area.innerHTML = value
-      .replace(/&apos;/gi, "'")
-      .replace(/&quot;/gi, "\"");
-    const decoded = area.value || value;
-    if (decoded === value) break;
-    value = decoded;
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.decodeHtmlEntities === "function") {
+    return XEP_0066_0071_0231_MEDIA_GLOBAL.decodeHtmlEntities(text);
   }
-  return value;
+  return (text || "").toString();
 }
 
 function detectImageMimeFromBase64(bin) {
@@ -12568,111 +12559,34 @@ function markXmppMessageReadByMarker(stanzaId, peerJid = "") {
 }
 
 function xmppNormalizeBobCid(value = "") {
-  let token = (value || "").toString().trim();
-  if (!token) return "";
-  if (/^xmpp:/i.test(token)) token = token.replace(/^xmpp:/i, "");
-  if (/^cid:/i.test(token)) token = token.replace(/^cid:/i, "");
-  try {
-    token = decodeURIComponent(token);
-  } catch {
-    // Keep the original token when URI decoding fails.
-  }
-  token = token
-    .split("?")[0]
-    .split("#")[0]
-    .replace(/^<+|>+$/g, "")
-    .trim();
-  return token.toLowerCase();
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppNormalizeBobCid !== "function") return "";
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppNormalizeBobCid(value);
 }
 
 function xmppInlineBobEntries(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
-  const out = [];
-  const seen = new Set();
-  xmppElementsByLocalName(stanza, "data")
-    .filter((node) => xmppNodeHasXmlns(node, XMPP_BOB_NAMESPACE))
-    .forEach((node) => {
-      const rawCid = (node.getAttribute?.("cid") || "").toString().trim();
-      const cidKey = xmppNormalizeBobCid(rawCid);
-      if (!cidKey || seen.has(cidKey)) return;
-      const payload = (xmppNodeText(node) || "").toString().replace(/\s+/g, "");
-      if (!payload || payload.length > (8 * 1024 * 1024)) return;
-      const cleanPayload = payload.replace(/[^a-z0-9+/=]/gi, "");
-      if (!cleanPayload) return;
-      const rawMime = (node.getAttribute?.("type") || "").toString().trim().toLowerCase();
-      const mime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(rawMime) ? rawMime : "application/octet-stream";
-      seen.add(cidKey);
-      out.push({
-        cid: rawCid || cidKey,
-        cidKey,
-        name: rawCid || cidKey,
-        mime,
-        url: `data:${mime};base64,${cleanPayload}`
-      });
-    });
-  return out.slice(0, 6);
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppInlineBobEntries !== "function") return [];
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppInlineBobEntries(stanza, {
+    xmppElementsByLocalNameFn: xmppElementsByLocalName,
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 function xmppParseBobDataNode(node) {
-  if (!node || !xmppNodeHasXmlns(node, XMPP_BOB_NAMESPACE)) return null;
-  const rawCid = (node.getAttribute?.("cid") || "").toString().trim();
-  const cidKey = xmppNormalizeBobCid(rawCid);
-  if (!cidKey) return null;
-  const payload = (xmppNodeText(node) || "").toString().replace(/\s+/g, "");
-  if (!payload || payload.length > (8 * 1024 * 1024)) return null;
-  const cleanPayload = payload.replace(/[^a-z0-9+/=]/gi, "");
-  if (!cleanPayload) return null;
-  const rawMime = (node.getAttribute?.("type") || "").toString().trim().toLowerCase();
-  const mime = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(rawMime) ? rawMime : "application/octet-stream";
-  return {
-    cid: rawCid || cidKey,
-    cidKey,
-    name: rawCid || cidKey,
-    mime,
-    url: `data:${mime};base64,${cleanPayload}`
-  };
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppParseBobDataNode !== "function") return null;
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppParseBobDataNode(node, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 function xmppExtractBobCidCandidates(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
-  const out = [];
-  const seen = new Set();
-  const add = (raw = "", { name = "", mime = "" } = {}) => {
-    const value = (raw || "").toString().trim();
-    if (!value || !/^(xmpp:)?cid:/i.test(value)) return;
-    const cidKey = xmppNormalizeBobCid(value);
-    if (!cidKey || seen.has(cidKey)) return;
-    seen.add(cidKey);
-    out.push({
-      cid: value,
-      cidKey,
-      name: (name || "").toString().trim().slice(0, 120),
-      mime: (mime || "").toString().trim().toLowerCase().slice(0, 120)
-    });
-  };
-  xmppElementsByLocalName(stanza, "img").forEach((node) => {
-    add(node.getAttribute?.("src") || "", {
-      name: node.getAttribute?.("alt") || node.getAttribute?.("title") || "",
-      mime: node.getAttribute?.("type") || node.getAttribute?.("data-mime") || ""
-    });
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractBobCidCandidates !== "function") return [];
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractBobCidCandidates(stanza, {
+    xmppElementsByLocalNameFn: xmppElementsByLocalName,
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText
   });
-  xmppElementsByLocalName(stanza, "a").forEach((node) => {
-    add(node.getAttribute?.("href") || "", {
-      name: node.getAttribute?.("title") || node.getAttribute?.("data-name") || "",
-      mime: node.getAttribute?.("type") || node.getAttribute?.("data-mime") || ""
-    });
-  });
-  xmppElementsByLocalName(stanza, "reference")
-    .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
-    .forEach((node) => {
-      const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
-      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
-      add(node.getAttribute("uri") || xmppNodeText(uriNode) || "", {
-        name: node.getAttribute("name") || "",
-        mime: node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || ""
-      });
-    });
-  return out.slice(0, 6);
 }
 
 async function xmppFetchBobByCid(rawCid = "", { toCandidates = [], connection = xmppConnection } = {}) {
@@ -12772,414 +12686,92 @@ function xmppResolveDeferredBobForMessage({
 }
 
 function xmppExtractOobAttachments(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
-  const out = [];
-  const seen = new Set();
-  const inlineBobEntries = xmppInlineBobEntries(stanza);
-  const inlineBobByCid = new Map(
-    inlineBobEntries
-      .map((entry) => [entry.cidKey, entry])
-      .filter(([key]) => Boolean(key))
-  );
-  const resolveInlineBobFromUri = (raw = "") => {
-    const cidKey = xmppNormalizeBobCid(raw);
-    if (!cidKey) return null;
-    return inlineBobByCid.get(cidKey) || null;
-  };
-  const normalizeMediaUrl = (raw = "") => {
-    const value = (raw || "").toString().trim();
-    if (!value) return "";
-    if (/^data:/i.test(value)) return value;
-    if (/^https?:\/\//i.test(value)) return value;
-    const wrapped = value.match(/^xmpp:(https?:\/\/.+)$/i);
-    if (wrapped?.[1] && /^https?:\/\//i.test(wrapped[1])) return wrapped[1];
-    return "";
-  };
-  const upsert = (entry = {}) => {
-    const bobEntry = resolveInlineBobFromUri(entry.url || "");
-    const url = normalizeMediaUrl((bobEntry?.url || entry.url || "").toString());
-    if (!url) return;
-    const cleanName = (entry.name || bobEntry?.name || "").toString().trim().slice(0, 120);
-    const cleanMime = (entry.mime || bobEntry?.mime || "").toString().trim().toLowerCase().slice(0, 120);
-    const key = /^data:/i.test(url) ? url : url.toLowerCase();
-    if (seen.has(key)) {
-      const existing = out.find((item) => ((/^data:/i.test(item.url || "") ? item.url : (item.url || "").toLowerCase()) === key)) || null;
-      if (existing && !existing.name && cleanName) existing.name = cleanName;
-      if (existing && !existing.mime && cleanMime) existing.mime = cleanMime;
-      return;
-    }
-    seen.add(key);
-    out.push({
-      url,
-      name: cleanName,
-      mime: cleanMime
-    });
-  };
-  const extractRefUri = (node = null) => {
-    if (!node) return "";
-    const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
-    return (node.getAttribute("uri") || xmppNodeText(uriNode) || "").toString().trim();
-  };
-  const extractRefMime = (node = null) => {
-    if (!node) return "";
-    const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
-    const typeAttr = (node.getAttribute("type") || "").toString().trim().toLowerCase();
-    const mimeFromTypeAttr = typeAttr.includes("/") ? typeAttr : "";
-    return (node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || mimeFromTypeAttr || "").toString().trim();
-  };
-  const extractRefName = (node = null) => {
-    if (!node) return "";
-    const nameNode = xmppElementsByLocalName(node, "name")[0] || null;
-    const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
-    return (node.getAttribute("name") || xmppNodeText(nameNode) || xmppNodeText(descNode) || "").toString().trim();
-  };
-  const upsertMediaSharingNode = (mediaSharingNode, { fallbackUrl = "", fallbackName = "", fallbackMime = "" } = {}) => {
-    if (!mediaSharingNode || !xmppNodeHasXmlns(mediaSharingNode, XMPP_SIMS_NAMESPACE)) return;
-    const fileNode = xmppElementsByLocalName(mediaSharingNode, "file")
-      .find((node) => xmppNodeHasXmlns(node, XMPP_FILE_METADATA_NAMESPACE))
-      || xmppElementsByLocalName(mediaSharingNode, "file")[0]
-      || null;
-    const fileNameNode = fileNode ? (xmppElementsByLocalName(fileNode, "name")[0] || null) : null;
-    const fileDescNode = fileNode ? (xmppElementsByLocalName(fileNode, "desc")[0] || null) : null;
-    const fileMimeNode = fileNode ? (xmppElementsByLocalName(fileNode, "media-type")[0] || null) : null;
-    const fileUriNodes = fileNode ? xmppElementsByLocalName(fileNode, "uri") : [];
-    const fileName = (xmppNodeText(fileNameNode) || xmppNodeText(fileDescNode) || fallbackName || "").toString().trim();
-    const fileMime = (xmppNodeText(fileMimeNode) || fallbackMime || "").toString().trim();
-    const uriCandidates = [];
-    const pushUri = (rawUrl = "") => {
-      const candidate = (rawUrl || "").toString().trim();
-      if (!candidate) return;
-      if (uriCandidates.includes(candidate)) return;
-      uriCandidates.push(candidate);
-    };
-    pushUri(fallbackUrl);
-    fileUriNodes.forEach((uriNode) => {
-      pushUri(xmppNodeText(uriNode));
-      pushUri(uriNode?.getAttribute?.("uri") || "");
-    });
-    xmppElementsByLocalName(mediaSharingNode, "reference")
-      .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
-      .forEach((refNode) => {
-        pushUri(extractRefUri(refNode));
-        const thumbNodes = xmppElementsByLocalName(refNode, "thumbnail");
-        thumbNodes.forEach((thumbNode) => {
-          pushUri(thumbNode?.getAttribute?.("uri") || "");
-        });
-        upsert({
-          url: extractRefUri(refNode),
-          name: extractRefName(refNode) || fileName || fallbackName,
-          mime: extractRefMime(refNode) || fileMime || fallbackMime
-        });
-      });
-    uriCandidates.forEach((uri) => {
-      upsert({
-        url: uri,
-        name: fileName || fallbackName,
-        mime: fileMime || fallbackMime
-      });
-    });
-  };
-  xmppElementsByLocalName(stanza, "x")
-    .filter((node) => xmppNodeHasXmlns(node, "jabber:x:oob"))
-    .forEach((node) => {
-      const urlNode = xmppElementsByLocalName(node, "url")[0] || null;
-      const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
-      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
-      upsert({
-        url: xmppNodeText(urlNode) || node.getAttribute?.("url") || "",
-        name: xmppNodeText(descNode),
-        mime: xmppNodeText(mediaTypeNode)
-      });
-    });
-  xmppElementsByLocalName(stanza, "reference")
-    .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
-    .forEach((node) => {
-      const uri = extractRefUri(node);
-      const name = extractRefName(node);
-      const mime = extractRefMime(node);
-      upsert({
-        url: uri,
-        name,
-        mime
-      });
-      const mediaSharingNode = xmppElementsByLocalName(node, "media-sharing")
-        .find((entry) => xmppNodeHasXmlns(entry, XMPP_SIMS_NAMESPACE)) || null;
-      if (mediaSharingNode) {
-        upsertMediaSharingNode(mediaSharingNode, {
-          fallbackUrl: uri,
-          fallbackName: name,
-          fallbackMime: mime
-        });
-      }
-    });
-  xmppElementsByLocalName(stanza, "media-sharing")
-    .filter((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE))
-    .forEach((node) => upsertMediaSharingNode(node));
-  xmppElementsByLocalName(stanza, "file")
-    .filter((node) => xmppNodeHasXmlns(node, XMPP_FILE_METADATA_NAMESPACE))
-    .forEach((node) => {
-      const nameNode = xmppElementsByLocalName(node, "name")[0] || null;
-      const descNode = xmppElementsByLocalName(node, "desc")[0] || null;
-      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
-      const uriNodes = xmppElementsByLocalName(node, "uri");
-      const fileName = (xmppNodeText(nameNode) || xmppNodeText(descNode) || "").toString().trim();
-      const fileMime = (xmppNodeText(mediaTypeNode) || "").toString().trim();
-      uriNodes.forEach((uriNode) => {
-        upsert({
-          url: xmppNodeText(uriNode) || uriNode?.getAttribute?.("uri") || "",
-          name: fileName,
-          mime: fileMime
-        });
-      });
-    });
-  xmppElementsByLocalName(stanza, "img")
-    .forEach((node) => {
-      const src = (node.getAttribute?.("src") || "").toString().trim();
-      if (!src) return;
-      const alt = (node.getAttribute?.("alt") || node.getAttribute?.("title") || "").toString().trim();
-      const hintedMime = (node.getAttribute?.("type") || node.getAttribute?.("data-mime") || "").toString().trim();
-      const bobEntry = resolveInlineBobFromUri(src);
-      if (bobEntry) {
-        upsert({
-          url: src,
-          name: alt || bobEntry.name,
-          mime: bobEntry.mime
-        });
-        return;
-      }
-      if (!/^(https?:\/\/|xmpp:https?:\/\/|data:image\/|blob:)/i.test(src)) return;
-      upsert({
-        url: src,
-        name: alt || src.split("/").pop() || "image",
-        mime: hintedMime
-      });
-    });
-  const shouldTreatLinkAsAttachment = (href, hintedMime = "", hintedType = "") => {
-    const normalizedHref = (href || "").toString().trim();
-    if (!normalizedHref) return false;
-    const inferred = inferAttachmentTypeFromUrl(normalizedHref);
-    if (inferred && inferred !== "file") return true;
-    const mimeType = (hintedMime || "").toString().trim();
-    const inferredFromMime = inferAttachmentTypeFromMime(mimeType);
-    if (inferredFromMime && inferredFromMime !== "file") return true;
-    const typeHint = (hintedType || "").toString().toLowerCase();
-    if (/(sticker|image|img|gif|video|audio)/i.test(typeHint)) return true;
-    return false;
-  };
-  xmppElementsByLocalName(stanza, "a")
-    .forEach((node) => {
-      const href = (node.getAttribute?.("href") || "").toString().trim();
-      if (!href) return;
-      const hintedMime = (node.getAttribute?.("type") || node.getAttribute?.("data-mime") || "").toString().trim();
-      const hintedType = (node.getAttribute?.("data-type") || "").toString().trim();
-      if (!shouldTreatLinkAsAttachment(href, hintedMime, hintedType)) return;
-      upsert({
-        url: href,
-        name: (node.getAttribute?.("title") || node.getAttribute?.("data-name") || "").toString().trim(),
-        mime: hintedMime
-      });
-    });
-  return out.slice(0, 6);
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractOobAttachments !== "function") return [];
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractOobAttachments(stanza, {
+    xmppElementsByLocalNameFn: xmppElementsByLocalName,
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText,
+    inferAttachmentTypeFromUrlFn: inferAttachmentTypeFromUrl,
+    inferAttachmentTypeFromMimeFn: inferAttachmentTypeFromMime
+  });
 }
 
 function xmppHasOobAttachmentHint(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return false;
-  const hasOob = xmppElementsByLocalName(stanza, "x")
-    .some((node) => xmppNodeHasXmlns(node, "jabber:x:oob"));
-  if (hasOob) return true;
-  const hasInlineBob = xmppElementsByLocalName(stanza, "data")
-    .some((node) => xmppNodeHasXmlns(node, XMPP_BOB_NAMESPACE));
-  if (hasInlineBob) return true;
-  const hasMediaSharing = xmppElementsByLocalName(stanza, "media-sharing")
-    .some((node) => xmppNodeHasXmlns(node, XMPP_SIMS_NAMESPACE));
-  if (hasMediaSharing) return true;
-  const hasFileMetadata = xmppElementsByLocalName(stanza, "file")
-    .some((node) => xmppNodeHasXmlns(node, XMPP_FILE_METADATA_NAMESPACE));
-  if (hasFileMetadata) return true;
-  return xmppElementsByLocalName(stanza, "reference")
-    .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:reference:0"))
-    .some((node) => {
-      const uriNode = xmppElementsByLocalName(node, "uri")[0] || null;
-      const uri = (node.getAttribute("uri") || xmppNodeText(uriNode) || "").toString().trim();
-      if (/^(https?:\/\/|xmpp:https?:\/\/|cid:|xmpp:cid:)/i.test(uri)) return true;
-      const typeAttr = (node.getAttribute("type") || "").toString().trim().toLowerCase();
-      if (typeAttr === "data" || typeAttr === "media" || typeAttr === "file") return true;
-      const mediaTypeNode = xmppElementsByLocalName(node, "media-type")[0] || null;
-      const mediaType = (node.getAttribute("media-type") || xmppNodeText(mediaTypeNode) || "").toString().trim().toLowerCase();
-      return mediaType.includes("/");
-    });
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppHasOobAttachmentHint !== "function") return false;
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppHasOobAttachmentHint(stanza, {
+    xmppElementsByLocalNameFn: xmppElementsByLocalName,
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 function xmppExtractOobUrls(stanza) {
-  return xmppExtractOobAttachments(stanza).map((entry) => entry.url);
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractOobUrls !== "function") {
+    return xmppExtractOobAttachments(stanza).map((entry) => entry.url);
+  }
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractOobUrls(stanza, {
+    xmppElementsByLocalNameFn: xmppElementsByLocalName,
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText,
+    inferAttachmentTypeFromUrlFn: inferAttachmentTypeFromUrl,
+    inferAttachmentTypeFromMimeFn: inferAttachmentTypeFromMime
+  });
 }
 
 function xmppExtractLooseAttachmentEntries(stanza, { hintName = "", hintMime = "" } = {}) {
-  if (!stanza) return [];
-  const nameHint = (hintName || "").toString().trim().slice(0, 120);
-  const mimeHint = (hintMime || "").toString().trim().toLowerCase().slice(0, 120);
-  let serialized = "";
-  try {
-    serialized = xmppSerializePayload(stanza);
-  } catch {
-    serialized = "";
-  }
-  if (!serialized && typeof stanza.textContent === "string") serialized = stanza.textContent;
-  const seen = new Set();
-  const out = [];
-  const isLikelyLooseAttachmentUrl = (rawUrl = "") => {
-    const candidate = (rawUrl || "").toString().trim();
-    if (!/^https?:\/\//i.test(candidate)) return false;
-    let parsed = null;
-    try {
-      parsed = new URL(candidate);
-    } catch {
-      return false;
-    }
-    const host = (parsed.hostname || "").toLowerCase();
-    const path = (parsed.pathname || "").toLowerCase();
-    if (
-      ["jabber.org", "www.jabber.org", "w3.org", "www.w3.org", "xmpp.org", "www.xmpp.org"].includes(host)
-      && (
-        /\/protocol\//.test(path)
-        || /\/tr\//.test(path)
-        || /\/ns\//.test(path)
-        || /xhtml/.test(path)
-      )
-    ) {
-      return false;
-    }
-    const inferred = inferAttachmentTypeFromUrl(candidate) || inferAttachmentTypeFromMime(mimeHint);
-    if (inferred && inferred !== "file") return true;
-    if (/\.(png|jpe?g|gif|webp|apng|lottie|mp4|webm|mov|m4v|mp3|ogg|wav|m4a|flac|svg|pdf)(\?|$|#|&)/i.test(candidate)) {
-      return true;
-    }
-    if (/\/(stickers?|uploads?|attachments?|media|files?)\//i.test(path)) return true;
-    return false;
-  };
-  const pattern = /https?:\/\/[^\s<>"']+/gi;
-  let match = pattern.exec(serialized);
-  while (match) {
-    const candidate = (match[0] || "").toString().replace(/[)\],.!?]+$/g, "").trim();
-    if (candidate && !seen.has(candidate.toLowerCase()) && isLikelyLooseAttachmentUrl(candidate)) {
-      seen.add(candidate.toLowerCase());
-      out.push({
-        url: candidate,
-        name: nameHint || candidate.split("/").pop() || "attachment",
-        mime: mimeHint
-      });
-      if (out.length >= 6) break;
-    }
-    match = pattern.exec(serialized);
-  }
-  return out;
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractLooseAttachmentEntries !== "function") return [];
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppExtractLooseAttachmentEntries(stanza, {
+    hintName,
+    hintMime
+  }, {
+    xmppSerializePayloadFn: xmppSerializePayload,
+    inferAttachmentTypeFromUrlFn: inferAttachmentTypeFromUrl,
+    inferAttachmentTypeFromMimeFn: inferAttachmentTypeFromMime
+  });
 }
 
 function xmppAttachmentsFromOobEntries(entries) {
-  if (!Array.isArray(entries) || entries.length === 0) return [];
-  const out = [];
-  entries.forEach((entry) => {
-    const clean = (typeof entry === "string" ? entry : entry?.url || "").toString().trim();
-    if (!clean) return;
-    const preferredName = typeof entry === "string" ? "" : (entry?.name || "").toString().trim();
-    const preferredMime = typeof entry === "string" ? "" : (entry?.mime || "").toString().trim();
-    let type = inferAttachmentTypeFromUrl(clean)
-      || inferAttachmentTypeFromUrl(preferredName)
-      || inferAttachmentTypeFromMime(preferredMime)
-      || "file";
-    const stickerHint = /\bsticker\b/i.test(preferredName)
-      || /\baufkleber\b/i.test(preferredName)
-      || (/image\/webp/i.test(preferredMime) && /\bsticker\b/i.test(preferredName))
-      || /\/stickers?\//i.test(clean);
-    if ((type === "gif" || type === "file") && stickerHint) type = "sticker";
-    out.push({
-      type,
-      url: clean,
-      name: preferredName || clean.split("/").pop() || clean,
-      format: inferAttachmentFormat(type, clean),
-      mime: preferredMime
-    });
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppAttachmentsFromOobEntries !== "function") return [];
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppAttachmentsFromOobEntries(entries, {
+    inferAttachmentTypeFromUrlFn: inferAttachmentTypeFromUrl,
+    inferAttachmentTypeFromMimeFn: inferAttachmentTypeFromMime,
+    inferAttachmentFormatFn: inferAttachmentFormat,
+    normalizeAttachmentsFn: normalizeAttachments
   });
-  return normalizeAttachments(out);
 }
 
 function xmppAttachmentsFromUrls(urls) {
-  const entries = Array.isArray(urls) ? urls.map((url) => ({ url })) : [];
-  return xmppAttachmentsFromOobEntries(entries);
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppAttachmentsFromUrls !== "function") {
+    const entries = Array.isArray(urls) ? urls.map((url) => ({ url })) : [];
+    return xmppAttachmentsFromOobEntries(entries);
+  }
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppAttachmentsFromUrls(urls, {
+    inferAttachmentTypeFromUrlFn: inferAttachmentTypeFromUrl,
+    inferAttachmentTypeFromMimeFn: inferAttachmentTypeFromMime,
+    inferAttachmentFormatFn: inferAttachmentFormat,
+    normalizeAttachmentsFn: normalizeAttachments
+  });
 }
 
 function xmppLooksLikeAttachmentFallbackText(text = "") {
-  const normalized = decodeHtmlEntities((text || "").toString())
-    .trim()
-    .toLowerCase()
-    .replace(/[.!?]+$/g, "")
-    .trim();
-  if (!normalized) return false;
-  if (/^(ein|a)\s+sticker\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
-  if (/^sent\s+a\s+sticker\b/.test(normalized)) return true;
-  if (/^sticker\s+sent\b/.test(normalized)) return true;
-  if (/^\bsticker\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
-  if (/^(ein|a)\s+aufkleber\b/.test(normalized) && /\b(sent|versendet|gesendet)\b/.test(normalized)) return true;
-  return false;
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppLooksLikeAttachmentFallbackText !== "function") return false;
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppLooksLikeAttachmentFallbackText(text);
 }
 
 function xmppXhtmlNodeToInlineText(node) {
-  if (!node) return "";
-  if (node.nodeType === 3) return (node.nodeValue || "").toString();
-  const tag = ((node.nodeName || "").toString().split(":").pop() || "").toLowerCase();
-  if (tag === "br") return "\n";
-  const childText = [...(node.childNodes || [])].map((child) => xmppXhtmlNodeToInlineText(child)).join("");
-  if (tag === "strong" || tag === "b") return `**${childText}**`;
-  if (tag === "em" || tag === "i") return `*${childText}*`;
-  if (tag === "u") return `__${childText}__`;
-  if (tag === "s" || tag === "strike" || tag === "del") return `~~${childText}~~`;
-  if (tag === "code") return `\`${childText}\``;
-  if (tag === "pre") return `\`\`\`\n${childText}\n\`\`\`\n`;
-  if (tag === "a") {
-    const href = (node.getAttribute?.("href") || "").toString().trim();
-    return href ? `[${childText || href}](${href})` : childText;
-  }
-  if (tag === "blockquote") {
-    return childText
-      .split("\n")
-      .map((line) => `> ${line}`.trimEnd())
-      .join("\n");
-  }
-  if (tag === "span") {
-    const style = (node.getAttribute?.("style") || "").toString().toLowerCase();
-    let output = childText;
-    if (style.includes("font-weight:bold") || style.includes("font-weight: 700")) output = `**${output}**`;
-    if (style.includes("font-style:italic")) output = `*${output}*`;
-    if (style.includes("text-decoration:underline")) output = `__${output}__`;
-    if (style.includes("line-through")) output = `~~${output}~~`;
-    return output;
-  }
-  if (tag === "li") return `- ${childText}\n`;
-  if (tag === "p" || tag === "div") return `${childText}\n`;
-  return childText;
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppXhtmlNodeToInlineText !== "function") return "";
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppXhtmlNodeToInlineText(node, {
+    xmppElementsByLocalNameFn: xmppElementsByLocalName
+  });
 }
 
 function xmppPreferredBodyText(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const markdownNode = xmppElementsByLocalName(stanza, "content")
-    .find((node) => {
-      if (!xmppNodeHasXmlns(node, "urn:xmpp:content")) return false;
-      const type = (node.getAttribute("type") || "").toString().trim().toLowerCase();
-      return type === "text/markdown";
-    }) || null;
-  const markdownText = decodeHtmlEntities(xmppNodeText(markdownNode)).trim();
-  if (markdownText) return markdownText;
-  const htmlNode = xmppElementsByLocalName(stanza, "html")
-    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/xhtml-im")) || null;
-  const xhtmlBody = htmlNode
-    ? xmppElementsByLocalName(htmlNode, "body")
-      .find((node) => xmppNodeHasXmlns(node, "http://www.w3.org/1999/xhtml")) || null
-    : null;
-  if (!xhtmlBody) return "";
-  const text = xmppXhtmlNodeToInlineText(xhtmlBody)
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return decodeHtmlEntities(text);
+  if (typeof XEP_0066_0071_0231_MEDIA_GLOBAL.xmppPreferredBodyText !== "function") return "";
+  return XEP_0066_0071_0231_MEDIA_GLOBAL.xmppPreferredBodyText(stanza, {
+    xmppElementsByLocalNameFn: xmppElementsByLocalName,
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 function xmppRoomMessageIndex(roomJid) {

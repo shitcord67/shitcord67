@@ -12,8 +12,8 @@ Status labels:
 | XEP | Name | Status | Notes |
 |---|---|---|---|
 | XEP-0045 | Multi-User Chat (MUC) | Partial | Join rooms, parse occupants/presence, groupchat send/receive. Advanced moderation/config/admin flows are not complete. |
-| XEP-0071 | XHTML-IM | Partial | Incoming XHTML content is converted to chat markdown/text (basic formatting and links), and XHTML `<img src>` media hints are consumed as attachments for sticker/image rendering (including Movim-style external image URLs). |
-| XEP-0231 | Bits of Binary | Partial | Inbound inline BoB payloads (`urn:xmpp:bob`) are parsed for attachment rendering (including `cid:` references and XHTML `<img src='cid:...'>` paths), and unresolved `cid:` sticker/media references now trigger BoB IQ fetch attempts to hydrate Movim-style stickers. Outbound BoB publish is not implemented. |
+| XEP-0071 | XHTML-IM | Partial | Incoming XHTML content is converted to chat markdown/text (formatting, links, lists, and headings), and XHTML media hints such as `<img src>` are consumed as attachments for sticker/image rendering (including Movim-style external image URLs). |
+| XEP-0231 | Bits of Binary | Partial | Inbound inline BoB payloads (`urn:xmpp:bob`) are parsed for attachment rendering (including `cid:` references from XHTML `<img>`, `<source>`, and `<object>` paths), and unresolved `cid:` sticker/media references trigger BoB IQ fetch attempts to hydrate Movim-style stickers. Outbound BoB publish is not implemented. |
 | XEP-0249 | Direct MUC Invitations | Partial | Parses incoming `jabber:x:conference` direct room invites in DMs, maps invited rooms into `XMPP Spaces`, and supports outbound DM invites via `/invitexmpp <room-jid> [| reason [| password [| continue [| thread-id]]]]`. |
 | XEP-0156 | Discovering Alternative XMPP Connection Methods | Partial | Login/discovery flows query host-meta endpoints (local gateway first, optional browser fallback) and parse both XML XRD and JSON JRD host-meta payloads for WebSocket alt-connections. |
 | XEP-0085 | Chat State Notifications | Implemented | Sends and receives composing/paused style states for MUC/DM typing indicators. |
@@ -30,7 +30,7 @@ Status labels:
 | XEP-0115 | Entity Capabilities | Partial | Broadcasts caps hash in presence and answers disco#info queries with supported feature list. |
 | XEP-0297 | Stanza Forwarding | Partial | Forwarded stanzas are consumed for MAM/carbons handling. |
 | XEP-0313 | Message Archive Management (MAM) | Partial | Loads archived history for MUC and DM, with pagination support. |
-| XEP-0066 | Out of Band Data | Partial | Inbound `jabber:x:oob` attachment payloads are parsed into message attachments with namespace/local-name tolerant matching; unsupported OOB payloads now keep a visible fallback text instead of being silently dropped. |
+| XEP-0066 | Out of Band Data | Partial | Inbound `jabber:x:oob` attachment payloads are parsed into message attachments with namespace/local-name tolerant matching, and loose attachment URLs are extracted from compatible message payloads as a fallback. Unsupported OOB payloads keep visible fallback text instead of being silently dropped. |
 | XEP-0372 | References | Partial | Consumes `urn:xmpp:reference:0` attachment references (URI/name/media metadata) for DM/MUC attachment rendering with compatibility handling for prefixed stanzas. |
 | XEP-0385 | Stateless Inline Media Sharing (SIMS) | Partial | Parses inbound `urn:xmpp:sims:1` `media-sharing` payloads (including Movim-style nested references/URIs) into message attachments. Outbound SIMS publish is not implemented yet. |
 | XEP-0446 | File Metadata Element | Partial | Consumes `urn:xmpp:file:metadata:0` file metadata fields (name/media type/URI hints) to improve inbound attachment rendering and type detection. |
