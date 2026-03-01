@@ -72,6 +72,36 @@ const XMPP_OMEMO_PREKEY_COUNT = XMPP_NS_GLOBAL.XMPP_OMEMO_PREKEY_COUNT || 48;
 const XMPP_OMEMO_SIGNED_PREKEY_ID = XMPP_NS_GLOBAL.XMPP_OMEMO_SIGNED_PREKEY_ID || 1;
 const XMPP_XML_GLOBAL = globalThis.SHITCORD67_XMPP_XML || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
+const XEP_0384_NAMESPACE_SELECTION_GLOBAL = globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
+const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
+  cachedPreferred = "",
+  discoFeatures = new Set(),
+  includeLegacy = true
+} = {}) {
+  const supportsV2 = discoFeatures.has(XMPP_OMEMO_NAMESPACE_V2)
+    || discoFeatures.has(XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2)
+    || discoFeatures.has(XMPP_OMEMO_DEVICELIST_NODE_V2);
+  const list = [];
+  const append = (namespace) => {
+    const value = (namespace || "").toString().trim();
+    if (!value || list.includes(value)) return;
+    if (!includeLegacy && value === XMPP_OMEMO_NAMESPACE) return;
+    list.push(value);
+  };
+  if (supportsV2) append(XMPP_OMEMO_NAMESPACE_V2);
+  append(cachedPreferred);
+  XMPP_OMEMO_NAMESPACES.forEach(append);
+  if (list.length === 0) append(XMPP_OMEMO_NAMESPACE);
+  return list;
+};
+const xmppOmemoSelectNamespaceForSend = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoSelectNamespaceForSend || function xmppOmemoSelectNamespaceForSendFallback(preferredNamespaces = []) {
+  const supported = (Array.isArray(preferredNamespaces) ? preferredNamespaces : [preferredNamespaces])
+    .map((entry) => (entry || "").toString().trim())
+    .filter(Boolean);
+  if (supported.length === 0) return XMPP_OMEMO_NAMESPACE;
+  if (supported.every((namespace) => namespace === XMPP_OMEMO_NAMESPACE_V2)) return XMPP_OMEMO_NAMESPACE_V2;
+  return XMPP_OMEMO_NAMESPACE;
+};
 const base64ToArrayBuffer = XEP_0384_CRYPTO_UTILS_GLOBAL.base64ToArrayBuffer || function base64ToArrayBufferFallback(base64) {
   const cleaned = (base64 || "").toString().trim();
   if (!cleaned) return new ArrayBuffer(0);
@@ -14761,21 +14791,11 @@ function xmppOmemoNamespaceCandidatesForPeer(peerJid = "", {
   const bare = xmppBareJid(peerJid);
   const cachedPreferred = bare ? (xmppOmemoPreferredNamespaceByJid.get(bare) || "") : "";
   const discoFeatures = bare ? xmppCachedCallFeaturesForPeer(bare) : new Set();
-  const supportsV2 = discoFeatures.has(XMPP_OMEMO_NAMESPACE_V2)
-    || discoFeatures.has(XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2)
-    || discoFeatures.has(XMPP_OMEMO_DEVICELIST_NODE_V2);
-  const list = [];
-  const append = (namespace) => {
-    const value = (namespace || "").toString().trim();
-    if (!value || list.includes(value)) return;
-    if (!includeLegacy && value === XMPP_OMEMO_NAMESPACE) return;
-    list.push(value);
-  };
-  if (supportsV2) append(XMPP_OMEMO_NAMESPACE_V2);
-  append(cachedPreferred);
-  XMPP_OMEMO_NAMESPACES.forEach(append);
-  if (list.length === 0) append(XMPP_OMEMO_NAMESPACE);
-  return list;
+  return xmppOmemoBuildNamespaceCandidates({
+    cachedPreferred,
+    discoFeatures,
+    includeLegacy
+  });
 }
 
 function xmppPreferredOmemoNamespaceForPeer(peerJid = "") {
@@ -14926,14 +14946,10 @@ async function xmppOmemoPublishBundle(ownBare, bundle, {
 
 function xmppOmemoNamespaceForSend(targetJids = []) {
   const targets = Array.isArray(targetJids) ? targetJids : [targetJids];
-  const supported = targets
+  const preferredNamespaces = targets
     .map((jid) => xmppPreferredOmemoNamespaceForPeer(jid))
     .filter(Boolean);
-  if (supported.length === 0) return XMPP_OMEMO_NAMESPACE;
-  if (supported.every((namespace) => namespace === XMPP_OMEMO_NAMESPACE_V2)) {
-    return XMPP_OMEMO_NAMESPACE_V2;
-  }
-  return XMPP_OMEMO_NAMESPACE;
+  return xmppOmemoSelectNamespaceForSend(preferredNamespaces);
 }
 
 async function xmppOmemoEnsureOwnBundle(ownBare, { force = false } = {}) {
