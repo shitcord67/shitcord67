@@ -172,13 +172,29 @@
     return shortHashTokenFn(seed);
   }
 
+  function markWebCallInviteSeen(token, {
+    seenTokens = null,
+    maxEntries = 200
+  } = {}) {
+    const key = (token || "").toString().trim();
+    if (!key) return;
+    if (!(seenTokens instanceof Set)) return;
+    seenTokens.add(key);
+    const max = Math.max(20, Number(maxEntries) || 200);
+    if (seenTokens.size > max) {
+      const first = seenTokens.values().next().value;
+      seenTokens.delete(first);
+    }
+  }
+
   globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE = Object.freeze({
     parseXmppCallInviteAction,
     normalizeCallInviteUrl,
     stripTrailingUrlPunctuation,
     looksLikeConferenceCallUrl,
     parseCallInviteFromText,
-    buildWebCallInviteToken
+    buildWebCallInviteToken,
+    markWebCallInviteSeen
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0482_call-invite-parse", globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
