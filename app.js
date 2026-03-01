@@ -95,6 +95,7 @@ const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_X
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const CALL_ROOM_URL_UTILS_GLOBAL = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
 const XMPP_LOGIN_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_XMPP_LOGIN_NORMALIZERS || {};
+const MEDIA_PROVIDER_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -438,6 +439,9 @@ const normalizeXmppWsUrlViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normali
 const normalizeXmppMucServiceViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppMucService === "function"
   ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppMucService
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizeTenorApiKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey
+  : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11287,7 +11291,7 @@ function relayHealthUrlFromRelayUrl(value) {
 }
 
 function normalizeTenorApiKey(value) {
-  return (value || "").toString().trim().slice(0, 180);
+  return normalizeTenorApiKeyViaModule(value);
 }
 
 function normalizeTenorClientKey(value) {
