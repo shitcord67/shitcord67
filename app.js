@@ -504,6 +504,12 @@ const normalizeRelayTransportAttachmentUrlViaModule = typeof MEDIA_PROVIDER_NORM
 const normalizeMediaRuleTokenViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaRuleToken === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaRuleToken
   : ((rule) => (rule || "").toString().trim().toLowerCase());
+const normalizeMediaPrivacyUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaPrivacyUrl === "function"
+  ? ((url) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaPrivacyUrl(url, {
+    resolveMediaUrlFn: resolveMediaUrl,
+    baseUrl: window.location.href
+  }))
+  : ((url) => (url || "").toString());
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -20625,14 +20631,7 @@ function suggestSubdomainTrustRule(host) {
 }
 
 function normalizeMediaPrivacyUrl(url) {
-  const resolved = resolveMediaUrl(url);
-  try {
-    const parsed = new URL(resolved, window.location.href);
-    parsed.hash = "";
-    return parsed.href;
-  } catch {
-    return resolved;
-  }
+  return normalizeMediaPrivacyUrlViaModule(url);
 }
 
 function mediaPrivacyUrlKeys(url, { includePathVariant = false } = {}) {

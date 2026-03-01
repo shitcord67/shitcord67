@@ -116,6 +116,20 @@
     return (rule || "").toString().trim().toLowerCase();
   }
 
+  function normalizeMediaPrivacyUrl(url, {
+    resolveMediaUrlFn = (value) => (value || "").toString(),
+    baseUrl = ""
+  } = {}) {
+    const resolved = resolveMediaUrlFn(url);
+    try {
+      const parsed = new URL(resolved, baseUrl || undefined);
+      parsed.hash = "";
+      return parsed.href;
+    } catch {
+      return resolved;
+    }
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -130,6 +144,7 @@
     normalizeGifGroups,
     normalizeGifScope,
     normalizeRelayTransportAttachmentUrl,
-    normalizeMediaRuleToken
+    normalizeMediaRuleToken,
+    normalizeMediaPrivacyUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);
