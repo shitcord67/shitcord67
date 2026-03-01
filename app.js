@@ -9656,20 +9656,41 @@ function xmppCloseSessionPeerConnection(sessionId = "") {
 }
 
 async function xmppApplyRemoteIceCandidatesForSession(sessionId, candidates = []) {
-  const sid = (sessionId || "").toString().trim();
-  const list = Array.isArray(candidates) ? candidates.filter((entry) => entry && typeof entry === "object") : [];
-  if (!sid || list.length === 0) return { attempted: 0, applied: 0, queued: 0 };
+  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
+  const sid = typeof xep0320.xmppNormalizeSessionId === "function"
+    ? xep0320.xmppNormalizeSessionId(sessionId)
+    : (sessionId || "").toString().trim();
+  const list = typeof xep0320.xmppFilterValidIceCandidates === "function"
+    ? xep0320.xmppFilterValidIceCandidates(candidates)
+    : (Array.isArray(candidates) ? candidates.filter((entry) => entry && typeof entry === "object") : []);
+  const emptyResult = typeof xep0320.xmppBuildIceApplyResult === "function"
+    ? xep0320.xmppBuildIceApplyResult()
+    : { attempted: 0, applied: 0, queued: 0 };
+  if (!sid || list.length === 0) return emptyResult;
   const session = xmppCallSessionById.get(sid) || null;
   const entry = xmppEnsureSessionPeerConnection(sid, {
     peerJid: session?.peerJid || "",
     media: xmppCallSessionMediaList(session),
     createLocalOffer: session?.direction === "outgoing"
   });
-  if (!entry?.pc) return { attempted: list.length, applied: 0, queued: list.length };
+  if (!entry?.pc) {
+    return typeof xep0320.xmppBuildQueuedOnlyIceApplyResult === "function"
+      ? xep0320.xmppBuildQueuedOnlyIceApplyResult(list)
+      : { attempted: list.length, applied: 0, queued: list.length };
+  }
   const pc = entry.pc;
-  if (!pc.remoteDescription) {
-    entry.pendingRemoteCandidates.push(...list);
-    return { attempted: list.length, applied: 0, queued: list.length };
+  const hasRemoteDescription = typeof xep0320.xmppHasPeerRemoteDescription === "function"
+    ? xep0320.xmppHasPeerRemoteDescription(pc)
+    : Boolean(pc.remoteDescription);
+  if (!hasRemoteDescription) {
+    if (typeof xep0320.xmppQueuePendingRemoteCandidates === "function") {
+      xep0320.xmppQueuePendingRemoteCandidates(entry, list);
+    } else {
+      entry.pendingRemoteCandidates.push(...list);
+    }
+    return typeof xep0320.xmppBuildQueuedOnlyIceApplyResult === "function"
+      ? xep0320.xmppBuildQueuedOnlyIceApplyResult(list)
+      : { attempted: list.length, applied: 0, queued: list.length };
   }
   let applied = 0;
   let queued = 0;
@@ -9683,25 +9704,49 @@ async function xmppApplyRemoteIceCandidatesForSession(sessionId, candidates = []
       queued += 1;
     }
   }
-  return { attempted: list.length, applied, queued };
+  return typeof xep0320.xmppBuildIceApplyResult === "function"
+    ? xep0320.xmppBuildIceApplyResult({ attempted: list.length, applied, queued })
+    : { attempted: list.length, applied, queued };
 }
 
 async function xmppFlushSessionRemoteIceCandidateQueue(sessionId = "") {
-  const sid = (sessionId || "").toString().trim();
-  if (!sid) return { attempted: 0, applied: 0, queued: 0 };
+  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
+  const sid = typeof xep0320.xmppNormalizeSessionId === "function"
+    ? xep0320.xmppNormalizeSessionId(sessionId)
+    : (sessionId || "").toString().trim();
+  const emptyResult = typeof xep0320.xmppBuildIceApplyResult === "function"
+    ? xep0320.xmppBuildIceApplyResult()
+    : { attempted: 0, applied: 0, queued: 0 };
+  if (!sid) return emptyResult;
   const entry = xmppCallPeerConnectionBySessionId.get(sid) || null;
-  if (!entry?.pc || !Array.isArray(entry.pendingRemoteCandidates) || entry.pendingRemoteCandidates.length === 0) {
-    return { attempted: 0, applied: 0, queued: 0 };
+  const hasPending = typeof xep0320.xmppHasPendingRemoteCandidates === "function"
+    ? xep0320.xmppHasPendingRemoteCandidates(entry)
+    : Boolean(entry?.pc && Array.isArray(entry.pendingRemoteCandidates) && entry.pendingRemoteCandidates.length > 0);
+  if (!hasPending) {
+    return emptyResult;
   }
-  if (!entry.pc.remoteDescription) {
-    return {
+  const canFlush = typeof xep0320.xmppCanFlushPendingRemoteCandidates === "function"
+    ? xep0320.xmppCanFlushPendingRemoteCandidates(entry)
+    : Boolean(entry?.pc?.remoteDescription);
+  if (!canFlush) {
+    return typeof xep0320.xmppBuildIceApplyResult === "function"
+      ? xep0320.xmppBuildIceApplyResult({
+        attempted: entry.pendingRemoteCandidates.length,
+        applied: 0,
+        queued: entry.pendingRemoteCandidates.length
+      })
+      : {
       attempted: entry.pendingRemoteCandidates.length,
       applied: 0,
       queued: entry.pendingRemoteCandidates.length
     };
   }
-  const pending = [...entry.pendingRemoteCandidates];
-  entry.pendingRemoteCandidates = [];
+  const pending = typeof xep0320.xmppSnapshotAndClearPendingRemoteCandidates === "function"
+    ? xep0320.xmppSnapshotAndClearPendingRemoteCandidates(entry)
+    : [...entry.pendingRemoteCandidates];
+  if (typeof xep0320.xmppSnapshotAndClearPendingRemoteCandidates !== "function") {
+    entry.pendingRemoteCandidates = [];
+  }
   const result = await xmppApplyRemoteIceCandidatesForSession(sid, pending);
   return result;
 }
@@ -9710,11 +9755,19 @@ async function xmppGatherLocalIceTransportInfo({
   timeoutMs = XMPP_CALL_ICE_GATHER_TIMEOUT_MS,
   maxCandidates = XMPP_CALL_ICE_MAX_CANDIDATES
 } = {}) {
-  if (typeof globalThis.RTCPeerConnection !== "function") {
+  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
+  const canCreatePc = typeof xep0320.xmppCanCreatePeerConnection === "function"
+    ? xep0320.xmppCanCreatePeerConnection(globalThis)
+    : (typeof globalThis.RTCPeerConnection === "function");
+  if (!canCreatePc) {
     return { transport: xmppBuildJingleTransportCreds(), candidates: [] };
   }
-  const timeout = Math.max(1000, Number(timeoutMs) || XMPP_CALL_ICE_GATHER_TIMEOUT_MS);
-  const cap = Math.max(1, Number(maxCandidates) || XMPP_CALL_ICE_MAX_CANDIDATES);
+  const timeout = typeof xep0320.xmppNormalizeIceGatherTimeout === "function"
+    ? xep0320.xmppNormalizeIceGatherTimeout(timeoutMs, XMPP_CALL_ICE_GATHER_TIMEOUT_MS)
+    : Math.max(1000, Number(timeoutMs) || XMPP_CALL_ICE_GATHER_TIMEOUT_MS);
+  const cap = typeof xep0320.xmppNormalizeIceGatherCandidateCap === "function"
+    ? xep0320.xmppNormalizeIceGatherCandidateCap(maxCandidates, XMPP_CALL_ICE_MAX_CANDIDATES)
+    : Math.max(1, Number(maxCandidates) || XMPP_CALL_ICE_MAX_CANDIDATES);
   const pc = new globalThis.RTCPeerConnection();
   const candidates = [];
   const seen = new Set();

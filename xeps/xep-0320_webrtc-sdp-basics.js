@@ -993,6 +993,66 @@
     return (activeSessionId || "").toString().trim() === (sessionId || "").toString().trim();
   }
 
+  function xmppFilterValidIceCandidates(candidates = []) {
+    return Array.isArray(candidates) ? candidates.filter((entry) => entry && typeof entry === "object") : [];
+  }
+
+  function xmppBuildIceApplyResult({
+    attempted = 0,
+    applied = 0,
+    queued = 0
+  } = {}) {
+    return {
+      attempted: Number(attempted) || 0,
+      applied: Number(applied) || 0,
+      queued: Number(queued) || 0
+    };
+  }
+
+  function xmppHasPeerRemoteDescription(pc = null) {
+    return Boolean(pc?.remoteDescription);
+  }
+
+  function xmppQueuePendingRemoteCandidates(entry = null, candidates = []) {
+    if (!entry || !Array.isArray(entry.pendingRemoteCandidates)) return 0;
+    const list = xmppFilterValidIceCandidates(candidates);
+    if (list.length === 0) return 0;
+    entry.pendingRemoteCandidates.push(...list);
+    return list.length;
+  }
+
+  function xmppBuildQueuedOnlyIceApplyResult(candidates = []) {
+    const list = xmppFilterValidIceCandidates(candidates);
+    return xmppBuildIceApplyResult({
+      attempted: list.length,
+      applied: 0,
+      queued: list.length
+    });
+  }
+
+  function xmppHasPendingRemoteCandidates(entry = null) {
+    return Boolean(entry?.pc && Array.isArray(entry.pendingRemoteCandidates) && entry.pendingRemoteCandidates.length > 0);
+  }
+
+  function xmppCanFlushPendingRemoteCandidates(entry = null) {
+    return xmppHasPendingRemoteCandidates(entry) && xmppHasPeerRemoteDescription(entry?.pc || null);
+  }
+
+  function xmppSnapshotAndClearPendingRemoteCandidates(entry = null) {
+    if (!entry || !Array.isArray(entry.pendingRemoteCandidates)) return [];
+    const pending = [...entry.pendingRemoteCandidates];
+    entry.pendingRemoteCandidates = [];
+    return pending;
+  }
+
+  function xmppNormalizeIceGatherTimeout(timeoutMs = 4000, fallbackTimeoutMs = 4000) {
+    return Math.max(1000, Number(timeoutMs) || Number(fallbackTimeoutMs) || 4000);
+  }
+
+  function xmppNormalizeIceGatherCandidateCap(maxCandidates = 50, fallbackCap = 50) {
+    return Math.max(1, Number(maxCandidates) || Number(fallbackCap) || 50);
+  }
+
   globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS = Object.freeze({
     xmppParseIceCredsFromSdp,
     xmppParseDtlsFingerprintFromSdp,
@@ -1044,7 +1104,17 @@
     xmppAppendLocalSessionCandidate,
     xmppBuildRemoteStreamId,
     xmppEnsureRemoteStreamBucket,
-    xmppShouldRenderActiveCallSurface
+    xmppShouldRenderActiveCallSurface,
+    xmppFilterValidIceCandidates,
+    xmppBuildIceApplyResult,
+    xmppHasPeerRemoteDescription,
+    xmppQueuePendingRemoteCandidates,
+    xmppBuildQueuedOnlyIceApplyResult,
+    xmppHasPendingRemoteCandidates,
+    xmppCanFlushPendingRemoteCandidates,
+    xmppSnapshotAndClearPendingRemoteCandidates,
+    xmppNormalizeIceGatherTimeout,
+    xmppNormalizeIceGatherCandidateCap
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0320_webrtc-sdp-basics", globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
