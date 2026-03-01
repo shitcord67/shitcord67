@@ -45,10 +45,43 @@
     return bareJidFn(itemNode?.getAttribute("jid") || "");
   }
 
+  function xmppRoomAliasActorIdForOccupant(roomJid, occupantId = "", { bareJidFn = (value) => (value || "").toString().trim().toLowerCase() } = {}) {
+    const bareRoom = bareJidFn(roomJid);
+    const idValue = (occupantId || "").toString().trim();
+    if (!bareRoom || !idValue) return "";
+    return `xmpp-room:${bareRoom}/occupant-id:${encodeURIComponent(idValue)}`;
+  }
+
+  function parseXmppRoomAliasActorId(actorUserId = "", { bareJidFn = (value) => (value || "").toString().trim().toLowerCase() } = {}) {
+    const token = (actorUserId || "").toString().trim();
+    if (!token.toLowerCase().startsWith("xmpp-room:")) return null;
+    const raw = token.slice("xmpp-room:".length);
+    const slashIndex = raw.indexOf("/");
+    if (slashIndex <= 0) return null;
+    const roomJid = bareJidFn(raw.slice(0, slashIndex));
+    let actorToken = raw.slice(slashIndex + 1).trim();
+    try {
+      actorToken = decodeURIComponent(actorToken);
+    } catch {
+      // Keep undecoded token if URI decoding fails.
+    }
+    actorToken = actorToken.trim();
+    if (!roomJid || !actorToken) return null;
+    const lowerToken = actorToken.toLowerCase();
+    if (lowerToken.startsWith("occupant-id:")) {
+      const occupantId = actorToken.slice("occupant-id:".length).trim();
+      if (!occupantId) return null;
+      return { roomJid, nick: "", occupantId };
+    }
+    return { roomJid, nick: actorToken, occupantId: "" };
+  }
+
   globalScope.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT = Object.freeze({
     XMPP_OCCUPANT_ID_NAMESPACE,
     xmppOccupantIdFromStanza,
-    xmppMucMessageAuthorJid
+    xmppMucMessageAuthorJid,
+    xmppRoomAliasActorIdForOccupant,
+    parseXmppRoomAliasActorId
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0421_0045-muc-occupant", globalScope.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);

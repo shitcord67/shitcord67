@@ -279,6 +279,12 @@ const xmppOccupantIdFromStanza = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppOc
 const xmppMucMessageAuthorJid = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppMucMessageAuthorJid === "function"
   ? ((stanza) => XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppMucMessageAuthorJid(stanza, { bareJidFn: xmppBareJid }))
   : (() => "");
+const xmppRoomAliasActorIdForOccupant = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppRoomAliasActorIdForOccupant === "function"
+  ? ((roomJid, occupantId = "") => XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppRoomAliasActorIdForOccupant(roomJid, occupantId, { bareJidFn: xmppBareJid }))
+  : (() => "");
+const parseXmppRoomAliasActorId = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.parseXmppRoomAliasActorId === "function"
+  ? ((actorUserId = "") => XEP_0421_0045_MUC_OCCUPANT_GLOBAL.parseXmppRoomAliasActorId(actorUserId, { bareJidFn: xmppBareJid }))
+  : (() => null);
 const parseXmppJingleIq = typeof XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL.parseXmppJingleIq === "function"
   ? ((stanza) => XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL.parseXmppJingleIq(stanza, { bareJidFn: xmppBareJid }))
   : (() => null);
@@ -13842,37 +13848,6 @@ function resolveXmppRoomActorUserId(roomJid, nick = "", stanza = null, occupantI
     nickValue || occupant?.nick || actorJid.split("@")[0] || ""
   );
   return actorAccount?.id || occupant?.accountId || "";
-}
-
-function xmppRoomAliasActorIdForOccupant(roomJid, occupantId = "") {
-  const bareRoom = xmppBareJid(roomJid);
-  const idValue = (occupantId || "").toString().trim();
-  if (!bareRoom || !idValue) return "";
-  return `xmpp-room:${bareRoom}/occupant-id:${encodeURIComponent(idValue)}`;
-}
-
-function parseXmppRoomAliasActorId(actorUserId = "") {
-  const token = (actorUserId || "").toString().trim();
-  if (!token.toLowerCase().startsWith("xmpp-room:")) return null;
-  const raw = token.slice("xmpp-room:".length);
-  const slashIndex = raw.indexOf("/");
-  if (slashIndex <= 0) return null;
-  const roomJid = xmppBareJid(raw.slice(0, slashIndex));
-  let actorToken = raw.slice(slashIndex + 1).trim();
-  try {
-    actorToken = decodeURIComponent(actorToken);
-  } catch {
-    // Keep undecoded token if URI decoding fails.
-  }
-  actorToken = actorToken.trim();
-  if (!roomJid || !actorToken) return null;
-  const lowerToken = actorToken.toLowerCase();
-  if (lowerToken.startsWith("occupant-id:")) {
-    const occupantId = actorToken.slice("occupant-id:".length).trim();
-    if (!occupantId) return null;
-    return { roomJid, nick: "", occupantId };
-  }
-  return { roomJid, nick: actorToken, occupantId: "" };
 }
 
 function canonicalXmppRoomReactionActorId(roomJid, actorUserId = "") {
