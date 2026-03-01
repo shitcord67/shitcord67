@@ -69,6 +69,13 @@
     return "local";
   }
 
+  function normalizeRelayUrl(value) {
+    const trimmed = (value || "").toString().trim().slice(0, 180);
+    if (!trimmed) return "ws://localhost:8787";
+    if (!/^(wss?|https?):\/\//i.test(trimmed)) return "ws://localhost:8787";
+    return trimmed;
+  }
+
   globalScope.SHITCORD67_CALL_ROOM_URL_UTILS = Object.freeze({
     normalizeConferenceProviderUrl,
     normalizeConferenceRoomPrefix,
@@ -76,6 +83,7 @@
     normalizeWhiteboardProviderUrl,
     normalizeWhiteboardRoomPrefix,
     relayHealthUrlFromRelayUrl,
-    normalizeRelayMode
+    normalizeRelayMode,
+    normalizeRelayUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);

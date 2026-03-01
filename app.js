@@ -419,6 +419,9 @@ const relayHealthUrlFromRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.re
 const normalizeRelayModeViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayMode === "function"
   ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayMode
   : ((value) => (value || "").toString().toLowerCase());
+const normalizeRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayUrl === "function"
+  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayUrl
+  : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11236,10 +11239,7 @@ function normalizeRelayMode(value) {
 }
 
 function normalizeRelayUrl(value) {
-  const trimmed = (value || "").toString().trim().slice(0, 180);
-  if (!trimmed) return "ws://localhost:8787";
-  if (!/^(wss?|https?):\/\//i.test(trimmed)) return "ws://localhost:8787";
-  return trimmed;
+  return normalizeRelayUrlViaModule(value);
 }
 
 function normalizeRelayRoom(value) {
