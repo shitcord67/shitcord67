@@ -2459,3 +2459,61 @@ Your last summary was this, but when you continued working you ran out of the co
     for
       future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff
       unless you state it might be worth it. Have fun
+
+## 2026-03-01T03:26:49Z
+You last message was: • Implemented and committed continuation work in commit c5a93e3.
+
+  What I changed:
+
+  - Added OMEMO2 namespace interoperability across legacy + new OMEMO flows in app.js (/home/duda/shitcord67/app.js):
+      - Fixed namespace-prefix detection bug (so urn:xmpp:omemo:* is detected correctly).
+      - Added dual namespace support for device list/bundle publish+fetch (eu.siacs... and urn:xmpp:omemo:2).
+      - Added peer namespace preference tracking and namespace-aware OMEMO send path + EME markers.
+      - Enabled OMEMO decrypt attempts for both omemo and omemo2 incoming payload types.
+  - Improved call interop in app.js (/home/duda/shitcord67/app.js):
+      - Added local Jingle content alignment to remote session content order/names for session-accept to reduce cross-client content-name
+        mismatches.
+  - Hardened Android/WebView SWF loading in app.js (/home/duda/shitcord67/app.js):
+      - Expanded SWF URL candidate generation for nested subfolder names.
+      - Data-load fallback now sets a directory base URL (not file URL), improving relative asset resolution from SWF subfolders.
+  - Updated docs/tasks:
+      - Updated OMEMO/Jingle support notes in SUPPORTED_XEPS.md (/home/duda/shitcord67/SUPPORTED_XEPS.md).
+      - Marked OMEMO2 TODO item done in TODO (/home/duda/shitcord67/TODO).
+      - Appended your prompt to CONTINUITY_LOG.md (/home/duda/shitcord67/CONTINUITY_LOG.md).
+
+  Validation run:
+
+  - node --check app.js
+  - node --check scripts/build-mobile-web.mjs
+
+  Not done yet:
+
+  - OpenPGP/OTR cryptographic pipeline implementation is still pending.
+  - Broader call interop beyond the content-name alignment (transport/media edge cases) is still ongoing.
+
+  Next options:
+
+  1. I can implement practical OpenPGP/OTR send/receive support scaffolding next (with explicit capability gating and UX).
+  2. I can continue deeper Jingle interop (transport/media toggles and SDP roundtrip fidelity).
+  3. I can do a focused Android SWF verification pass on your swf/ dataset and tune remaining path quirks.
+ And my original task was:I previously asked the following and want you to continue on this: No it was: Well. Can you continue? Especially would
+  like for you to finally finish the spaces XEP support, OMEME and
+    maybe also OTR
+      and OpenGPG to have encryption finally working? And ofc the call interop stuff. Btw. I think especially Converse.js
+  has
+      code for OMEMO: https://nlnet.nl/project/Converse.js-OMEMO/ Then SWFs still don't load in Ruffle on Android, can it
+    even
+      cope with the swf subfolder? You might also take a look at XMPP messengers I cloned to subfolder xmppmessengers and
+  you
+      can look at https://xmpp.org/software/?category=clients for features of those clients and their details. E.g. there
+  are
+      details links that then lead to subsites named after the clients like https://xmpp.org/software/psi/. Please heavily
+      investigate. You may also choose to implement some cool XEPs autonoumously, low hanging fruits and useful stuff, etc.
+    You
+      may decide by number of lines (cloc or other tools), repo size and features which you take a look at first. Simpler
+    repos
+      with the most gain regarding things I want and you deem worth to add quick might be preferred. Also you may note down
+    for
+      future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff
+      unless you state it might be worth it. Have fun
+. As you can see you already did some of the stuff. Please continue working on what you like and make sure you make it good. Oh also what about the split of app.js to individual xeps js files?

@@ -16,7 +16,11 @@ const requiredFiles = [
 ];
 
 const requiredDirs = [
-  "vendor"
+  "vendor",
+  "xeps"
+];
+const optionalDirs = [
+  "swf"
 ];
 
 async function exists(inputPath) {
@@ -51,6 +55,12 @@ async function buildMobileWebBundle() {
     if (!await exists(source)) {
       throw new Error(`Missing required web asset directory: ${dir}`);
     }
+    await copyRootEntry(dir);
+  }
+
+  for (const dir of optionalDirs) {
+    const source = path.join(rootDir, dir);
+    if (!await exists(source)) continue;
     await copyRootEntry(dir);
   }
 

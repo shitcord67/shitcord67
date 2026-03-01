@@ -54,21 +54,84 @@ const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
 const XMPP_OCCUPANT_ID_NAMESPACE = "urn:xmpp:occupant-id:0";
-const XMPP_EME_NAMESPACE = "urn:xmpp:eme:0";
-const XMPP_OPENPGP_NAMESPACE = "urn:xmpp:openpgp:0";
-const XMPP_OPENPGP_LEGACY_NAMESPACE = "jabber:x:encrypted";
-const XMPP_OTR_PREFIX = "?OTR:";
-const XMPP_OMEMO_NAMESPACE = "eu.siacs.conversations.axolotl";
-const XMPP_OMEMO_NAMESPACE_V2 = "urn:xmpp:omemo:2";
-const XMPP_OMEMO_NAMESPACES = [XMPP_OMEMO_NAMESPACE_V2, XMPP_OMEMO_NAMESPACE];
-const XMPP_OMEMO_DEVICELIST_NODE = "eu.siacs.conversations.axolotl.devicelist";
-const XMPP_OMEMO_DEVICELIST_NODE_V2 = "urn:xmpp:omemo:2:devicelist";
-const XMPP_OMEMO_BUNDLE_NODE_PREFIX = "eu.siacs.conversations.axolotl.bundles:";
-const XMPP_OMEMO_BUNDLE_NODE_PREFIX_V2 = "urn:xmpp:omemo:2:bundles:";
-const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE = `${XMPP_OMEMO_DEVICELIST_NODE}+notify`;
-const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 = `${XMPP_OMEMO_DEVICELIST_NODE_V2}+notify`;
-const XMPP_OMEMO_PREKEY_COUNT = 48;
-const XMPP_OMEMO_SIGNED_PREKEY_ID = 1;
+const XMPP_NS_GLOBAL = globalThis.SHITCORD67_XMPP_NS || {};
+const XMPP_EME_NAMESPACE = XMPP_NS_GLOBAL.XMPP_EME_NAMESPACE || "urn:xmpp:eme:0";
+const XMPP_OPENPGP_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_NAMESPACE || "urn:xmpp:openpgp:0";
+const XMPP_OPENPGP_LEGACY_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_LEGACY_NAMESPACE || "jabber:x:encrypted";
+const XMPP_OTR_PREFIX = XMPP_NS_GLOBAL.XMPP_OTR_PREFIX || "?OTR:";
+const XMPP_OMEMO_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OMEMO_NAMESPACE || "eu.siacs.conversations.axolotl";
+const XMPP_OMEMO_NAMESPACE_V2 = XMPP_NS_GLOBAL.XMPP_OMEMO_NAMESPACE_V2 || "urn:xmpp:omemo:2";
+const XMPP_OMEMO_NAMESPACES = XMPP_NS_GLOBAL.XMPP_OMEMO_NAMESPACES || [XMPP_OMEMO_NAMESPACE_V2, XMPP_OMEMO_NAMESPACE];
+const XMPP_OMEMO_DEVICELIST_NODE = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICELIST_NODE || "eu.siacs.conversations.axolotl.devicelist";
+const XMPP_OMEMO_DEVICELIST_NODE_V2 = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICELIST_NODE_V2 || "urn:xmpp:omemo:2:devicelist";
+const XMPP_OMEMO_BUNDLE_NODE_PREFIX = XMPP_NS_GLOBAL.XMPP_OMEMO_BUNDLE_NODE_PREFIX || "eu.siacs.conversations.axolotl.bundles:";
+const XMPP_OMEMO_BUNDLE_NODE_PREFIX_V2 = XMPP_NS_GLOBAL.XMPP_OMEMO_BUNDLE_NODE_PREFIX_V2 || "urn:xmpp:omemo:2:bundles:";
+const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE || `${XMPP_OMEMO_DEVICELIST_NODE}+notify`;
+const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 || `${XMPP_OMEMO_DEVICELIST_NODE_V2}+notify`;
+const XMPP_OMEMO_PREKEY_COUNT = XMPP_NS_GLOBAL.XMPP_OMEMO_PREKEY_COUNT || 48;
+const XMPP_OMEMO_SIGNED_PREKEY_ID = XMPP_NS_GLOBAL.XMPP_OMEMO_SIGNED_PREKEY_ID || 1;
+const XMPP_XML_GLOBAL = globalThis.SHITCORD67_XMPP_XML || {};
+const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
+  if (!node || typeof node.getAttribute !== "function") return "";
+  const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
+  if (inline) return inline;
+  return (node.namespaceURI || "").toString().trim().toLowerCase();
+};
+const xmppNodeLocalName = XMPP_XML_GLOBAL.xmppNodeLocalName || function xmppNodeLocalNameFallback(node) {
+  if (!node) return "";
+  const local = (node.localName || node.nodeName || "").toString().trim().toLowerCase();
+  if (!local) return "";
+  if (!local.includes(":")) return local;
+  return local.split(":").pop() || "";
+};
+const xmppElementsByLocalName = XMPP_XML_GLOBAL.xmppElementsByLocalName || function xmppElementsByLocalNameFallback(root, name = "") {
+  if (!root || typeof root.getElementsByTagName !== "function") return [];
+  const wanted = (name || "").toString().trim().toLowerCase();
+  if (!wanted) return [];
+  const direct = [...root.getElementsByTagName(wanted)];
+  const wildcard = [...root.getElementsByTagName("*")]
+    .filter((node) => xmppNodeLocalName(node) === wanted);
+  if (direct.length === 0) return wildcard;
+  if (wildcard.length === 0) return direct;
+  const seen = new Set();
+  const merged = [];
+  [...direct, ...wildcard].forEach((node) => {
+    if (seen.has(node)) return;
+    seen.add(node);
+    merged.push(node);
+  });
+  return merged;
+};
+const xmppDirectChildByLocalName = XMPP_XML_GLOBAL.xmppDirectChildByLocalName || function xmppDirectChildByLocalNameFallback(root, name = "") {
+  if (!root || !root.childNodes) return null;
+  const wanted = (name || "").toString().trim().toLowerCase();
+  if (!wanted) return null;
+  return [...root.childNodes]
+    .find((node) => node?.nodeType === 1 && xmppNodeLocalName(node) === wanted) || null;
+};
+const xmppNodeHasXmlns = XMPP_XML_GLOBAL.xmppNodeHasXmlns || function xmppNodeHasXmlnsFallback(node, xmlns) {
+  return xmppNodeXmlns(node) === (xmlns || "").toString().trim().toLowerCase();
+};
+const xmppNodeHasXmlnsPrefix = XMPP_XML_GLOBAL.xmppNodeHasXmlnsPrefix || function xmppNodeHasXmlnsPrefixFallback(node, prefix = "") {
+  const normalizedPrefix = (prefix || "").toString().trim().toLowerCase();
+  if (!normalizedPrefix) return false;
+  const value = xmppNodeXmlns(node);
+  const scopedPrefix = normalizedPrefix.endsWith(":")
+    ? normalizedPrefix
+    : `${normalizedPrefix}:`;
+  return value === normalizedPrefix || value.startsWith(scopedPrefix);
+};
+const xmppNodeHasAnyXmlns = XMPP_XML_GLOBAL.xmppNodeHasAnyXmlns || function xmppNodeHasAnyXmlnsFallback(node, xmlnsList = []) {
+  const list = Array.isArray(xmlnsList) ? xmlnsList : [xmlnsList];
+  return list.some((xmlns) => xmppNodeHasXmlns(node, xmlns));
+};
+const xmppNodeText = XMPP_XML_GLOBAL.xmppNodeText || function xmppNodeTextFallback(node) {
+  if (!node) return "";
+  if (typeof globalThis.Strophe?.getText === "function") {
+    return (globalThis.Strophe.getText(node) || "").toString();
+  }
+  return (node.textContent || "").toString();
+};
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
 const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
@@ -11968,75 +12031,6 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
   if (!mucService) return "";
   const node = xmppRoomNodeForToken(roomToken || "lobby:general");
   return `${node}@${mucService}`;
-}
-
-function xmppNodeXmlns(node) {
-  if (!node || typeof node.getAttribute !== "function") return "";
-  const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
-  if (inline) return inline;
-  return (node.namespaceURI || "").toString().trim().toLowerCase();
-}
-
-function xmppNodeLocalName(node) {
-  if (!node) return "";
-  const local = (node.localName || node.nodeName || "").toString().trim().toLowerCase();
-  if (!local) return "";
-  if (!local.includes(":")) return local;
-  return local.split(":").pop() || "";
-}
-
-function xmppElementsByLocalName(root, name = "") {
-  if (!root || typeof root.getElementsByTagName !== "function") return [];
-  const wanted = (name || "").toString().trim().toLowerCase();
-  if (!wanted) return [];
-  const direct = [...root.getElementsByTagName(wanted)];
-  const wildcard = [...root.getElementsByTagName("*")]
-    .filter((node) => xmppNodeLocalName(node) === wanted);
-  if (direct.length === 0) return wildcard;
-  if (wildcard.length === 0) return direct;
-  const seen = new Set();
-  const merged = [];
-  [...direct, ...wildcard].forEach((node) => {
-    if (seen.has(node)) return;
-    seen.add(node);
-    merged.push(node);
-  });
-  return merged;
-}
-
-function xmppDirectChildByLocalName(root, name = "") {
-  if (!root || !root.childNodes) return null;
-  const wanted = (name || "").toString().trim().toLowerCase();
-  if (!wanted) return null;
-  return [...root.childNodes]
-    .find((node) => node?.nodeType === 1 && xmppNodeLocalName(node) === wanted) || null;
-}
-
-function xmppNodeHasXmlns(node, xmlns) {
-  return xmppNodeXmlns(node) === (xmlns || "").toString().trim().toLowerCase();
-}
-
-function xmppNodeHasXmlnsPrefix(node, prefix = "") {
-  const normalizedPrefix = (prefix || "").toString().trim().toLowerCase();
-  if (!normalizedPrefix) return false;
-  const value = xmppNodeXmlns(node);
-  const scopedPrefix = normalizedPrefix.endsWith(":")
-    ? normalizedPrefix
-    : `${normalizedPrefix}:`;
-  return value === normalizedPrefix || value.startsWith(scopedPrefix);
-}
-
-function xmppNodeHasAnyXmlns(node, xmlnsList = []) {
-  const list = Array.isArray(xmlnsList) ? xmlnsList : [xmlnsList];
-  return list.some((xmlns) => xmppNodeHasXmlns(node, xmlns));
-}
-
-function xmppNodeText(node) {
-  if (!node) return "";
-  if (typeof globalThis.Strophe?.getText === "function") {
-    return (globalThis.Strophe.getText(node) || "").toString();
-  }
-  return (node.textContent || "").toString();
 }
 
 function clearXmppPingLoop() {
