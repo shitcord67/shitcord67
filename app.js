@@ -81,6 +81,7 @@ const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:
 const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalThis.SHITCORD67_XEP_0184_0333_MARKERS);
 const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite", globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
 const XEP_0482_CALL_INVITE_PARSE_GLOBAL = xepModule("xep-0482_call-invite-parse", globalThis.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
+const XEP_0308_0424_0444_GLOBAL = xepModule("xep-0308_0424_0444-message-actions", globalThis.SHITCORD67_XEP_0308_0424_0444_ACTIONS);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -231,6 +232,15 @@ const parseXmppDirectMucInvite = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseX
   : (() => null);
 const parseXmppCallInviteAction = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction === "function"
   ? XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction
+  : (() => null);
+const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
+  ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
+  : (() => "");
+const xmppMessageRetractionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageRetractionTargetId === "function"
+  ? XEP_0308_0424_0444_GLOBAL.xmppMessageRetractionTargetId
+  : (() => "");
+const xmppReactionPayloadFromStanza = typeof XEP_0308_0424_0444_GLOBAL.xmppReactionPayloadFromStanza === "function"
+  ? XEP_0308_0424_0444_GLOBAL.xmppReactionPayloadFromStanza
   : (() => null);
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
@@ -12333,45 +12343,6 @@ function xmppStanzaDelayTimestamp(stanza, fallbackTs = "") {
   const parsed = new Date(stamp);
   if (Number.isNaN(parsed.getTime())) return fallbackTs || new Date().toISOString();
   return parsed.toISOString();
-}
-
-function xmppMessageCorrectionTargetId(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const node = [...stanza.getElementsByTagName("replace")]
-    .find((entry) => xmppNodeHasXmlns(entry, "urn:xmpp:message-correct:0")) || null;
-  return (node?.getAttribute("id") || "").toString().trim();
-}
-
-function xmppMessageRetractionTargetId(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const directNode = [...stanza.getElementsByTagName("retract")]
-    .find((entry) => xmppNodeHasXmlns(entry, XMPP_MESSAGE_RETRACT_NAMESPACE)) || null;
-  const directId = (directNode?.getAttribute("id") || "").toString().trim();
-  if (directId) return directId;
-  const applyNode = [...stanza.getElementsByTagName("apply-to")]
-    .find((entry) => xmppNodeHasXmlns(entry, XMPP_FASTEN_NAMESPACE)) || null;
-  if (!applyNode) return "";
-  const hasRetract = [...applyNode.getElementsByTagName("retract")]
-    .some((entry) => xmppNodeHasXmlns(entry, XMPP_MESSAGE_RETRACT_NAMESPACE));
-  if (!hasRetract) return "";
-  return (applyNode.getAttribute("id") || "").toString().trim();
-}
-
-function xmppReactionPayloadFromStanza(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const reactionNode = [...stanza.getElementsByTagName("reactions")]
-    .find((entry) => xmppNodeHasXmlns(entry, XMPP_REACTIONS_NAMESPACE)) || null;
-  if (!reactionNode) return null;
-  const targetId = (reactionNode.getAttribute("id") || "").toString().trim();
-  if (!targetId) return null;
-  const emojis = [...reactionNode.getElementsByTagName("reaction")]
-    .map((entry) => xmppNodeText(entry).trim())
-    .filter(Boolean)
-    .slice(0, 8);
-  return {
-    targetId,
-    emojis
-  };
 }
 
 function messageMatchesXmppReference(message, referenceId) {
