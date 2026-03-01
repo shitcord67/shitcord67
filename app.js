@@ -54,7 +54,7 @@ const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
 const XMPP_OCCUPANT_ID_NAMESPACE = "urn:xmpp:occupant-id:0";
-const XMPP_HINTS_NAMESPACE = "urn:xmpp:hints";
+const XMPP_HINTS_NAMESPACE = (globalThis.SHITCORD67_XEP_0334_HINTS?.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints");
 const XMPP_NS_GLOBAL = globalThis.SHITCORD67_XMPP_NS || {};
 const XMPP_EME_NAMESPACE = XMPP_NS_GLOBAL.XMPP_EME_NAMESPACE || "urn:xmpp:eme:0";
 const XMPP_OPENPGP_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_NAMESPACE || "urn:xmpp:openpgp:0";
@@ -191,112 +191,52 @@ const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGather
 const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || (async () => null);
 const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || (async () => null);
 const xmppOmemoTryDecryptIntoMessageCore = XEP_0384_DECRYPT_FLOW_GLOBAL.xmppOmemoTryDecryptIntoMessageCore || (() => {});
-const appendXmppMessageProcessingHints = XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints || function appendXmppMessageProcessingHintsFallback(stanza, {
-  encrypted = false,
-  ephemeral = false,
-  preferStore = true
-} = {}) {
-  if (!stanza || typeof stanza.c !== "function") return stanza;
-  const add = (name) => stanza.c(name, { xmlns: XMPP_HINTS_NAMESPACE }).up();
-  if (encrypted || ephemeral) {
-    add("no-store");
-    add("no-permanent-store");
-    if (encrypted) add("no-copy");
-    return stanza;
-  }
-  if (preferStore) add("store");
-  return stanza;
-};
-const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
-  if (!node || typeof node.getAttribute !== "function") return "";
-  const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
-  if (inline) return inline;
-  return (node.namespaceURI || "").toString().trim().toLowerCase();
-};
-const xmppNodeLocalName = XMPP_XML_GLOBAL.xmppNodeLocalName || function xmppNodeLocalNameFallback(node) {
-  if (!node) return "";
-  const local = (node.localName || node.nodeName || "").toString().trim().toLowerCase();
-  if (!local) return "";
-  if (!local.includes(":")) return local;
-  return local.split(":").pop() || "";
-};
-const xmppElementsByLocalName = XMPP_XML_GLOBAL.xmppElementsByLocalName || function xmppElementsByLocalNameFallback(root, name = "") {
-  if (!root || typeof root.getElementsByTagName !== "function") return [];
-  const wanted = (name || "").toString().trim().toLowerCase();
-  if (!wanted) return [];
-  const direct = [...root.getElementsByTagName(wanted)];
-  const wildcard = [...root.getElementsByTagName("*")]
-    .filter((node) => xmppNodeLocalName(node) === wanted);
-  if (direct.length === 0) return wildcard;
-  if (wildcard.length === 0) return direct;
-  const seen = new Set();
-  const merged = [];
-  [...direct, ...wildcard].forEach((node) => {
-    if (seen.has(node)) return;
-    seen.add(node);
-    merged.push(node);
+const appendXmppMessageProcessingHints = typeof XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints === "function"
+  ? XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints
+  : ((stanza) => stanza);
+const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
+  ? XMPP_XML_GLOBAL.xmppNodeXmlns
+  : (() => "");
+const xmppNodeLocalName = typeof XMPP_XML_GLOBAL.xmppNodeLocalName === "function"
+  ? XMPP_XML_GLOBAL.xmppNodeLocalName
+  : (() => "");
+const xmppElementsByLocalName = typeof XMPP_XML_GLOBAL.xmppElementsByLocalName === "function"
+  ? XMPP_XML_GLOBAL.xmppElementsByLocalName
+  : (() => []);
+const xmppDirectChildByLocalName = typeof XMPP_XML_GLOBAL.xmppDirectChildByLocalName === "function"
+  ? XMPP_XML_GLOBAL.xmppDirectChildByLocalName
+  : (() => null);
+const xmppNodeHasXmlns = typeof XMPP_XML_GLOBAL.xmppNodeHasXmlns === "function"
+  ? XMPP_XML_GLOBAL.xmppNodeHasXmlns
+  : (() => false);
+const xmppNodeHasXmlnsPrefix = typeof XMPP_XML_GLOBAL.xmppNodeHasXmlnsPrefix === "function"
+  ? XMPP_XML_GLOBAL.xmppNodeHasXmlnsPrefix
+  : (() => false);
+const xmppNodeHasAnyXmlns = typeof XMPP_XML_GLOBAL.xmppNodeHasAnyXmlns === "function"
+  ? XMPP_XML_GLOBAL.xmppNodeHasAnyXmlns
+  : (() => false);
+const xmppNodeText = typeof XMPP_XML_GLOBAL.xmppNodeText === "function"
+  ? XMPP_XML_GLOBAL.xmppNodeText
+  : ((node) => {
+    if (!node) return "";
+    if (typeof globalThis.Strophe?.getText === "function") return (globalThis.Strophe.getText(node) || "").toString();
+    return (node.textContent || "").toString();
   });
-  return merged;
-};
-const xmppDirectChildByLocalName = XMPP_XML_GLOBAL.xmppDirectChildByLocalName || function xmppDirectChildByLocalNameFallback(root, name = "") {
-  if (!root || !root.childNodes) return null;
-  const wanted = (name || "").toString().trim().toLowerCase();
-  if (!wanted) return null;
-  return [...root.childNodes]
-    .find((node) => node?.nodeType === 1 && xmppNodeLocalName(node) === wanted) || null;
-};
-const xmppNodeHasXmlns = XMPP_XML_GLOBAL.xmppNodeHasXmlns || function xmppNodeHasXmlnsFallback(node, xmlns) {
-  return xmppNodeXmlns(node) === (xmlns || "").toString().trim().toLowerCase();
-};
-const xmppNodeHasXmlnsPrefix = XMPP_XML_GLOBAL.xmppNodeHasXmlnsPrefix || function xmppNodeHasXmlnsPrefixFallback(node, prefix = "") {
-  const normalizedPrefix = (prefix || "").toString().trim().toLowerCase();
-  if (!normalizedPrefix) return false;
-  const value = xmppNodeXmlns(node);
-  const scopedPrefix = normalizedPrefix.endsWith(":")
-    ? normalizedPrefix
-    : `${normalizedPrefix}:`;
-  return value === normalizedPrefix || value.startsWith(scopedPrefix);
-};
-const xmppNodeHasAnyXmlns = XMPP_XML_GLOBAL.xmppNodeHasAnyXmlns || function xmppNodeHasAnyXmlnsFallback(node, xmlnsList = []) {
-  const list = Array.isArray(xmlnsList) ? xmlnsList : [xmlnsList];
-  return list.some((xmlns) => xmppNodeHasXmlns(node, xmlns));
-};
-const xmppNodeText = XMPP_XML_GLOBAL.xmppNodeText || function xmppNodeTextFallback(node) {
-  if (!node) return "";
-  if (typeof globalThis.Strophe?.getText === "function") {
-    return (globalThis.Strophe.getText(node) || "").toString();
-  }
-  return (node.textContent || "").toString();
-};
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD || {};
-const xmppEncryptedPayloadInfo = XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo || function xmppEncryptedPayloadInfoFallback(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") {
-    return { encrypted: false, type: "", label: "" };
-  }
-  const encryptedNodes = [...stanza.getElementsByTagName("encrypted")];
-  const hasLegacyOmemo = encryptedNodes
-    .some((node) => xmppNodeHasXmlns(node, "eu.siacs.conversations.axolotl"));
-  if (hasLegacyOmemo) return { encrypted: true, type: "omemo", label: "OMEMO" };
-  const hasOmemo = encryptedNodes
-    .some((node) => xmppNodeHasXmlnsPrefix(node, "urn:xmpp:omemo:"));
-  if (hasOmemo) return { encrypted: true, type: "omemo2", label: "OMEMO" };
-  const hasOpenPgp = [...stanza.getElementsByTagName("openpgp")]
-    .some((node) => xmppNodeHasXmlns(node, XMPP_OPENPGP_NAMESPACE));
-  if (hasOpenPgp) return { encrypted: true, type: "openpgp", label: "OpenPGP" };
-  const hasPgp = [...stanza.getElementsByTagName("x")]
-    .some((node) => xmppNodeHasXmlns(node, "jabber:x:encrypted"));
-  if (hasPgp) return { encrypted: true, type: "pgp", label: "OpenPGP" };
-  return { encrypted: false, type: "", label: "" };
-};
-const xmppHasEncryptedPayload = XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppHasEncryptedPayload || function xmppHasEncryptedPayloadFallback(stanza) {
-  return xmppEncryptedPayloadInfo(stanza).encrypted;
-};
-const xmppEncryptedPlaceholderLabel = XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPlaceholderLabel || function xmppEncryptedPlaceholderLabelFallback(info) {
-  if (!info || !info.encrypted) return "";
-  const label = (info.label || "").toString().trim();
-  if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
-  return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
-};
+const xmppEncryptedPayloadInfo = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo === "function"
+  ? XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo
+  : (() => ({ encrypted: false, type: "", label: "" }));
+const xmppHasEncryptedPayload = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppHasEncryptedPayload === "function"
+  ? XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppHasEncryptedPayload
+  : ((stanza) => xmppEncryptedPayloadInfo(stanza).encrypted);
+const xmppEncryptedPlaceholderLabel = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPlaceholderLabel === "function"
+  ? XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPlaceholderLabel
+  : ((info) => {
+    if (!info || !info.encrypted) return "";
+    const label = (info.label || "").toString().trim();
+    if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
+    return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
+  });
 const XEP_0454_GLOBAL = globalThis.SHITCORD67_XEP_0454 || {};
 const XEP_0454_UTILS_GLOBAL = XEP_0454_GLOBAL.media || globalThis.SHITCORD67_XEP_0454_UTILS || {};
 const bytesToHex = XEP_0454_UTILS_GLOBAL.bytesToHex || function bytesToHexFallback(bytes) {
