@@ -100,6 +100,7 @@ const XEP_0030_0166_CALL_DISCO_GLOBAL = xepModule("xep-0030_0166-call-disco", gl
 const XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL = xepModule("xep-0308_0359_0424_0444-message-updates", globalThis.SHITCORD67_XEP_0308_0359_0424_0444_MESSAGE_UPDATES);
 const XEP_0199_0410_0313_PRESENCE_PING_GLOBAL = xepModule("xep-0199_0410_0313-presence-ping", globalThis.SHITCORD67_XEP_0199_0410_0313_PRESENCE_PING);
 const XEP_0048_0402_BOOKMARKS_OPS_GLOBAL = xepModule("xep-0048_0402-bookmarks-ops", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_OPS);
+const XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL = xepModule("xep-0048_0402-bookmarks-sync", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_SYNC);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -38191,82 +38192,30 @@ function applyXmppRoomTopicFromSubject(roomJid, subject = "") {
 }
 
 function upsertXmppSpaceChannels(bookmarks, prefs = getPreferences(), account = getCurrentAccount()) {
-  if (!Array.isArray(bookmarks) || bookmarks.length === 0) return;
-  let changed = false;
-  bookmarks.forEach((entry) => {
-    const roomJid = normalizeXmppJid(entry?.jid || "").toLowerCase();
-    if (!roomJid) return;
-    if (!looksLikeXmppMucJid(roomJid, prefs)) return;
-    const upserted = upsertXmppRoomChannel(roomJid, {
-      roomName: (entry?.name || "").toString(),
-      autojoin: entry?.autojoin === true,
-      roomToken: `xmpp:${roomJid}`,
-      prefs,
-      account,
-      persist: false
-    });
-    if (upserted.changed) changed = true;
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.upsertXmppSpaceChannels !== "function") return;
+  XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.upsertXmppSpaceChannels(bookmarks, prefs, account, {
+    normalizeXmppJidFn: normalizeXmppJid,
+    looksLikeXmppMucJidFn: looksLikeXmppMucJid,
+    upsertXmppRoomChannelFn: upsertXmppRoomChannel,
+    saveStateFn: saveState
   });
-  if (changed) saveState();
 }
 
 function syncXmppRosterIntoState(items, prefs = getPreferences(), account = getCurrentAccount()) {
-  if (!Array.isArray(items) || !account) return;
-  const guild = ensureXmppSpacesGuild(prefs, account);
-  const groupMembers = new Map();
-  items.forEach((item) => {
-    const bare = normalizeXmppJid(item?.jid || "").toLowerCase();
-    if (!bare) return;
-    const accountEntry = ensureAccountByXmppJid(bare, item?.name || bare.split("@")[0] || "");
-    if (!accountEntry || accountEntry.id === account.id) return;
-    maybeFetchXmppAvatarForJid(bare);
-    getOrCreateDmThread(account, accountEntry);
-    const groups = Array.isArray(item?.groups)
-      ? item.groups.map((entry) => (entry || "").toString().trim()).filter(Boolean).slice(0, 8)
-      : [];
-    xmppRosterByJid.set(bare, { accountId: accountEntry.id, groups });
-    const subscription = (item?.subscription || "").toString().trim().toLowerCase();
-    const ask = (item?.ask || "").toString().trim().toLowerCase();
-    if (ask === "subscribe" && subscription === "none") {
-      upsertXmppContactRequest("outgoing", bare, { name: item?.name || accountEntry.displayName || "", source: "roster" });
-    } else {
-      clearXmppContactRequest("outgoing", bare);
-    }
-    if (subscription === "from") {
-      upsertXmppContactRequest("incoming", bare, { name: item?.name || accountEntry.displayName || "", source: "roster" });
-    } else if (subscription === "to" || subscription === "both") {
-      clearXmppContactRequest("incoming", bare);
-    }
-    groups.forEach((groupName) => {
-      if (!groupMembers.has(groupName)) groupMembers.set(groupName, 0);
-      groupMembers.set(groupName, (groupMembers.get(groupName) || 0) + 1);
-    });
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.syncXmppRosterIntoState !== "function") return;
+  XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.syncXmppRosterIntoState(items, prefs, account, {
+    ensureXmppSpacesGuildFn: ensureXmppSpacesGuild,
+    normalizeXmppJidFn: normalizeXmppJid,
+    ensureAccountByXmppJidFn: ensureAccountByXmppJid,
+    maybeFetchXmppAvatarForJidFn: maybeFetchXmppAvatarForJid,
+    getOrCreateDmThreadFn: getOrCreateDmThread,
+    upsertXmppContactRequestFn: upsertXmppContactRequest,
+    clearXmppContactRequestFn: clearXmppContactRequest,
+    sanitizeChannelNameFn: sanitizeChannelName,
+    createIdFn: createId,
+    createVoiceStateFn: createVoiceState,
+    xmppRosterByJid
   });
-  if (guild) {
-    groupMembers.forEach((memberCount, groupName) => {
-      const channelName = sanitizeChannelName(groupName, "group");
-      let channel = guild.channels.find((entry) => entry?.xmppGroupName === groupName) || null;
-      if (!channel) {
-        channel = {
-          id: createId(),
-          name: channelName,
-          type: "text",
-          topic: `${memberCount} XMPP contacts`,
-          forumTags: [],
-          permissionOverrides: {},
-          voiceState: createVoiceState(),
-          readState: { [account.id]: new Date().toISOString() },
-          slowmodeSec: 0,
-          slowmodeState: {},
-          messages: [],
-          xmppGroupName: groupName
-        };
-        guild.channels.push(channel);
-      } else {
-        channel.topic = `${memberCount} XMPP contacts`;
-      }
-    });
-  }
 }
 
 function parseXmppRosterItems(stanza) {
@@ -38321,23 +38270,14 @@ function mergeXmppBookmarks(...lists) {
 }
 
 async function fetchXmppBookmarks(connection) {
-  if (!connection || !globalThis.$iq) {
-    addXmppDebugEvent("iq", "Bookmarks request skipped (missing connection/runtime)");
-    return [];
-  }
-  const [modernResult, legacyResult] = await Promise.allSettled([
-    fetchXmppBookmarksPubsub(connection),
-    fetchXmppBookmarksLegacy(connection)
-  ]);
-  const modern = modernResult.status === "fulfilled" ? modernResult.value : [];
-  const legacy = legacyResult.status === "fulfilled" ? legacyResult.value : [];
-  const merged = mergeXmppBookmarks(modern, legacy);
-  addXmppDebugEvent("iq", "Merged bookmarks list", {
-    modernCount: modern.length,
-    legacyCount: legacy.length,
-    mergedCount: merged.length
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.fetchXmppBookmarks !== "function") return [];
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.fetchXmppBookmarks(connection, {
+    $iq: globalThis.$iq,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    fetchXmppBookmarksPubsubFn: fetchXmppBookmarksPubsub,
+    fetchXmppBookmarksLegacyFn: fetchXmppBookmarksLegacy,
+    mergeXmppBookmarksFn: mergeXmppBookmarks
   });
-  return merged;
 }
 
 function xmppNormalizeBookmarkEntry(entry) {
@@ -38368,166 +38308,112 @@ function appendXmppBookmarkPublishOptions(builder) {
 }
 
 async function xmppPublishBookmarkModern(entry, { connection = xmppConnection } = {}) {
-  const normalized = xmppNormalizeBookmarkEntry(entry);
-  if (!normalized || !connection || !globalThis.$iq) return false;
-  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
-  const iqAttrs = { type: "set" };
-  if (ownBare) iqAttrs.to = ownBare;
-  const iq = globalThis.$iq(iqAttrs)
-    .c("pubsub", { xmlns: XMPP_PUBSUB_NAMESPACE })
-    .c("publish", { node: XMPP_BOOKMARKS_NAMESPACE })
-    .c("item", { id: normalized.jid });
-  appendXmppBookmarkConferenceNode(iq, normalized);
-  iq.up().up();
-  appendXmppBookmarkPublishOptions(iq);
-  try {
-    await xmppSendIqPromise(connection, iq, 7000);
-    addXmppDebugEvent("iq", "Published XEP-0402 bookmark", {
-      jid: normalized.jid,
-      autojoin: normalized.autojoin
-    });
-    return true;
-  } catch (error) {
-    addXmppDebugEvent("error", "Failed to publish XEP-0402 bookmark", {
-      jid: normalized.jid,
-      error: String(error?.message || error)
-    });
-    return false;
-  }
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppPublishBookmarkModern !== "function") return false;
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppPublishBookmarkModern(entry, { connection }, {
+    $iq: globalThis.$iq,
+    getPreferencesFn: getPreferences,
+    bareJidFn: xmppBareJid,
+    XMPP_PUBSUB_NAMESPACE,
+    XMPP_BOOKMARKS_NAMESPACE,
+    xmppNormalizeBookmarkEntryFn: xmppNormalizeBookmarkEntry,
+    appendXmppBookmarkConferenceNodeFn: appendXmppBookmarkConferenceNode,
+    appendXmppBookmarkPublishOptionsFn: appendXmppBookmarkPublishOptions,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 async function xmppPublishBookmarkLegacy(entry, { connection = xmppConnection } = {}) {
-  const normalized = xmppNormalizeBookmarkEntry(entry);
-  if (!normalized || !connection || !globalThis.$iq) return false;
-  const existing = await fetchXmppBookmarksLegacy(connection);
-  const next = mergeXmppBookmarks(existing, [normalized]);
-  const iq = globalThis.$iq({ type: "set" })
-    .c("query", { xmlns: "jabber:iq:private" })
-    .c("storage", { xmlns: XMPP_BOOKMARKS_LEGACY_NAMESPACE });
-  next.forEach((bookmark) => {
-    const attrs = {
-      jid: bookmark.jid,
-      autojoin: bookmark.autojoin ? "true" : "false"
-    };
-    if (bookmark.name) attrs.name = bookmark.name.slice(0, 180);
-    const conference = iq.c("conference", attrs);
-    if (bookmark.nick) conference.c("nick").t(bookmark.nick.slice(0, 60)).up();
-    if (bookmark.password) conference.c("password").t(bookmark.password.slice(0, 180)).up();
-    appendXmppBookmarkExtensionsNode(conference, bookmark.extensionsXml);
-    conference.up();
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppPublishBookmarkLegacy !== "function") return false;
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppPublishBookmarkLegacy(entry, { connection }, {
+    $iq: globalThis.$iq,
+    XMPP_BOOKMARKS_LEGACY_NAMESPACE,
+    xmppNormalizeBookmarkEntryFn: xmppNormalizeBookmarkEntry,
+    fetchXmppBookmarksLegacyFn: fetchXmppBookmarksLegacy,
+    mergeXmppBookmarksFn: mergeXmppBookmarks,
+    appendXmppBookmarkExtensionsNodeFn: appendXmppBookmarkExtensionsNode,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    addXmppDebugEventFn: addXmppDebugEvent
   });
-  try {
-    await xmppSendIqPromise(connection, iq, 7000);
-    addXmppDebugEvent("iq", "Published legacy XMPP bookmark", {
-      jid: normalized.jid,
-      count: next.length
-    });
-    return true;
-  } catch (error) {
-    addXmppDebugEvent("error", "Failed to publish legacy XMPP bookmark", {
-      jid: normalized.jid,
-      error: String(error?.message || error)
-    });
-    return false;
-  }
 }
 
 async function xmppPublishBookmark(entry, { connection = xmppConnection } = {}) {
-  const modernOk = await xmppPublishBookmarkModern(entry, { connection });
-  const legacyOk = await xmppPublishBookmarkLegacy(entry, { connection });
-  return modernOk || legacyOk;
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppPublishBookmark !== "function") return false;
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppPublishBookmark(entry, { connection }, {
+    $iq: globalThis.$iq,
+    getPreferencesFn: getPreferences,
+    bareJidFn: xmppBareJid,
+    XMPP_PUBSUB_NAMESPACE,
+    XMPP_BOOKMARKS_NAMESPACE,
+    XMPP_BOOKMARKS_LEGACY_NAMESPACE,
+    xmppNormalizeBookmarkEntryFn: xmppNormalizeBookmarkEntry,
+    appendXmppBookmarkConferenceNodeFn: appendXmppBookmarkConferenceNode,
+    appendXmppBookmarkPublishOptionsFn: appendXmppBookmarkPublishOptions,
+    fetchXmppBookmarksLegacyFn: fetchXmppBookmarksLegacy,
+    mergeXmppBookmarksFn: mergeXmppBookmarks,
+    appendXmppBookmarkExtensionsNodeFn: appendXmppBookmarkExtensionsNode,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 async function xmppRetractBookmarkModern(jid, { connection = xmppConnection } = {}) {
-  const bare = xmppBareJid(jid || "");
-  if (!bare || !connection || !globalThis.$iq) return false;
-  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
-  const iqAttrs = { type: "set" };
-  if (ownBare) iqAttrs.to = ownBare;
-  const iq = globalThis.$iq(iqAttrs)
-    .c("pubsub", { xmlns: XMPP_PUBSUB_NAMESPACE })
-    .c("retract", { node: XMPP_BOOKMARKS_NAMESPACE, id: bare });
-  try {
-    await xmppSendIqPromise(connection, iq, 7000);
-    addXmppDebugEvent("iq", "Retracted XEP-0402 bookmark", { jid: bare });
-    return true;
-  } catch (error) {
-    addXmppDebugEvent("error", "Failed to retract XEP-0402 bookmark", {
-      jid: bare,
-      error: String(error?.message || error)
-    });
-    return false;
-  }
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppRetractBookmarkModern !== "function") return false;
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppRetractBookmarkModern(jid, { connection }, {
+    $iq: globalThis.$iq,
+    getPreferencesFn: getPreferences,
+    bareJidFn: xmppBareJid,
+    XMPP_PUBSUB_NAMESPACE,
+    XMPP_BOOKMARKS_NAMESPACE,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 async function xmppRetractBookmarkLegacy(jid, { connection = xmppConnection } = {}) {
-  const bare = xmppBareJid(jid || "");
-  if (!bare || !connection || !globalThis.$iq) return false;
-  const existing = await fetchXmppBookmarksLegacy(connection);
-  const next = existing.filter((entry) => xmppBareJid(entry?.jid || "") !== bare);
-  const iq = globalThis.$iq({ type: "set" })
-    .c("query", { xmlns: "jabber:iq:private" })
-    .c("storage", { xmlns: XMPP_BOOKMARKS_LEGACY_NAMESPACE });
-  next.forEach((bookmark) => {
-    const attrs = {
-      jid: xmppBareJid(bookmark?.jid || ""),
-      autojoin: bookmark?.autojoin === true ? "true" : "false"
-    };
-    if (!attrs.jid) return;
-    if (bookmark?.name) attrs.name = (bookmark.name || "").toString().trim().slice(0, 180);
-    const conference = iq.c("conference", attrs);
-    if (bookmark?.nick) conference.c("nick").t((bookmark.nick || "").toString().trim().slice(0, 60)).up();
-    if (bookmark?.password) conference.c("password").t((bookmark.password || "").toString().trim().slice(0, 180)).up();
-    appendXmppBookmarkExtensionsNode(conference, bookmark?.extensionsXml || "");
-    conference.up();
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppRetractBookmarkLegacy !== "function") return false;
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppRetractBookmarkLegacy(jid, { connection }, {
+    $iq: globalThis.$iq,
+    XMPP_BOOKMARKS_LEGACY_NAMESPACE,
+    bareJidFn: xmppBareJid,
+    fetchXmppBookmarksLegacyFn: fetchXmppBookmarksLegacy,
+    appendXmppBookmarkExtensionsNodeFn: appendXmppBookmarkExtensionsNode,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    addXmppDebugEventFn: addXmppDebugEvent
   });
-  try {
-    await xmppSendIqPromise(connection, iq, 7000);
-    addXmppDebugEvent("iq", "Retracted legacy XMPP bookmark", { jid: bare });
-    return true;
-  } catch (error) {
-    addXmppDebugEvent("error", "Failed to retract legacy XMPP bookmark", {
-      jid: bare,
-      error: String(error?.message || error)
-    });
-    return false;
-  }
 }
 
 async function xmppRetractBookmark(jid, { connection = xmppConnection } = {}) {
-  const modernOk = await xmppRetractBookmarkModern(jid, { connection });
-  const legacyOk = await xmppRetractBookmarkLegacy(jid, { connection });
-  return modernOk || legacyOk;
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppRetractBookmark !== "function") return false;
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppRetractBookmark(jid, { connection }, {
+    $iq: globalThis.$iq,
+    getPreferencesFn: getPreferences,
+    bareJidFn: xmppBareJid,
+    XMPP_PUBSUB_NAMESPACE,
+    XMPP_BOOKMARKS_NAMESPACE,
+    XMPP_BOOKMARKS_LEGACY_NAMESPACE,
+    fetchXmppBookmarksLegacyFn: fetchXmppBookmarksLegacy,
+    appendXmppBookmarkExtensionsNodeFn: appendXmppBookmarkExtensionsNode,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 function xmppHandleBookmarksPubsubEvent(stanza, { account = getCurrentAccount(), prefs = getPreferences() } = {}) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return false;
-  const eventNode = [...stanza.getElementsByTagName("event")]
-    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/pubsub#event")) || null;
-  if (!eventNode) return false;
-  const itemsNode = [...eventNode.getElementsByTagName("items")]
-    .find((node) => (node.getAttribute("node") || "").toString().trim() === XMPP_BOOKMARKS_NAMESPACE) || null;
-  if (!itemsNode) return false;
-  const updated = parseXmppBookmarks(itemsNode);
-  if (updated.length > 0) {
-    upsertXmppSpaceChannels(updated, prefs, account);
-  }
-  const retracts = [...itemsNode.getElementsByTagName("retract")]
-    .map((node) => (node.getAttribute("id") || "").toString().trim())
-    .filter(Boolean);
-  retracts.forEach((jid) => {
-    removeXmppRoomChannelByJid(jid, { account, prefs, persist: true, leave: true });
+  if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppHandleBookmarksPubsubEvent !== "function") return false;
+  const knownRoomJids = [...xmppRoomByJid.keys()];
+  return XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.xmppHandleBookmarksPubsubEvent(stanza, { account, prefs }, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    XMPP_BOOKMARKS_NAMESPACE,
+    parseXmppBookmarksFn: parseXmppBookmarks,
+    upsertXmppSpaceChannelsFn: upsertXmppSpaceChannels,
+    removeXmppRoomChannelByJidFn: removeXmppRoomChannelByJid,
+    saveStateFn: saveState,
+    renderServersFn: renderServers,
+    renderChannelsFn: renderChannels,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    knownRoomJids
   });
-  if (updated.length > 0 || retracts.length > 0) {
-    saveState();
-    renderServers();
-    renderChannels();
-  }
-  addXmppDebugEvent("message", "Received bookmark pubsub update", {
-    updated: updated.length,
-    retracted: retracts.length
-  });
-  return true;
 }
 
 function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000, onProgress = null }) {

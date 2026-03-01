@@ -2592,3 +2592,34 @@ If yes and this is correct then please do it. And after that you can continue re
 [1586871:0301/135459.522823:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
 And other things: When I start a call on Movim then shitcord67 still doesn't report about it at all. Then the screen capturing is still not implemented at all. And I think audio transfer via call doesn't work either? And when Dino user calls and I click accept then the Dino user gets "Anruf abgelehnt". And when I send call and Dino user accepts and then leavers after a bit he gets "Fehlgeschlagener Anruf". Then it looks like the OMEMO stuff is still not properly implemented. E.g. when I click on the lock to enable it then others don't receive my messages anymore at all, not even a message about an encrypted message (which they receive when I send e.g. from Dino). And when I receive a message from Dino I also just see "[This message is OMEMO encrypted]", no matter if I "enabled" OMEMO or not in shitcord67. Can you try to fix some of these issues along the way while you are reducing app.js and exporting and completing XEPs into the xeps subfolder? Greetings. Oh, also what about the spaces support... is that complete yet?
 2026-03-01T14:35:00+01:00	Okay the PiP thing is way better now, thanks. Then regarding the settings: I need to be able to swipe to the side to see more of the user settings cause currently I only see the first tab content on mobile. Then not only is the notch ignored but the user area is also draw way too low on mobile and it is actually covered by my virtual navigation buttons from my Android system and thus not reachable when I have the app normal open. And video player is still not working. Fix those issues, try to implement screen sharing and spaces, work on the split stuff.
+[$ts] USER PROMPT:
+For the video player I sent a file from file system so it lives on the server of my account. And screen share still doesn't work on
+Linux.
+
+[2026-03-01T16:10:39+01:00] USER PROMPT:
+For the video player I sent a file from file system so it lives on the server of my account. And screen share still doesn't work on Linux.
+
+[2026-03-01T16:20:21+01:00] USER PROMPT:
+I don't want to test this yet. Can you continue with other stuff?
+
+2026-03-01T15:52:53Z
+Can you continue and while doing that move 10 XEP things out of app.js into xeps subfolder, ideally extending the functionality if some is missing to hopefully even complete the XEP implementation?
+2026-03-01T16:05:18Z
+Continue with the next 10
+2026-03-01T16:09:33Z
+Next ten
+2026-03-01T16:10:55Z
+Next ten
+2026-03-01T16:16:21Z
+Next ten
+2026-03-01T16:19:47Z
+Next ten
+2026-03-01T16:22:00Z
+Next ten
+2026-03-01T16:25:45Z
+Next ten
+2026-03-01T16:30:06Z
+Next ten
+2026-03-01T16:36:04Z
+Next ten
+2026-03-01T16:39:23Z | Next ten
