@@ -45,9 +45,16 @@
     }
   }
 
+  function parseXmppHostMetaJson(payload) {
+    const data = payload && typeof payload === "object" ? payload : {};
+    const links = Array.isArray(data.links) ? data.links : [];
+    return extractXmppAltConnectionUrls(links);
+  }
+
   globalScope.SHITCORD67_XEP_0156_HOST_META_PARSE = Object.freeze({
     extractXmppAltConnectionUrls,
-    parseXmppHostMetaXml
+    parseXmppHostMetaXml,
+    parseXmppHostMetaJson
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0156_host-meta-parse", globalScope.SHITCORD67_XEP_0156_HOST_META_PARSE);

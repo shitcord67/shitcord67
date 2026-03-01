@@ -300,6 +300,9 @@ const extractXmppAltConnectionUrls = typeof XEP_0156_HOST_META_PARSE_GLOBAL.extr
 const parseXmppHostMetaXml = typeof XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaXml === "function"
   ? XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaXml
   : (() => []);
+const parseXmppHostMetaJson = typeof XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaJson === "function"
+  ? XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaJson
+  : ((payload) => extractXmppAltConnectionUrls(Array.isArray(payload?.links) ? payload.links : []));
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
   : (() => "");
@@ -38267,11 +38270,11 @@ async function discoverXmppWsViaHostMeta(jid, { force = false, timeoutMs = XMPP_
         continue;
       }
       const contentType = (response.headers.get("content-type") || "").toLowerCase();
-      if (contentType.includes("json")) {
+      const isJsonSource = contentType.includes("json") || /\.json($|\?)/i.test(url);
+      if (isJsonSource) {
         // eslint-disable-next-line no-await-in-loop
         const payload = await response.json();
-        const links = Array.isArray(payload?.links) ? payload.links : [];
-        extractXmppAltConnectionUrls(links).forEach((candidate) => {
+        parseXmppHostMetaJson(payload).forEach((candidate) => {
           if (!endpoints.includes(candidate)) endpoints.push(candidate);
         });
       } else {
