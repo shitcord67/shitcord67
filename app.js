@@ -82,6 +82,7 @@ const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalTh
 const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite", globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
 const XEP_0482_CALL_INVITE_PARSE_GLOBAL = xepModule("xep-0482_call-invite-parse", globalThis.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
 const XEP_0308_0424_0444_GLOBAL = xepModule("xep-0308_0424_0444-message-actions", globalThis.SHITCORD67_XEP_0308_0424_0444_ACTIONS);
+const XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL = xepModule("xep-0353_jingle-message-parse", globalThis.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -241,6 +242,9 @@ const xmppMessageRetractionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessa
   : (() => "");
 const xmppReactionPayloadFromStanza = typeof XEP_0308_0424_0444_GLOBAL.xmppReactionPayloadFromStanza === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppReactionPayloadFromStanza
+  : (() => null);
+const parseXmppJingleMessageAction = typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.parseXmppJingleMessageAction === "function"
+  ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.parseXmppJingleMessageAction
   : (() => null);
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
@@ -10068,37 +10072,6 @@ function parseXmppJingleIq(stanza) {
     info,
     transportUpdates
   };
-}
-
-function parseXmppJingleMessageAction(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const actions = ["propose", "proceed", "accept", "retract", "reject", "ringing"];
-  for (const action of actions) {
-    const node = xmppElementsByLocalName(stanza, action)
-      .find((entry) => (
-        xmppNodeHasAnyXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES)
-        || xmppNodeHasXmlnsPrefix(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX)
-      )) || null;
-    if (!node) continue;
-    const id = (node.getAttribute("id") || stanza.getAttribute("id") || "").toString().trim();
-    const media = action === "propose"
-      ? [...new Set(
-        xmppElementsByLocalName(node, "description")
-          .map((desc) => {
-            const hinted = (desc.getAttribute("media") || "").toString().trim().toLowerCase();
-            if (hinted === "audio" || hinted === "video") return hinted;
-            const xmlns = xmppNodeXmlns(desc);
-            if (xmlns === XMPP_JINGLE_AUDIO_NAMESPACE || xmlns.endsWith(":audio")) return "audio";
-            if (xmlns === XMPP_JINGLE_VIDEO_NAMESPACE || xmlns.endsWith(":video")) return "video";
-            if (xmppNodeHasXmlns(desc, XMPP_JINGLE_RTP_NAMESPACE) && hinted) return hinted;
-            return "";
-          })
-          .filter((entry) => entry === "audio" || entry === "video")
-      )]
-      : [];
-    return { action, id, media };
-  }
-  return null;
 }
 
 function latestXmppCallSessionIdForPeer(peerJid, direction = "incoming") {

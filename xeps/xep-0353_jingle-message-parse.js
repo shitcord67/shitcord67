@@ -56,15 +56,15 @@
           || xmppNodeHasXmlnsPrefix(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX)
         )) || null;
       if (!node) continue;
-      const id = (node.getAttribute("id") || "").toString().trim();
+      const id = (node.getAttribute("id") || stanza.getAttribute("id") || "").toString().trim();
       const media = action === "propose"
         ? xmppElementsByLocalName(node, "description")
           .map((desc) => {
             const mediaAttr = (desc.getAttribute("media") || "").toString().trim().toLowerCase();
             if (mediaAttr === "audio" || mediaAttr === "video") return mediaAttr;
             const xmlns = xmppNodeXmlns(desc);
-            if (xmlns === XMPP_JINGLE_AUDIO_NAMESPACE) return "audio";
-            if (xmlns === XMPP_JINGLE_VIDEO_NAMESPACE) return "video";
+            if (xmlns === XMPP_JINGLE_AUDIO_NAMESPACE || xmlns.endsWith(":audio")) return "audio";
+            if (xmlns === XMPP_JINGLE_VIDEO_NAMESPACE || xmlns.endsWith(":video")) return "video";
             if (xmppNodeHasXmlns(desc, XMPP_JINGLE_RTP_NAMESPACE) && mediaAttr) return mediaAttr;
             return "";
           })
