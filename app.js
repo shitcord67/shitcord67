@@ -94,6 +94,7 @@ const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", gl
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const CALL_ROOM_URL_UTILS_GLOBAL = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
+const XMPP_LOGIN_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_XMPP_LOGIN_NORMALIZERS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -424,6 +425,9 @@ const normalizeRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRe
   : ((value) => (value || "").toString().trim());
 const normalizeRelayRoomViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayRoom === "function"
   ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayRoom
+  : ((value) => (value || "").toString().trim());
+const normalizeXmppJidViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppJid === "function"
+  ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppJid
   : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
@@ -11282,7 +11286,7 @@ function normalizeTenorClientKey(value) {
 }
 
 function normalizeXmppJid(value) {
-  return (value || "").toString().trim().slice(0, 120);
+  return normalizeXmppJidViaModule(value);
 }
 
 function normalizeXmppPassword(value) {
