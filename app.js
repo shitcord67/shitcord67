@@ -406,6 +406,11 @@ const normalizeConferenceRoomTokenViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.
 const normalizeWhiteboardProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardProviderUrl === "function"
   ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardProviderUrl
   : ((value) => (value || "").toString().trim());
+const normalizeWhiteboardRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardRoomPrefix === "function"
+  ? ((value) => CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardRoomPrefix(value, {
+    normalizeConferenceRoomTokenFn: normalizeConferenceRoomToken
+  }))
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11252,8 +11257,7 @@ function normalizeWhiteboardProviderUrl(value) {
 }
 
 function normalizeWhiteboardRoomPrefix(value) {
-  const token = normalizeConferenceRoomToken((value || "").toString()).slice(0, 32);
-  return token || "shitcord67-wb";
+  return normalizeWhiteboardRoomPrefixViaModule(value);
 }
 
 function relayHealthUrlFromRelayUrl(value) {

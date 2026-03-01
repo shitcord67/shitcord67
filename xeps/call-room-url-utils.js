@@ -39,10 +39,18 @@
     }
   }
 
+  function normalizeWhiteboardRoomPrefix(value, {
+    normalizeConferenceRoomTokenFn = normalizeConferenceRoomToken
+  } = {}) {
+    const token = normalizeConferenceRoomTokenFn((value || "").toString()).slice(0, 32);
+    return token || "shitcord67-wb";
+  }
+
   globalScope.SHITCORD67_CALL_ROOM_URL_UTILS = Object.freeze({
     normalizeConferenceProviderUrl,
     normalizeConferenceRoomPrefix,
     normalizeConferenceRoomToken,
-    normalizeWhiteboardProviderUrl
+    normalizeWhiteboardProviderUrl,
+    normalizeWhiteboardRoomPrefix
   });
 })(typeof window !== "undefined" ? window : globalThis);
