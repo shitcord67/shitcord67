@@ -128,6 +128,10 @@
     }, {});
   }
 
+  function normalizeMediaDeviceId(value) {
+    return (value || "").toString().trim().slice(0, 180);
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -146,6 +150,7 @@
     normalizeForumThreadReadStateMap,
     normalizeForumThreadSortMap,
     normalizeForumThreadTagFilterMap,
-    normalizeLastChannelByGuildMap
+    normalizeLastChannelByGuildMap,
+    normalizeMediaDeviceId
   });
 })(typeof window !== "undefined" ? window : globalThis);

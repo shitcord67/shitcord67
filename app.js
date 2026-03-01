@@ -531,6 +531,9 @@ const normalizeForumThreadTagFilterMapViaModule = typeof UI_STATE_NORMALIZERS_GL
 const normalizeLastChannelByGuildMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeLastChannelByGuildMap === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeLastChannelByGuildMap
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeMediaDeviceIdViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeMediaDeviceId === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeMediaDeviceId
+  : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -10957,7 +10960,7 @@ function normalizePresence(value) {
 }
 
 function normalizeMediaDeviceId(value) {
-  return (value || "").toString().trim().slice(0, 180);
+  return normalizeMediaDeviceIdViaModule(value);
 }
 
 function normalizePlatformOverride(value) {
