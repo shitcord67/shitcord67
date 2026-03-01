@@ -747,6 +747,11 @@ const normalizeSlashCommandInvocationViaModule = typeof COMMAND_INVOCATION_UTILS
 const isInlineCommandHrefViaModule = typeof COMMAND_INVOCATION_UTILS_GLOBAL.isInlineCommandHref === "function"
   ? COMMAND_INVOCATION_UTILS_GLOBAL.isInlineCommandHref
   : ((value) => /^s67cmd:/i.test((value || "").toString().trim()));
+const sanitizeRichTextHrefViaModule = typeof COMMAND_INVOCATION_UTILS_GLOBAL.sanitizeRichTextHref === "function"
+  ? ((value) => COMMAND_INVOCATION_UTILS_GLOBAL.sanitizeRichTextHref(value, {
+    isLikelyRichTextLinkFn: isLikelyRichTextLink
+  }))
+  : ((value) => (value || "").toString().trim());
 const xmppSyntheticMessageIdViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppSyntheticMessageId === "function"
   ? ((payload = {}) => XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppSyntheticMessageId(payload, {
     normalizeAttachmentsFn: normalizeAttachments
@@ -19760,9 +19765,7 @@ function isLikelyRichTextLink(value) {
 }
 
 function sanitizeRichTextHref(value) {
-  const token = (value || "").toString().trim();
-  if (!isLikelyRichTextLink(token)) return "";
-  return token;
+  return sanitizeRichTextHrefViaModule(value);
 }
 
 function isInlineCommandHref(value) {

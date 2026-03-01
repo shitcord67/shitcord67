@@ -29,8 +29,17 @@
     return /^s67cmd:/i.test((value || "").toString().trim());
   }
 
+  function sanitizeRichTextHref(value, {
+    isLikelyRichTextLinkFn = () => false
+  } = {}) {
+    const token = (value || "").toString().trim();
+    if (!isLikelyRichTextLinkFn(token)) return "";
+    return token;
+  }
+
   globalScope.SHITCORD67_COMMAND_INVOCATION_UTILS = Object.freeze({
     normalizeSlashCommandInvocation,
-    isInlineCommandHref
+    isInlineCommandHref,
+    sanitizeRichTextHref
   });
 })(typeof window !== "undefined" ? window : globalThis);
