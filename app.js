@@ -483,6 +483,17 @@ const normalizeGifGroupsViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.nor
     normalizeGifFavoritesFn: normalizeGifFavorites
   }))
   : ((value) => (Array.isArray(value) ? value : []));
+const normalizeGifScopeViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifScope === "function"
+  ? ((value, groups = []) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifScope(value, { groups }))
+  : ((value, groups = []) => {
+    const token = (value || "").toString().trim().toLowerCase();
+    if (token === "all" || token === "favorites" || token === "chat" || token === "time" || token === "network") return token;
+    if (token.startsWith("group:")) {
+      const groupId = token.slice(6);
+      if (groups.some((group) => group.id === groupId)) return token;
+    }
+    return "all";
+  });
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11408,13 +11419,7 @@ function normalizeGifGroups(value) {
 }
 
 function normalizeGifScope(value, groups = []) {
-  const token = (value || "").toString().trim().toLowerCase();
-  if (token === "all" || token === "favorites" || token === "chat" || token === "time" || token === "network") return token;
-  if (token.startsWith("group:")) {
-    const groupId = token.slice(6);
-    if (groups.some((group) => group.id === groupId)) return token;
-  }
-  return "all";
+  return normalizeGifScopeViaModule(value, groups);
 }
 
 function getPreferences() {

@@ -92,6 +92,18 @@
       .slice(0, 32);
   }
 
+  function normalizeGifScope(value, {
+    groups = []
+  } = {}) {
+    const token = (value || "").toString().trim().toLowerCase();
+    if (token === "all" || token === "favorites" || token === "chat" || token === "time" || token === "network") return token;
+    if (token.startsWith("group:")) {
+      const groupId = token.slice(6);
+      if (groups.some((group) => group.id === groupId)) return token;
+    }
+    return "all";
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -103,6 +115,7 @@
     normalizeMessageCharLimit,
     normalizeRecentEmojis,
     normalizeGifFavorites,
-    normalizeGifGroups
+    normalizeGifGroups,
+    normalizeGifScope
   });
 })(typeof window !== "undefined" ? window : globalThis);
