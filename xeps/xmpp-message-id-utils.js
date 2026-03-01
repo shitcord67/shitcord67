@@ -20,7 +20,18 @@
     return `xmpp-syn-${(hash >>> 0).toString(16)}`;
   }
 
+  function primaryXmppReferenceIdForMessage(message, {
+    normalizeXmppRefIdsListFn = () => []
+  } = {}) {
+    if (!message || typeof message !== "object") return "";
+    const explicit = (message.xmppStanzaId || "").toString().trim();
+    if (explicit) return explicit;
+    const refs = normalizeXmppRefIdsListFn(message.xmppRefIds);
+    return refs[0] || "";
+  }
+
   globalScope.SHITCORD67_XMPP_MESSAGE_ID_UTILS = Object.freeze({
-    xmppSyntheticMessageId
+    xmppSyntheticMessageId,
+    primaryXmppReferenceIdForMessage
   });
 })(typeof window !== "undefined" ? window : globalThis);

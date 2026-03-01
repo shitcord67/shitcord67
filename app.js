@@ -747,6 +747,11 @@ const xmppSyntheticMessageIdViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.xmpp
     normalizeAttachmentsFn: normalizeAttachments
   }))
   : (() => "");
+const primaryXmppReferenceIdForMessageViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.primaryXmppReferenceIdForMessage === "function"
+  ? ((message) => XMPP_MESSAGE_ID_UTILS_GLOBAL.primaryXmppReferenceIdForMessage(message, {
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList
+  }))
+  : (() => "");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -17841,11 +17846,7 @@ function xmppSyntheticMessageId({ from = "", ts = "", text = "", attachments = [
 }
 
 function primaryXmppReferenceIdForMessage(message) {
-  if (!message || typeof message !== "object") return "";
-  const explicit = (message.xmppStanzaId || "").toString().trim();
-  if (explicit) return explicit;
-  const refs = normalizeXmppRefIdsList(message.xmppRefIds);
-  return refs[0] || "";
+  return primaryXmppReferenceIdForMessageViaModule(message);
 }
 
 function preferredXmppDmReferenceIdForMessage(message) {
