@@ -166,6 +166,22 @@
     return host === rule;
   }
 
+  function isBuiltInTrustedMediaHost(host = "", {
+    doesMediaRuleMatchHostFn = doesMediaRuleMatchHost
+  } = {}) {
+    const normalized = (host || "").toString().trim().toLowerCase();
+    if (!normalized) return false;
+    const builtInRules = [
+      "jabber.org",
+      "*.jabber.org",
+      "w3.org",
+      "*.w3.org",
+      "xmpp.org",
+      "*.xmpp.org"
+    ];
+    return builtInRules.some((rule) => doesMediaRuleMatchHostFn(rule, normalized));
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -185,6 +201,7 @@
     normalizeRenderableAvatarUrl,
     isLikelyImageDataUrl,
     isRenderableAvatarUrl,
-    doesMediaRuleMatchHost
+    doesMediaRuleMatchHost,
+    isBuiltInTrustedMediaHost
   });
 })(typeof window !== "undefined" ? window : globalThis);

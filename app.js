@@ -539,6 +539,11 @@ const isRenderableAvatarUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.
 const doesMediaRuleMatchHostViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.doesMediaRuleMatchHost === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.doesMediaRuleMatchHost
   : (() => false);
+const isBuiltInTrustedMediaHostViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isBuiltInTrustedMediaHost === "function"
+  ? ((host = "") => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isBuiltInTrustedMediaHost(host, {
+    doesMediaRuleMatchHostFn: doesMediaRuleMatchHost
+  }))
+  : (() => false);
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -20729,17 +20734,7 @@ function doesMediaRuleMatchHost(rule, host) {
 }
 
 function isBuiltInTrustedMediaHost(host = "") {
-  const normalized = (host || "").toString().trim().toLowerCase();
-  if (!normalized) return false;
-  const builtInRules = [
-    "jabber.org",
-    "*.jabber.org",
-    "w3.org",
-    "*.w3.org",
-    "xmpp.org",
-    "*.xmpp.org"
-  ];
-  return builtInRules.some((rule) => doesMediaRuleMatchHost(rule, normalized));
+  return isBuiltInTrustedMediaHostViaModule(host);
 }
 
 function normalizeMediaRuleToken(rule) {
