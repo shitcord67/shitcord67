@@ -247,6 +247,7 @@ let stackStopTimer = null;
 let isShuttingDown = false;
 let securityHeadersInstalled = false;
 let displayMediaRequestHandlerInstalled = false;
+let permissionHandlersInstalled = false;
 let activeClientPort = CLIENT_PORT;
 let activeGatewayPort = GATEWAY_PORT;
 let lastStackExitCode = null;
@@ -419,6 +420,85 @@ function installClientSecurityHeaders() {
       callback({ responseHeaders: headers });
     }
   );
+}
+
+const TRUSTED_RENDERER_PERMISSIONS = new Set([
+  "media",
+  "display-capture",
+  "speaker-selection",
+  "fullscreen"
+]);
+
+function isLoopbackHost(value = "") {
+  const host = (value || "").toString().trim().toLowerCase();
+  return host === "127.0.0.1" || host === "localhost" || host === "::1";
+}
+
+function isTrustedClientOrigin(rawUrl = "") {
+  if (!rawUrl) return false;
+  let parsed = null;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (!/^https?:$/i.test(parsed.protocol)) return false;
+  const host = (parsed.hostname || "").toString().trim().toLowerCase();
+  const configuredHost = (CLIENT_HOST || "").toString().trim().toLowerCase();
+  const hostMatches = host === configuredHost || (isLoopbackHost(host) && isLoopbackHost(configuredHost));
+  if (!hostMatches) return false;
+  const resolvedPort = Number(parsed.port || (parsed.protocol === "https:" ? 443 : 80));
+  return resolvedPort === Number(activeClientPort);
+}
+
+function shouldAllowRendererPermission(permission = "", originCandidates = []) {
+  const normalized = (permission || "").toString().trim().toLowerCase();
+  if (!TRUSTED_RENDERER_PERMISSIONS.has(normalized)) return false;
+  const candidates = (Array.isArray(originCandidates) ? originCandidates : [])
+    .map((entry) => (entry || "").toString().trim())
+    .filter(Boolean);
+  return candidates.some((entry) => isTrustedClientOrigin(entry));
+}
+
+function installPermissionHandlers() {
+  if (permissionHandlersInstalled) return;
+  const defaultSession = session.defaultSession;
+  if (!defaultSession) return;
+  if (typeof defaultSession.setPermissionRequestHandler === "function") {
+    defaultSession.setPermissionRequestHandler((webContents, permission, callback, details = {}) => {
+      const originCandidates = [
+        details.requestingOrigin,
+        details.securityOrigin,
+        details.embeddingOrigin,
+        details.origin
+      ];
+      if (webContents && typeof webContents.getURL === "function") {
+        originCandidates.push(webContents.getURL());
+      }
+      const allow = shouldAllowRendererPermission(permission, originCandidates);
+      try {
+        callback(Boolean(allow));
+      } catch {
+        // Ignore callback races during shutdown/navigation.
+      }
+    });
+  }
+  if (typeof defaultSession.setPermissionCheckHandler === "function") {
+    defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details = {}) => {
+      const originCandidates = [
+        requestingOrigin,
+        details.requestingOrigin,
+        details.securityOrigin,
+        details.embeddingOrigin
+      ];
+      if (webContents && typeof webContents.getURL === "function") {
+        originCandidates.push(webContents.getURL());
+      }
+      return shouldAllowRendererPermission(permission, originCandidates);
+    });
+  }
+  permissionHandlersInstalled = true;
+  log("permission handlers installed for trusted local renderer origin");
 }
 
 function scoreDisplayCaptureSource(source) {
@@ -785,6 +865,7 @@ app.whenReady().then(async () => {
     startupWarning = String(error?.message || error || "unknown error");
     log("startup warning", startupWarning);
   }
+  installPermissionHandlers();
 
   try {
     await createMainWindow({ startupWarning });

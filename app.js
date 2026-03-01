@@ -1291,7 +1291,7 @@ function screenShareCapabilitySnapshot() {
   }
   if (platform === "linux" && sessionType === "wayland") {
     if (pipewire === "off") {
-      return { ok: false, reason: "Wayland screen sharing requires PipeWire (disabled)." };
+      return { ok: true, warning: "Wayland screen share is configured with PipeWire off; capture may fail without PipeWire + xdg-desktop-portal." };
     }
     return { ok: true, warning: "Wayland screen sharing depends on PipeWire + xdg-desktop-portal." };
   }
@@ -2676,6 +2676,7 @@ const xmppCallInviteTokenById = new Map();
 const xmppCallSpeakingStateBySessionId = new Map();
 let xmppCallSpeakingAudioContext = null;
 let xmppMediaAccessToastAt = 0;
+let xmppScreenShareWarningToastAt = 0;
 let webCallRingtoneContext = null;
 let webCallRingtoneInterval = null;
 let webCallRingtoneToken = "";
@@ -5497,6 +5498,15 @@ function showXmppMediaAccessError(message = "Could not access local media device
   showToast(message, { tone: "error", duration: 3200 });
 }
 
+function showXmppScreenShareWarning(message = "") {
+  const text = (message || "").toString().trim();
+  if (!text) return;
+  const now = Date.now();
+  if (now - xmppScreenShareWarningToastAt < 6000) return;
+  xmppScreenShareWarningToastAt = now;
+  showToast(text, { tone: "info", duration: 3600 });
+}
+
 function xmppDebugTokenFragment(value = "") {
   const raw = (value || "").toString().trim();
   if (!raw) return "";
@@ -8217,6 +8227,9 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
     if (!capability.ok) {
       showToast(capability.reason || "Screen sharing unavailable.", { tone: "error" });
       return false;
+    }
+    if (capability.warning) {
+      showXmppScreenShareWarning(capability.warning);
     }
   }
   xmppStopLocalMediaStreamForSession(sid);

@@ -96,6 +96,7 @@
 - [done] Sticker picker now hides disallowed external media entries according to privacy/block rules.
 - [done] Added advanced-settings management for media allow/deny rules (add + remove without slash commands).
 - [done] Added explicit call failure surfaces (ICE/PC failure hints, no-remote-track hints, media-access error toasts).
+- [done] Added Electron trusted-origin permission handlers for native media/display-capture and softened Wayland screen-share preflight from hard-block to warn-and-attempt.
 - [done] Added `/spacesxmpp` command (`list|open|sync|discover|join`) to prioritize practical XMPP Spaces management and discovery.
 - [priority] Implement OpenPGP encryption for XMPP (XEP-0373/0374) and OTR (XEP-0378) for DM parity.
 - [done] Added OMEMO 2 namespace support (XEP-0384 updates) alongside legacy OMEMO payloads.
