@@ -435,6 +435,9 @@ const normalizeXmppPasswordViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.norm
 const normalizeXmppWsUrlViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppWsUrl === "function"
   ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppWsUrl
   : ((value) => (value || "").toString().trim());
+const normalizeXmppMucServiceViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppMucService === "function"
+  ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppMucService
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11304,7 +11307,7 @@ function normalizeXmppWsUrl(value) {
 }
 
 function normalizeXmppMucService(value) {
-  return (value || "").toString().trim().toLowerCase().slice(0, 120);
+  return normalizeXmppMucServiceViaModule(value);
 }
 
 function normalizeVoiceState(value) {

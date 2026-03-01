@@ -15,9 +15,14 @@
     return /^wss?:\/\//i.test(raw) ? raw : "";
   }
 
+  function normalizeXmppMucService(value) {
+    return (value || "").toString().trim().toLowerCase().slice(0, 120);
+  }
+
   globalScope.SHITCORD67_XMPP_LOGIN_NORMALIZERS = Object.freeze({
     normalizeXmppJid,
     normalizeXmppPassword,
-    normalizeXmppWsUrl
+    normalizeXmppWsUrl,
+    normalizeXmppMucService
   });
 })(typeof window !== "undefined" ? window : globalThis);
