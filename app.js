@@ -85,6 +85,7 @@ const XEP_0384_OWN_BUNDLE_GLOBAL = globalThis.SHITCORD67_XEP_0384_OWN_BUNDLE || 
 const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
 const XEP_0384_MESSAGE_CRYPTO_GLOBAL = globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
 const XEP_0384_DECRYPT_CONTENT_GLOBAL = globalThis.SHITCORD67_XEP_0384_DECRYPT_CONTENT || {};
+const XEP_0384_DECRYPT_FLOW_GLOBAL = globalThis.SHITCORD67_XEP_0384_DECRYPT_FLOW || {};
 const XEP_0334_HINTS_GLOBAL = globalThis.SHITCORD67_XEP_0334_HINTS || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
@@ -188,6 +189,7 @@ const xmppOmemoEnsureOwnBundleCore = XEP_0384_OWN_BUNDLE_GLOBAL.xmppOmemoEnsureO
 const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGatherDeviceTargetsCore || (async () => []);
 const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || (async () => null);
 const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || (async () => null);
+const xmppOmemoTryDecryptIntoMessageCore = XEP_0384_DECRYPT_FLOW_GLOBAL.xmppOmemoTryDecryptIntoMessageCore || (() => {});
 const appendXmppMessageProcessingHints = XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints || function appendXmppMessageProcessingHintsFallback(stanza, {
   encrypted = false,
   ephemeral = false,
@@ -14924,47 +14926,24 @@ function xmppOmemoTryDecryptIntoMessage({
   ownBare,
   onUpdated
 }) {
-  if (!stanza || !message || !peerBare || !ownBare) return;
-  if (!xmppOmemoRuntimeAvailable()) return;
-  const omemoPayload = xmppOmemoParseEncryptedPayload(stanza);
-  if (!omemoPayload) return;
-  const messageId = `${peerBare}|${message.id || xmppStanzaStableId(stanza) || createId().slice(0, 8)}`;
-  if (xmppOmemoDecryptInFlightByMessageId.has(messageId)) return;
-  const task = (async () => {
-    try {
-      const plaintext = await xmppOmemoDecryptPayload(peerBare, omemoPayload, ownBare);
-      if (!plaintext) return;
-      const aesgcmUrls = extractAesgcmUrls(plaintext);
-      const cleanText = stripAesgcmUrls(plaintext);
-      if (aesgcmUrls.length > 0) {
-        const encryptedAttachments = aesgcmUrls.map((url) => ({
-          type: "file",
-          url,
-          name: "Encrypted attachment",
-          format: "aesgcm"
-        }));
-        message.attachments = normalizeAttachments([
-          ...encryptedAttachments,
-          ...normalizeAttachments(message.attachments)
-        ]);
-      }
-      message.text = cleanText || message.text || "";
-      message.xmppEncrypted = true;
-      message.xmppEncryptedType = omemoPayload.encryptedType || "omemo";
-      message.xmppEncryptedLabel = "OMEMO";
-      message.xmppOmemoDecrypted = true;
-      saveState();
-      if (typeof onUpdated === "function") onUpdated();
-    } catch (error) {
-      addXmppDebugEvent("error", "OMEMO decrypt failed", {
-        peer: peerBare,
-        error: String(error?.message || error)
-      });
+  xmppOmemoTryDecryptIntoMessageCore({
+    stanza,
+    message,
+    peerBare,
+    ownBare,
+    onUpdated,
+    runtimeAvailableFn: xmppOmemoRuntimeAvailable,
+    parseEncryptedPayloadFn: xmppOmemoParseEncryptedPayload,
+    decryptPayloadFn: xmppOmemoDecryptPayload,
+    extractAesgcmUrlsFn: extractAesgcmUrls,
+    stripAesgcmUrlsFn: stripAesgcmUrls,
+    normalizeAttachmentsFn: normalizeAttachments,
+    saveStateFn: saveState,
+    debugEventFn: addXmppDebugEvent,
+    inFlightByMessageId: xmppOmemoDecryptInFlightByMessageId,
+    resolveMessageIdFn: ({ stanza: inputStanza, message: inputMessage, peerBare: inputPeer }) => {
+      return `${inputPeer}|${inputMessage.id || xmppStanzaStableId(inputStanza) || createId().slice(0, 8)}`;
     }
-  })();
-  xmppOmemoDecryptInFlightByMessageId.set(messageId, task);
-  task.finally(() => {
-    xmppOmemoDecryptInFlightByMessageId.delete(messageId);
   });
 }
 
