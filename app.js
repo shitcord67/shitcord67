@@ -81,6 +81,7 @@ const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
 const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
 const XEP_0384_MESSAGE_CRYPTO_GLOBAL = globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
 const XEP_0384_DECRYPT_CONTENT_GLOBAL = globalThis.SHITCORD67_XEP_0384_DECRYPT_CONTENT || {};
+const XEP_0334_HINTS_GLOBAL = globalThis.SHITCORD67_XEP_0334_HINTS || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -137,184 +138,7 @@ const concatArrayBuffers = XEP_0384_CRYPTO_UTILS_GLOBAL.concatArrayBuffers || fu
   out.set(b, a.length);
   return out.buffer;
 };
-const XmppOmemoStore = XEP_0384_OMEMO_STORE_GLOBAL.XmppOmemoStore || class XmppOmemoStoreFallback {
-  constructor(jid) {
-    this.jid = xmppBareJid(jid || "");
-    this.storageVersion = "s67.omemo.v1";
-    this.Direction = {
-      SENDING: 1,
-      RECEIVING: 2
-    };
-  }
-
-  prefix() {
-    return `${this.storageVersion}.${this.jid}.`;
-  }
-
-  key(key) {
-    return `${this.prefix()}${key}`;
-  }
-
-  putString(key, value) {
-    if (!key) throw new Error("OMEMO store missing key");
-    localStorage.setItem(this.key(key), value == null ? "" : String(value));
-  }
-
-  getString(key, fallback) {
-    if (!key) throw new Error("OMEMO store missing key");
-    const value = localStorage.getItem(this.key(key));
-    if (value === null || value === undefined) return fallback;
-    return value;
-  }
-
-  putJson(key, value) {
-    this.putString(key, JSON.stringify(value));
-  }
-
-  getJson(key, fallback) {
-    const raw = this.getString(key, null);
-    if (!raw) return fallback;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return fallback;
-    }
-  }
-
-  remove(key) {
-    if (!key) return;
-    localStorage.removeItem(this.key(key));
-  }
-
-  filter(prefix) {
-    const base = this.key(prefix);
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const localKey = localStorage.key(i);
-      if (localKey && localKey.startsWith(base)) keys.push(localKey);
-    }
-    return keys;
-  }
-
-  async setIdentityKeyPair(identityKeyPair) {
-    this.putJson("identityKey", {
-      privKey: arrayBufferToBase64(identityKeyPair.privKey),
-      pubKey: arrayBufferToBase64(identityKeyPair.pubKey)
-    });
-  }
-
-  async getIdentityKeyPair() {
-    const data = this.getJson("identityKey", null);
-    if (!data) return Promise.reject(new Error("Missing identity key"));
-    return {
-      privKey: base64ToArrayBuffer(data.privKey || ""),
-      pubKey: base64ToArrayBuffer(data.pubKey || "")
-    };
-  }
-
-  async setLocalRegistrationId(registrationId) {
-    this.putString("registrationId", String(registrationId));
-  }
-
-  async getLocalRegistrationId() {
-    const raw = this.getString("registrationId", "");
-    return raw ? Number(raw) : null;
-  }
-
-  async isTrustedIdentity(identifier, identityKey) {
-    if (!identifier || !(identityKey instanceof ArrayBuffer)) return false;
-    const stored = this.getString(`identityKey:${identifier}`, "");
-    if (!stored) return true;
-    return arrayBufferToBase64(identityKey) === stored;
-  }
-
-  async loadIdentityKey(identifier) {
-    const stored = this.getString(`identityKey:${identifier}`, "");
-    return stored ? base64ToArrayBuffer(stored) : null;
-  }
-
-  async saveIdentity(identifier, identityKey) {
-    if (!identifier || !(identityKey instanceof ArrayBuffer)) return false;
-    const key = arrayBufferToBase64(identityKey);
-    const existing = this.getString(`identityKey:${identifier}`, "");
-    this.putString(`identityKey:${identifier}`, key);
-    return Boolean(existing && existing !== key);
-  }
-
-  async loadPreKey(keyId) {
-    const data = this.getJson(`preKey:${keyId}`, null);
-    if (!data) return null;
-    return {
-      pubKey: base64ToArrayBuffer(data.pubKey || ""),
-      privKey: base64ToArrayBuffer(data.privKey || "")
-    };
-  }
-
-  async storePreKey(keyId, keyPair) {
-    this.putJson(`preKey:${keyId}`, {
-      pubKey: arrayBufferToBase64(keyPair.pubKey),
-      privKey: arrayBufferToBase64(keyPair.privKey)
-    });
-  }
-
-  async removePreKey(keyId) {
-    this.remove(`preKey:${keyId}`);
-  }
-
-  loadCompleteSignedPreKey(keyId) {
-    const data = this.getJson(`signedPreKey:${keyId}`, null);
-    if (!data) return null;
-    return {
-      keyId,
-      keyPair: {
-        pubKey: base64ToArrayBuffer(data.keyPair?.pubKey || ""),
-        privKey: base64ToArrayBuffer(data.keyPair?.privKey || "")
-      },
-      signature: base64ToArrayBuffer(data.signature || "")
-    };
-  }
-
-  async loadSignedPreKey(keyId) {
-    const data = this.loadCompleteSignedPreKey(keyId);
-    return data ? data.keyPair : null;
-  }
-
-  async storeSignedPreKey(keyId, key) {
-    this.putJson(`signedPreKey:${keyId}`, {
-      keyPair: {
-        pubKey: arrayBufferToBase64(key.keyPair.pubKey),
-        privKey: arrayBufferToBase64(key.keyPair.privKey)
-      },
-      signature: arrayBufferToBase64(key.signature || new ArrayBuffer(0))
-    });
-  }
-
-  async removeSignedPreKey(keyId) {
-    this.remove(`signedPreKey:${keyId}`);
-  }
-
-  async loadSession(identifier) {
-    return this.getString(`session:${identifier}`, null);
-  }
-
-  async storeSession(identifier, record) {
-    this.putString(`session:${identifier}`, record);
-  }
-
-  async removeSession(identifier) {
-    this.remove(`session:${identifier}`);
-  }
-
-  async removeAllSessionsForJid(identifier) {
-    const keys = this.filter(`session:${identifier}`);
-    keys.forEach((key) => localStorage.removeItem(key));
-  }
-
-  getSessionsIds(identifier) {
-    const keys = this.filter(`session:${identifier}`);
-    return keys.map((key) => key.split(".").pop()).filter(Boolean);
-  }
-};
+const XmppOmemoStore = XEP_0384_OMEMO_STORE_GLOBAL.XmppOmemoStore || null;
 const xmppOmemoRuntimeAvailable = XEP_0384_RUNTIME_GLOBAL.xmppOmemoRuntimeAvailable || function xmppOmemoRuntimeAvailableFallback() {
   return Boolean(globalThis.libsignal && globalThis.libsignal.KeyHelper && globalThis.crypto?.subtle);
 };
@@ -349,164 +173,27 @@ const xmppOmemoApplyPeerEnabled = XEP_0384_PREFERENCES_GLOBAL.xmppOmemoApplyPeer
     }
   };
 };
-const xmppOmemoEnsureLocalIdentityCore = XEP_0384_IDENTITY_GLOBAL.xmppOmemoEnsureLocalIdentityCore || async function xmppOmemoEnsureLocalIdentityCoreFallback(ownBare, {
-  runtimeAvailableFn,
-  storeForAccountFn
+const xmppOmemoEnsureLocalIdentityCore = XEP_0384_IDENTITY_GLOBAL.xmppOmemoEnsureLocalIdentityCore || (async () => null);
+const xmppOmemoEnsureSessionCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsureSessionCore || (async () => false);
+const xmppOmemoEnsurePeerSessionsCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsurePeerSessionsCore || (async () => []);
+const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGatherDeviceTargetsCore || (async () => []);
+const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || (async () => null);
+const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || (async () => null);
+const appendXmppMessageProcessingHints = XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints || function appendXmppMessageProcessingHintsFallback(stanza, {
+  encrypted = false,
+  ephemeral = false,
+  preferStore = true
 } = {}) {
-  if (typeof runtimeAvailableFn !== "function" || typeof storeForAccountFn !== "function") return null;
-  if (!runtimeAvailableFn()) return null;
-  const store = storeForAccountFn(ownBare);
-  if (!store) return null;
-  let registrationId = await store.getLocalRegistrationId();
-  if (!registrationId) {
-    registrationId = globalThis.libsignal.KeyHelper.generateRegistrationId();
-    await store.setLocalRegistrationId(registrationId);
+  if (!stanza || typeof stanza.c !== "function") return stanza;
+  const add = (name) => stanza.c(name, { xmlns: "urn:xmpp:hints" }).up();
+  if (encrypted || ephemeral) {
+    add("no-store");
+    add("no-permanent-store");
+    if (encrypted) add("no-copy");
+    return stanza;
   }
-  try {
-    await store.getIdentityKeyPair();
-  } catch {
-    const identityKeyPair = await globalThis.libsignal.KeyHelper.generateIdentityKeyPair();
-    await store.setIdentityKeyPair(identityKeyPair);
-  }
-  return store;
-};
-const xmppOmemoEnsureSessionCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsureSessionCore || async function xmppOmemoEnsureSessionCoreFallback(peerBare, deviceId, ownBare, {
-  runtimeAvailableFn,
-  storeForAccountFn,
-  fetchBundleFn,
-  sessionSetupInFlight,
-  base64ToArrayBuffer: decodeBase64ToArrayBuffer,
-  signedPreKeyId
-} = {}) {
-  if (!peerBare || !deviceId || !ownBare) return false;
-  if (typeof runtimeAvailableFn !== "function" || !runtimeAvailableFn()) return false;
-  if (typeof storeForAccountFn !== "function" || typeof fetchBundleFn !== "function") return false;
-  if (!sessionSetupInFlight || typeof decodeBase64ToArrayBuffer !== "function") return false;
-  const store = storeForAccountFn(ownBare);
-  if (!store) return false;
-  const sessionId = `${peerBare}.${deviceId}`;
-  const existing = await store.loadSession(sessionId);
-  if (existing) return true;
-  const inflightKey = `${ownBare}|${peerBare}|${deviceId}`;
-  if (sessionSetupInFlight.has(inflightKey)) {
-    return sessionSetupInFlight.get(inflightKey) || false;
-  }
-  const promise = (async () => {
-    const bundle = await fetchBundleFn(peerBare, deviceId);
-    if (!bundle) return false;
-    const preKey = bundle.preKeys[Math.floor(Math.random() * bundle.preKeys.length)];
-    if (!preKey) return false;
-    const address = new globalThis.libsignal.SignalProtocolAddress(peerBare, Number(deviceId));
-    const builder = new globalThis.libsignal.SessionBuilder(store, address);
-    await builder.processPreKey({
-      registrationId: Number(deviceId),
-      identityKey: decodeBase64ToArrayBuffer(bundle.identityKey),
-      signedPreKey: {
-        keyId: Number(bundle.signedPreKeyId || signedPreKeyId || 1),
-        publicKey: decodeBase64ToArrayBuffer(bundle.signedPreKeyPublic),
-        signature: decodeBase64ToArrayBuffer(bundle.signedPreKeySignature)
-      },
-      preKey: {
-        keyId: Number(preKey.id),
-        publicKey: decodeBase64ToArrayBuffer(preKey.key)
-      }
-    });
-    return true;
-  })();
-  sessionSetupInFlight.set(inflightKey, promise);
-  try {
-    return await promise;
-  } finally {
-    sessionSetupInFlight.delete(inflightKey);
-  }
-};
-const xmppOmemoEnsurePeerSessionsCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsurePeerSessionsCore || async function xmppOmemoEnsurePeerSessionsCoreFallback(peerBare, ownBare, {
-  deviceListByJid,
-  fetchDeviceListFn,
-  ensureSessionFn
-} = {}) {
-  if (!peerBare || !ownBare) return [];
-  if (!deviceListByJid || typeof fetchDeviceListFn !== "function" || typeof ensureSessionFn !== "function") return [];
-  const devices = deviceListByJid.get(peerBare) || await fetchDeviceListFn(peerBare);
-  if (!devices || devices.length === 0) return [];
-  const results = await Promise.all(devices.map((deviceId) => ensureSessionFn(peerBare, deviceId, ownBare)));
-  return devices.filter((_, index) => results[index]);
-};
-const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGatherDeviceTargetsCore || async function xmppOmemoGatherDeviceTargetsCoreFallback(peers = [], ownBare = "", {
-  toBareJid,
-  fetchDeviceListFn,
-  storeForAccountFn
-} = {}) {
-  if (typeof toBareJid !== "function" || typeof fetchDeviceListFn !== "function") return [];
-  const uniquePeers = [...new Set(peers.map((entry) => toBareJid(entry || "")).filter(Boolean))];
-  const targets = [];
-  const seenIds = new Map();
-  for (const peer of uniquePeers) {
-    // eslint-disable-next-line no-await-in-loop
-    const devices = await fetchDeviceListFn(peer);
-    if (peer === ownBare && devices.length === 0 && typeof storeForAccountFn === "function") {
-      const store = storeForAccountFn(ownBare);
-      // eslint-disable-next-line no-await-in-loop
-      const localId = store ? await store.getLocalRegistrationId() : null;
-      if (localId) devices.push(String(localId));
-    }
-    devices.forEach((deviceId) => {
-      if (!deviceId) return;
-      const existing = seenIds.get(deviceId);
-      if (existing && existing !== peer) {
-        throw new Error(`OMEMO device id collision (${deviceId}) between ${existing} and ${peer}`);
-      }
-      seenIds.set(deviceId, peer);
-      targets.push({ jid: peer, deviceId });
-    });
-  }
-  return targets;
-};
-const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || async function xmppOmemoEncryptPlaintextContentCoreFallback(plaintext, {
-  arrayBufferToBase64: encodeArrayBufferToBase64,
-  concatArrayBuffers: joinArrayBuffers
-} = {}) {
-  if (typeof encodeArrayBufferToBase64 !== "function" || typeof joinArrayBuffers !== "function") return null;
-  if (!globalThis.crypto?.subtle) return null;
-  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 128 }, true, ["encrypt", "decrypt"]);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(plaintext || "");
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, key, encoded);
-  const encryptedBytes = new Uint8Array(encrypted);
-  const tagLength = 16;
-  const ciphertext = encryptedBytes.slice(0, Math.max(0, encryptedBytes.length - tagLength));
-  const tag = encryptedBytes.slice(encryptedBytes.length - tagLength);
-  const rawKey = new Uint8Array(await crypto.subtle.exportKey("raw", key));
-  const tagBuffer = tag.byteLength > 0
-    ? tag.buffer.slice(tag.byteOffset, tag.byteOffset + tag.byteLength)
-    : new ArrayBuffer(0);
-  const keyAndTag = joinArrayBuffers(rawKey.buffer, tagBuffer);
-  return {
-    keyAndTag,
-    ivBase64: encodeArrayBufferToBase64(iv.buffer),
-    payloadBase64: encodeArrayBufferToBase64(ciphertext.buffer)
-  };
-};
-const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || async function xmppOmemoDecryptContentFromKeyAndPayloadCoreFallback(keyAndTag, payload, {
-  base64ToArrayBuffer: decodeBase64ToArrayBuffer,
-  concatArrayBuffers: joinArrayBuffers
-} = {}) {
-  if (!keyAndTag || !payload) return null;
-  if (typeof decodeBase64ToArrayBuffer !== "function" || typeof joinArrayBuffers !== "function") return null;
-  if (!globalThis.crypto?.subtle) return null;
-  const keyBytes = new Uint8Array(keyAndTag);
-  if (keyBytes.length < 16) return null;
-  const keyBytesPart = keyBytes.slice(0, 16);
-  const tagBytes = keyBytes.slice(16);
-  const iv = decodeBase64ToArrayBuffer(payload.iv);
-  const ciphertext = decodeBase64ToArrayBuffer(payload.payload);
-  const tagBuffer = tagBytes.byteLength > 0
-    ? tagBytes.buffer.slice(tagBytes.byteOffset, tagBytes.byteOffset + tagBytes.byteLength)
-    : new ArrayBuffer(0);
-  const ciphertextAndTag = joinArrayBuffers(ciphertext, tagBuffer);
-  const importedKey = await crypto.subtle.importKey("raw", keyBytesPart, "AES-GCM", false, ["decrypt"]);
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(iv), tagLength: 128 }, importedKey, ciphertextAndTag);
-  return new TextDecoder().decode(decrypted);
+  if (preferStore) add("store");
+  return stanza;
 };
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
@@ -19967,6 +19654,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       stanza.c("replace", replaceNode).up();
       appendXmppOriginIdNode(stanza, correctionOriginId);
+      appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
       appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
       appendXmppChatMarkableNode(stanza);
       stanza.c("request", { xmlns: "urn:xmpp:receipts" });
@@ -20000,6 +19688,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       stanza.c("replace", replaceNode).up();
       appendXmppOriginIdNode(stanza, correctionOriginId);
+      appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
       appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
       xmppConnection.send(stanza);
       rememberXmppLocalSentRefs([correctionStanzaId, correctionOriginId]);
@@ -20040,6 +19729,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
     appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
     stanza.c("replace", replaceNode).up();
     appendXmppOriginIdNode(stanza, correctionOriginId);
+    appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
     appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
     xmppConnection.send(stanza);
     rememberXmppLocalSentRefs([correctionStanzaId, correctionOriginId]);
@@ -20115,6 +19805,7 @@ function publishRelayChannelMessage(channel, message, account) {
         .t(omemoEnabled ? "This message is encrypted with OMEMO." : baseBody);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       appendXmppOriginIdNode(stanza, originId);
+      appendXmppMessageProcessingHints(stanza, { encrypted: omemoEnabled, preferStore: !omemoEnabled });
       if (omemoEnabled && roomBare) {
         const ownBare = xmppBareJid(prefs.xmppJid || "");
         if (ownBare) {
@@ -20262,6 +19953,7 @@ function publishRelayDirectMessage(thread, message, account) {
         stanza.c("body").t(omemoEnabled ? "This message is encrypted with OMEMO." : baseBody).up();
         appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
         appendXmppOriginIdNode(stanza, originId);
+        appendXmppMessageProcessingHints(stanza, { encrypted: omemoEnabled, preferStore: !omemoEnabled });
         if (omemoEnabled) {
           const ownBare = xmppBareJid(prefs.xmppJid || "");
           if (!ownBare) {
@@ -20329,6 +20021,7 @@ function publishRelayDirectMessage(thread, message, account) {
         .t(bodyPayload.body);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       appendXmppOriginIdNode(stanza, originId);
+      appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
       appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
       xmppConnection.send(stanza);
       rememberXmppLocalSentRefs([stanzaId, originId]);

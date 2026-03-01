@@ -2553,3 +2553,9 @@ Yes. Please continue with the next 10
 
 ## 2026-03-01T05:54:12Z
 Oh also while you are extracting, can you try to complete the xeps? Or add least extend them a bit if you don't think you can make their implementation complete?
+
+## 2026-03-01T05:55:29Z
+Also I wonder why app.js gets bigger when stuff is supposed to be loaded from the xep files?!
+
+## 2026-03-01T05:55:47Z
+Do you really need to have the fallback implementations?
