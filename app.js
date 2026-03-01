@@ -96,6 +96,7 @@ const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", glob
 const CALL_ROOM_URL_UTILS_GLOBAL = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
 const XMPP_LOGIN_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_XMPP_LOGIN_NORMALIZERS || {};
 const MEDIA_PROVIDER_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS || {};
+const UI_STATE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_UI_STATE_NORMALIZERS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -471,6 +472,9 @@ const normalizeMessageCharLimitViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLO
     maxValue: MESSAGE_CHAR_LIMIT_MAX
   }))
   : ((value) => Number(value) || MESSAGE_CHAR_LIMIT_DEFAULT);
+const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
+  : ((value) => (value === "on" ? "on" : "off"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11080,7 +11084,7 @@ function normalizeMemberPresenceFilter(value) {
 }
 
 function normalizeToggle(value) {
-  return value === "on" ? "on" : "off";
+  return normalizeToggleViaModule(value);
 }
 
 function normalizeMobilePane(value) {
