@@ -32,12 +32,20 @@
     return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
   }
 
+  function normalizeMediaTab(value, {
+    allowedTabs = []
+  } = {}) {
+    const tab = (value || "").toString().toLowerCase();
+    return Array.isArray(allowedTabs) && allowedTabs.includes(tab) ? tab : "gif";
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
     normalizeMediaPrivacyMode,
     normalizeMediaTrustRules,
     normalizeMediaDenyRules,
-    normalizeProfileEffect
+    normalizeProfileEffect,
+    normalizeMediaTab
   });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -459,6 +459,11 @@ const normalizeMediaDenyRulesViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBA
 const normalizeProfileEffectViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeProfileEffect === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeProfileEffect
   : ((value) => (value || "").toString().toLowerCase());
+const normalizeMediaTabViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaTab === "function"
+  ? ((value) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaTab(value, {
+    allowedTabs: MEDIA_TABS
+  }))
+  : ((value) => (value || "").toString().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11244,8 +11249,7 @@ function normalizeMediaPrivacyMode(value) {
 }
 
 function normalizeMediaTab(value) {
-  const tab = (value || "").toString().toLowerCase();
-  return MEDIA_TABS.includes(tab) ? tab : "gif";
+  return normalizeMediaTabViaModule(value);
 }
 
 function normalizeMediaTrustRules(value) {
