@@ -22,6 +22,10 @@
   --runtime-safe-left: 0px;
   --android-safe-extra-top: 0px;
   --android-safe-extra-bottom: 0px;
+  --app-safe-top: max(var(--safe-top), var(--runtime-safe-top));
+  --app-safe-right: max(var(--safe-right), var(--runtime-safe-right));
+  --app-safe-bottom: max(var(--safe-bottom), var(--runtime-safe-bottom));
+  --app-safe-left: max(var(--safe-left), var(--runtime-safe-left));
 }
 
 body[data-theme="discord"] {
@@ -164,10 +168,10 @@ select {
   position: relative;
   overflow: hidden;
   padding:
-    calc(var(--safe-top) + var(--runtime-safe-top))
-    calc(var(--safe-right) + var(--runtime-safe-right))
-    calc(var(--safe-bottom) + var(--runtime-safe-bottom))
-    calc(var(--safe-left) + var(--runtime-safe-left));
+    var(--app-safe-top)
+    var(--app-safe-right)
+    var(--app-safe-bottom)
+    var(--app-safe-left);
 }
 
 body[data-platform="android"] {
@@ -177,8 +181,8 @@ body[data-platform="android"] {
 }
 
 body[data-platform="android"] #app {
-  padding-top: max(calc(var(--safe-top) + var(--runtime-safe-top)), var(--android-safe-extra-top));
-  padding-bottom: max(calc(var(--safe-bottom) + var(--runtime-safe-bottom)), var(--android-safe-extra-bottom));
+  padding-top: max(var(--app-safe-top), var(--android-safe-extra-top));
+  padding-bottom: max(var(--app-safe-bottom), var(--android-safe-extra-bottom));
 }
 
 body[data-platform="android"] .chat-topic-edit {
@@ -6034,6 +6038,11 @@ body[data-compact-members="on"] .member-item {
   display: none;
   grid-template-columns: 250px 1fr;
   background: #313338;
+  padding:
+    max(var(--app-safe-top), var(--android-safe-extra-top))
+    var(--app-safe-right)
+    max(var(--app-safe-bottom), var(--android-safe-extra-bottom))
+    var(--app-safe-left);
   z-index: 2000;
 }
 
@@ -6436,6 +6445,22 @@ body[data-debug-overlay="on"] .chat-panel {
   body[data-mobile="on"][data-mobile-pane="nav"] .server-rail,
   body[data-mobile="on"][data-mobile-pane="nav"] #channelPanel {
     display: grid;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="members"] #chatScreen.screen--active {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="members"] .server-rail,
+  body[data-mobile="on"][data-mobile-pane="members"] #channelPanel,
+  body[data-mobile="on"][data-mobile-pane="members"] .chat-panel {
+    display: none;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="members"] #memberPanel {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .left-bottom-dock {
