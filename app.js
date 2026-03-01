@@ -499,6 +499,9 @@ const normalizeThemeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeThem
 const normalizeLanguageViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeLanguage === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeLanguage
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizeDmHomeTabViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeDmHomeTab === "function"
+  ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeDmHomeTab(value, { dmHomeTabs: DM_HOME_TABS }))
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11139,8 +11142,7 @@ function normalizeLanguage(value) {
 }
 
 function normalizeDmHomeTab(value) {
-  const token = (value || "").toString().trim().toLowerCase();
-  return DM_HOME_TABS.includes(token) ? token : "friends";
+  return normalizeDmHomeTabViaModule(value);
 }
 
 function normalizeDmHomeRequestsFilter(value) {
