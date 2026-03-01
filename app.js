@@ -519,6 +519,9 @@ const normalizeColorForPickerViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOB
 const normalizeNativeAndroidInsetsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeNativeAndroidInsets === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeNativeAndroidInsets
   : (() => null);
+const normalizeCosmeticsTabViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeCosmeticsTab === "function"
+  ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeCosmeticsTab
+  : ((rawTab) => (rawTab || "").toString().trim().toLowerCase());
 const xmppRememberPeerFullJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppRememberPeerFullJid === "function"
   ? ((jid = "", options = {}) => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppRememberPeerFullJid(jid, {
     ...options,
@@ -25164,11 +25167,7 @@ function formatCosmeticInventorySummary(accountId) {
 }
 
 function normalizeCosmeticsTab(rawTab) {
-  const token = (rawTab || "").toString().trim().toLowerCase();
-  if (token === "decor" || token === "decoration" || token === "decorations") return "decor";
-  if (token === "nameplate" || token === "nameplates") return "nameplate";
-  if (token === "effect" || token === "effects" || token === "profilefx") return "effect";
-  return "decor";
+  return normalizeCosmeticsTabViaModule(rawTab);
 }
 
 function renderCosmeticsDialog() {

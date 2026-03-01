@@ -84,6 +84,14 @@
     };
   }
 
+  function normalizeCosmeticsTab(rawTab) {
+    const token = (rawTab || "").toString().trim().toLowerCase();
+    if (token === "decor" || token === "decoration" || token === "decorations") return "decor";
+    if (token === "nameplate" || token === "nameplates") return "nameplate";
+    if (token === "effect" || token === "effects" || token === "profilefx") return "effect";
+    return "decor";
+  }
+
   globalScope.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS = Object.freeze({
     normalizeUsername,
     normalizeComposerDrafts,
@@ -91,6 +99,7 @@
     normalizeGuildTagGuildId,
     normalizeCosmeticPurchases,
     normalizeColorForPicker,
-    normalizeNativeAndroidInsets
+    normalizeNativeAndroidInsets,
+    normalizeCosmeticsTab
   });
 })(typeof window !== "undefined" ? window : globalThis);
