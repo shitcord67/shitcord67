@@ -8339,6 +8339,12 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
 }
 
 function xmppSendIqResultForIncomingSet(stanza) {
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqResultForIncomingSet === "function") {
+    return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqResultForIncomingSet(stanza, {
+      xmppConnection,
+      $iq: globalThis.$iq
+    });
+  }
   if (!stanza || !xmppConnection || !globalThis.$iq) return false;
   const id = (stanza.getAttribute("id") || "").toString().trim();
   if (!id) return false;
@@ -8350,6 +8356,14 @@ function xmppSendIqResultForIncomingSet(stanza) {
 }
 
 function xmppSendDiscoInfoResult({ id, to, node = "" } = {}) {
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResult === "function") {
+    return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResult({ id, to, node }, {
+      xmppConnection,
+      $iq: globalThis.$iq,
+      identityName: "shitcord67",
+      features: xmppClientDiscoFeatures()
+    });
+  }
   if (!id || !xmppConnection || !globalThis.$iq) return false;
   const attrs = { type: "result", id };
   if (to) attrs.to = to;
@@ -8365,6 +8379,12 @@ function xmppSendDiscoInfoResult({ id, to, node = "" } = {}) {
 }
 
 function xmppSendDiscoInfoError({ id, to, node = "" } = {}) {
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoError === "function") {
+    return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoError({ id, to, node }, {
+      xmppConnection,
+      $iq: globalThis.$iq
+    });
+  }
   if (!id || !xmppConnection || !globalThis.$iq) return false;
   const errorAttrs = { type: "error", id };
   if (to) errorAttrs.to = to;
@@ -8380,25 +8400,45 @@ function xmppSendDiscoInfoError({ id, to, node = "" } = {}) {
 
 function xmppSendDiscoInfoResultForIncomingGet(stanza) {
   if (!stanza || !xmppConnection || !globalThis.$iq) return false;
-  const id = (stanza.getAttribute("id") || "").toString().trim();
-  if (!id) return false;
-  const from = (stanza.getAttribute("from") || "").toString().trim();
-  const query = [...stanza.getElementsByTagName("query")]
-    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/disco#info")) || null;
-  if (!query) return false;
-  const nodeAttr = (query.getAttribute("node") || "").toString().trim();
-  if (!nodeAttr) {
-    return xmppSendDiscoInfoResult({ id, to: from });
+  const resolved = (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppResolveDiscoInfoReplyForIncomingGet === "function")
+    ? XEP_0030_0166_CALL_DISCO_GLOBAL.xmppResolveDiscoInfoReplyForIncomingGet(stanza, {
+      capsHash: xmppCapsHash,
+      capsNode: XMPP_CAPS_NODE
+    }, {
+      xmppNodeHasXmlnsFn: xmppNodeHasXmlns
+    })
+    : null;
+  if (!resolved) {
+    const id = (stanza.getAttribute("id") || "").toString().trim();
+    if (!id) return false;
+    const from = (stanza.getAttribute("from") || "").toString().trim();
+    const query = [...stanza.getElementsByTagName("query")]
+      .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/disco#info")) || null;
+    if (!query) return false;
+    const nodeAttr = (query.getAttribute("node") || "").toString().trim();
+    if (!nodeAttr) return xmppSendDiscoInfoResult({ id, to: from });
+    const expectedNode = xmppCapsHash ? `${XMPP_CAPS_NODE}#${xmppCapsHash}` : "";
+    if (!xmppCapsHash) void ensureXmppCapsHash();
+    if (expectedNode && nodeAttr !== expectedNode) {
+      addXmppDebugEvent("presence", "Answered disco#info request for non-current caps node", {
+        requestedNode: nodeAttr,
+        expectedNode
+      });
+    }
+    return xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
   }
-  const expectedNode = xmppCapsHash ? `${XMPP_CAPS_NODE}#${xmppCapsHash}` : "";
   if (!xmppCapsHash) void ensureXmppCapsHash();
-  if (expectedNode && nodeAttr !== expectedNode) {
+  if (resolved.warn) {
     addXmppDebugEvent("presence", "Answered disco#info request for non-current caps node", {
-      requestedNode: nodeAttr,
-      expectedNode
+      requestedNode: resolved.requestedNode || "",
+      expectedNode: resolved.expectedNode || ""
     });
   }
-  return xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
+  return xmppSendDiscoInfoResult({
+    id: resolved.id,
+    to: resolved.to,
+    node: resolved.node || ""
+  });
 }
 
 function xmppBuildJingleTransportCreds() {
