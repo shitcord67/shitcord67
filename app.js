@@ -132,6 +132,79 @@ const xmppNodeText = XMPP_XML_GLOBAL.xmppNodeText || function xmppNodeTextFallba
   }
   return (node.textContent || "").toString();
 };
+const XEP_0384_OMEMO_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO || {};
+const xmppOmemoNamespaceNodeSet = XEP_0384_OMEMO_GLOBAL.xmppOmemoNamespaceNodeSet || function xmppOmemoNamespaceNodeSetFallback(namespace = XMPP_OMEMO_NAMESPACE) {
+  const ns = (namespace || "").toString().trim().toLowerCase();
+  if (ns === XMPP_OMEMO_NAMESPACE_V2) {
+    return {
+      namespace: XMPP_OMEMO_NAMESPACE_V2,
+      devicelistNode: XMPP_OMEMO_DEVICELIST_NODE_V2,
+      bundleNodePrefix: XMPP_OMEMO_BUNDLE_NODE_PREFIX_V2,
+      notifyFeature: XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2,
+      encryptedType: "omemo2"
+    };
+  }
+  return {
+    namespace: XMPP_OMEMO_NAMESPACE,
+    devicelistNode: XMPP_OMEMO_DEVICELIST_NODE,
+    bundleNodePrefix: XMPP_OMEMO_BUNDLE_NODE_PREFIX,
+    notifyFeature: XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE,
+    encryptedType: "omemo"
+  };
+};
+const xmppOmemoParseEncryptedPayload = XEP_0384_OMEMO_GLOBAL.xmppOmemoParseEncryptedPayload || function xmppOmemoParseEncryptedPayloadFallback(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+  const encryptedNode = [...stanza.getElementsByTagName("encrypted")]
+    .find((node) => xmppNodeHasAnyXmlns(node, XMPP_OMEMO_NAMESPACES)) || null;
+  if (!encryptedNode) return null;
+  const namespace = xmppNodeXmlns(encryptedNode);
+  const headerNode = encryptedNode.getElementsByTagName("header")[0] || null;
+  if (!headerNode) return null;
+  const sid = (headerNode.getAttribute("sid") || "").toString().trim();
+  const ivNode = headerNode.getElementsByTagName("iv")[0] || null;
+  const payloadNode = encryptedNode.getElementsByTagName("payload")[0] || null;
+  const keys = {};
+  [...headerNode.getElementsByTagName("key")].forEach((node) => {
+    const rid = (node.getAttribute("rid") || "").toString().trim();
+    if (!rid) return;
+    keys[rid] = {
+      payload: xmppNodeText(node).trim(),
+      prekey: (node.getAttribute("prekey") || "").toString() === "1"
+    };
+  });
+  return {
+    namespace,
+    encryptedType: namespace === XMPP_OMEMO_NAMESPACE_V2 ? "omemo2" : "omemo",
+    sid,
+    keys,
+    iv: xmppNodeText(ivNode).trim(),
+    payload: xmppNodeText(payloadNode).trim()
+  };
+};
+const appendXmppOmemoEncryptedNode = XEP_0384_OMEMO_GLOBAL.appendXmppOmemoEncryptedNode || function appendXmppOmemoEncryptedNodeFallback(stanza, payload, { namespace = XMPP_OMEMO_NAMESPACE } = {}) {
+  if (!stanza || !payload) return stanza;
+  const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
+  const encrypted = stanza.c("encrypted", { xmlns: nodeSet.namespace });
+  const header = encrypted.c("header", { sid: payload.sid || "" });
+  Object.entries(payload.keys || {}).forEach(([rid, entry]) => {
+    if (!rid || !entry?.payload) return;
+    const attrs = { rid };
+    if (entry.prekey) attrs.prekey = "1";
+    header.c("key", attrs).t(entry.payload).up();
+  });
+  header.c("iv").t(payload.iv || "").up();
+  header.up();
+  encrypted.c("payload").t(payload.payload || "").up();
+  encrypted.up();
+  return stanza;
+};
+const appendXmppEmeNode = XEP_0384_OMEMO_GLOBAL.appendXmppEmeNode || function appendXmppEmeNodeFallback(stanza, { namespace = "", name = "" } = {}) {
+  if (!stanza || !namespace) return stanza;
+  const attrs = { xmlns: XMPP_EME_NAMESPACE, namespace };
+  if (name) attrs.name = name;
+  stanza.c("encryption", attrs).up();
+  return stanza;
+};
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
 const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
@@ -14692,26 +14765,6 @@ function xmppOmemoSetPeerEnabled(peerBare, enabled, prefs = getPreferences()) {
   saveState();
 }
 
-function xmppOmemoNamespaceNodeSet(namespace = XMPP_OMEMO_NAMESPACE) {
-  const ns = (namespace || "").toString().trim().toLowerCase();
-  if (ns === XMPP_OMEMO_NAMESPACE_V2) {
-    return {
-      namespace: XMPP_OMEMO_NAMESPACE_V2,
-      devicelistNode: XMPP_OMEMO_DEVICELIST_NODE_V2,
-      bundleNodePrefix: XMPP_OMEMO_BUNDLE_NODE_PREFIX_V2,
-      notifyFeature: XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2,
-      encryptedType: "omemo2"
-    };
-  }
-  return {
-    namespace: XMPP_OMEMO_NAMESPACE,
-    devicelistNode: XMPP_OMEMO_DEVICELIST_NODE,
-    bundleNodePrefix: XMPP_OMEMO_BUNDLE_NODE_PREFIX,
-    notifyFeature: XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE,
-    encryptedType: "omemo"
-  };
-}
-
 function xmppOmemoNamespaceCandidatesForPeer(peerJid = "", {
   includeLegacy = true
 } = {}) {
@@ -15048,62 +15101,6 @@ async function xmppOmemoEnsurePeerSessions(peerBare, ownBare) {
   if (!devices || devices.length === 0) return [];
   const results = await Promise.all(devices.map((deviceId) => xmppOmemoEnsureSession(peerBare, deviceId, ownBare)));
   return devices.filter((_, index) => results[index]);
-}
-
-function xmppOmemoParseEncryptedPayload(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const encryptedNode = [...stanza.getElementsByTagName("encrypted")]
-    .find((node) => xmppNodeHasAnyXmlns(node, XMPP_OMEMO_NAMESPACES)) || null;
-  if (!encryptedNode) return null;
-  const namespace = xmppNodeXmlns(encryptedNode);
-  const headerNode = encryptedNode.getElementsByTagName("header")[0] || null;
-  if (!headerNode) return null;
-  const sid = (headerNode.getAttribute("sid") || "").toString().trim();
-  const ivNode = headerNode.getElementsByTagName("iv")[0] || null;
-  const payloadNode = encryptedNode.getElementsByTagName("payload")[0] || null;
-  const keys = {};
-  [...headerNode.getElementsByTagName("key")].forEach((node) => {
-    const rid = (node.getAttribute("rid") || "").toString().trim();
-    if (!rid) return;
-    keys[rid] = {
-      payload: xmppNodeText(node).trim(),
-      prekey: (node.getAttribute("prekey") || "").toString() === "1"
-    };
-  });
-  return {
-    namespace,
-    encryptedType: namespace === XMPP_OMEMO_NAMESPACE_V2 ? "omemo2" : "omemo",
-    sid,
-    keys,
-    iv: xmppNodeText(ivNode).trim(),
-    payload: xmppNodeText(payloadNode).trim()
-  };
-}
-
-function appendXmppOmemoEncryptedNode(stanza, payload, { namespace = XMPP_OMEMO_NAMESPACE } = {}) {
-  if (!stanza || !payload) return stanza;
-  const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
-  const encrypted = stanza.c("encrypted", { xmlns: nodeSet.namespace });
-  const header = encrypted.c("header", { sid: payload.sid || "" });
-  Object.entries(payload.keys || {}).forEach(([rid, entry]) => {
-    if (!rid || !entry?.payload) return;
-    const attrs = { rid };
-    if (entry.prekey) attrs.prekey = "1";
-    header.c("key", attrs).t(entry.payload).up();
-  });
-  header.c("iv").t(payload.iv || "").up();
-  header.up();
-  encrypted.c("payload").t(payload.payload || "").up();
-  encrypted.up();
-  return stanza;
-}
-
-function appendXmppEmeNode(stanza, { namespace = "", name = "" } = {}) {
-  if (!stanza || !namespace) return stanza;
-  const attrs = { xmlns: XMPP_EME_NAMESPACE, namespace };
-  if (name) attrs.name = name;
-  stanza.c("encryption", attrs).up();
-  return stanza;
 }
 
 async function xmppOmemoEncryptMessage(peerBare, plaintext, ownBare) {

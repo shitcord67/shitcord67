@@ -2517,3 +2517,6 @@ You last message was: • Implemented and committed continuation work in commit 
       future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff
       unless you state it might be worth it. Have fun
 . As you can see you already did some of the stuff. Please continue working on what you like and make sure you make it good. Oh also what about the split of app.js to individual xeps js files?
+
+## 2026-03-01T03:31:40Z
+Oh actually I think the .js files should ideally have the xep number in front. xep-200 for example. Then yeah work on what you like!
