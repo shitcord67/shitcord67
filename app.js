@@ -698,6 +698,9 @@ const normalizeChannelPermissionOverridesViaModule = typeof UI_STATE_NORMALIZERS
     normalizeChannelPermissionValueFn: normalizeChannelPermissionValue
   }))
   : ((value) => (value && typeof value === "object" ? value : {}));
+const accountActivitySummaryViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.accountActivitySummary === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.accountActivitySummary
+  : (() => "");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11234,21 +11237,7 @@ function tUiFmt(key, vars = {}, fallback = "") {
 }
 
 function accountActivitySummary(account) {
-  if (!account || typeof account !== "object") return "";
-  const explicit = (account.activityText || "").toString().trim();
-  if (explicit) return explicit.slice(0, 140);
-  if (Array.isArray(account.activities)) {
-    const first = account.activities.find((entry) => entry && typeof entry === "object");
-    if (first) {
-      const parts = [
-        (first.name || "").toString().trim(),
-        (first.details || "").toString().trim(),
-        (first.state || "").toString().trim()
-      ].filter(Boolean);
-      if (parts.length > 0) return parts.join(" · ").slice(0, 160);
-    }
-  }
-  return "";
+  return accountActivitySummaryViaModule(account);
 }
 
 function normalizeGuildNotificationMode(value) {

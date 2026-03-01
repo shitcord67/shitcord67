@@ -234,6 +234,24 @@
     }, {});
   }
 
+  function accountActivitySummary(account) {
+    if (!account || typeof account !== "object") return "";
+    const explicit = (account.activityText || "").toString().trim();
+    if (explicit) return explicit.slice(0, 140);
+    if (Array.isArray(account.activities)) {
+      const first = account.activities.find((entry) => entry && typeof entry === "object");
+      if (first) {
+        const parts = [
+          (first.name || "").toString().trim(),
+          (first.details || "").toString().trim(),
+          (first.state || "").toString().trim()
+        ].filter(Boolean);
+        if (parts.length > 0) return parts.join(" · ").slice(0, 160);
+      }
+    }
+    return "";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -262,6 +280,7 @@
     xmppShowValueForPresence,
     normalizeVoiceState,
     normalizeChannelPermissionValue,
-    normalizeChannelPermissionOverrides
+    normalizeChannelPermissionOverrides,
+    accountActivitySummary
   });
 })(typeof window !== "undefined" ? window : globalThis);
