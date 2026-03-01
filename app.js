@@ -701,6 +701,9 @@ const normalizePlatformOverrideViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.no
 const normalizePresenceViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizePresence === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizePresence
   : ((value) => (value === "idle" || value === "dnd" || value === "invisible" ? value : "online"));
+const presenceLabelViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.presenceLabel === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.presenceLabel
+  : ((presence) => (presence || "").toString());
 const detectBrowserUiLocaleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.detectBrowserUiLocale === "function"
   ? (() => UI_STATE_NORMALIZERS_GLOBAL.detectBrowserUiLocale(navigator.language || ""))
   : (() => "en");
@@ -11163,10 +11166,7 @@ function createMessageDayDivider(iso) {
 }
 
 function presenceLabel(presence) {
-  if (presence === "idle") return "Idle";
-  if (presence === "dnd") return "Do Not Disturb";
-  if (presence === "invisible") return "Invisible";
-  return "Online";
+  return presenceLabelViaModule(presence);
 }
 
 function normalizePresence(value) {

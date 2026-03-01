@@ -145,6 +145,13 @@
     return "online";
   }
 
+  function presenceLabel(presence) {
+    if (presence === "idle") return "Idle";
+    if (presence === "dnd") return "Do Not Disturb";
+    if (presence === "invisible") return "Invisible";
+    return "Online";
+  }
+
   function detectBrowserUiLocale(languageValue = "") {
     const explicit = (languageValue || "").toString().trim().toLowerCase();
     if (explicit.startsWith("de")) return "de";
@@ -293,6 +300,7 @@
     normalizeMediaDeviceId,
     normalizePlatformOverride,
     normalizePresence,
+    presenceLabel,
     detectBrowserUiLocale,
     resolveUiLocale,
     normalizeXmppOmemoEnabledByJid,
