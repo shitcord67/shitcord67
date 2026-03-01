@@ -182,6 +182,33 @@
     return "";
   }
 
+  function normalizeVoiceState(value, {
+    createIdFn = () => `${Date.now()}`,
+    nowIsoFn = () => new Date().toISOString()
+  } = {}) {
+    const safe = value && typeof value === "object" ? value : {};
+    const normalizeIds = (arr) => [...new Set((Array.isArray(arr) ? arr : []).map((id) => (id || "").toString()).filter(Boolean))];
+    const activity = Array.isArray(safe.activity)
+      ? safe.activity
+        .map((entry) => ({
+          id: (entry?.id || createIdFn()).toString(),
+          accountId: (entry?.accountId || "").toString(),
+          action: (entry?.action || "").toString().slice(0, 32),
+          detail: (entry?.detail || "").toString().slice(0, 120),
+          ts: entry?.ts || nowIsoFn()
+        }))
+        .filter((entry) => entry.accountId && entry.action)
+        .slice(-30)
+      : [];
+    return {
+      connectedIds: normalizeIds(safe.connectedIds),
+      mutedIds: normalizeIds(safe.mutedIds),
+      raisedHandIds: normalizeIds(safe.raisedHandIds),
+      speakerIds: normalizeIds(safe.speakerIds),
+      activity
+    };
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -207,6 +234,7 @@
     detectBrowserUiLocale,
     resolveUiLocale,
     normalizeXmppOmemoEnabledByJid,
-    xmppShowValueForPresence
+    xmppShowValueForPresence,
+    normalizeVoiceState
   });
 })(typeof window !== "undefined" ? window : globalThis);

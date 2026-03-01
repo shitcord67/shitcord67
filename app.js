@@ -560,6 +560,12 @@ const xmppShowValueForPresenceViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.xmp
     normalizePresenceFn: normalizePresence
   }))
   : (() => "");
+const normalizeVoiceStateViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeVoiceState === "function"
+  ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeVoiceState(value, {
+    createIdFn: createId,
+    nowIsoFn: () => new Date().toISOString()
+  }))
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11356,27 +11362,7 @@ function normalizeXmppMucService(value) {
 }
 
 function normalizeVoiceState(value) {
-  const safe = value && typeof value === "object" ? value : {};
-  const normalizeIds = (arr) => [...new Set((Array.isArray(arr) ? arr : []).map((id) => (id || "").toString()).filter(Boolean))];
-  const activity = Array.isArray(safe.activity)
-    ? safe.activity
-      .map((entry) => ({
-        id: (entry?.id || createId()).toString(),
-        accountId: (entry?.accountId || "").toString(),
-        action: (entry?.action || "").toString().slice(0, 32),
-        detail: (entry?.detail || "").toString().slice(0, 120),
-        ts: entry?.ts || new Date().toISOString()
-      }))
-      .filter((entry) => entry.accountId && entry.action)
-      .slice(-30)
-    : [];
-  return {
-    connectedIds: normalizeIds(safe.connectedIds),
-    mutedIds: normalizeIds(safe.mutedIds),
-    raisedHandIds: normalizeIds(safe.raisedHandIds),
-    speakerIds: normalizeIds(safe.speakerIds),
-    activity
-  };
+  return normalizeVoiceStateViaModule(value);
 }
 
 function normalizeChannelPermissionValue(value) {
