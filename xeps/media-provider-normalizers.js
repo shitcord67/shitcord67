@@ -9,8 +9,13 @@
     return (value || "").toString().trim().slice(0, 120);
   }
 
+  function normalizeMediaPrivacyMode(value) {
+    return value === "off" ? "off" : "safe";
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
-    normalizeTenorClientKey
+    normalizeTenorClientKey,
+    normalizeMediaPrivacyMode
   });
 })(typeof window !== "undefined" ? window : globalThis);

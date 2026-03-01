@@ -445,6 +445,9 @@ const normalizeTenorApiKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.n
 const normalizeTenorClientKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorClientKey === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorClientKey
   : ((value) => (value || "").toString().trim());
+const normalizeMediaPrivacyModeViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaPrivacyMode === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaPrivacyMode
+  : ((value) => (value === "off" ? "off" : "safe"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11226,7 +11229,7 @@ function normalizeXmppOmemoEnabledByJid(value) {
 }
 
 function normalizeMediaPrivacyMode(value) {
-  return value === "off" ? "off" : "safe";
+  return normalizeMediaPrivacyModeViaModule(value);
 }
 
 function normalizeMediaTab(value) {
