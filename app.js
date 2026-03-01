@@ -8701,6 +8701,9 @@ function xmppRemoteSendEnabledForSenders(senders = "both", localRole = "responde
 }
 
 function xmppParseSdpMediaSections(sdp = "") {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseSdpMediaSections === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseSdpMediaSections(sdp);
+  }
   const text = (sdp || "").toString();
   if (!text) return [];
   const lines = text.split(/\r\n|\n/).map((line) => line.trim()).filter(Boolean);
@@ -8881,6 +8884,9 @@ function xmppParseSdpMediaSections(sdp = "") {
 }
 
 function xmppBuildJingleContentsFromSdp(sdp = "", { localRole = "initiator" } = {}) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleContentsFromSdp === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleContentsFromSdp(sdp, { localRole });
+  }
   const sections = xmppParseSdpMediaSections(sdp);
   return sections
     .filter((section) => section.kind === "audio" || section.kind === "video")
@@ -8904,6 +8910,9 @@ function xmppBuildJingleContentsFromSdp(sdp = "", { localRole = "initiator" } = 
 }
 
 function xmppAlignRemoteJingleContentsToLocalOffer(contents = [], localOfferSdp = "") {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppAlignRemoteJingleContentsToLocalOffer === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppAlignRemoteJingleContentsToLocalOffer(contents, localOfferSdp);
+  }
   const desiredOrder = xmppParseSdpMediaSections(localOfferSdp)
     .filter((section) => section.kind === "audio" || section.kind === "video")
     .map((section, index) => ({
@@ -8951,6 +8960,9 @@ function xmppAlignRemoteJingleContentsToLocalOffer(contents = [], localOfferSdp 
 }
 
 function xmppAlignLocalJingleContentsToRemoteSession(localContents = [], remoteContents = []) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppAlignLocalJingleContentsToRemoteSession === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppAlignLocalJingleContentsToRemoteSession(localContents, remoteContents);
+  }
   const local = (Array.isArray(localContents) ? localContents : [])
     .map((entry, index) => {
       const media = (entry?.media || "").toString().trim().toLowerCase();
@@ -8997,6 +9009,20 @@ function xmppBuildMinimalJingleSdp({
   type = "offer",
   localRole = "responder"
 } = {}) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildMinimalJingleSdp === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildMinimalJingleSdp({
+      media,
+      contents,
+      transport,
+      type,
+      localRole
+    }, {
+      buildJingleTransportCredsFn: xmppBuildJingleTransportCreds,
+      generatePseudoDtlsFingerprintFn: xmppGeneratePseudoDtlsFingerprint,
+      sdpDirectionFromJingleSendersFn: xmppSdpDirectionFromJingleSenders,
+      normalizeSdpExtmapDirectionFn: xmppNormalizeSdpExtmapDirection
+    });
+  }
   const normalizedContents = (Array.isArray(contents) ? contents : [])
     .map((entry, index) => {
       const mediaType = (entry?.media || "").toString().trim().toLowerCase();
