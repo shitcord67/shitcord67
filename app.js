@@ -78,6 +78,7 @@ const XEP_0384_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_0384_RUNTIME || {};
 const XEP_0384_PREFERENCES_GLOBAL = globalThis.SHITCORD67_XEP_0384_PREFERENCES || {};
 const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
 const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
+const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -428,6 +429,36 @@ const xmppOmemoEnsurePeerSessionsCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsure
   if (!devices || devices.length === 0) return [];
   const results = await Promise.all(devices.map((deviceId) => ensureSessionFn(peerBare, deviceId, ownBare)));
   return devices.filter((_, index) => results[index]);
+};
+const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGatherDeviceTargetsCore || async function xmppOmemoGatherDeviceTargetsCoreFallback(peers = [], ownBare = "", {
+  toBareJid,
+  fetchDeviceListFn,
+  storeForAccountFn
+} = {}) {
+  if (typeof toBareJid !== "function" || typeof fetchDeviceListFn !== "function") return [];
+  const uniquePeers = [...new Set(peers.map((entry) => toBareJid(entry || "")).filter(Boolean))];
+  const targets = [];
+  const seenIds = new Map();
+  for (const peer of uniquePeers) {
+    // eslint-disable-next-line no-await-in-loop
+    const devices = await fetchDeviceListFn(peer);
+    if (peer === ownBare && devices.length === 0 && typeof storeForAccountFn === "function") {
+      const store = storeForAccountFn(ownBare);
+      // eslint-disable-next-line no-await-in-loop
+      const localId = store ? await store.getLocalRegistrationId() : null;
+      if (localId) devices.push(String(localId));
+    }
+    devices.forEach((deviceId) => {
+      if (!deviceId) return;
+      const existing = seenIds.get(deviceId);
+      if (existing && existing !== peer) {
+        throw new Error(`OMEMO device id collision (${deviceId}) between ${existing} and ${peer}`);
+      }
+      seenIds.set(deviceId, peer);
+      targets.push({ jid: peer, deviceId });
+    });
+  }
+  return targets;
 };
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
@@ -15216,28 +15247,11 @@ async function xmppOmemoEncryptMessage(peerBare, plaintext, ownBare) {
 }
 
 async function xmppOmemoGatherDeviceTargets(peers = [], ownBare = "") {
-  const uniquePeers = [...new Set(peers.map((entry) => xmppBareJid(entry || "")).filter(Boolean))];
-  const targets = [];
-  const seenIds = new Map();
-  for (const peer of uniquePeers) {
-    // eslint-disable-next-line no-await-in-loop
-    const devices = await xmppOmemoFetchDeviceList(peer);
-    if (peer === ownBare && devices.length === 0) {
-      const store = xmppOmemoStoreForAccount(ownBare);
-      const localId = store ? await store.getLocalRegistrationId() : null;
-      if (localId) devices.push(String(localId));
-    }
-    devices.forEach((deviceId) => {
-      if (!deviceId) return;
-      const existing = seenIds.get(deviceId);
-      if (existing && existing !== peer) {
-        throw new Error(`OMEMO device id collision (${deviceId}) between ${existing} and ${peer}`);
-      }
-      seenIds.set(deviceId, peer);
-      targets.push({ jid: peer, deviceId });
-    });
-  }
-  return targets;
+  return xmppOmemoGatherDeviceTargetsCore(peers, ownBare, {
+    toBareJid: (value) => xmppBareJid(value || ""),
+    fetchDeviceListFn: xmppOmemoFetchDeviceList,
+    storeForAccountFn: xmppOmemoStoreForAccount
+  });
 }
 
 async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
