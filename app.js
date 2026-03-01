@@ -510,6 +510,12 @@ const normalizeMediaPrivacyUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOB
     baseUrl: window.location.href
   }))
   : ((url) => (url || "").toString());
+const normalizeRenderableAvatarUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRenderableAvatarUrl === "function"
+  ? ((value) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRenderableAvatarUrl(value, {
+    isRenderableAvatarUrlFn: isRenderableAvatarUrl,
+    resolveMediaUrlFn: resolveMediaUrl
+  }))
+  : (() => "");
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -19783,9 +19789,7 @@ function isRenderableAvatarUrl(value) {
 }
 
 function normalizeRenderableAvatarUrl(value) {
-  const raw = (value || "").toString().trim();
-  if (!isRenderableAvatarUrl(raw)) return "";
-  return resolveMediaUrl(raw);
+  return normalizeRenderableAvatarUrlViaModule(value);
 }
 
 function extractUrlFromBackgroundImageValue(value) {

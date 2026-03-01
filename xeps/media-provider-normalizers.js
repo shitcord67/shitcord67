@@ -130,6 +130,15 @@
     }
   }
 
+  function normalizeRenderableAvatarUrl(value, {
+    isRenderableAvatarUrlFn = () => false,
+    resolveMediaUrlFn = (input) => (input || "").toString().trim()
+  } = {}) {
+    const raw = (value || "").toString().trim();
+    if (!isRenderableAvatarUrlFn(raw)) return "";
+    return resolveMediaUrlFn(raw);
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -145,6 +154,7 @@
     normalizeGifScope,
     normalizeRelayTransportAttachmentUrl,
     normalizeMediaRuleToken,
-    normalizeMediaPrivacyUrl
+    normalizeMediaPrivacyUrl,
+    normalizeRenderableAvatarUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);
