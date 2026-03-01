@@ -77,6 +77,7 @@ const XEP_0384_OMEMO_STORE_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO_STORE |
 const XEP_0384_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_0384_RUNTIME || {};
 const XEP_0384_PREFERENCES_GLOBAL = globalThis.SHITCORD67_XEP_0384_PREFERENCES || {};
 const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
+const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -365,6 +366,68 @@ const xmppOmemoEnsureLocalIdentityCore = XEP_0384_IDENTITY_GLOBAL.xmppOmemoEnsur
     await store.setIdentityKeyPair(identityKeyPair);
   }
   return store;
+};
+const xmppOmemoEnsureSessionCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsureSessionCore || async function xmppOmemoEnsureSessionCoreFallback(peerBare, deviceId, ownBare, {
+  runtimeAvailableFn,
+  storeForAccountFn,
+  fetchBundleFn,
+  sessionSetupInFlight,
+  base64ToArrayBuffer: decodeBase64ToArrayBuffer,
+  signedPreKeyId
+} = {}) {
+  if (!peerBare || !deviceId || !ownBare) return false;
+  if (typeof runtimeAvailableFn !== "function" || !runtimeAvailableFn()) return false;
+  if (typeof storeForAccountFn !== "function" || typeof fetchBundleFn !== "function") return false;
+  if (!sessionSetupInFlight || typeof decodeBase64ToArrayBuffer !== "function") return false;
+  const store = storeForAccountFn(ownBare);
+  if (!store) return false;
+  const sessionId = `${peerBare}.${deviceId}`;
+  const existing = await store.loadSession(sessionId);
+  if (existing) return true;
+  const inflightKey = `${ownBare}|${peerBare}|${deviceId}`;
+  if (sessionSetupInFlight.has(inflightKey)) {
+    return sessionSetupInFlight.get(inflightKey) || false;
+  }
+  const promise = (async () => {
+    const bundle = await fetchBundleFn(peerBare, deviceId);
+    if (!bundle) return false;
+    const preKey = bundle.preKeys[Math.floor(Math.random() * bundle.preKeys.length)];
+    if (!preKey) return false;
+    const address = new globalThis.libsignal.SignalProtocolAddress(peerBare, Number(deviceId));
+    const builder = new globalThis.libsignal.SessionBuilder(store, address);
+    await builder.processPreKey({
+      registrationId: Number(deviceId),
+      identityKey: decodeBase64ToArrayBuffer(bundle.identityKey),
+      signedPreKey: {
+        keyId: Number(bundle.signedPreKeyId || signedPreKeyId || 1),
+        publicKey: decodeBase64ToArrayBuffer(bundle.signedPreKeyPublic),
+        signature: decodeBase64ToArrayBuffer(bundle.signedPreKeySignature)
+      },
+      preKey: {
+        keyId: Number(preKey.id),
+        publicKey: decodeBase64ToArrayBuffer(preKey.key)
+      }
+    });
+    return true;
+  })();
+  sessionSetupInFlight.set(inflightKey, promise);
+  try {
+    return await promise;
+  } finally {
+    sessionSetupInFlight.delete(inflightKey);
+  }
+};
+const xmppOmemoEnsurePeerSessionsCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsurePeerSessionsCore || async function xmppOmemoEnsurePeerSessionsCoreFallback(peerBare, ownBare, {
+  deviceListByJid,
+  fetchDeviceListFn,
+  ensureSessionFn
+} = {}) {
+  if (!peerBare || !ownBare) return [];
+  if (!deviceListByJid || typeof fetchDeviceListFn !== "function" || typeof ensureSessionFn !== "function") return [];
+  const devices = deviceListByJid.get(peerBare) || await fetchDeviceListFn(peerBare);
+  if (!devices || devices.length === 0) return [];
+  const results = await Promise.all(devices.map((deviceId) => ensureSessionFn(peerBare, deviceId, ownBare)));
+  return devices.filter((_, index) => results[index]);
 };
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
@@ -15130,51 +15193,22 @@ async function xmppOmemoFetchBundle(jid, deviceId, { connection = xmppConnection
 }
 
 async function xmppOmemoEnsureSession(peerBare, deviceId, ownBare) {
-  if (!peerBare || !deviceId || !ownBare || !xmppOmemoRuntimeAvailable()) return false;
-  const store = xmppOmemoStoreForAccount(ownBare);
-  if (!store) return false;
-  const sessionId = `${peerBare}.${deviceId}`;
-  const existing = await store.loadSession(sessionId);
-  if (existing) return true;
-  const inflightKey = `${ownBare}|${peerBare}|${deviceId}`;
-  if (xmppOmemoSessionSetupInFlight.has(inflightKey)) {
-    return xmppOmemoSessionSetupInFlight.get(inflightKey) || false;
-  }
-  const promise = (async () => {
-    const bundle = await xmppOmemoFetchBundle(peerBare, deviceId);
-    if (!bundle) return false;
-    const preKey = bundle.preKeys[Math.floor(Math.random() * bundle.preKeys.length)];
-    if (!preKey) return false;
-    const address = new globalThis.libsignal.SignalProtocolAddress(peerBare, Number(deviceId));
-    const builder = new globalThis.libsignal.SessionBuilder(store, address);
-    await builder.processPreKey({
-      registrationId: Number(deviceId),
-      identityKey: base64ToArrayBuffer(bundle.identityKey),
-      signedPreKey: {
-        keyId: Number(bundle.signedPreKeyId || XMPP_OMEMO_SIGNED_PREKEY_ID),
-        publicKey: base64ToArrayBuffer(bundle.signedPreKeyPublic),
-        signature: base64ToArrayBuffer(bundle.signedPreKeySignature)
-      },
-      preKey: {
-        keyId: Number(preKey.id),
-        publicKey: base64ToArrayBuffer(preKey.key)
-      }
-    });
-    return true;
-  })();
-  xmppOmemoSessionSetupInFlight.set(inflightKey, promise);
-  try {
-    return await promise;
-  } finally {
-    xmppOmemoSessionSetupInFlight.delete(inflightKey);
-  }
+  return xmppOmemoEnsureSessionCore(peerBare, deviceId, ownBare, {
+    runtimeAvailableFn: xmppOmemoRuntimeAvailable,
+    storeForAccountFn: xmppOmemoStoreForAccount,
+    fetchBundleFn: xmppOmemoFetchBundle,
+    sessionSetupInFlight: xmppOmemoSessionSetupInFlight,
+    base64ToArrayBuffer,
+    signedPreKeyId: XMPP_OMEMO_SIGNED_PREKEY_ID
+  });
 }
 
 async function xmppOmemoEnsurePeerSessions(peerBare, ownBare) {
-  const devices = xmppOmemoDeviceListByJid.get(peerBare) || await xmppOmemoFetchDeviceList(peerBare);
-  if (!devices || devices.length === 0) return [];
-  const results = await Promise.all(devices.map((deviceId) => xmppOmemoEnsureSession(peerBare, deviceId, ownBare)));
-  return devices.filter((_, index) => results[index]);
+  return xmppOmemoEnsurePeerSessionsCore(peerBare, ownBare, {
+    deviceListByJid: xmppOmemoDeviceListByJid,
+    fetchDeviceListFn: xmppOmemoFetchDeviceList,
+    ensureSessionFn: xmppOmemoEnsureSession
+  });
 }
 
 async function xmppOmemoEncryptMessage(peerBare, plaintext, ownBare) {
