@@ -707,6 +707,16 @@ const tUiViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.tUi === "function"
     uiI18n: UI_I18N
   }))
   : ((key, fallback = "") => fallback || key);
+const tUiFmtViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.tUiFmt === "function"
+  ? ((key, vars = {}, fallback = "") => UI_STATE_NORMALIZERS_GLOBAL.tUiFmt(key, vars, fallback, {
+    tUiFn: tUi
+  }))
+  : ((key, vars = {}, fallback = "") => {
+    const template = tUi(key, fallback);
+    return Object.entries(vars || {}).reduce((acc, [name, value]) => (
+      acc.replaceAll(`{${name}}`, String(value))
+    ), template);
+  });
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11233,10 +11243,7 @@ function tUi(key, fallback = "") {
 }
 
 function tUiFmt(key, vars = {}, fallback = "") {
-  const template = tUi(key, fallback);
-  return Object.entries(vars || {}).reduce((acc, [name, value]) => (
-    acc.replaceAll(`{${name}}`, String(value))
-  ), template);
+  return tUiFmtViaModule(key, vars, fallback);
 }
 
 function accountActivitySummary(account) {

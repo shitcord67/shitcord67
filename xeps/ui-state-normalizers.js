@@ -262,6 +262,15 @@
     return table[key] || english[key] || fallback || key;
   }
 
+  function tUiFmt(key, vars = {}, fallback = "", {
+    tUiFn = (lookupKey, lookupFallback = "") => lookupFallback || lookupKey
+  } = {}) {
+    const template = tUiFn(key, fallback);
+    return Object.entries(vars || {}).reduce((acc, [name, value]) => (
+      acc.replaceAll(`{${name}}`, String(value))
+    ), template);
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -292,6 +301,7 @@
     normalizeChannelPermissionValue,
     normalizeChannelPermissionOverrides,
     accountActivitySummary,
-    tUi
+    tUi,
+    tUiFmt
   });
 })(typeof window !== "undefined" ? window : globalThis);
