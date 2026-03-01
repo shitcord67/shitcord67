@@ -160,6 +160,19 @@
     return selected;
   }
 
+  function normalizeXmppOmemoEnabledByJid(value, {
+    bareJidFn = (jid) => (jid || "").toString().trim().toLowerCase(),
+    normalizeToggleFn = normalizeToggle
+  } = {}) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [jid, enabled]) => {
+      const bare = bareJidFn(jid || "");
+      if (!bare) return acc;
+      acc[bare] = normalizeToggleFn(enabled);
+      return acc;
+    }, {});
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -183,6 +196,7 @@
     normalizePlatformOverride,
     normalizePresence,
     detectBrowserUiLocale,
-    resolveUiLocale
+    resolveUiLocale,
+    normalizeXmppOmemoEnabledByJid
   });
 })(typeof window !== "undefined" ? window : globalThis);

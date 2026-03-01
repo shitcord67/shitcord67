@@ -549,6 +549,12 @@ const resolveUiLocaleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.resolveUiLoc
     detectBrowserUiLocaleFn: detectBrowserUiLocale
   }))
   : (() => "en");
+const normalizeXmppOmemoEnabledByJidViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeXmppOmemoEnabledByJid === "function"
+  ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeXmppOmemoEnabledByJid(value, {
+    bareJidFn: xmppBareJid,
+    normalizeToggleFn: normalizeToggle
+  }))
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11260,13 +11266,7 @@ function normalizeLastChannelByGuildMap(value) {
 }
 
 function normalizeXmppOmemoEnabledByJid(value) {
-  if (!value || typeof value !== "object") return {};
-  return Object.entries(value).reduce((acc, [jid, enabled]) => {
-    const bare = xmppBareJid(jid || "");
-    if (!bare) return acc;
-    acc[bare] = normalizeToggle(enabled);
-    return acc;
-  }, {});
+  return normalizeXmppOmemoEnabledByJidViaModule(value);
 }
 
 function normalizeMediaPrivacyMode(value) {
