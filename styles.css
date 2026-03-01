@@ -412,8 +412,7 @@ button {
 
 #chatScreen {
   display: none;
-  height: 100vh;
-  height: 100dvh;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   grid-template-columns: var(--rail-w) var(--channel-w) 1fr var(--member-w);
@@ -1031,6 +1030,10 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   border-top: 1px solid #121315;
   border-right: 1px solid var(--line);
   z-index: 2;
+}
+
+body[data-platform="android"] .left-bottom-dock {
+  padding-bottom: calc(0.45rem + var(--android-safe-extra-bottom));
 }
 
 .account-dock {
@@ -3058,6 +3061,28 @@ body[data-hide-channel-panel="on"] .chat-panel {
 .message-attachment--video,
 .message-attachment--swf {
   margin-top: 0.07rem;
+}
+
+.message-video-mount {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.video-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: rgba(7, 9, 12, 0.35);
+  color: #fff;
+  font-size: 2.2rem;
+  cursor: pointer;
+}
+
+.video-play-overlay:active {
+  background: rgba(7, 9, 12, 0.5);
 }
 
 .message-attachment--gif {
@@ -6119,6 +6144,31 @@ body[data-compact-members="on"] .member-item {
   margin-bottom: 1rem;
 }
 
+.settings-tabs {
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.4rem 0.5rem;
+  overflow-x: auto;
+  border-bottom: 1px solid #2b2d31;
+}
+
+.settings-tab {
+  border: 1px solid #3a3f4b;
+  background: #2a2e38;
+  color: #d4d9e5;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.settings-tab.is-active {
+  background: #4a5198;
+  color: #fff;
+  border-color: #4a5198;
+}
+
 .settings-content__header h2 {
   margin: 0;
 }
@@ -6508,12 +6558,24 @@ body[data-debug-overlay="on"] .chat-panel {
     display: flex;
   }
 
+  body[data-mobile="on"] .message-video-controls {
+    display: flex;
+  }
+
   .settings-screen.settings-screen--active {
     grid-template-columns: 1fr;
   }
 
   .settings-nav {
     display: none;
+  }
+
+  .settings-content {
+    padding: 1rem 0.9rem 1.4rem;
+  }
+
+  .settings-tabs {
+    display: flex;
   }
 
   .chat-header {

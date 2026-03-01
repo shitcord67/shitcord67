@@ -1193,6 +1193,7 @@ function applyRuntimePlatformHints() {
   document.body.dataset.platform = isAndroid ? "android" : isiOS ? "ios" : "desktop";
   document.body.dataset.mobile = isMobile ? "on" : "off";
   applyPlatformMediaTweaks();
+  scheduleRuntimeSafeAreaUpdate();
 }
 
 
@@ -2893,6 +2894,7 @@ const ui = {
   quickSwitchList: document.getElementById("quickSwitchList"),
   quickSwitchCancel: document.getElementById("quickSwitchCancel"),
   settingsScreen: document.getElementById("settingsScreen"),
+  settingsMobileTabs: document.getElementById("settingsMobileTabs"),
   dockAvatar: document.getElementById("dockAvatar"),
   dockPresenceDot: document.getElementById("dockPresenceDot"),
   dockName: document.getElementById("dockName"),
@@ -31540,6 +31542,35 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   return row;
 }
 
+function ensureMobileVideoPlayOverlay(video, container) {
+  if (!(video instanceof HTMLVideoElement)) return;
+  if (!(container instanceof HTMLElement)) return;
+  if (document.body?.dataset?.mobile !== "on" && document.body?.dataset?.platform !== "android") return;
+  if (container.querySelector(".video-play-overlay")) return;
+  container.classList.add("message-video-mount--overlay");
+  const overlay = document.createElement("button");
+  overlay.type = "button";
+  overlay.className = "video-play-overlay";
+  overlay.textContent = "▶";
+  overlay.title = "Play video";
+  const sync = () => {
+    overlay.hidden = !video.paused && !video.ended;
+  };
+  overlay.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void video.play().catch(() => {
+      showToast("Tap play in native controls to start this video.", { tone: "warn" });
+    });
+    sync();
+  });
+  ["play", "pause", "ended", "loadeddata"].forEach((eventName) => {
+    video.addEventListener(eventName, sync);
+  });
+  sync();
+  container.appendChild(overlay);
+}
+
 function createGifControlStrip(video, { label = "GIF", mediaUrl = "" } = {}) {
   if (!(video instanceof HTMLVideoElement)) return null;
   const row = document.createElement("div");
@@ -32602,6 +32633,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
             runtime.inPip = false;
             mount.innerHTML = "";
             mount.appendChild(runtime.video);
+            ensureMobileVideoPlayOverlay(runtime.video, mount);
           }
           if (!(runtime.controlsEl instanceof HTMLElement)) {
             runtime.controlsEl = createVideoControlStrip(runtime.video, {
@@ -37787,6 +37819,11 @@ function setSettingsTab(tabId) {
   ui.settingsNavItems.forEach((item) => {
     item.classList.toggle("active", item.dataset.settingsTab === tabId);
   });
+  if (ui.settingsMobileTabs) {
+    [...ui.settingsMobileTabs.querySelectorAll(".settings-tab")].forEach((item) => {
+      item.classList.toggle("is-active", item.dataset.settingsTab === tabId);
+    });
+  }
   ui.settingsPanels.forEach((panel) => {
     panel.classList.toggle("settings-panel--active", panel.dataset.settingsPanel === tabId);
   });
@@ -37886,6 +37923,22 @@ function renderSettingsScreen() {
     if (!tab) return;
     item.textContent = tUi(`settings.tab.${tab}`, item.textContent || tab);
   });
+  if (ui.settingsMobileTabs) {
+    ui.settingsMobileTabs.innerHTML = "";
+    ui.settingsNavItems.forEach((item) => {
+      const tab = (item.dataset.settingsTab || "").toString();
+      if (!tab) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "settings-tab";
+      button.dataset.settingsTab = tab;
+      button.textContent = item.textContent || tab;
+      button.addEventListener("click", () => setSettingsTab(tab));
+      ui.settingsMobileTabs.appendChild(button);
+    });
+  }
+  const currentTab = ui.settingsNavItems.find((item) => item.classList.contains("active"))?.dataset?.settingsTab || "";
+  if (currentTab) setSettingsTab(currentTab);
   ui.settingsDisplayName.textContent = displayNameForAccount(account, guild?.id || null);
   ui.settingsUsername.textContent = `@${account.username}`;
   ui.settingsCurrentStatus.textContent = displayStatus(account, guild?.id || null);
@@ -43002,6 +43055,70 @@ const bindSettingsOpenButton = (button) => {
 
 bindSettingsOpenButton(ui.openSettingsBtn);
 bindSettingsOpenButton(ui.openSettingsBtnMobile);
+
+function initSettingsSwipeNavigation() {
+  if (!(ui.settingsScreen instanceof HTMLElement)) return;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  let pointerId = null;
+  const minDistance = 60;
+  const maxCrossAxis = 42;
+
+  const tabOrder = () => ui.settingsNavItems
+    .map((item) => (item.dataset.settingsTab || "").toString())
+    .filter(Boolean);
+
+  const moveBy = (delta) => {
+    const order = tabOrder();
+    if (order.length === 0) return;
+    const active = ui.settingsNavItems.find((item) => item.classList.contains("active"));
+    const current = active?.dataset?.settingsTab || order[0];
+    const index = Math.max(0, order.indexOf(current));
+    const nextIndex = Math.max(0, Math.min(order.length - 1, index + delta));
+    if (order[nextIndex] && order[nextIndex] !== current) {
+      setSettingsTab(order[nextIndex]);
+    }
+  };
+
+  ui.settingsScreen.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") return;
+    if (document.body?.dataset?.mobile !== "on") return;
+    if (!(event.target instanceof HTMLElement)) return;
+    if (!ui.settingsScreen.classList.contains("settings-screen--active")) return;
+    if (!event.target.closest(".settings-content")) return;
+    if (event.target.closest("input, textarea, select, button")) return;
+    tracking = true;
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+  });
+
+  ui.settingsScreen.addEventListener("pointermove", (event) => {
+    if (!tracking || event.pointerId !== pointerId) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+      event.preventDefault();
+    }
+  });
+
+  const finish = (event) => {
+    if (!tracking || event.pointerId !== pointerId) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    tracking = false;
+    pointerId = null;
+    if (Math.abs(dx) < minDistance) return;
+    if (Math.abs(dy) > maxCrossAxis) return;
+    moveBy(dx > 0 ? -1 : 1);
+  };
+
+  ui.settingsScreen.addEventListener("pointerup", finish);
+  ui.settingsScreen.addEventListener("pointercancel", finish);
+}
+
+initSettingsSwipeNavigation();
 
 ui.closeSettingsBtn.addEventListener("click", closeSettingsScreen);
 
