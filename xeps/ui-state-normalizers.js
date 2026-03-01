@@ -26,12 +26,18 @@
     return value === "off" ? "off" : "on";
   }
 
+  function normalizeSwfQuickAudioMode(value) {
+    if (value === "on" || value === "off" || value === "click") return value;
+    return "click";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
     normalizeMobilePane,
     normalizeSwfAudioPolicy,
     normalizeSwfAudioScope,
-    normalizeSwfAutoplay
+    normalizeSwfAutoplay,
+    normalizeSwfQuickAudioMode
   });
 })(typeof window !== "undefined" ? window : globalThis);

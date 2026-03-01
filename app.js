@@ -490,6 +490,9 @@ const normalizeSwfAudioScopeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.norma
 const normalizeSwfAutoplayViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAutoplay === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAutoplay
   : ((value) => (value === "off" ? "off" : "on"));
+const normalizeSwfQuickAudioModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfQuickAudioMode === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfQuickAudioMode
+  : ((value) => (value === "on" || value === "off" || value === "click" ? value : "click"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11118,8 +11121,7 @@ function normalizeSwfAutoplay(value) {
 }
 
 function normalizeSwfQuickAudioMode(value) {
-  if (value === "on" || value === "off" || value === "click") return value;
-  return "click";
+  return normalizeSwfQuickAudioModeViaModule(value);
 }
 
 function normalizeTheme(value) {
