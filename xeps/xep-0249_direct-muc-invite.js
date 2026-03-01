@@ -101,11 +101,30 @@
     };
   }
 
+  function rememberXmppDirectMucInviteSeen(key = "", {
+    seenKeys = null,
+    maxEntries = 200
+  } = {}) {
+    const normalized = (key || "").toString().trim();
+    if (!normalized) return false;
+    if (!(seenKeys instanceof Set)) return true;
+    if (seenKeys.has(normalized)) return false;
+    seenKeys.add(normalized);
+    const max = Math.max(10, Number(maxEntries) || 200);
+    while (seenKeys.size > max) {
+      const oldest = seenKeys.values().next().value;
+      if (!oldest) break;
+      seenKeys.delete(oldest);
+    }
+    return true;
+  }
+
   globalScope.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE = Object.freeze({
     XMPP_DIRECT_MUC_INVITE_NAMESPACE,
     normalizeXmppRoomJoinArg,
     parseXmppDirectMucInviteCommandArg,
-    parseXmppDirectMucInvite
+    parseXmppDirectMucInvite,
+    rememberXmppDirectMucInviteSeen
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0249_direct-muc-invite", globalScope.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);

@@ -257,6 +257,12 @@ const parseXmppDirectMucInviteCommandArg = typeof XEP_0249_DIRECT_MUC_INVITE_GLO
     const password = (passwordRaw || "").toString().trim().slice(0, 120);
     return { roomJid, reason, password };
   });
+const rememberXmppDirectMucInviteSeenViaXep = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.rememberXmppDirectMucInviteSeen === "function"
+  ? ((key = "") => XEP_0249_DIRECT_MUC_INVITE_GLOBAL.rememberXmppDirectMucInviteSeen(key, {
+    seenKeys: xmppSeenDirectMucInviteKeys,
+    maxEntries: XMPP_DIRECT_MUC_INVITE_SEEN_MAX
+  }))
+  : (() => true);
 const parseXmppCallInviteAction = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction === "function"
   ? XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction
   : (() => null);
@@ -6212,16 +6218,7 @@ function parseCallInviteFromText(text = "") {
 }
 
 function rememberXmppDirectMucInviteSeen(key = "") {
-  const normalized = (key || "").toString().trim();
-  if (!normalized) return false;
-  if (xmppSeenDirectMucInviteKeys.has(normalized)) return false;
-  xmppSeenDirectMucInviteKeys.add(normalized);
-  while (xmppSeenDirectMucInviteKeys.size > XMPP_DIRECT_MUC_INVITE_SEEN_MAX) {
-    const oldest = xmppSeenDirectMucInviteKeys.values().next().value;
-    if (!oldest) break;
-    xmppSeenDirectMucInviteKeys.delete(oldest);
-  }
-  return true;
+  return rememberXmppDirectMucInviteSeenViaXep(key);
 }
 
 function xmppSendDirectMucInvite(peerJid = "", roomJid = "", {
