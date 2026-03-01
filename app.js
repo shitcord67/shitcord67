@@ -80,6 +80,7 @@ const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICE
 const XMPP_OMEMO_PREKEY_COUNT = XMPP_NS_GLOBAL.XMPP_OMEMO_PREKEY_COUNT || 48;
 const XMPP_OMEMO_SIGNED_PREKEY_ID = XMPP_NS_GLOBAL.XMPP_OMEMO_SIGNED_PREKEY_ID || 1;
 const XEP_0334_HINTS_GLOBAL = xepModule("xep-0334_processing-hints", globalThis.SHITCORD67_XEP_0334_HINTS);
+const XEP_0085_CHATSTATES_GLOBAL = xepModule("xep-0085-chatstates", globalThis.SHITCORD67_XEP_0085_CHATSTATES);
 const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints";
 const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalThis.SHITCORD67_XEP_0184_0333_MARKERS);
 const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite", globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
@@ -11930,6 +11931,48 @@ function formatTypingSummary(names) {
   return `${names[0]}, ${names[1]}, and ${names.length - 2} others are typing...`;
 }
 
+function xmppChatStateNodeForTypingActive(active) {
+  if (typeof XEP_0085_CHATSTATES_GLOBAL.xmppChatStateNodeForTypingActive === "function") {
+    return XEP_0085_CHATSTATES_GLOBAL.xmppChatStateNodeForTypingActive(Boolean(active));
+  }
+  return active ? "composing" : "paused";
+}
+
+function xmppBuildChatStateStanza({ to = "", type = "chat", state = "", active = null, id = "" } = {}) {
+  if (typeof XEP_0085_CHATSTATES_GLOBAL.xmppBuildChatStateStanza !== "function") {
+    const node = (state || xmppChatStateNodeForTypingActive(active === true)).toString().trim().toLowerCase();
+    if (!to || !globalThis.$msg || !node) return null;
+    return globalThis.$msg({ to, type, ...(id ? { id } : {}) })
+      .c(node, { xmlns: "http://jabber.org/protocol/chatstates" });
+  }
+  return XEP_0085_CHATSTATES_GLOBAL.xmppBuildChatStateStanza({ to, type, state, active, id }, {
+    $msg: globalThis.$msg
+  });
+}
+
+function xmppChatStateFromStanza(stanza) {
+  if (typeof XEP_0085_CHATSTATES_GLOBAL.xmppChatStateFromStanza !== "function") {
+    return "";
+  }
+  return XEP_0085_CHATSTATES_GLOBAL.xmppChatStateFromStanza(stanza, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns
+  });
+}
+
+function xmppRelayTypingPayloadFromChatState(chatState = "", { authorUsername = "", authorDisplay = "" } = {}) {
+  if (typeof XEP_0085_CHATSTATES_GLOBAL.xmppRelayTypingPayloadFromChatState !== "function") {
+    const normalized = (chatState || "").toString().trim().toLowerCase();
+    if (!normalized) return null;
+    return {
+      state: normalized === "composing" ? "composing" : "paused",
+      active: normalized === "composing",
+      authorUsername: (authorUsername || "").toString(),
+      authorDisplay: (authorDisplay || "").toString()
+    };
+  }
+  return XEP_0085_CHATSTATES_GLOBAL.xmppRelayTypingPayloadFromChatState(chatState, { authorUsername, authorDisplay });
+}
+
 function publishRelayTypingState(active, { force = false, room: roomOverride = "" } = {}) {
   const prefs = getPreferences();
   if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
@@ -11942,8 +11985,9 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     return true;
   }
   if (!force && !active && !relayLocalTypingState.active && relayLocalTypingState.room === room) return true;
+  const chatStateNode = xmppChatStateNodeForTypingActive(active);
   const typingPayload = {
-    state: active ? "composing" : "paused",
+    state: chatStateNode,
     active: Boolean(active),
     ts: new Date().toISOString(),
     authorUsername: current.username,
@@ -11952,12 +11996,12 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
-    const stateNode = active ? "composing" : "paused";
     if (/^dm:/i.test(room)) {
       const dmThread = findDmThreadByRelayRoom(room, current);
       const peerJid = xmppPeerJidForDmThread(dmThread, current);
       if (peerJid) {
-        const stanza = globalThis.$msg({ to: peerJid, type: "chat" }).c(stateNode, { xmlns: "http://jabber.org/protocol/chatstates" });
+        const stanza = xmppBuildChatStateStanza({ to: peerJid, type: "chat", state: chatStateNode });
+        if (!stanza) return false;
         xmppConnection.send(stanza);
         relayLocalTypingState.active = Boolean(active);
         relayLocalTypingState.room = room;
@@ -11968,7 +12012,8 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     const roomJid = xmppRoomJidForToken(room, prefs);
     if (!roomJid) return false;
     joinXmppRoom(room, current);
-    const stanza = globalThis.$msg({ to: roomJid, type: "groupchat" }).c(stateNode, { xmlns: "http://jabber.org/protocol/chatstates" });
+    const stanza = xmppBuildChatStateStanza({ to: roomJid, type: "groupchat", state: chatStateNode });
+    if (!stanza) return false;
     xmppConnection.send(stanza);
     relayLocalTypingState.active = Boolean(active);
     relayLocalTypingState.room = room;
@@ -14868,11 +14913,7 @@ function connectRelaySocket({ force = false } = {}) {
         const isGroupchat = type === "groupchat";
         const isMucLike = isGroupchat || isXmppMucRoomJid(bareFrom);
         const isDirectLike = (type === "chat" || type === "normal" || type === "headline") && !isMucLike;
-        const hasComposing = stanza.getElementsByTagName("composing").length > 0;
-        const hasPaused = stanza.getElementsByTagName("paused").length > 0;
-        const hasInactive = stanza.getElementsByTagName("inactive").length > 0;
-        const hasGone = stanza.getElementsByTagName("gone").length > 0;
-        const hasActive = stanza.getElementsByTagName("active").length > 0;
+        const incomingChatState = xmppChatStateFromStanza(stanza);
         const preferredBodyText = xmppPreferredBodyText(stanza);
         const bodyNode = xmppDirectChildByLocalName(stanza, "body");
         const subjectNode = xmppDirectChildByLocalName(stanza, "subject");
@@ -15204,18 +15245,17 @@ function connectRelaySocket({ force = false } = {}) {
               matched: updated
             });
           }
-          if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
+          const dmTypingPayload = xmppRelayTypingPayloadFromChatState(incomingChatState, {
+            authorUsername: peer.username,
+            authorDisplay: peer.displayName || peer.username
+          });
+          if (dmTypingPayload) {
             applyRelayIncomingTyping({
               type: "typing",
               room: dmRoom,
               clientId: `xmpp:${from}`,
               username: peer.username,
-              typing: {
-                state: hasComposing ? "composing" : "paused",
-                active: hasComposing,
-                authorUsername: peer.username,
-                authorDisplay: peer.displayName || peer.username
-              }
+              typing: dmTypingPayload
             });
           }
           if (reactionPayload) {
@@ -15455,18 +15495,18 @@ function connectRelaySocket({ force = false } = {}) {
             renderChannels();
           }
         }
-        if (hasComposing || hasPaused || hasInactive || hasGone || hasActive) {
+        const roomTypingUser = nick || roomJid.split("@")[0] || "xmpp";
+        const roomTypingPayload = xmppRelayTypingPayloadFromChatState(incomingChatState, {
+          authorUsername: roomTypingUser,
+          authorDisplay: nick || ""
+        });
+        if (roomTypingPayload) {
           applyRelayIncomingTyping({
             type: "typing",
             room: roomToken,
             clientId: `xmpp:${from}`,
-            username: nick || roomJid.split("@")[0] || "xmpp",
-            typing: {
-              state: hasComposing ? "composing" : "paused",
-              active: hasComposing,
-              authorUsername: nick || roomJid.split("@")[0] || "xmpp",
-              authorDisplay: nick || ""
-            }
+            username: roomTypingUser,
+            typing: roomTypingPayload
           });
         }
         const roomCallInvite = earlyCallInvite;
