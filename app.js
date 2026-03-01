@@ -79,6 +79,7 @@ const XEP_0384_PREFERENCES_GLOBAL = globalThis.SHITCORD67_XEP_0384_PREFERENCES |
 const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
 const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
 const XEP_0384_DEVICES_GLOBAL = globalThis.SHITCORD67_XEP_0384_DEVICES || {};
+const XEP_0384_BUNDLES_GLOBAL = globalThis.SHITCORD67_XEP_0384_BUNDLES || {};
 const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
 const XEP_0384_MESSAGE_CRYPTO_GLOBAL = globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
 const XEP_0384_DECRYPT_CONTENT_GLOBAL = globalThis.SHITCORD67_XEP_0384_DECRYPT_CONTENT || {};
@@ -179,6 +180,8 @@ const xmppOmemoEnsureSessionCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsureSessi
 const xmppOmemoEnsurePeerSessionsCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsurePeerSessionsCore || (async () => []);
 const xmppOmemoFetchDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoFetchDeviceListCore || (async () => []);
 const xmppOmemoPublishDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoPublishDeviceListCore || (async () => false);
+const xmppOmemoPublishBundleCore = XEP_0384_BUNDLES_GLOBAL.xmppOmemoPublishBundleCore || (async () => false);
+const xmppOmemoFetchBundleCore = XEP_0384_BUNDLES_GLOBAL.xmppOmemoFetchBundleCore || (async () => null);
 const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGatherDeviceTargetsCore || (async () => []);
 const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || (async () => null);
 const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || (async () => null);
@@ -14754,46 +14757,15 @@ async function xmppOmemoPublishBundle(ownBare, bundle, {
   connection = xmppConnection,
   namespaces = XMPP_OMEMO_NAMESPACES
 } = {}) {
-  if (!ownBare || !bundle || !connection || !globalThis.$iq) return false;
-  const namespaceList = [...new Set(
-    (Array.isArray(namespaces) ? namespaces : [namespaces])
-      .map((entry) => (entry || "").toString().trim())
-      .filter(Boolean)
-  )];
-  let published = false;
-  const errors = [];
-  for (const namespace of namespaceList) {
-    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
-    const iq = globalThis.$iq({ type: "set", to: ownBare })
-      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-      .c("publish", { node: `${nodeSet.bundleNodePrefix}${bundle.deviceId}` })
-      .c("item", { id: "current" })
-      .c("bundle", { xmlns: nodeSet.namespace });
-    iq.c("signedPreKeyPublic", { signedPreKeyId: String(bundle.signedPreKeyId || XMPP_OMEMO_SIGNED_PREKEY_ID) })
-      .t(bundle.signedPreKeyPublic || "")
-      .up();
-    iq.c("signedPreKeySignature").t(bundle.signedPreKeySignature || "").up();
-    iq.c("identityKey").t(bundle.identityKey || "").up();
-    iq.c("prekeys");
-    (bundle.preKeys || []).forEach((entry) => {
-      iq.c("preKeyPublic", { preKeyId: String(entry.id) }).t(entry.key || "").up();
-    });
-    iq.up();
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      await xmppSendIqPromise(connection, iq, 7000);
-      published = true;
-      xmppOmemoPreferredNamespaceByJid.set(ownBare, nodeSet.namespace);
-    } catch (error) {
-      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
-    }
-  }
-  if (published) return true;
-  addXmppDebugEvent("error", "OMEMO bundle publish failed", {
-    jid: ownBare,
-    error: errors.join(" | ") || "all namespaces failed"
+  return xmppOmemoPublishBundleCore(ownBare, bundle, {
+    connection,
+    namespaces,
+    namespaceNodeSetFn: xmppOmemoNamespaceNodeSet,
+    sendIqPromiseFn: xmppSendIqPromise,
+    preferredNamespaceByJid: xmppOmemoPreferredNamespaceByJid,
+    signedPreKeyId: XMPP_OMEMO_SIGNED_PREKEY_ID,
+    debugEventFn: addXmppDebugEvent
   });
-  return false;
 }
 
 function xmppOmemoNamespaceForSend(targetJids = []) {
@@ -14864,53 +14836,20 @@ async function xmppOmemoEnsureOwnBundle(ownBare, { force = false } = {}) {
 }
 
 async function xmppOmemoFetchBundle(jid, deviceId, { connection = xmppConnection } = {}) {
-  const bare = xmppBareJid(jid || "");
-  if (!bare || !deviceId || !connection || !globalThis.$iq) return null;
-  const cacheKey = `${bare}|${deviceId}`;
-  if (xmppOmemoBundleByJidDevice.has(cacheKey)) {
-    return xmppOmemoBundleByJidDevice.get(cacheKey) || null;
-  }
-  const errors = [];
-  const namespaceCandidates = xmppOmemoNamespaceCandidatesForPeer(bare);
-  for (const namespace of namespaceCandidates) {
-    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
-    const iq = globalThis.$iq({ type: "get", to: bare })
-      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-      .c("items", { node: `${nodeSet.bundleNodePrefix}${deviceId}` });
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      const stanza = await xmppSendIqPromise(connection, iq, 7000);
-      const bundleNode = [...stanza.getElementsByTagName("bundle")]
-        .find((node) => xmppNodeHasAnyXmlns(node, XMPP_OMEMO_NAMESPACES)) || null;
-      if (!bundleNode) continue;
-      const signedPreKeyPublicNode = bundleNode.getElementsByTagName("signedPreKeyPublic")[0] || null;
-      const signedPreKeySignatureNode = bundleNode.getElementsByTagName("signedPreKeySignature")[0] || null;
-      const identityKeyNode = bundleNode.getElementsByTagName("identityKey")[0] || null;
-      const prekeysNode = bundleNode.getElementsByTagName("prekeys")[0] || null;
-      const preKeyNodes = prekeysNode ? [...prekeysNode.getElementsByTagName("preKeyPublic")] : [];
-      const bundle = {
-        identityKey: xmppNodeText(identityKeyNode).trim(),
-        signedPreKeyId: Number(signedPreKeyPublicNode?.getAttribute("signedPreKeyId") || XMPP_OMEMO_SIGNED_PREKEY_ID),
-        signedPreKeyPublic: xmppNodeText(signedPreKeyPublicNode).trim(),
-        signedPreKeySignature: xmppNodeText(signedPreKeySignatureNode).trim(),
-        preKeys: preKeyNodes.map((node) => ({
-          id: Number(node.getAttribute("preKeyId") || 0),
-          key: xmppNodeText(node).trim()
-        })).filter((entry) => entry.id && entry.key)
-      };
-      xmppOmemoBundleByJidDevice.set(cacheKey, bundle);
-      xmppOmemoPreferredNamespaceByJid.set(bare, nodeSet.namespace);
-      return bundle;
-    } catch (error) {
-      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
-    }
-  }
-  addXmppDebugEvent("error", "OMEMO bundle fetch failed", {
-    jid: bare,
-    deviceId,
-    error: errors.join(" | ")
+  return xmppOmemoFetchBundleCore(jid, deviceId, {
+    toBareJid: (value) => xmppBareJid(value || ""),
+    connection,
+    bundleCache: xmppOmemoBundleByJidDevice,
+    namespaceCandidatesFn: xmppOmemoNamespaceCandidatesForPeer,
+    namespaceNodeSetFn: xmppOmemoNamespaceNodeSet,
+    sendIqPromiseFn: xmppSendIqPromise,
+    nodeHasAnyXmlnsFn: xmppNodeHasAnyXmlns,
+    nodeTextFn: xmppNodeText,
+    omemoNamespaces: XMPP_OMEMO_NAMESPACES,
+    preferredNamespaceByJid: xmppOmemoPreferredNamespaceByJid,
+    signedPreKeyId: XMPP_OMEMO_SIGNED_PREKEY_ID,
+    debugEventFn: addXmppDebugEvent
   });
-  return null;
 }
 
 async function xmppOmemoEnsureSession(peerBare, deviceId, ownBare) {
