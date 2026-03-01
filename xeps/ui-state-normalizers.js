@@ -10,8 +10,13 @@
     return "all";
   }
 
+  function normalizeMobilePane(value) {
+    return value === "nav" ? "nav" : "chat";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
-    normalizeMemberPresenceFilter
+    normalizeMemberPresenceFilter,
+    normalizeMobilePane
   });
 })(typeof window !== "undefined" ? window : globalThis);
