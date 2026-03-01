@@ -2397,3 +2397,65 @@ Well. Can you continue? Especially would like for you to finally finish the spac
   for
     future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff
     unless you state it might be worth it. Have fun
+[2026-03-01T02:11:42Z] Yes
+[2026-03-01T02:18:43Z] USER PROMPT:
+Your last summary was this, but when you continued working you ran out of the context window: • Summary
+
+  - Implemented XEP-0402 publish/retract + pubsub update handling for XMPP Spaces, and added /leavexmpp for clean leave/
+    remove flows. app.js, SUPPORTED_XEPS.md
+  - Added EME markers for OMEMO messages, OTR placeholder detection, and a Ruffle data-load fallback path to improve SWF
+    loading on Android/WebView. app.js
+  - Logged the xmppmessengers survey (scope + repos checked) and updated TODOs for OpenPGP/OTR + OMEMO2 follow‑ups.
+    INVESTIGATE.md, TODO
+
+  Details
+
+  - XEP‑0402 now mirrors the spec’s per‑room PubSub items, +notify capability, and bookmark payload fields (autojoin/nick/
+    password/extensions). This aligns with the spec’s storage + notification guidance. (xmpp.org (https://xmpp.org/
+    extensions/xep-0402.html))
+  - The Ruffle fallback now uses the DataLoadOptions path (data buffer + swfFileName + base) if URL loads fail, which is the
+    supported API for streaming SWF bytes. (ruffle.rs (https://ruffle.rs/js-docs/master/interfaces/
+    Config.DataLoadOptions.html))
+  - Your Converse.js OMEMO pointer is noted; NLnet’s project page confirms active work on “latest OMEMO support” for
+    Converse.js. (nlnet.nl (https://nlnet.nl/project/Converse.js-OMEMO/))
+  - I referenced xmpp.org’s Software hub for the feature comparison/XEP catalog context; the public page lists the Software
+    Comparison and the XEP catalog (including spaces/bookmarks). (xmpp.org (https://xmpp.org/software/))
+
+  What I Didn’t Finish Yet
+
+  - Call interop improvements beyond existing scaffolding are still pending. I can prioritize Jingle SDP↔content mapping and
+    peer capability negotiation next.
+
+  Tests
+
+  - Not run (no automated test suite defined).
+
+  Next steps (pick one)
+
+  1. Implement OpenPGP (XEP‑0373/0374) + OTR (XEP‑0378) with key management UI and encryption/decryption pipeline.
+  2. Push call interop forward: improve SDP↔Jingle mapping, media toggles, and transport negotiation for broader client
+     compatibility.
+  3. Validate the new Ruffle data-load path on Android with your SWF set and adjust for any remaining WebView quirks.
+
+  If you want, I can also extract the exact per‑client XEP matrices from xmpp.org’s Software Comparison next.
+
+ Also this was my original request: I previously asked the following and want you to continue on this: No it was: Well. Can you continue? Especially would
+  like for you to finally finish the spaces XEP support, OMEME and
+    maybe also OTR
+      and OpenGPG to have encryption finally working? And ofc the call interop stuff. Btw. I think especially Converse.js
+  has
+      code for OMEMO: https://nlnet.nl/project/Converse.js-OMEMO/ Then SWFs still don't load in Ruffle on Android, can it
+    even
+      cope with the swf subfolder? You might also take a look at XMPP messengers I cloned to subfolder xmppmessengers and
+  you
+      can look at https://xmpp.org/software/?category=clients for features of those clients and their details. E.g. there
+  are
+      details links that then lead to subsites named after the clients like https://xmpp.org/software/psi/. Please heavily
+      investigate. You may also choose to implement some cool XEPs autonoumously, low hanging fruits and useful stuff, etc.
+    You
+      may decide by number of lines (cloc or other tools), repo size and features which you take a look at first. Simpler
+    repos
+      with the most gain regarding things I want and you deem worth to add quick might be preferred. Also you may note down
+    for
+      future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff
+      unless you state it might be worth it. Have fun

@@ -59,9 +59,14 @@ const XMPP_OPENPGP_NAMESPACE = "urn:xmpp:openpgp:0";
 const XMPP_OPENPGP_LEGACY_NAMESPACE = "jabber:x:encrypted";
 const XMPP_OTR_PREFIX = "?OTR:";
 const XMPP_OMEMO_NAMESPACE = "eu.siacs.conversations.axolotl";
+const XMPP_OMEMO_NAMESPACE_V2 = "urn:xmpp:omemo:2";
+const XMPP_OMEMO_NAMESPACES = [XMPP_OMEMO_NAMESPACE_V2, XMPP_OMEMO_NAMESPACE];
 const XMPP_OMEMO_DEVICELIST_NODE = "eu.siacs.conversations.axolotl.devicelist";
+const XMPP_OMEMO_DEVICELIST_NODE_V2 = "urn:xmpp:omemo:2:devicelist";
 const XMPP_OMEMO_BUNDLE_NODE_PREFIX = "eu.siacs.conversations.axolotl.bundles:";
+const XMPP_OMEMO_BUNDLE_NODE_PREFIX_V2 = "urn:xmpp:omemo:2:bundles:";
 const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE = `${XMPP_OMEMO_DEVICELIST_NODE}+notify`;
+const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 = `${XMPP_OMEMO_DEVICELIST_NODE_V2}+notify`;
 const XMPP_OMEMO_PREKEY_COUNT = 48;
 const XMPP_OMEMO_SIGNED_PREKEY_ID = 1;
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
@@ -1797,6 +1802,7 @@ const xmppRoomDiscoveryCacheByService = new Map();
 const xmppRoomDiscoveryInFlightByService = new Map();
 const xmppOmemoDeviceListByJid = new Map();
 const xmppOmemoBundleByJidDevice = new Map();
+const xmppOmemoPreferredNamespaceByJid = new Map();
 const xmppOmemoSessionSetupInFlight = new Map();
 const xmppOmemoDecryptInFlightByMessageId = new Map();
 const XMPP_DISCO_INFO_TTL_MS = 5 * 60 * 1000;
@@ -8161,6 +8167,46 @@ function xmppAlignRemoteJingleContentsToLocalOffer(contents = [], localOfferSdp 
   return aligned;
 }
 
+function xmppAlignLocalJingleContentsToRemoteSession(localContents = [], remoteContents = []) {
+  const local = (Array.isArray(localContents) ? localContents : [])
+    .map((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return null;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      return { ...entry, name, media };
+    })
+    .filter(Boolean);
+  const remote = (Array.isArray(remoteContents) ? remoteContents : [])
+    .map((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return null;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      return { ...entry, name, media };
+    })
+    .filter(Boolean);
+  if (local.length === 0 || remote.length === 0) return local;
+  const used = new Set();
+  const aligned = [];
+  remote.forEach((target) => {
+    let chosenIndex = local.findIndex((entry, index) => !used.has(index) && entry.name === target.name);
+    if (chosenIndex < 0) {
+      chosenIndex = local.findIndex((entry, index) => !used.has(index) && entry.media === target.media);
+    }
+    if (chosenIndex < 0) return;
+    used.add(chosenIndex);
+    aligned.push({
+      ...local[chosenIndex],
+      name: target.name,
+      media: target.media
+    });
+  });
+  local.forEach((entry, index) => {
+    if (used.has(index)) return;
+    aligned.push(entry);
+  });
+  return aligned.length > 0 ? aligned : local;
+}
+
 function xmppBuildMinimalJingleSdp({
   media = ["audio", "video"],
   contents = [],
@@ -9512,7 +9558,10 @@ async function xmppSendJingleSessionAccept(peerJid, sessionId, {
       : xmppBuildJingleTransportCreds());
   if (sessionEntry) sessionEntry.localTransport = localTransport;
   const localDtls = xmppParseDtlsFingerprintFromSdp(localSdp) || xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "active" });
-  const contents = (!useMinimalRtp && localSdp) ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "responder" }) : [];
+  const rawContents = (!useMinimalRtp && localSdp) ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "responder" }) : [];
+  const contents = rawContents.length > 0
+    ? xmppAlignLocalJingleContentsToRemoteSession(rawContents, sessionEntry?.remoteContents || [])
+    : [];
   if (sessionEntry) {
     sessionEntry.media = medias;
   }
@@ -11971,7 +12020,10 @@ function xmppNodeHasXmlnsPrefix(node, prefix = "") {
   const normalizedPrefix = (prefix || "").toString().trim().toLowerCase();
   if (!normalizedPrefix) return false;
   const value = xmppNodeXmlns(node);
-  return value === normalizedPrefix || value.startsWith(`${normalizedPrefix}:`);
+  const scopedPrefix = normalizedPrefix.endsWith(":")
+    ? normalizedPrefix
+    : `${normalizedPrefix}:`;
+  return value === normalizedPrefix || value.startsWith(scopedPrefix);
 }
 
 function xmppNodeHasAnyXmlns(node, xmlnsList = []) {
@@ -14646,6 +14698,53 @@ function xmppOmemoSetPeerEnabled(peerBare, enabled, prefs = getPreferences()) {
   saveState();
 }
 
+function xmppOmemoNamespaceNodeSet(namespace = XMPP_OMEMO_NAMESPACE) {
+  const ns = (namespace || "").toString().trim().toLowerCase();
+  if (ns === XMPP_OMEMO_NAMESPACE_V2) {
+    return {
+      namespace: XMPP_OMEMO_NAMESPACE_V2,
+      devicelistNode: XMPP_OMEMO_DEVICELIST_NODE_V2,
+      bundleNodePrefix: XMPP_OMEMO_BUNDLE_NODE_PREFIX_V2,
+      notifyFeature: XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2,
+      encryptedType: "omemo2"
+    };
+  }
+  return {
+    namespace: XMPP_OMEMO_NAMESPACE,
+    devicelistNode: XMPP_OMEMO_DEVICELIST_NODE,
+    bundleNodePrefix: XMPP_OMEMO_BUNDLE_NODE_PREFIX,
+    notifyFeature: XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE,
+    encryptedType: "omemo"
+  };
+}
+
+function xmppOmemoNamespaceCandidatesForPeer(peerJid = "", {
+  includeLegacy = true
+} = {}) {
+  const bare = xmppBareJid(peerJid);
+  const cachedPreferred = bare ? (xmppOmemoPreferredNamespaceByJid.get(bare) || "") : "";
+  const discoFeatures = bare ? xmppCachedCallFeaturesForPeer(bare) : new Set();
+  const supportsV2 = discoFeatures.has(XMPP_OMEMO_NAMESPACE_V2)
+    || discoFeatures.has(XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2)
+    || discoFeatures.has(XMPP_OMEMO_DEVICELIST_NODE_V2);
+  const list = [];
+  const append = (namespace) => {
+    const value = (namespace || "").toString().trim();
+    if (!value || list.includes(value)) return;
+    if (!includeLegacy && value === XMPP_OMEMO_NAMESPACE) return;
+    list.push(value);
+  };
+  if (supportsV2) append(XMPP_OMEMO_NAMESPACE_V2);
+  append(cachedPreferred);
+  XMPP_OMEMO_NAMESPACES.forEach(append);
+  if (list.length === 0) append(XMPP_OMEMO_NAMESPACE);
+  return list;
+}
+
+function xmppPreferredOmemoNamespaceForPeer(peerJid = "") {
+  return xmppOmemoNamespaceCandidatesForPeer(peerJid)[0] || XMPP_OMEMO_NAMESPACE;
+}
+
 async function xmppOmemoEnsureLocalIdentity(ownBare) {
   if (!xmppOmemoRuntimeAvailable()) return null;
   const store = xmppOmemoStoreForAccount(ownBare);
@@ -14667,81 +14766,137 @@ async function xmppOmemoEnsureLocalIdentity(ownBare) {
 async function xmppOmemoFetchDeviceList(jid, { connection = xmppConnection } = {}) {
   const bare = xmppBareJid(jid || "");
   if (!bare || !connection || !globalThis.$iq) return [];
-  const iq = globalThis.$iq({ type: "get", to: bare })
-    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-    .c("items", { node: XMPP_OMEMO_DEVICELIST_NODE });
-  try {
-    const stanza = await xmppSendIqPromise(connection, iq, 7000);
-    const listNode = [...stanza.getElementsByTagName("list")]
-      .find((node) => xmppNodeHasXmlns(node, XMPP_OMEMO_NAMESPACE)) || null;
-    if (!listNode) return [];
-    const devices = [...listNode.getElementsByTagName("device")]
-      .map((node) => (node.getAttribute("id") || "").toString().trim())
-      .filter(Boolean);
-    const unique = [...new Set(devices)];
-    xmppOmemoDeviceListByJid.set(bare, unique);
-    return unique;
-  } catch (error) {
-    addXmppDebugEvent("error", "OMEMO device list fetch failed", {
-      jid: bare,
-      error: String(error?.message || error)
-    });
-    return [];
+  const errors = [];
+  const namespaceCandidates = xmppOmemoNamespaceCandidatesForPeer(bare);
+  for (const namespace of namespaceCandidates) {
+    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
+    const iq = globalThis.$iq({ type: "get", to: bare })
+      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+      .c("items", { node: nodeSet.devicelistNode });
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const stanza = await xmppSendIqPromise(connection, iq, 7000);
+      const listNode = [...stanza.getElementsByTagName("list")]
+        .find((node) => xmppNodeHasAnyXmlns(node, XMPP_OMEMO_NAMESPACES)) || null;
+      if (!listNode) continue;
+      const devices = [...listNode.getElementsByTagName("device")]
+        .map((node) => (node.getAttribute("id") || "").toString().trim())
+        .filter(Boolean);
+      const unique = [...new Set(devices)];
+      xmppOmemoDeviceListByJid.set(bare, unique);
+      xmppOmemoPreferredNamespaceByJid.set(bare, nodeSet.namespace);
+      return unique;
+    } catch (error) {
+      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
+    }
   }
+  addXmppDebugEvent("error", "OMEMO device list fetch failed", {
+    jid: bare,
+    error: errors.join(" | ")
+  });
+  return [];
 }
 
-async function xmppOmemoPublishDeviceList(ownBare, deviceIds, { connection = xmppConnection } = {}) {
+async function xmppOmemoPublishDeviceList(ownBare, deviceIds, {
+  connection = xmppConnection,
+  namespaces = XMPP_OMEMO_NAMESPACES
+} = {}) {
   if (!ownBare || !connection || !globalThis.$iq) return false;
   const ids = [...new Set((deviceIds || []).map((id) => String(id)).filter(Boolean))];
   if (ids.length === 0) return false;
-  const iq = globalThis.$iq({ type: "set", to: ownBare })
-    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-    .c("publish", { node: XMPP_OMEMO_DEVICELIST_NODE })
-    .c("item", { id: "current" })
-    .c("list", { xmlns: XMPP_OMEMO_NAMESPACE });
-  ids.forEach((id) => {
-    iq.c("device", { id }).up();
-  });
-  try {
-    await xmppSendIqPromise(connection, iq, 7000);
+  const namespaceList = [...new Set(
+    (Array.isArray(namespaces) ? namespaces : [namespaces])
+      .map((entry) => (entry || "").toString().trim())
+      .filter(Boolean)
+  )];
+  let published = false;
+  const errors = [];
+  for (const namespace of namespaceList) {
+    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
+    const iq = globalThis.$iq({ type: "set", to: ownBare })
+      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+      .c("publish", { node: nodeSet.devicelistNode })
+      .c("item", { id: "current" })
+      .c("list", { xmlns: nodeSet.namespace });
+    ids.forEach((id) => {
+      iq.c("device", { id }).up();
+    });
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await xmppSendIqPromise(connection, iq, 7000);
+      published = true;
+      xmppOmemoPreferredNamespaceByJid.set(ownBare, nodeSet.namespace);
+    } catch (error) {
+      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
+    }
+  }
+  if (published) {
     xmppOmemoDeviceListByJid.set(ownBare, ids);
     return true;
-  } catch (error) {
-    addXmppDebugEvent("error", "OMEMO device list publish failed", {
-      jid: ownBare,
-      error: String(error?.message || error)
-    });
-    return false;
   }
+  addXmppDebugEvent("error", "OMEMO device list publish failed", {
+    jid: ownBare,
+    error: errors.join(" | ") || "all namespaces failed"
+  });
+  return false;
 }
 
-async function xmppOmemoPublishBundle(ownBare, bundle, { connection = xmppConnection } = {}) {
+async function xmppOmemoPublishBundle(ownBare, bundle, {
+  connection = xmppConnection,
+  namespaces = XMPP_OMEMO_NAMESPACES
+} = {}) {
   if (!ownBare || !bundle || !connection || !globalThis.$iq) return false;
-  const iq = globalThis.$iq({ type: "set", to: ownBare })
-    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-    .c("publish", { node: `${XMPP_OMEMO_BUNDLE_NODE_PREFIX}${bundle.deviceId}` })
-    .c("item", { id: "current" })
-    .c("bundle", { xmlns: XMPP_OMEMO_NAMESPACE });
-  iq.c("signedPreKeyPublic", { signedPreKeyId: String(bundle.signedPreKeyId || XMPP_OMEMO_SIGNED_PREKEY_ID) })
-    .t(bundle.signedPreKeyPublic || "")
-    .up();
-  iq.c("signedPreKeySignature").t(bundle.signedPreKeySignature || "").up();
-  iq.c("identityKey").t(bundle.identityKey || "").up();
-  iq.c("prekeys");
-  (bundle.preKeys || []).forEach((entry) => {
-    iq.c("preKeyPublic", { preKeyId: String(entry.id) }).t(entry.key || "").up();
-  });
-  iq.up();
-  try {
-    await xmppSendIqPromise(connection, iq, 7000);
-    return true;
-  } catch (error) {
-    addXmppDebugEvent("error", "OMEMO bundle publish failed", {
-      jid: ownBare,
-      error: String(error?.message || error)
+  const namespaceList = [...new Set(
+    (Array.isArray(namespaces) ? namespaces : [namespaces])
+      .map((entry) => (entry || "").toString().trim())
+      .filter(Boolean)
+  )];
+  let published = false;
+  const errors = [];
+  for (const namespace of namespaceList) {
+    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
+    const iq = globalThis.$iq({ type: "set", to: ownBare })
+      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+      .c("publish", { node: `${nodeSet.bundleNodePrefix}${bundle.deviceId}` })
+      .c("item", { id: "current" })
+      .c("bundle", { xmlns: nodeSet.namespace });
+    iq.c("signedPreKeyPublic", { signedPreKeyId: String(bundle.signedPreKeyId || XMPP_OMEMO_SIGNED_PREKEY_ID) })
+      .t(bundle.signedPreKeyPublic || "")
+      .up();
+    iq.c("signedPreKeySignature").t(bundle.signedPreKeySignature || "").up();
+    iq.c("identityKey").t(bundle.identityKey || "").up();
+    iq.c("prekeys");
+    (bundle.preKeys || []).forEach((entry) => {
+      iq.c("preKeyPublic", { preKeyId: String(entry.id) }).t(entry.key || "").up();
     });
-    return false;
+    iq.up();
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await xmppSendIqPromise(connection, iq, 7000);
+      published = true;
+      xmppOmemoPreferredNamespaceByJid.set(ownBare, nodeSet.namespace);
+    } catch (error) {
+      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
+    }
   }
+  if (published) return true;
+  addXmppDebugEvent("error", "OMEMO bundle publish failed", {
+    jid: ownBare,
+    error: errors.join(" | ") || "all namespaces failed"
+  });
+  return false;
+}
+
+function xmppOmemoNamespaceForSend(targetJids = []) {
+  const targets = Array.isArray(targetJids) ? targetJids : [targetJids];
+  const supported = targets
+    .map((jid) => xmppPreferredOmemoNamespaceForPeer(jid))
+    .filter(Boolean);
+  if (supported.length === 0) return XMPP_OMEMO_NAMESPACE;
+  if (supported.every((namespace) => namespace === XMPP_OMEMO_NAMESPACE_V2)) {
+    return XMPP_OMEMO_NAMESPACE_V2;
+  }
+  return XMPP_OMEMO_NAMESPACE;
 }
 
 async function xmppOmemoEnsureOwnBundle(ownBare, { force = false } = {}) {
@@ -14810,39 +14965,47 @@ async function xmppOmemoFetchBundle(jid, deviceId, { connection = xmppConnection
   if (xmppOmemoBundleByJidDevice.has(cacheKey)) {
     return xmppOmemoBundleByJidDevice.get(cacheKey) || null;
   }
-  const iq = globalThis.$iq({ type: "get", to: bare })
-    .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-    .c("items", { node: `${XMPP_OMEMO_BUNDLE_NODE_PREFIX}${deviceId}` });
-  try {
-    const stanza = await xmppSendIqPromise(connection, iq, 7000);
-    const bundleNode = [...stanza.getElementsByTagName("bundle")]
-      .find((node) => xmppNodeHasXmlns(node, XMPP_OMEMO_NAMESPACE)) || null;
-    if (!bundleNode) return null;
-    const signedPreKeyPublicNode = bundleNode.getElementsByTagName("signedPreKeyPublic")[0] || null;
-    const signedPreKeySignatureNode = bundleNode.getElementsByTagName("signedPreKeySignature")[0] || null;
-    const identityKeyNode = bundleNode.getElementsByTagName("identityKey")[0] || null;
-    const prekeysNode = bundleNode.getElementsByTagName("prekeys")[0] || null;
-    const preKeyNodes = prekeysNode ? [...prekeysNode.getElementsByTagName("preKeyPublic")] : [];
-    const bundle = {
-      identityKey: xmppNodeText(identityKeyNode).trim(),
-      signedPreKeyId: Number(signedPreKeyPublicNode?.getAttribute("signedPreKeyId") || XMPP_OMEMO_SIGNED_PREKEY_ID),
-      signedPreKeyPublic: xmppNodeText(signedPreKeyPublicNode).trim(),
-      signedPreKeySignature: xmppNodeText(signedPreKeySignatureNode).trim(),
-      preKeys: preKeyNodes.map((node) => ({
-        id: Number(node.getAttribute("preKeyId") || 0),
-        key: xmppNodeText(node).trim()
-      })).filter((entry) => entry.id && entry.key)
-    };
-    xmppOmemoBundleByJidDevice.set(cacheKey, bundle);
-    return bundle;
-  } catch (error) {
-    addXmppDebugEvent("error", "OMEMO bundle fetch failed", {
-      jid: bare,
-      deviceId,
-      error: String(error?.message || error)
-    });
-    return null;
+  const errors = [];
+  const namespaceCandidates = xmppOmemoNamespaceCandidatesForPeer(bare);
+  for (const namespace of namespaceCandidates) {
+    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
+    const iq = globalThis.$iq({ type: "get", to: bare })
+      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+      .c("items", { node: `${nodeSet.bundleNodePrefix}${deviceId}` });
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const stanza = await xmppSendIqPromise(connection, iq, 7000);
+      const bundleNode = [...stanza.getElementsByTagName("bundle")]
+        .find((node) => xmppNodeHasAnyXmlns(node, XMPP_OMEMO_NAMESPACES)) || null;
+      if (!bundleNode) continue;
+      const signedPreKeyPublicNode = bundleNode.getElementsByTagName("signedPreKeyPublic")[0] || null;
+      const signedPreKeySignatureNode = bundleNode.getElementsByTagName("signedPreKeySignature")[0] || null;
+      const identityKeyNode = bundleNode.getElementsByTagName("identityKey")[0] || null;
+      const prekeysNode = bundleNode.getElementsByTagName("prekeys")[0] || null;
+      const preKeyNodes = prekeysNode ? [...prekeysNode.getElementsByTagName("preKeyPublic")] : [];
+      const bundle = {
+        identityKey: xmppNodeText(identityKeyNode).trim(),
+        signedPreKeyId: Number(signedPreKeyPublicNode?.getAttribute("signedPreKeyId") || XMPP_OMEMO_SIGNED_PREKEY_ID),
+        signedPreKeyPublic: xmppNodeText(signedPreKeyPublicNode).trim(),
+        signedPreKeySignature: xmppNodeText(signedPreKeySignatureNode).trim(),
+        preKeys: preKeyNodes.map((node) => ({
+          id: Number(node.getAttribute("preKeyId") || 0),
+          key: xmppNodeText(node).trim()
+        })).filter((entry) => entry.id && entry.key)
+      };
+      xmppOmemoBundleByJidDevice.set(cacheKey, bundle);
+      xmppOmemoPreferredNamespaceByJid.set(bare, nodeSet.namespace);
+      return bundle;
+    } catch (error) {
+      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
+    }
   }
+  addXmppDebugEvent("error", "OMEMO bundle fetch failed", {
+    jid: bare,
+    deviceId,
+    error: errors.join(" | ")
+  });
+  return null;
 }
 
 async function xmppOmemoEnsureSession(peerBare, deviceId, ownBare) {
@@ -14896,8 +15059,9 @@ async function xmppOmemoEnsurePeerSessions(peerBare, ownBare) {
 function xmppOmemoParseEncryptedPayload(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
   const encryptedNode = [...stanza.getElementsByTagName("encrypted")]
-    .find((node) => xmppNodeHasXmlns(node, XMPP_OMEMO_NAMESPACE)) || null;
+    .find((node) => xmppNodeHasAnyXmlns(node, XMPP_OMEMO_NAMESPACES)) || null;
   if (!encryptedNode) return null;
+  const namespace = xmppNodeXmlns(encryptedNode);
   const headerNode = encryptedNode.getElementsByTagName("header")[0] || null;
   if (!headerNode) return null;
   const sid = (headerNode.getAttribute("sid") || "").toString().trim();
@@ -14913,6 +15077,8 @@ function xmppOmemoParseEncryptedPayload(stanza) {
     };
   });
   return {
+    namespace,
+    encryptedType: namespace === XMPP_OMEMO_NAMESPACE_V2 ? "omemo2" : "omemo",
     sid,
     keys,
     iv: xmppNodeText(ivNode).trim(),
@@ -14920,9 +15086,10 @@ function xmppOmemoParseEncryptedPayload(stanza) {
   };
 }
 
-function appendXmppOmemoEncryptedNode(stanza, payload) {
+function appendXmppOmemoEncryptedNode(stanza, payload, { namespace = XMPP_OMEMO_NAMESPACE } = {}) {
   if (!stanza || !payload) return stanza;
-  const encrypted = stanza.c("encrypted", { xmlns: XMPP_OMEMO_NAMESPACE });
+  const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
+  const encrypted = stanza.c("encrypted", { xmlns: nodeSet.namespace });
   const header = encrypted.c("header", { sid: payload.sid || "" });
   Object.entries(payload.keys || {}).forEach(([rid, entry]) => {
     if (!rid || !entry?.payload) return;
@@ -15100,7 +15267,7 @@ function xmppOmemoTryDecryptIntoMessage({
       }
       message.text = cleanText || message.text || "";
       message.xmppEncrypted = true;
-      message.xmppEncryptedType = "omemo";
+      message.xmppEncryptedType = omemoPayload.encryptedType || "omemo";
       message.xmppEncryptedLabel = "OMEMO";
       message.xmppOmemoDecrypted = true;
       saveState();
@@ -15866,6 +16033,11 @@ function teardownXmppConnection() {
   xmppDiscoInfoCacheByJid.clear();
   xmppDiscoInfoInFlightByJid.clear();
   xmppRoomDiscoveryInFlightByService.clear();
+  xmppOmemoDeviceListByJid.clear();
+  xmppOmemoBundleByJidDevice.clear();
+  xmppOmemoPreferredNamespaceByJid.clear();
+  xmppOmemoSessionSetupInFlight.clear();
+  xmppOmemoDecryptInFlightByMessageId.clear();
   xmppAvailableFullJidsByBare.clear();
   xmppCallSessionIdByInviteId.clear();
   xmppCallSessionById.forEach((entry, sid) => {
@@ -17009,7 +17181,7 @@ function connectRelaySocket({ force = false } = {}) {
                 renderMessages();
               }
             });
-            if (encryptedInfo.type === "omemo") {
+            if (encryptedInfo.type === "omemo" || encryptedInfo.type === "omemo2") {
               xmppOmemoTryDecryptIntoMessage({
                 stanza,
                 message: inserted,
@@ -17455,7 +17627,7 @@ function connectRelaySocket({ force = false } = {}) {
               }
             }
           });
-          if (encryptedInfo.type === "omemo" && authorJid) {
+          if ((encryptedInfo.type === "omemo" || encryptedInfo.type === "omemo2") && authorJid) {
             const ownBare = xmppBareJid(getPreferences().xmppJid || "");
             xmppOmemoTryDecryptIntoMessage({
               stanza,
@@ -18950,6 +19122,9 @@ function xmppClientDiscoFeatures() {
   ];
   if (xmppOmemoRuntimeAvailable()) {
     features.push(XMPP_OMEMO_NAMESPACE);
+    features.push(XMPP_OMEMO_NAMESPACE_V2);
+    features.push(XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE);
+    features.push(XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2);
   }
   return features;
 }
@@ -19822,15 +19997,16 @@ function publishRelayChannelMessage(channel, message, account) {
             showToast("OMEMO groupchat requires real JIDs (non-anonymous room).", { tone: "error" });
             return;
           }
+          const omemoNamespace = xmppOmemoNamespaceForSend(recipientJids);
           const encryptedPayload = await xmppOmemoEncryptMessageForPeers(recipientJids, omemoBody, ownBare);
           if (!encryptedPayload) {
             showToast("OMEMO groupchat encryption failed.", { tone: "error" });
             return;
           }
-          appendXmppOmemoEncryptedNode(stanza, encryptedPayload);
-          appendXmppEmeNode(stanza, { namespace: XMPP_OMEMO_NAMESPACE, name: "OMEMO" });
+          appendXmppOmemoEncryptedNode(stanza, encryptedPayload, { namespace: omemoNamespace });
+          appendXmppEmeNode(stanza, { namespace: omemoNamespace, name: "OMEMO" });
           message.xmppEncrypted = true;
-          message.xmppEncryptedType = "omemo";
+          message.xmppEncryptedType = omemoNamespace === XMPP_OMEMO_NAMESPACE_V2 ? "omemo2" : "omemo";
           message.xmppEncryptedLabel = "OMEMO";
           saveState();
         }
@@ -19963,6 +20139,7 @@ function publishRelayDirectMessage(thread, message, account) {
             return;
           }
           await xmppOmemoEnsureOwnBundle(ownBare);
+          const omemoNamespace = xmppOmemoNamespaceForSend([peerBare]);
           const encryptedPayload = await xmppOmemoEncryptMessageForPeers([peerBare], omemoBody, ownBare);
           if (!encryptedPayload) {
             showToast("OMEMO encryption failed. Message not sent.", { tone: "error" });
@@ -19971,10 +20148,10 @@ function publishRelayDirectMessage(thread, message, account) {
             });
             return;
           }
-          appendXmppOmemoEncryptedNode(stanza, encryptedPayload);
-          appendXmppEmeNode(stanza, { namespace: XMPP_OMEMO_NAMESPACE, name: "OMEMO" });
+          appendXmppOmemoEncryptedNode(stanza, encryptedPayload, { namespace: omemoNamespace });
+          appendXmppEmeNode(stanza, { namespace: omemoNamespace, name: "OMEMO" });
           message.xmppEncrypted = true;
-          message.xmppEncryptedType = "omemo";
+          message.xmppEncryptedType = omemoNamespace === XMPP_OMEMO_NAMESPACE_V2 ? "omemo2" : "omemo";
           message.xmppEncryptedLabel = "OMEMO";
           saveState();
         } else {
@@ -24038,12 +24215,14 @@ function handleSlashCommand(rawText, channel, account) {
         const store = xmppOmemoStoreForAccount(ownBare);
         const localId = store ? await store.getLocalRegistrationId() : null;
         const devices = xmppOmemoDeviceListByJid.get(peerBare) || [];
+        const preferredNamespace = xmppPreferredOmemoNamespaceForPeer(peerBare);
         addSystemMessage(
           channel,
           [
             `OMEMO for ${peerBare}: ${enabled ? "enabled" : "disabled"}`,
             localId ? `Local device ID: ${localId}` : "Local device ID: not set",
-            `Known peer devices: ${devices.length}`
+            `Known peer devices: ${devices.length}`,
+            `Namespace: ${preferredNamespace === XMPP_OMEMO_NAMESPACE_V2 ? "OMEMO 2" : "legacy"}`
           ].join(" · ")
         );
       })();
@@ -31099,6 +31278,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       requestSwfRuntimeLayoutSync();
     }
     const rawAttachmentUrl = (attachment?.url || "").toString().trim();
+    const rawAttachmentName = (attachment?.name || "").toString().trim();
     const addUrlVariant = (target, candidate) => {
       const value = (candidate || "").toString().trim();
       if (!value) return;
@@ -31129,6 +31309,16 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           addUrlVariant(candidates, `/${stripped.replace(/^\/+/, "")}`);
         }
       }
+      if (rawAttachmentName && rawAttachmentName.includes("/")) {
+        const nameWithoutDotSlash = rawAttachmentName.replace(/^\.\//, "");
+        addUrlVariant(candidates, nameWithoutDotSlash);
+        addUrlVariant(candidates, `./${nameWithoutDotSlash}`);
+        addUrlVariant(candidates, `/${nameWithoutDotSlash.replace(/^\/+/, "")}`);
+        if (!nameWithoutDotSlash.startsWith("swf/")) {
+          addUrlVariant(candidates, `swf/${nameWithoutDotSlash.replace(/^\/+/, "")}`);
+          addUrlVariant(candidates, `/swf/${nameWithoutDotSlash.replace(/^\/+/, "")}`);
+        }
+      }
       const resolvedCandidates = [];
       candidates.forEach((candidate) => {
         addUrlVariant(resolvedCandidates, resolveMediaPlaybackUrl(candidate, { kind: "swf" }) || resolveMediaUrl(candidate) || candidate);
@@ -31156,6 +31346,24 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
     };
     const urlCandidates = buildSwfUrlCandidates();
     const swfFileName = (attachment?.name || "").toString().trim();
+    const resolveSwfBaseCandidate = (candidate) => {
+      const value = (candidate || "").toString().trim();
+      if (!value) return "./";
+      try {
+        const parsed = new URL(value, window.location.href);
+        const pathname = (parsed.pathname || "/").toString();
+        const slashIndex = pathname.lastIndexOf("/");
+        parsed.pathname = slashIndex >= 0 ? pathname.slice(0, slashIndex + 1) : "/";
+        parsed.search = "";
+        parsed.hash = "";
+        return parsed.toString();
+      } catch {
+        const stripped = value.split("#")[0].split("?")[0];
+        const slashIndex = stripped.lastIndexOf("/");
+        if (slashIndex < 0) return "./";
+        return stripped.slice(0, slashIndex + 1);
+      }
+    };
     const canAttemptDataLoad = (candidate) => {
       if (!candidate) return false;
       if (/^data:/i.test(candidate)) return false;
@@ -31171,7 +31379,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         await Promise.resolve(player.load({
           data: buffer,
           swfFileName: swfFileName || undefined,
-          base: candidate,
+          base: resolveSwfBaseCandidate(candidate),
           autoplay,
           unmuteOverlay: "hidden",
           scale: "showAll",

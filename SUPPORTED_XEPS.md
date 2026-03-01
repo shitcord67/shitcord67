@@ -47,14 +47,14 @@ Status labels:
 | XEP-0048 | Bookmarks (legacy) | Partial | Legacy bookmark storage fallback is supported. |
 | XEP-0054 | vcard-temp | Partial | vCard retrieval is used for avatar lookup. |
 | XEP-0454 | OMEMO Media Sharing | Partial | Encrypts attachments with AES-256-GCM and shares `aesgcm://` URLs; inbound `aesgcm://` payloads can be decrypted/downloaded. |
-| XEP-0384 | OMEMO Encryption | Partial | OMEMO v0 (`eu.siacs.conversations.axolotl`) encrypt/decrypt for DM and non-anonymous MUC text payloads, with device list + bundle publish/fetch and per-device session setup; OMEMO v1 and anonymous-room OMEMO are not yet supported. |
+| XEP-0384 | OMEMO Encryption | Partial | Supports OMEMO payload handling across legacy (`eu.siacs.conversations.axolotl`) and OMEMO 2 (`urn:xmpp:omemo:2`) namespaces, including dual-namespace device-list/bundle publish+fetch and namespace-aware EME markers for DM and non-anonymous MUC text payloads; anonymous-room OMEMO remains unsupported. |
 
 ## Planned / Not Yet Implemented
 
 | XEP | Name | Status | Notes |
 |---|---|---|---|
 | XEP-0084 | User Avatar | Planned | Avatar PubSub (`urn:xmpp:avatar:*`) read path is incomplete. |
-| XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, `session-info`, `transport-info`, `transport-replace`, `content-modify`, `content-remove`, and `session-terminate`, with per-session peer-connection candidate apply/queue behavior. Outbound sessions now preserve SDP-derived content names and emit BUNDLE grouping metadata for stronger cross-client interop; full media transport/session negotiation is still incomplete. |
+| XEP-0166 | Jingle | Partial | DM call session scaffolding now sends/handles `session-initiate`, `session-accept`, `session-info`, `transport-info`, `transport-replace`, `content-modify`, `content-remove`, and `session-terminate`, with per-session peer-connection candidate apply/queue behavior. Outbound sessions preserve SDP-derived content names, emit BUNDLE grouping metadata, and align answer content naming to inbound remote content order for stronger cross-client interop; full media transport/session negotiation is still incomplete. |
 | XEP-0167 | Jingle RTP Sessions | Partial | RTP content/session-info signaling scaffolding is now handled (`session-initiate`, `session-accept`, `session-info/ringing`). Outbound RTP descriptions now include `rtcp-mux` plus richer SDP-derived content metadata, while full codec/SDP/WebRTC media negotiation remains incomplete. |
 | XEP-0353 | Jingle Message Initiation | Partial | DM call signaling scaffolding now handles `propose/proceed/ringing/reject/retract` with interoperability checks and fallback; full native media session wiring is still incomplete. |
 | XEP-0320 | Use of DTLS-SRTP in Jingle Sessions | Partial | DTLS fingerprint/setup metadata is now parsed/propagated in Jingle signaling and SDP priming scaffolding; full secure media establishment across clients is still incomplete. |

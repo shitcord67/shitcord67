@@ -98,7 +98,7 @@
 - [done] Added explicit call failure surfaces (ICE/PC failure hints, no-remote-track hints, media-access error toasts).
 - [done] Added `/spacesxmpp` command (`list|open|sync|discover|join`) to prioritize practical XMPP Spaces management and discovery.
 - [priority] Implement OpenPGP encryption for XMPP (XEP-0373/0374) and OTR (XEP-0378) for DM parity.
-- [priority] Add OMEMO 2 namespace support (XEP-0384 updates) alongside legacy OMEMO payloads.
+- [done] Added OMEMO 2 namespace support (XEP-0384 updates) alongside legacy OMEMO payloads.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [priority] Implement native XMPP whiteboard extension path for interop while on calls (lecture/collaboration use-cases).
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
