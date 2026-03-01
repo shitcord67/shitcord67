@@ -83,6 +83,8 @@ const XEP_0334_HINTS_GLOBAL = xepModule("xep-0334_processing-hints", globalThis.
 const XEP_0085_CHATSTATES_GLOBAL = xepModule("xep-0085-chatstates", globalThis.SHITCORD67_XEP_0085_CHATSTATES);
 const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints";
 const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalThis.SHITCORD67_XEP_0184_0333_MARKERS);
+const XMPP_CHATSTATES_NAMESPACE = XEP_0085_CHATSTATES_GLOBAL.XMPP_CHATSTATES_NAMESPACE || "http://jabber.org/protocol/chatstates";
+const XMPP_RECEIPTS_NAMESPACE = XEP_0184_0333_GLOBAL.XMPP_RECEIPTS_NAMESPACE || "urn:xmpp:receipts";
 const XEP_0184_0333_MARKER_FLOW_GLOBAL = xepModule("xep-0184_0333-marker-flow", globalThis.SHITCORD67_XEP_0184_0333_MARKER_FLOW);
 const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite", globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
 const XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL = xepModule("xep-0045_0402-roster-bookmarks", globalThis.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS);
@@ -8402,105 +8404,45 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
 }
 
 function xmppSendIqResultForIncomingSet(stanza) {
-  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqResultForIncomingSet === "function") {
-    return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqResultForIncomingSet(stanza, {
-      xmppConnection,
-      $iq: globalThis.$iq
-    });
-  }
-  if (!stanza || !xmppConnection || !globalThis.$iq) return false;
-  const id = (stanza.getAttribute("id") || "").toString().trim();
-  if (!id) return false;
-  const from = (stanza.getAttribute("from") || "").toString().trim();
-  const attrs = { type: "result", id };
-  if (from) attrs.to = from;
-  xmppConnection.send(globalThis.$iq(attrs));
-  return true;
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqResultForIncomingSet !== "function") return false;
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqResultForIncomingSet(stanza, {
+    xmppConnection,
+    $iq: globalThis.$iq
+  });
 }
 
 function xmppSendDiscoInfoResult({ id, to, node = "" } = {}) {
-  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResult === "function") {
-    return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResult({ id, to, node }, {
-      xmppConnection,
-      $iq: globalThis.$iq,
-      identityName: "shitcord67",
-      features: xmppClientDiscoFeatures()
-    });
-  }
-  if (!id || !xmppConnection || !globalThis.$iq) return false;
-  const attrs = { type: "result", id };
-  if (to) attrs.to = to;
-  const queryAttrs = { xmlns: "http://jabber.org/protocol/disco#info" };
-  if (node) queryAttrs.node = node;
-  const result = globalThis.$iq(attrs).c("query", queryAttrs);
-  result.c("identity", { category: "client", type: "web", name: "shitcord67" }).up();
-  xmppClientDiscoFeatures().forEach((feature) => {
-    result.c("feature", { var: feature }).up();
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResult !== "function") return false;
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResult({ id, to, node }, {
+    xmppConnection,
+    $iq: globalThis.$iq,
+    identityName: "shitcord67",
+    features: xmppClientDiscoFeatures()
   });
-  xmppConnection.send(result);
-  return true;
 }
 
 function xmppSendDiscoInfoError({ id, to, node = "" } = {}) {
-  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoError === "function") {
-    return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoError({ id, to, node }, {
-      xmppConnection,
-      $iq: globalThis.$iq
-    });
-  }
-  if (!id || !xmppConnection || !globalThis.$iq) return false;
-  const errorAttrs = { type: "error", id };
-  if (to) errorAttrs.to = to;
-  const queryAttrs = { xmlns: "http://jabber.org/protocol/disco#info" };
-  if (node) queryAttrs.node = node;
-  const errorStanza = globalThis.$iq(errorAttrs)
-    .c("query", queryAttrs).up()
-    .c("error", { type: "cancel" })
-    .c("item-not-found", { xmlns: "urn:ietf:params:xml:ns:xmpp-stanzas" });
-  xmppConnection.send(errorStanza);
-  return true;
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoError !== "function") return false;
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoError({ id, to, node }, {
+    xmppConnection,
+    $iq: globalThis.$iq
+  });
 }
 
 function xmppSendDiscoInfoResultForIncomingGet(stanza) {
-  if (!stanza || !xmppConnection || !globalThis.$iq) return false;
-  const resolved = (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppResolveDiscoInfoReplyForIncomingGet === "function")
-    ? XEP_0030_0166_CALL_DISCO_GLOBAL.xmppResolveDiscoInfoReplyForIncomingGet(stanza, {
-      capsHash: xmppCapsHash,
-      capsNode: XMPP_CAPS_NODE
-    }, {
-      xmppNodeHasXmlnsFn: xmppNodeHasXmlns
-    })
-    : null;
-  if (!resolved) {
-    const id = (stanza.getAttribute("id") || "").toString().trim();
-    if (!id) return false;
-    const from = (stanza.getAttribute("from") || "").toString().trim();
-    const query = [...stanza.getElementsByTagName("query")]
-      .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/disco#info")) || null;
-    if (!query) return false;
-    const nodeAttr = (query.getAttribute("node") || "").toString().trim();
-    if (!nodeAttr) return xmppSendDiscoInfoResult({ id, to: from });
-    const expectedNode = xmppCapsHash ? `${XMPP_CAPS_NODE}#${xmppCapsHash}` : "";
-    if (!xmppCapsHash) void ensureXmppCapsHash();
-    if (expectedNode && nodeAttr !== expectedNode) {
-      addXmppDebugEvent("presence", "Answered disco#info request for non-current caps node", {
-        requestedNode: nodeAttr,
-        expectedNode
-      });
-    }
-    return xmppSendDiscoInfoResult({ id, to: from, node: nodeAttr });
-  }
-  if (!xmppCapsHash) void ensureXmppCapsHash();
-  if (resolved.warn) {
-    addXmppDebugEvent("presence", "Answered disco#info request for non-current caps node", {
-      requestedNode: resolved.requestedNode || "",
-      expectedNode: resolved.expectedNode || ""
-    });
-  }
-  return xmppSendDiscoInfoResult({
-    id: resolved.id,
-    to: resolved.to,
-    node: resolved.node || ""
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResultForIncomingGet !== "function") return false;
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendDiscoInfoResultForIncomingGet(stanza, {
+    capsHash: xmppCapsHash,
+    capsNode: XMPP_CAPS_NODE
+  }, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    ensureXmppCapsHashFn: ensureXmppCapsHash,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    xmppSendDiscoInfoResultFn: xmppSendDiscoInfoResult,
+    xmppConnection,
+    $iq: globalThis.$iq,
+    identityName: "shitcord67",
+    features: xmppClientDiscoFeatures()
   });
 }
 
@@ -17571,6 +17513,8 @@ function xmppClientDiscoFeatures() {
     XMPP_MESSAGE_RETRACT_NAMESPACE,
     XMPP_FASTEN_NAMESPACE,
     XMPP_HINTS_NAMESPACE,
+    XMPP_RECEIPTS_NAMESPACE,
+    XMPP_CHATSTATES_NAMESPACE,
     XMPP_CHAT_MARKERS_NAMESPACE,
     XMPP_DIRECT_MUC_INVITE_NAMESPACE,
     XMPP_OCCUPANT_ID_NAMESPACE,

@@ -141,6 +141,8 @@
       deps.XMPP_MESSAGE_RETRACT_NAMESPACE,
       deps.XMPP_FASTEN_NAMESPACE,
       deps.XMPP_HINTS_NAMESPACE,
+      deps.XMPP_RECEIPTS_NAMESPACE,
+      deps.XMPP_CHATSTATES_NAMESPACE,
       deps.XMPP_CHAT_MARKERS_NAMESPACE,
       deps.XMPP_DIRECT_MUC_INVITE_NAMESPACE,
       deps.XMPP_OCCUPANT_ID_NAMESPACE,
@@ -155,7 +157,7 @@
       if (deps.XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE) features.push(deps.XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE);
       if (deps.XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2) features.push(deps.XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2);
     }
-    return features;
+    return [...new Set(features)];
   }
 
   function xmppRequiredCallFeatureBuckets(deps = {}) {
@@ -374,6 +376,35 @@
     };
   }
 
+  function xmppSendDiscoInfoResultForIncomingGet(stanza, {
+    capsHash = "",
+    capsNode = "urn:shitcord67:caps"
+  } = {}, deps = {}) {
+    const resolved = xmppResolveDiscoInfoReplyForIncomingGet(stanza, { capsHash, capsNode }, deps);
+    if (!resolved) return false;
+    if (!capsHash && typeof deps.ensureXmppCapsHashFn === "function") {
+      void deps.ensureXmppCapsHashFn();
+    }
+    if (resolved.warn && typeof deps.addXmppDebugEventFn === "function") {
+      deps.addXmppDebugEventFn("presence", "Answered disco#info request for non-current caps node", {
+        requestedNode: resolved.requestedNode || "",
+        expectedNode: resolved.expectedNode || ""
+      });
+    }
+    if (typeof deps.xmppSendDiscoInfoResultFn === "function") {
+      return deps.xmppSendDiscoInfoResultFn({
+        id: resolved.id,
+        to: resolved.to,
+        node: resolved.node || ""
+      });
+    }
+    return xmppSendDiscoInfoResult({
+      id: resolved.id,
+      to: resolved.to,
+      node: resolved.node || ""
+    }, deps);
+  }
+
   globalScope.SHITCORD67_XEP_0030_0166_CALL_DISCO = Object.freeze({
     xmppParseMaxUploadBytesFromDiscoInfo,
     xmppFetchDiscoInfo,
@@ -394,7 +425,8 @@
     xmppBuildDiscoInfoErrorStanza,
     xmppSendDiscoInfoError,
     xmppExpectedCapsDiscoNode,
-    xmppResolveDiscoInfoReplyForIncomingGet
+    xmppResolveDiscoInfoReplyForIncomingGet,
+    xmppSendDiscoInfoResultForIncomingGet
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0030_0166-call-disco", globalScope.SHITCORD67_XEP_0030_0166_CALL_DISCO);
