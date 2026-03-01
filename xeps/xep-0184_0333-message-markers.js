@@ -46,13 +46,51 @@
       .find((entry) => xmppNodeHasXmlns(entry, XMPP_CHAT_MARKERS_NAMESPACE)) || null;
   }
 
+  function appendXmppReceiptRequestNode(stanza, deps = {}) {
+    if (!stanza) return stanza;
+    if (typeof deps.xmppEnsureBuilderAtMessageNodeFn === "function") deps.xmppEnsureBuilderAtMessageNodeFn(stanza);
+    stanza.c("request", { xmlns: deps.receiptsNamespace || XMPP_RECEIPTS_NAMESPACE }).up();
+    return stanza;
+  }
+
+  function buildXmppReceiptAckStanza({
+    to = "",
+    id = "",
+    type = "chat"
+  } = {}, deps = {}) {
+    const target = (to || "").toString().trim();
+    const refId = (id || "").toString().trim();
+    if (!target || !refId || typeof deps.$msg !== "function") return null;
+    return deps.$msg({ to: target, type: (type || "chat").toString().trim() || "chat" })
+      .c("received", { xmlns: deps.receiptsNamespace || XMPP_RECEIPTS_NAMESPACE, id: refId });
+  }
+
+  function buildXmppChatMarkerAckStanza({
+    to = "",
+    id = "",
+    type = "chat",
+    marker = "received"
+  } = {}, deps = {}) {
+    const target = (to || "").toString().trim();
+    const refId = (id || "").toString().trim();
+    const markerName = (marker || "received").toString().trim().toLowerCase();
+    if (!target || !refId || !["received", "displayed", "acknowledged"].includes(markerName) || typeof deps.$msg !== "function") {
+      return null;
+    }
+    return deps.$msg({ to: target, type: (type || "chat").toString().trim() || "chat" })
+      .c(markerName, { xmlns: deps.chatMarkersNamespace || XMPP_CHAT_MARKERS_NAMESPACE, id: refId });
+  }
+
   globalScope.SHITCORD67_XEP_0184_0333_MARKERS = Object.freeze({
     XMPP_CHAT_MARKERS_NAMESPACE,
     XMPP_RECEIPTS_NAMESPACE,
     xmppReceiptRequestNode,
     xmppReceiptReceivedId,
     xmppChatMarkerPayload,
-    xmppChatMarkableNode
+    xmppChatMarkableNode,
+    appendXmppReceiptRequestNode,
+    buildXmppReceiptAckStanza,
+    buildXmppChatMarkerAckStanza
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0184_0333-message-markers", globalScope.SHITCORD67_XEP_0184_0333_MARKERS);

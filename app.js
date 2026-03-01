@@ -12909,6 +12909,25 @@ function xmppPresenceShowToPresence(node) {
   });
 }
 
+function xmppIncomingPingGetPayload(stanza) {
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppIncomingPingGetPayload !== "function") return null;
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppIncomingPingGetPayload(stanza, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns
+  });
+}
+
+function buildXmppIqResultAttrs({ id = "", from = "" } = {}) {
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.buildXmppIqResultAttrs === "function") {
+    return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.buildXmppIqResultAttrs({ id, from });
+  }
+  const safeId = (id || "").toString().trim();
+  if (!safeId) return null;
+  const attrs = { type: "result", id: safeId };
+  const safeFrom = (from || "").toString().trim();
+  if (safeFrom) attrs.to = safeFrom;
+  return attrs;
+}
+
 function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
   const bare = xmppBareJid(jid);
   if (!bare || !xmppConnection || !globalThis.$iq) return;
@@ -13648,6 +13667,38 @@ function xmppMamArchiveTargetJid(prefs = getPreferences()) {
   });
 }
 
+function buildXmppMamQueryIq({
+  to = "",
+  queryId = "",
+  withJid = "",
+  maxRows = XMPP_MAM_PAGE_SIZE,
+  beforeToken = ""
+} = {}) {
+  if (typeof XEP_0313_MAM_LOADING_GLOBAL.buildXmppMamQueryIq !== "function") return null;
+  return XEP_0313_MAM_LOADING_GLOBAL.buildXmppMamQueryIq({
+    to,
+    queryId,
+    withJid,
+    maxRows,
+    beforeToken,
+    mamNamespace: XMPP_MAM_NAMESPACE
+  }, {
+    $iq: globalThis.$iq
+  });
+}
+
+function parseXmppMamFinPage(stanza) {
+  if (typeof XEP_0313_MAM_LOADING_GLOBAL.parseXmppMamFinPage !== "function") {
+    return { complete: false, firstId: "" };
+  }
+  return XEP_0313_MAM_LOADING_GLOBAL.parseXmppMamFinPage(stanza, {
+    mamNamespace: XMPP_MAM_NAMESPACE
+  }, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppNodeTextFn: xmppNodeText
+  });
+}
+
 function requestXmppRoomHistory(roomJid, {
   limit = XMPP_MAM_PAGE_SIZE,
   force = false,
@@ -13670,19 +13721,14 @@ function requestXmppRoomHistory(roomJid, {
   const beforeToken = mamState.before || "";
   const queryId = `mam-${createId().slice(0, 8)}-${mamState.pagesLoaded + 1}`;
   beginXmppMamLoading(mamState, queryId);
-  const iqBuilder = globalThis.$iq({ type: "set", to: bareRoom })
-    .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
-    .c("x", { xmlns: "jabber:x:data", type: "submit" })
-    .c("field", { var: "FORM_TYPE" })
-    .c("value").t(XMPP_MAM_NAMESPACE).up().up()
-    .up()
-    .c("set", { xmlns: "http://jabber.org/protocol/rsm" })
-    .c("max").t(String(maxRows)).up();
-  if (!beforeToken) {
-    iqBuilder.c("before");
-  } else {
-    iqBuilder.c("before").t(beforeToken);
-  }
+  const iqBuilder = buildXmppMamQueryIq({
+    to: bareRoom,
+    queryId,
+    withJid: "",
+    maxRows,
+    beforeToken
+  });
+  if (!iqBuilder) return false;
   addXmppDebugEvent("iq", "Requesting MUC history", {
     roomJid: bareRoom,
     max: maxRows,
@@ -13695,11 +13741,7 @@ function requestXmppRoomHistory(roomJid, {
       iqBuilder,
       (stanza) => {
         endXmppMamLoading(mamState);
-        const finNode = [...stanza.getElementsByTagName("fin")]
-          .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
-        const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
-        const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
-        const firstId = xmppNodeText(firstNode).trim();
+        const { complete, firstId } = parseXmppMamFinPage(stanza);
         mamState.pagesLoaded += 1;
         if (firstId) mamState.before = firstId;
         if (complete || !firstId) mamState.complete = true;
@@ -13796,21 +13838,14 @@ function requestXmppDirectHistory(peerJid, {
   const beforeToken = mamState.before || "";
   const queryId = `mam-dm-${createId().slice(0, 8)}-${mamState.pagesLoaded + 1}`;
   beginXmppMamLoading(mamState, queryId);
-  const iqBuilder = globalThis.$iq({ type: "set", to: archiveTarget })
-    .c("query", { xmlns: XMPP_MAM_NAMESPACE, queryid: queryId })
-    .c("x", { xmlns: "jabber:x:data", type: "submit" })
-    .c("field", { var: "FORM_TYPE" })
-    .c("value").t(XMPP_MAM_NAMESPACE).up().up()
-    .c("field", { var: "with" })
-    .c("value").t(barePeer).up().up()
-    .up()
-    .c("set", { xmlns: "http://jabber.org/protocol/rsm" })
-    .c("max").t(String(maxRows)).up();
-  if (!beforeToken) {
-    iqBuilder.c("before");
-  } else {
-    iqBuilder.c("before").t(beforeToken);
-  }
+  const iqBuilder = buildXmppMamQueryIq({
+    to: archiveTarget,
+    queryId,
+    withJid: barePeer,
+    maxRows,
+    beforeToken
+  });
+  if (!iqBuilder) return false;
   addXmppDebugEvent("iq", "Requesting DM history", {
     peerJid: barePeer,
     target: archiveTarget,
@@ -13827,11 +13862,7 @@ function requestXmppDirectHistory(peerJid, {
       (stanza) => {
         endXmppMamLoading(mamState);
         mamState.targetIndex = targetIndex;
-        const finNode = [...stanza.getElementsByTagName("fin")]
-          .find((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE)) || null;
-        const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
-        const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
-        const firstId = xmppNodeText(firstNode).trim();
+        const { complete, firstId } = parseXmppMamFinPage(stanza);
         mamState.pagesLoaded += 1;
         if (firstId) mamState.before = firstId;
         if (complete || !firstId) mamState.complete = true;
@@ -14069,6 +14100,24 @@ function resolveXmppMucService(prefs = getPreferences()) {
   return XEP_0280_0352_CSI_CARBONS_GLOBAL.resolveXmppMucService(prefs, {
     normalizeXmppMucServiceFn: normalizeXmppMucService,
     xmppDomainFromJidFn: xmppDomainFromJid
+  });
+}
+
+function xmppMamForwardedMessagesFromStanza(stanza) {
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppMamForwardedMessagesFromStanza !== "function") return [];
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppMamForwardedMessagesFromStanza(stanza, {
+    mamNamespace: XMPP_MAM_NAMESPACE
+  }, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppStanzaDelayTimestampFn: xmppStanzaDelayTimestamp
+  });
+}
+
+function xmppCarbonForwardedMessagesFromStanza(stanza) {
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppCarbonForwardedMessagesFromStanza !== "function") return [];
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppCarbonForwardedMessagesFromStanza(stanza, {}, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppStanzaDelayTimestampFn: xmppStanzaDelayTimestamp
   });
 }
 
@@ -14780,47 +14829,6 @@ function connectRelaySocket({ force = false } = {}) {
         addXmppDebugEvent("iq", "sendIQ()", trimXmppRaw(xmppSerializePayload(stanza)));
         return originalSendIQ(stanza, success, error, timeout);
       };
-      const xmppMamForwardedMessages = (stanza) => {
-        if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
-        return [...stanza.getElementsByTagName("result")]
-          .filter((node) => xmppNodeHasXmlns(node, XMPP_MAM_NAMESPACE))
-          .map((resultNode) => {
-            const forwardedNode = [...resultNode.getElementsByTagName("forwarded")]
-              .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:forward:0")) || null;
-            if (!forwardedNode) return null;
-            const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
-            if (!messageNode) return null;
-            return {
-              message: messageNode,
-              ts: xmppStanzaDelayTimestamp(forwardedNode, xmppStanzaDelayTimestamp(resultNode, ""))
-            };
-          })
-          .filter(Boolean);
-      };
-      const xmppCarbonForwardedMessages = (stanza) => {
-        if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
-        const out = [];
-        const carbonNodes = [
-          ...[...stanza.getElementsByTagName("received")]
-            .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:carbons:2")),
-          ...[...stanza.getElementsByTagName("sent")]
-            .filter((node) => xmppNodeHasXmlns(node, "urn:xmpp:carbons:2"))
-        ];
-        carbonNodes.forEach((carbonNode) => {
-          const isSent = (carbonNode.nodeName || "").toLowerCase() === "sent";
-          const forwardedNode = [...carbonNode.getElementsByTagName("forwarded")]
-            .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:forward:0")) || null;
-          if (!forwardedNode) return;
-          const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
-          if (!messageNode) return;
-          out.push({
-            message: messageNode,
-            ts: xmppStanzaDelayTimestamp(forwardedNode, xmppStanzaDelayTimestamp(messageNode, "")),
-            allowSelf: isSent
-          });
-        });
-        return out;
-      };
       const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false, history = false } = {}) => {
       const from = stanza.getAttribute("from") || "";
       const type = (stanza.getAttribute("type") || "").toLowerCase();
@@ -15110,20 +15118,22 @@ function connectRelaySocket({ force = false } = {}) {
             }
           }
           if (!ownAuthor && receiptRequest && stanzaMessageId && xmppConnection) {
-            const receiptAck = globalThis.$msg({ to: peerBare, type: "chat" })
-              .c("received", { xmlns: "urn:xmpp:receipts", id: stanzaMessageId });
-            xmppConnection.send(receiptAck);
-            addXmppDebugEvent("message", "Sent XMPP delivery receipt", { to: peerBare, id: stanzaMessageId });
+            const receiptAck = buildXmppReceiptAckStanza(peerBare, stanzaMessageId, { type: "chat" });
+            if (receiptAck) {
+              xmppConnection.send(receiptAck);
+              addXmppDebugEvent("message", "Sent XMPP delivery receipt", { to: peerBare, id: stanzaMessageId });
+            }
           }
           if (!ownAuthor && chatMarkable && stanzaMessageId && xmppConnection) {
-            const markerAck = globalThis.$msg({ to: peerBare, type: "chat" })
-              .c("received", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: stanzaMessageId });
-            xmppConnection.send(markerAck);
-            addXmppDebugEvent("message", "Sent XMPP chat marker", {
-              to: peerBare,
-              marker: "received",
-              id: stanzaMessageId
-            });
+            const markerAck = buildXmppChatMarkerAckStanza(peerBare, stanzaMessageId, { type: "chat", marker: "received" });
+            if (markerAck) {
+              xmppConnection.send(markerAck);
+              addXmppDebugEvent("message", "Sent XMPP chat marker", {
+                to: peerBare,
+                marker: "received",
+                id: stanzaMessageId
+              });
+            }
             const activeConversation = getActiveConversation();
             const activePeerJid = activeConversation?.type === "dm"
               ? xmppPeerJidForDmThread(activeConversation.thread, current)
@@ -15859,14 +15869,14 @@ function connectRelaySocket({ force = false } = {}) {
           if (xmppHandleBookmarksPubsubEvent(stanza, { account: current, prefs: getPreferences() })) {
             return true;
           }
-          const forwarded = xmppMamForwardedMessages(stanza);
+          const forwarded = xmppMamForwardedMessagesFromStanza(stanza);
           if (forwarded.length > 0) {
             forwarded.forEach((entry) => {
               handleXmppIncomingMessage(entry.message, { fallbackTs: entry.ts, allowSelf: true, history: true });
             });
             return true;
           }
-          const carbonForwarded = xmppCarbonForwardedMessages(stanza);
+          const carbonForwarded = xmppCarbonForwardedMessagesFromStanza(stanza);
           if (carbonForwarded.length > 0) {
             carbonForwarded.forEach((entry) => {
               handleXmppIncomingMessage(entry.message, {
@@ -16314,17 +16324,16 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "get", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
-          const pingNode = [...stanza.getElementsByTagName("ping")]
-            .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:ping")) || null;
-          if (!pingNode) return true;
-          const id = stanza.getAttribute("id") || "";
-          const from = stanza.getAttribute("from") || "";
-          if (id && globalThis.$iq) {
-            const resultAttrs = { type: "result", id };
-            if (from) resultAttrs.to = from;
+          const pingPayload = xmppIncomingPingGetPayload(stanza);
+          if (!pingPayload) return true;
+          const resultAttrs = buildXmppIqResultAttrs(pingPayload);
+          if (resultAttrs && globalThis.$iq) {
             xmppConnection.send(globalThis.$iq(resultAttrs));
           }
-          addXmppDebugEvent("iq", "Handled XMPP ping", { from, id });
+          addXmppDebugEvent("iq", "Handled XMPP ping", {
+            from: pingPayload.from || "",
+            id: pingPayload.id || ""
+          });
         } catch {
           addXmppDebugEvent("error", "XMPP ping handler failed");
         }
@@ -17063,6 +17072,64 @@ function appendXmppChatMarkableNode(stanza) {
   if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppChatMarkableNode !== "function") return stanza;
   return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppChatMarkableNode(stanza, {
     xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
+    chatMarkersNamespace: XMPP_CHAT_MARKERS_NAMESPACE
+  });
+}
+
+function appendXmppMessageReplaceNode(stanza, targetRefId) {
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppMessageReplaceNode !== "function") {
+    const refId = (targetRefId || "").toString().trim();
+    if (!stanza || !refId) return stanza;
+    return stanza.c("replace", { xmlns: "urn:xmpp:message-correct:0", id: refId }).up();
+  }
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppMessageReplaceNode(stanza, targetRefId, {
+    xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
+    messageCorrectNamespace: "urn:xmpp:message-correct:0"
+  });
+}
+
+function appendXmppReceiptRequestNode(stanza) {
+  if (typeof XEP_0184_0333_GLOBAL.appendXmppReceiptRequestNode !== "function") {
+    if (!stanza) return stanza;
+    return stanza.c("request", { xmlns: "urn:xmpp:receipts" }).up();
+  }
+  return XEP_0184_0333_GLOBAL.appendXmppReceiptRequestNode(stanza, {
+    xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
+    receiptsNamespace: "urn:xmpp:receipts"
+  });
+}
+
+function buildXmppReceiptAckStanza(to, stanzaMessageId, { type = "chat" } = {}) {
+  if (typeof XEP_0184_0333_GLOBAL.buildXmppReceiptAckStanza !== "function") {
+    const safeTo = (to || "").toString().trim();
+    const safeId = (stanzaMessageId || "").toString().trim();
+    if (!safeTo || !safeId || typeof globalThis.$msg !== "function") return null;
+    return globalThis.$msg({ to: safeTo, type }).c("received", { xmlns: "urn:xmpp:receipts", id: safeId });
+  }
+  return XEP_0184_0333_GLOBAL.buildXmppReceiptAckStanza({
+    to,
+    id: stanzaMessageId,
+    type
+  }, {
+    $msg: globalThis.$msg,
+    receiptsNamespace: "urn:xmpp:receipts"
+  });
+}
+
+function buildXmppChatMarkerAckStanza(to, stanzaMessageId, { type = "chat", marker = "received" } = {}) {
+  if (typeof XEP_0184_0333_GLOBAL.buildXmppChatMarkerAckStanza !== "function") {
+    const safeTo = (to || "").toString().trim();
+    const safeId = (stanzaMessageId || "").toString().trim();
+    if (!safeTo || !safeId || typeof globalThis.$msg !== "function") return null;
+    return globalThis.$msg({ to: safeTo, type }).c(marker, { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: safeId });
+  }
+  return XEP_0184_0333_GLOBAL.buildXmppChatMarkerAckStanza({
+    to,
+    id: stanzaMessageId,
+    type,
+    marker
+  }, {
+    $msg: globalThis.$msg,
     chatMarkersNamespace: XMPP_CHAT_MARKERS_NAMESPACE
   });
 }
@@ -17881,7 +17948,6 @@ function publishXmppMessageCorrection(conversation, message, account) {
   if (!targetRefId) return { ok: false, reason: "missing-reference" };
   const correctionStanzaId = `s67-edit-${createId().slice(0, 12)}`;
   const correctionOriginId = `s67-origin-${createId().slice(0, 12)}`;
-  const replaceNode = { xmlns: "urn:xmpp:message-correct:0", id: targetRefId };
   if (conversation.type === "dm" && conversation.thread) {
     const peerJid = xmppPeerJidForDmThread(conversation.thread, account);
     const dmRoom = relayRoomForDmThread(conversation.thread);
@@ -17894,12 +17960,12 @@ function publishXmppMessageCorrection(conversation, message, account) {
       const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: correctionStanzaId })
         .c("body").t(bodyPayload.body);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
-      stanza.c("replace", replaceNode).up();
+      appendXmppMessageReplaceNode(stanza, targetRefId);
       appendXmppOriginIdNode(stanza, correctionOriginId);
       appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
       appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
       appendXmppChatMarkableNode(stanza);
-      stanza.c("request", { xmlns: "urn:xmpp:receipts" });
+      appendXmppReceiptRequestNode(stanza);
       xmppConnection.send(stanza);
       rememberXmppLocalSentRefs([correctionStanzaId, correctionOriginId]);
       rememberXmppPendingReceipt(correctionStanzaId, conversation.thread, message, peerJid);
@@ -17928,7 +17994,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
       const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
         .c("body").t(bodyPayload.body);
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
-      stanza.c("replace", replaceNode).up();
+      appendXmppMessageReplaceNode(stanza, targetRefId);
       appendXmppOriginIdNode(stanza, correctionOriginId);
       appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
       appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
@@ -17969,7 +18035,7 @@ function publishXmppMessageCorrection(conversation, message, account) {
     const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: correctionStanzaId })
       .c("body").t(bodyPayload.body);
     appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
-    stanza.c("replace", replaceNode).up();
+    appendXmppMessageReplaceNode(stanza, targetRefId);
     appendXmppOriginIdNode(stanza, correctionOriginId);
     appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
     appendXmppAttachmentMetadataNodes(stanza, xmppAttachments);
@@ -18236,7 +18302,7 @@ function publishRelayDirectMessage(thread, message, account) {
           });
         }
         appendXmppChatMarkableNode(stanza);
-        stanza.c("request", { xmlns: "urn:xmpp:receipts" });
+        appendXmppReceiptRequestNode(stanza);
         xmppConnection.send(stanza);
         rememberXmppLocalSentRefs([stanzaId, originId]);
         rememberXmppPendingReceipt(stanzaId, thread, message, peerJid);

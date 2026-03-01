@@ -44,11 +44,80 @@
     return domain || "";
   }
 
+  function buildXmppMamQueryIq({
+    to = "",
+    queryId = "",
+    withJid = "",
+    maxRows = 50,
+    beforeToken = "",
+    mamNamespace = "urn:xmpp:mam:2",
+    rsmNamespace = "http://jabber.org/protocol/rsm"
+  } = {}, deps = {}) {
+    if (typeof deps.$iq !== "function") return null;
+    const safeTo = (to || "").toString().trim();
+    const safeQueryId = (queryId || "").toString().trim();
+    const safeWith = (withJid || "").toString().trim();
+    const safeBefore = (beforeToken || "").toString().trim();
+    const safeMax = Math.max(10, Math.min(200, Number(maxRows) || 50));
+    const iqAttrs = { type: "set" };
+    if (safeTo) iqAttrs.to = safeTo;
+    const iqBuilder = deps.$iq(iqAttrs)
+      .c("query", {
+        xmlns: (mamNamespace || "").toString().trim() || "urn:xmpp:mam:2",
+        ...(safeQueryId ? { queryid: safeQueryId } : {})
+      })
+      .c("x", { xmlns: "jabber:x:data", type: "submit" })
+      .c("field", { var: "FORM_TYPE" })
+      .c("value")
+      .t((mamNamespace || "").toString().trim() || "urn:xmpp:mam:2")
+      .up()
+      .up();
+    if (safeWith) {
+      iqBuilder
+        .c("field", { var: "with" })
+        .c("value")
+        .t(safeWith)
+        .up()
+        .up();
+    }
+    iqBuilder
+      .up()
+      .c("set", { xmlns: (rsmNamespace || "").toString().trim() || "http://jabber.org/protocol/rsm" })
+      .c("max")
+      .t(String(safeMax))
+      .up();
+    if (!safeBefore) iqBuilder.c("before");
+    else iqBuilder.c("before").t(safeBefore);
+    return iqBuilder;
+  }
+
+  function parseXmppMamFinPage(stanza, {
+    mamNamespace = "urn:xmpp:mam:2"
+  } = {}, deps = {}) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") {
+      return { complete: false, firstId: "" };
+    }
+    const xmlnsMatcher = typeof deps.xmppNodeHasXmlnsFn === "function"
+      ? deps.xmppNodeHasXmlnsFn
+      : ((node, xmlns) => ((node?.getAttribute?.("xmlns") || "").toString().toLowerCase() === (xmlns || "").toString().toLowerCase()));
+    const nodeText = typeof deps.xmppNodeTextFn === "function"
+      ? deps.xmppNodeTextFn
+      : ((node) => (node?.textContent || "").toString());
+    const finNode = [...stanza.getElementsByTagName("fin")]
+      .find((node) => xmlnsMatcher(node, mamNamespace)) || null;
+    const complete = (finNode?.getAttribute("complete") || "").toString().toLowerCase() === "true";
+    const firstNode = finNode ? [...finNode.getElementsByTagName("first")][0] : null;
+    const firstId = (nodeText(firstNode) || "").toString().trim();
+    return { complete, firstId };
+  }
+
   globalScope.SHITCORD67_XEP_0313_MAM_LOADING = Object.freeze({
     beginXmppMamLoading,
     endXmppMamLoading,
     recoverStaleXmppMamLoading,
-    xmppMamArchiveTargetJid
+    xmppMamArchiveTargetJid,
+    buildXmppMamQueryIq,
+    parseXmppMamFinPage
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0313_mam-loading", globalScope.SHITCORD67_XEP_0313_MAM_LOADING);

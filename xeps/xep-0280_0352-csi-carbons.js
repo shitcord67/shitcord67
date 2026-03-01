@@ -164,6 +164,67 @@
     return domain ? `conference.${domain}` : "";
   }
 
+  function xmppMamForwardedMessagesFromStanza(stanza, {
+    mamNamespace = "urn:xmpp:mam:2",
+    forwardingNamespace = "urn:xmpp:forward:0"
+  } = {}, deps = {}) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+    const xmlnsMatcher = typeof deps.xmppNodeHasXmlnsFn === "function"
+      ? deps.xmppNodeHasXmlnsFn
+      : ((node, xmlns) => ((node?.getAttribute?.("xmlns") || "").toString().toLowerCase() === (xmlns || "").toString().toLowerCase()));
+    const delayTs = typeof deps.xmppStanzaDelayTimestampFn === "function"
+      ? deps.xmppStanzaDelayTimestampFn
+      : ((_, fallback = "") => fallback || "");
+    return [...stanza.getElementsByTagName("result")]
+      .filter((node) => xmlnsMatcher(node, mamNamespace))
+      .map((resultNode) => {
+        const forwardedNode = [...resultNode.getElementsByTagName("forwarded")]
+          .find((node) => xmlnsMatcher(node, forwardingNamespace)) || null;
+        if (!forwardedNode) return null;
+        const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
+        if (!messageNode) return null;
+        return {
+          message: messageNode,
+          ts: delayTs(forwardedNode, delayTs(resultNode, ""))
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function xmppCarbonForwardedMessagesFromStanza(stanza, {
+    carbonsNamespace = "urn:xmpp:carbons:2",
+    forwardingNamespace = "urn:xmpp:forward:0"
+  } = {}, deps = {}) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+    const xmlnsMatcher = typeof deps.xmppNodeHasXmlnsFn === "function"
+      ? deps.xmppNodeHasXmlnsFn
+      : ((node, xmlns) => ((node?.getAttribute?.("xmlns") || "").toString().toLowerCase() === (xmlns || "").toString().toLowerCase()));
+    const delayTs = typeof deps.xmppStanzaDelayTimestampFn === "function"
+      ? deps.xmppStanzaDelayTimestampFn
+      : ((_, fallback = "") => fallback || "");
+    const out = [];
+    const carbonNodes = [
+      ...[...stanza.getElementsByTagName("received")]
+        .filter((node) => xmlnsMatcher(node, carbonsNamespace)),
+      ...[...stanza.getElementsByTagName("sent")]
+        .filter((node) => xmlnsMatcher(node, carbonsNamespace))
+    ];
+    carbonNodes.forEach((carbonNode) => {
+      const isSent = (carbonNode.nodeName || "").toLowerCase() === "sent";
+      const forwardedNode = [...carbonNode.getElementsByTagName("forwarded")]
+        .find((node) => xmlnsMatcher(node, forwardingNamespace)) || null;
+      if (!forwardedNode) return;
+      const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
+      if (!messageNode) return;
+      out.push({
+        message: messageNode,
+        ts: delayTs(forwardedNode, delayTs(messageNode, "")),
+        allowSelf: isSent
+      });
+    });
+    return out;
+  }
+
   globalScope.SHITCORD67_XEP_0280_0352_CSI_CARBONS = Object.freeze({
     shouldUsePlainOnlySasl,
     stropheConnectionOptionsForXmpp,
@@ -174,6 +235,8 @@
     sendXmppClientStateHint,
     syncXmppClientStateHint,
     refreshXmppCsiCapability,
-    resolveXmppMucService
+    resolveXmppMucService,
+    xmppMamForwardedMessagesFromStanza,
+    xmppCarbonForwardedMessagesFromStanza
   });
 })(typeof globalThis !== "undefined" ? globalThis : window);

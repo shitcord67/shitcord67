@@ -111,6 +111,14 @@
     return stanza;
   }
 
+  function appendXmppMessageReplaceNode(stanza, targetRefId, deps = {}) {
+    const refId = (targetRefId || "").toString().trim();
+    if (!stanza || !refId) return stanza;
+    if (typeof deps.xmppEnsureBuilderAtMessageNodeFn === "function") deps.xmppEnsureBuilderAtMessageNodeFn(stanza);
+    stanza.c("replace", { xmlns: deps.messageCorrectNamespace || "urn:xmpp:message-correct:0", id: refId }).up();
+    return stanza;
+  }
+
   function appendXmppReactionsNode(stanza, targetRefId, emojis = [], deps = {}) {
     const refId = (targetRefId || "").toString().trim();
     if (!stanza || !refId) return stanza;
@@ -213,6 +221,7 @@
     resolveXmppReplyMetaForRoom,
     appendXmppOriginIdNode,
     appendXmppChatMarkableNode,
+    appendXmppMessageReplaceNode,
     appendXmppReactionsNode,
     xmppShareableAttachmentsForStanza,
     appendXmppAttachmentMetadataNodes,

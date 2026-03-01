@@ -260,6 +260,31 @@
     return "online";
   }
 
+  function xmppIncomingPingGetPayload(stanza, deps = {}) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+    const type = (stanza.getAttribute?.("type") || "").toString().toLowerCase();
+    if (type !== "get") return null;
+    const xmlnsMatcher = typeof deps.xmppNodeHasXmlnsFn === "function"
+      ? deps.xmppNodeHasXmlnsFn
+      : ((node, xmlns) => ((node?.getAttribute?.("xmlns") || "").toString().toLowerCase() === (xmlns || "").toString().toLowerCase()));
+    const pingNode = [...stanza.getElementsByTagName("ping")]
+      .find((node) => xmlnsMatcher(node, deps.pingNamespace || "urn:xmpp:ping")) || null;
+    if (!pingNode) return null;
+    return {
+      id: (stanza.getAttribute?.("id") || "").toString(),
+      from: (stanza.getAttribute?.("from") || "").toString()
+    };
+  }
+
+  function buildXmppIqResultAttrs({ id = "", from = "" } = {}) {
+    const safeId = (id || "").toString().trim();
+    if (!safeId) return null;
+    const attrs = { type: "result", id: safeId };
+    const safeFrom = (from || "").toString().trim();
+    if (safeFrom) attrs.to = safeFrom;
+    return attrs;
+  }
+
   globalScope.SHITCORD67_XEP_0199_0410_0313_PRESENCE_PING = Object.freeze({
     xmppHistoryStatusLabel,
     clearXmppPingLoop,
@@ -270,7 +295,9 @@
     xmppMucSelfPingTarget,
     scheduleXmppMucSelfPing,
     sendXmppMucSelfPing,
-    xmppPresenceShowToPresence
+    xmppPresenceShowToPresence,
+    xmppIncomingPingGetPayload,
+    buildXmppIqResultAttrs
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register(
