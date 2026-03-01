@@ -98,6 +98,7 @@ const XMPP_LOGIN_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_XMPP_LOGIN_NORMALIZE
 const MEDIA_PROVIDER_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS || {};
 const UI_STATE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_UI_STATE_NORMALIZERS || {};
 const ACCOUNT_PROFILE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS || {};
+const XMPP_CALL_TARGET_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_CALL_TARGET_UTILS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -518,6 +519,14 @@ const normalizeColorForPickerViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOB
 const normalizeNativeAndroidInsetsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeNativeAndroidInsets === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeNativeAndroidInsets
   : (() => null);
+const xmppRememberPeerFullJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppRememberPeerFullJid === "function"
+  ? ((jid = "", options = {}) => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppRememberPeerFullJid(jid, {
+    ...options,
+    normalizeXmppJidFn: normalizeXmppJid,
+    xmppBareJidFn: xmppBareJid,
+    poolByBare: xmppAvailableFullJidsByBare
+  }))
+  : (() => {});
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11003,17 +11012,7 @@ function normalizePlatformOverride(value) {
 }
 
 function xmppRememberPeerFullJid(jid = "", { seenAt = Date.now() } = {}) {
-  const normalized = normalizeXmppJid(jid).toLowerCase();
-  if (!normalized || !normalized.includes("/")) return;
-  const bare = xmppBareJid(normalized);
-  if (!bare) return;
-  const pool = xmppAvailableFullJidsByBare.get(bare) || new Map();
-  pool.set(normalized, Number(seenAt) || Date.now());
-  if (pool.size > 8) {
-    const oldest = [...pool.entries()].sort((a, b) => (Number(a[1]) || 0) - (Number(b[1]) || 0))[0]?.[0] || "";
-    if (oldest) pool.delete(oldest);
-  }
-  xmppAvailableFullJidsByBare.set(bare, pool);
+  xmppRememberPeerFullJidViaModule(jid, { seenAt });
 }
 
 function xmppForgetPeerFullJid(jid = "") {
