@@ -11810,17 +11810,24 @@ function maybePublishXmppDisplayedMarkerForDmThread(thread, accountId, { trigger
   if (!peerBare) return false;
   const markerTargetId = latestXmppPeerMessageReferenceIdForDmThread(thread, accountId);
   if (!markerTargetId) return false;
+  return sendXmppDisplayedMarkerToPeer(peerBare, markerTargetId, { trigger: trigger || "thread-read" });
+}
+
+function sendXmppDisplayedMarkerToPeer(peerJid, markerTargetId, { trigger = "" } = {}) {
+  const peerBare = xmppBareJid(peerJid);
+  const targetId = (markerTargetId || "").toString().trim();
+  if (!peerBare || !targetId) return false;
   if ((xmppLastSentDisplayedMarkerByPeerJid.get(peerBare) || "") === markerTargetId) return false;
   const markerStanzaId = `s67-mark-${createId().slice(0, 12)}`;
   const markerStanza = globalThis.$msg({ to: peerBare, type: "chat", id: markerStanzaId })
-    .c("displayed", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: markerTargetId });
+    .c("displayed", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: targetId });
   xmppConnection.send(markerStanza);
   rememberXmppLocalSentRefs([markerStanzaId]);
-  xmppLastSentDisplayedMarkerByPeerJid.set(peerBare, markerTargetId);
+  xmppLastSentDisplayedMarkerByPeerJid.set(peerBare, targetId);
   addXmppDebugEvent("message", "Sent XMPP chat marker", {
     to: peerBare,
     marker: "displayed",
-    id: markerTargetId,
+    id: targetId,
     stanzaId: markerStanzaId,
     trigger: trigger || ""
   });
@@ -16294,6 +16301,17 @@ function connectRelaySocket({ force = false } = {}) {
               marker: "received",
               id: stanzaMessageId
             });
+            const activeConversation = getActiveConversation();
+            const activePeerJid = activeConversation?.type === "dm"
+              ? xmppPeerJidForDmThread(activeConversation.thread, current)
+              : "";
+            const activePeerBare = xmppBareJid(activePeerJid);
+            const visibilityVisible = (typeof document === "undefined")
+              ? true
+              : document.visibilityState === "visible";
+            if (activePeerBare && activePeerBare === peerBare && visibilityVisible) {
+              sendXmppDisplayedMarkerToPeer(peerBare, stanzaMessageId, { trigger: "incoming-markable-visible" });
+            }
           }
           if (receiptReceivedId) {
             const updated = markXmppMessageDeliveredByReceipt(receiptReceivedId, peerBare);
