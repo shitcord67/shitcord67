@@ -9856,8 +9856,8 @@ function xmppBuildJingleRtpContent(builder, {
   sources = [],
   sourceGroups = []
 } = {}) {
-  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleRtpContent === "function") {
-    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleRtpContent(builder, {
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleRtpContent === "function") {
+    return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleRtpContent(builder, {
       media,
       name,
       creator,
@@ -9871,154 +9871,32 @@ function xmppBuildJingleRtpContent(builder, {
       sources,
       sourceGroups
     }, {
-      jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE,
-      rtcpFbNamespace: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
-      hdrExtNamespace: XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
-      ssmaNamespace: XMPP_JINGLE_RTP_SSMA_NAMESPACE,
-      rtcpMuxNamespace: XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE,
-      iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE,
-      dtlsNamespace: "urn:xmpp:jingle:apps:dtls:0",
+      xep0320: XEP_0320_WEBRTC_SDP_BASICS_GLOBAL,
+      namespaces: {
+        jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE,
+        rtcpFbNamespace: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
+        hdrExtNamespace: XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
+        ssmaNamespace: XMPP_JINGLE_RTP_SSMA_NAMESPACE,
+        rtcpMuxNamespace: XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE,
+        iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE,
+        dtlsNamespace: "urn:xmpp:jingle:apps:dtls:0"
+      },
       buildJingleTransportCredsFn: xmppBuildJingleTransportCreds,
       generatePseudoDtlsFingerprintFn: xmppGeneratePseudoDtlsFingerprint
     });
   }
-  const mediaType = media === "video" ? "video" : "audio";
-  const contentName = (name || mediaType).toString().trim() || mediaType;
-  builder
-    .c("content", { creator, name: contentName, senders: (senders || "both").toString().trim().toLowerCase() || "both" })
-    .c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType });
-  const normalizedPayloads = Array.isArray(payloadTypes) && payloadTypes.length > 0
-    ? payloadTypes
-    : [{
-      id: mediaType === "audio" ? "111" : "96",
-      name: mediaType === "audio" ? "opus" : "VP8",
-      clockrate: mediaType === "audio" ? "48000" : "90000",
-      channels: mediaType === "audio" ? "2" : "1",
-      rtcpFeedback: [],
-      parameters: []
-    }];
-  normalizedPayloads.forEach((payload) => {
-    const id = (payload.id || "").toString().trim() || (mediaType === "audio" ? "111" : "96");
-    const name = (payload.name || "").toString().trim() || (mediaType === "audio" ? "opus" : "VP8");
-    const clockrate = String(Number(payload.clockrate) || (mediaType === "audio" ? 48000 : 90000));
-    const channels = String(Math.max(1, Number(payload.channels) || (mediaType === "audio" ? 2 : 1)));
-    const attrs = mediaType === "audio"
-      ? { id, name, clockrate, channels }
-      : { id, name, clockrate };
-    builder.c("payload-type", attrs);
-    (Array.isArray(payload.parameters) ? payload.parameters : []).forEach((param) => {
-      if (!param?.name) return;
-      const paramAttrs = { name: String(param.name) };
-      if (param.value) paramAttrs.value = String(param.value);
-      builder.c("parameter", paramAttrs).up();
-    });
-    (Array.isArray(payload.rtcpFeedback) ? payload.rtcpFeedback : []).forEach((feedback) => {
-      if (!feedback?.type) return;
-      const fbAttrs = { xmlns: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE, type: String(feedback.type) };
-      if (feedback.subtype) fbAttrs.subtype = String(feedback.subtype);
-      builder.c("rtcp-fb", fbAttrs).up();
-    });
-    builder.up();
-  });
-  (Array.isArray(rtcpFeedback) ? rtcpFeedback : []).forEach((feedback) => {
-    if (!feedback?.type) return;
-    const fbAttrs = { xmlns: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE, type: String(feedback.type) };
-    if (feedback.subtype) fbAttrs.subtype = String(feedback.subtype);
-    builder.c("rtcp-fb", fbAttrs).up();
-  });
-  (Array.isArray(extmaps) ? extmaps : []).forEach((extmap) => {
-    if (!extmap?.id || !extmap?.uri) return;
-    const attrs = {
-      xmlns: XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
-      id: String(extmap.id),
-      uri: String(extmap.uri)
-    };
-    if (extmap.direction) attrs.senders = String(extmap.direction);
-    if (extmap.attributes) attrs.attributes = String(extmap.attributes);
-    builder.c("rtp-hdrext", attrs).up();
-  });
-  (Array.isArray(sourceGroups) ? sourceGroups : []).forEach((group) => {
-    if (!group?.semantics || !Array.isArray(group.sources) || group.sources.length === 0) return;
-    builder.c("source-group", { xmlns: XMPP_JINGLE_RTP_SSMA_NAMESPACE, semantics: String(group.semantics) });
-    group.sources.forEach((ssrc) => {
-      if (!ssrc) return;
-      builder.c("source", { xmlns: XMPP_JINGLE_RTP_SSMA_NAMESPACE, ssrc: String(ssrc) }).up();
-    });
-    builder.up();
-  });
-  (Array.isArray(sources) ? sources : []).forEach((source) => {
-    if (!source?.ssrc) return;
-    builder.c("source", { xmlns: XMPP_JINGLE_RTP_SSMA_NAMESPACE, ssrc: String(source.ssrc) });
-    (Array.isArray(source.parameters) ? source.parameters : []).forEach((param) => {
-      if (!param?.name) return;
-      const attrs = { name: String(param.name) };
-      if (param.value) attrs.value = String(param.value);
-      builder.c("parameter", attrs).up();
-    });
-    builder.up();
-  });
-  if (rtcpMux !== false) {
-    builder.c("rtcp-mux", { xmlns: XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE }).up();
-  }
-  const creds = transport && typeof transport === "object"
-    ? {
-      ufrag: (transport.ufrag || "").toString().trim(),
-      pwd: (transport.pwd || "").toString().trim()
-    }
-    : xmppBuildJingleTransportCreds();
-  const fallbackCreds = (!creds.ufrag || !creds.pwd) ? xmppBuildJingleTransportCreds() : null;
-  const ufrag = creds.ufrag || fallbackCreds?.ufrag || "";
-  const pwd = creds.pwd || fallbackCreds?.pwd || "";
-  const dtlsInfo = dtls && typeof dtls === "object"
-    ? {
-      hash: (dtls.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
-      value: (dtls.value || "").toString().trim() || xmppGeneratePseudoDtlsFingerprint(),
-      setup: (dtls.setup || "actpass").toString().trim().toLowerCase() || "actpass"
-    }
-    : {
-      hash: "sha-256",
-      value: xmppGeneratePseudoDtlsFingerprint(),
-      setup: "actpass"
-    };
-  builder
-    .up()
-    .c("transport", {
-      xmlns: XMPP_JINGLE_ICE_UDP_NAMESPACE,
-      ufrag,
-      pwd
-    });
-  builder.c("fingerprint", {
-    xmlns: "urn:xmpp:jingle:apps:dtls:0",
-    hash: dtlsInfo.hash,
-    setup: dtlsInfo.setup
-  }).t(dtlsInfo.value).up();
-  builder
-    .up()
-    .up();
   return builder;
 }
 
 function xmppBuildJingleBundleGroup(builder, contentNames = []) {
-  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleBundleGroup === "function") {
-    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleBundleGroup(builder, contentNames, {
-      groupingNamespace: XMPP_JINGLE_GROUPING_NAMESPACE
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleBundleGroup === "function") {
+    return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleBundleGroup(builder, contentNames, {
+      xep0320: XEP_0320_WEBRTC_SDP_BASICS_GLOBAL,
+      namespaces: {
+        groupingNamespace: XMPP_JINGLE_GROUPING_NAMESPACE
+      }
     });
   }
-  if (!builder || typeof builder.c !== "function") return builder;
-  const names = [...new Set(
-    (Array.isArray(contentNames) ? contentNames : [])
-      .map((entry) => (entry || "").toString().trim())
-      .filter(Boolean)
-  )];
-  if (names.length < 2) return builder;
-  builder.c("group", {
-    xmlns: XMPP_JINGLE_GROUPING_NAMESPACE,
-    semantics: "BUNDLE"
-  });
-  names.forEach((name) => {
-    builder.c("content", { name }).up();
-  });
-  builder.up();
   return builder;
 }
 
@@ -10028,137 +9906,50 @@ function xmppSendJingleSessionInfo(peerJid, sessionId, {
   onError = null,
   retryOnRetarget = true
 } = {}) {
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
-  const sid = (sessionId || "").toString().trim();
-  if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const infoName = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleSessionInfoName === "function")
-    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleSessionInfoName(info)
-    : (info || "ringing").toString().trim().toLowerCase();
-  if (!infoName) return false;
-  const iq = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionInfoIq === "function")
-    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionInfoIq({
-      to,
-      sid,
-      infoName,
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionInfo !== "function") return false;
+  return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionInfo(peerJid, sessionId, {
+    info,
+    onSuccess,
+    onError,
+    retryOnRetarget
+  }, {
+    normalizeCallTargetJidFn: xmppNormalizeCallTargetJid,
+    connection: xmppConnection,
+    relayStatus,
+    iqFactory: globalThis.$iq,
+    namespaces: {
       jingleNamespace: XMPP_JINGLE_NAMESPACE,
       rtpInfoNamespace: XMPP_JINGLE_RTP_INFO_NAMESPACE
-    }, {
-      iqFactory: globalThis.$iq
-    })
-    : globalThis.$iq({ type: "set", to })
-      .c("jingle", {
-        xmlns: XMPP_JINGLE_NAMESPACE,
-        action: "session-info",
-        sid
-      })
-      .c(infoName, { xmlns: XMPP_JINGLE_RTP_INFO_NAMESPACE })
-      .up()
-      .up();
-  if (!iq) return false;
-  xmppConnection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "Sent XMPP jingle session-info", { to, sid, info: infoName });
-      if (typeof onSuccess === "function") onSuccess();
     },
-    (errorStanza) => {
-      if (retryOnRetarget && xmppCallIqSessionNotFoundError(errorStanza)) {
-        const retryTo = xmppResolveRetryCallTargetForSession(sid, to);
-        if (retryTo && retryTo !== to) {
-          addXmppDebugEvent("call", "Retrying XMPP session-info on alternate target", {
-            sid,
-            from: to,
-            to: retryTo,
-            info: infoName
-          });
-          const retried = xmppSendJingleSessionInfo(retryTo, sid, {
-            info: infoName,
-            onSuccess,
-            onError,
-            retryOnRetarget: false
-          });
-          if (retried) return;
-        }
-      }
-      addXmppDebugEvent("error", "XMPP jingle session-info failed", {
-        to,
-        sid,
-        info: infoName,
-        error: trimXmppRaw(xmppSerializePayload(errorStanza))
-      });
-      if (typeof onError === "function") onError(errorStanza);
-    },
-    9000
-  );
-  return true;
+    addXmppDebugEventFn: addXmppDebugEvent,
+    trimXmppRawFn: trimXmppRaw,
+    serializePayloadFn: xmppSerializePayload,
+    callIqSessionNotFoundErrorFn: xmppCallIqSessionNotFoundError,
+    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession
+  });
 }
 
 function xmppSendJingleContentModify(peerJid, sessionId, contents = [], {
   retryOnRetarget = true
 } = {}) {
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
-  const sid = (sessionId || "").toString().trim();
-  if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const normalizedContents = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleContentModifyContents === "function")
-    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleContentModifyContents(contents)
-    : (Array.isArray(contents) ? contents.filter((entry) => entry && entry.media) : []);
-  if (normalizedContents.length === 0) return false;
-  const iq = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleContentModifyIq === "function")
-    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleContentModifyIq({
-      to,
-      sid,
-      contents: normalizedContents,
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleContentModify !== "function") return false;
+  return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleContentModify(peerJid, sessionId, contents, {
+    retryOnRetarget
+  }, {
+    normalizeCallTargetJidFn: xmppNormalizeCallTargetJid,
+    connection: xmppConnection,
+    relayStatus,
+    iqFactory: globalThis.$iq,
+    namespaces: {
       jingleNamespace: XMPP_JINGLE_NAMESPACE,
-      rtpNamespace: XMPP_JINGLE_RTP_NAMESPACE
-    }, {
-      iqFactory: globalThis.$iq
-    })
-    : (() => {
-      const stanza = globalThis.$iq({ type: "set", to })
-        .c("jingle", {
-          xmlns: XMPP_JINGLE_NAMESPACE,
-          action: "content-modify",
-          sid
-        });
-      normalizedContents.forEach((content) => {
-        stanza.c("content", { creator: content.creator, name: content.name, senders: content.senders })
-          .c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: content.media })
-          .up()
-          .up();
-      });
-      stanza.up();
-      return stanza;
-    })();
-  if (!iq) return false;
-  xmppConnection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "Sent XMPP jingle content-modify", { to, sid, count: normalizedContents.length });
+      jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE
     },
-    (errorStanza) => {
-      if (retryOnRetarget && xmppCallIqSessionNotFoundError(errorStanza)) {
-        const retryTo = xmppResolveRetryCallTargetForSession(sid, to);
-        if (retryTo && retryTo !== to) {
-          addXmppDebugEvent("call", "Retrying XMPP content-modify on alternate target", {
-            sid,
-            from: to,
-            to: retryTo
-          });
-          const retried = xmppSendJingleContentModify(retryTo, sid, normalizedContents, {
-            retryOnRetarget: false
-          });
-          if (retried) return;
-        }
-      }
-      addXmppDebugEvent("error", "XMPP jingle content-modify failed", {
-        to,
-        sid,
-        error: trimXmppRaw(xmppSerializePayload(errorStanza))
-      });
-    },
-    9000
-  );
-  return true;
+    addXmppDebugEventFn: addXmppDebugEvent,
+    trimXmppRawFn: trimXmppRaw,
+    serializePayloadFn: xmppSerializePayload,
+    callIqSessionNotFoundErrorFn: xmppCallIqSessionNotFoundError,
+    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession
+  });
 }
 
 function xmppSendJingleTransportInfo(peerJid, sessionId, {
@@ -10168,183 +9959,34 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
   onError = null,
   retryOnRetarget = true
 } = {}) {
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
-  const sid = (sessionId || "").toString().trim();
-  if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
-  const session = xmppCallSessionById.get(sid) || null;
-  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
-  const fallbackLocalRole = (session?.localJingleRole || (session?.direction === "incoming" ? "responder" : "initiator"))
-    .toString()
-    .trim()
-    .toLowerCase() === "responder"
-    ? "responder"
-    : "initiator";
-  const fallbackTransport = (typeof xep0320.xmppResolveJingleRtpTransportCreds === "function")
-    ? xep0320.xmppResolveJingleRtpTransportCreds(transport, {
-      buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
-    })
-    : (transport && typeof transport === "object"
-      ? {
-        ufrag: (transport.ufrag || "").toString().trim(),
-        pwd: (transport.pwd || "").toString().trim()
-      }
-      : xmppBuildJingleTransportCreds());
-  const fallbackNormalizedCandidates = Array.isArray(candidates)
-    ? candidates.filter((entry) => entry && typeof entry === "object").map((entry) => ({
-      ...entry,
-      contentName: ((entry.contentName || entry.sdpMid || "") + "").toString().trim(),
-      media: ((entry.media || "") + "").toString().trim().toLowerCase(),
-      sdpMLineIndex: Number(entry.sdpMLineIndex)
-    }))
-    : [];
-  const fallbackCatalog = (() => {
-    const catalog = [];
-    const seen = new Set();
-    const push = (name = "", media = "") => {
-      const normalizedName = (name || "").toString().trim();
-      const normalizedMedia = (media || "").toString().trim().toLowerCase();
-      if (!normalizedName || (normalizedMedia !== "audio" && normalizedMedia !== "video")) return;
-      if (seen.has(normalizedName)) return;
-      seen.add(normalizedName);
-      catalog.push({ name: normalizedName, media: normalizedMedia });
-    };
-    if (Array.isArray(session?.remoteContents)) {
-      session.remoteContents.forEach((entry, index) => {
-        const media = (entry?.media || "").toString().trim().toLowerCase();
-        if (media !== "audio" && media !== "video") return;
-        push((entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`, media);
-      });
-    }
-    if (pcEntry?.pc?.localDescription?.sdp) {
-      xmppBuildJingleContentsFromSdp(pcEntry.pc.localDescription.sdp, { localRole: fallbackLocalRole }).forEach((entry, index) => {
-        const media = (entry?.media || "").toString().trim().toLowerCase();
-        if (media !== "audio" && media !== "video") return;
-        push((entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`, media);
-      });
-    }
-    xmppCallSessionMediaList(session).forEach((mediaType, index) => {
-      push(mediaType, mediaType);
-      push(`${mediaType}${index}`, mediaType);
-    });
-    if (catalog.length === 0) catalog.push({ name: "audio", media: "audio" });
-    return catalog;
-  })();
-  const fallbackCandidatesByContentName = new Map();
-  fallbackNormalizedCandidates.forEach((candidate) => {
-    const targets = fallbackCatalog.filter((content) => content.name === candidate.contentName);
-    const resolvedTargets = targets.length > 0 ? targets : fallbackCatalog;
-    resolvedTargets.forEach((content) => {
-      const list = fallbackCandidatesByContentName.get(content.name) || [];
-      list.push(candidate);
-      fallbackCandidatesByContentName.set(content.name, list);
-    });
-  });
-  const localSdpContents = pcEntry?.pc?.localDescription?.sdp
-    ? xmppBuildJingleContentsFromSdp(pcEntry.pc.localDescription.sdp, {
-      localRole: typeof xep0320.xmppNormalizeTransportInfoLocalRole === "function"
-        ? xep0320.xmppNormalizeTransportInfoLocalRole(session)
-        : fallbackLocalRole
-    })
-    : [];
-  const plan = typeof xep0320.xmppBuildTransportInfoPlan === "function"
-    ? xep0320.xmppBuildTransportInfoPlan({
-      session,
-      transport,
-      candidates,
-      sessionRemoteContents: Array.isArray(session?.remoteContents) ? session.remoteContents : [],
-      localSdpContents,
-      sessionMedia: xmppCallSessionMediaList(session)
-    }, {
-      buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
-    })
-    : {
-      localRole: fallbackLocalRole,
-      transportCreds: fallbackTransport,
-      normalizedCandidates: fallbackNormalizedCandidates,
-      contentTargets: fallbackCatalog,
-      candidatesByContentName: fallbackCandidatesByContentName
-    };
-  const iq = globalThis.$iq({ type: "set", to })
-    .c("jingle", {
-      xmlns: XMPP_JINGLE_NAMESPACE,
-      action: "transport-info",
-      sid
-    });
-  if (typeof xep0320.xmppAppendJingleTransportInfoContents === "function") {
-    xep0320.xmppAppendJingleTransportInfoContents(iq, {
-      localRole: plan.localRole,
-      contentTargets: plan.contentTargets,
-      candidatesByContentName: plan.candidatesByContentName,
-      transportCreds: plan.transportCreds
-    }, {
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleTransportInfo !== "function") return false;
+  return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleTransportInfo(peerJid, sessionId, {
+    transport,
+    candidates,
+    onSuccess,
+    onError,
+    retryOnRetarget
+  }, {
+    normalizeCallTargetJidFn: xmppNormalizeCallTargetJid,
+    connection: xmppConnection,
+    relayStatus,
+    iqFactory: globalThis.$iq,
+    namespaces: {
+      jingleNamespace: XMPP_JINGLE_NAMESPACE,
       iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE
-    });
-  } else {
-    plan.contentTargets.forEach((content) => {
-      const contentCandidates = plan.candidatesByContentName.get(content.name) || [];
-      iq
-        .c("content", { creator: plan.localRole, name: content.name })
-        .c("transport", {
-          xmlns: XMPP_JINGLE_ICE_UDP_NAMESPACE,
-          ufrag: plan.transportCreds?.ufrag || "",
-          pwd: plan.transportCreds?.pwd || ""
-        });
-      contentCandidates.forEach((candidate, index) => {
-        iq.c("candidate", {
-          foundation: (candidate.foundation || `${index + 1}`).toString().slice(0, 24),
-          component: String(Number(candidate.component) || 1),
-          protocol: ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp").slice(0, 8),
-          priority: String(Number(candidate.priority) || (2130706431 - index)),
-          ip: (candidate.ip || "0.0.0.0").toString().slice(0, 64),
-          port: String(Number(candidate.port) || 9),
-          type: ((candidate.type || "host").toString().trim().toLowerCase() || "host").slice(0, 16)
-        }).up();
-      });
-      iq.up().up();
-    });
-  }
-  iq.up();
-  xmppConnection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "Sent XMPP jingle transport-info", {
-        to,
-        sid,
-        candidateCount: plan.normalizedCandidates.length
-      });
-      if (typeof onSuccess === "function") onSuccess();
     },
-    (errorStanza) => {
-      if (retryOnRetarget && xmppCallIqSessionNotFoundError(errorStanza)) {
-        const retryTo = xmppResolveRetryCallTargetForSession(sid, to);
-        if (retryTo && retryTo !== to) {
-          addXmppDebugEvent("call", "Retrying XMPP transport-info on alternate target", {
-            sid,
-            from: to,
-            to: retryTo
-          });
-          const retried = xmppSendJingleTransportInfo(retryTo, sid, {
-            transport: plan.transportCreds,
-            candidates: plan.normalizedCandidates,
-            onSuccess,
-            onError,
-            retryOnRetarget: false
-          });
-          if (retried) return;
-        }
-      }
-      addXmppDebugEvent("error", "XMPP jingle transport-info failed", {
-        to,
-        sid,
-        candidateCount: plan.normalizedCandidates.length,
-        error: trimXmppRaw(xmppSerializePayload(errorStanza))
-      });
-      if (typeof onError === "function") onError(errorStanza);
-    },
-    9000
-  );
-  return true;
+    addXmppDebugEventFn: addXmppDebugEvent,
+    trimXmppRawFn: trimXmppRaw,
+    serializePayloadFn: xmppSerializePayload,
+    callIqSessionNotFoundErrorFn: xmppCallIqSessionNotFoundError,
+    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession,
+    callSessionById: xmppCallSessionById,
+    callPeerConnectionBySessionId: xmppCallPeerConnectionBySessionId,
+    buildJingleContentsFromSdpFn: xmppBuildJingleContentsFromSdp,
+    callSessionMediaListFn: xmppCallSessionMediaList,
+    buildJingleTransportCredsFn: xmppBuildJingleTransportCreds,
+    xep0320: XEP_0320_WEBRTC_SDP_BASICS_GLOBAL
+  });
 }
 
 async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
@@ -10354,138 +9996,50 @@ async function xmppSendJingleSessionInitiate(peerJid, sessionId, {
   onError = null,
   retryOnRetarget = true
 } = {}) {
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
-  const sid = (sessionId || "").toString().trim();
-  if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
-  const iq = globalThis.$iq({ type: "set", to })
-    .c("jingle", {
-      xmlns: XMPP_JINGLE_NAMESPACE,
-      action: "session-initiate",
-      sid,
-      initiator: ownBare || ""
-    });
-  const sessionEntry = xmppCallSessionById.get(sid) || null;
-  const wanted = Array.isArray(media) ? media : XMPP_CALL_DEFAULT_MEDIA;
-  const normalizedMedia = [...new Set(
-    wanted
-      .map((item) => (item || "").toString().trim().toLowerCase())
-      .filter((item) => item === "audio" || item === "video")
-  )];
-  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : XMPP_CALL_DEFAULT_MEDIA);
-  const useMinimalRtp = xmppShouldUseMinimalRtpForPeer(to, medias);
-  const entry = xmppEnsureSessionPeerConnection(sid, {
-    peerJid: to,
-    media: medias,
-    createLocalOffer: false
-  });
-  const attached = await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) });
-  if (entry?.pc && !entry.pc.localDescription) {
-    try {
-      const offer = await entry.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-      await entry.pc.setLocalDescription(offer);
-    } catch (error) {
-      addXmppDebugEvent("error", "Failed preparing local offer for session-initiate", {
-        sid,
-        error: String(error?.message || error)
-      });
-    }
-  }
-  addXmppDebugEvent("runtime", "Prepared local media for session-initiate", {
-    sid,
-    screenShare: Boolean(screenShare),
-    attached
-  });
-  const localSdp = entry?.pc?.localDescription?.sdp || "";
-  const localTransport = xmppParseIceCredsFromSdp(localSdp)
-    || (sessionEntry?.localTransport && typeof sessionEntry.localTransport === "object"
-      ? sessionEntry.localTransport
-      : xmppBuildJingleTransportCreds());
-  if (sessionEntry) sessionEntry.localTransport = localTransport;
-  const localDtls = xmppParseDtlsFingerprintFromSdp(localSdp) || xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "actpass" });
-  const contents = (!useMinimalRtp && localSdp) ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "initiator" }) : [];
-  if (sessionEntry) {
-    sessionEntry.media = medias;
-  }
-  if (useMinimalRtp) {
-    addXmppDebugEvent("call", "Using minimal RTP description for session-initiate", {
-      sid,
-      to,
-      media: medias
-    });
-  }
-  if (contents.length > 0) {
-    const contentNames = [];
-    contents.forEach((content, index) => {
-      const contentName = (content.name || `${content.media}${index}`).toString().trim() || `${content.media}${index}`;
-      contentNames.push(contentName);
-      xmppBuildJingleRtpContent(iq, {
-        media: content.media,
-        name: contentName,
-        creator: "initiator",
-        senders: content.senders,
-        transport: content.transport || localTransport,
-        dtls: content.transport
-          ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
-          : localDtls,
-        payloadTypes: content.payloadTypes,
-        rtcpFeedback: content.rtcpFeedback,
-        extmaps: content.extmaps,
-        sources: content.sources,
-        sourceGroups: content.sourceGroups
-      });
-    });
-    xmppBuildJingleBundleGroup(iq, contentNames);
-  } else {
-    const contentNames = [];
-    medias.forEach((mediaType) => {
-      const contentName = mediaType.toString();
-      contentNames.push(contentName);
-      xmppBuildJingleRtpContent(iq, {
-        media: mediaType,
-        name: contentName,
-        creator: "initiator",
-        transport: localTransport,
-        dtls: localDtls
-      });
-    });
-    xmppBuildJingleBundleGroup(iq, contentNames);
-  }
-  xmppConnection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "Sent XMPP jingle session-initiate", { to, sid, media: medias.join(",") });
-      if (typeof onSuccess === "function") onSuccess();
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionInitiate !== "function") return false;
+  return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionInitiate(peerJid, sessionId, {
+    media,
+    screenShare,
+    onSuccess,
+    onError,
+    retryOnRetarget
+  }, {
+    normalizeCallTargetJidFn: xmppNormalizeCallTargetJid,
+    connection: xmppConnection,
+    relayStatus,
+    iqFactory: globalThis.$iq,
+    bareJidFn: xmppBareJid,
+    getPreferencesFn: getPreferences,
+    callSessionById: xmppCallSessionById,
+    callDefaultMedia: XMPP_CALL_DEFAULT_MEDIA,
+    negotiatedCallMediaForPeerFn: xmppNegotiatedCallMediaForPeer,
+    shouldUseMinimalRtpForPeerFn: xmppShouldUseMinimalRtpForPeer,
+    ensureSessionPeerConnectionFn: xmppEnsureSessionPeerConnection,
+    attachLocalMediaToSessionPeerConnectionFn: xmppAttachLocalMediaToSessionPeerConnection,
+    parseIceCredsFromSdpFn: xmppParseIceCredsFromSdp,
+    buildJingleTransportCredsFn: xmppBuildJingleTransportCreds,
+    parseDtlsFingerprintFromSdpFn: xmppParseDtlsFingerprintFromSdp,
+    resolveLocalDtlsForSessionFn: xmppResolveLocalDtlsForSession,
+    buildJingleContentsFromSdpFn: xmppBuildJingleContentsFromSdp,
+    namespaces: {
+      jingleNamespace: XMPP_JINGLE_NAMESPACE,
+      jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE,
+      rtcpFbNamespace: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
+      hdrExtNamespace: XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
+      ssmaNamespace: XMPP_JINGLE_RTP_SSMA_NAMESPACE,
+      rtcpMuxNamespace: XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE,
+      iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE,
+      dtlsNamespace: "urn:xmpp:jingle:apps:dtls:0",
+      groupingNamespace: XMPP_JINGLE_GROUPING_NAMESPACE
     },
-    (errorStanza) => {
-      if (retryOnRetarget && xmppCallIqSessionNotFoundError(errorStanza)) {
-        const retryTo = xmppResolveRetryCallTargetForSession(sid, to);
-        if (retryTo && retryTo !== to) {
-          addXmppDebugEvent("call", "Retrying XMPP session-initiate on alternate target", {
-            sid,
-            from: to,
-            to: retryTo
-          });
-          void xmppSendJingleSessionInitiate(retryTo, sid, {
-            media: medias,
-            screenShare: Boolean(screenShare),
-            onSuccess,
-            onError,
-            retryOnRetarget: false
-          });
-          return;
-        }
-      }
-      addXmppDebugEvent("error", "XMPP jingle session-initiate failed", {
-        to,
-        sid,
-        error: trimXmppRaw(xmppSerializePayload(errorStanza))
-      });
-      if (typeof onError === "function") onError(errorStanza);
-    },
-    10000
-  );
-  return true;
+    xep0320: XEP_0320_WEBRTC_SDP_BASICS_GLOBAL,
+    generatePseudoDtlsFingerprintFn: xmppGeneratePseudoDtlsFingerprint,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    trimXmppRawFn: trimXmppRaw,
+    serializePayloadFn: xmppSerializePayload,
+    callIqSessionNotFoundErrorFn: xmppCallIqSessionNotFoundError,
+    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession
+  });
 }
 
 async function xmppSendJingleSessionAccept(peerJid, sessionId, {
@@ -10495,141 +10049,51 @@ async function xmppSendJingleSessionAccept(peerJid, sessionId, {
   onError = null,
   retryOnRetarget = true
 } = {}) {
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
-  const sid = (sessionId || "").toString().trim();
-  if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
-  const iq = globalThis.$iq({ type: "set", to })
-    .c("jingle", {
-      xmlns: XMPP_JINGLE_NAMESPACE,
-      action: "session-accept",
-      sid,
-      responder: ownBare || ""
-    });
-  const sessionEntry = xmppCallSessionById.get(sid) || null;
-  const wanted = Array.isArray(media) ? media : XMPP_CALL_DEFAULT_MEDIA;
-  const normalizedMedia = [...new Set(
-    wanted
-      .map((item) => (item || "").toString().trim().toLowerCase())
-      .filter((item) => item === "audio" || item === "video")
-  )];
-  const medias = xmppNegotiatedCallMediaForPeer(to, normalizedMedia.length > 0 ? normalizedMedia : XMPP_CALL_DEFAULT_MEDIA);
-  const useMinimalRtp = xmppShouldUseMinimalRtpForPeer(to, medias);
-  const entry = xmppEnsureSessionPeerConnection(sid, {
-    peerJid: to,
-    media: medias,
-    createLocalOffer: false
-  });
-  const attached = await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: Boolean(screenShare) });
-  if (entry?.pc && !entry.pc.localDescription) {
-    try {
-      const answer = await entry.pc.createAnswer();
-      await entry.pc.setLocalDescription(answer);
-    } catch (error) {
-      addXmppDebugEvent("error", "Failed preparing local answer for session-accept", {
-        sid,
-        error: String(error?.message || error)
-      });
-    }
-  }
-  addXmppDebugEvent("runtime", "Prepared local media for session-accept", {
-    sid,
-    screenShare: Boolean(screenShare),
-    attached
-  });
-  const localSdp = entry?.pc?.localDescription?.sdp || "";
-  const localTransport = xmppParseIceCredsFromSdp(localSdp)
-    || (sessionEntry?.localTransport && typeof sessionEntry.localTransport === "object"
-      ? sessionEntry.localTransport
-      : xmppBuildJingleTransportCreds());
-  if (sessionEntry) sessionEntry.localTransport = localTransport;
-  const localDtls = xmppParseDtlsFingerprintFromSdp(localSdp) || xmppResolveLocalDtlsForSession(sid, { fallbackSetup: "active" });
-  const rawContents = (!useMinimalRtp && localSdp) ? xmppBuildJingleContentsFromSdp(localSdp, { localRole: "responder" }) : [];
-  const contents = rawContents.length > 0
-    ? xmppAlignLocalJingleContentsToRemoteSession(rawContents, sessionEntry?.remoteContents || [])
-    : [];
-  if (sessionEntry) {
-    sessionEntry.media = medias;
-  }
-  if (useMinimalRtp) {
-    addXmppDebugEvent("call", "Using minimal RTP description for session-accept", {
-      sid,
-      to,
-      media: medias
-    });
-  }
-  if (contents.length > 0) {
-    const contentNames = [];
-    contents.forEach((content, index) => {
-      const contentName = (content.name || `${content.media}${index}`).toString().trim() || `${content.media}${index}`;
-      contentNames.push(contentName);
-      xmppBuildJingleRtpContent(iq, {
-        media: content.media,
-        name: contentName,
-        creator: "responder",
-        senders: content.senders,
-        transport: content.transport || localTransport,
-        dtls: content.transport
-          ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
-          : localDtls,
-        payloadTypes: content.payloadTypes,
-        rtcpFeedback: content.rtcpFeedback,
-        extmaps: content.extmaps,
-        sources: content.sources,
-        sourceGroups: content.sourceGroups
-      });
-    });
-    xmppBuildJingleBundleGroup(iq, contentNames);
-  } else {
-    const contentNames = [];
-    medias.forEach((mediaType) => {
-      const contentName = mediaType.toString();
-      contentNames.push(contentName);
-      xmppBuildJingleRtpContent(iq, {
-        media: mediaType,
-        name: contentName,
-        creator: "responder",
-        transport: localTransport,
-        dtls: localDtls
-      });
-    });
-    xmppBuildJingleBundleGroup(iq, contentNames);
-  }
-  xmppConnection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "Sent XMPP jingle session-accept", { to, sid, media: medias.join(",") });
-      if (typeof onSuccess === "function") onSuccess();
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionAccept !== "function") return false;
+  return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionAccept(peerJid, sessionId, {
+    media,
+    screenShare,
+    onSuccess,
+    onError,
+    retryOnRetarget
+  }, {
+    normalizeCallTargetJidFn: xmppNormalizeCallTargetJid,
+    connection: xmppConnection,
+    relayStatus,
+    iqFactory: globalThis.$iq,
+    bareJidFn: xmppBareJid,
+    getPreferencesFn: getPreferences,
+    callSessionById: xmppCallSessionById,
+    callDefaultMedia: XMPP_CALL_DEFAULT_MEDIA,
+    negotiatedCallMediaForPeerFn: xmppNegotiatedCallMediaForPeer,
+    shouldUseMinimalRtpForPeerFn: xmppShouldUseMinimalRtpForPeer,
+    ensureSessionPeerConnectionFn: xmppEnsureSessionPeerConnection,
+    attachLocalMediaToSessionPeerConnectionFn: xmppAttachLocalMediaToSessionPeerConnection,
+    parseIceCredsFromSdpFn: xmppParseIceCredsFromSdp,
+    buildJingleTransportCredsFn: xmppBuildJingleTransportCreds,
+    parseDtlsFingerprintFromSdpFn: xmppParseDtlsFingerprintFromSdp,
+    resolveLocalDtlsForSessionFn: xmppResolveLocalDtlsForSession,
+    buildJingleContentsFromSdpFn: xmppBuildJingleContentsFromSdp,
+    alignLocalJingleContentsToRemoteSessionFn: xmppAlignLocalJingleContentsToRemoteSession,
+    namespaces: {
+      jingleNamespace: XMPP_JINGLE_NAMESPACE,
+      jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE,
+      rtcpFbNamespace: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
+      hdrExtNamespace: XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
+      ssmaNamespace: XMPP_JINGLE_RTP_SSMA_NAMESPACE,
+      rtcpMuxNamespace: XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE,
+      iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE,
+      dtlsNamespace: "urn:xmpp:jingle:apps:dtls:0",
+      groupingNamespace: XMPP_JINGLE_GROUPING_NAMESPACE
     },
-    (errorStanza) => {
-      if (retryOnRetarget && xmppCallIqSessionNotFoundError(errorStanza)) {
-        const retryTo = xmppResolveRetryCallTargetForSession(sid, to);
-        if (retryTo && retryTo !== to) {
-          addXmppDebugEvent("call", "Retrying XMPP session-accept on alternate target", {
-            sid,
-            from: to,
-            to: retryTo
-          });
-          void xmppSendJingleSessionAccept(retryTo, sid, {
-            media: medias,
-            screenShare: Boolean(screenShare),
-            onSuccess,
-            onError,
-            retryOnRetarget: false
-          });
-          return;
-        }
-      }
-      addXmppDebugEvent("error", "XMPP jingle session-accept failed", {
-        to,
-        sid,
-        error: trimXmppRaw(xmppSerializePayload(errorStanza))
-      });
-      if (typeof onError === "function") onError(errorStanza);
-    },
-    10000
-  );
-  return true;
+    xep0320: XEP_0320_WEBRTC_SDP_BASICS_GLOBAL,
+    generatePseudoDtlsFingerprintFn: xmppGeneratePseudoDtlsFingerprint,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    trimXmppRawFn: trimXmppRaw,
+    serializePayloadFn: xmppSerializePayload,
+    callIqSessionNotFoundErrorFn: xmppCallIqSessionNotFoundError,
+    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession
+  });
 }
 
 function xmppSendJingleSessionTerminate(peerJid, sessionId, {
@@ -10639,76 +10103,27 @@ function xmppSendJingleSessionTerminate(peerJid, sessionId, {
   onError = null,
   retryOnRetarget = true
 } = {}) {
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
-  const sid = (sessionId || "").toString().trim();
-  if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const normalizedReason = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleTerminateReason === "function")
-    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleTerminateReason(reason)
-    : ((reason || "success").toString().trim().toLowerCase() || "success");
-  const message = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleReasonText === "function")
-    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleReasonText(text, { maxLength: 180 })
-    : (text || "").toString().trim().slice(0, 180);
-  const iq = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionTerminateIq === "function")
-    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionTerminateIq({
-      to,
-      sid,
-      reason: normalizedReason,
-      text: message,
+  if (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionTerminate !== "function") return false;
+  return XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppSendJingleSessionTerminate(peerJid, sessionId, {
+    reason,
+    text,
+    onSuccess,
+    onError,
+    retryOnRetarget
+  }, {
+    normalizeCallTargetJidFn: xmppNormalizeCallTargetJid,
+    connection: xmppConnection,
+    relayStatus,
+    iqFactory: globalThis.$iq,
+    namespaces: {
       jingleNamespace: XMPP_JINGLE_NAMESPACE
-    }, {
-      iqFactory: globalThis.$iq
-    })
-    : (() => {
-      const stanza = globalThis.$iq({ type: "set", to })
-        .c("jingle", {
-          xmlns: XMPP_JINGLE_NAMESPACE,
-          action: "session-terminate",
-          sid
-        })
-        .c("reason")
-        .c(normalizedReason)
-        .up();
-      if (message) stanza.c("text").t(message).up();
-      stanza.up().up();
-      return stanza;
-    })();
-  if (!iq) return false;
-  xmppConnection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "Sent XMPP jingle session-terminate", { to, sid, reason: normalizedReason });
-      if (typeof onSuccess === "function") onSuccess();
     },
-    (errorStanza) => {
-      if (retryOnRetarget && xmppCallIqSessionNotFoundError(errorStanza)) {
-        const retryTo = xmppResolveRetryCallTargetForSession(sid, to);
-        if (retryTo && retryTo !== to) {
-          addXmppDebugEvent("call", "Retrying XMPP session-terminate on alternate target", {
-            sid,
-            from: to,
-            to: retryTo
-          });
-          const retried = xmppSendJingleSessionTerminate(retryTo, sid, {
-            reason: normalizedReason,
-            text: message,
-            onSuccess,
-            onError,
-            retryOnRetarget: false
-          });
-          if (retried) return;
-        }
-      }
-      addXmppDebugEvent("error", "XMPP jingle session-terminate failed", {
-        to,
-        sid,
-        reason: normalizedReason,
-        error: trimXmppRaw(xmppSerializePayload(errorStanza))
-      });
-      if (typeof onError === "function") onError(errorStanza);
-    },
-    9000
-  );
-  return true;
+    addXmppDebugEventFn: addXmppDebugEvent,
+    trimXmppRawFn: trimXmppRaw,
+    serializePayloadFn: xmppSerializePayload,
+    callIqSessionNotFoundErrorFn: xmppCallIqSessionNotFoundError,
+    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession
+  });
 }
 
 function latestXmppCallSessionIdForPeer(peerJid, direction = "incoming") {
