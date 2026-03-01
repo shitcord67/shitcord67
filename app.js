@@ -78,6 +78,7 @@ const XEP_0384_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_0384_RUNTIME || {};
 const XEP_0384_PREFERENCES_GLOBAL = globalThis.SHITCORD67_XEP_0384_PREFERENCES || {};
 const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
 const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
+const XEP_0384_DEVICES_GLOBAL = globalThis.SHITCORD67_XEP_0384_DEVICES || {};
 const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
 const XEP_0384_MESSAGE_CRYPTO_GLOBAL = globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
 const XEP_0384_DECRYPT_CONTENT_GLOBAL = globalThis.SHITCORD67_XEP_0384_DECRYPT_CONTENT || {};
@@ -176,6 +177,8 @@ const xmppOmemoApplyPeerEnabled = XEP_0384_PREFERENCES_GLOBAL.xmppOmemoApplyPeer
 const xmppOmemoEnsureLocalIdentityCore = XEP_0384_IDENTITY_GLOBAL.xmppOmemoEnsureLocalIdentityCore || (async () => null);
 const xmppOmemoEnsureSessionCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsureSessionCore || (async () => false);
 const xmppOmemoEnsurePeerSessionsCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsurePeerSessionsCore || (async () => []);
+const xmppOmemoFetchDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoFetchDeviceListCore || (async () => []);
+const xmppOmemoPublishDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoPublishDeviceListCore || (async () => false);
 const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGatherDeviceTargetsCore || (async () => []);
 const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || (async () => null);
 const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || (async () => null);
@@ -14718,81 +14721,33 @@ async function xmppOmemoEnsureLocalIdentity(ownBare) {
 }
 
 async function xmppOmemoFetchDeviceList(jid, { connection = xmppConnection } = {}) {
-  const bare = xmppBareJid(jid || "");
-  if (!bare || !connection || !globalThis.$iq) return [];
-  const errors = [];
-  const namespaceCandidates = xmppOmemoNamespaceCandidatesForPeer(bare);
-  for (const namespace of namespaceCandidates) {
-    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
-    const iq = globalThis.$iq({ type: "get", to: bare })
-      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-      .c("items", { node: nodeSet.devicelistNode });
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      const stanza = await xmppSendIqPromise(connection, iq, 7000);
-      const listNode = [...stanza.getElementsByTagName("list")]
-        .find((node) => xmppNodeHasAnyXmlns(node, XMPP_OMEMO_NAMESPACES)) || null;
-      if (!listNode) continue;
-      const devices = [...listNode.getElementsByTagName("device")]
-        .map((node) => (node.getAttribute("id") || "").toString().trim())
-        .filter(Boolean);
-      const unique = [...new Set(devices)];
-      xmppOmemoDeviceListByJid.set(bare, unique);
-      xmppOmemoPreferredNamespaceByJid.set(bare, nodeSet.namespace);
-      return unique;
-    } catch (error) {
-      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
-    }
-  }
-  addXmppDebugEvent("error", "OMEMO device list fetch failed", {
-    jid: bare,
-    error: errors.join(" | ")
+  return xmppOmemoFetchDeviceListCore(jid, {
+    toBareJid: (value) => xmppBareJid(value || ""),
+    connection,
+    namespaceCandidatesFn: xmppOmemoNamespaceCandidatesForPeer,
+    namespaceNodeSetFn: xmppOmemoNamespaceNodeSet,
+    sendIqPromiseFn: xmppSendIqPromise,
+    nodeHasAnyXmlnsFn: xmppNodeHasAnyXmlns,
+    preferredNamespaceByJid: xmppOmemoPreferredNamespaceByJid,
+    deviceListByJid: xmppOmemoDeviceListByJid,
+    omemoNamespaces: XMPP_OMEMO_NAMESPACES,
+    debugEventFn: addXmppDebugEvent
   });
-  return [];
 }
 
 async function xmppOmemoPublishDeviceList(ownBare, deviceIds, {
   connection = xmppConnection,
   namespaces = XMPP_OMEMO_NAMESPACES
 } = {}) {
-  if (!ownBare || !connection || !globalThis.$iq) return false;
-  const ids = [...new Set((deviceIds || []).map((id) => String(id)).filter(Boolean))];
-  if (ids.length === 0) return false;
-  const namespaceList = [...new Set(
-    (Array.isArray(namespaces) ? namespaces : [namespaces])
-      .map((entry) => (entry || "").toString().trim())
-      .filter(Boolean)
-  )];
-  let published = false;
-  const errors = [];
-  for (const namespace of namespaceList) {
-    const nodeSet = xmppOmemoNamespaceNodeSet(namespace);
-    const iq = globalThis.$iq({ type: "set", to: ownBare })
-      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-      .c("publish", { node: nodeSet.devicelistNode })
-      .c("item", { id: "current" })
-      .c("list", { xmlns: nodeSet.namespace });
-    ids.forEach((id) => {
-      iq.c("device", { id }).up();
-    });
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      await xmppSendIqPromise(connection, iq, 7000);
-      published = true;
-      xmppOmemoPreferredNamespaceByJid.set(ownBare, nodeSet.namespace);
-    } catch (error) {
-      errors.push(`${nodeSet.namespace}: ${String(error?.message || error)}`);
-    }
-  }
-  if (published) {
-    xmppOmemoDeviceListByJid.set(ownBare, ids);
-    return true;
-  }
-  addXmppDebugEvent("error", "OMEMO device list publish failed", {
-    jid: ownBare,
-    error: errors.join(" | ") || "all namespaces failed"
+  return xmppOmemoPublishDeviceListCore(ownBare, deviceIds, {
+    connection,
+    namespaces,
+    namespaceNodeSetFn: xmppOmemoNamespaceNodeSet,
+    sendIqPromiseFn: xmppSendIqPromise,
+    preferredNamespaceByJid: xmppOmemoPreferredNamespaceByJid,
+    deviceListByJid: xmppOmemoDeviceListByJid,
+    debugEventFn: addXmppDebugEvent
   });
-  return false;
 }
 
 async function xmppOmemoPublishBundle(ownBare, bundle, {
