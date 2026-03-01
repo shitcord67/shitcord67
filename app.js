@@ -76,6 +76,7 @@ const XEP_0384_NAMESPACE_SELECTION_GLOBAL = globalThis.SHITCORD67_XEP_0384_NAMES
 const XEP_0384_OMEMO_STORE_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO_STORE || {};
 const XEP_0384_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_0384_RUNTIME || {};
 const XEP_0384_PREFERENCES_GLOBAL = globalThis.SHITCORD67_XEP_0384_PREFERENCES || {};
+const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -343,6 +344,27 @@ const xmppOmemoApplyPeerEnabled = XEP_0384_PREFERENCES_GLOBAL.xmppOmemoApplyPeer
       [peerBare]: normalizeToggleFn(enabled ? "on" : "off")
     }
   };
+};
+const xmppOmemoEnsureLocalIdentityCore = XEP_0384_IDENTITY_GLOBAL.xmppOmemoEnsureLocalIdentityCore || async function xmppOmemoEnsureLocalIdentityCoreFallback(ownBare, {
+  runtimeAvailableFn,
+  storeForAccountFn
+} = {}) {
+  if (typeof runtimeAvailableFn !== "function" || typeof storeForAccountFn !== "function") return null;
+  if (!runtimeAvailableFn()) return null;
+  const store = storeForAccountFn(ownBare);
+  if (!store) return null;
+  let registrationId = await store.getLocalRegistrationId();
+  if (!registrationId) {
+    registrationId = globalThis.libsignal.KeyHelper.generateRegistrationId();
+    await store.setLocalRegistrationId(registrationId);
+  }
+  try {
+    await store.getIdentityKeyPair();
+  } catch {
+    const identityKeyPair = await globalThis.libsignal.KeyHelper.generateIdentityKeyPair();
+    await store.setIdentityKeyPair(identityKeyPair);
+  }
+  return store;
 };
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
@@ -14860,21 +14882,10 @@ function xmppPreferredOmemoNamespaceForPeer(peerJid = "") {
 }
 
 async function xmppOmemoEnsureLocalIdentity(ownBare) {
-  if (!xmppOmemoRuntimeAvailable()) return null;
-  const store = xmppOmemoStoreForAccount(ownBare);
-  if (!store) return null;
-  let registrationId = await store.getLocalRegistrationId();
-  if (!registrationId) {
-    registrationId = globalThis.libsignal.KeyHelper.generateRegistrationId();
-    await store.setLocalRegistrationId(registrationId);
-  }
-  try {
-    await store.getIdentityKeyPair();
-  } catch {
-    const identityKeyPair = await globalThis.libsignal.KeyHelper.generateIdentityKeyPair();
-    await store.setIdentityKeyPair(identityKeyPair);
-  }
-  return store;
+  return xmppOmemoEnsureLocalIdentityCore(ownBare, {
+    runtimeAvailableFn: xmppOmemoRuntimeAvailable,
+    storeForAccountFn: xmppOmemoStoreForAccount
+  });
 }
 
 async function xmppOmemoFetchDeviceList(jid, { connection = xmppConnection } = {}) {
