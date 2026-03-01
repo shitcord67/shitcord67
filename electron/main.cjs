@@ -61,7 +61,7 @@ if (process.platform === "linux") {
   applyEarlyRuntimeEnv(EARLY_RUNTIME_DIR);
 }
 
-const { app, BrowserWindow, dialog, session, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain, desktopCapturer } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const https = require("node:https");
@@ -246,6 +246,7 @@ let stackProcess = null;
 let stackStopTimer = null;
 let isShuttingDown = false;
 let securityHeadersInstalled = false;
+let displayMediaRequestHandlerInstalled = false;
 let activeClientPort = CLIENT_PORT;
 let activeGatewayPort = GATEWAY_PORT;
 let lastStackExitCode = null;
@@ -418,6 +419,66 @@ function installClientSecurityHeaders() {
       callback({ responseHeaders: headers });
     }
   );
+}
+
+function scoreDisplayCaptureSource(source) {
+  if (!source || typeof source !== "object") return -1;
+  const id = (source.id || "").toString().toLowerCase();
+  const name = (source.name || "").toString().toLowerCase();
+  let score = 0;
+  if (id.startsWith("screen:")) score += 60;
+  if (id.startsWith("window:")) score += 10;
+  if (name.includes("entire screen")) score += 40;
+  if (name.includes("screen") || name.includes("display") || name.includes("monitor")) score += 25;
+  if (source.display_id && source.display_id !== "0") score += 5;
+  return score;
+}
+
+function pickPreferredDisplayCaptureSource(sources = []) {
+  const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
+  if (list.length <= 0) return null;
+  return [...list]
+    .sort((a, b) => scoreDisplayCaptureSource(b) - scoreDisplayCaptureSource(a))[0] || null;
+}
+
+function installDisplayMediaRequestHandler() {
+  if (displayMediaRequestHandlerInstalled) return;
+  const defaultSession = session.defaultSession;
+  if (!defaultSession || typeof defaultSession.setDisplayMediaRequestHandler !== "function") {
+    log("display media request handler unavailable in this Electron runtime");
+    return;
+  }
+  try {
+    defaultSession.setDisplayMediaRequestHandler(
+      async (_request, callback) => {
+        try {
+          const sources = await desktopCapturer.getSources({
+            types: ["screen", "window"],
+            thumbnailSize: { width: 0, height: 0 },
+            fetchWindowIcons: false
+          });
+          const selectedSource = pickPreferredDisplayCaptureSource(sources);
+          if (!selectedSource) {
+            callback({});
+            return;
+          }
+          callback({ video: selectedSource });
+        } catch (error) {
+          log("display media source selection failed", String(error?.message || error));
+          try {
+            callback({});
+          } catch {
+            // Ignore callback races on failed capture requests.
+          }
+        }
+      },
+      { useSystemPicker: true }
+    );
+    displayMediaRequestHandlerInstalled = true;
+    log("display media request handler installed");
+  } catch (error) {
+    log("failed to install display media request handler", String(error?.message || error));
+  }
 }
 
 let devtoolsShortcutsRegistered = false;
@@ -715,6 +776,7 @@ app.whenReady().then(async () => {
   let startupRecovered = false;
   try {
     installClientSecurityHeaders();
+    installDisplayMediaRequestHandler();
     registerDevtoolsGlobalShortcuts();
     const result = await startClientStackWithFallback();
     startupRecovered = Boolean(result.recovered);

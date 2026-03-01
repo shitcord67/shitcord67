@@ -13,9 +13,9 @@ const host = process.env.HOST || "127.0.0.1";
 function corsHeaders(extra = {}) {
   return {
     "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type,range",
-    "access-control-expose-headers": "content-type,content-length,accept-ranges",
+    "access-control-allow-methods": "GET,HEAD,POST,OPTIONS",
+    "access-control-allow-headers": "content-type,range,if-range",
+    "access-control-expose-headers": "content-type,content-length,accept-ranges,content-range,content-disposition,etag,last-modified",
     ...extra
   };
 }
@@ -443,23 +443,41 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: false, error: "Only http/https target urls are allowed." }));
         return;
       }
+      const upstreamHeaders = {
+        "user-agent": "shitcord67-media-proxy/1.0"
+      };
+      const range = (req.headers.range || "").toString().trim();
+      if (range) upstreamHeaders.range = range;
+      const ifRange = (req.headers["if-range"] || "").toString().trim();
+      if (ifRange) upstreamHeaders["if-range"] = ifRange;
+      const accept = (req.headers.accept || "").toString().trim();
+      if (accept) upstreamHeaders.accept = accept;
       const upstream = await fetch(target.toString(), {
         method: req.method,
         cache: "no-store",
         redirect: "follow",
-        headers: {
-          "user-agent": "shitcord67-media-proxy/1.0"
-        }
+        headers: upstreamHeaders
       });
       const headers = corsHeaders({
         "content-type": upstream.headers.get("content-type") || "application/octet-stream",
         "cache-control": upstream.headers.get("cache-control") || "public, max-age=120",
-        "accept-ranges": "none",
+        "accept-ranges": upstream.headers.get("accept-ranges") || "bytes",
         "x-media-proxy-target": target.host
       });
       const length = upstream.headers.get("content-length");
       if (length && Number(length) > 0) headers["content-length"] = length;
-      res.writeHead(upstream.ok ? 200 : upstream.status, headers);
+      const passthroughHeaders = [
+        "content-range",
+        "content-disposition",
+        "etag",
+        "last-modified"
+      ];
+      passthroughHeaders.forEach((headerName) => {
+        const value = upstream.headers.get(headerName);
+        if (!value) return;
+        headers[headerName] = value;
+      });
+      res.writeHead(upstream.status || 502, headers);
       if (req.method === "HEAD" || !upstream.body) {
         res.end();
         return;

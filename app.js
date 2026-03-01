@@ -20036,7 +20036,7 @@ function inferAttachmentTypeFromFile(file) {
     || mime.includes("vnd.oasis.opendocument")) return "odf";
   if (/\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(name) || mime.includes("officedocument") || mime === "application/msword") return "odf";
   if (/\.(mp3|ogg|wav|m4a|flac)$/i.test(name) || /^audio\//i.test(mime)) return "audio";
-  if (/\.(mp4|webm|mov|m4v|ogv|m3u8)$/i.test(name) || /^video\//i.test(mime)) return "video";
+  if (/\.(mp4|webm|mov|m4v|ogv|m3u8|mkv|avi|wmv|mpe?g|m2ts|ts)$/i.test(name) || /^video\//i.test(mime)) return "video";
   if (/\.(txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml)$/i.test(name) || /^text\//i.test(mime)) return "text";
   if (name.endsWith(".swf")) return "swf";
   if (name.endsWith(".svg") || mime === "image/svg+xml") return "svg";
@@ -20672,6 +20672,14 @@ function resolveMediaPlaybackUrl(url, { kind = "" } = {}) {
   if (!resolved) return resolved;
   if (!["video", "swf"].includes(normalizedKind)) return resolved;
   if (!isExternalMediaUrl(resolved)) return resolved;
+  if (normalizedKind === "video") {
+    const host = mediaUrlHost(resolved);
+    const accountDomain = xmppDomainFromJid(getPreferences().xmppJid || "");
+    if (accountDomain && (host === accountDomain || host.endsWith(`.${accountDomain}`))) {
+      return resolved;
+    }
+    if (isTrustedMediaUrl(resolved)) return resolved;
+  }
   const proxied = mediaProxyUrl(resolved);
   return proxied || resolved;
 }
@@ -26222,7 +26230,7 @@ function inferAttachmentTypeFromUrl(url) {
   if (has(/\.apng(\?|$|&|#)/i)) return "sticker";
   if (has(/\.lottie(\?|$|&|#)/i)) return "sticker";
   if (has(/\/stickers?\//i) && has(/\.(png|gif|webp|apng|lottie)(\?|$|&|#)/i)) return "sticker";
-  if (has(/\.(mp4|webm|mov|m4v|ogv|m3u8)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(mp4|webm|mov|m4v|ogv|m3u8)(?:[&#]|$)/i)) return "video";
+  if (has(/\.(mp4|webm|mov|m4v|ogv|m3u8|mkv|avi|wmv|mpe?g|m2ts|ts)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(mp4|webm|mov|m4v|ogv|m3u8|mkv|avi|wmv|mpe?g|m2ts|ts)(?:[&#]|$)/i)) return "video";
   if (has(/\.(png|jpe?g|gif|webp|bmp|avif|heic|heif|jfif)(\?|$|&|#)/i) || has(/[?&](?:format|fm|ext)=?(png|jpe?g|gif|webp|bmp|avif|heic|heif)(?:[&#]|$)/i)) return "gif";
   if (has(/\/[^/?#]+\.[a-z0-9]{1,12}(\?|$|&|#)/i)) return "file";
   return null;
@@ -26263,6 +26271,11 @@ function inferVideoMimeType(value) {
   if (/\.m3u8(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?m3u8(?:[&#]|$)/i.test(raw)) return "application/x-mpegURL";
   if (/\.mov(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?mov(?:[&#]|$)/i.test(raw)) return "video/quicktime";
   if (/\.m4v(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?m4v(?:[&#]|$)/i.test(raw)) return "video/x-m4v";
+  if (/\.mkv(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?mkv(?:[&#]|$)/i.test(raw)) return "video/x-matroska";
+  if (/\.avi(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?avi(?:[&#]|$)/i.test(raw)) return "video/x-msvideo";
+  if (/\.wmv(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?wmv(?:[&#]|$)/i.test(raw)) return "video/x-ms-wmv";
+  if (/\.(mpeg|mpg)(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?mpe?g(?:[&#]|$)/i.test(raw)) return "video/mpeg";
+  if (/\.(m2ts|ts)(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?(m2ts|ts)(?:[&#]|$)/i.test(raw)) return "video/mp2t";
   return "";
 }
 
@@ -32566,7 +32579,9 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   }
 
   if (type === "gif" || type === "video") {
-    const videoLike = type === "video" || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
+    const videoLike = type === "video"
+      || inferAttachmentTypeFromUrl(mediaUrl) === "video"
+      || inferAttachmentTypeFromUrl(attachment.name || "") === "video";
     if (videoLike) {
       const gifLikeVideo = type === "gif";
       const label = attachment.name || (gifLikeVideo ? "GIF" : "Video");
@@ -32912,8 +32927,8 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
 
   if (type === "file") {
     const fileName = (attachment.name || mediaUrl.split("/").pop() || "").toString();
-    const fileLooksVideo = /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(fileName)
-      || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
+    const fileLooksVideo = inferAttachmentTypeFromUrl(fileName) === "video"
+      || inferAttachmentTypeFromUrl(mediaUrl) === "video";
     if (fileLooksVideo) {
       const video = createVideoPreviewElement(mediaUrl, attachment.name || fileName || "Video", wrap);
       video.addEventListener("dblclick", () => {
