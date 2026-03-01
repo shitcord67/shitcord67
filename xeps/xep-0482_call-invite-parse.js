@@ -161,12 +161,24 @@
     };
   }
 
+  function buildWebCallInviteToken({
+    url = "",
+    messageId = "",
+    fromId = "",
+    shortHashTokenFn = (value) => (value || "").toString()
+  } = {}) {
+    const seed = [url, messageId, fromId].filter(Boolean).join("::");
+    if (!seed) return "";
+    return shortHashTokenFn(seed);
+  }
+
   globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE = Object.freeze({
     parseXmppCallInviteAction,
     normalizeCallInviteUrl,
     stripTrailingUrlPunctuation,
     looksLikeConferenceCallUrl,
-    parseCallInviteFromText
+    parseCallInviteFromText,
+    buildWebCallInviteToken
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0482_call-invite-parse", globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);

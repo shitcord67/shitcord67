@@ -289,6 +289,12 @@ const parseCallInviteFromTextViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.p
     callProviderUrl: getPreferences().callProviderUrl
   }))
   : (() => null);
+const buildWebCallInviteTokenViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.buildWebCallInviteToken === "function"
+  ? ((payload = {}) => XEP_0482_CALL_INVITE_PARSE_GLOBAL.buildWebCallInviteToken({
+    ...payload,
+    shortHashTokenFn: shortHashToken
+  }))
+  : (() => "");
 const parseXmppRosterItemsViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.parseXmppRosterItems === "function"
   ? XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.parseXmppRosterItems
   : (() => []);
@@ -6436,9 +6442,7 @@ function startWebCallRingtone(token) {
 }
 
 function buildWebCallInviteToken({ url = "", messageId = "", fromId = "" } = {}) {
-  const seed = [url, messageId, fromId].filter(Boolean).join("::");
-  if (!seed) return "";
-  return shortHashToken(seed);
+  return buildWebCallInviteTokenViaXep({ url, messageId, fromId });
 }
 
 function markWebCallInviteSeen(token) {
