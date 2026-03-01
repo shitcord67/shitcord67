@@ -99,6 +99,7 @@ const XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL = xepModule("xep-0333_0359_03
 const XEP_0030_0166_CALL_DISCO_GLOBAL = xepModule("xep-0030_0166-call-disco", globalThis.SHITCORD67_XEP_0030_0166_CALL_DISCO);
 const XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL = xepModule("xep-0308_0359_0424_0444-message-updates", globalThis.SHITCORD67_XEP_0308_0359_0424_0444_MESSAGE_UPDATES);
 const XEP_0199_0410_0313_PRESENCE_PING_GLOBAL = xepModule("xep-0199_0410_0313-presence-ping", globalThis.SHITCORD67_XEP_0199_0410_0313_PRESENCE_PING);
+const XEP_0048_0402_BOOKMARKS_OPS_GLOBAL = xepModule("xep-0048_0402-bookmarks-ops", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_OPS);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -38269,108 +38270,54 @@ function syncXmppRosterIntoState(items, prefs = getPreferences(), account = getC
 }
 
 function parseXmppRosterItems(stanza) {
-  return parseXmppRosterItemsViaXep(stanza);
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.parseXmppRosterItems !== "function") return [];
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.parseXmppRosterItems(stanza, {
+    parseXmppRosterItemsViaXepFn: parseXmppRosterItemsViaXep
+  });
 }
 
 function fetchXmppRoster(connection) {
-  return new Promise((resolve) => {
-    if (!connection || !globalThis.$iq) {
-      addXmppDebugEvent("iq", "Roster request skipped (missing connection/runtime)");
-      resolve([]);
-      return;
-    }
-    const iq = globalThis.$iq({ type: "get" }).c("query", { xmlns: "jabber:iq:roster" });
-    addXmppDebugEvent("iq", "Requesting roster");
-    connection.sendIQ(
-      iq,
-      (stanza) => {
-        try {
-          const items = parseXmppRosterItems(stanza);
-          addXmppDebugEvent("iq", "Roster response received", { count: items.length });
-          resolve(items);
-        } catch {
-          addXmppDebugEvent("error", "Roster parse failed");
-          resolve([]);
-        }
-      },
-      () => {
-        addXmppDebugEvent("error", "Roster request failed or timed out");
-        resolve([]);
-      },
-      7000
-    );
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.fetchXmppRoster !== "function") return Promise.resolve([]);
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.fetchXmppRoster(connection, {
+    $iq: globalThis.$iq,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    parseXmppRosterItemsFn: parseXmppRosterItems
   });
 }
 
 function parseXmppBookmarks(stanza) {
-  return parseXmppBookmarksViaXep(stanza);
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.parseXmppBookmarks !== "function") return [];
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.parseXmppBookmarks(stanza, {
+    parseXmppBookmarksViaXepFn: parseXmppBookmarksViaXep
+  });
 }
 
 function fetchXmppBookmarksPubsub(connection) {
-  return new Promise((resolve) => {
-    if (!connection || !globalThis.$iq) {
-      resolve([]);
-      return;
-    }
-    const iq = globalThis.$iq({ type: "get" })
-      .c("pubsub", { xmlns: XMPP_PUBSUB_NAMESPACE })
-      .c("items", { node: XMPP_BOOKMARKS_NAMESPACE });
-    addXmppDebugEvent("iq", "Requesting bookmarks (XEP-0402 pubsub)");
-    connection.sendIQ(
-      iq,
-      (stanza) => {
-        try {
-          const list = parseXmppBookmarks(stanza);
-          addXmppDebugEvent("iq", "Bookmarks pubsub response received", { count: list.length });
-          resolve(list);
-        } catch {
-          addXmppDebugEvent("error", "Bookmarks pubsub parse failed");
-          resolve([]);
-        }
-      },
-      () => {
-        addXmppDebugEvent("iq", "Bookmarks pubsub request unavailable");
-        resolve([]);
-      },
-      6000
-    );
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.fetchXmppBookmarksPubsub !== "function") return Promise.resolve([]);
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.fetchXmppBookmarksPubsub(connection, {
+    $iq: globalThis.$iq,
+    XMPP_PUBSUB_NAMESPACE,
+    XMPP_BOOKMARKS_NAMESPACE,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    parseXmppBookmarksFn: parseXmppBookmarks
   });
 }
 
 function fetchXmppBookmarksLegacy(connection) {
-  return new Promise((resolve) => {
-    if (!connection || !globalThis.$iq) {
-      addXmppDebugEvent("iq", "Bookmarks request skipped (missing connection/runtime)");
-      resolve([]);
-      return;
-    }
-    const iq = globalThis.$iq({ type: "get" })
-      .c("query", { xmlns: "jabber:iq:private" })
-      .c("storage", { xmlns: XMPP_BOOKMARKS_LEGACY_NAMESPACE });
-    addXmppDebugEvent("iq", "Requesting bookmarks");
-    connection.sendIQ(
-      iq,
-      (stanza) => {
-        try {
-          const list = parseXmppBookmarks(stanza);
-          addXmppDebugEvent("iq", "Bookmarks legacy response received", { count: list.length });
-          resolve(list);
-        } catch {
-          addXmppDebugEvent("error", "Bookmarks parse failed");
-          resolve([]);
-        }
-      },
-      () => {
-        addXmppDebugEvent("error", "Bookmarks request failed or timed out");
-        resolve([]);
-      },
-      7000
-    );
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.fetchXmppBookmarksLegacy !== "function") return Promise.resolve([]);
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.fetchXmppBookmarksLegacy(connection, {
+    $iq: globalThis.$iq,
+    XMPP_BOOKMARKS_LEGACY_NAMESPACE,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    parseXmppBookmarksFn: parseXmppBookmarks
   });
 }
 
 function mergeXmppBookmarks(...lists) {
-  return mergeXmppBookmarksViaXep(...lists);
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.mergeXmppBookmarks !== "function") {
+    return mergeXmppBookmarksViaXep(...lists);
+  }
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.mergeXmppBookmarks(...lists);
 }
 
 async function fetchXmppBookmarks(connection) {
@@ -38394,68 +38341,30 @@ async function fetchXmppBookmarks(connection) {
 }
 
 function xmppNormalizeBookmarkEntry(entry) {
-  const jid = xmppBareJid(entry?.jid || "");
-  if (!jid) return null;
-  const name = (entry?.name || "").toString().trim();
-  const nick = (entry?.nick || "").toString().trim();
-  const password = (entry?.password || "").toString().trim();
-  const extensionsXml = (entry?.extensionsXml || "").toString().trim();
-  return {
-    jid,
-    name,
-    autojoin: entry?.autojoin === true,
-    nick,
-    password,
-    extensionsXml
-  };
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.xmppNormalizeBookmarkEntry !== "function") return null;
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.xmppNormalizeBookmarkEntry(entry, {
+    bareJidFn: xmppBareJid
+  });
 }
 
 function appendXmppBookmarkExtensionsNode(builder, extensionsXml = "") {
-  if (!extensionsXml || typeof builder?.cnode !== "function") return false;
-  try {
-    const doc = new DOMParser().parseFromString(extensionsXml, "application/xml");
-    const node = doc?.documentElement || null;
-    if (!node || !node.nodeName) return false;
-    builder.cnode(node).up();
-    return true;
-  } catch {
-    return false;
-  }
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.appendXmppBookmarkExtensionsNode !== "function") return false;
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.appendXmppBookmarkExtensionsNode(builder, extensionsXml);
 }
 
 function appendXmppBookmarkConferenceNode(builder, entry) {
-  const normalized = xmppNormalizeBookmarkEntry(entry);
-  if (!normalized || !builder) return builder;
-  const attrs = {
-    xmlns: XMPP_BOOKMARKS_NAMESPACE,
-    jid: normalized.jid,
-    autojoin: normalized.autojoin ? "true" : "false"
-  };
-  if (normalized.name) attrs.name = normalized.name.slice(0, 180);
-  const conference = builder.c("conference", attrs);
-  if (normalized.nick) conference.c("nick").t(normalized.nick.slice(0, 60)).up();
-  if (normalized.password) conference.c("password").t(normalized.password.slice(0, 180)).up();
-  appendXmppBookmarkExtensionsNode(conference, normalized.extensionsXml);
-  conference.up();
-  return builder;
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.appendXmppBookmarkConferenceNode !== "function") return builder;
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.appendXmppBookmarkConferenceNode(builder, entry, {
+    bareJidFn: xmppBareJid,
+    XMPP_BOOKMARKS_NAMESPACE,
+    xmppNormalizeBookmarkEntryFn: xmppNormalizeBookmarkEntry,
+    appendXmppBookmarkExtensionsNodeFn: appendXmppBookmarkExtensionsNode
+  });
 }
 
 function appendXmppBookmarkPublishOptions(builder) {
-  if (!builder) return builder;
-  const options = builder.c("publish-options")
-    .c("x", { xmlns: "jabber:x:data", type: "submit" })
-    .c("field", { var: "FORM_TYPE", type: "hidden" })
-    .c("value").t("http://jabber.org/protocol/pubsub#publish-options").up().up()
-    .c("field", { var: "pubsub#persist_items" })
-    .c("value").t("true").up().up()
-    .c("field", { var: "pubsub#max_items" })
-    .c("value").t("max").up().up()
-    .c("field", { var: "pubsub#send_last_published_item" })
-    .c("value").t("never").up().up()
-    .c("field", { var: "pubsub#access_model" })
-    .c("value").t("whitelist").up().up();
-  options.up();
-  return builder;
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.appendXmppBookmarkPublishOptions !== "function") return builder;
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.appendXmppBookmarkPublishOptions(builder);
 }
 
 async function xmppPublishBookmarkModern(entry, { connection = xmppConnection } = {}) {
