@@ -94,6 +94,7 @@ const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", gl
 const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant", globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);
 const XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL = xepModule("xep-0421_0045-muc-actor-cache", globalThis.SHITCORD67_XEP_0421_0045_MUC_ACTOR_CACHE);
 const XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL = xepModule("xep-0166_0167-jingle-iq-parse", globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE);
+const XEP_0166_0167_JINGLE_SEND_GLOBAL = xepModule("xep-0166_0167-jingle-send", globalThis.SHITCORD67_XEP_0166_0167_JINGLE_SEND);
 const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = xepModule("xep-0320_webrtc-sdp-basics", globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
 const XEP_0066_0071_0231_MEDIA_GLOBAL = xepModule("xep-0066_0071_0231-oob-media", globalThis.SHITCORD67_XEP_0066_0071_0231_MEDIA);
 const XEP_0461_0428_REPLIES_GLOBAL = xepModule("xep-0461_0428-message-replies", globalThis.SHITCORD67_XEP_0461_0428_REPLIES);
@@ -10087,17 +10088,30 @@ function xmppSendJingleSessionInfo(peerJid, sessionId, {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const infoName = (info || "ringing").toString().trim().toLowerCase();
-  if (!["ringing", "mute", "unmute", "hold", "active"].includes(infoName)) return false;
-  const iq = globalThis.$iq({ type: "set", to })
-    .c("jingle", {
-      xmlns: XMPP_JINGLE_NAMESPACE,
-      action: "session-info",
-      sid
+  const infoName = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleSessionInfoName === "function")
+    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleSessionInfoName(info)
+    : (info || "ringing").toString().trim().toLowerCase();
+  if (!infoName) return false;
+  const iq = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionInfoIq === "function")
+    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionInfoIq({
+      to,
+      sid,
+      infoName,
+      jingleNamespace: XMPP_JINGLE_NAMESPACE,
+      rtpInfoNamespace: XMPP_JINGLE_RTP_INFO_NAMESPACE
+    }, {
+      iqFactory: globalThis.$iq
     })
-    .c(infoName, { xmlns: XMPP_JINGLE_RTP_INFO_NAMESPACE })
-    .up()
-    .up();
+    : globalThis.$iq({ type: "set", to })
+      .c("jingle", {
+        xmlns: XMPP_JINGLE_NAMESPACE,
+        action: "session-info",
+        sid
+      })
+      .c(infoName, { xmlns: XMPP_JINGLE_RTP_INFO_NAMESPACE })
+      .up()
+      .up();
+  if (!iq) return false;
   xmppConnection.sendIQ(
     iq,
     () => {
@@ -10142,26 +10156,37 @@ function xmppSendJingleContentModify(peerJid, sessionId, contents = [], {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const normalizedContents = Array.isArray(contents) ? contents.filter((entry) => entry && entry.media) : [];
+  const normalizedContents = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleContentModifyContents === "function")
+    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleContentModifyContents(contents)
+    : (Array.isArray(contents) ? contents.filter((entry) => entry && entry.media) : []);
   if (normalizedContents.length === 0) return false;
-  const iq = globalThis.$iq({ type: "set", to })
-    .c("jingle", {
-      xmlns: XMPP_JINGLE_NAMESPACE,
-      action: "content-modify",
-      sid
-    });
-  normalizedContents.forEach((content, index) => {
-    const media = (content.media || "").toString().trim().toLowerCase();
-    if (media !== "audio" && media !== "video") return;
-    const name = (content.name || `${media}${index}`).toString().trim() || `${media}${index}`;
-    const senders = (content.senders || "both").toString().trim().toLowerCase() || "both";
-    const creator = (content.creator || "initiator").toString().trim().toLowerCase() || "initiator";
-    iq.c("content", { creator, name, senders })
-      .c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media })
-      .up()
-      .up();
-  });
-  iq.up();
+  const iq = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleContentModifyIq === "function")
+    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleContentModifyIq({
+      to,
+      sid,
+      contents: normalizedContents,
+      jingleNamespace: XMPP_JINGLE_NAMESPACE,
+      rtpNamespace: XMPP_JINGLE_RTP_NAMESPACE
+    }, {
+      iqFactory: globalThis.$iq
+    })
+    : (() => {
+      const stanza = globalThis.$iq({ type: "set", to })
+        .c("jingle", {
+          xmlns: XMPP_JINGLE_NAMESPACE,
+          action: "content-modify",
+          sid
+        });
+      normalizedContents.forEach((content) => {
+        stanza.c("content", { creator: content.creator, name: content.name, senders: content.senders })
+          .c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: content.media })
+          .up()
+          .up();
+      });
+      stanza.up();
+      return stanza;
+    })();
+  if (!iq) return false;
   xmppConnection.sendIQ(
     iq,
     () => {
@@ -10674,22 +10699,41 @@ function xmppSendJingleSessionTerminate(peerJid, sessionId, {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const iq = globalThis.$iq({ type: "set", to })
-    .c("jingle", {
-      xmlns: XMPP_JINGLE_NAMESPACE,
-      action: "session-terminate",
-      sid
+  const normalizedReason = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleTerminateReason === "function")
+    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleTerminateReason(reason)
+    : ((reason || "success").toString().trim().toLowerCase() || "success");
+  const message = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleReasonText === "function")
+    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppNormalizeJingleReasonText(text, { maxLength: 180 })
+    : (text || "").toString().trim().slice(0, 180);
+  const iq = (typeof XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionTerminateIq === "function")
+    ? XEP_0166_0167_JINGLE_SEND_GLOBAL.xmppBuildJingleSessionTerminateIq({
+      to,
+      sid,
+      reason: normalizedReason,
+      text: message,
+      jingleNamespace: XMPP_JINGLE_NAMESPACE
+    }, {
+      iqFactory: globalThis.$iq
     })
-    .c("reason")
-    .c((reason || "success").toString().trim().toLowerCase() || "success")
-    .up();
-  const message = (text || "").toString().trim();
-  if (message) iq.c("text").t(message.slice(0, 180)).up();
-  iq.up().up();
+    : (() => {
+      const stanza = globalThis.$iq({ type: "set", to })
+        .c("jingle", {
+          xmlns: XMPP_JINGLE_NAMESPACE,
+          action: "session-terminate",
+          sid
+        })
+        .c("reason")
+        .c(normalizedReason)
+        .up();
+      if (message) stanza.c("text").t(message).up();
+      stanza.up().up();
+      return stanza;
+    })();
+  if (!iq) return false;
   xmppConnection.sendIQ(
     iq,
     () => {
-      addXmppDebugEvent("iq", "Sent XMPP jingle session-terminate", { to, sid, reason });
+      addXmppDebugEvent("iq", "Sent XMPP jingle session-terminate", { to, sid, reason: normalizedReason });
       if (typeof onSuccess === "function") onSuccess();
     },
     (errorStanza) => {
@@ -10702,7 +10746,7 @@ function xmppSendJingleSessionTerminate(peerJid, sessionId, {
             to: retryTo
           });
           const retried = xmppSendJingleSessionTerminate(retryTo, sid, {
-            reason,
+            reason: normalizedReason,
             text: message,
             onSuccess,
             onError,
@@ -10714,7 +10758,7 @@ function xmppSendJingleSessionTerminate(peerJid, sessionId, {
       addXmppDebugEvent("error", "XMPP jingle session-terminate failed", {
         to,
         sid,
-        reason,
+        reason: normalizedReason,
         error: trimXmppRaw(xmppSerializePayload(errorStanza))
       });
       if (typeof onError === "function") onError(errorStanza);
