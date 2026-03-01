@@ -4072,7 +4072,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
   order: 2;
   flex: 1 1 auto;
   min-height: 140px;
-  padding: 0.4rem;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -6498,6 +6498,14 @@ body[data-debug-overlay="on"] .chat-panel {
 
   body[data-mobile="on"] #openSettingsBtnMobile {
     display: inline-flex;
+  }
+
+  body[data-mobile="on"] #openChannelSettingsBtn {
+    display: none;
+  }
+
+  body[data-mobile="on"][data-mobile-pane="nav"] .left-bottom-dock {
+    display: flex;
   }
 
   .settings-screen.settings-screen--active {

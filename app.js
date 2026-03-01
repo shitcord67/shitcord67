@@ -1175,14 +1175,26 @@ function looksLikeElectronUserAgent() {
   return /\belectron\/\d+/i.test(ua);
 }
 
+function applyPlatformMediaTweaks() {
+  if (typeof document === "undefined" || !document.body) return;
+  const preferNativeControls = document.body.dataset.platform === "android" || document.body.dataset.mobile === "on";
+  document.querySelectorAll("video").forEach((node) => {
+    if (!(node instanceof HTMLVideoElement)) return;
+    if (preferNativeControls) node.controls = true;
+  });
+  videoPipRuntimes.forEach((runtime) => {
+    if (runtime?.syncControls instanceof Function) runtime.syncControls();
+  });
+}
+
 function applyRuntimePlatformHints() {
   if (typeof document === "undefined" || !document.body) return;
   const { isAndroid, isiOS, isMobile } = detectRuntimePlatform();
   document.body.dataset.platform = isAndroid ? "android" : isiOS ? "ios" : "desktop";
   document.body.dataset.mobile = isMobile ? "on" : "off";
+  applyPlatformMediaTweaks();
 }
 
-applyRuntimePlatformHints();
 
 function applyPlatformRuntimeInfo(info = {}) {
   if (!info || typeof info !== "object") return;
@@ -2525,6 +2537,10 @@ let videoPipActiveKey = null;
 let videoPipCollapsed = false;
 let swfAnchorLayoutRaf = 0;
 let swfPreviewBootstrapInFlight = false;
+applyRuntimePlatformHints();
+if (typeof window !== "undefined") {
+  window.addEventListener("DOMContentLoaded", applyRuntimePlatformHints, { once: true });
+}
 let mediaPickerRenderToken = 0;
 let mediaRuntimeWarmed = false;
 let mediaRuntimeBootstrapped = false;
@@ -30997,7 +31013,7 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   if (proxyCandidate) candidates.push(proxyCandidate);
   if (cleanedSourceUrl && !candidates.includes(cleanedSourceUrl)) candidates.push(cleanedSourceUrl);
   if (candidates.length === 0) candidates.push(cleanedSourceUrl || sourceUrl || "");
-  const preferNativeControls = document.body?.dataset?.platform === "android";
+  const preferNativeControls = document.body?.dataset?.platform === "android" || document.body?.dataset?.mobile === "on";
   const video = document.createElement("video");
   video.autoplay = animatedLoop;
   video.loop = animatedLoop;
@@ -31327,7 +31343,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   };
 
   const sync = () => {
-    const preferNativeControls = document.body?.dataset?.platform === "android";
+    const preferNativeControls = document.body?.dataset?.platform === "android" || document.body?.dataset?.mobile === "on";
     applyMediaElementAudioPreferences(video, getPreferences());
     playBtn.classList.toggle("is-active", !video.paused && !video.ended);
     playBtn.textContent = video.paused || video.ended ? "▶" : "⏸";
