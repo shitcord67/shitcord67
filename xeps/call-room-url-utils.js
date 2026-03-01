@@ -63,12 +63,19 @@
     }
   }
 
+  function normalizeRelayMode(value) {
+    const mode = (value || "").toString().toLowerCase();
+    if (mode === "ws" || mode === "http" || mode === "xmpp" || mode === "off") return mode;
+    return "local";
+  }
+
   globalScope.SHITCORD67_CALL_ROOM_URL_UTILS = Object.freeze({
     normalizeConferenceProviderUrl,
     normalizeConferenceRoomPrefix,
     normalizeConferenceRoomToken,
     normalizeWhiteboardProviderUrl,
     normalizeWhiteboardRoomPrefix,
-    relayHealthUrlFromRelayUrl
+    relayHealthUrlFromRelayUrl,
+    normalizeRelayMode
   });
 })(typeof window !== "undefined" ? window : globalThis);
