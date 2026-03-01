@@ -39,9 +39,15 @@
     };
   }
 
+  function normalizeGuildTagGuildId(raw) {
+    const token = (raw || "").toString().trim();
+    return token.slice(0, 64);
+  }
+
   globalScope.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS = Object.freeze({
     normalizeUsername,
     normalizeComposerDrafts,
-    normalizeOwnedCosmetics
+    normalizeOwnedCosmetics,
+    normalizeGuildTagGuildId
   });
 })(typeof window !== "undefined" ? window : globalThis);

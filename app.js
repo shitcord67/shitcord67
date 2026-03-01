@@ -506,6 +506,9 @@ const normalizeComposerDraftsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOB
 const normalizeOwnedCosmeticsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeOwnedCosmetics === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeOwnedCosmetics
   : ((raw) => (raw && typeof raw === "object" ? raw : {}));
+const normalizeGuildTagGuildIdViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeGuildTagGuildId === "function"
+  ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeGuildTagGuildId
+  : ((raw) => (raw || "").toString().trim());
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -1899,8 +1902,7 @@ function normalizeOwnedCosmetics(raw) {
 }
 
 function normalizeGuildTagGuildId(raw) {
-  const token = (raw || "").toString().trim();
-  return token.slice(0, 64);
+  return normalizeGuildTagGuildIdViaModule(raw);
 }
 
 function normalizeCosmeticPurchases(raw) {
