@@ -2566,3 +2566,5 @@ Couldn't it be better to basically have a generic JS xep- js file in xeps/ and t
 ## 2026-03-01T07:33:11Z
 So e.g. xep-0384.js and then there would still be the other xep-0384- JS files
 - [2026-03-01T08:02:44Z] Can you continue?
+- [2026-03-01T08:09:02Z] Yes
+- [2026-03-01T08:10:06Z] As long as you effectively reduce code in app.js and you extend or finish implementation of XEPs!

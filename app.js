@@ -201,6 +201,16 @@ const xmppOmemoTryDecryptIntoMessageCore = XEP_0384_DECRYPT_FLOW_GLOBAL.xmppOmem
 const appendXmppMessageProcessingHints = typeof XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints === "function"
   ? XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints
   : ((stanza) => stanza);
+const xmppProcessingHintsFromStanza = typeof XEP_0334_HINTS_GLOBAL.xmppProcessingHintsFromStanza === "function"
+  ? XEP_0334_HINTS_GLOBAL.xmppProcessingHintsFromStanza
+  : (() => ({
+    store: false,
+    noStore: false,
+    noPermanentStore: false,
+    noCopy: false,
+    noPermanentCopy: false,
+    hasHints: false
+  }));
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
   : (() => "");
@@ -243,100 +253,17 @@ const xmppEncryptedPlaceholderLabel = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmpp
     if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
     return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
   });
-const XEP_0454_GLOBAL = globalThis.SHITCORD67_XEP_0454 || {};
-const XEP_0454_UTILS_GLOBAL = XEP_0454_GLOBAL.media || globalThis.SHITCORD67_XEP_0454_UTILS || {};
-const bytesToHex = XEP_0454_UTILS_GLOBAL.bytesToHex || function bytesToHexFallback(bytes) {
-  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
-  return [...input].map((value) => value.toString(16).padStart(2, "0")).join("");
-};
-const hexToBytes = XEP_0454_UTILS_GLOBAL.hexToBytes || function hexToBytesFallback(hex = "") {
-  const cleaned = (hex || "").toString().trim().toLowerCase();
-  if (!cleaned || cleaned.length % 2 !== 0) return new Uint8Array();
-  const out = new Uint8Array(cleaned.length / 2);
-  for (let i = 0; i < cleaned.length; i += 2) {
-    out[i / 2] = Number.parseInt(cleaned.slice(i, i + 2), 16);
-  }
-  return out;
-};
-const isAesgcmUrl = XEP_0454_UTILS_GLOBAL.isAesgcmUrl || function isAesgcmUrlFallback(value) {
-  return /^aesgcm:\/\//i.test((value || "").toString().trim());
-};
-const buildAesgcmUrl = XEP_0454_UTILS_GLOBAL.buildAesgcmUrl || function buildAesgcmUrlFallback(httpsUrl, ivBytes, keyBytes) {
-  const url = (httpsUrl || "").toString().trim();
-  if (!/^https:\/\//i.test(url)) return "";
-  const ivHex = bytesToHex(ivBytes);
-  const keyHex = bytesToHex(keyBytes);
-  if (ivHex.length !== 24 || keyHex.length !== 64) return "";
-  return `aesgcm://${url.slice("https://".length)}#${ivHex}${keyHex}`;
-};
-const parseAesgcmUrl = XEP_0454_UTILS_GLOBAL.parseAesgcmUrl || function parseAesgcmUrlFallback(value = "") {
-  const raw = (value || "").toString().trim();
-  if (!/^aesgcm:\/\//i.test(raw)) return null;
-  const [schemePart, fragment = ""] = raw.split("#");
-  const hex = fragment.trim().toLowerCase();
-  if (hex.length !== 88) return null;
-  const ivHex = hex.slice(0, 24);
-  const keyHex = hex.slice(24);
-  const iv = hexToBytes(ivHex);
-  const key = hexToBytes(keyHex);
-  if (iv.length !== 12 || key.length !== 32) return null;
-  const httpsUrl = `https://${schemePart.replace(/^aesgcm:\/\//i, "")}`;
-  return { httpsUrl, iv, key };
-};
-const extractAesgcmUrls = XEP_0454_UTILS_GLOBAL.extractAesgcmUrls || function extractAesgcmUrlsFallback(text = "") {
-  const urls = [];
-  const regex = /aesgcm:\/\/[^\s]+/gi;
-  const raw = (text || "").toString();
-  let match = regex.exec(raw);
-  while (match) {
-    const candidate = match[0];
-    if (parseAesgcmUrl(candidate)) urls.push(candidate);
-    match = regex.exec(raw);
-  }
-  return [...new Set(urls)];
-};
-const stripAesgcmUrls = XEP_0454_UTILS_GLOBAL.stripAesgcmUrls || function stripAesgcmUrlsFallback(text = "") {
-  const raw = (text || "").toString();
-  return raw
-    .split(/\r?\n/)
-    .filter((line) => !isAesgcmUrl(line.trim()))
-    .join("\n")
-    .trim();
-};
-const encryptBlobForAesgcm = XEP_0454_UTILS_GLOBAL.encryptBlobForAesgcm || async function encryptBlobForAesgcmFallback(blob) {
-  if (!(blob instanceof Blob)) throw new Error("Missing blob payload");
-  const keyBytes = crypto.getRandomValues(new Uint8Array(32));
-  const ivBytes = crypto.getRandomValues(new Uint8Array(12));
-  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt"]);
-  const plainBuffer = await blob.arrayBuffer();
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
-    key,
-    plainBuffer
-  );
-  return {
-    encryptedBlob: new Blob([encryptedBuffer], { type: "application/octet-stream" }),
-    keyBytes,
-    ivBytes
-  };
-};
-const decryptAesgcmBuffer = XEP_0454_UTILS_GLOBAL.decryptAesgcmBuffer || async function decryptAesgcmBufferFallback(cipherBuffer, keyBytes, ivBytes) {
-  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
-  return crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
-    key,
-    cipherBuffer
-  );
-};
-const downloadAndDecryptAesgcmUrl = XEP_0454_UTILS_GLOBAL.downloadAndDecryptAesgcmUrl || async function downloadAndDecryptAesgcmUrlFallback(aesgcmUrl) {
-  const parsed = parseAesgcmUrl(aesgcmUrl);
-  if (!parsed) throw new Error("Invalid aesgcm URL");
-  const response = await fetch(parsed.httpsUrl, { cache: "no-store" });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const cipherBuffer = await response.arrayBuffer();
-  const decrypted = await decryptAesgcmBuffer(cipherBuffer, parsed.key, parsed.iv);
-  return new Blob([decrypted], { type: "application/octet-stream" });
-};
+const XEP_0454_GLOBAL = xepModule("xep-0454", globalThis.SHITCORD67_XEP_0454);
+const XEP_0454_UTILS_GLOBAL = XEP_0454_GLOBAL.media || xepModule("xep-0454_omemo-media-sharing-utils", globalThis.SHITCORD67_XEP_0454_UTILS);
+const xep0454Fn = (name, fallback) => (typeof XEP_0454_UTILS_GLOBAL[name] === "function" ? XEP_0454_UTILS_GLOBAL[name] : fallback);
+const isAesgcmUrl = xep0454Fn("isAesgcmUrl", (value) => /^aesgcm:\/\//i.test((value || "").toString().trim()));
+const buildAesgcmUrl = xep0454Fn("buildAesgcmUrl", () => "");
+const parseAesgcmUrl = xep0454Fn("parseAesgcmUrl", () => null);
+const extractAesgcmUrls = xep0454Fn("extractAesgcmUrls", () => []);
+const stripAesgcmUrls = xep0454Fn("stripAesgcmUrls", (text = "") => (text || "").toString());
+const encryptBlobForAesgcm = xep0454Fn("encryptBlobForAesgcm", async () => { throw new Error("XEP-0454 utils unavailable"); });
+const decryptAesgcmBuffer = xep0454Fn("decryptAesgcmBuffer", async () => { throw new Error("XEP-0454 utils unavailable"); });
+const downloadAndDecryptAesgcmUrl = xep0454Fn("downloadAndDecryptAesgcmUrl", async () => { throw new Error("XEP-0454 utils unavailable"); });
 const XEP_0384_OMEMO_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO || {};
 const xmppOmemoNamespaceNodeSet = XEP_0384_OMEMO_GLOBAL.xmppOmemoNamespaceNodeSet || function xmppOmemoNamespaceNodeSetFallback(namespace = XMPP_OMEMO_NAMESPACE) {
   const ns = (namespace || "").toString().trim().toLowerCase();
@@ -16077,6 +16004,16 @@ function applyRelayIncomingMessage(packet) {
     xmppEncrypted: remoteClientId.startsWith("xmpp:") ? Boolean(remoteMessage.xmppEncrypted) : false,
     xmppEncryptedType: remoteClientId.startsWith("xmpp:") ? (remoteMessage.xmppEncryptedType || "").toString() : "",
     xmppEncryptedLabel: remoteClientId.startsWith("xmpp:") ? (remoteMessage.xmppEncryptedLabel || "").toString() : "",
+    xmppProcessingHints: remoteClientId.startsWith("xmpp:") && remoteMessage.xmppProcessingHints && typeof remoteMessage.xmppProcessingHints === "object"
+      ? {
+          store: Boolean(remoteMessage.xmppProcessingHints.store),
+          noStore: Boolean(remoteMessage.xmppProcessingHints.noStore),
+          noPermanentStore: Boolean(remoteMessage.xmppProcessingHints.noPermanentStore),
+          noCopy: Boolean(remoteMessage.xmppProcessingHints.noCopy),
+          noPermanentCopy: Boolean(remoteMessage.xmppProcessingHints.noPermanentCopy),
+          hasHints: Boolean(remoteMessage.xmppProcessingHints.hasHints)
+        }
+      : null,
     userId: remoteAccount.id,
     authorName: "",
     text: clampMessageTextForStorage(decodeHtmlEntities((remoteMessage.text || "").toString())),
@@ -16317,6 +16254,7 @@ function connectRelaySocket({ force = false } = {}) {
         const correctionTargetId = xmppMessageCorrectionTargetId(stanza);
         const retractionTargetId = xmppMessageRetractionTargetId(stanza);
         const reactionPayload = xmppReactionPayloadFromStanza(stanza);
+        const processingHints = xmppProcessingHintsFromStanza(stanza);
         const hasSubjectNode = Boolean(subjectNode);
         if (isDirectLike) {
           const toBare = xmppBareJid(stanza.getAttribute("to") || "");
@@ -16761,6 +16699,7 @@ function connectRelaySocket({ force = false } = {}) {
               xmppEncrypted: encrypted,
               xmppEncryptedType: encryptedInfo.type || "",
               xmppEncryptedLabel: encryptedInfo.label || "",
+              xmppProcessingHints: processingHints.hasHints ? { ...processingHints } : null,
               attachments,
               replyTo: replyMeta,
               history,
@@ -17205,6 +17144,7 @@ function connectRelaySocket({ force = false } = {}) {
             xmppEncrypted: encrypted,
             xmppEncryptedType: encryptedInfo.type || "",
             xmppEncryptedLabel: encryptedInfo.label || "",
+            xmppProcessingHints: processingHints.hasHints ? { ...processingHints } : null,
             attachments,
             replyTo: replyMeta,
             history,
@@ -36891,6 +36831,23 @@ function renderMessages() {
         ? `Encrypted XMPP message (${label})`
         : "Encrypted XMPP message";
     }
+    let processingHintBadge = null;
+    const processingHints = message.xmppProcessingHints && typeof message.xmppProcessingHints === "object"
+      ? message.xmppProcessingHints
+      : null;
+    if (processingHints?.hasHints) {
+      const hintLabels = [];
+      if (processingHints.noStore) hintLabels.push("no-store");
+      if (processingHints.noPermanentStore) hintLabels.push("no-permanent-store");
+      if (processingHints.noCopy) hintLabels.push("no-copy");
+      if (processingHints.noPermanentCopy) hintLabels.push("no-permanent-copy");
+      if (processingHints.store) hintLabels.push("store");
+      const label = hintLabels.length > 0 ? `Hints: ${hintLabels.join(", ")}` : "Hints";
+      processingHintBadge = document.createElement("span");
+      processingHintBadge.className = "message-encrypted";
+      processingHintBadge.textContent = "Hints";
+      processingHintBadge.title = `XEP-0334 message processing hints (${label})`;
+    }
     let deliveryBadge = null;
     if (isDm && currentAccount?.id && message.userId === currentAccount.id) {
       const deliveryState = (message.xmppDeliveryState || "").toString().toLowerCase();
@@ -37138,6 +37095,7 @@ function renderMessages() {
     if (userTagButton) head.appendChild(userTagButton);
     head.appendChild(time);
     if (encryptedBadge) head.appendChild(encryptedBadge);
+    if (processingHintBadge) head.appendChild(processingHintBadge);
     if (deliveryBadge) head.appendChild(deliveryBadge);
     if (collaborativeBadge) head.appendChild(collaborativeBadge);
     if (editedBadge) head.appendChild(editedBadge);

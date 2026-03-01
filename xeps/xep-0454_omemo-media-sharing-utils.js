@@ -117,4 +117,7 @@
     decryptAesgcmBuffer,
     downloadAndDecryptAesgcmUrl
   });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0454_omemo-media-sharing-utils", globalScope.SHITCORD67_XEP_0454_UTILS);
+  }
 })(typeof window !== "undefined" ? window : globalThis);
