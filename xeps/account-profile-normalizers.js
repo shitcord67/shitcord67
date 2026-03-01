@@ -30,8 +30,18 @@
     return Object.fromEntries(entries.filter(([, draft]) => draft.length > 0));
   }
 
+  function normalizeOwnedCosmetics(raw) {
+    const safe = raw && typeof raw === "object" ? raw : {};
+    return {
+      decor: Array.isArray(safe.decor) ? [...new Set(safe.decor.map((id) => (id || "").toString()).filter(Boolean))] : [],
+      nameplate: Array.isArray(safe.nameplate) ? [...new Set(safe.nameplate.map((id) => (id || "").toString()).filter(Boolean))] : [],
+      effect: Array.isArray(safe.effect) ? [...new Set(safe.effect.map((id) => (id || "").toString()).filter(Boolean))] : []
+    };
+  }
+
   globalScope.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS = Object.freeze({
     normalizeUsername,
-    normalizeComposerDrafts
+    normalizeComposerDrafts,
+    normalizeOwnedCosmetics
   });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -503,6 +503,9 @@ const normalizeComposerDraftsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOB
     maxLength: MESSAGE_TEXT_STORAGE_MAX
   }))
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeOwnedCosmeticsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeOwnedCosmetics === "function"
+  ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeOwnedCosmetics
+  : ((raw) => (raw && typeof raw === "object" ? raw : {}));
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -1892,12 +1895,7 @@ function createAccount(username, displayName = "") {
 }
 
 function normalizeOwnedCosmetics(raw) {
-  const safe = raw && typeof raw === "object" ? raw : {};
-  return {
-    decor: Array.isArray(safe.decor) ? [...new Set(safe.decor.map((id) => (id || "").toString()).filter(Boolean))] : [],
-    nameplate: Array.isArray(safe.nameplate) ? [...new Set(safe.nameplate.map((id) => (id || "").toString()).filter(Boolean))] : [],
-    effect: Array.isArray(safe.effect) ? [...new Set(safe.effect.map((id) => (id || "").toString()).filter(Boolean))] : []
-  };
+  return normalizeOwnedCosmeticsViaModule(raw);
 }
 
 function normalizeGuildTagGuildId(raw) {
