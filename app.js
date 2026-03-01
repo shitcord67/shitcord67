@@ -478,6 +478,11 @@ const normalizeRecentEmojisViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.
 const normalizeGifFavoritesViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifFavorites === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifFavorites
   : ((value) => (Array.isArray(value) ? value : []));
+const normalizeGifGroupsViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifGroups === "function"
+  ? ((value) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifGroups(value, {
+    normalizeGifFavoritesFn: normalizeGifFavorites
+  }))
+  : ((value) => (Array.isArray(value) ? value : []));
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11399,18 +11404,7 @@ function normalizeGifFavorites(value) {
 }
 
 function normalizeGifGroups(value) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((entry, index) => {
-      const safe = entry && typeof entry === "object" ? entry : {};
-      const id = (safe.id || `group-${index + 1}`).toString().trim().slice(0, 80);
-      const name = (safe.name || "Group").toString().trim().slice(0, 40);
-      const urls = normalizeGifFavorites(safe.urls).slice(0, 600);
-      if (!id || !name) return null;
-      return { id, name, urls };
-    })
-    .filter(Boolean)
-    .slice(0, 32);
+  return normalizeGifGroupsViaModule(value);
 }
 
 function normalizeGifScope(value, groups = []) {

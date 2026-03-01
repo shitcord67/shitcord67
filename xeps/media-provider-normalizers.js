@@ -75,6 +75,23 @@
     return output.slice(0, 1200);
   }
 
+  function normalizeGifGroups(value, {
+    normalizeGifFavoritesFn = normalizeGifFavorites
+  } = {}) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry, index) => {
+        const safe = entry && typeof entry === "object" ? entry : {};
+        const id = (safe.id || `group-${index + 1}`).toString().trim().slice(0, 80);
+        const name = (safe.name || "Group").toString().trim().slice(0, 40);
+        const urls = normalizeGifFavoritesFn(safe.urls).slice(0, 600);
+        if (!id || !name) return null;
+        return { id, name, urls };
+      })
+      .filter(Boolean)
+      .slice(0, 32);
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -85,6 +102,7 @@
     normalizeMediaTab,
     normalizeMessageCharLimit,
     normalizeRecentEmojis,
-    normalizeGifFavorites
+    normalizeGifFavorites,
+    normalizeGifGroups
   });
 })(typeof window !== "undefined" ? window : globalThis);
