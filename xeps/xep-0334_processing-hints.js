@@ -35,7 +35,10 @@
     if (encrypted || ephemeral) {
       add("no-store");
       add("no-permanent-store");
-      if (encrypted) add("no-copy");
+      if (encrypted) {
+        add("no-copy");
+        add("no-permanent-copy");
+      }
       return stanza;
     }
 
