@@ -96,6 +96,7 @@ const XEP_0066_0071_0231_MEDIA_GLOBAL = xepModule("xep-0066_0071_0231-oob-media"
 const XEP_0461_0428_REPLIES_GLOBAL = xepModule("xep-0461_0428-message-replies", globalThis.SHITCORD67_XEP_0461_0428_REPLIES);
 const XEP_0313_MAM_LOADING_GLOBAL = xepModule("xep-0313_mam-loading", globalThis.SHITCORD67_XEP_0313_MAM_LOADING);
 const XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL = xepModule("xep-0333_0359_0372_0444_0482-message-builders", globalThis.SHITCORD67_XEP_0333_0359_0372_0444_0482_BUILDERS);
+const XEP_0030_0166_CALL_DISCO_GLOBAL = xepModule("xep-0030_0166-call-disco", globalThis.SHITCORD67_XEP_0030_0166_CALL_DISCO);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -17634,93 +17635,58 @@ function xmppSendIqPromise(connection, iqBuilder, timeoutMs = 7000) {
 }
 
 function xmppParseMaxUploadBytesFromDiscoInfo(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return 0;
-  const fields = [...stanza.getElementsByTagName("field")]
-    .filter((node) => ((node.getAttribute("var") || "").toString().trim().toLowerCase() === "max-file-size"));
-  for (const field of fields) {
-    const valueNode = field.getElementsByTagName("value")[0] || null;
-    const parsed = Number((xmppNodeText(valueNode) || "").toString().trim());
-    if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
-  }
-  return 0;
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppParseMaxUploadBytesFromDiscoInfo !== "function") return 0;
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppParseMaxUploadBytesFromDiscoInfo(stanza, {
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 async function xmppFetchDiscoInfo(jid, connection = xmppConnection) {
-  if (!jid || !connection || !globalThis.$iq) throw new Error("XMPP discovery unavailable");
-  const stanza = await xmppSendIqPromise(
-    connection,
-    globalThis.$iq({ type: "get", to: jid }).c("query", { xmlns: "http://jabber.org/protocol/disco#info" }),
-    7000
-  );
-  const features = new Set(
-    [...stanza.getElementsByTagName("feature")]
-      .map((node) => (node.getAttribute("var") || "").toString().trim())
-      .filter(Boolean)
-  );
-  const maxFileSize = xmppParseMaxUploadBytesFromDiscoInfo(stanza);
-  return { features, maxFileSize };
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppFetchDiscoInfo !== "function") {
+    throw new Error("XMPP discovery unavailable");
+  }
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppFetchDiscoInfo(jid, connection, {
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    $iq: globalThis.$iq,
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 async function xmppFetchDiscoInfoCached(jid, { force = false, connection = xmppConnection } = {}) {
-  const bare = xmppBareJid(jid);
-  if (!bare) throw new Error("Invalid discovery target");
-  const now = Date.now();
-  const cached = xmppDiscoInfoCacheByJid.get(bare);
-  if (!force && cached && cached.expiresAt > now) {
-    return {
-      features: new Set(cached.features || []),
-      maxFileSize: Number(cached.maxFileSize || 0)
-    };
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppFetchDiscoInfoCached !== "function") {
+    throw new Error("Invalid discovery target");
   }
-  if (!force && xmppDiscoInfoInFlightByJid.has(bare)) {
-    return xmppDiscoInfoInFlightByJid.get(bare);
-  }
-  const task = xmppFetchDiscoInfo(bare, connection)
-    .then((result) => {
-      xmppDiscoInfoCacheByJid.set(bare, {
-        features: [...(result?.features || [])],
-        maxFileSize: Number(result?.maxFileSize || 0),
-        expiresAt: Date.now() + XMPP_DISCO_INFO_TTL_MS
-      });
-      return result;
-    })
-    .finally(() => {
-      xmppDiscoInfoInFlightByJid.delete(bare);
-    });
-  xmppDiscoInfoInFlightByJid.set(bare, task);
-  return task;
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppFetchDiscoInfoCached(jid, { force, connection }, {
+    bareJidFn: xmppBareJid,
+    cacheByJid: xmppDiscoInfoCacheByJid,
+    inFlightByJid: xmppDiscoInfoInFlightByJid,
+    ttlMs: XMPP_DISCO_INFO_TTL_MS,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    $iq: globalThis.$iq,
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 function xmppCallCapabilityTargetsForConversation(conversation = getActiveConversation()) {
-  if (!conversation) return [];
-  const targets = new Set();
-  const current = getCurrentAccount();
-  if (conversation.type === "dm") {
-    const peerJid = xmppPeerJidForDmThread(conversation.thread, current);
-    const barePeer = xmppBareJid(peerJid);
-    if (barePeer) targets.add(barePeer);
-    const peerDomain = xmppDomainFromJid(barePeer);
-    if (peerDomain) targets.add(peerDomain);
-    return [...targets];
-  }
-  const roomJid = xmppBareJid(conversation.channel?.xmppRoomJid || "");
-  if (roomJid) targets.add(roomJid);
-  const mucDomain = roomJid.includes("@") ? roomJid.split("@")[1] : "";
-  if (mucDomain) targets.add(mucDomain);
-  const prefs = getPreferences();
-  const accountDomain = xmppDomainFromJid(prefs.xmppJid || "");
-  if (accountDomain) targets.add(accountDomain);
-  return [...targets];
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppCallCapabilityTargetsForConversation !== "function") return [];
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppCallCapabilityTargetsForConversation(conversation, {
+    getCurrentAccountFn: getCurrentAccount,
+    xmppPeerJidForDmThreadFn: xmppPeerJidForDmThread,
+    bareJidFn: xmppBareJid,
+    domainFromJidFn: xmppDomainFromJid,
+    getPreferencesFn: getPreferences
+  });
 }
 
 function xmppClientDiscoFeatures() {
-  const features = [
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppClientDiscoFeatures !== "function") return [];
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppClientDiscoFeatures({
     XMPP_CAPS_NAMESPACE,
     XMPP_JINGLE_NAMESPACE,
     XMPP_JINGLE_RTP_NAMESPACE,
     XMPP_JINGLE_RTP_INFO_NAMESPACE,
     XMPP_JINGLE_ICE_UDP_NAMESPACE,
-    ...XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES,
+    XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES,
     XMPP_CALL_INVITES_NAMESPACE,
     XMPP_JINGLE_AUDIO_NAMESPACE,
     XMPP_JINGLE_VIDEO_NAMESPACE,
@@ -17729,10 +17695,6 @@ function xmppClientDiscoFeatures() {
     XMPP_JINGLE_RTP_SSMA_NAMESPACE,
     XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE,
     XMPP_JINGLE_GROUPING_NAMESPACE,
-    "http://jabber.org/protocol/nick",
-    "urn:xmpp:jingle:apps:dtls:0",
-    "urn:xmpp:reference:0",
-    "jabber:x:oob",
     XMPP_BOB_NAMESPACE,
     XMPP_SIMS_NAMESPACE,
     XMPP_FILE_METADATA_NAMESPACE,
@@ -17746,87 +17708,78 @@ function xmppClientDiscoFeatures() {
     XMPP_BOOKMARKS_NOTIFY_FEATURE,
     XMPP_IDLE_NAMESPACE,
     XMPP_EME_NAMESPACE,
-    "urn:xmpp:ping"
-  ];
-  if (xmppOmemoRuntimeAvailable()) {
-    features.push(XMPP_OMEMO_NAMESPACE);
-    features.push(XMPP_OMEMO_NAMESPACE_V2);
-    features.push(XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE);
-    features.push(XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2);
-  }
-  return features;
+    XMPP_OMEMO_NAMESPACE,
+    XMPP_OMEMO_NAMESPACE_V2,
+    XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE,
+    XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2,
+    xmppOmemoRuntimeAvailableFn: xmppOmemoRuntimeAvailable
+  });
 }
 
 function xmppRequiredCallFeatureBuckets() {
-  return {
-    core: [XMPP_JINGLE_NAMESPACE],
-    media: [XMPP_JINGLE_RTP_NAMESPACE, XMPP_JINGLE_AUDIO_NAMESPACE, XMPP_JINGLE_VIDEO_NAMESPACE],
-    transport: [XMPP_JINGLE_ICE_UDP_NAMESPACE],
-    invite: [...XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES, XMPP_CALL_INVITES_NAMESPACE]
-  };
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppRequiredCallFeatureBuckets !== "function") {
+    return {
+      core: [XMPP_JINGLE_NAMESPACE],
+      media: [XMPP_JINGLE_RTP_NAMESPACE, XMPP_JINGLE_AUDIO_NAMESPACE, XMPP_JINGLE_VIDEO_NAMESPACE],
+      transport: [XMPP_JINGLE_ICE_UDP_NAMESPACE],
+      invite: [...XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES, XMPP_CALL_INVITES_NAMESPACE]
+    };
+  }
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppRequiredCallFeatureBuckets({
+    XMPP_JINGLE_NAMESPACE,
+    XMPP_JINGLE_RTP_NAMESPACE,
+    XMPP_JINGLE_AUDIO_NAMESPACE,
+    XMPP_JINGLE_VIDEO_NAMESPACE,
+    XMPP_JINGLE_ICE_UDP_NAMESPACE,
+    XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES,
+    XMPP_CALL_INVITES_NAMESPACE
+  });
 }
 
 function xmppEvaluateCallFeatures(features = new Set()) {
-  const buckets = xmppRequiredCallFeatureBuckets();
-  const hasCore = buckets.core.every((feature) => features.has(feature));
-  const hasMedia = buckets.media.some((feature) => features.has(feature));
-  const hasTransport = buckets.transport.some((feature) => features.has(feature));
-  const hasInvite = buckets.invite.some((feature) => features.has(feature));
-  return {
-    hasCore,
-    hasMedia,
-    hasTransport,
-    hasInvite,
-    ready: hasCore && hasMedia && hasTransport && hasInvite
-  };
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppEvaluateCallFeatures !== "function") {
+    return { hasCore: false, hasMedia: false, hasTransport: false, hasInvite: false, ready: false };
+  }
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppEvaluateCallFeatures(features, {
+    xmppRequiredCallFeatureBucketsFn: xmppRequiredCallFeatureBuckets,
+    XMPP_JINGLE_NAMESPACE,
+    XMPP_JINGLE_RTP_NAMESPACE,
+    XMPP_JINGLE_AUDIO_NAMESPACE,
+    XMPP_JINGLE_VIDEO_NAMESPACE,
+    XMPP_JINGLE_ICE_UDP_NAMESPACE,
+    XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES,
+    XMPP_CALL_INVITES_NAMESPACE
+  });
 }
 
 function xmppCachedCallFeaturesForPeer(peerJid = "") {
-  const barePeer = xmppBareJid(peerJid);
-  if (!barePeer) return new Set();
-  const cached = xmppDiscoInfoCacheByJid.get(barePeer);
-  if (!cached || !Array.isArray(cached.features)) return new Set();
-  return new Set(cached.features);
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppCachedCallFeaturesForPeer !== "function") return new Set();
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppCachedCallFeaturesForPeer(peerJid, {
+    bareJidFn: xmppBareJid,
+    cacheByJid: xmppDiscoInfoCacheByJid
+  });
 }
 
 function xmppNegotiatedCallMediaForPeer(peerJid = "", requestedMedia = XMPP_CALL_DEFAULT_MEDIA) {
-  const wanted = [...new Set(
-    (Array.isArray(requestedMedia) ? requestedMedia : XMPP_CALL_DEFAULT_MEDIA)
-      .map((item) => (item || "").toString().trim().toLowerCase())
-      .filter((item) => item === "audio" || item === "video")
-  )];
-  const normalizedWanted = wanted.length > 0 ? wanted : XMPP_CALL_DEFAULT_MEDIA;
-  const features = xmppCachedCallFeaturesForPeer(peerJid);
-  if (features.size <= 0) {
-    if (normalizedWanted.includes("audio")) return ["audio"];
-    return normalizedWanted.slice(0, 1);
-  }
-  const supportsAudio = features.has(XMPP_JINGLE_AUDIO_NAMESPACE);
-  const supportsVideo = features.has(XMPP_JINGLE_VIDEO_NAMESPACE);
-  if (!supportsAudio && !supportsVideo) return normalizedWanted;
-  const next = normalizedWanted.filter((item) => (
-    item === "audio" ? supportsAudio : supportsVideo
-  ));
-  return next.length > 0 ? next : (supportsAudio ? ["audio"] : ["video"]);
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppNegotiatedCallMediaForPeer !== "function") return ["audio"];
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppNegotiatedCallMediaForPeer(peerJid, requestedMedia, {
+    XMPP_CALL_DEFAULT_MEDIA,
+    XMPP_JINGLE_AUDIO_NAMESPACE,
+    XMPP_JINGLE_VIDEO_NAMESPACE,
+    xmppCachedCallFeaturesForPeerFn: xmppCachedCallFeaturesForPeer
+  });
 }
 
 function xmppShouldUseMinimalRtpForPeer(peerJid = "", media = ["audio", "video"]) {
-  const normalizedMedia = [...new Set(
-    (Array.isArray(media) ? media : ["audio", "video"])
-      .map((item) => (item || "").toString().trim().toLowerCase())
-      .filter((item) => item === "audio" || item === "video")
-  )];
-  const features = xmppCachedCallFeaturesForPeer(peerJid);
-  if (features.size <= 0) return true;
-  const hasRtpFb = features.has(XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE);
-  const hasHdrExt = features.has(XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE);
-  const hasSsma = features.has(XMPP_JINGLE_RTP_SSMA_NAMESPACE);
-  const supportsAudio = features.has(XMPP_JINGLE_AUDIO_NAMESPACE);
-  const supportsVideo = features.has(XMPP_JINGLE_VIDEO_NAMESPACE);
-  const mediaMismatch = normalizedMedia.some((item) => (
-    (item === "audio" && !supportsAudio) || (item === "video" && !supportsVideo)
-  ));
-  return mediaMismatch || !hasRtpFb || !hasHdrExt || !hasSsma;
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppShouldUseMinimalRtpForPeer !== "function") return true;
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppShouldUseMinimalRtpForPeer(peerJid, media, {
+    XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
+    XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
+    XMPP_JINGLE_RTP_SSMA_NAMESPACE,
+    XMPP_JINGLE_AUDIO_NAMESPACE,
+    XMPP_JINGLE_VIDEO_NAMESPACE,
+    xmppCachedCallFeaturesForPeerFn: xmppCachedCallFeaturesForPeer
+  });
 }
 
 async function xmppAssessConversationCallInterop(conversation = getActiveConversation(), { force = false } = {}) {
