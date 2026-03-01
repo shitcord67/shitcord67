@@ -233,6 +233,21 @@ const xmppChatMarkableNode = typeof XEP_0184_0333_GLOBAL.xmppChatMarkableNode ==
 const parseXmppDirectMucInvite = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite === "function"
   ? XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite
   : (() => null);
+const normalizeXmppRoomJoinArg = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.normalizeXmppRoomJoinArg === "function"
+  ? ((rawArg = "") => XEP_0249_DIRECT_MUC_INVITE_GLOBAL.normalizeXmppRoomJoinArg(rawArg, { bareJidFn: xmppBareJid }))
+  : ((rawArg = "") => xmppBareJid((rawArg || "").toString().trim().replace(/^xmpp:/i, "")));
+const parseXmppDirectMucInviteCommandArg = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInviteCommandArg === "function"
+  ? ((rawArg = "") => XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInviteCommandArg(rawArg, {
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    normalizeRoomJoinArgFn: normalizeXmppRoomJoinArg
+  }))
+  : ((rawArg = "") => {
+    const [roomTokenRaw, reasonRaw = "", passwordRaw = ""] = (rawArg || "").toString().split("|");
+    const roomJid = normalizeXmppRoomJoinArg(roomTokenRaw);
+    const reason = decodeHtmlEntities((reasonRaw || "").toString()).replace(/\s+/g, " ").trim().slice(0, 280);
+    const password = (passwordRaw || "").toString().trim().slice(0, 120);
+    return { roomJid, reason, password };
+  });
 const parseXmppCallInviteAction = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction === "function"
   ? XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction
   : (() => null);
@@ -6099,18 +6114,6 @@ function rememberXmppDirectMucInviteSeen(key = "") {
     xmppSeenDirectMucInviteKeys.delete(oldest);
   }
   return true;
-}
-
-function normalizeXmppRoomJoinArg(rawArg = "") {
-  return xmppBareJid((rawArg || "").toString().trim().replace(/^xmpp:/i, ""));
-}
-
-function parseXmppDirectMucInviteCommandArg(rawArg = "") {
-  const [roomTokenRaw, reasonRaw = "", passwordRaw = ""] = (rawArg || "").toString().split("|");
-  const roomJid = normalizeXmppRoomJoinArg(roomTokenRaw);
-  const reason = decodeHtmlEntities((reasonRaw || "").toString()).replace(/\s+/g, " ").trim().slice(0, 280);
-  const password = (passwordRaw || "").toString().trim().slice(0, 120);
-  return { roomJid, reason, password };
 }
 
 function xmppSendDirectMucInvite(peerJid = "", roomJid = "", {
