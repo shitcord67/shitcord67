@@ -79,6 +79,7 @@ const XEP_0384_PREFERENCES_GLOBAL = globalThis.SHITCORD67_XEP_0384_PREFERENCES |
 const XEP_0384_IDENTITY_GLOBAL = globalThis.SHITCORD67_XEP_0384_IDENTITY || {};
 const XEP_0384_SESSIONS_GLOBAL = globalThis.SHITCORD67_XEP_0384_SESSIONS || {};
 const XEP_0384_TARGETS_GLOBAL = globalThis.SHITCORD67_XEP_0384_TARGETS || {};
+const XEP_0384_MESSAGE_CRYPTO_GLOBAL = globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -459,6 +460,31 @@ const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGather
     });
   }
   return targets;
+};
+const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || async function xmppOmemoEncryptPlaintextContentCoreFallback(plaintext, {
+  arrayBufferToBase64: encodeArrayBufferToBase64,
+  concatArrayBuffers: joinArrayBuffers
+} = {}) {
+  if (typeof encodeArrayBufferToBase64 !== "function" || typeof joinArrayBuffers !== "function") return null;
+  if (!globalThis.crypto?.subtle) return null;
+  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 128 }, true, ["encrypt", "decrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext || "");
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, key, encoded);
+  const encryptedBytes = new Uint8Array(encrypted);
+  const tagLength = 16;
+  const ciphertext = encryptedBytes.slice(0, Math.max(0, encryptedBytes.length - tagLength));
+  const tag = encryptedBytes.slice(encryptedBytes.length - tagLength);
+  const rawKey = new Uint8Array(await crypto.subtle.exportKey("raw", key));
+  const tagBuffer = tag.byteLength > 0
+    ? tag.buffer.slice(tag.byteOffset, tag.byteOffset + tag.byteLength)
+    : new ArrayBuffer(0);
+  const keyAndTag = joinArrayBuffers(rawKey.buffer, tagBuffer);
+  return {
+    keyAndTag,
+    ivBase64: encodeArrayBufferToBase64(iv.buffer),
+    payloadBase64: encodeArrayBufferToBase64(ciphertext.buffer)
+  };
 };
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
@@ -15268,19 +15294,11 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
     return null;
   }
   if (targets.length === 0) return null;
-  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 128 }, true, ["encrypt", "decrypt"]);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(plaintext || "");
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, key, encoded);
-  const encryptedBytes = new Uint8Array(encrypted);
-  const tagLength = 16;
-  const ciphertext = encryptedBytes.slice(0, Math.max(0, encryptedBytes.length - tagLength));
-  const tag = encryptedBytes.slice(encryptedBytes.length - tagLength);
-  const rawKey = new Uint8Array(await crypto.subtle.exportKey("raw", key));
-  const tagBuffer = tag.byteLength > 0
-    ? tag.buffer.slice(tag.byteOffset, tag.byteOffset + tag.byteLength)
-    : new ArrayBuffer(0);
-  const keyAndTag = concatArrayBuffers(rawKey.buffer, tagBuffer);
+  const contentPayload = await xmppOmemoEncryptPlaintextContentCore(plaintext, {
+    arrayBufferToBase64,
+    concatArrayBuffers
+  });
+  if (!contentPayload) return null;
   const messageKeys = {};
   let successCount = 0;
   for (const target of targets) {
@@ -15289,7 +15307,7 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
     const sessionCipher = new globalThis.libsignal.SessionCipher(store, address);
     try {
       // eslint-disable-next-line no-await-in-loop
-      const payload = await sessionCipher.encrypt(keyAndTag);
+      const payload = await sessionCipher.encrypt(contentPayload.keyAndTag);
       messageKeys[target.deviceId] = {
         payload: btoa(payload.body || ""),
         prekey: Number(payload.type) === 3
@@ -15307,8 +15325,8 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
   return {
     sid: String(senderDeviceId),
     keys: messageKeys,
-    iv: arrayBufferToBase64(iv.buffer),
-    payload: arrayBufferToBase64(ciphertext.buffer)
+    iv: contentPayload.ivBase64,
+    payload: contentPayload.payloadBase64
   };
 }
 
