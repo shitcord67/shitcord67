@@ -102,6 +102,7 @@ const XEP_0199_0410_0313_PRESENCE_PING_GLOBAL = xepModule("xep-0199_0410_0313-pr
 const XEP_0048_0402_BOOKMARKS_OPS_GLOBAL = xepModule("xep-0048_0402-bookmarks-ops", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_OPS);
 const XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL = xepModule("xep-0048_0402-bookmarks-sync", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_SYNC);
 const XEP_0045_0503_ROOM_LIFECYCLE_GLOBAL = xepModule("xep-0045_0503-room-lifecycle", globalThis.SHITCORD67_XEP_0045_0503_ROOM_LIFECYCLE);
+const XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL = xepModule("xep-0184_0333_0359-delivery-indexes", globalThis.SHITCORD67_XEP_0184_0333_0359_DELIVERY_INDEXES);
 const XEP_0280_0352_CSI_CARBONS_GLOBAL = xepModule("xep-0280_0352-csi-carbons", globalThis.SHITCORD67_XEP_0280_0352_CSI_CARBONS);
 const XEP_0482_0503_SPACES_FLOW_GLOBAL = xepModule("xep-0482_0503-spaces-flow", globalThis.SHITCORD67_XEP_0482_0503_SPACES_FLOW);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
@@ -12343,126 +12344,59 @@ function applyXmppRetractionToMessageEntry(target, {
 }
 
 function trimXmppPendingReceiptMap(limit = 600) {
-  const max = Math.max(64, Number(limit) || 600);
-  while (xmppPendingReceiptByStanzaId.size > max) {
-    const oldest = xmppPendingReceiptByStanzaId.keys().next().value;
-    if (!oldest) break;
-    xmppPendingReceiptByStanzaId.delete(oldest);
-  }
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.trimXmppPendingReceiptMap !== "function") return;
+  XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.trimXmppPendingReceiptMap(limit, {
+    xmppPendingReceiptByStanzaId
+  });
 }
 
 function rememberXmppPendingReceipt(stanzaId, thread, message, peerJid = "") {
-  const key = (stanzaId || "").toString().trim();
-  if (!key || !thread?.id || !message?.id) return;
-  message.xmppStanzaId = key;
-  message.xmppDeliveryState = "sent";
-  message.xmppDeliveryAt = "";
-  xmppPendingReceiptByStanzaId.set(key, {
-    threadId: thread.id,
-    messageId: message.id,
-    peerJid: xmppBareJid(peerJid),
-    sentAt: Date.now()
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.rememberXmppPendingReceipt !== "function") return;
+  XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.rememberXmppPendingReceipt(stanzaId, thread, message, peerJid, {
+    xmppPendingReceiptByStanzaId,
+    xmppBareJidFn: xmppBareJid
   });
-  trimXmppPendingReceiptMap();
 }
 
 function resolveXmppOutboundDmMessageByReference(stanzaId, peerJid = "") {
-  const key = (stanzaId || "").toString().trim();
-  if (!key) return { thread: null, message: null };
-  const normalizedPeer = xmppBareJid(peerJid);
-  const current = getCurrentAccount();
-  const ownUserId = (current?.id || "").toString();
-  const isOwnMessage = (message) => {
-    if (!message) return false;
-    if (!ownUserId) return true;
-    return (message.userId || "").toString() === ownUserId;
-  };
-  const pending = xmppPendingReceiptByStanzaId.get(key);
-  if (pending?.threadId && pending?.messageId) {
-    const scopedThread = state.dmThreads.find((entry) => entry.id === pending.threadId) || null;
-    const scopedMessage = scopedThread ? findMessageInChannel(scopedThread, pending.messageId) : null;
-    if (scopedThread && scopedMessage && isOwnMessage(scopedMessage)) {
-      return {
-        thread: scopedThread,
-        message: scopedMessage
-      };
-    }
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.resolveXmppOutboundDmMessageByReference !== "function") {
+    return { thread: null, message: null };
   }
-  for (const thread of state.dmThreads) {
-    const hasPeer = !normalizedPeer
-      || thread.participantIds.some((id) => xmppBareJid(getAccountById(id)?.xmppJid || "") === normalizedPeer);
-    if (!hasPeer) continue;
-    const found = (thread.messages || []).find((message) => (
-      isOwnMessage(message)
-      && messageMatchesXmppReference(message, key)
-    )) || null;
-    if (found) {
-      return {
-        thread,
-        message: found
-      };
-    }
-  }
-  return { thread: null, message: null };
+  return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.resolveXmppOutboundDmMessageByReference(stanzaId, peerJid, {
+    xmppPendingReceiptByStanzaId,
+    xmppBareJidFn: xmppBareJid,
+    getCurrentAccountFn: getCurrentAccount,
+    state,
+    findMessageInChannelFn: findMessageInChannel,
+    getAccountByIdFn: getAccountById,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference
+  });
 }
 
 function markXmppMessageDeliveredByReceipt(stanzaId, peerJid = "") {
-  const key = (stanzaId || "").toString().trim();
-  if (!key) return false;
-  const { thread: targetThread, message: targetMessage } = resolveXmppOutboundDmMessageByReference(key, peerJid);
-  xmppPendingReceiptByStanzaId.delete(key);
-  if (!targetMessage || !targetThread) return false;
-  const nowIso = new Date().toISOString();
-  const currentState = (targetMessage.xmppDeliveryState || "").toString().toLowerCase();
-  let changed = false;
-  if (currentState !== "read" && currentState !== "delivered") {
-    targetMessage.xmppDeliveryState = "delivered";
-    changed = true;
-  }
-  if (!targetMessage.xmppDeliveryAt) {
-    targetMessage.xmppDeliveryAt = nowIso;
-    changed = true;
-  }
-  return changed;
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.markXmppMessageDeliveredByReceipt !== "function") return false;
+  return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.markXmppMessageDeliveredByReceipt(stanzaId, peerJid, {
+    xmppPendingReceiptByStanzaId,
+    xmppBareJidFn: xmppBareJid,
+    getCurrentAccountFn: getCurrentAccount,
+    state,
+    findMessageInChannelFn: findMessageInChannel,
+    getAccountByIdFn: getAccountById,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference
+  });
 }
 
 function markXmppMessageReadByMarker(stanzaId, peerJid = "") {
-  const key = (stanzaId || "").toString().trim();
-  if (!key) return false;
-  const { thread, message } = resolveXmppOutboundDmMessageByReference(key, peerJid);
-  xmppPendingReceiptByStanzaId.delete(key);
-  if (!thread || !message) return false;
-  const nowIso = new Date().toISOString();
-  const current = getCurrentAccount();
-  const ownUserId = (current?.id || "").toString();
-  const targetIndex = (thread.messages || []).findIndex((entry) => entry === message);
-  if (targetIndex < 0) return false;
-  let changed = false;
-  for (let i = 0; i <= targetIndex; i += 1) {
-    const entry = thread.messages[i];
-    if (!entry) continue;
-    if (ownUserId && (entry.userId || "").toString() !== ownUserId) continue;
-    const hasXmppReference = Boolean(
-      (entry.xmppStanzaId || "").toString().trim()
-      || (Array.isArray(entry.xmppRefIds) && entry.xmppRefIds.length > 0)
-      || (entry.xmppDeliveryState || "").toString().trim()
-    );
-    if (!hasXmppReference) continue;
-    const state = (entry.xmppDeliveryState || "").toString().toLowerCase();
-    if (state !== "read") {
-      entry.xmppDeliveryState = "read";
-      changed = true;
-    }
-    if (!entry.xmppReadAt) {
-      entry.xmppReadAt = nowIso;
-      changed = true;
-    }
-    if (!entry.xmppDeliveryAt) {
-      entry.xmppDeliveryAt = nowIso;
-      changed = true;
-    }
-  }
-  return changed;
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.markXmppMessageReadByMarker !== "function") return false;
+  return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.markXmppMessageReadByMarker(stanzaId, peerJid, {
+    xmppPendingReceiptByStanzaId,
+    xmppBareJidFn: xmppBareJid,
+    getCurrentAccountFn: getCurrentAccount,
+    state,
+    findMessageInChannelFn: findMessageInChannel,
+    getAccountByIdFn: getAccountById,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference
+  });
 }
 
 function xmppNormalizeBobCid(value = "") {
@@ -12682,53 +12616,37 @@ function xmppPreferredBodyText(stanza) {
 }
 
 function xmppRoomMessageIndex(roomJid) {
-  const key = xmppBareJid(roomJid);
-  if (!key) return null;
-  if (!xmppRoomMessageIndexByJid.has(key)) {
-    xmppRoomMessageIndexByJid.set(key, new Map());
-  }
-  return xmppRoomMessageIndexByJid.get(key) || null;
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.xmppRoomMessageIndex !== "function") return null;
+  return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.xmppRoomMessageIndex(roomJid, {
+    xmppBareJidFn: xmppBareJid,
+    xmppRoomMessageIndexByJid
+  });
 }
 
 function rememberXmppRoomMessage(roomJid, stanzaId, message) {
-  const key = (stanzaId || "").toString().trim();
-  if (!roomJid || !key || !message) return;
-  const index = xmppRoomMessageIndex(roomJid);
-  if (!index) return;
-  index.set(key, {
-    messageId: (message.id || "").toString(),
-    authorName: displayNameForMessage(message) || "",
-    text: (message.text || "").toString().slice(0, 180)
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.rememberXmppRoomMessage !== "function") return;
+  XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.rememberXmppRoomMessage(roomJid, stanzaId, message, {
+    xmppBareJidFn: xmppBareJid,
+    xmppRoomMessageIndexByJid,
+    displayNameForMessageFn: displayNameForMessage
   });
-  if (index.size > 600) {
-    const first = index.keys().next().value;
-    if (first) index.delete(first);
-  }
 }
 
 function xmppDmMessageIndex(peerJid) {
-  const key = xmppBareJid(peerJid);
-  if (!key) return null;
-  if (!xmppDmMessageIndexByPeerJid.has(key)) {
-    xmppDmMessageIndexByPeerJid.set(key, new Map());
-  }
-  return xmppDmMessageIndexByPeerJid.get(key) || null;
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.xmppDmMessageIndex !== "function") return null;
+  return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.xmppDmMessageIndex(peerJid, {
+    xmppBareJidFn: xmppBareJid,
+    xmppDmMessageIndexByPeerJid
+  });
 }
 
 function rememberXmppDmMessage(peerJid, stanzaId, message) {
-  const key = (stanzaId || "").toString().trim();
-  if (!peerJid || !key || !message) return;
-  const index = xmppDmMessageIndex(peerJid);
-  if (!index) return;
-  index.set(key, {
-    messageId: (message.id || "").toString(),
-    authorName: displayNameForMessage(message) || "",
-    text: (message.text || "").toString().slice(0, 180)
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.rememberXmppDmMessage !== "function") return;
+  XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.rememberXmppDmMessage(peerJid, stanzaId, message, {
+    xmppBareJidFn: xmppBareJid,
+    xmppDmMessageIndexByPeerJid,
+    displayNameForMessageFn: displayNameForMessage
   });
-  if (index.size > 600) {
-    const first = index.keys().next().value;
-    if (first) index.delete(first);
-  }
 }
 
 function xmppStanzaReferenceIds(stanza) {
@@ -14519,6 +14437,12 @@ function rememberXmppLocalSentRefs(refIds = []) {
 }
 
 function isXmppLocalSentRefId(refId) {
+  if (typeof XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.isXmppLocalSentRefId === "function") {
+    return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.isXmppLocalSentRefId(refId, {
+      xmppLocalSentRefIdSeenAt,
+      XMPP_LOCAL_SENT_REF_TTL_MS
+    });
+  }
   return isXmppLocalSentRefIdViaXep(xmppLocalSentRefIdSeenAt, refId, {
     ttlMs: XMPP_LOCAL_SENT_REF_TTL_MS
   });
