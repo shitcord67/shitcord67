@@ -102,6 +102,7 @@ const XMPP_CALL_TARGET_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_CALL_TARGET_UTI
 const COMMAND_INVOCATION_UTILS_GLOBAL = globalThis.SHITCORD67_COMMAND_INVOCATION_UTILS || {};
 const XMPP_MESSAGE_ID_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_MESSAGE_ID_UTILS || {};
 const TEXT_TIME_UTILS_GLOBAL = globalThis.SHITCORD67_TEXT_TIME_UTILS || {};
+const NAME_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_NAME_NORMALIZERS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -775,6 +776,9 @@ const escapeRegExpViaModule = typeof TEXT_TIME_UTILS_GLOBAL.escapeRegExp === "fu
 const toTimestampMsViaModule = typeof TEXT_TIME_UTILS_GLOBAL.toTimestampMs === "function"
   ? TEXT_TIME_UTILS_GLOBAL.toTimestampMs
   : ((value) => Number(Date.parse(value || "")) || 0);
+const sanitizeChannelNameViaModule = typeof NAME_NORMALIZERS_GLOBAL.sanitizeChannelName === "function"
+  ? NAME_NORMALIZERS_GLOBAL.sanitizeChannelName
+  : ((value, fallback = "") => (value || "").toString().trim().toLowerCase() || fallback);
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -1771,13 +1775,7 @@ function normalizeUsername(value) {
 }
 
 function sanitizeChannelName(value, fallback) {
-  const cleaned = value
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-_]/g, "")
-    .slice(0, 40);
-  return cleaned || fallback;
+  return sanitizeChannelNameViaModule(value, fallback);
 }
 
 function sanitizeForumTagName(value) {
