@@ -915,6 +915,84 @@
     };
   }
 
+  function xmppNormalizeSessionId(sessionId = "") {
+    return (sessionId || "").toString().trim();
+  }
+
+  function xmppCanCreatePeerConnection(globalScopeRef) {
+    return typeof globalScopeRef?.RTCPeerConnection === "function";
+  }
+
+  function xmppBuildSessionPeerConnectionEntry({
+    sessionId = "",
+    peerJid = "",
+    pc = null
+  } = {}) {
+    return {
+      sessionId: xmppNormalizeSessionId(sessionId),
+      peerJid: (peerJid || "").toString().trim(),
+      pc,
+      pendingRemoteCandidates: [],
+      localCandidateKeys: new Set(),
+      closed: false
+    };
+  }
+
+  function xmppResolveWantedMediaKinds(media = ["audio", "video"], session = null, deps = {}) {
+    const callSessionMediaListFn = typeof deps.callSessionMediaListFn === "function"
+      ? deps.callSessionMediaListFn
+      : xmppCallSessionMediaList;
+    return [...new Set(
+      (Array.isArray(media) ? media : callSessionMediaListFn(session))
+        .map((item) => (item || "").toString().trim().toLowerCase())
+        .filter((item) => item === "audio" || item === "video")
+    )];
+  }
+
+  function xmppBuildIceCandidateDedupeKey(candidate = {}) {
+    return `${candidate?.protocol || ""}|${candidate?.ip || ""}|${candidate?.port || ""}|${candidate?.type || ""}|${candidate?.component || ""}`;
+  }
+
+  function xmppResolveLocalTransportFromPcSdp(localSdp = "", currentSession = null, deps = {}) {
+    const parseIceCredsFromSdpFn = typeof deps.parseIceCredsFromSdpFn === "function"
+      ? deps.parseIceCredsFromSdpFn
+      : xmppParseIceCredsFromSdp;
+    const buildJingleTransportCredsFn = typeof deps.buildJingleTransportCredsFn === "function"
+      ? deps.buildJingleTransportCredsFn
+      : xmppBuildJingleTransportCreds;
+    return parseIceCredsFromSdpFn(localSdp || "")
+      || (currentSession?.localTransport && typeof currentSession.localTransport === "object"
+        ? currentSession.localTransport
+        : buildJingleTransportCredsFn());
+  }
+
+  function xmppAppendLocalSessionCandidate(currentSession = null, candidate = null, maxCandidates = 50) {
+    if (!currentSession || !candidate) return;
+    if (!Array.isArray(currentSession.localCandidates)) currentSession.localCandidates = [];
+    currentSession.localCandidates.push(candidate);
+    if (currentSession.localCandidates.length > maxCandidates) {
+      currentSession.localCandidates = currentSession.localCandidates.slice(-maxCandidates);
+    }
+  }
+
+  function xmppBuildRemoteStreamId({
+    stream = null,
+    track = null
+  } = {}, deps = {}) {
+    const createIdFn = typeof deps.createIdFn === "function"
+      ? deps.createIdFn
+      : (() => Math.random().toString(16).slice(2));
+    return (stream?.id || (track?.id ? `track:${track.id}` : `stream:${createIdFn()}`)).toString();
+  }
+
+  function xmppEnsureRemoteStreamBucket(existingBucket = null) {
+    return existingBucket instanceof Map ? existingBucket : new Map();
+  }
+
+  function xmppShouldRenderActiveCallSurface(activeSessionId = "", sessionId = "") {
+    return (activeSessionId || "").toString().trim() === (sessionId || "").toString().trim();
+  }
+
   globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS = Object.freeze({
     xmppParseIceCredsFromSdp,
     xmppParseDtlsFingerprintFromSdp,
@@ -956,7 +1034,17 @@
     xmppShouldRollbackBeforeApplyingRemoteOffer,
     xmppBuildPeerConnectionRemoteDescriptionInit,
     xmppShouldCreateLocalAnswerAfterRemoteOffer,
-    xmppNormalizeRemoteTransportInfo
+    xmppNormalizeRemoteTransportInfo,
+    xmppNormalizeSessionId,
+    xmppCanCreatePeerConnection,
+    xmppBuildSessionPeerConnectionEntry,
+    xmppResolveWantedMediaKinds,
+    xmppBuildIceCandidateDedupeKey,
+    xmppResolveLocalTransportFromPcSdp,
+    xmppAppendLocalSessionCandidate,
+    xmppBuildRemoteStreamId,
+    xmppEnsureRemoteStreamBucket,
+    xmppShouldRenderActiveCallSurface
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0320_webrtc-sdp-basics", globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);

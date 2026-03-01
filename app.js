@@ -9421,25 +9421,42 @@ function xmppEnsureSessionPeerConnection(sessionId, {
   media = ["audio", "video"],
   createLocalOffer = false
 } = {}) {
-  const sid = (sessionId || "").toString().trim();
-  if (!sid || typeof globalThis.RTCPeerConnection !== "function") return null;
+  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
+  const sid = typeof xep0320.xmppNormalizeSessionId === "function"
+    ? xep0320.xmppNormalizeSessionId(sessionId)
+    : (sessionId || "").toString().trim();
+  const canCreatePc = typeof xep0320.xmppCanCreatePeerConnection === "function"
+    ? xep0320.xmppCanCreatePeerConnection(globalThis)
+    : (typeof globalThis.RTCPeerConnection === "function");
+  if (!sid || !canCreatePc) return null;
   const existing = xmppCallPeerConnectionBySessionId.get(sid) || null;
   if (existing?.pc) return existing;
   const session = xmppCallSessionById.get(sid) || null;
   const pc = new globalThis.RTCPeerConnection();
-  const entry = {
-    sessionId: sid,
-    peerJid: xmppBareJid(peerJid || session?.peerJid || ""),
-    pc,
-    pendingRemoteCandidates: [],
-    localCandidateKeys: new Set(),
-    closed: false
-  };
-  const wantedMedia = [...new Set(
-    (Array.isArray(media) ? media : xmppCallSessionMediaList(session))
-      .map((item) => (item || "").toString().trim().toLowerCase())
-      .filter((item) => item === "audio" || item === "video")
-  )];
+  const resolvedPeerJid = xmppBareJid(peerJid || session?.peerJid || "");
+  const entry = typeof xep0320.xmppBuildSessionPeerConnectionEntry === "function"
+    ? xep0320.xmppBuildSessionPeerConnectionEntry({
+      sessionId: sid,
+      peerJid: resolvedPeerJid,
+      pc
+    })
+    : {
+      sessionId: sid,
+      peerJid: resolvedPeerJid,
+      pc,
+      pendingRemoteCandidates: [],
+      localCandidateKeys: new Set(),
+      closed: false
+    };
+  const wantedMedia = typeof xep0320.xmppResolveWantedMediaKinds === "function"
+    ? xep0320.xmppResolveWantedMediaKinds(media, session, {
+      callSessionMediaListFn: xmppCallSessionMediaList
+    })
+    : [...new Set(
+      (Array.isArray(media) ? media : xmppCallSessionMediaList(session))
+        .map((item) => (item || "").toString().trim().toLowerCase())
+        .filter((item) => item === "audio" || item === "video")
+    )];
   wantedMedia.forEach((kind) => {
     try {
       pc.addTransceiver(kind, { direction: "sendrecv" });
@@ -9455,20 +9472,31 @@ function xmppEnsureSessionPeerConnection(sessionId, {
       sdpMLineIndex: event?.candidate?.sdpMLineIndex
     });
     if (!parsed) return;
-    const key = `${parsed.protocol}|${parsed.ip}|${parsed.port}|${parsed.type}|${parsed.component}`;
+    const key = typeof xep0320.xmppBuildIceCandidateDedupeKey === "function"
+      ? xep0320.xmppBuildIceCandidateDedupeKey(parsed)
+      : `${parsed.protocol}|${parsed.ip}|${parsed.port}|${parsed.type}|${parsed.component}`;
     if (entry.localCandidateKeys.has(key)) return;
     entry.localCandidateKeys.add(key);
     const currentSession = xmppCallSessionById.get(sid) || null;
-    const localTransport = xmppParseIceCredsFromSdp(pc.localDescription?.sdp || "")
-      || (currentSession?.localTransport && typeof currentSession.localTransport === "object"
-        ? currentSession.localTransport
-        : xmppBuildJingleTransportCreds());
+    const localTransport = typeof xep0320.xmppResolveLocalTransportFromPcSdp === "function"
+      ? xep0320.xmppResolveLocalTransportFromPcSdp(pc.localDescription?.sdp || "", currentSession, {
+        parseIceCredsFromSdpFn: xmppParseIceCredsFromSdp,
+        buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
+      })
+      : (xmppParseIceCredsFromSdp(pc.localDescription?.sdp || "")
+        || (currentSession?.localTransport && typeof currentSession.localTransport === "object"
+          ? currentSession.localTransport
+          : xmppBuildJingleTransportCreds()));
     if (currentSession) {
       currentSession.localTransport = localTransport;
-      if (!Array.isArray(currentSession.localCandidates)) currentSession.localCandidates = [];
-      currentSession.localCandidates.push(parsed);
-      if (currentSession.localCandidates.length > XMPP_CALL_ICE_MAX_CANDIDATES) {
-        currentSession.localCandidates = currentSession.localCandidates.slice(-XMPP_CALL_ICE_MAX_CANDIDATES);
+      if (typeof xep0320.xmppAppendLocalSessionCandidate === "function") {
+        xep0320.xmppAppendLocalSessionCandidate(currentSession, parsed, XMPP_CALL_ICE_MAX_CANDIDATES);
+      } else {
+        if (!Array.isArray(currentSession.localCandidates)) currentSession.localCandidates = [];
+        currentSession.localCandidates.push(parsed);
+        if (currentSession.localCandidates.length > XMPP_CALL_ICE_MAX_CANDIDATES) {
+          currentSession.localCandidates = currentSession.localCandidates.slice(-XMPP_CALL_ICE_MAX_CANDIDATES);
+        }
       }
     }
     if (entry.peerJid) {
@@ -9483,10 +9511,16 @@ function xmppEnsureSessionPeerConnection(sessionId, {
     const stream = event?.streams?.[0] instanceof MediaStream
       ? event.streams[0]
       : new MediaStream(event?.track ? [event.track] : []);
-    const streamId = (stream?.id || (event?.track?.id ? `track:${event.track.id}` : `stream:${createId()}`)).toString();
-    let bucket = xmppCallRemoteStreamsBySessionId.get(sid);
-    if (!(bucket instanceof Map)) {
-      bucket = new Map();
+    const streamId = typeof xep0320.xmppBuildRemoteStreamId === "function"
+      ? xep0320.xmppBuildRemoteStreamId({ stream, track: event?.track || null }, {
+        createIdFn: createId
+      })
+      : (stream?.id || (event?.track?.id ? `track:${event.track.id}` : `stream:${createId()}`)).toString();
+    const existingBucket = xmppCallRemoteStreamsBySessionId.get(sid);
+    let bucket = typeof xep0320.xmppEnsureRemoteStreamBucket === "function"
+      ? xep0320.xmppEnsureRemoteStreamBucket(existingBucket)
+      : (existingBucket instanceof Map ? existingBucket : new Map());
+    if (!(existingBucket instanceof Map)) {
       xmppCallRemoteStreamsBySessionId.set(sid, bucket);
     }
     bucket.set(streamId, stream);
@@ -9497,17 +9531,29 @@ function xmppEnsureSessionPeerConnection(sessionId, {
         if (!(current instanceof Map)) return;
         current.delete(streamId);
         if (current.size <= 0) xmppCallRemoteStreamsBySessionId.delete(sid);
-        if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+        const shouldRender = typeof xep0320.xmppShouldRenderActiveCallSurface === "function"
+          ? xep0320.xmppShouldRenderActiveCallSurface(xmppActiveNativeCallSessionId, sid)
+          : xmppActiveNativeCallSessionId === sid;
+        if (shouldRender) renderNativeXmppCallSurface(sid);
       };
       track.addEventListener("ended", removeStream, { once: true });
       track.addEventListener("mute", () => {
-        if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+        const shouldRender = typeof xep0320.xmppShouldRenderActiveCallSurface === "function"
+          ? xep0320.xmppShouldRenderActiveCallSurface(xmppActiveNativeCallSessionId, sid)
+          : xmppActiveNativeCallSessionId === sid;
+        if (shouldRender) renderNativeXmppCallSurface(sid);
       });
       track.addEventListener("unmute", () => {
-        if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+        const shouldRender = typeof xep0320.xmppShouldRenderActiveCallSurface === "function"
+          ? xep0320.xmppShouldRenderActiveCallSurface(xmppActiveNativeCallSessionId, sid)
+          : xmppActiveNativeCallSessionId === sid;
+        if (shouldRender) renderNativeXmppCallSurface(sid);
       });
     }
-    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    const shouldRender = typeof xep0320.xmppShouldRenderActiveCallSurface === "function"
+      ? xep0320.xmppShouldRenderActiveCallSurface(xmppActiveNativeCallSessionId, sid)
+      : xmppActiveNativeCallSessionId === sid;
+    if (shouldRender) renderNativeXmppCallSurface(sid);
     addXmppDebugEvent("runtime", "Received remote media track for XMPP session", {
       sid,
       kind: (event?.track?.kind || "").toString(),
