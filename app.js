@@ -19442,6 +19442,7 @@ function publishXmppMessageReaction(conversation, message, account) {
       const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: reactionStanzaId });
       appendXmppReactionsNode(stanza, targetRefId, emojiSet);
       appendXmppOriginIdNode(stanza, reactionOriginId);
+      appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
       xmppConnection.send(stanza);
       rememberXmppLocalSentRefs([reactionStanzaId, reactionOriginId]);
       message.xmppRefIds = normalizeXmppRefIdsList([
@@ -19466,6 +19467,7 @@ function publishXmppMessageReaction(conversation, message, account) {
       const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: reactionStanzaId });
       appendXmppReactionsNode(stanza, targetRefId, emojiSet);
       appendXmppOriginIdNode(stanza, reactionOriginId);
+      appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
       xmppConnection.send(stanza);
       rememberXmppLocalSentRefs([reactionStanzaId, reactionOriginId]);
       message.xmppRefIds = normalizeXmppRefIdsList([
@@ -19499,6 +19501,7 @@ function publishXmppMessageReaction(conversation, message, account) {
     const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: reactionStanzaId });
     appendXmppReactionsNode(stanza, targetRefId, emojiSet);
     appendXmppOriginIdNode(stanza, reactionOriginId);
+    appendXmppMessageProcessingHints(stanza, { encrypted: false, preferStore: true });
     xmppConnection.send(stanza);
     rememberXmppLocalSentRefs([reactionStanzaId, reactionOriginId]);
     message.xmppRefIds = normalizeXmppRefIdsList([
