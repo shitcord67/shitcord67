@@ -1466,7 +1466,10 @@ function updateRuntimeSafeArea() {
     const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
     const keyboardLikelyOpen = keyboardGap >= 110;
     const hasNativeInsets = nativeInsets && (nativeInsets.top || nativeInsets.right || nativeInsets.bottom || nativeInsets.left);
-    const fallbackTop = hasNativeInsets ? 0 : 28;
+    const screenHeight = Number.isFinite(window.screen?.height) ? window.screen.height : 0;
+    const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : 0;
+    const statusGuess = screenHeight && innerHeight ? Math.max(0, screenHeight - innerHeight) : 0;
+    const fallbackTop = hasNativeInsets ? 0 : Math.max(28, Math.round(statusGuess));
     const fallbackBottom = hasNativeInsets ? 0 : 26;
     root.style.setProperty("--android-safe-extra-top", `${fallbackTop}px`);
     root.style.setProperty("--android-safe-extra-bottom", `${keyboardLikelyOpen ? 0 : fallbackBottom}px`);
@@ -2882,6 +2885,7 @@ const ui = {
   dockMuteBtn: document.getElementById("dockMuteBtn"),
   dockHeadphonesBtn: document.getElementById("dockHeadphonesBtn"),
   openSettingsBtn: document.getElementById("openSettingsBtn"),
+  openSettingsBtnMobile: document.getElementById("openSettingsBtnMobile"),
   createServerBtn: document.getElementById("createServerBtn"),
   createChannelBtn: document.getElementById("createChannelBtn"),
   profileDialog: document.getElementById("profileDialog"),
@@ -6490,10 +6494,21 @@ function showExternalLinkPrompt(targetUrl, { allowEmbed = true } = {}) {
     frame.allow = "fullscreen";
     const controls = document.createElement("div");
     controls.className = "external-link-gate__actions";
+    const externalBtn = document.createElement("button");
+    externalBtn.type = "button";
+    externalBtn.textContent = "Open External";
+    externalBtn.addEventListener("click", () => {
+      if (nativeWindowOpen) {
+        nativeWindowOpen(targetUrl, "_blank", "noopener,noreferrer");
+      } else {
+        window.location.href = targetUrl;
+      }
+    });
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";
     closeBtn.textContent = "Close";
     closeBtn.addEventListener("click", () => closeMediaLightbox());
+    controls.appendChild(externalBtn);
     controls.appendChild(closeBtn);
     stage.appendChild(frame);
     stage.appendChild(controls);
@@ -30982,12 +30997,13 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   if (proxyCandidate) candidates.push(proxyCandidate);
   if (cleanedSourceUrl && !candidates.includes(cleanedSourceUrl)) candidates.push(cleanedSourceUrl);
   if (candidates.length === 0) candidates.push(cleanedSourceUrl || sourceUrl || "");
+  const preferNativeControls = document.body?.dataset?.platform === "android";
   const video = document.createElement("video");
   video.autoplay = animatedLoop;
   video.loop = animatedLoop;
   video.muted = animatedLoop;
   video.dataset.forceMuted = animatedLoop ? "1" : "0";
-  video.controls = false;
+  video.controls = Boolean(preferNativeControls);
   video.playsInline = true;
   video.preload = "metadata";
   let candidateIndex = 0;
@@ -31311,6 +31327,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
   };
 
   const sync = () => {
+    const preferNativeControls = document.body?.dataset?.platform === "android";
     applyMediaElementAudioPreferences(video, getPreferences());
     playBtn.classList.toggle("is-active", !video.paused && !video.ended);
     playBtn.textContent = video.paused || video.ended ? "▶" : "⏸";
@@ -31344,7 +31361,7 @@ function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {
     if (canNativePip) {
       nativePipBtn.title = nativePipActive ? "Exit native Picture-in-Picture" : "Native Picture-in-Picture";
     }
-    const shouldUseNativeControls = nativePipActive || dockPipActive;
+    const shouldUseNativeControls = preferNativeControls || nativePipActive || dockPipActive;
     if (video.controls !== shouldUseNativeControls) {
       video.controls = shouldUseNativeControls;
     }
@@ -42159,9 +42176,17 @@ const videoPipHeader = ui.videoPipDock?.querySelector(".video-pip__header");
 function beginPipDrag(event, target, dockElement) {
   if (!(dockElement instanceof HTMLElement)) return;
   if (pipResizeState?.resizing) return;
-  if (event.button !== 0) return;
+  if (typeof event.button === "number" && event.button !== 0 && event.pointerType !== "touch") return;
   if (event.target instanceof HTMLElement && event.target.closest("button")) return;
   const dockRect = dockElement.getBoundingClientRect();
+  const captureTarget = event.currentTarget instanceof HTMLElement ? event.currentTarget : dockElement;
+  if (typeof event.pointerId === "number" && typeof captureTarget.setPointerCapture === "function") {
+    try {
+      captureTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Ignore unsupported pointer capture.
+    }
+  }
   pipDragState = {
     dragging: true,
     target,
@@ -42169,7 +42194,9 @@ function beginPipDrag(event, target, dockElement) {
     startY: event.clientY,
     offsetX: event.clientX - dockRect.left,
     offsetY: event.clientY - dockRect.top,
-    moved: false
+    moved: false,
+    pointerId: typeof event.pointerId === "number" ? event.pointerId : null,
+    pointerTarget: captureTarget
   };
   event.preventDefault();
 }
@@ -42272,6 +42299,7 @@ ensurePipResizeHandles("video", ui.videoPipDock);
 const handlePipDragMove = (event) => {
   if (pipResizeState?.resizing) return;
   if (!pipDragState?.dragging) return;
+  if (event.cancelable) event.preventDefault();
   const targetDock = pipDragState.target === "video" ? ui.videoPipDock : ui.swfPipDock;
   if (!(targetDock instanceof HTMLElement)) return;
   const moveDistance = Math.hypot(event.clientX - pipDragState.startX, event.clientY - pipDragState.startY);
@@ -42353,6 +42381,13 @@ const finishPipDrag = () => {
   if (pipResizeState?.resizing) return;
   if (!pipDragState?.dragging) return;
   const dragTarget = pipDragState.target || "swf";
+  if (pipDragState.pointerTarget && typeof pipDragState.pointerTarget.releasePointerCapture === "function") {
+    try {
+      pipDragState.pointerTarget.releasePointerCapture(pipDragState.pointerId);
+    } catch {
+      // Ignore unsupported pointer capture release.
+    }
+  }
   if (dragTarget === "swf" && pipDragState.moved) pipSuppressHeaderToggle = true;
   if (dragTarget === "video" && pipDragState.moved) videoPipSuppressHeaderToggle = true;
   pipDragState.dragging = false;
@@ -42408,6 +42443,154 @@ ui.clearSwfShelfBtn.addEventListener("click", () => {
   renderSwfShelf();
 });
 ui.swfViewerZoomInput.addEventListener("input", applySwfViewerZoom);
+
+function initUiTooltipHints() {
+  if (typeof document === "undefined" || !document.body) return;
+  if (document.body.dataset.hintsReady === "on") return;
+  document.body.dataset.hintsReady = "on";
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "ui-tooltip";
+  tooltip.hidden = true;
+  document.body.appendChild(tooltip);
+
+  const state = {
+    target: null,
+    showTimer: null,
+    hideTimer: null,
+    pointerId: null,
+    startX: 0,
+    startY: 0
+  };
+
+  const clearTimers = () => {
+    if (state.showTimer) {
+      clearTimeout(state.showTimer);
+      state.showTimer = null;
+    }
+    if (state.hideTimer) {
+      clearTimeout(state.hideTimer);
+      state.hideTimer = null;
+    }
+  };
+
+  const resolveHintTarget = (node) => {
+    if (!(node instanceof Element)) return null;
+    return node.closest("[title]");
+  };
+
+  const getHintText = (target) => {
+    if (!(target instanceof HTMLElement)) return "";
+    const direct = (target.getAttribute("title") || "").trim();
+    const cached = (target.dataset.hintTitle || "").trim();
+    return direct || cached;
+  };
+
+  const stashTitle = (target) => {
+    if (!(target instanceof HTMLElement)) return;
+    const title = target.getAttribute("title");
+    if (title && !target.dataset.hintTitle) {
+      target.dataset.hintTitle = title;
+      target.setAttribute("title", "");
+    }
+  };
+
+  const restoreTitle = (target) => {
+    if (!(target instanceof HTMLElement)) return;
+    const cached = target.dataset.hintTitle;
+    if (cached && !target.getAttribute("title")) {
+      target.setAttribute("title", cached);
+    }
+  };
+
+  const hideTooltip = () => {
+    clearTimers();
+    if (state.target) restoreTitle(state.target);
+    state.target = null;
+    tooltip.classList.remove("ui-tooltip--visible");
+    tooltip.hidden = true;
+  };
+
+  const showTooltip = (target) => {
+    if (!(target instanceof HTMLElement)) return;
+    const text = getHintText(target);
+    if (!text) return;
+    stashTitle(target);
+    state.target = target;
+    tooltip.textContent = text;
+    tooltip.hidden = false;
+    tooltip.classList.add("ui-tooltip--visible");
+    const rect = target.getBoundingClientRect();
+    const tipRect = tooltip.getBoundingClientRect();
+    const gutter = 8;
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
+    left = Math.max(gutter, Math.min(left, window.innerWidth - tipRect.width - gutter));
+    let top = rect.top - tipRect.height - gutter;
+    if (top < gutter) {
+      top = rect.bottom + gutter;
+    }
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(top)}px`;
+  };
+
+  const scheduleShow = (target, delayMs) => {
+    clearTimers();
+    state.showTimer = setTimeout(() => {
+      state.showTimer = null;
+      showTooltip(target);
+    }, Math.max(0, Number(delayMs) || 0));
+  };
+
+  document.addEventListener("pointerover", (event) => {
+    if (event.pointerType && event.pointerType !== "mouse") return;
+    const target = resolveHintTarget(event.target);
+    if (!target) return;
+    scheduleShow(target, 420);
+  });
+
+  document.addEventListener("pointerout", (event) => {
+    if (event.pointerType && event.pointerType !== "mouse") return;
+    const related = event.relatedTarget;
+    if (state.target && related instanceof Node && state.target.contains(related)) return;
+    hideTooltip();
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") return;
+    const target = resolveHintTarget(event.target);
+    if (!target) return;
+    state.pointerId = event.pointerId;
+    state.startX = event.clientX;
+    state.startY = event.clientY;
+    scheduleShow(target, 520);
+  });
+
+  document.addEventListener("pointermove", (event) => {
+    if (event.pointerType !== "touch") return;
+    if (state.pointerId === null || event.pointerId !== state.pointerId) return;
+    const moved = Math.hypot(event.clientX - state.startX, event.clientY - state.startY);
+    if (moved > 12) hideTooltip();
+  }, { passive: true });
+
+  const touchEnd = (event) => {
+    if (event.pointerType !== "touch") return;
+    if (state.pointerId !== null && event.pointerId !== state.pointerId) return;
+    state.pointerId = null;
+    if (!tooltip.hidden) {
+      clearTimers();
+      state.hideTimer = setTimeout(hideTooltip, 1400);
+    } else {
+      hideTooltip();
+    }
+  };
+
+  document.addEventListener("pointerup", touchEnd);
+  document.addEventListener("pointercancel", touchEnd);
+  document.addEventListener("scroll", hideTooltip, true);
+  window.addEventListener("resize", hideTooltip, { passive: true });
+}
+
+initUiTooltipHints();
 ui.swfViewerPauseBtn.addEventListener("click", () => {
   if (!currentViewerRuntimeKey) return;
   setSwfPlayback(currentViewerRuntimeKey, false, "user");
@@ -42787,16 +42970,22 @@ ui.selfPresenceSelect?.addEventListener("change", () => {
   if (changed) showToast(`Presence: ${presenceLabel(next)}`);
 });
 
-ui.openSettingsBtn.addEventListener("click", openSettingsScreen);
-ui.openSettingsBtn.addEventListener("pointerup", (event) => {
-  if (event.pointerType !== "touch") return;
-  event.preventDefault();
-  openSettingsScreen();
-});
-ui.openSettingsBtn.addEventListener("touchend", (event) => {
-  event.preventDefault();
-  openSettingsScreen();
-}, { passive: false });
+const bindSettingsOpenButton = (button) => {
+  if (!(button instanceof HTMLElement)) return;
+  button.addEventListener("click", openSettingsScreen);
+  button.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "touch") return;
+    event.preventDefault();
+    openSettingsScreen();
+  });
+  button.addEventListener("touchend", (event) => {
+    event.preventDefault();
+    openSettingsScreen();
+  }, { passive: false });
+};
+
+bindSettingsOpenButton(ui.openSettingsBtn);
+bindSettingsOpenButton(ui.openSettingsBtnMobile);
 
 ui.closeSettingsBtn.addEventListener("click", closeSettingsScreen);
 
