@@ -81,6 +81,31 @@
       .c(markerName, { xmlns: deps.chatMarkersNamespace || XMPP_CHAT_MARKERS_NAMESPACE, id: refId });
   }
 
+  function buildXmppDisplayedMarkerStanza({
+    to = "",
+    id = "",
+    stanzaId = ""
+  } = {}, deps = {}) {
+    const target = (to || "").toString().trim();
+    const refId = (id || "").toString().trim();
+    const stanzaRef = (stanzaId || "").toString().trim();
+    if (!target || !refId || typeof deps.$msg !== "function") return null;
+    const attrs = { to: target, type: "chat" };
+    if (stanzaRef) attrs.id = stanzaRef;
+    return deps.$msg(attrs).c("displayed", {
+      xmlns: deps.chatMarkersNamespace || XMPP_CHAT_MARKERS_NAMESPACE,
+      id: refId
+    });
+  }
+
+  function shouldSkipXmppDisplayedMarker(peerBare = "", targetId = "", deps = {}) {
+    const peer = (peerBare || "").toString().trim();
+    const target = (targetId || "").toString().trim();
+    if (!peer || !target) return true;
+    const previous = deps.lastSentDisplayedMarkerByPeerJid?.get?.(peer) || "";
+    return previous === target;
+  }
+
   globalScope.SHITCORD67_XEP_0184_0333_MARKERS = Object.freeze({
     XMPP_CHAT_MARKERS_NAMESPACE,
     XMPP_RECEIPTS_NAMESPACE,
@@ -90,7 +115,9 @@
     xmppChatMarkableNode,
     appendXmppReceiptRequestNode,
     buildXmppReceiptAckStanza,
-    buildXmppChatMarkerAckStanza
+    buildXmppChatMarkerAckStanza,
+    buildXmppDisplayedMarkerStanza,
+    shouldSkipXmppDisplayedMarker
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0184_0333-message-markers", globalScope.SHITCORD67_XEP_0184_0333_MARKERS);

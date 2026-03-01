@@ -6,6 +6,35 @@
     return [];
   }
 
+  function xmppRosterPushQueryNode(stanza) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+    return [...stanza.getElementsByTagName("query")]
+      .find((node) => (node.getAttribute("xmlns") || "").toLowerCase() === "jabber:iq:roster") || null;
+  }
+
+  function xmppRosterPushPayload(stanza) {
+    if (!stanza || typeof stanza.getAttribute !== "function") return null;
+    const type = (stanza.getAttribute("type") || "").toString().toLowerCase();
+    if (type !== "set") return null;
+    const query = xmppRosterPushQueryNode(stanza);
+    if (!query) return null;
+    return {
+      id: (stanza.getAttribute("id") || "").toString(),
+      from: (stanza.getAttribute("from") || "").toString(),
+      query
+    };
+  }
+
+  function xmppIqResultAttrsFromStanza(stanza) {
+    if (!stanza || typeof stanza.getAttribute !== "function") return null;
+    const id = (stanza.getAttribute("id") || "").toString().trim();
+    if (!id) return null;
+    const from = (stanza.getAttribute("from") || "").toString().trim();
+    const attrs = { type: "result", id };
+    if (from) attrs.to = from;
+    return attrs;
+  }
+
   function fetchXmppRoster(connection, deps = {}) {
     return new Promise((resolve) => {
       if (!connection || typeof deps.$iq !== "function") {
@@ -195,6 +224,9 @@
 
   globalScope.SHITCORD67_XEP_0048_0402_BOOKMARKS_OPS = Object.freeze({
     parseXmppRosterItems,
+    xmppRosterPushQueryNode,
+    xmppRosterPushPayload,
+    xmppIqResultAttrsFromStanza,
     fetchXmppRoster,
     parseXmppBookmarks,
     fetchXmppBookmarksPubsub,

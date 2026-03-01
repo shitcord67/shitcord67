@@ -11770,10 +11770,10 @@ function sendXmppDisplayedMarkerToPeer(peerJid, markerTargetId, { trigger = "" }
   const peerBare = xmppBareJid(peerJid);
   const targetId = (markerTargetId || "").toString().trim();
   if (!peerBare || !targetId) return false;
-  if ((xmppLastSentDisplayedMarkerByPeerJid.get(peerBare) || "") === markerTargetId) return false;
+  if (shouldSkipXmppDisplayedMarker(peerBare, targetId)) return false;
   const markerStanzaId = `s67-mark-${createId().slice(0, 12)}`;
-  const markerStanza = globalThis.$msg({ to: peerBare, type: "chat", id: markerStanzaId })
-    .c("displayed", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: targetId });
+  const markerStanza = buildXmppDisplayedMarkerStanza(peerBare, targetId, markerStanzaId);
+  if (!markerStanza) return false;
   xmppConnection.send(markerStanza);
   rememberXmppLocalSentRefs([markerStanzaId]);
   xmppLastSentDisplayedMarkerByPeerJid.set(peerBare, targetId);
@@ -13699,6 +13699,54 @@ function parseXmppMamFinPage(stanza) {
   });
 }
 
+function xmppMamErrorIsPermanent(stanza) {
+  if (typeof XEP_0313_MAM_LOADING_GLOBAL.xmppMamErrorIsPermanent === "function") {
+    return XEP_0313_MAM_LOADING_GLOBAL.xmppMamErrorIsPermanent(stanza);
+  }
+  const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
+  return Boolean(
+    errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
+    || errorNode?.getElementsByTagName?.("service-unavailable")?.length
+    || errorNode?.getElementsByTagName?.("item-not-found")?.length
+  );
+}
+
+function xmppMamUpdateStateFromFinPage(mamState, page) {
+  if (typeof XEP_0313_MAM_LOADING_GLOBAL.xmppMamUpdateStateFromFinPage !== "function") {
+    if (!mamState) return mamState;
+    const firstId = (page?.firstId || "").toString().trim();
+    mamState.pagesLoaded = (Number(mamState.pagesLoaded) || 0) + 1;
+    if (firstId) mamState.before = firstId;
+    if (page?.complete || !firstId) mamState.complete = true;
+    return mamState;
+  }
+  return XEP_0313_MAM_LOADING_GLOBAL.xmppMamUpdateStateFromFinPage(mamState, page);
+}
+
+function xmppMamResetStateForForceReload(mamState, { includeTargetIndex = false } = {}) {
+  if (typeof XEP_0313_MAM_LOADING_GLOBAL.xmppMamResetStateForForceReload !== "function") {
+    if (!mamState) return mamState;
+    mamState.before = "";
+    mamState.complete = false;
+    mamState.pagesLoaded = 0;
+    if (includeTargetIndex) mamState.targetIndex = 0;
+    return mamState;
+  }
+  return XEP_0313_MAM_LOADING_GLOBAL.xmppMamResetStateForForceReload(mamState, { includeTargetIndex });
+}
+
+function xmppMamPrepareFallbackTargetState(mamState, nextTargetIndex = 0) {
+  if (typeof XEP_0313_MAM_LOADING_GLOBAL.xmppMamPrepareFallbackTargetState !== "function") {
+    if (!mamState) return mamState;
+    mamState.targetIndex = Math.max(0, Number(nextTargetIndex) || 0);
+    mamState.before = "";
+    mamState.pagesLoaded = 0;
+    mamState.complete = false;
+    return mamState;
+  }
+  return XEP_0313_MAM_LOADING_GLOBAL.xmppMamPrepareFallbackTargetState(mamState, nextTargetIndex);
+}
+
 function requestXmppRoomHistory(roomJid, {
   limit = XMPP_MAM_PAGE_SIZE,
   force = false,
@@ -13713,9 +13761,7 @@ function requestXmppRoomHistory(roomJid, {
   if (mamState.loading) return false;
   if (!force && mamState.complete) return false;
   if (force) {
-    mamState.before = "";
-    mamState.complete = false;
-    mamState.pagesLoaded = 0;
+    xmppMamResetStateForForceReload(mamState);
   }
   const maxRows = Math.max(10, Math.min(200, Number(limit) || XMPP_MAM_PAGE_SIZE));
   const beforeToken = mamState.before || "";
@@ -13742,9 +13788,7 @@ function requestXmppRoomHistory(roomJid, {
       (stanza) => {
         endXmppMamLoading(mamState);
         const { complete, firstId } = parseXmppMamFinPage(stanza);
-        mamState.pagesLoaded += 1;
-        if (firstId) mamState.before = firstId;
-        if (complete || !firstId) mamState.complete = true;
+        xmppMamUpdateStateFromFinPage(mamState, { complete, firstId });
         const nextPrefetchPages = Math.max(1, Number(prefetchPages) || 1);
         if (nextPrefetchPages > 1 && !mamState.complete) {
           setTimeout(() => {
@@ -13772,12 +13816,7 @@ function requestXmppRoomHistory(roomJid, {
       },
       (stanza) => {
         endXmppMamLoading(mamState);
-        const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
-        const permanent = Boolean(
-          errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
-          || errorNode?.getElementsByTagName?.("service-unavailable")?.length
-          || errorNode?.getElementsByTagName?.("item-not-found")?.length
-        );
+        const permanent = xmppMamErrorIsPermanent(stanza);
         if (permanent) mamState.complete = true;
         const activeRoomJid = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
         if (activeRoomJid && activeRoomJid === bareRoom) {
@@ -13826,10 +13865,7 @@ function requestXmppDirectHistory(peerJid, {
   if (mamState.loading) return false;
   if (!force && mamState.complete) return false;
   if (force) {
-    mamState.before = "";
-    mamState.complete = false;
-    mamState.pagesLoaded = 0;
-    mamState.targetIndex = 0;
+    xmppMamResetStateForForceReload(mamState, { includeTargetIndex: true });
   }
   const targetIndex = Math.max(0, Math.min(archiveTargets.length - 1, Number(mamState.targetIndex) || 0));
   const archiveTarget = archiveTargets[targetIndex] || archiveTargets[0];
@@ -13863,9 +13899,7 @@ function requestXmppDirectHistory(peerJid, {
         endXmppMamLoading(mamState);
         mamState.targetIndex = targetIndex;
         const { complete, firstId } = parseXmppMamFinPage(stanza);
-        mamState.pagesLoaded += 1;
-        if (firstId) mamState.before = firstId;
-        if (complete || !firstId) mamState.complete = true;
+        xmppMamUpdateStateFromFinPage(mamState, { complete, firstId });
         const nextPrefetchPages = Math.max(1, Number(prefetchPages) || 1);
         if (nextPrefetchPages > 1 && !mamState.complete) {
           setTimeout(() => {
@@ -13896,18 +13930,10 @@ function requestXmppDirectHistory(peerJid, {
       },
       (stanza) => {
         endXmppMamLoading(mamState);
-        const errorNode = stanza?.getElementsByTagName?.("error")?.[0] || null;
-        const permanent = Boolean(
-          errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
-          || errorNode?.getElementsByTagName?.("service-unavailable")?.length
-          || errorNode?.getElementsByTagName?.("item-not-found")?.length
-        );
+        const permanent = xmppMamErrorIsPermanent(stanza);
         const canFallbackTarget = permanent && (targetIndex + 1) < archiveTargets.length;
         if (canFallbackTarget) {
-          mamState.targetIndex = targetIndex + 1;
-          mamState.before = "";
-          mamState.pagesLoaded = 0;
-          mamState.complete = false;
+          xmppMamPrepareFallbackTargetState(mamState, targetIndex + 1);
           addXmppDebugEvent("iq", "DM history retrying alternate archive target", {
             peerJid: barePeer,
             fromTarget: archiveTarget,
@@ -16341,16 +16367,10 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "get", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
-          const type = (stanza?.getAttribute("type") || "").toLowerCase();
-          if (type !== "set") return true;
-          const query = [...stanza.getElementsByTagName("query")]
-            .find((node) => (node.getAttribute("xmlns") || "").toLowerCase() === "jabber:iq:roster") || null;
-          if (!query) return true;
-          const id = stanza.getAttribute("id") || "";
-          const from = stanza.getAttribute("from") || "";
-          if (id && globalThis.$iq) {
-            const resultAttrs = { type: "result", id };
-            if (from) resultAttrs.to = from;
+          const rosterPush = xmppRosterPushPayload(stanza);
+          if (!rosterPush) return true;
+          const resultAttrs = xmppIqResultAttrsFromStanza(stanza);
+          if (resultAttrs && globalThis.$iq) {
             xmppConnection.send(globalThis.$iq(resultAttrs));
           }
           const pushItems = parseXmppRosterItems(stanza);
@@ -17131,6 +17151,35 @@ function buildXmppChatMarkerAckStanza(to, stanzaMessageId, { type = "chat", mark
   }, {
     $msg: globalThis.$msg,
     chatMarkersNamespace: XMPP_CHAT_MARKERS_NAMESPACE
+  });
+}
+
+function buildXmppDisplayedMarkerStanza(to, markerTargetId, markerStanzaId = "") {
+  if (typeof XEP_0184_0333_GLOBAL.buildXmppDisplayedMarkerStanza !== "function") {
+    const safeTo = (to || "").toString().trim();
+    const safeTargetId = (markerTargetId || "").toString().trim();
+    if (!safeTo || !safeTargetId || typeof globalThis.$msg !== "function") return null;
+    const attrs = { to: safeTo, type: "chat" };
+    if (markerStanzaId) attrs.id = markerStanzaId;
+    return globalThis.$msg(attrs).c("displayed", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE, id: safeTargetId });
+  }
+  return XEP_0184_0333_GLOBAL.buildXmppDisplayedMarkerStanza({
+    to,
+    id: markerTargetId,
+    stanzaId: markerStanzaId
+  }, {
+    $msg: globalThis.$msg,
+    chatMarkersNamespace: XMPP_CHAT_MARKERS_NAMESPACE
+  });
+}
+
+function shouldSkipXmppDisplayedMarker(peerBare = "", targetId = "") {
+  if (typeof XEP_0184_0333_GLOBAL.shouldSkipXmppDisplayedMarker !== "function") {
+    if (!peerBare || !targetId) return true;
+    return (xmppLastSentDisplayedMarkerByPeerJid.get(peerBare) || "") === targetId;
+  }
+  return XEP_0184_0333_GLOBAL.shouldSkipXmppDisplayedMarker(peerBare, targetId, {
+    lastSentDisplayedMarkerByPeerJid: xmppLastSentDisplayedMarkerByPeerJid
   });
 }
 
@@ -37906,6 +37955,16 @@ function parseXmppRosterItems(stanza) {
   return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.parseXmppRosterItems(stanza, {
     parseXmppRosterItemsViaXepFn: parseXmppRosterItemsViaXep
   });
+}
+
+function xmppRosterPushPayload(stanza) {
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.xmppRosterPushPayload !== "function") return null;
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.xmppRosterPushPayload(stanza);
+}
+
+function xmppIqResultAttrsFromStanza(stanza) {
+  if (typeof XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.xmppIqResultAttrsFromStanza !== "function") return null;
+  return XEP_0048_0402_BOOKMARKS_OPS_GLOBAL.xmppIqResultAttrsFromStanza(stanza);
 }
 
 function fetchXmppRoster(connection) {

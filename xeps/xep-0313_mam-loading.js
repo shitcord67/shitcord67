@@ -111,13 +111,59 @@
     return { complete, firstId };
   }
 
+  function xmppIqErrorNode(stanza) {
+    return stanza?.getElementsByTagName?.("error")?.[0] || null;
+  }
+
+  function xmppMamErrorIsPermanent(stanza) {
+    const errorNode = xmppIqErrorNode(stanza);
+    return Boolean(
+      errorNode?.getElementsByTagName?.("feature-not-implemented")?.length
+      || errorNode?.getElementsByTagName?.("service-unavailable")?.length
+      || errorNode?.getElementsByTagName?.("item-not-found")?.length
+    );
+  }
+
+  function xmppMamUpdateStateFromFinPage(mamState, page = {}) {
+    if (!mamState || !page || typeof page !== "object") return mamState;
+    const firstId = (page.firstId || "").toString().trim();
+    const complete = page.complete === true;
+    mamState.pagesLoaded = (Number(mamState.pagesLoaded) || 0) + 1;
+    if (firstId) mamState.before = firstId;
+    if (complete || !firstId) mamState.complete = true;
+    return mamState;
+  }
+
+  function xmppMamResetStateForForceReload(mamState, deps = {}) {
+    if (!mamState) return mamState;
+    mamState.before = "";
+    mamState.complete = false;
+    mamState.pagesLoaded = 0;
+    if (deps.includeTargetIndex) mamState.targetIndex = 0;
+    return mamState;
+  }
+
+  function xmppMamPrepareFallbackTargetState(mamState, nextTargetIndex = 0) {
+    if (!mamState) return mamState;
+    mamState.targetIndex = Math.max(0, Number(nextTargetIndex) || 0);
+    mamState.before = "";
+    mamState.pagesLoaded = 0;
+    mamState.complete = false;
+    return mamState;
+  }
+
   globalScope.SHITCORD67_XEP_0313_MAM_LOADING = Object.freeze({
     beginXmppMamLoading,
     endXmppMamLoading,
     recoverStaleXmppMamLoading,
     xmppMamArchiveTargetJid,
     buildXmppMamQueryIq,
-    parseXmppMamFinPage
+    parseXmppMamFinPage,
+    xmppIqErrorNode,
+    xmppMamErrorIsPermanent,
+    xmppMamUpdateStateFromFinPage,
+    xmppMamResetStateForForceReload,
+    xmppMamPrepareFallbackTargetState
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0313_mam-loading", globalScope.SHITCORD67_XEP_0313_MAM_LOADING);
