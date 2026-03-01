@@ -443,6 +443,13 @@ const normalizeXmppWsUrlViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normali
 const normalizeXmppMucServiceViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppMucService === "function"
   ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppMucService
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizeLocalXmppProfilesViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeLocalXmppProfiles === "function"
+  ? ((raw) => XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeLocalXmppProfiles(raw, {
+    normalizeXmppJidFn: normalizeXmppJid,
+    normalizeXmppWsUrlFn: normalizeXmppWsUrl,
+    normalizeXmppPasswordFn: normalizeXmppPassword
+  }))
+  : (() => []);
 const normalizeTenorApiKeyViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeTenorApiKey
   : ((value) => (value || "").toString().trim());
@@ -39597,32 +39604,7 @@ function openXmppRegisterDialog() {
 }
 
 function normalizeLocalXmppProfiles(raw) {
-  const entries = [];
-  if (raw?.account && typeof raw.account === "object") entries.push(raw.account);
-  if (Array.isArray(raw?.accounts)) entries.push(...raw.accounts);
-  const out = [];
-  entries.forEach((entry, index) => {
-    if (!entry || typeof entry !== "object") return;
-    const jid = normalizeXmppJid(entry.jid || entry.username || "");
-    if (!jid) return;
-    const ws = normalizeXmppWsUrl(entry.service || entry.ws || entry.xmppWsUrl || "");
-    const password = normalizeXmppPassword(entry.password || "");
-    const label = (entry.label || entry.name || jid).toString().slice(0, 80);
-    out.push({
-      id: `${index}:${jid}`,
-      label,
-      jid,
-      password,
-      ws
-    });
-  });
-  const seen = new Set();
-  return out.filter((entry) => {
-    const key = entry.jid.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return normalizeLocalXmppProfilesViaModule(raw);
 }
 
 function renderLocalXmppProfileSelect() {
