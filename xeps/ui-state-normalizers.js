@@ -31,6 +31,11 @@
     return "click";
   }
 
+  function normalizeTheme(value) {
+    if (value === "oled" || value === "high-contrast") return value;
+    return "discord";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -38,6 +43,7 @@
     normalizeSwfAudioPolicy,
     normalizeSwfAudioScope,
     normalizeSwfAutoplay,
-    normalizeSwfQuickAudioMode
+    normalizeSwfQuickAudioMode,
+    normalizeTheme
   });
 })(typeof window !== "undefined" ? window : globalThis);
