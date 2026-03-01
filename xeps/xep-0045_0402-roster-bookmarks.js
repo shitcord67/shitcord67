@@ -4,6 +4,12 @@
   const xml = globalScope.SHITCORD67_XMPP_XML || {};
   const XMPP_BOOKMARKS_NAMESPACE = "urn:xmpp:bookmarks:1";
 
+  function xmppBareJid(value, {
+    normalizeXmppJidFn = (input) => (input || "").toString().trim().toLowerCase()
+  } = {}) {
+    return normalizeXmppJidFn((value || "").toString().split("/")[0] || "").toLowerCase();
+  }
+
   function xmppNodeHasXmlns(node, xmlns) {
     if (typeof xml.xmppNodeHasXmlns === "function") return xml.xmppNodeHasXmlns(node, xmlns);
     if (!node || typeof node.getAttribute !== "function") return false;
@@ -194,6 +200,7 @@
 
   globalScope.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS = Object.freeze({
     XMPP_BOOKMARKS_NAMESPACE,
+    xmppBareJid,
     parseXmppRosterItems,
     parseXmppBookmarks,
     mergeXmppBookmarks,

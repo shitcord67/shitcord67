@@ -295,6 +295,9 @@ const parseXmppBookmarksViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.pa
 const mergeXmppBookmarksViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.mergeXmppBookmarks === "function"
   ? ((...lists) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.mergeXmppBookmarks(lists, { normalizeXmppJidFn: normalizeXmppJid }))
   : ((...lists) => lists.flat().filter(Boolean));
+const xmppBareJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppBareJid === "function"
+  ? ((value) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppBareJid(value, { normalizeXmppJidFn: normalizeXmppJid }))
+  : ((value = "") => normalizeXmppJid((value || "").toString().split("/")[0] || "").toLowerCase());
 const xmppRoomNodeForTokenViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppRoomNodeForToken === "function"
   ? ((roomToken) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppRoomNodeForToken(roomToken, { sanitizeChannelNameFn: sanitizeChannelName }))
   : ((roomToken) => sanitizeChannelName((roomToken || "").toString().replace(/[:]/g, "-"), "lobby-general"));
@@ -11864,7 +11867,7 @@ function updateComposerTypingPublish() {
 }
 
 function xmppBareJid(value) {
-  return normalizeXmppJid((value || "").toString().split("/")[0] || "").toLowerCase();
+  return xmppBareJidViaXep(value);
 }
 
 function xmppRoomNodeForToken(roomToken) {
