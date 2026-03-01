@@ -496,6 +496,11 @@ const normalizeGifScopeViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.norm
     }
     return "all";
   });
+const normalizeRelayTransportAttachmentUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRelayTransportAttachmentUrl === "function"
+  ? ((rawUrl = "") => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRelayTransportAttachmentUrl(rawUrl, {
+    resolveMediaUrlFn: resolveMediaUrl
+  }))
+  : (() => "");
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -17731,9 +17736,7 @@ function maybeLoadOlderXmppHistoryForActiveConversation({ trigger = "scroll", fo
 }
 
 function normalizeRelayTransportAttachmentUrl(rawUrl) {
-  const resolved = resolveMediaUrl((rawUrl || "").toString().trim());
-  if (!resolved) return "";
-  return /^https?:\/\//i.test(resolved) ? resolved : "";
+  return normalizeRelayTransportAttachmentUrlViaModule(rawUrl);
 }
 
 function relayTransportAttachments(attachments, { limit = 4, urlMax = 640 } = {}) {
