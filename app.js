@@ -101,6 +101,7 @@ const XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL = xepModule("xep-0308_0359_
 const XEP_0199_0410_0313_PRESENCE_PING_GLOBAL = xepModule("xep-0199_0410_0313-presence-ping", globalThis.SHITCORD67_XEP_0199_0410_0313_PRESENCE_PING);
 const XEP_0048_0402_BOOKMARKS_OPS_GLOBAL = xepModule("xep-0048_0402-bookmarks-ops", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_OPS);
 const XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL = xepModule("xep-0048_0402-bookmarks-sync", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_SYNC);
+const XEP_0482_0503_SPACES_FLOW_GLOBAL = xepModule("xep-0482_0503-spaces-flow", globalThis.SHITCORD67_XEP_0482_0503_SPACES_FLOW);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -20672,8 +20673,7 @@ function parseTimestampArg(arg) {
 }
 
 function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focus = false } = {}) {
-  const roomJid = normalizeXmppRoomJoinArg(rawRoomArg);
-  if (!roomJid) {
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.handleJoinXmppCommand !== "function") {
     return {
       ok: false,
       joined: false,
@@ -20681,192 +20681,104 @@ function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focu
       message: "Usage: /joinxmpp <room@conference.example.org>"
     };
   }
-  const roomToken = `xmpp:${roomJid}`;
-  xmppRoomByJid.set(roomJid, roomToken);
-  const mapped = upsertXmppRoomChannel(roomJid, {
-    roomName: roomJid.split("@")[0] || "",
-    roomToken,
-    account,
-    prefs: getPreferences(),
-    persist: false
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.handleJoinXmppCommand(rawRoomArg, account, { focus }, {
+    normalizeXmppRoomJoinArgFn: normalizeXmppRoomJoinArg,
+    xmppRoomByJid,
+    upsertXmppRoomChannelFn: upsertXmppRoomChannel,
+    getPreferencesFn: getPreferences,
+    findGuildByChannelIdFn: findGuildByChannelId,
+    state,
+    joinXmppRoomFn: joinXmppRoom,
+    relayStatus,
+    sanitizeChannelNameFn: sanitizeChannelName,
+    xmppPublishBookmarkFn: xmppPublishBookmark,
+    saveStateFn: saveState,
+    renderFn: render,
+    renderChannelsFn: renderChannels
   });
-  let focusChanged = false;
-  if (focus && mapped.channel) {
-    const guild = findGuildByChannelId(mapped.channel.id);
-    if (guild) {
-      if (state.viewMode !== "guild") {
-        state.viewMode = "guild";
-        focusChanged = true;
-      }
-      if (state.activeGuildId !== guild.id) {
-        state.activeGuildId = guild.id;
-        focusChanged = true;
-      }
-      if (state.activeChannelId !== mapped.channel.id) {
-        state.activeChannelId = mapped.channel.id;
-        focusChanged = true;
-      }
-    }
-  }
-  const joined = joinXmppRoom(roomToken, account);
-  if (joined || relayStatus === "connected") {
-    const nick = sanitizeChannelName(account?.username || "user", "user");
-    const channelName = mapped.channel?.xmppRoomName || mapped.channel?.name || roomJid.split("@")[0] || "";
-    void xmppPublishBookmark({
-      jid: roomJid,
-      name: channelName,
-      autojoin: mapped.channel?.xmppSpaceAutojoin === true,
-      nick
-    });
-  }
-  if (mapped.changed || focusChanged) {
-    saveState();
-    render();
-  } else if (joined) {
-    renderChannels();
-  }
-  return {
-    ok: true,
-    joined,
-    roomJid,
-    message: joined
-      ? `Joining XMPP room ${roomJid}.`
-      : `Added room ${roomJid} to XMPP Spaces. Connect XMPP relay and run /joinxmpp ${roomJid} again for live join.`
-  };
 }
 
 function handleLeaveXmppCommand(rawRoomArg, account = getCurrentAccount()) {
-  let roomJid = normalizeXmppRoomJoinArg(rawRoomArg);
-  if (!roomJid) {
-    const activeRoom = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
-    if (activeRoom) roomJid = activeRoom;
-  }
-  if (!roomJid) {
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.handleLeaveXmppCommand !== "function") {
     return {
       ok: false,
       roomJid: "",
       message: "Usage: /leavexmpp [room@conference.example.org]"
     };
   }
-  const removed = removeXmppRoomChannelByJid(roomJid, {
-    account,
-    prefs: getPreferences(),
-    persist: true,
-    leave: true
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.handleLeaveXmppCommand(rawRoomArg, account, {
+    normalizeXmppRoomJoinArgFn: normalizeXmppRoomJoinArg,
+    xmppBareJidFn: xmppBareJid,
+    getActiveChannelFn: getActiveChannel,
+    removeXmppRoomChannelByJidFn: removeXmppRoomChannelByJid,
+    getPreferencesFn: getPreferences,
+    xmppRetractBookmarkFn: xmppRetractBookmark
   });
-  if (!removed.removed) {
-    return {
-      ok: false,
-      roomJid,
-      message: `No mapped XMPP room found for ${roomJid}.`
-    };
-  }
-  void xmppRetractBookmark(roomJid);
-  return {
-    ok: true,
-    roomJid,
-    message: `Left XMPP room ${roomJid} and removed it from XMPP Spaces.`
-  };
 }
 
 function xmppCallInviteSignal(session = null) {
-  return (session?.inviteSignal || "").toString().trim().toLowerCase();
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppCallInviteSignal !== "function") {
+    return (session?.inviteSignal || "").toString().trim().toLowerCase();
+  }
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppCallInviteSignal(session);
 }
 
 function xmppSessionIsMujiCallInvite(session = null) {
-  return xmppCallInviteSignal(session) === "muji-call-invite";
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSessionIsMujiCallInvite !== "function") {
+    return xmppCallInviteSignal(session) === "muji-call-invite";
+  }
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSessionIsMujiCallInvite(session);
 }
 
 function xmppSendMujiCallInviteActionForSession(session = null, action = "accept") {
-  if (!session || !xmppSessionIsMujiCallInvite(session)) return false;
-  const callInviteId = (session.callInviteId || "").toString().trim();
-  const roomJid = xmppBareJid(session.callInviteRoomJid || session.peerJid || "");
-  if (!callInviteId || !roomJid) return false;
-  return Boolean(xmppSendCallInviteAction(roomJid, action, {
-    inviteId: callInviteId,
-    audio: session.media?.includes("audio") !== false,
-    video: session.media?.includes("video") !== false,
-    preferFull: false,
-    messageType: "groupchat"
-  }));
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSendMujiCallInviteActionForSession !== "function") return false;
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSendMujiCallInviteActionForSession(session, action, {
+    xmppBareJidFn: xmppBareJid,
+    xmppSendCallInviteActionFn: xmppSendCallInviteAction
+  });
 }
 
 function xmppKnownSpacesRooms(prefs = getPreferences()) {
-  const merged = new Map();
-  for (const guild of state.guilds || []) {
-    if (!guild || !Array.isArray(guild.channels)) continue;
-    for (const channel of guild.channels) {
-      const jid = xmppBareJid(channel?.xmppRoomJid || "");
-      if (!jid || !looksLikeXmppMucJid(jid, prefs)) continue;
-      const roomName = decodeHtmlEntities((channel?.xmppRoomName || channel?.name || "").toString()).replace(/\s+/g, " ").trim();
-      merged.set(jid, {
-        jid,
-        channelId: (channel?.id || "").toString(),
-        name: roomName || jid.split("@")[0] || jid,
-        autojoin: channel?.xmppSpaceAutojoin === true
-      });
-    }
-  }
-  for (const [jid] of xmppRoomByJid.entries()) {
-    const bare = xmppBareJid(jid);
-    if (!bare || !looksLikeXmppMucJid(bare, prefs) || merged.has(bare)) continue;
-    merged.set(bare, {
-      jid: bare,
-      channelId: "",
-      name: bare.split("@")[0] || bare,
-      autojoin: false
-    });
-  }
-  return [...merged.values()].sort((a, b) => (a.jid || "").localeCompare(b.jid || ""));
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppKnownSpacesRooms !== "function") return [];
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppKnownSpacesRooms(prefs, {
+    state,
+    xmppBareJidFn: xmppBareJid,
+    looksLikeXmppMucJidFn: looksLikeXmppMucJid,
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    xmppRoomByJid
+  });
 }
 
 function xmppSpacesRoomStateLabel(roomJid = "") {
-  const bare = xmppBareJid(roomJid);
-  if (!bare) return "unknown";
-  const joinState = xmppMucJoinStateByRoomJid.get(bare) || {};
-  if (joinState.pending) return "joining";
-  if ((joinState.lastErrorCondition || "").toString().trim()) {
-    return `error:${joinState.lastErrorCondition}`;
-  }
-  if (xmppRoomByJid.has(bare)) return "joined";
-  return "mapped";
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSpacesRoomStateLabel !== "function") return "unknown";
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSpacesRoomStateLabel(roomJid, {
+    xmppBareJidFn: xmppBareJid,
+    xmppMucJoinStateByRoomJid,
+    xmppRoomByJid
+  });
 }
 
 function xmppSpacesSummaryLines({ limit = 12, prefs = getPreferences() } = {}) {
-  const rows = xmppKnownSpacesRooms(prefs)
-    .slice(0, Math.max(1, Number(limit) || 12))
-    .map((entry) => {
-      const state = xmppSpacesRoomStateLabel(entry.jid);
-      const suffix = entry.autojoin ? " · autojoin" : "";
-      return `- ${entry.name} (${entry.jid}) [${state}${suffix}]`;
-    });
-  return rows;
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSpacesSummaryLines !== "function") return [];
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSpacesSummaryLines({ limit, prefs }, {
+    state,
+    xmppBareJidFn: xmppBareJid,
+    looksLikeXmppMucJidFn: looksLikeXmppMucJid,
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    xmppRoomByJid,
+    xmppMucJoinStateByRoomJid
+  });
 }
 
 function focusXmppSpacesGuild(account = getCurrentAccount(), prefs = getPreferences()) {
-  const guild = ensureXmppSpacesGuild(prefs, account);
-  if (!guild) return false;
-  const nextChannel = guild.channels.find((entry) => isXmppBackedChannel(entry))
-    || guild.channels[0]
-    || null;
-  let changed = false;
-  if (state.viewMode !== "guild") {
-    state.viewMode = "guild";
-    changed = true;
-  }
-  if (state.activeGuildId !== guild.id) {
-    state.activeGuildId = guild.id;
-    changed = true;
-  }
-  if (nextChannel && state.activeChannelId !== nextChannel.id) {
-    state.activeChannelId = nextChannel.id;
-    changed = true;
-  }
-  if (changed) {
-    saveState();
-    render();
-  }
-  return true;
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.focusXmppSpacesGuild !== "function") return false;
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.focusXmppSpacesGuild(account, prefs, {
+    ensureXmppSpacesGuildFn: ensureXmppSpacesGuild,
+    isXmppBackedChannelFn: isXmppBackedChannel,
+    state,
+    saveStateFn: saveState,
+    renderFn: render
+  });
 }
 
 async function syncXmppSpacesNow({
@@ -20874,38 +20786,27 @@ async function syncXmppSpacesNow({
   prefs = getPreferences(),
   forceDiscovery = false
 } = {}) {
-  if (!xmppConnection || relayStatus !== "connected") {
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.syncXmppSpacesNow !== "function") {
     return {
       ok: false,
-      message: "XMPP relay is not connected. Connect first, then retry /spacesxmpp sync."
+      message: "XMPP Spaces sync module unavailable."
     };
   }
-  const [bookmarkResult, discoveryResult] = await Promise.allSettled([
-    fetchXmppBookmarks(xmppConnection),
-    discoverXmppMucRooms({
-      connection: xmppConnection,
-      prefs,
-      force: forceDiscovery
-    })
-  ]);
-  const bookmarkItems = bookmarkResult.status === "fulfilled" ? bookmarkResult.value : [];
-  const discoveredRooms = discoveryResult.status === "fulfilled" ? discoveryResult.value : [];
-  const mergedRooms = mergeXmppBookmarks(bookmarkItems, discoveredRooms);
-  if (mergedRooms.length > 0) {
-    upsertXmppSpaceChannels(mergedRooms, prefs, account);
-  }
-  let joinedAutoCount = 0;
-  mergedRooms.forEach((entry) => {
-    if (entry?.autojoin !== true) return;
-    const roomJid = xmppBareJid(entry.jid || "");
-    if (!roomJid) return;
-    if (joinXmppRoom(`xmpp:${roomJid}`, account)) joinedAutoCount += 1;
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.syncXmppSpacesNow({ account, prefs, forceDiscovery }, {
+    xmppConnection,
+    relayStatus,
+    fetchXmppBookmarksFn: fetchXmppBookmarks,
+    discoverXmppMucRoomsFn: discoverXmppMucRooms,
+    mergeXmppBookmarksFn: mergeXmppBookmarks,
+    upsertXmppSpaceChannelsFn: upsertXmppSpaceChannels,
+    xmppBareJidFn: xmppBareJid,
+    joinXmppRoomFn: joinXmppRoom,
+    state,
+    looksLikeXmppMucJidFn: looksLikeXmppMucJid,
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    xmppRoomByJid,
+    xmppMucJoinStateByRoomJid
   });
-  const mappedCount = xmppKnownSpacesRooms(prefs).length;
-  return {
-    ok: true,
-    message: `Synced XMPP Spaces: ${mappedCount} mapped room(s) · ${bookmarkItems.length} bookmark(s) · ${discoveredRooms.length} discovered · ${joinedAutoCount} autojoined.`
-  };
 }
 
 function handleSlashCommand(rawText, channel, account) {
