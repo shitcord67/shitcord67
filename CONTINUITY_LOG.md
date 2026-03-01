@@ -2559,3 +2559,9 @@ Also I wonder why app.js gets bigger when stuff is supposed to be loaded from th
 
 ## 2026-03-01T05:55:47Z
 Do you really need to have the fallback implementations?
+
+## 2026-03-01T07:32:37Z
+Couldn't it be better to basically have a generic JS xep- js file in xeps/ and then maybe split that further? To avoid hundreds of links in app.js
+
+## 2026-03-01T07:33:11Z
+So e.g. xep-0384.js and then there would still be the other xep-0384- JS files
