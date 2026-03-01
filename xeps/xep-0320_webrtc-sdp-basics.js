@@ -1338,6 +1338,190 @@
     return builder;
   }
 
+  function xmppNormalizeTransportInfoLocalRole(session = null) {
+    const normalized = (session?.localJingleRole || "").toString().trim().toLowerCase();
+    if (normalized === "responder") return "responder";
+    if (normalized === "initiator") return "initiator";
+    return (session?.direction || "").toString().trim().toLowerCase() === "incoming" ? "responder" : "initiator";
+  }
+
+  function xmppBuildTransportInfoContentCatalog({
+    sessionRemoteContents = [],
+    localSdpContents = [],
+    sessionMedia = []
+  } = {}) {
+    const contentCatalog = [];
+    const seenContentNames = new Set();
+    const pushContent = (name = "", media = "") => {
+      const normalizedName = (name || "").toString().trim();
+      const normalizedMedia = (media || "").toString().trim().toLowerCase();
+      if (!normalizedName || (normalizedMedia !== "audio" && normalizedMedia !== "video")) return;
+      if (seenContentNames.has(normalizedName)) return;
+      seenContentNames.add(normalizedName);
+      contentCatalog.push({ name: normalizedName, media: normalizedMedia });
+    };
+    (Array.isArray(sessionRemoteContents) ? sessionRemoteContents : []).forEach((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      pushContent(name, media);
+    });
+    (Array.isArray(localSdpContents) ? localSdpContents : []).forEach((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      pushContent(name, media);
+    });
+    (Array.isArray(sessionMedia) ? sessionMedia : []).forEach((mediaType, index) => {
+      const normalizedMediaType = (mediaType || "").toString().trim().toLowerCase();
+      if (normalizedMediaType !== "audio" && normalizedMediaType !== "video") return;
+      pushContent(normalizedMediaType, normalizedMediaType);
+      pushContent(`${normalizedMediaType}${index}`, normalizedMediaType);
+    });
+    if (contentCatalog.length === 0) {
+      contentCatalog.push({ name: "audio", media: "audio" });
+    }
+    return contentCatalog;
+  }
+
+  function xmppResolveTransportInfoContentTargets(contentCatalog = [], preferredMedia = []) {
+    const catalog = Array.isArray(contentCatalog) ? contentCatalog.filter(Boolean) : [];
+    if (catalog.length === 0) return [{ name: "audio", media: "audio" }];
+    const preferred = new Set(
+      (Array.isArray(preferredMedia) ? preferredMedia : [])
+        .map((entry) => (entry || "").toString().trim().toLowerCase())
+        .filter((entry) => entry === "audio" || entry === "video")
+    );
+    const ordered = [];
+    catalog.forEach((entry) => {
+      if (preferred.has(entry.media)) ordered.push(entry);
+    });
+    catalog.forEach((entry) => {
+      if (!ordered.includes(entry)) ordered.push(entry);
+    });
+    return ordered.length > 0 ? ordered : catalog;
+  }
+
+  function xmppNormalizeTransportInfoCandidate(candidate = null) {
+    if (!candidate || typeof candidate !== "object") return null;
+    return {
+      ...candidate,
+      contentName: ((candidate.contentName || candidate.sdpMid || "") + "").toString().trim(),
+      media: ((candidate.media || "") + "").toString().trim().toLowerCase(),
+      sdpMLineIndex: Number(candidate.sdpMLineIndex)
+    };
+  }
+
+  function xmppNormalizeTransportInfoCandidates(candidates = []) {
+    return (Array.isArray(candidates) ? candidates : [])
+      .map((entry) => xmppNormalizeTransportInfoCandidate(entry))
+      .filter(Boolean);
+  }
+
+  function xmppBuildTransportInfoCandidateTargets(candidate = {}, contentTargets = []) {
+    const targets = Array.isArray(contentTargets) ? contentTargets : [];
+    const byName = targets.filter((content) => content?.name === candidate.contentName);
+    if (byName.length > 0) return byName;
+    const byMedia = candidate.media
+      ? targets.filter((content) => content?.media === candidate.media)
+      : [];
+    if (byMedia.length > 0) return byMedia;
+    if (Number.isFinite(candidate.sdpMLineIndex) && candidate.sdpMLineIndex >= 0 && candidate.sdpMLineIndex < targets.length) {
+      return [targets[candidate.sdpMLineIndex]];
+    }
+    return targets;
+  }
+
+  function xmppBuildTransportInfoCandidatesByContentName(contentTargets = [], normalizedCandidates = []) {
+    const map = new Map();
+    const pushCandidateForContent = (contentName = "", candidate = null) => {
+      if (!contentName || !candidate) return;
+      const list = map.get(contentName) || [];
+      list.push(candidate);
+      map.set(contentName, list);
+    };
+    (Array.isArray(normalizedCandidates) ? normalizedCandidates : []).forEach((candidate) => {
+      const targets = xmppBuildTransportInfoCandidateTargets(candidate, contentTargets);
+      targets.forEach((content) => {
+        pushCandidateForContent(content?.name || "", candidate);
+      });
+    });
+    return map;
+  }
+
+  function xmppBuildJingleTransportCandidateAttrs(candidate = {}, index = 0) {
+    return {
+      foundation: (candidate.foundation || `${index + 1}`).toString().slice(0, 24),
+      component: String(Number(candidate.component) || 1),
+      protocol: ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp").slice(0, 8),
+      priority: String(Number(candidate.priority) || (2130706431 - index)),
+      ip: (candidate.ip || "0.0.0.0").toString().slice(0, 64),
+      port: String(Number(candidate.port) || 9),
+      type: ((candidate.type || "host").toString().trim().toLowerCase() || "host").slice(0, 16)
+    };
+  }
+
+  function xmppBuildTransportInfoPlan({
+    session = null,
+    transport = null,
+    candidates = [],
+    sessionRemoteContents = [],
+    localSdpContents = [],
+    sessionMedia = []
+  } = {}, deps = {}) {
+    const preferredMedia = Array.isArray(sessionMedia) ? sessionMedia : [];
+    const contentCatalog = xmppBuildTransportInfoContentCatalog({
+      sessionRemoteContents,
+      localSdpContents,
+      sessionMedia: preferredMedia
+    });
+    const contentTargets = xmppResolveTransportInfoContentTargets(contentCatalog, preferredMedia);
+    const normalizedCandidates = xmppNormalizeTransportInfoCandidates(candidates);
+    const candidatesByContentName = xmppBuildTransportInfoCandidatesByContentName(contentTargets, normalizedCandidates);
+    const transportCreds = xmppResolveJingleRtpTransportCreds(transport, deps);
+    const localRole = xmppNormalizeTransportInfoLocalRole(session);
+    return {
+      localRole,
+      transportCreds,
+      normalizedCandidates,
+      contentTargets,
+      candidatesByContentName
+    };
+  }
+
+  function xmppAppendJingleTransportInfoContents(builder, {
+    localRole = "initiator",
+    contentTargets = [],
+    candidatesByContentName = null,
+    transportCreds = null
+  } = {}, deps = {}) {
+    if (!builder || typeof builder.c !== "function") return builder;
+    const iceUdpNamespace = (deps.iceUdpNamespace || "").toString().trim();
+    if (!iceUdpNamespace) return builder;
+    const map = candidatesByContentName instanceof Map ? candidatesByContentName : new Map();
+    const targets = Array.isArray(contentTargets) ? contentTargets : [];
+    const normalizedCreds = transportCreds && typeof transportCreds === "object"
+      ? transportCreds
+      : { ufrag: "", pwd: "" };
+    targets.forEach((content) => {
+      const contentName = (content?.name || "").toString().trim();
+      if (!contentName) return;
+      const contentCandidates = map.get(contentName) || [];
+      builder
+        .c("content", { creator: localRole, name: contentName })
+        .c("transport", {
+          xmlns: iceUdpNamespace,
+          ufrag: (normalizedCreds.ufrag || "").toString(),
+          pwd: (normalizedCreds.pwd || "").toString()
+        });
+      contentCandidates.forEach((candidate, index) => {
+        builder.c("candidate", xmppBuildJingleTransportCandidateAttrs(candidate, index)).up();
+      });
+      builder.up().up();
+    });
+    return builder;
+  }
+
   globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS = Object.freeze({
     xmppParseIceCredsFromSdp,
     xmppParseDtlsFingerprintFromSdp,
@@ -1419,7 +1603,17 @@
     xmppResolveJingleRtpTransportCreds,
     xmppResolveJingleRtpDtlsInfo,
     xmppBuildJingleRtpContent,
-    xmppBuildJingleBundleGroup
+    xmppBuildJingleBundleGroup,
+    xmppNormalizeTransportInfoLocalRole,
+    xmppBuildTransportInfoContentCatalog,
+    xmppResolveTransportInfoContentTargets,
+    xmppNormalizeTransportInfoCandidate,
+    xmppNormalizeTransportInfoCandidates,
+    xmppBuildTransportInfoCandidateTargets,
+    xmppBuildTransportInfoCandidatesByContentName,
+    xmppBuildJingleTransportCandidateAttrs,
+    xmppBuildTransportInfoPlan,
+    xmppAppendJingleTransportInfoContents
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0320_webrtc-sdp-basics", globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);

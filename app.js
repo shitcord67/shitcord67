@@ -10203,119 +10203,139 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = (sessionId || "").toString().trim();
   if (!to || !sid || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const normalizedTransport = transport && typeof transport === "object"
-    ? {
-      ufrag: (transport.ufrag || "").toString().trim(),
-      pwd: (transport.pwd || "").toString().trim()
-    }
-    : xmppBuildJingleTransportCreds();
-  const fallbackCreds = (!normalizedTransport.ufrag || !normalizedTransport.pwd) ? xmppBuildJingleTransportCreds() : null;
+  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
   const session = xmppCallSessionById.get(sid) || null;
-  const localRole = (session?.localJingleRole || (session?.direction === "incoming" ? "responder" : "initiator"))
+  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  const fallbackLocalRole = (session?.localJingleRole || (session?.direction === "incoming" ? "responder" : "initiator"))
     .toString()
     .trim()
     .toLowerCase() === "responder"
     ? "responder"
     : "initiator";
-  const contentCatalog = [];
-  const seenContentNames = new Set();
-  const pushContent = (name = "", media = "") => {
-    const normalizedName = (name || "").toString().trim();
-    const normalizedMedia = (media || "").toString().trim().toLowerCase();
-    if (!normalizedName || (normalizedMedia !== "audio" && normalizedMedia !== "video")) return;
-    if (seenContentNames.has(normalizedName)) return;
-    seenContentNames.add(normalizedName);
-    contentCatalog.push({ name: normalizedName, media: normalizedMedia });
-  };
-  if (Array.isArray(session?.remoteContents)) {
-    session.remoteContents.forEach((entry, index) => {
-      const media = (entry?.media || "").toString().trim().toLowerCase();
-      if (media !== "audio" && media !== "video") return;
-      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
-      pushContent(name, media);
-    });
-  }
-  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
-  if (pcEntry?.pc?.localDescription?.sdp) {
-    xmppBuildJingleContentsFromSdp(pcEntry.pc.localDescription.sdp, { localRole }).forEach((entry, index) => {
-      const media = (entry?.media || "").toString().trim().toLowerCase();
-      if (media !== "audio" && media !== "video") return;
-      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
-      pushContent(name, media);
-    });
-  }
-  xmppCallSessionMediaList(session).forEach((mediaType, index) => {
-    pushContent(mediaType, mediaType);
-    pushContent(`${mediaType}${index}`, mediaType);
-  });
-  if (contentCatalog.length === 0) {
-    contentCatalog.push({ name: "audio", media: "audio" });
-  }
-  const preferredMedia = xmppCallSessionMediaList(session);
-  const primaryContent = contentCatalog.find((entry) => preferredMedia.includes(entry.media))
-    || contentCatalog[0]
-    || { name: "audio", media: "audio" };
-  const contentTargets = [primaryContent];
-  const normalizedCandidates = Array.isArray(candidates)
-    ? candidates
-      .filter((entry) => entry && typeof entry === "object")
-      .map((entry) => ({
-        ...entry,
-        contentName: ((entry.contentName || entry.sdpMid || "") + "").toString().trim(),
-        media: ((entry.media || "") + "").toString().trim().toLowerCase(),
-        sdpMLineIndex: Number(entry.sdpMLineIndex)
-      }))
+  const fallbackTransport = (typeof xep0320.xmppResolveJingleRtpTransportCreds === "function")
+    ? xep0320.xmppResolveJingleRtpTransportCreds(transport, {
+      buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
+    })
+    : (transport && typeof transport === "object"
+      ? {
+        ufrag: (transport.ufrag || "").toString().trim(),
+        pwd: (transport.pwd || "").toString().trim()
+      }
+      : xmppBuildJingleTransportCreds());
+  const fallbackNormalizedCandidates = Array.isArray(candidates)
+    ? candidates.filter((entry) => entry && typeof entry === "object").map((entry) => ({
+      ...entry,
+      contentName: ((entry.contentName || entry.sdpMid || "") + "").toString().trim(),
+      media: ((entry.media || "") + "").toString().trim().toLowerCase(),
+      sdpMLineIndex: Number(entry.sdpMLineIndex)
+    }))
     : [];
-  const candidatesByContentName = new Map();
-  const pushCandidateForContent = (contentName = "", candidate = null) => {
-    if (!contentName || !candidate) return;
-    const list = candidatesByContentName.get(contentName) || [];
-    list.push(candidate);
-    candidatesByContentName.set(contentName, list);
-  };
-  normalizedCandidates.forEach((candidate) => {
-    const byName = contentTargets.filter((content) => content.name === candidate.contentName);
-    const byMedia = byName.length > 0
-      ? byName
-      : (candidate.media ? contentTargets.filter((content) => content.media === candidate.media) : []);
-    const byIndex = byMedia.length > 0
-      ? byMedia
-      : (Number.isFinite(candidate.sdpMLineIndex) && candidate.sdpMLineIndex >= 0 && candidate.sdpMLineIndex < contentTargets.length
-        ? [contentTargets[candidate.sdpMLineIndex]]
-        : []);
-    const targets = byIndex.length > 0 ? byIndex : contentTargets;
-    targets.forEach((content) => {
-      pushCandidateForContent(content.name, candidate);
+  const fallbackCatalog = (() => {
+    const catalog = [];
+    const seen = new Set();
+    const push = (name = "", media = "") => {
+      const normalizedName = (name || "").toString().trim();
+      const normalizedMedia = (media || "").toString().trim().toLowerCase();
+      if (!normalizedName || (normalizedMedia !== "audio" && normalizedMedia !== "video")) return;
+      if (seen.has(normalizedName)) return;
+      seen.add(normalizedName);
+      catalog.push({ name: normalizedName, media: normalizedMedia });
+    };
+    if (Array.isArray(session?.remoteContents)) {
+      session.remoteContents.forEach((entry, index) => {
+        const media = (entry?.media || "").toString().trim().toLowerCase();
+        if (media !== "audio" && media !== "video") return;
+        push((entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`, media);
+      });
+    }
+    if (pcEntry?.pc?.localDescription?.sdp) {
+      xmppBuildJingleContentsFromSdp(pcEntry.pc.localDescription.sdp, { localRole: fallbackLocalRole }).forEach((entry, index) => {
+        const media = (entry?.media || "").toString().trim().toLowerCase();
+        if (media !== "audio" && media !== "video") return;
+        push((entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`, media);
+      });
+    }
+    xmppCallSessionMediaList(session).forEach((mediaType, index) => {
+      push(mediaType, mediaType);
+      push(`${mediaType}${index}`, mediaType);
+    });
+    if (catalog.length === 0) catalog.push({ name: "audio", media: "audio" });
+    return catalog;
+  })();
+  const fallbackCandidatesByContentName = new Map();
+  fallbackNormalizedCandidates.forEach((candidate) => {
+    const targets = fallbackCatalog.filter((content) => content.name === candidate.contentName);
+    const resolvedTargets = targets.length > 0 ? targets : fallbackCatalog;
+    resolvedTargets.forEach((content) => {
+      const list = fallbackCandidatesByContentName.get(content.name) || [];
+      list.push(candidate);
+      fallbackCandidatesByContentName.set(content.name, list);
     });
   });
+  const localSdpContents = pcEntry?.pc?.localDescription?.sdp
+    ? xmppBuildJingleContentsFromSdp(pcEntry.pc.localDescription.sdp, {
+      localRole: typeof xep0320.xmppNormalizeTransportInfoLocalRole === "function"
+        ? xep0320.xmppNormalizeTransportInfoLocalRole(session)
+        : fallbackLocalRole
+    })
+    : [];
+  const plan = typeof xep0320.xmppBuildTransportInfoPlan === "function"
+    ? xep0320.xmppBuildTransportInfoPlan({
+      session,
+      transport,
+      candidates,
+      sessionRemoteContents: Array.isArray(session?.remoteContents) ? session.remoteContents : [],
+      localSdpContents,
+      sessionMedia: xmppCallSessionMediaList(session)
+    }, {
+      buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
+    })
+    : {
+      localRole: fallbackLocalRole,
+      transportCreds: fallbackTransport,
+      normalizedCandidates: fallbackNormalizedCandidates,
+      contentTargets: fallbackCatalog,
+      candidatesByContentName: fallbackCandidatesByContentName
+    };
   const iq = globalThis.$iq({ type: "set", to })
     .c("jingle", {
       xmlns: XMPP_JINGLE_NAMESPACE,
       action: "transport-info",
       sid
     });
-  contentTargets.forEach((content) => {
-    const contentCandidates = candidatesByContentName.get(content.name) || [];
-    iq
-      .c("content", { creator: localRole, name: content.name })
-      .c("transport", {
-        xmlns: XMPP_JINGLE_ICE_UDP_NAMESPACE,
-        ufrag: normalizedTransport.ufrag || fallbackCreds?.ufrag || "",
-        pwd: normalizedTransport.pwd || fallbackCreds?.pwd || ""
-      });
-    contentCandidates.forEach((candidate, index) => {
-      iq.c("candidate", {
-        foundation: (candidate.foundation || `${index + 1}`).toString().slice(0, 24),
-        component: String(Number(candidate.component) || 1),
-        protocol: ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp").slice(0, 8),
-        priority: String(Number(candidate.priority) || (2130706431 - index)),
-        ip: (candidate.ip || "0.0.0.0").toString().slice(0, 64),
-        port: String(Number(candidate.port) || 9),
-        type: ((candidate.type || "host").toString().trim().toLowerCase() || "host").slice(0, 16)
-      }).up();
+  if (typeof xep0320.xmppAppendJingleTransportInfoContents === "function") {
+    xep0320.xmppAppendJingleTransportInfoContents(iq, {
+      localRole: plan.localRole,
+      contentTargets: plan.contentTargets,
+      candidatesByContentName: plan.candidatesByContentName,
+      transportCreds: plan.transportCreds
+    }, {
+      iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE
     });
-    iq.up().up();
-  });
+  } else {
+    plan.contentTargets.forEach((content) => {
+      const contentCandidates = plan.candidatesByContentName.get(content.name) || [];
+      iq
+        .c("content", { creator: plan.localRole, name: content.name })
+        .c("transport", {
+          xmlns: XMPP_JINGLE_ICE_UDP_NAMESPACE,
+          ufrag: plan.transportCreds?.ufrag || "",
+          pwd: plan.transportCreds?.pwd || ""
+        });
+      contentCandidates.forEach((candidate, index) => {
+        iq.c("candidate", {
+          foundation: (candidate.foundation || `${index + 1}`).toString().slice(0, 24),
+          component: String(Number(candidate.component) || 1),
+          protocol: ((candidate.protocol || "udp").toString().trim().toLowerCase() || "udp").slice(0, 8),
+          priority: String(Number(candidate.priority) || (2130706431 - index)),
+          ip: (candidate.ip || "0.0.0.0").toString().slice(0, 64),
+          port: String(Number(candidate.port) || 9),
+          type: ((candidate.type || "host").toString().trim().toLowerCase() || "host").slice(0, 16)
+        }).up();
+      });
+      iq.up().up();
+    });
+  }
   iq.up();
   xmppConnection.sendIQ(
     iq,
@@ -10323,7 +10343,7 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
       addXmppDebugEvent("iq", "Sent XMPP jingle transport-info", {
         to,
         sid,
-        candidateCount: normalizedCandidates.length
+        candidateCount: plan.normalizedCandidates.length
       });
       if (typeof onSuccess === "function") onSuccess();
     },
@@ -10337,8 +10357,8 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
             to: retryTo
           });
           const retried = xmppSendJingleTransportInfo(retryTo, sid, {
-            transport: normalizedTransport,
-            candidates: normalizedCandidates,
+            transport: plan.transportCreds,
+            candidates: plan.normalizedCandidates,
             onSuccess,
             onError,
             retryOnRetarget: false
@@ -10349,7 +10369,7 @@ function xmppSendJingleTransportInfo(peerJid, sessionId, {
       addXmppDebugEvent("error", "XMPP jingle transport-info failed", {
         to,
         sid,
-        candidateCount: normalizedCandidates.length,
+        candidateCount: plan.normalizedCandidates.length,
         error: trimXmppRaw(xmppSerializePayload(errorStanza))
       });
       if (typeof onError === "function") onError(errorStanza);
