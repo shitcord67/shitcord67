@@ -782,6 +782,12 @@ const sanitizeChannelNameViaModule = typeof NAME_NORMALIZERS_GLOBAL.sanitizeChan
 const sanitizeForumTagNameViaModule = typeof NAME_NORMALIZERS_GLOBAL.sanitizeForumTagName === "function"
   ? NAME_NORMALIZERS_GLOBAL.sanitizeForumTagName
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizeSlowmodeSecondsViaModule = typeof NAME_NORMALIZERS_GLOBAL.normalizeSlowmodeSeconds === "function"
+  ? NAME_NORMALIZERS_GLOBAL.normalizeSlowmodeSeconds
+  : ((value) => {
+    const next = Math.round(Number(value) || 0);
+    return Math.max(0, Math.min(3600, next));
+  });
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -4649,8 +4655,7 @@ function ensureChannelSlowmodeState(channel) {
 }
 
 function normalizeSlowmodeSeconds(value) {
-  const next = Math.round(Number(value) || 0);
-  return Math.max(0, Math.min(3600, next));
+  return normalizeSlowmodeSecondsViaModule(value);
 }
 
 function getChannelSlowmodeSeconds(channel) {

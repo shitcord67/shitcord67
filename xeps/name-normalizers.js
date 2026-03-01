@@ -22,8 +22,14 @@
       .slice(0, 24);
   }
 
+  function normalizeSlowmodeSeconds(value) {
+    const next = Math.round(Number(value) || 0);
+    return Math.max(0, Math.min(3600, next));
+  }
+
   globalScope.SHITCORD67_NAME_NORMALIZERS = Object.freeze({
     sanitizeChannelName,
-    sanitizeForumTagName
+    sanitizeForumTagName,
+    normalizeSlowmodeSeconds
   });
 })(typeof window !== "undefined" ? window : globalThis);
