@@ -46,10 +46,30 @@
     return stanza;
   }
 
+  function normalizeXmppProcessingHints(value) {
+    if (!value || typeof value !== "object") return null;
+    const normalized = {
+      store: Boolean(value.store),
+      noStore: Boolean(value.noStore),
+      noPermanentStore: Boolean(value.noPermanentStore),
+      noCopy: Boolean(value.noCopy),
+      noPermanentCopy: Boolean(value.noPermanentCopy),
+      hasHints: Boolean(value.hasHints)
+    };
+    normalized.hasHints = normalized.hasHints
+      || normalized.store
+      || normalized.noStore
+      || normalized.noPermanentStore
+      || normalized.noCopy
+      || normalized.noPermanentCopy;
+    return normalized.hasHints ? normalized : null;
+  }
+
   globalScope.SHITCORD67_XEP_0334_HINTS = Object.freeze({
     XMPP_HINTS_NAMESPACE,
     appendXmppMessageProcessingHints,
-    xmppProcessingHintsFromStanza
+    xmppProcessingHintsFromStanza,
+    normalizeXmppProcessingHints
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0334_processing-hints", globalScope.SHITCORD67_XEP_0334_HINTS);

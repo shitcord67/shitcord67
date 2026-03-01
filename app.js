@@ -224,6 +224,9 @@ const xmppProcessingHintsFromStanza = typeof XEP_0334_HINTS_GLOBAL.xmppProcessin
     noPermanentCopy: false,
     hasHints: false
   }));
+const normalizeXmppProcessingHintsViaXep = typeof XEP_0334_HINTS_GLOBAL.normalizeXmppProcessingHints === "function"
+  ? XEP_0334_HINTS_GLOBAL.normalizeXmppProcessingHints
+  : (() => null);
 const xmppReceiptRequestNode = typeof XEP_0184_0333_GLOBAL.xmppReceiptRequestNode === "function"
   ? XEP_0184_0333_GLOBAL.xmppReceiptRequestNode
   : (() => null);
@@ -12102,22 +12105,7 @@ function messageMatchesXmppReference(message, referenceId) {
 }
 
 function normalizeXmppProcessingHints(value) {
-  if (!value || typeof value !== "object") return null;
-  const normalized = {
-    store: Boolean(value.store),
-    noStore: Boolean(value.noStore),
-    noPermanentStore: Boolean(value.noPermanentStore),
-    noCopy: Boolean(value.noCopy),
-    noPermanentCopy: Boolean(value.noPermanentCopy),
-    hasHints: Boolean(value.hasHints)
-  };
-  normalized.hasHints = normalized.hasHints
-    || normalized.store
-    || normalized.noStore
-    || normalized.noPermanentStore
-    || normalized.noCopy
-    || normalized.noPermanentCopy;
-  return normalized.hasHints ? normalized : null;
+  return normalizeXmppProcessingHintsViaXep(value);
 }
 
 function applyXmppCorrectionToMessageEntry(target, {
