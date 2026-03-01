@@ -85,6 +85,21 @@
     }, {});
   }
 
+  function normalizeForumThreadReadStateMap(value) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [channelId, threadMap]) => {
+      if (!channelId || !threadMap || typeof threadMap !== "object") return acc;
+      const normalizedThreadMap = Object.entries(threadMap).reduce((threadAcc, [threadId, ts]) => {
+        if (!threadId) return threadAcc;
+        const nextTs = typeof ts === "string" ? ts : "";
+        threadAcc[threadId] = nextTs;
+        return threadAcc;
+      }, {});
+      if (Object.keys(normalizedThreadMap).length > 0) acc[channelId] = normalizedThreadMap;
+      return acc;
+    }, {});
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -99,6 +114,7 @@
     normalizeDmHomeRequestsFilter,
     normalizeGuildNotificationMode,
     normalizeGuildNotificationsMap,
-    normalizeForumCollapsedThreadsMap
+    normalizeForumCollapsedThreadsMap,
+    normalizeForumThreadReadStateMap
   });
 })(typeof window !== "undefined" ? window : globalThis);

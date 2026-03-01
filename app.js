@@ -519,6 +519,9 @@ const normalizeGuildNotificationsMapViaModule = typeof UI_STATE_NORMALIZERS_GLOB
 const normalizeForumCollapsedThreadsMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumCollapsedThreadsMap === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumCollapsedThreadsMap
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeForumThreadReadStateMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadReadStateMap === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadReadStateMap
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11223,18 +11226,7 @@ function normalizeForumCollapsedThreadsMap(value) {
 }
 
 function normalizeForumThreadReadStateMap(value) {
-  if (!value || typeof value !== "object") return {};
-  return Object.entries(value).reduce((acc, [channelId, threadMap]) => {
-    if (!channelId || !threadMap || typeof threadMap !== "object") return acc;
-    const normalizedThreadMap = Object.entries(threadMap).reduce((threadAcc, [threadId, ts]) => {
-      if (!threadId) return threadAcc;
-      const nextTs = typeof ts === "string" ? ts : "";
-      threadAcc[threadId] = nextTs;
-      return threadAcc;
-    }, {});
-    if (Object.keys(normalizedThreadMap).length > 0) acc[channelId] = normalizedThreadMap;
-    return acc;
-  }, {});
+  return normalizeForumThreadReadStateMapViaModule(value);
 }
 
 function normalizeForumThreadSortMap(value) {
