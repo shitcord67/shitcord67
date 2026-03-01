@@ -400,6 +400,9 @@ const normalizeConferenceProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBA
 const normalizeConferenceRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomPrefix === "function"
   ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomPrefix
   : ((value) => (value || "").toString().trim().toLowerCase());
+const normalizeConferenceRoomTokenViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomToken === "function"
+  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomToken
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11238,8 +11241,7 @@ function normalizeConferenceRoomPrefix(value) {
 }
 
 function normalizeConferenceRoomToken(value) {
-  const token = (value || "").toString().trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
-  return token.slice(0, 64);
+  return normalizeConferenceRoomTokenViaModule(value);
 }
 
 function normalizeWhiteboardProviderUrl(value) {
