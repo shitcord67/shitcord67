@@ -289,6 +289,72 @@
     return mediaMismatch || !hasRtpFb || !hasHdrExt || !hasSsma;
   }
 
+  async function xmppAssessConversationCallInterop(conversation = null, { force = false } = {}, deps = {}) {
+    const targets = typeof deps.xmppCallCapabilityTargetsForConversationFn === "function"
+      ? deps.xmppCallCapabilityTargetsForConversationFn(conversation)
+      : xmppCallCapabilityTargetsForConversation(conversation, deps);
+    if (!conversation || !Array.isArray(targets) || targets.length === 0) {
+      return {
+        ready: false,
+        targets: [],
+        chosenTarget: "",
+        details: [],
+        reason: "no-target"
+      };
+    }
+    const details = [];
+    let successCount = 0;
+    let fetchErrorCount = 0;
+    for (const target of targets) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const info = typeof deps.xmppFetchDiscoInfoCachedFn === "function"
+          ? await deps.xmppFetchDiscoInfoCachedFn(target, { force })
+          : await xmppFetchDiscoInfoCached(target, { force }, deps);
+        successCount += 1;
+        const evalResult = typeof deps.xmppEvaluateCallFeaturesFn === "function"
+          ? deps.xmppEvaluateCallFeaturesFn(info?.features || new Set())
+          : xmppEvaluateCallFeatures(info?.features || new Set(), deps);
+        const featureSet = normalizeXmppFeatureSet(info?.features || new Set());
+        const featureList = [...featureSet];
+        details.push({
+          target,
+          ok: evalResult.ready,
+          evalResult,
+          featureList
+        });
+        if (evalResult.ready) {
+          return {
+            ready: true,
+            targets,
+            chosenTarget: target,
+            details,
+            reason: "ok"
+          };
+        }
+      } catch (error) {
+        fetchErrorCount += 1;
+        details.push({
+          target,
+          ok: false,
+          evalResult: { hasCore: false, hasMedia: false, hasTransport: false, hasInvite: false, ready: false },
+          featureList: [],
+          error: String(error?.message || error || "unknown")
+        });
+      }
+    }
+    const reason = successCount <= 0 && fetchErrorCount > 0
+      ? "discovery-failed"
+      : "missing-features";
+    return {
+      ready: false,
+      targets,
+      chosenTarget: "",
+      details,
+      reason
+    };
+  }
+
   function xmppIqResultAttrsForIncomingStanza(stanza) {
     if (!stanza || typeof stanza.getAttribute !== "function") return null;
     const id = (stanza.getAttribute("id") || "").toString().trim();
@@ -464,6 +530,7 @@
     xmppCachedCallFeaturesForPeer,
     xmppNegotiatedCallMediaForPeer,
     xmppShouldUseMinimalRtpForPeer,
+    xmppAssessConversationCallInterop,
     xmppIqResultAttrsForIncomingStanza,
     xmppSendIqResultForIncomingSet,
     xmppDiscoInfoQueryNode,

@@ -17526,55 +17526,14 @@ function xmppShouldUseMinimalRtpForPeer(peerJid = "", media = ["audio", "video"]
 }
 
 async function xmppAssessConversationCallInterop(conversation = getActiveConversation(), { force = false } = {}) {
-  const targets = xmppCallCapabilityTargetsForConversation(conversation);
-  if (!conversation || targets.length === 0) {
-    return {
-      ready: false,
-      targets: [],
-      chosenTarget: "",
-      details: [],
-      reason: "no-target"
-    };
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppAssessConversationCallInterop !== "function") {
+    return { ready: false, targets: [], chosenTarget: "", details: [], reason: "no-target" };
   }
-  const details = [];
-  for (const target of targets) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      const info = await xmppFetchDiscoInfoCached(target, { force });
-      const evalResult = xmppEvaluateCallFeatures(info?.features || new Set());
-      const featureList = [...(info?.features || [])];
-      details.push({
-        target,
-        ok: evalResult.ready,
-        evalResult,
-        featureList
-      });
-      if (evalResult.ready) {
-        return {
-          ready: true,
-          targets,
-          chosenTarget: target,
-          details,
-          reason: "ok"
-        };
-      }
-    } catch (error) {
-      details.push({
-        target,
-        ok: false,
-        evalResult: { hasCore: false, hasMedia: false, hasTransport: false, hasInvite: false, ready: false },
-        featureList: [],
-        error: String(error?.message || error || "unknown")
-      });
-    }
-  }
-  return {
-    ready: false,
-    targets,
-    chosenTarget: "",
-    details,
-    reason: "missing-features"
-  };
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppAssessConversationCallInterop(conversation, { force }, {
+    xmppCallCapabilityTargetsForConversationFn: xmppCallCapabilityTargetsForConversation,
+    xmppFetchDiscoInfoCachedFn: xmppFetchDiscoInfoCached,
+    xmppEvaluateCallFeaturesFn: xmppEvaluateCallFeatures
+  });
 }
 
 async function discoverXmppMucRooms({
