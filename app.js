@@ -411,6 +411,11 @@ const normalizeWhiteboardRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL
     normalizeConferenceRoomTokenFn: normalizeConferenceRoomToken
   }))
   : ((value) => (value || "").toString().trim().toLowerCase());
+const relayHealthUrlFromRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.relayHealthUrlFromRelayUrl === "function"
+  ? ((value) => CALL_ROOM_URL_UTILS_GLOBAL.relayHealthUrlFromRelayUrl(value, {
+    normalizeRelayUrlFn: normalizeRelayUrl
+  }))
+  : (() => "");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11261,18 +11266,7 @@ function normalizeWhiteboardRoomPrefix(value) {
 }
 
 function relayHealthUrlFromRelayUrl(value) {
-  const base = normalizeRelayUrl(value)
-    .replace(/^ws:/i, "http:")
-    .replace(/^wss:/i, "https:");
-  try {
-    const url = new URL(base);
-    url.pathname = "/health";
-    url.search = "";
-    url.hash = "";
-    return url.toString();
-  } catch {
-    return "";
-  }
+  return relayHealthUrlFromRelayUrlViaModule(value);
 }
 
 function normalizeTenorApiKey(value) {

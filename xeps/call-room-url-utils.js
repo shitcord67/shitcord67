@@ -46,11 +46,29 @@
     return token || "shitcord67-wb";
   }
 
+  function relayHealthUrlFromRelayUrl(value, {
+    normalizeRelayUrlFn = (raw) => (raw || "").toString().trim()
+  } = {}) {
+    const base = normalizeRelayUrlFn(value)
+      .replace(/^ws:/i, "http:")
+      .replace(/^wss:/i, "https:");
+    try {
+      const url = new URL(base);
+      url.pathname = "/health";
+      url.search = "";
+      url.hash = "";
+      return url.toString();
+    } catch {
+      return "";
+    }
+  }
+
   globalScope.SHITCORD67_CALL_ROOM_URL_UTILS = Object.freeze({
     normalizeConferenceProviderUrl,
     normalizeConferenceRoomPrefix,
     normalizeConferenceRoomToken,
     normalizeWhiteboardProviderUrl,
-    normalizeWhiteboardRoomPrefix
+    normalizeWhiteboardRoomPrefix,
+    relayHealthUrlFromRelayUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);
