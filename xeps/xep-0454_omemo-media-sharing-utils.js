@@ -66,6 +66,35 @@
       .trim();
   }
 
+  async function encryptBlobForAesgcm(blob) {
+    if (!(blob instanceof Blob)) throw new Error("Missing blob payload");
+    if (!globalThis.crypto?.subtle) throw new Error("WebCrypto unavailable");
+    const keyBytes = crypto.getRandomValues(new Uint8Array(32));
+    const ivBytes = crypto.getRandomValues(new Uint8Array(12));
+    const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt"]);
+    const plainBuffer = await blob.arrayBuffer();
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
+      key,
+      plainBuffer
+    );
+    return {
+      encryptedBlob: new Blob([encryptedBuffer], { type: "application/octet-stream" }),
+      keyBytes,
+      ivBytes
+    };
+  }
+
+  async function decryptAesgcmBuffer(cipherBuffer, keyBytes, ivBytes) {
+    if (!globalThis.crypto?.subtle) throw new Error("WebCrypto unavailable");
+    const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
+    return crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
+      key,
+      cipherBuffer
+    );
+  }
+
   globalScope.SHITCORD67_XEP_0454_UTILS = Object.freeze({
     bytesToHex,
     hexToBytes,
@@ -73,6 +102,8 @@
     buildAesgcmUrl,
     parseAesgcmUrl,
     extractAesgcmUrls,
-    stripAesgcmUrls
+    stripAesgcmUrls,
+    encryptBlobForAesgcm,
+    decryptAesgcmBuffer
   });
 })(typeof window !== "undefined" ? window : globalThis);

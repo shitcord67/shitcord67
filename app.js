@@ -457,6 +457,31 @@ const stripAesgcmUrls = XEP_0454_UTILS_GLOBAL.stripAesgcmUrls || function stripA
     .join("\n")
     .trim();
 };
+const encryptBlobForAesgcm = XEP_0454_UTILS_GLOBAL.encryptBlobForAesgcm || async function encryptBlobForAesgcmFallback(blob) {
+  if (!(blob instanceof Blob)) throw new Error("Missing blob payload");
+  const keyBytes = crypto.getRandomValues(new Uint8Array(32));
+  const ivBytes = crypto.getRandomValues(new Uint8Array(12));
+  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt"]);
+  const plainBuffer = await blob.arrayBuffer();
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
+    key,
+    plainBuffer
+  );
+  return {
+    encryptedBlob: new Blob([encryptedBuffer], { type: "application/octet-stream" }),
+    keyBytes,
+    ivBytes
+  };
+};
+const decryptAesgcmBuffer = XEP_0454_UTILS_GLOBAL.decryptAesgcmBuffer || async function decryptAesgcmBufferFallback(cipherBuffer, keyBytes, ivBytes) {
+  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"]);
+  return crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
+    key,
+    cipherBuffer
+  );
+};
 const XEP_0384_OMEMO_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO || {};
 const xmppOmemoNamespaceNodeSet = XEP_0384_OMEMO_GLOBAL.xmppOmemoNamespaceNodeSet || function xmppOmemoNamespaceNodeSetFallback(namespace = XMPP_OMEMO_NAMESPACE) {
   const ns = (namespace || "").toString().trim().toLowerCase();
@@ -19528,21 +19553,7 @@ async function xmppHttpUploadPutFile(slot, payload) {
 }
 
 async function encryptAttachmentForOmemo(payload) {
-  const keyBytes = crypto.getRandomValues(new Uint8Array(32));
-  const ivBytes = crypto.getRandomValues(new Uint8Array(12));
-  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt"]);
-  const plainBuffer = await payload.blob.arrayBuffer();
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: ivBytes, tagLength: 128 },
-    key,
-    plainBuffer
-  );
-  const encryptedBlob = new Blob([encryptedBuffer], { type: "application/octet-stream" });
-  return {
-    encryptedBlob,
-    keyBytes,
-    ivBytes
-  };
+  return encryptBlobForAesgcm(payload?.blob);
 }
 
 async function xmppOmemoEncryptAndUploadAttachments(message, { conversationId = "" } = {}) {
@@ -29553,12 +29564,7 @@ async function downloadAttachmentFile(attachment, fallbackExt = "bin") {
       const response = await fetch(parsed.httpsUrl, { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const cipherBuffer = await response.arrayBuffer();
-      const key = await crypto.subtle.importKey("raw", parsed.key, "AES-GCM", false, ["decrypt"]);
-      const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: parsed.iv, tagLength: 128 },
-        key,
-        cipherBuffer
-      );
+      const decrypted = await decryptAesgcmBuffer(cipherBuffer, parsed.key, parsed.iv);
       const blob = new Blob([decrypted], { type: "application/octet-stream" });
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
