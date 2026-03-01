@@ -21,7 +21,32 @@
     poolByBare.set(bare, pool);
   }
 
+  function xmppForgetPeerFullJid(jid = "", {
+    normalizeXmppJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    poolByBare = null
+  } = {}) {
+    if (!(poolByBare instanceof Map)) return;
+    const normalized = normalizeXmppJidFn(jid).toLowerCase();
+    if (!normalized) return;
+    if (!normalized.includes("/")) {
+      poolByBare.delete(xmppBareJidFn(normalized));
+      return;
+    }
+    const bare = xmppBareJidFn(normalized);
+    if (!bare) return;
+    const pool = poolByBare.get(bare);
+    if (!(pool instanceof Map)) return;
+    pool.delete(normalized);
+    if (pool.size <= 0) {
+      poolByBare.delete(bare);
+      return;
+    }
+    poolByBare.set(bare, pool);
+  }
+
   globalScope.SHITCORD67_XMPP_CALL_TARGET_UTILS = Object.freeze({
-    xmppRememberPeerFullJid
+    xmppRememberPeerFullJid,
+    xmppForgetPeerFullJid
   });
 })(typeof window !== "undefined" ? window : globalThis);

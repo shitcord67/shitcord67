@@ -527,6 +527,13 @@ const xmppRememberPeerFullJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xm
     poolByBare: xmppAvailableFullJidsByBare
   }))
   : (() => {});
+const xmppForgetPeerFullJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppForgetPeerFullJid === "function"
+  ? ((jid = "") => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppForgetPeerFullJid(jid, {
+    normalizeXmppJidFn: normalizeXmppJid,
+    xmppBareJidFn: xmppBareJid,
+    poolByBare: xmppAvailableFullJidsByBare
+  }))
+  : (() => {});
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11016,22 +11023,7 @@ function xmppRememberPeerFullJid(jid = "", { seenAt = Date.now() } = {}) {
 }
 
 function xmppForgetPeerFullJid(jid = "") {
-  const normalized = normalizeXmppJid(jid).toLowerCase();
-  if (!normalized) return;
-  if (!normalized.includes("/")) {
-    xmppAvailableFullJidsByBare.delete(xmppBareJid(normalized));
-    return;
-  }
-  const bare = xmppBareJid(normalized);
-  if (!bare) return;
-  const pool = xmppAvailableFullJidsByBare.get(bare);
-  if (!(pool instanceof Map)) return;
-  pool.delete(normalized);
-  if (pool.size <= 0) {
-    xmppAvailableFullJidsByBare.delete(bare);
-    return;
-  }
-  xmppAvailableFullJidsByBare.set(bare, pool);
+  xmppForgetPeerFullJidViaModule(jid);
 }
 
 function xmppMostRecentPeerFullJid(jid = "") {
