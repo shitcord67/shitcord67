@@ -61,9 +61,26 @@
     return [...pool.entries()].sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))[0]?.[0] || "";
   }
 
+  function xmppNormalizeCallTargetJid(peerJid, {
+    preferFull = false,
+    xmppMostRecentPeerFullJidFn = (value) => (value || "").toString().trim(),
+    xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase()
+  } = {}) {
+    const raw = (peerJid || "").toString().trim();
+    if (!raw) return "";
+    if (preferFull) {
+      if (raw.includes("/")) return raw;
+      const recent = xmppMostRecentPeerFullJidFn(raw);
+      if (recent) return recent;
+    }
+    const bare = xmppBareJidFn(raw);
+    return bare || raw;
+  }
+
   globalScope.SHITCORD67_XMPP_CALL_TARGET_UTILS = Object.freeze({
     xmppRememberPeerFullJid,
     xmppForgetPeerFullJid,
-    xmppMostRecentPeerFullJid
+    xmppMostRecentPeerFullJid,
+    xmppNormalizeCallTargetJid
   });
 })(typeof window !== "undefined" ? window : globalThis);

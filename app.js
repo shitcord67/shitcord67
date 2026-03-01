@@ -541,6 +541,13 @@ const xmppMostRecentPeerFullJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.
     poolByBare: xmppAvailableFullJidsByBare
   }))
   : (() => "");
+const xmppNormalizeCallTargetJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppNormalizeCallTargetJid === "function"
+  ? ((peerJid, options = {}) => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppNormalizeCallTargetJid(peerJid, {
+    ...options,
+    xmppMostRecentPeerFullJidFn: xmppMostRecentPeerFullJid,
+    xmppBareJidFn: xmppBareJid
+  }))
+  : (() => "");
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11038,15 +11045,7 @@ function xmppMostRecentPeerFullJid(jid = "") {
 }
 
 function xmppNormalizeCallTargetJid(peerJid, { preferFull = false } = {}) {
-  const raw = (peerJid || "").toString().trim();
-  if (!raw) return "";
-  if (preferFull) {
-    if (raw.includes("/")) return raw;
-    const recent = xmppMostRecentPeerFullJid(raw);
-    if (recent) return recent;
-  }
-  const bare = xmppBareJid(raw);
-  return bare || raw;
+  return xmppNormalizeCallTargetJidViaModule(peerJid, { preferFull });
 }
 
 function xmppCallIqSessionNotFoundError(errorStanza = null) {
