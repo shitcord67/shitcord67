@@ -43,7 +43,7 @@ Status labels:
 | XEP-0402 | PEP Native Bookmarks | Implemented | Reads/publishes bookmarks via PubSub, mirrors legacy storage, and applies pubsub updates for XMPP Spaces. |
 | XEP-0410 | MUC Self-Ping | Partial | Joined MUC rooms now run periodic self-pings and trigger controlled rejoin attempts after repeated ping failures to improve room session continuity. |
 | XEP-0421 | Anonymous unique occupant identifiers for MUCs | Partial | Parses `urn:xmpp:occupant-id:0` in MUC message/presence stanzas and uses it to stabilize occupant/reaction actor mapping even when nicks change or real JIDs are hidden. |
-| XEP-0461 | Message Replies | Partial | Parses incoming reply metadata and now also publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |
+| XEP-0461 | Message Replies | Partial | Parses incoming reply metadata (including namespace-prefix tolerant fallback/reply parsing) and publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |
 | XEP-0428 | Fallback Indication | Partial | Consumes fallback ranges to clean reply fallback text for `XEP-0461` messages. |
 | XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`). |
 | XEP-0048 | Bookmarks (legacy) | Partial | Legacy bookmark storage fallback is supported. |
