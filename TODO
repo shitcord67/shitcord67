@@ -368,6 +368,36 @@ https://discord.js.org/docs/packages/discord.js/main
 - [done] User can show a guild tag next to their name which opens up a small pop-up with a info profile of that guild
 - Implement some quests which give virtual currency or small icons on the profile. Maybe also some useful ones like "create an issue on the shirtcord67 repo" (with auto-validation)?
 - [done] Seasonal cosmetics rotation and limited-time bundles (shop featured row + countdown).
+- [done] Added shared roster/bookmark helper module `xeps/xep-0045_0402-roster-bookmarks.js`.
+- [done] Moved XMPP roster item parsing into `xep-0045_0402` helper module.
+- [done] Moved XMPP bookmark stanza parsing into `xep-0045_0402` helper module.
+- [done] Moved bookmark merge/dedupe logic into `xep-0045_0402` helper module.
+- [done] Moved room-token -> node-name mapping helper into `xep-0045_0402`.
+- [done] Moved MUC-JID heuristics helper into `xep-0045_0402`.
+- [done] Moved MUC room-JID detection helper into `xep-0045_0402`.
+- [done] Moved room-token -> full MUC JID resolver into `xep-0045_0402`.
+- [done] Moved XMPP stanza-error detail extraction helper into `xep-0045_0402`.
+- [done] Moved MUC join error-hint mapping helper into `xep-0045_0402`.
+- [done] Added shared message-reference helper module `xeps/xep-0359_0424-message-ref-utils.js`.
+- [done] Moved XMPP reference-id normalization helper into `xep-0359_0424`.
+- [done] Moved message-to-reference matching helper into `xep-0359_0424`.
+- [done] Moved XMPP reference overlap detection helper into `xep-0359_0424`.
+- [done] Moved local sent-reference trimming helper into `xep-0359_0424`.
+- [done] Moved local sent-reference remember helper into `xep-0359_0424`.
+- [done] Moved local sent-reference lookup/TTL helper into `xep-0359_0424`.
+- [done] Extended `xep-0482_call-invite-parse` with call invite URL normalization helper.
+- [done] Extended `xep-0482_call-invite-parse` with trailing punctuation stripper helper.
+- [done] Extended `xep-0482_call-invite-parse` with conference URL heuristics helper.
+- [done] Extended `xep-0482_call-invite-parse` with text-to-call-invite extraction helper.
+- [done] `app.js` now delegates `normalizeCallInviteUrl` to the `xep-0482` helper path.
+- [done] `app.js` now delegates `stripTrailingUrlPunctuation` to the `xep-0482` helper path.
+- [done] `app.js` now delegates `looksLikeConferenceCallUrl` to the `xep-0482` helper path.
+- [done] `app.js` now delegates `parseCallInviteFromText` to the `xep-0482` helper path.
+- [done] `app.js` now delegates room-token and room-JID helpers to `xep-0045_0402`.
+- [done] `app.js` now delegates stanza-error + MUC join hint parsing to `xep-0045_0402`.
+- [done] `app.js` now delegates roster/bookmark parse + merge helpers to `xep-0045_0402`.
+- [done] `app.js` now delegates XMPP message-reference helpers to `xep-0359_0424`.
+- [done] Registered new XEP helper scripts in `index.html` before `app.js` boot.
 - Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
 - Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.

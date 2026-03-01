@@ -89,8 +89,84 @@
     return null;
   }
 
+  function normalizeCallInviteUrl(rawUrl = "", {
+    resolveMediaUrlFn = (value) => (value || "").toString().trim()
+  } = {}) {
+    const cleaned = resolveMediaUrlFn((rawUrl || "").toString().trim());
+    if (!/^https?:\/\//i.test(cleaned)) return "";
+    return cleaned;
+  }
+
+  function stripTrailingUrlPunctuation(value = "") {
+    return (value || "").toString().replace(/[)\].,!?]+$/g, "");
+  }
+
+  function looksLikeConferenceCallUrl(rawUrl = "", {
+    normalizeCallInviteUrlFn = normalizeCallInviteUrl
+  } = {}) {
+    const candidateUrl = normalizeCallInviteUrlFn(rawUrl);
+    if (!candidateUrl) return false;
+    try {
+      const parsed = new URL(candidateUrl);
+      const host = (parsed.host || "").toString().trim().toLowerCase();
+      const pathBits = `${parsed.pathname || ""} ${parsed.search || ""} ${parsed.hash || ""}`.toLowerCase();
+      if (/(^|[.-])(jitsi|meet|visio|call|calls|conference|webrtc|videochat)([.-]|$)/.test(host)) return true;
+      if (/(\/|^)(j|call|calls|meet|room|rooms|conference|conf|video|join)(\/|$|[?#])/i.test(pathBits)) return true;
+      if (pathBits.includes("startscreensharing=true")) return true;
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
+  function parseCallInviteFromText(text = "", {
+    normalizeCallInviteUrlFn = normalizeCallInviteUrl,
+    stripTrailingUrlPunctuationFn = stripTrailingUrlPunctuation,
+    looksLikeConferenceCallUrlFn = looksLikeConferenceCallUrl,
+    normalizeConferenceProviderUrlFn = (value) => (value || "").toString().trim(),
+    callProviderUrl = ""
+  } = {}) {
+    const raw = (text || "").toString().trim();
+    if (!raw) return null;
+    const urlMatch = raw.match(/https?:\/\/\S+/i);
+    if (!urlMatch) return null;
+    const candidateUrl = normalizeCallInviteUrlFn(stripTrailingUrlPunctuationFn(urlMatch[0]));
+    if (!candidateUrl) return null;
+    const lower = raw.toLowerCase();
+    const hasCallHint = lower.includes("call") || raw.includes("\ud83d\udcde") || raw.includes("\ud83d\udda5\ufe0f");
+    let baseHost = "";
+    let urlHost = "";
+    try {
+      baseHost = new URL(normalizeConferenceProviderUrlFn(callProviderUrl)).host;
+    } catch {
+      baseHost = "";
+    }
+    try {
+      urlHost = new URL(candidateUrl).host;
+    } catch {
+      urlHost = "";
+    }
+    const providerMatches = Boolean(baseHost && urlHost && baseHost === urlHost);
+    const conferenceLikeUrl = looksLikeConferenceCallUrlFn(candidateUrl);
+    const urlLower = candidateUrl.toLowerCase();
+    const screenShare = lower.includes("screen-share")
+      || lower.includes("screen share")
+      || lower.includes("screenshare")
+      || urlLower.includes("startscreensharing=true");
+    if (!hasCallHint && !providerMatches && !conferenceLikeUrl) return null;
+    return {
+      url: candidateUrl,
+      screenShare,
+      providerMatches
+    };
+  }
+
   globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE = Object.freeze({
-    parseXmppCallInviteAction
+    parseXmppCallInviteAction,
+    normalizeCallInviteUrl,
+    stripTrailingUrlPunctuation,
+    looksLikeConferenceCallUrl,
+    parseCallInviteFromText
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0482_call-invite-parse", globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
