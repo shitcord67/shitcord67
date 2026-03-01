@@ -398,6 +398,15 @@ https://discord.js.org/docs/packages/discord.js/main
 - [done] `app.js` now delegates roster/bookmark parse + merge helpers to `xep-0045_0402`.
 - [done] `app.js` now delegates XMPP message-reference helpers to `xep-0359_0424`.
 - [done] Registered new XEP helper scripts in `index.html` before `app.js` boot.
+- [done] Added generic call URL helper module `xeps/call-room-url-utils.js` and wired script loading.
+- [done] Moved conference provider/room token/prefix normalization out of `app.js` into `call-room-url-utils`.
+- [done] Moved whiteboard provider/room prefix normalization out of `app.js` into `call-room-url-utils`.
+- [done] Moved relay mode/url/room normalization out of `app.js` into `call-room-url-utils`.
+- [done] Moved relay health URL derivation out of `app.js` into `call-room-url-utils`.
+- [done] Added XMPP login normalizer module `xeps/xmpp-login-normalizers.js`.
+- [done] Moved XMPP login normalizers (`jid`, `password`, `wsUrl`, `mucService`) out of `app.js` into `xmpp-login-normalizers`.
+- [done] Added media/provider normalizer module `xeps/media-provider-normalizers.js`.
+- [done] Moved media/provider normalizers (`tenor api/client`, `media tab/privacy rules`, `profile effect`, `message char limit`) out of `app.js` into `media-provider-normalizers`.
 - Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
 - Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.
