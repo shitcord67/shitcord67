@@ -548,6 +548,12 @@ const xmppNormalizeCallTargetJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL
     xmppBareJidFn: xmppBareJid
   }))
   : (() => "");
+const xmppCallIqSessionNotFoundErrorViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppCallIqSessionNotFoundError === "function"
+  ? ((errorStanza = null) => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppCallIqSessionNotFoundError(errorStanza, {
+    trimXmppRawFn: trimXmppRaw,
+    xmppSerializePayloadFn: xmppSerializePayload
+  }))
+  : (() => false);
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11049,11 +11055,7 @@ function xmppNormalizeCallTargetJid(peerJid, { preferFull = false } = {}) {
 }
 
 function xmppCallIqSessionNotFoundError(errorStanza = null) {
-  const payload = trimXmppRaw(xmppSerializePayload(errorStanza)).toLowerCase();
-  if (!payload) return false;
-  const hasServiceUnavailable = payload.includes("service-unavailable");
-  const hasSessionMissingText = payload.includes("user session not found") || payload.includes("session not found");
-  return hasServiceUnavailable || hasSessionMissingText;
+  return xmppCallIqSessionNotFoundErrorViaModule(errorStanza);
 }
 
 function xmppResolveRetryCallTargetForSession(sessionId = "", attemptedTo = "") {

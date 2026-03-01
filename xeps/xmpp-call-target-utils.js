@@ -77,10 +77,22 @@
     return bare || raw;
   }
 
+  function xmppCallIqSessionNotFoundError(errorStanza = null, {
+    trimXmppRawFn = (value) => (value || "").toString(),
+    xmppSerializePayloadFn = () => ""
+  } = {}) {
+    const payload = trimXmppRawFn(xmppSerializePayloadFn(errorStanza)).toLowerCase();
+    if (!payload) return false;
+    const hasServiceUnavailable = payload.includes("service-unavailable");
+    const hasSessionMissingText = payload.includes("user session not found") || payload.includes("session not found");
+    return hasServiceUnavailable || hasSessionMissingText;
+  }
+
   globalScope.SHITCORD67_XMPP_CALL_TARGET_UTILS = Object.freeze({
     xmppRememberPeerFullJid,
     xmppForgetPeerFullJid,
     xmppMostRecentPeerFullJid,
-    xmppNormalizeCallTargetJid
+    xmppNormalizeCallTargetJid,
+    xmppCallIqSessionNotFoundError
   });
 })(typeof window !== "undefined" ? window : globalThis);
