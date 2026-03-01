@@ -503,6 +503,15 @@ const decryptAesgcmBuffer = XEP_0454_UTILS_GLOBAL.decryptAesgcmBuffer || async f
     cipherBuffer
   );
 };
+const downloadAndDecryptAesgcmUrl = XEP_0454_UTILS_GLOBAL.downloadAndDecryptAesgcmUrl || async function downloadAndDecryptAesgcmUrlFallback(aesgcmUrl) {
+  const parsed = parseAesgcmUrl(aesgcmUrl);
+  if (!parsed) throw new Error("Invalid aesgcm URL");
+  const response = await fetch(parsed.httpsUrl, { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const cipherBuffer = await response.arrayBuffer();
+  const decrypted = await decryptAesgcmBuffer(cipherBuffer, parsed.key, parsed.iv);
+  return new Blob([decrypted], { type: "application/octet-stream" });
+};
 const XEP_0384_OMEMO_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO || {};
 const xmppOmemoNamespaceNodeSet = XEP_0384_OMEMO_GLOBAL.xmppOmemoNamespaceNodeSet || function xmppOmemoNamespaceNodeSetFallback(namespace = XMPP_OMEMO_NAMESPACE) {
   const ns = (namespace || "").toString().trim().toLowerCase();
@@ -29572,13 +29581,7 @@ async function downloadAttachmentFile(attachment, fallbackExt = "bin") {
   const fileName = rawName.includes(".") ? rawName : `${rawName}.${fallbackExt}`;
   if (isAesgcmUrl(attachment.url)) {
     try {
-      const parsed = parseAesgcmUrl(attachment.url);
-      if (!parsed) throw new Error("Invalid aesgcm URL");
-      const response = await fetch(parsed.httpsUrl, { cache: "no-store" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const cipherBuffer = await response.arrayBuffer();
-      const decrypted = await decryptAesgcmBuffer(cipherBuffer, parsed.key, parsed.iv);
-      const blob = new Blob([decrypted], { type: "application/octet-stream" });
+      const blob = await downloadAndDecryptAesgcmUrl(attachment.url);
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;

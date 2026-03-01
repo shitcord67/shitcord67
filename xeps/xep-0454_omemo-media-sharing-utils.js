@@ -95,6 +95,16 @@
     );
   }
 
+  async function downloadAndDecryptAesgcmUrl(aesgcmUrl) {
+    const parsed = parseAesgcmUrl(aesgcmUrl);
+    if (!parsed) throw new Error("Invalid aesgcm URL");
+    const response = await fetch(parsed.httpsUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const cipherBuffer = await response.arrayBuffer();
+    const decrypted = await decryptAesgcmBuffer(cipherBuffer, parsed.key, parsed.iv);
+    return new Blob([decrypted], { type: "application/octet-stream" });
+  }
+
   globalScope.SHITCORD67_XEP_0454_UTILS = Object.freeze({
     bytesToHex,
     hexToBytes,
@@ -104,6 +114,7 @@
     extractAesgcmUrls,
     stripAesgcmUrls,
     encryptBlobForAesgcm,
-    decryptAesgcmBuffer
+    decryptAesgcmBuffer,
+    downloadAndDecryptAesgcmUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);
