@@ -1,0 +1,93 @@
+(function initXep0249DirectMucInvite(globalScope) {
+  if (!globalScope || globalScope.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE) return;
+
+  const xml = globalScope.SHITCORD67_XMPP_XML || {};
+  const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
+
+  function xmppNodeXmlns(node) {
+    if (typeof xml.xmppNodeXmlns === "function") return xml.xmppNodeXmlns(node);
+    if (!node || typeof node.getAttribute !== "function") return "";
+    const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
+    if (inline) return inline;
+    return (node.namespaceURI || "").toString().trim().toLowerCase();
+  }
+
+  function xmppNodeHasXmlns(node, xmlns) {
+    if (typeof xml.xmppNodeHasXmlns === "function") return xml.xmppNodeHasXmlns(node, xmlns);
+    return xmppNodeXmlns(node) === (xmlns || "").toString().trim().toLowerCase();
+  }
+
+  function xmppElementsByLocalName(root, name = "") {
+    if (typeof xml.xmppElementsByLocalName === "function") return xml.xmppElementsByLocalName(root, name);
+    if (!root || typeof root.getElementsByTagName !== "function") return [];
+    const wanted = (name || "").toString().trim().toLowerCase();
+    return wanted ? [...root.getElementsByTagName(wanted)] : [];
+  }
+
+  function xmppDirectChildByLocalName(root, name = "") {
+    if (typeof xml.xmppDirectChildByLocalName === "function") return xml.xmppDirectChildByLocalName(root, name);
+    if (!root || !root.childNodes) return null;
+    const wanted = (name || "").toString().trim().toLowerCase();
+    return [...root.childNodes]
+      .find((node) => node?.nodeType === 1 && ((node.localName || node.nodeName || "").toString().trim().toLowerCase() === wanted)) || null;
+  }
+
+  function xmppNodeText(node) {
+    if (typeof xml.xmppNodeText === "function") return xml.xmppNodeText(node);
+    if (!node) return "";
+    return (node.textContent || "").toString();
+  }
+
+  function decodeEntities(value = "") {
+    const raw = (value || "").toString();
+    if (!raw || !globalScope.document) return raw;
+    const textarea = globalScope.document.createElement("textarea");
+    textarea.innerHTML = raw;
+    return textarea.value;
+  }
+
+  function normalizeJid(value = "") {
+    return (value || "").toString().trim().replace(/^[^:]+:/, "").toLowerCase();
+  }
+
+  function parseXmppDirectMucInvite(stanza) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+    const inviteNode = xmppElementsByLocalName(stanza, "x")
+      .find((entry) => (
+        xmppNodeHasXmlns(entry, XMPP_DIRECT_MUC_INVITE_NAMESPACE)
+        || (entry.parentNode === stanza && !xmppNodeXmlns(entry) && Boolean(entry.getAttribute("jid")))
+      )) || null;
+    if (!inviteNode) return null;
+    const roomJid = normalizeJid(inviteNode.getAttribute("jid") || "");
+    if (!roomJid) return null;
+    const reasonNode = xmppDirectChildByLocalName(inviteNode, "reason");
+    const passwordNode = xmppDirectChildByLocalName(inviteNode, "password");
+    const reason = decodeEntities((
+      inviteNode.getAttribute("reason")
+      || xmppNodeText(reasonNode)
+      || ""
+    ).toString()).replace(/\s+/g, " ").trim().slice(0, 280);
+    const password = (
+      inviteNode.getAttribute("password")
+      || xmppNodeText(passwordNode)
+      || ""
+    ).toString().trim().slice(0, 120);
+    const thread = (inviteNode.getAttribute("thread") || "").toString().trim().slice(0, 160);
+    const continueRaw = (inviteNode.getAttribute("continue") || "").toString().trim().toLowerCase();
+    return {
+      roomJid,
+      reason,
+      password,
+      thread,
+      continueThread: ["true", "1", "yes"].includes(continueRaw)
+    };
+  }
+
+  globalScope.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE = Object.freeze({
+    XMPP_DIRECT_MUC_INVITE_NAMESPACE,
+    parseXmppDirectMucInvite
+  });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0249_direct-muc-invite", globalScope.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
+  }
+})(typeof window !== "undefined" ? window : globalThis);

@@ -79,6 +79,7 @@ const XMPP_OMEMO_SIGNED_PREKEY_ID = XMPP_NS_GLOBAL.XMPP_OMEMO_SIGNED_PREKEY_ID |
 const XEP_0334_HINTS_GLOBAL = xepModule("xep-0334_processing-hints", globalThis.SHITCORD67_XEP_0334_HINTS);
 const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints";
 const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalThis.SHITCORD67_XEP_0184_0333_MARKERS);
+const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite", globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -223,6 +224,9 @@ const xmppChatMarkerPayload = typeof XEP_0184_0333_GLOBAL.xmppChatMarkerPayload 
   : (() => null);
 const xmppChatMarkableNode = typeof XEP_0184_0333_GLOBAL.xmppChatMarkableNode === "function"
   ? XEP_0184_0333_GLOBAL.xmppChatMarkableNode
+  : (() => null);
+const parseXmppDirectMucInvite = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite === "function"
+  ? XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite
   : (() => null);
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
@@ -6049,39 +6053,6 @@ function parseCallInviteFromText(text = "") {
     url: candidateUrl,
     screenShare,
     providerMatches
-  };
-}
-
-function parseXmppDirectMucInvite(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const inviteNode = xmppElementsByLocalName(stanza, "x")
-    .find((entry) => (
-      xmppNodeHasXmlns(entry, XMPP_DIRECT_MUC_INVITE_NAMESPACE)
-      || (entry.parentNode === stanza && !xmppNodeXmlns(entry) && Boolean(entry.getAttribute("jid")))
-    )) || null;
-  if (!inviteNode) return null;
-  const roomJid = normalizeXmppJid(inviteNode.getAttribute("jid") || "").toLowerCase();
-  if (!roomJid) return null;
-  const reasonNode = xmppDirectChildByLocalName(inviteNode, "reason");
-  const passwordNode = xmppDirectChildByLocalName(inviteNode, "password");
-  const reason = decodeHtmlEntities((
-    inviteNode.getAttribute("reason")
-    || xmppNodeText(reasonNode)
-    || ""
-  ).toString()).replace(/\s+/g, " ").trim().slice(0, 280);
-  const password = (
-    inviteNode.getAttribute("password")
-    || xmppNodeText(passwordNode)
-    || ""
-  ).toString().trim().slice(0, 120);
-  const thread = (inviteNode.getAttribute("thread") || "").toString().trim().slice(0, 160);
-  const continueRaw = (inviteNode.getAttribute("continue") || "").toString().trim().toLowerCase();
-  return {
-    roomJid,
-    reason,
-    password,
-    thread,
-    continueThread: ["true", "1", "yes"].includes(continueRaw)
   };
 }
 
