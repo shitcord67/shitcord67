@@ -509,6 +509,9 @@ const normalizeOwnedCosmeticsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOB
 const normalizeGuildTagGuildIdViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeGuildTagGuildId === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeGuildTagGuildId
   : ((raw) => (raw || "").toString().trim());
+const normalizeCosmeticPurchasesViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeCosmeticPurchases === "function"
+  ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeCosmeticPurchases
+  : ((raw) => (Array.isArray(raw) ? raw : []));
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -1906,15 +1909,7 @@ function normalizeGuildTagGuildId(raw) {
 }
 
 function normalizeCosmeticPurchases(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((entry) => ({
-      id: (entry?.id || "").toString(),
-      cost: Number(entry?.cost || 0),
-      ts: (entry?.ts || "").toString()
-    }))
-    .filter((entry) => entry.id && Number.isFinite(entry.cost) && entry.cost > 0)
-    .slice(-240);
+  return normalizeCosmeticPurchasesViaModule(raw);
 }
 
 function cosmeticById(id) {

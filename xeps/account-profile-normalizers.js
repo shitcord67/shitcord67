@@ -44,10 +44,23 @@
     return token.slice(0, 64);
   }
 
+  function normalizeCosmeticPurchases(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((entry) => ({
+        id: (entry?.id || "").toString(),
+        cost: Number(entry?.cost || 0),
+        ts: (entry?.ts || "").toString()
+      }))
+      .filter((entry) => entry.id && Number.isFinite(entry.cost) && entry.cost > 0)
+      .slice(-240);
+  }
+
   globalScope.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS = Object.freeze({
     normalizeUsername,
     normalizeComposerDrafts,
     normalizeOwnedCosmetics,
-    normalizeGuildTagGuildId
+    normalizeGuildTagGuildId,
+    normalizeCosmeticPurchases
   });
 })(typeof window !== "undefined" ? window : globalThis);
