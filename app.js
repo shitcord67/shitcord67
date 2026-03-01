@@ -516,6 +516,9 @@ const normalizeGuildNotificationsMapViaModule = typeof UI_STATE_NORMALIZERS_GLOB
     normalizeGuildNotificationModeFn: normalizeGuildNotificationMode
   }))
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeForumCollapsedThreadsMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumCollapsedThreadsMap === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumCollapsedThreadsMap
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11216,17 +11219,7 @@ function normalizeGuildNotificationsMap(value) {
 }
 
 function normalizeForumCollapsedThreadsMap(value) {
-  if (!value || typeof value !== "object") return {};
-  return Object.entries(value).reduce((acc, [channelId, threadMap]) => {
-    if (!channelId || !threadMap || typeof threadMap !== "object") return acc;
-    const normalizedThreadMap = Object.entries(threadMap).reduce((threadAcc, [threadId, collapsed]) => {
-      if (!threadId) return threadAcc;
-      threadAcc[threadId] = Boolean(collapsed);
-      return threadAcc;
-    }, {});
-    if (Object.keys(normalizedThreadMap).length > 0) acc[channelId] = normalizedThreadMap;
-    return acc;
-  }, {});
+  return normalizeForumCollapsedThreadsMapViaModule(value);
 }
 
 function normalizeForumThreadReadStateMap(value) {
