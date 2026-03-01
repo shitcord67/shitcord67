@@ -132,6 +132,14 @@
     return (value || "").toString().trim().slice(0, 180);
   }
 
+  function normalizePlatformOverride(value) {
+    const raw = (value || "").toString().trim().toLowerCase();
+    if (!raw || raw === "auto") return "auto";
+    if (["linux:x11", "linux:wayland", "linux:unknown", "linux"].includes(raw)) return raw;
+    if (["windows", "darwin"].includes(raw)) return raw;
+    return "auto";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -151,6 +159,7 @@
     normalizeForumThreadSortMap,
     normalizeForumThreadTagFilterMap,
     normalizeLastChannelByGuildMap,
-    normalizeMediaDeviceId
+    normalizeMediaDeviceId,
+    normalizePlatformOverride
   });
 })(typeof window !== "undefined" ? window : globalThis);

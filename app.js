@@ -534,6 +534,9 @@ const normalizeLastChannelByGuildMapViaModule = typeof UI_STATE_NORMALIZERS_GLOB
 const normalizeMediaDeviceIdViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeMediaDeviceId === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeMediaDeviceId
   : ((value) => (value || "").toString().trim());
+const normalizePlatformOverrideViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizePlatformOverride === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizePlatformOverride
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -10964,11 +10967,7 @@ function normalizeMediaDeviceId(value) {
 }
 
 function normalizePlatformOverride(value) {
-  const raw = (value || "").toString().trim().toLowerCase();
-  if (!raw || raw === "auto") return "auto";
-  if (["linux:x11", "linux:wayland", "linux:unknown", "linux"].includes(raw)) return raw;
-  if (["windows", "darwin"].includes(raw)) return raw;
-  return "auto";
+  return normalizePlatformOverrideViaModule(value);
 }
 
 function xmppRememberPeerFullJid(jid = "", { seenAt = Date.now() } = {}) {
