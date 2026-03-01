@@ -101,6 +101,7 @@ const XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL = xepModule("xep-0308_0359_
 const XEP_0199_0410_0313_PRESENCE_PING_GLOBAL = xepModule("xep-0199_0410_0313-presence-ping", globalThis.SHITCORD67_XEP_0199_0410_0313_PRESENCE_PING);
 const XEP_0048_0402_BOOKMARKS_OPS_GLOBAL = xepModule("xep-0048_0402-bookmarks-ops", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_OPS);
 const XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL = xepModule("xep-0048_0402-bookmarks-sync", globalThis.SHITCORD67_XEP_0048_0402_BOOKMARKS_SYNC);
+const XEP_0280_0352_CSI_CARBONS_GLOBAL = xepModule("xep-0280_0352-csi-carbons", globalThis.SHITCORD67_XEP_0280_0352_CSI_CARBONS);
 const XEP_0482_0503_SPACES_FLOW_GLOBAL = xepModule("xep-0482_0503-spaces-flow", globalThis.SHITCORD67_XEP_0482_0503_SPACES_FLOW);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
@@ -14054,136 +14055,133 @@ function xmppDomainFromJid(jid) {
 }
 
 function shouldUsePlainOnlySasl(jid, wsUrl = "") {
-  const jidDomain = xmppDomainFromJid(jid);
-  if (jidDomain && XMPP_PLAIN_ONLY_DOMAINS.has(jidDomain)) return true;
-  try {
-    const host = new URL(normalizeXmppWsUrl(wsUrl) || "").hostname.toLowerCase();
-    if (!host) return false;
-    for (const domain of XMPP_PLAIN_ONLY_DOMAINS.values()) {
-      if (host === domain || host.endsWith(`.${domain}`)) return true;
-    }
-  } catch {
-    // Ignore URL parse errors.
-  }
-  return false;
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.shouldUsePlainOnlySasl !== "function") return false;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.shouldUsePlainOnlySasl(jid, wsUrl, {
+    xmppDomainFromJidFn: xmppDomainFromJid,
+    XMPP_PLAIN_ONLY_DOMAINS,
+    normalizeXmppWsUrlFn: normalizeXmppWsUrl
+  });
 }
 
 function stropheConnectionOptionsForXmpp({ jid, wsUrl }) {
-  const options = { keepalive: true };
-  const stropheApi = globalThis.Strophe;
-  if (!stropheApi) return options;
-  if (shouldUsePlainOnlySasl(jid, wsUrl) && stropheApi.SASLPlain) {
-    options.mechanisms = [stropheApi.SASLPlain];
-    addXmppDebugEvent("connect", "Using PLAIN-only SASL workaround", {
-      jid: normalizeXmppJid(jid),
-      wsUrl: normalizeXmppWsUrl(wsUrl)
-    });
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.stropheConnectionOptionsForXmpp !== "function") {
+    return { keepalive: true };
   }
-  return options;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.stropheConnectionOptionsForXmpp({ jid, wsUrl }, {
+    Strophe: globalThis.Strophe,
+    xmppDomainFromJidFn: xmppDomainFromJid,
+    XMPP_PLAIN_ONLY_DOMAINS,
+    normalizeXmppWsUrlFn: normalizeXmppWsUrl,
+    normalizeXmppJidFn: normalizeXmppJid,
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 function enableXmppCarbons(connection) {
-  if (!connection || !globalThis.$iq) return;
-  const iq = globalThis.$iq({ type: "set" }).c("enable", { xmlns: "urn:xmpp:carbons:2" });
-  addXmppDebugEvent("iq", "Enabling message carbons (XEP-0280)");
-  connection.sendIQ(
-    iq,
-    () => {
-      addXmppDebugEvent("iq", "Message carbons enabled");
-    },
-    () => {
-      addXmppDebugEvent("iq", "Message carbons unavailable on this server");
-    },
-    7000
-  );
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.enableXmppCarbons !== "function") return;
+  XEP_0280_0352_CSI_CARBONS_GLOBAL.enableXmppCarbons(connection, {
+    $iq: globalThis.$iq,
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 function xmppStreamFeaturesNode(connection = xmppConnection) {
-  if (!connection || typeof connection !== "object") return null;
-  const candidates = [
-    connection.features,
-    connection._streamFeatures,
-    connection._proto?.features,
-    connection._proto?._features
-  ];
-  for (const candidate of candidates) {
-    if (candidate && typeof candidate.getElementsByTagName === "function") return candidate;
-  }
-  return null;
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppStreamFeaturesNode !== "function") return null;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppStreamFeaturesNode(connection);
 }
 
 function xmppServerSupportsCsi(connection = xmppConnection) {
-  const featuresNode = xmppStreamFeaturesNode(connection);
-  if (!featuresNode) return false;
-  const csiNodes = [...featuresNode.getElementsByTagName("csi")];
-  if (csiNodes.some((node) => xmppNodeHasXmlns(node, XMPP_CSI_NAMESPACE))) return true;
-  const anyNodes = [...featuresNode.getElementsByTagName("*")];
-  return anyNodes.some((node) => xmppNodeHasXmlns(node, XMPP_CSI_NAMESPACE));
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppServerSupportsCsi !== "function") return false;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppServerSupportsCsi(connection, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    XMPP_CSI_NAMESPACE
+  });
 }
 
 function xmppBuildClientStateNode(state = "active") {
-  const normalized = state === "inactive" ? "inactive" : "active";
-  if (globalThis.Strophe && typeof globalThis.Strophe.xmlElement === "function") {
-    return globalThis.Strophe.xmlElement(normalized, { xmlns: XMPP_CSI_NAMESPACE });
-  }
-  if (typeof document !== "undefined" && typeof document.createElementNS === "function") {
-    const node = document.createElementNS(XMPP_CSI_NAMESPACE, normalized);
-    node.setAttribute("xmlns", XMPP_CSI_NAMESPACE);
-    return node;
-  }
-  return null;
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppBuildClientStateNode !== "function") return null;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.xmppBuildClientStateNode(state, {
+    XMPP_CSI_NAMESPACE,
+    Strophe: globalThis.Strophe,
+    documentRef: typeof document !== "undefined" ? document : null
+  });
 }
 
 function sendXmppClientStateHint(state = "active", { force = false, reason = "" } = {}) {
-  const normalized = state === "inactive" ? "inactive" : "active";
-  if (!xmppConnection || relayStatus !== "connected") return false;
-  if (!xmppCsiSupported) return false;
-  if (!force && xmppCsiState === normalized) return false;
-  const node = xmppBuildClientStateNode(normalized);
-  if (!node) return false;
-  try {
-    xmppConnection.send(node);
-    xmppCsiState = normalized;
-    addXmppDebugEvent("presence", "Sent XMPP client state hint", {
-      state: normalized,
-      reason: reason || ""
-    });
-    return true;
-  } catch (error) {
-    addXmppDebugEvent("error", "Failed to send XMPP client state hint", {
-      state: normalized,
-      reason: reason || "",
-      error: String(error?.message || error || "")
-    });
-    return false;
-  }
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.sendXmppClientStateHint !== "function") return false;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.sendXmppClientStateHint(state, { force, reason }, {
+    XMPP_CSI_NAMESPACE,
+    Strophe: globalThis.Strophe,
+    documentRef: typeof document !== "undefined" ? document : null,
+    xmppConnection,
+    relayStatus,
+    xmppCsiSupportedRef: {
+      get: () => xmppCsiSupported,
+      set: (value) => {
+        xmppCsiSupported = Boolean(value);
+      }
+    },
+    xmppCsiStateRef: {
+      get: () => xmppCsiState,
+      set: (value) => {
+        xmppCsiState = (value || "").toString();
+      }
+    },
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 function syncXmppClientStateHint({ force = false, reason = "" } = {}) {
-  if (!xmppConnection || relayStatus !== "connected") return false;
-  if (!xmppCsiSupported) return false;
-  const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
-  const focused = typeof document !== "undefined" && typeof document.hasFocus === "function"
-    ? document.hasFocus()
-    : true;
-  const nextState = hidden || !focused ? "inactive" : "active";
-  return sendXmppClientStateHint(nextState, { force, reason });
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.syncXmppClientStateHint !== "function") return false;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.syncXmppClientStateHint({ force, reason }, {
+    XMPP_CSI_NAMESPACE,
+    Strophe: globalThis.Strophe,
+    documentRef: typeof document !== "undefined" ? document : null,
+    xmppConnection,
+    relayStatus,
+    xmppCsiSupportedRef: {
+      get: () => xmppCsiSupported,
+      set: (value) => {
+        xmppCsiSupported = Boolean(value);
+      }
+    },
+    xmppCsiStateRef: {
+      get: () => xmppCsiState,
+      set: (value) => {
+        xmppCsiState = (value || "").toString();
+      }
+    },
+    addXmppDebugEventFn: addXmppDebugEvent
+  });
 }
 
 function refreshXmppCsiCapability(connection = xmppConnection) {
-  xmppCsiSupported = xmppServerSupportsCsi(connection);
-  if (!xmppCsiSupported) xmppCsiState = "";
-  addXmppDebugEvent("presence", xmppCsiSupported ? "XMPP CSI available" : "XMPP CSI unavailable", {
-    namespace: XMPP_CSI_NAMESPACE
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.refreshXmppCsiCapability !== "function") return false;
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.refreshXmppCsiCapability(connection, {
+    XMPP_CSI_NAMESPACE,
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppCsiSupportedRef: {
+      get: () => xmppCsiSupported,
+      set: (value) => {
+        xmppCsiSupported = Boolean(value);
+      }
+    },
+    xmppCsiStateRef: {
+      get: () => xmppCsiState,
+      set: (value) => {
+        xmppCsiState = (value || "").toString();
+      }
+    },
+    addXmppDebugEventFn: addXmppDebugEvent
   });
-  return xmppCsiSupported;
 }
 
 function resolveXmppMucService(prefs = getPreferences()) {
-  const explicit = normalizeXmppMucService(prefs.xmppMucService);
-  if (explicit) return explicit;
-  const domain = xmppDomainFromJid(prefs.xmppJid);
-  return domain ? `conference.${domain}` : "";
+  if (typeof XEP_0280_0352_CSI_CARBONS_GLOBAL.resolveXmppMucService !== "function") return "";
+  return XEP_0280_0352_CSI_CARBONS_GLOBAL.resolveXmppMucService(prefs, {
+    normalizeXmppMucServiceFn: normalizeXmppMucService,
+    xmppDomainFromJidFn: xmppDomainFromJid
+  });
 }
 
 function resolveXmppServiceUrl(prefs = getPreferences()) {
