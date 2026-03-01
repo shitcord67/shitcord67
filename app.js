@@ -9912,6 +9912,32 @@ function xmppBuildJingleRtpContent(builder, {
   sources = [],
   sourceGroups = []
 } = {}) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleRtpContent === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleRtpContent(builder, {
+      media,
+      name,
+      creator,
+      senders,
+      transport,
+      dtls,
+      rtcpMux,
+      payloadTypes,
+      rtcpFeedback,
+      extmaps,
+      sources,
+      sourceGroups
+    }, {
+      jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE,
+      rtcpFbNamespace: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
+      hdrExtNamespace: XMPP_JINGLE_RTP_HDR_EXT_NAMESPACE,
+      ssmaNamespace: XMPP_JINGLE_RTP_SSMA_NAMESPACE,
+      rtcpMuxNamespace: XMPP_JINGLE_RTP_RTCP_MUX_NAMESPACE,
+      iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE,
+      dtlsNamespace: "urn:xmpp:jingle:apps:dtls:0",
+      buildJingleTransportCredsFn: xmppBuildJingleTransportCreds,
+      generatePseudoDtlsFingerprintFn: xmppGeneratePseudoDtlsFingerprint
+    });
+  }
   const mediaType = media === "video" ? "video" : "audio";
   const contentName = (name || mediaType).toString().trim() || mediaType;
   builder
@@ -10029,6 +10055,11 @@ function xmppBuildJingleRtpContent(builder, {
 }
 
 function xmppBuildJingleBundleGroup(builder, contentNames = []) {
+  if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleBundleGroup === "function") {
+    return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleBundleGroup(builder, contentNames, {
+      groupingNamespace: XMPP_JINGLE_GROUPING_NAMESPACE
+    });
+  }
   if (!builder || typeof builder.c !== "function") return builder;
   const names = [...new Set(
     (Array.isArray(contentNames) ? contentNames : [])

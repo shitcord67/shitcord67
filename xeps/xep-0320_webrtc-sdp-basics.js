@@ -1130,6 +1130,214 @@
     return buildJingleTransportCredsFn();
   }
 
+  function xmppNormalizeJingleRtpMediaType(media = "audio") {
+    return (media || "").toString().trim().toLowerCase() === "video" ? "video" : "audio";
+  }
+
+  function xmppNormalizeJingleContentName(name = "", media = "audio") {
+    const mediaType = xmppNormalizeJingleRtpMediaType(media);
+    return (name || mediaType).toString().trim() || mediaType;
+  }
+
+  function xmppNormalizeJingleSendersValue(senders = "both") {
+    return (senders || "both").toString().trim().toLowerCase() || "both";
+  }
+
+  function xmppBuildDefaultJinglePayloadType(media = "audio") {
+    const mediaType = xmppNormalizeJingleRtpMediaType(media);
+    return {
+      id: mediaType === "audio" ? "111" : "96",
+      name: mediaType === "audio" ? "opus" : "VP8",
+      clockrate: mediaType === "audio" ? "48000" : "90000",
+      channels: mediaType === "audio" ? "2" : "1",
+      rtcpFeedback: [],
+      parameters: []
+    };
+  }
+
+  function xmppResolveJinglePayloadTypes(payloadTypes = [], media = "audio") {
+    if (Array.isArray(payloadTypes) && payloadTypes.length > 0) return payloadTypes;
+    return [xmppBuildDefaultJinglePayloadType(media)];
+  }
+
+  function xmppBuildJingleRtcpFeedbackAttrs(feedback = {}, deps = {}) {
+    const rtcpFbNamespace = (deps.rtcpFbNamespace || "").toString().trim();
+    if (!feedback?.type || !rtcpFbNamespace) return null;
+    const attrs = {
+      xmlns: rtcpFbNamespace,
+      type: String(feedback.type)
+    };
+    if (feedback.subtype) attrs.subtype = String(feedback.subtype);
+    return attrs;
+  }
+
+  function xmppResolveJingleRtpTransportCreds(transport = null, deps = {}) {
+    const buildJingleTransportCredsFn = typeof deps.buildJingleTransportCredsFn === "function"
+      ? deps.buildJingleTransportCredsFn
+      : xmppBuildJingleTransportCreds;
+    const normalizedTransport = transport && typeof transport === "object"
+      ? {
+        ufrag: (transport.ufrag || "").toString().trim(),
+        pwd: (transport.pwd || "").toString().trim()
+      }
+      : buildJingleTransportCredsFn();
+    const fallbackCreds = (!normalizedTransport.ufrag || !normalizedTransport.pwd) ? buildJingleTransportCredsFn() : null;
+    return {
+      ufrag: normalizedTransport.ufrag || fallbackCreds?.ufrag || "",
+      pwd: normalizedTransport.pwd || fallbackCreds?.pwd || ""
+    };
+  }
+
+  function xmppResolveJingleRtpDtlsInfo(dtls = null, deps = {}) {
+    const generatePseudoDtlsFingerprintFn = typeof deps.generatePseudoDtlsFingerprintFn === "function"
+      ? deps.generatePseudoDtlsFingerprintFn
+      : xmppGeneratePseudoDtlsFingerprint;
+    if (dtls && typeof dtls === "object") {
+      return {
+        hash: (dtls.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
+        value: (dtls.value || "").toString().trim() || generatePseudoDtlsFingerprintFn(),
+        setup: (dtls.setup || "actpass").toString().trim().toLowerCase() || "actpass"
+      };
+    }
+    return {
+      hash: "sha-256",
+      value: generatePseudoDtlsFingerprintFn(),
+      setup: "actpass"
+    };
+  }
+
+  function xmppBuildJingleRtpContent(builder, {
+    media = "audio",
+    name = "",
+    creator = "initiator",
+    senders = "both",
+    transport = null,
+    dtls = null,
+    rtcpMux = true,
+    payloadTypes = [],
+    rtcpFeedback = [],
+    extmaps = [],
+    sources = [],
+    sourceGroups = []
+  } = {}, deps = {}) {
+    if (!builder || typeof builder.c !== "function") return builder;
+    const mediaType = xmppNormalizeJingleRtpMediaType(media);
+    const contentName = xmppNormalizeJingleContentName(name, mediaType);
+    const sendersValue = xmppNormalizeJingleSendersValue(senders);
+    const jingleRtpNamespace = (deps.jingleRtpNamespace || "").toString().trim();
+    const rtcpFbNamespace = (deps.rtcpFbNamespace || "").toString().trim();
+    const hdrExtNamespace = (deps.hdrExtNamespace || "").toString().trim();
+    const ssmaNamespace = (deps.ssmaNamespace || "").toString().trim();
+    const rtcpMuxNamespace = (deps.rtcpMuxNamespace || "").toString().trim();
+    const iceUdpNamespace = (deps.iceUdpNamespace || "").toString().trim();
+    const dtlsNamespace = (deps.dtlsNamespace || "urn:xmpp:jingle:apps:dtls:0").toString().trim();
+    if (!jingleRtpNamespace || !iceUdpNamespace || !rtcpFbNamespace || !hdrExtNamespace || !ssmaNamespace || !rtcpMuxNamespace) return builder;
+    builder
+      .c("content", { creator, name: contentName, senders: sendersValue })
+      .c("description", { xmlns: jingleRtpNamespace, media: mediaType });
+    const normalizedPayloads = xmppResolveJinglePayloadTypes(payloadTypes, mediaType);
+    normalizedPayloads.forEach((payload) => {
+      const id = (payload.id || "").toString().trim() || (mediaType === "audio" ? "111" : "96");
+      const payloadName = (payload.name || "").toString().trim() || (mediaType === "audio" ? "opus" : "VP8");
+      const clockrate = String(Number(payload.clockrate) || (mediaType === "audio" ? 48000 : 90000));
+      const channels = String(Math.max(1, Number(payload.channels) || (mediaType === "audio" ? 2 : 1)));
+      const attrs = mediaType === "audio"
+        ? { id, name: payloadName, clockrate, channels }
+        : { id, name: payloadName, clockrate };
+      builder.c("payload-type", attrs);
+      (Array.isArray(payload.parameters) ? payload.parameters : []).forEach((param) => {
+        if (!param?.name) return;
+        const paramAttrs = { name: String(param.name) };
+        if (param.value) paramAttrs.value = String(param.value);
+        builder.c("parameter", paramAttrs).up();
+      });
+      (Array.isArray(payload.rtcpFeedback) ? payload.rtcpFeedback : []).forEach((feedback) => {
+        const fbAttrs = xmppBuildJingleRtcpFeedbackAttrs(feedback, { rtcpFbNamespace });
+        if (!fbAttrs) return;
+        builder.c("rtcp-fb", fbAttrs).up();
+      });
+      builder.up();
+    });
+    (Array.isArray(rtcpFeedback) ? rtcpFeedback : []).forEach((feedback) => {
+      const fbAttrs = xmppBuildJingleRtcpFeedbackAttrs(feedback, { rtcpFbNamespace });
+      if (!fbAttrs) return;
+      builder.c("rtcp-fb", fbAttrs).up();
+    });
+    (Array.isArray(extmaps) ? extmaps : []).forEach((extmap) => {
+      if (!extmap?.id || !extmap?.uri) return;
+      const attrs = {
+        xmlns: hdrExtNamespace,
+        id: String(extmap.id),
+        uri: String(extmap.uri)
+      };
+      if (extmap.direction) attrs.senders = String(extmap.direction);
+      if (extmap.attributes) attrs.attributes = String(extmap.attributes);
+      builder.c("rtp-hdrext", attrs).up();
+    });
+    (Array.isArray(sourceGroups) ? sourceGroups : []).forEach((group) => {
+      if (!group?.semantics || !Array.isArray(group.sources) || group.sources.length === 0) return;
+      builder.c("source-group", { xmlns: ssmaNamespace, semantics: String(group.semantics) });
+      group.sources.forEach((ssrc) => {
+        if (!ssrc) return;
+        builder.c("source", { xmlns: ssmaNamespace, ssrc: String(ssrc) }).up();
+      });
+      builder.up();
+    });
+    (Array.isArray(sources) ? sources : []).forEach((source) => {
+      if (!source?.ssrc) return;
+      builder.c("source", { xmlns: ssmaNamespace, ssrc: String(source.ssrc) });
+      (Array.isArray(source.parameters) ? source.parameters : []).forEach((param) => {
+        if (!param?.name) return;
+        const attrs = { name: String(param.name) };
+        if (param.value) attrs.value = String(param.value);
+        builder.c("parameter", attrs).up();
+      });
+      builder.up();
+    });
+    if (rtcpMux !== false) {
+      builder.c("rtcp-mux", { xmlns: rtcpMuxNamespace }).up();
+    }
+    const creds = xmppResolveJingleRtpTransportCreds(transport, deps);
+    const dtlsInfo = xmppResolveJingleRtpDtlsInfo(dtls, deps);
+    builder
+      .up()
+      .c("transport", {
+        xmlns: iceUdpNamespace,
+        ufrag: creds.ufrag,
+        pwd: creds.pwd
+      });
+    builder.c("fingerprint", {
+      xmlns: dtlsNamespace,
+      hash: dtlsInfo.hash,
+      setup: dtlsInfo.setup
+    }).t(dtlsInfo.value).up();
+    builder
+      .up()
+      .up();
+    return builder;
+  }
+
+  function xmppBuildJingleBundleGroup(builder, contentNames = [], deps = {}) {
+    if (!builder || typeof builder.c !== "function") return builder;
+    const groupingNamespace = (deps.groupingNamespace || "").toString().trim();
+    if (!groupingNamespace) return builder;
+    const names = [...new Set(
+      (Array.isArray(contentNames) ? contentNames : [])
+        .map((entry) => (entry || "").toString().trim())
+        .filter(Boolean)
+    )];
+    if (names.length < 2) return builder;
+    builder.c("group", {
+      xmlns: groupingNamespace,
+      semantics: "BUNDLE"
+    });
+    names.forEach((name) => {
+      builder.c("content", { name }).up();
+    });
+    builder.up();
+    return builder;
+  }
+
   globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS = Object.freeze({
     xmppParseIceCredsFromSdp,
     xmppParseDtlsFingerprintFromSdp,
@@ -1201,7 +1409,17 @@
     xmppResolveTransportInfoSessionState,
     xmppBuildTransportInfoDebugPayload,
     xmppBuildIceGatherErrorPayload,
-    xmppResolveFallbackTransportForGatherFailure
+    xmppResolveFallbackTransportForGatherFailure,
+    xmppNormalizeJingleRtpMediaType,
+    xmppNormalizeJingleContentName,
+    xmppNormalizeJingleSendersValue,
+    xmppBuildDefaultJinglePayloadType,
+    xmppResolveJinglePayloadTypes,
+    xmppBuildJingleRtcpFeedbackAttrs,
+    xmppResolveJingleRtpTransportCreds,
+    xmppResolveJingleRtpDtlsInfo,
+    xmppBuildJingleRtpContent,
+    xmppBuildJingleBundleGroup
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0320_webrtc-sdp-basics", globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
