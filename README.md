@@ -375,6 +375,7 @@ Notes:
 - DM sidebar previews now show outbound delivery hints (`✓`, `✓✓`, `Read`) as compact chips for your latest sent message in each thread.
 - Self/user profile popouts now surface XMPP presence metadata (linked JID and idle/last-active hints when available) and refresh relative time hints while open.
 - XMPP message edits now use Last Message Correction (`urn:xmpp:message-correct:0`, XEP-0308): incoming `replace` stanzas patch existing DM/MUC messages, and local edits publish correction stanzas when stanza references are known.
+- XEP-0333/XEP-0308 stanza builder insertion for `markable` and `replace` is now centralized in `xeps/xep-0333_0359_0372_0444_0482-message-builders.js` with duplicate-node guards for reused builders.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
 - DM MAM now retries alternate archive targets (`domain` then own bare JID) for broader server compatibility when archive queries fail on the first target.

@@ -1,6 +1,18 @@
 (function initXep0333_0359_0372_0444_0482MessageBuilders(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_XEP_0333_0359_0372_0444_0482_BUILDERS) return;
 
+  function builderHasChildWithXmlns(stanza, tagName = "", xmlns = "") {
+    const local = (tagName || "").toString().trim().toLowerCase();
+    const ns = (xmlns || "").toString().trim().toLowerCase();
+    if (!local || !ns) return false;
+    const root = stanza?.node || stanza?.tree?.() || null;
+    if (!root || typeof root.getElementsByTagName !== "function") return false;
+    const nodes = [...root.getElementsByTagName(local)];
+    return nodes.some((node) => (
+      ((node?.getAttribute?.("xmlns") || node?.namespaceURI || "").toString().trim().toLowerCase()) === ns
+    ));
+  }
+
   function preferredXmppReferenceIdForConversationMessage(conversation, message, deps = {}) {
     if (conversation?.type === "dm") {
       return typeof deps.preferredXmppDmReferenceIdForMessageFn === "function"
@@ -106,16 +118,20 @@
 
   function appendXmppChatMarkableNode(stanza, deps = {}) {
     if (!stanza) return stanza;
+    const namespace = (deps.chatMarkersNamespace || "").toString().trim();
+    if (builderHasChildWithXmlns(stanza, "markable", namespace)) return stanza;
     if (typeof deps.xmppEnsureBuilderAtMessageNodeFn === "function") deps.xmppEnsureBuilderAtMessageNodeFn(stanza);
-    stanza.c("markable", { xmlns: (deps.chatMarkersNamespace || "").toString() }).up();
+    stanza.c("markable", { xmlns: namespace }).up();
     return stanza;
   }
 
   function appendXmppMessageReplaceNode(stanza, targetRefId, deps = {}) {
     const refId = (targetRefId || "").toString().trim();
     if (!stanza || !refId) return stanza;
+    const namespace = (deps.messageCorrectNamespace || "urn:xmpp:message-correct:0").toString();
+    if (builderHasChildWithXmlns(stanza, "replace", namespace)) return stanza;
     if (typeof deps.xmppEnsureBuilderAtMessageNodeFn === "function") deps.xmppEnsureBuilderAtMessageNodeFn(stanza);
-    stanza.c("replace", { xmlns: deps.messageCorrectNamespace || "urn:xmpp:message-correct:0", id: refId }).up();
+    stanza.c("replace", { xmlns: namespace, id: refId }).up();
     return stanza;
   }
 

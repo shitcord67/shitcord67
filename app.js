@@ -17202,10 +17202,7 @@ function preferredXmppDmReferenceIdForMessage(message) {
 }
 
 function preferredXmppReferenceIdForConversationMessage(conversation, message) {
-  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.preferredXmppReferenceIdForConversationMessage !== "function") {
-    if (conversation?.type === "dm") return preferredXmppDmReferenceIdForMessage(message);
-    return primaryXmppReferenceIdForMessage(message);
-  }
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.preferredXmppReferenceIdForConversationMessage !== "function") return "";
   return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.preferredXmppReferenceIdForConversationMessage(conversation, message, {
     preferredXmppDmReferenceIdForMessageFn: preferredXmppDmReferenceIdForMessage,
     primaryXmppReferenceIdForMessageFn: primaryXmppReferenceIdForMessage
@@ -17221,18 +17218,7 @@ function xmppReplyFallbackPrefix(replyMeta) {
 
 function buildXmppMessageBody(message, replyMeta = null) {
   if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.buildXmppMessageBody !== "function") {
-    const payload = relayMessageBodyText(message);
-    if (!replyMeta?.id) {
-      return {
-        body: payload,
-        fallbackPrefixLength: 0
-      };
-    }
-    const prefix = xmppReplyFallbackPrefix(replyMeta);
-    return {
-      body: `${prefix}${payload || ""}`,
-      fallbackPrefixLength: prefix.length
-    };
+    return { body: relayMessageBodyText(message), fallbackPrefixLength: 0 };
   }
   return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.buildXmppMessageBody(message, replyMeta, {
     relayMessageBodyTextFn: relayMessageBodyText,
@@ -17289,11 +17275,7 @@ function appendXmppChatMarkableNode(stanza) {
 }
 
 function appendXmppMessageReplaceNode(stanza, targetRefId) {
-  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppMessageReplaceNode !== "function") {
-    const refId = (targetRefId || "").toString().trim();
-    if (!stanza || !refId) return stanza;
-    return stanza.c("replace", { xmlns: "urn:xmpp:message-correct:0", id: refId }).up();
-  }
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppMessageReplaceNode !== "function") return stanza;
   return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppMessageReplaceNode(stanza, targetRefId, {
     xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
     messageCorrectNamespace: "urn:xmpp:message-correct:0"
