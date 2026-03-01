@@ -528,6 +528,9 @@ const normalizeForumThreadSortMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.
 const normalizeForumThreadTagFilterMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadTagFilterMap === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadTagFilterMap
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeLastChannelByGuildMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeLastChannelByGuildMap === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeLastChannelByGuildMap
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11244,12 +11247,7 @@ function normalizeForumThreadTagFilterMap(value) {
 }
 
 function normalizeLastChannelByGuildMap(value) {
-  if (!value || typeof value !== "object") return {};
-  return Object.entries(value).reduce((acc, [guildId, channelId]) => {
-    if (!guildId || !channelId) return acc;
-    acc[guildId] = channelId.toString();
-    return acc;
-  }, {});
+  return normalizeLastChannelByGuildMapViaModule(value);
 }
 
 function normalizeXmppOmemoEnabledByJid(value) {

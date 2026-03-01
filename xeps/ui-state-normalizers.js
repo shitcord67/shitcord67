@@ -119,6 +119,15 @@
     }, {});
   }
 
+  function normalizeLastChannelByGuildMap(value) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [guildId, channelId]) => {
+      if (!guildId || !channelId) return acc;
+      acc[guildId] = channelId.toString();
+      return acc;
+    }, {});
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -136,6 +145,7 @@
     normalizeForumCollapsedThreadsMap,
     normalizeForumThreadReadStateMap,
     normalizeForumThreadSortMap,
-    normalizeForumThreadTagFilterMap
+    normalizeForumThreadTagFilterMap,
+    normalizeLastChannelByGuildMap
   });
 })(typeof window !== "undefined" ? window : globalThis);
