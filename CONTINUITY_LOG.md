@@ -2571,3 +2571,5 @@ So e.g. xep-0384.js and then there would still be the other xep-0384- JS files
 - [2026-03-01T08:14:04Z] Yes and please do 10 more
 - [2026-03-01T08:21:28Z] Yes
 - [2026-03-01T08:27:18Z] Yeah, you can also do 20 if you want
+- [2026-03-01T08:43:47Z] Also do you think we could change the author of all existing commits only in this repo and for future contributions only in this repo? E.g. git filter-branch --env-filter 'GIT_AUTHOR_NAME="Linus Torvalds"; GIT_AUTHOR_EMAIL="torvalds@users.noreply.github.com";' -- --all
+If yes and this is correct then please do it. And after that you can continue reducing app.js and shifting the XMPP functionality out of it into indivudual files, starting with making the XEP implementations more complete, putting those in xeps subfolder.
