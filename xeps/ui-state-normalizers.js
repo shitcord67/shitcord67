@@ -22,11 +22,16 @@
     return value === "guild" ? "guild" : "global";
   }
 
+  function normalizeSwfAutoplay(value) {
+    return value === "off" ? "off" : "on";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
     normalizeMobilePane,
     normalizeSwfAudioPolicy,
-    normalizeSwfAudioScope
+    normalizeSwfAudioScope,
+    normalizeSwfAutoplay
   });
 })(typeof window !== "undefined" ? window : globalThis);
