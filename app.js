@@ -451,6 +451,11 @@ const normalizeMediaPrivacyModeViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLO
 const normalizeMediaTrustRulesViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaTrustRules === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaTrustRules
   : ((value) => (Array.isArray(value) ? value : []));
+const normalizeMediaDenyRulesViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaDenyRules === "function"
+  ? ((value) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaDenyRules(value, {
+    normalizeMediaTrustRulesFn: normalizeMediaTrustRules
+  }))
+  : ((value) => normalizeMediaTrustRules(value));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11245,7 +11250,7 @@ function normalizeMediaTrustRules(value) {
 }
 
 function normalizeMediaDenyRules(value) {
-  return normalizeMediaTrustRules(value);
+  return normalizeMediaDenyRulesViaModule(value);
 }
 
 function normalizeMessageCharLimit(value) {

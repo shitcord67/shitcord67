@@ -21,10 +21,17 @@
       .slice(0, 120);
   }
 
+  function normalizeMediaDenyRules(value, {
+    normalizeMediaTrustRulesFn = normalizeMediaTrustRules
+  } = {}) {
+    return normalizeMediaTrustRulesFn(value);
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
     normalizeMediaPrivacyMode,
-    normalizeMediaTrustRules
+    normalizeMediaTrustRules,
+    normalizeMediaDenyRules
   });
 })(typeof window !== "undefined" ? window : globalThis);
