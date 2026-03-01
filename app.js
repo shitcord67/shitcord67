@@ -78,6 +78,7 @@ const XMPP_OMEMO_PREKEY_COUNT = XMPP_NS_GLOBAL.XMPP_OMEMO_PREKEY_COUNT || 48;
 const XMPP_OMEMO_SIGNED_PREKEY_ID = XMPP_NS_GLOBAL.XMPP_OMEMO_SIGNED_PREKEY_ID || 1;
 const XEP_0334_HINTS_GLOBAL = xepModule("xep-0334_processing-hints", globalThis.SHITCORD67_XEP_0334_HINTS);
 const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints";
+const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalThis.SHITCORD67_XEP_0184_0333_MARKERS);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -211,6 +212,18 @@ const xmppProcessingHintsFromStanza = typeof XEP_0334_HINTS_GLOBAL.xmppProcessin
     noPermanentCopy: false,
     hasHints: false
   }));
+const xmppReceiptRequestNode = typeof XEP_0184_0333_GLOBAL.xmppReceiptRequestNode === "function"
+  ? XEP_0184_0333_GLOBAL.xmppReceiptRequestNode
+  : (() => null);
+const xmppReceiptReceivedId = typeof XEP_0184_0333_GLOBAL.xmppReceiptReceivedId === "function"
+  ? XEP_0184_0333_GLOBAL.xmppReceiptReceivedId
+  : (() => "");
+const xmppChatMarkerPayload = typeof XEP_0184_0333_GLOBAL.xmppChatMarkerPayload === "function"
+  ? XEP_0184_0333_GLOBAL.xmppChatMarkerPayload
+  : (() => null);
+const xmppChatMarkableNode = typeof XEP_0184_0333_GLOBAL.xmppChatMarkableNode === "function"
+  ? XEP_0184_0333_GLOBAL.xmppChatMarkableNode
+  : (() => null);
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
   : (() => "");
@@ -12410,40 +12423,6 @@ function xmppStanzaDelayTimestamp(stanza, fallbackTs = "") {
   const parsed = new Date(stamp);
   if (Number.isNaN(parsed.getTime())) return fallbackTs || new Date().toISOString();
   return parsed.toISOString();
-}
-
-function xmppReceiptRequestNode(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  return [...stanza.getElementsByTagName("request")]
-    .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:receipts")) || null;
-}
-
-function xmppReceiptReceivedId(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const node = [...stanza.getElementsByTagName("received")]
-    .find((entry) => xmppNodeHasXmlns(entry, "urn:xmpp:receipts")) || null;
-  return (node?.getAttribute("id") || "").toString().trim();
-}
-
-function xmppChatMarkerPayload(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const markerKinds = ["received", "displayed", "acknowledged"];
-  for (const kind of markerKinds) {
-    const node = [...stanza.getElementsByTagName(kind)]
-      .find((entry) => xmppNodeHasXmlns(entry, XMPP_CHAT_MARKERS_NAMESPACE)) || null;
-    if (!node) continue;
-    return {
-      type: kind,
-      id: (node.getAttribute("id") || "").toString().trim()
-    };
-  }
-  return null;
-}
-
-function xmppChatMarkableNode(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  return [...stanza.getElementsByTagName("markable")]
-    .find((entry) => xmppNodeHasXmlns(entry, XMPP_CHAT_MARKERS_NAMESPACE)) || null;
 }
 
 function xmppMessageCorrectionTargetId(stanza) {
