@@ -95,6 +95,7 @@ const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = xepModule("xep-0320_webrtc-sdp-basics"
 const XEP_0066_0071_0231_MEDIA_GLOBAL = xepModule("xep-0066_0071_0231-oob-media", globalThis.SHITCORD67_XEP_0066_0071_0231_MEDIA);
 const XEP_0461_0428_REPLIES_GLOBAL = xepModule("xep-0461_0428-message-replies", globalThis.SHITCORD67_XEP_0461_0428_REPLIES);
 const XEP_0313_MAM_LOADING_GLOBAL = xepModule("xep-0313_mam-loading", globalThis.SHITCORD67_XEP_0313_MAM_LOADING);
+const XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL = xepModule("xep-0333_0359_0372_0444_0482-message-builders", globalThis.SHITCORD67_XEP_0333_0359_0372_0444_0482_BUILDERS);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -17490,8 +17491,14 @@ function preferredXmppDmReferenceIdForMessage(message) {
 }
 
 function preferredXmppReferenceIdForConversationMessage(conversation, message) {
-  if (conversation?.type === "dm") return preferredXmppDmReferenceIdForMessage(message);
-  return primaryXmppReferenceIdForMessage(message);
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.preferredXmppReferenceIdForConversationMessage !== "function") {
+    if (conversation?.type === "dm") return preferredXmppDmReferenceIdForMessage(message);
+    return primaryXmppReferenceIdForMessage(message);
+  }
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.preferredXmppReferenceIdForConversationMessage(conversation, message, {
+    preferredXmppDmReferenceIdForMessageFn: preferredXmppDmReferenceIdForMessage,
+    primaryXmppReferenceIdForMessageFn: primaryXmppReferenceIdForMessage
+  });
 }
 
 function xmppReplyFallbackPrefix(replyMeta) {
@@ -17502,58 +17509,45 @@ function xmppReplyFallbackPrefix(replyMeta) {
 }
 
 function buildXmppMessageBody(message, replyMeta = null) {
-  const payload = relayMessageBodyText(message);
-  if (!replyMeta?.id) {
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.buildXmppMessageBody !== "function") {
+    const payload = relayMessageBodyText(message);
+    if (!replyMeta?.id) {
+      return {
+        body: payload,
+        fallbackPrefixLength: 0
+      };
+    }
+    const prefix = xmppReplyFallbackPrefix(replyMeta);
     return {
-      body: payload,
-      fallbackPrefixLength: 0
+      body: `${prefix}${payload || ""}`,
+      fallbackPrefixLength: prefix.length
     };
   }
-  const prefix = xmppReplyFallbackPrefix(replyMeta);
-  return {
-    body: `${prefix}${payload || ""}`,
-    fallbackPrefixLength: prefix.length
-  };
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.buildXmppMessageBody(message, replyMeta, {
+    relayMessageBodyTextFn: relayMessageBodyText,
+    xmppReplyFallbackPrefixFn: xmppReplyFallbackPrefix
+  });
 }
 
 function resolveXmppReplyMetaForDm(thread, message, account, peerJid = "") {
-  if (!thread || !message?.replyTo || typeof message.replyTo !== "object") return null;
-  const explicitRef = (message.replyTo.stanzaId || "").toString().trim();
-  const repliedMessageId = (message.replyTo.messageId || "").toString().trim();
-  const targetMessage = repliedMessageId ? findMessageInChannel(thread, repliedMessageId) : null;
-  const referenceId = explicitRef || preferredXmppDmReferenceIdForMessage(targetMessage);
-  if (!referenceId) return null;
-  const targetAuthorAccount = targetMessage?.userId ? getAccountById(targetMessage.userId) : null;
-  const replyToJid = normalizeXmppJid(targetAuthorAccount?.xmppJid || peerJid || "");
-  const authorName = (message.replyTo.authorName || displayNameForMessage(targetMessage) || "message").toString();
-  const previewText = (message.replyTo.text || targetMessage?.text || "XMPP reply").toString();
-  return {
-    id: referenceId,
-    to: replyToJid,
-    authorName,
-    text: previewText,
-    isOwnTarget: Boolean(targetMessage?.userId && targetMessage.userId === account?.id)
-  };
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.resolveXmppReplyMetaForDm !== "function") return null;
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.resolveXmppReplyMetaForDm(thread, message, account, peerJid, {
+    findMessageInChannelFn: findMessageInChannel,
+    preferredXmppDmReferenceIdForMessageFn: preferredXmppDmReferenceIdForMessage,
+    getAccountByIdFn: getAccountById,
+    normalizeXmppJidFn: normalizeXmppJid,
+    displayNameForMessageFn: displayNameForMessage
+  });
 }
 
 function resolveXmppReplyMetaForRoom(channel, message, roomJid = "") {
-  if (!channel || !message?.replyTo || typeof message.replyTo !== "object") return null;
-  const explicitRef = (message.replyTo.stanzaId || "").toString().trim();
-  const repliedMessageId = (message.replyTo.messageId || "").toString().trim();
-  const targetMessage = repliedMessageId ? findMessageInChannel(channel, repliedMessageId) : null;
-  const referenceId = explicitRef || primaryXmppReferenceIdForMessage(targetMessage);
-  if (!referenceId) return null;
-  const roomBare = xmppBareJid(roomJid);
-  const fallbackAuthor = (message.replyTo.authorName || displayNameForMessage(targetMessage) || "message").toString().trim();
-  const nick = (targetMessage?.xmppNick || fallbackAuthor).toString().replace(/\//g, " ").replace(/\s+/g, " ").trim();
-  const replyToJid = roomBare && nick ? `${roomBare}/${nick.slice(0, 96)}` : roomBare;
-  const previewText = (message.replyTo.text || targetMessage?.text || "XMPP reply").toString();
-  return {
-    id: referenceId,
-    to: replyToJid,
-    authorName: fallbackAuthor,
-    text: previewText
-  };
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.resolveXmppReplyMetaForRoom !== "function") return null;
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.resolveXmppReplyMetaForRoom(channel, message, roomJid, {
+    findMessageInChannelFn: findMessageInChannel,
+    primaryXmppReferenceIdForMessageFn: primaryXmppReferenceIdForMessage,
+    xmppBareJidFn: xmppBareJid,
+    displayNameForMessageFn: displayNameForMessage
+  });
 }
 
 function xmppEnsureBuilderAtMessageNode(stanza) {
@@ -17569,70 +17563,46 @@ function appendXmppReplyNodes(stanza, replyMeta, fallbackPrefixLength = 0) {
 }
 
 function appendXmppOriginIdNode(stanza, originId) {
-  const value = (originId || "").toString().trim();
-  if (!stanza || !value) return stanza;
-  xmppEnsureBuilderAtMessageNode(stanza);
-  stanza.c("origin-id", { xmlns: "urn:xmpp:sid:0", id: value }).up();
-  return stanza;
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppOriginIdNode !== "function") return stanza;
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppOriginIdNode(stanza, originId, {
+    xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode
+  });
 }
 
 function appendXmppChatMarkableNode(stanza) {
-  if (!stanza) return stanza;
-  xmppEnsureBuilderAtMessageNode(stanza);
-  stanza.c("markable", { xmlns: XMPP_CHAT_MARKERS_NAMESPACE }).up();
-  return stanza;
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppChatMarkableNode !== "function") return stanza;
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppChatMarkableNode(stanza, {
+    xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
+    chatMarkersNamespace: XMPP_CHAT_MARKERS_NAMESPACE
+  });
 }
 
 function appendXmppReactionsNode(stanza, targetRefId, emojis = []) {
-  const refId = (targetRefId || "").toString().trim();
-  if (!stanza || !refId) return stanza;
-  xmppEnsureBuilderAtMessageNode(stanza);
-  stanza.c("reactions", { xmlns: XMPP_REACTIONS_NAMESPACE, id: refId });
-  const normalized = [...new Set(
-    (Array.isArray(emojis) ? emojis : [])
-      .map((emoji) => (emoji || "").toString().trim())
-      .filter(Boolean)
-  )].slice(0, 8);
-  normalized.forEach((emoji) => {
-    stanza.c("reaction").t(emoji).up();
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppReactionsNode !== "function") return stanza;
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppReactionsNode(stanza, targetRefId, emojis, {
+    xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
+    reactionsNamespace: XMPP_REACTIONS_NAMESPACE
   });
-  stanza.up();
-  return stanza;
 }
 
 function xmppShareableAttachmentsForStanza(message, { limit = 6, urlMax = 2048 } = {}) {
-  return relayTransportAttachments(message?.attachments, {
-    limit: Math.max(1, Math.min(8, Number(limit) || 6)),
-    urlMax: Math.max(200, Math.min(4096, Number(urlMax) || 2048))
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.xmppShareableAttachmentsForStanza !== "function") {
+    return relayTransportAttachments(message?.attachments, {
+      limit: Math.max(1, Math.min(8, Number(limit) || 6)),
+      urlMax: Math.max(200, Math.min(4096, Number(urlMax) || 2048))
+    });
+  }
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.xmppShareableAttachmentsForStanza(message, { limit, urlMax }, {
+    relayTransportAttachmentsFn: relayTransportAttachments
   });
 }
 
 function appendXmppAttachmentMetadataNodes(stanza, attachments = []) {
-  if (!stanza) return stanza;
-  const items = normalizeAttachments(attachments).filter((entry) => /^https?:\/\//i.test((entry?.url || "").toString()));
-  if (items.length === 0) return stanza;
-  xmppEnsureBuilderAtMessageNode(stanza);
-  items.forEach((entry) => {
-    const url = (entry.url || "").toString().trim();
-    if (!url) return;
-    const desc = (entry.name || `${entry.type || "file"} attachment`).toString().trim().slice(0, 180);
-    stanza
-      .c("x", { xmlns: "jabber:x:oob" })
-      .c("url")
-      .t(url)
-      .up();
-    if (desc) stanza.c("desc").t(desc).up();
-    stanza.up();
-    stanza
-      .c("reference", {
-        xmlns: "urn:xmpp:reference:0",
-        type: "data",
-        uri: url,
-        name: desc.slice(0, 120)
-      })
-      .up();
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppAttachmentMetadataNodes !== "function") return stanza;
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppAttachmentMetadataNodes(stanza, attachments, {
+    normalizeAttachmentsFn: normalizeAttachments,
+    xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode
   });
-  return stanza;
 }
 
 function appendXmppCallInviteNode(stanza, {
@@ -17640,20 +17610,12 @@ function appendXmppCallInviteNode(stanza, {
   audio = true,
   video = true
 } = {}) {
-  if (!stanza) return stanza;
-  const href = normalizeCallInviteUrl(url);
-  if (!href) return stanza;
-  xmppEnsureBuilderAtMessageNode(stanza);
-  stanza
-    .c("invite", {
-      xmlns: XMPP_CALL_INVITES_NAMESPACE,
-      audio: audio ? "true" : "false",
-      video: video ? "true" : "false"
-    })
-    .c("external", { uri: href })
-    .up()
-    .up();
-  return stanza;
+  if (typeof XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppCallInviteNode !== "function") return stanza;
+  return XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL.appendXmppCallInviteNode(stanza, { url, audio, video }, {
+    normalizeCallInviteUrlFn: normalizeCallInviteUrl,
+    xmppEnsureBuilderAtMessageNodeFn: xmppEnsureBuilderAtMessageNode,
+    callInvitesNamespace: XMPP_CALL_INVITES_NAMESPACE
+  });
 }
 
 function xmppSendIqPromise(connection, iqBuilder, timeoutMs = 7000) {
