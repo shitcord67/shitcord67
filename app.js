@@ -87,6 +87,7 @@ const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", gl
 const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant", globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);
 const XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL = xepModule("xep-0166_0167-jingle-iq-parse", globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE);
 const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = xepModule("xep-0320_webrtc-sdp-basics", globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
+const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -289,6 +290,9 @@ const xmppParseDtlsFingerprintFromSdp = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL
 const xmppParseRtcIceCandidateForJingle = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseRtcIceCandidateForJingle === "function"
   ? XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseRtcIceCandidateForJingle
   : (() => null);
+const xmppPresencePhotoHash = typeof XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash === "function"
+  ? XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash
+  : (() => "");
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
   : (() => "");
@@ -13723,14 +13727,6 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
     return;
   }
   fetchVCardAvatar();
-}
-
-function xmppPresencePhotoHash(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
-  const node = [...stanza.getElementsByTagName("x")]
-    .find((entry) => xmppNodeHasXmlns(entry, "vcard-temp:x:update")) || null;
-  const photoNode = node ? node.getElementsByTagName("photo")[0] : null;
-  return xmppNodeText(photoNode).trim();
 }
 
 function xmppMucOccupantByNick(roomJid, nick = "") {
