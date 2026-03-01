@@ -285,6 +285,26 @@
     return attrs;
   }
 
+  function xmppBuildPingIqResult(stanza, deps = {}) {
+    const payload = xmppIncomingPingGetPayload(stanza, deps);
+    if (!payload) return null;
+    const attrs = buildXmppIqResultAttrs(payload);
+    if (!attrs) return null;
+    return {
+      payload,
+      attrs
+    };
+  }
+
+  function xmppHandleIncomingPingGet(stanza, deps = {}) {
+    const connection = deps.xmppConnection;
+    if (!connection || typeof connection.send !== "function" || typeof deps.$iq !== "function") return null;
+    const result = xmppBuildPingIqResult(stanza, deps);
+    if (!result?.attrs) return null;
+    connection.send(deps.$iq(result.attrs));
+    return result.payload || null;
+  }
+
   globalScope.SHITCORD67_XEP_0199_0410_0313_PRESENCE_PING = Object.freeze({
     xmppHistoryStatusLabel,
     clearXmppPingLoop,
@@ -297,7 +317,9 @@
     sendXmppMucSelfPing,
     xmppPresenceShowToPresence,
     xmppIncomingPingGetPayload,
-    buildXmppIqResultAttrs
+    buildXmppIqResultAttrs,
+    xmppBuildPingIqResult,
+    xmppHandleIncomingPingGet
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register(

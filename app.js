@@ -13318,23 +13318,13 @@ function xmppPresenceShowToPresence(node) {
   });
 }
 
-function xmppIncomingPingGetPayload(stanza) {
-  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppIncomingPingGetPayload !== "function") return null;
-  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppIncomingPingGetPayload(stanza, {
-    xmppNodeHasXmlnsFn: xmppNodeHasXmlns
+function xmppHandleIncomingPingGet(stanza) {
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppHandleIncomingPingGet !== "function") return null;
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppHandleIncomingPingGet(stanza, {
+    xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+    xmppConnection,
+    $iq: globalThis.$iq
   });
-}
-
-function buildXmppIqResultAttrs({ id = "", from = "" } = {}) {
-  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.buildXmppIqResultAttrs === "function") {
-    return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.buildXmppIqResultAttrs({ id, from });
-  }
-  const safeId = (id || "").toString().trim();
-  if (!safeId) return null;
-  const attrs = { type: "result", id: safeId };
-  const safeFrom = (from || "").toString().trim();
-  if (safeFrom) attrs.to = safeFrom;
-  return attrs;
 }
 
 function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
@@ -16556,12 +16546,8 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "get", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
-          const pingPayload = xmppIncomingPingGetPayload(stanza);
+          const pingPayload = xmppHandleIncomingPingGet(stanza);
           if (!pingPayload) return true;
-          const resultAttrs = buildXmppIqResultAttrs(pingPayload);
-          if (resultAttrs && globalThis.$iq) {
-            xmppConnection.send(globalThis.$iq(resultAttrs));
-          }
           addXmppDebugEvent("iq", "Handled XMPP ping", {
             from: pingPayload.from || "",
             id: pingPayload.id || ""
