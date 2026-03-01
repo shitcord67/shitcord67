@@ -769,6 +769,9 @@ const clampMessageTextForStorageViaModule = typeof TEXT_TIME_UTILS_GLOBAL.clampM
     maxLength: MESSAGE_TEXT_STORAGE_MAX
   }))
   : ((value) => (value || "").toString());
+const escapeRegExpViaModule = typeof TEXT_TIME_UTILS_GLOBAL.escapeRegExp === "function"
+  ? TEXT_TIME_UTILS_GLOBAL.escapeRegExp
+  : ((value) => (value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -1793,7 +1796,7 @@ function clampMessageTextForStorage(value) {
 }
 
 function escapeRegExp(value) {
-  return (value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return escapeRegExpViaModule(value);
 }
 
 function toTimestampMs(value) {
