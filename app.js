@@ -481,6 +481,9 @@ const normalizeMemberPresenceFilterViaModule = typeof UI_STATE_NORMALIZERS_GLOBA
 const normalizeMobilePaneViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeMobilePane === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeMobilePane
   : ((value) => (value === "nav" ? "nav" : "chat"));
+const normalizeSwfAudioPolicyViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAudioPolicy === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAudioPolicy
+  : ((value) => (value === "multi" ? "multi" : "single"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11097,7 +11100,7 @@ function normalizeMobilePane(value) {
 }
 
 function normalizeSwfAudioPolicy(value) {
-  return value === "multi" ? "multi" : "single";
+  return normalizeSwfAudioPolicyViaModule(value);
 }
 
 function normalizeSwfAudioScope(value) {

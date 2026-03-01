@@ -14,9 +14,14 @@
     return value === "nav" ? "nav" : "chat";
   }
 
+  function normalizeSwfAudioPolicy(value) {
+    return value === "multi" ? "multi" : "single";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
-    normalizeMobilePane
+    normalizeMobilePane,
+    normalizeSwfAudioPolicy
   });
 })(typeof window !== "undefined" ? window : globalThis);
