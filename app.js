@@ -54,6 +54,7 @@ const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
 const XMPP_OCCUPANT_ID_NAMESPACE = "urn:xmpp:occupant-id:0";
+const XMPP_HINTS_NAMESPACE = "urn:xmpp:hints";
 const XMPP_NS_GLOBAL = globalThis.SHITCORD67_XMPP_NS || {};
 const XMPP_EME_NAMESPACE = XMPP_NS_GLOBAL.XMPP_EME_NAMESPACE || "urn:xmpp:eme:0";
 const XMPP_OPENPGP_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_NAMESPACE || "urn:xmpp:openpgp:0";
@@ -191,7 +192,7 @@ const appendXmppMessageProcessingHints = XEP_0334_HINTS_GLOBAL.appendXmppMessage
   preferStore = true
 } = {}) {
   if (!stanza || typeof stanza.c !== "function") return stanza;
-  const add = (name) => stanza.c(name, { xmlns: "urn:xmpp:hints" }).up();
+  const add = (name) => stanza.c(name, { xmlns: XMPP_HINTS_NAMESPACE }).up();
   if (encrypted || ephemeral) {
     add("no-store");
     add("no-permanent-store");
@@ -18837,6 +18838,7 @@ function xmppClientDiscoFeatures() {
     XMPP_REACTIONS_NAMESPACE,
     XMPP_MESSAGE_RETRACT_NAMESPACE,
     XMPP_FASTEN_NAMESPACE,
+    XMPP_HINTS_NAMESPACE,
     XMPP_CHAT_MARKERS_NAMESPACE,
     XMPP_DIRECT_MUC_INVITE_NAMESPACE,
     XMPP_OCCUPANT_ID_NAMESPACE,
