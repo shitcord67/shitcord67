@@ -75,6 +75,7 @@ const XEP_0384_CRYPTO_UTILS_GLOBAL = globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
 const XEP_0384_OMEMO_STORE_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO_STORE || {};
 const XEP_0384_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_0384_RUNTIME || {};
+const XEP_0384_PREFERENCES_GLOBAL = globalThis.SHITCORD67_XEP_0384_PREFERENCES || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -329,6 +330,20 @@ const createXmppOmemoStoreRegistry = XEP_0384_RUNTIME_GLOBAL.createXmppOmemoStor
   });
 };
 const xmppOmemoStoreRegistry = createXmppOmemoStoreRegistry();
+const xmppOmemoEnabledForPeerFromPrefs = XEP_0384_PREFERENCES_GLOBAL.xmppOmemoEnabledForPeer || function xmppOmemoEnabledForPeerFromPrefsFallback(peerBare, prefs = {}, normalizeToggleFn = (value) => value) {
+  const enabled = prefs?.xmppOmemoEnabledByJid?.[peerBare];
+  return normalizeToggleFn(enabled) === "on";
+};
+const xmppOmemoApplyPeerEnabled = XEP_0384_PREFERENCES_GLOBAL.xmppOmemoApplyPeerEnabled || function xmppOmemoApplyPeerEnabledFallback(prefs = {}, peerBare, enabled, normalizeToggleFn = (value) => value) {
+  if (!peerBare) return prefs;
+  return {
+    ...prefs,
+    xmppOmemoEnabledByJid: {
+      ...(prefs?.xmppOmemoEnabledByJid || {}),
+      [peerBare]: normalizeToggleFn(enabled ? "on" : "off")
+    }
+  };
+};
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
   const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
@@ -14818,17 +14833,12 @@ function xmppOmemoStoreForAccount(jid) {
 }
 
 function xmppOmemoEnabledForPeer(peerBare, prefs = getPreferences()) {
-  const enabled = prefs?.xmppOmemoEnabledByJid?.[peerBare];
-  return normalizeToggle(enabled) === "on";
+  return xmppOmemoEnabledForPeerFromPrefs(peerBare, prefs, normalizeToggle);
 }
 
 function xmppOmemoSetPeerEnabled(peerBare, enabled, prefs = getPreferences()) {
   if (!peerBare) return;
-  state.preferences = prefs;
-  state.preferences.xmppOmemoEnabledByJid = {
-    ...prefs.xmppOmemoEnabledByJid,
-    [peerBare]: normalizeToggle(enabled ? "on" : "off")
-  };
+  state.preferences = xmppOmemoApplyPeerEnabled(prefs, peerBare, enabled, normalizeToggle);
   saveState();
 }
 
