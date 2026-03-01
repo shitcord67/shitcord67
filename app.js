@@ -160,6 +160,35 @@ const xmppNodeText = XMPP_XML_GLOBAL.xmppNodeText || function xmppNodeTextFallba
   }
   return (node.textContent || "").toString();
 };
+const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD || {};
+const xmppEncryptedPayloadInfo = XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo || function xmppEncryptedPayloadInfoFallback(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") {
+    return { encrypted: false, type: "", label: "" };
+  }
+  const encryptedNodes = [...stanza.getElementsByTagName("encrypted")];
+  const hasLegacyOmemo = encryptedNodes
+    .some((node) => xmppNodeHasXmlns(node, "eu.siacs.conversations.axolotl"));
+  if (hasLegacyOmemo) return { encrypted: true, type: "omemo", label: "OMEMO" };
+  const hasOmemo = encryptedNodes
+    .some((node) => xmppNodeHasXmlnsPrefix(node, "urn:xmpp:omemo:"));
+  if (hasOmemo) return { encrypted: true, type: "omemo2", label: "OMEMO" };
+  const hasOpenPgp = [...stanza.getElementsByTagName("openpgp")]
+    .some((node) => xmppNodeHasXmlns(node, XMPP_OPENPGP_NAMESPACE));
+  if (hasOpenPgp) return { encrypted: true, type: "openpgp", label: "OpenPGP" };
+  const hasPgp = [...stanza.getElementsByTagName("x")]
+    .some((node) => xmppNodeHasXmlns(node, "jabber:x:encrypted"));
+  if (hasPgp) return { encrypted: true, type: "pgp", label: "OpenPGP" };
+  return { encrypted: false, type: "", label: "" };
+};
+const xmppHasEncryptedPayload = XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppHasEncryptedPayload || function xmppHasEncryptedPayloadFallback(stanza) {
+  return xmppEncryptedPayloadInfo(stanza).encrypted;
+};
+const xmppEncryptedPlaceholderLabel = XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPlaceholderLabel || function xmppEncryptedPlaceholderLabelFallback(info) {
+  if (!info || !info.encrypted) return "";
+  const label = (info.label || "").toString().trim();
+  if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
+  return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
+};
 const XEP_0454_UTILS_GLOBAL = globalThis.SHITCORD67_XEP_0454_UTILS || {};
 const bytesToHex = XEP_0454_UTILS_GLOBAL.bytesToHex || function bytesToHexFallback(bytes) {
   const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
@@ -14515,37 +14544,6 @@ function reportXmppMucJoinError(roomJid, nick, stanza) {
   });
   renderChannels();
   if (mappedChannel && state.activeChannelId === mappedChannel.id) renderMessages();
-}
-
-function xmppEncryptedPayloadInfo(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") {
-    return { encrypted: false, type: "", label: "" };
-  }
-  const encryptedNodes = [...stanza.getElementsByTagName("encrypted")];
-  const hasLegacyOmemo = encryptedNodes
-    .some((node) => xmppNodeHasXmlns(node, "eu.siacs.conversations.axolotl"));
-  if (hasLegacyOmemo) return { encrypted: true, type: "omemo", label: "OMEMO" };
-  const hasOmemo = encryptedNodes
-    .some((node) => xmppNodeHasXmlnsPrefix(node, "urn:xmpp:omemo:"));
-  if (hasOmemo) return { encrypted: true, type: "omemo2", label: "OMEMO" };
-  const hasOpenPgp = [...stanza.getElementsByTagName("openpgp")]
-    .some((node) => xmppNodeHasXmlns(node, XMPP_OPENPGP_NAMESPACE));
-  if (hasOpenPgp) return { encrypted: true, type: "openpgp", label: "OpenPGP" };
-  const hasPgp = [...stanza.getElementsByTagName("x")]
-    .some((node) => xmppNodeHasXmlns(node, "jabber:x:encrypted"));
-  if (hasPgp) return { encrypted: true, type: "pgp", label: "OpenPGP" };
-  return { encrypted: false, type: "", label: "" };
-}
-
-function xmppHasEncryptedPayload(stanza) {
-  return xmppEncryptedPayloadInfo(stanza).encrypted;
-}
-
-function xmppEncryptedPlaceholderLabel(info) {
-  if (!info || !info.encrypted) return "";
-  const label = (info.label || "").toString().trim();
-  if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
-  return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
 }
 
 class XmppOmemoStore {
