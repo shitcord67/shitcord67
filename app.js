@@ -8286,35 +8286,63 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
   const cachedDisco = barePeer ? xmppDiscoInfoCacheByJid.get(barePeer) : null;
   const featureList = Array.isArray(cachedDisco?.features) ? cachedDisco.features : [];
   const featureSet = new Set(featureList);
-  const tag = (action || "").toString().trim().toLowerCase();
-  if (!["propose", "proceed", "accept", "retract", "reject", "ringing"].includes(tag)) return false;
-  const hasV0 = featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE);
-  const hasV1 = featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1);
-  const primaryNamespace = hasV0 && !hasV1
-    ? XMPP_JINGLE_MESSAGE_INIT_NAMESPACE
-    : XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1;
-  const namespaceList = (!hasV0 && !hasV1)
-    ? [primaryNamespace, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE]
-    : [primaryNamespace];
-  const uniqueNamespaces = [...new Set(namespaceList.filter(Boolean))];
+  const plan = (typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppBuildJingleMessageSendPlan === "function")
+    ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppBuildJingleMessageSendPlan({
+      to,
+      action,
+      sessionId: id,
+      featureSet,
+      media
+    }, {
+      namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+      namespaceV1: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1,
+      defaultMedia: XMPP_CALL_DEFAULT_MEDIA
+    })
+    : null;
+  const tag = (plan?.action || (action || "").toString().trim().toLowerCase());
+  if (!tag || !["propose", "proceed", "accept", "retract", "reject", "ringing"].includes(tag)) return false;
+  const uniqueNamespaces = Array.isArray(plan?.namespaces) && plan.namespaces.length > 0
+    ? plan.namespaces
+    : (typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppJingleMessageNamespacesForFeatures === "function"
+      ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppJingleMessageNamespacesForFeatures(featureSet, {
+        namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+        namespaceV1: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
+      })
+      : [XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE]);
+  const sendMedia = Array.isArray(plan?.media) ? plan.media : media;
+  const builtStanzas = (typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppBuildJingleMessageStanzas === "function")
+    ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppBuildJingleMessageStanzas({
+      to,
+      action: tag,
+      sessionId: id,
+      namespaces: uniqueNamespaces,
+      media: sendMedia
+    }, {
+      $msg: globalThis.$msg,
+      rtpNamespace: XMPP_JINGLE_RTP_NAMESPACE,
+      defaultMedia: XMPP_CALL_DEFAULT_MEDIA
+    })
+    : [];
+  const stanzasToSend = builtStanzas.length > 0
+    ? builtStanzas
+    : uniqueNamespaces
+      .map((namespace) => {
+        const builder = globalThis.$msg({ to, type: "chat" }).c(tag, { xmlns: namespace, id });
+        if (tag === "propose") {
+          const medias = [...new Set(
+            (Array.isArray(sendMedia) ? sendMedia : XMPP_CALL_DEFAULT_MEDIA)
+              .map((item) => (item || "").toString().trim().toLowerCase())
+              .filter((item) => item === "audio" || item === "video")
+          )];
+          (medias.length > 0 ? medias : XMPP_CALL_DEFAULT_MEDIA).forEach((mediaType) => {
+            builder.c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType }).up();
+          });
+        }
+        return builder;
+      })
+      .filter(Boolean);
   let sentCount = 0;
-  uniqueNamespaces.forEach((namespace) => {
-    const builder = globalThis.$msg({ to, type: "chat" }).c(tag, {
-      xmlns: namespace,
-      id
-    });
-    if (tag === "propose") {
-      const wanted = Array.isArray(media) ? media : XMPP_CALL_DEFAULT_MEDIA;
-      const normalizedMedia = [...new Set(
-        wanted
-          .map((item) => (item || "").toString().trim().toLowerCase())
-          .filter((item) => item === "audio" || item === "video")
-      )];
-      const medias = normalizedMedia.length > 0 ? normalizedMedia : XMPP_CALL_DEFAULT_MEDIA;
-      medias.forEach((mediaType) => {
-        builder.c("description", { xmlns: XMPP_JINGLE_RTP_NAMESPACE, media: mediaType }).up();
-      });
-    }
+  stanzasToSend.forEach((builder) => {
     xmppConnection.send(builder);
     sentCount += 1;
   });
@@ -8324,9 +8352,15 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     action: tag,
     id,
     xmlns: uniqueNamespaces.join(","),
-    media: tag === "propose" ? (media || []) : []
+    media: tag === "propose" ? (sendMedia || []) : []
   });
-  if (!hasV0 && !hasV1 && uniqueNamespaces.length > 1) {
+  const shouldCompatLog = (typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppShouldLogJingleMessageCompatFallback === "function")
+    ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppShouldLogJingleMessageCompatFallback(featureSet, uniqueNamespaces, {
+      namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+      namespaceV1: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
+    })
+    : (!featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE) && !featureSet.has(XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1) && uniqueNamespaces.length > 1);
+  if (shouldCompatLog) {
     addXmppDebugEvent("call", "Sent Jingle Message compatibility fallback", {
       to,
       action: tag,

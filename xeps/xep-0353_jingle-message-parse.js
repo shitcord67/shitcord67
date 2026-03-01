@@ -79,8 +79,126 @@
     return null;
   }
 
+  function xmppJingleMessageAllowedActions() {
+    return ["propose", "proceed", "accept", "retract", "reject", "ringing"];
+  }
+
+  function xmppNormalizeJingleMessageAction(action = "") {
+    return (action || "").toString().trim().toLowerCase();
+  }
+
+  function xmppIsJingleMessageActionSupported(action = "") {
+    return xmppJingleMessageAllowedActions().includes(xmppNormalizeJingleMessageAction(action));
+  }
+
+  function xmppJingleMessageNamespacesForFeatures(featureSet = new Set(), deps = {}) {
+    const v0 = deps.namespaceV0 || "urn:xmpp:jingle-message:0";
+    const v1 = deps.namespaceV1 || "urn:xmpp:jingle-message:1";
+    const hasV0 = featureSet instanceof Set ? featureSet.has(v0) : false;
+    const hasV1 = featureSet instanceof Set ? featureSet.has(v1) : false;
+    const primary = hasV0 && !hasV1 ? v0 : v1;
+    const list = (!hasV0 && !hasV1) ? [primary, v0] : [primary];
+    return [...new Set(list.filter(Boolean))];
+  }
+
+  function xmppNormalizeJingleMessageMedia(media = [], deps = {}) {
+    const fallback = Array.isArray(deps.defaultMedia) ? deps.defaultMedia : ["audio"];
+    const wanted = Array.isArray(media) ? media : fallback;
+    const normalized = [...new Set(
+      wanted
+        .map((item) => (item || "").toString().trim().toLowerCase())
+        .filter((item) => item === "audio" || item === "video")
+    )];
+    return normalized.length > 0 ? normalized : fallback;
+  }
+
+  function xmppBuildJingleMessageStanza({
+    to = "",
+    action = "",
+    sessionId = "",
+    namespace = "",
+    media = []
+  } = {}, deps = {}) {
+    if (typeof deps.$msg !== "function") return null;
+    const target = (to || "").toString().trim();
+    const id = (sessionId || "").toString().trim();
+    const tag = xmppNormalizeJingleMessageAction(action);
+    const xmlns = (namespace || "").toString().trim();
+    if (!target || !id || !tag || !xmlns) return null;
+    if (!xmppIsJingleMessageActionSupported(tag)) return null;
+    const builder = deps.$msg({ to: target, type: "chat" }).c(tag, { xmlns, id });
+    if (tag === "propose") {
+      const medias = xmppNormalizeJingleMessageMedia(media, { defaultMedia: deps.defaultMedia });
+      medias.forEach((mediaType) => {
+        builder.c("description", { xmlns: deps.rtpNamespace || XMPP_JINGLE_RTP_NAMESPACE, media: mediaType }).up();
+      });
+    }
+    return builder;
+  }
+
+  function xmppBuildJingleMessageStanzas({
+    to = "",
+    action = "",
+    sessionId = "",
+    namespaces = [],
+    media = []
+  } = {}, deps = {}) {
+    const list = Array.isArray(namespaces) ? namespaces : [];
+    return list
+      .map((namespace) => xmppBuildJingleMessageStanza({
+        to,
+        action,
+        sessionId,
+        namespace,
+        media
+      }, deps))
+      .filter(Boolean);
+  }
+
+  function xmppShouldLogJingleMessageCompatFallback(featureSet = new Set(), namespaceList = [], deps = {}) {
+    const v0 = deps.namespaceV0 || "urn:xmpp:jingle-message:0";
+    const v1 = deps.namespaceV1 || "urn:xmpp:jingle-message:1";
+    const hasV0 = featureSet instanceof Set ? featureSet.has(v0) : false;
+    const hasV1 = featureSet instanceof Set ? featureSet.has(v1) : false;
+    return !hasV0 && !hasV1 && Array.isArray(namespaceList) && namespaceList.length > 1;
+  }
+
+  function xmppBuildJingleMessageSendPlan({
+    to = "",
+    action = "",
+    sessionId = "",
+    featureSet = new Set(),
+    media = []
+  } = {}, deps = {}) {
+    const tag = xmppNormalizeJingleMessageAction(action);
+    if (!to || !sessionId || !xmppIsJingleMessageActionSupported(tag)) return null;
+    const namespaces = xmppJingleMessageNamespacesForFeatures(featureSet, {
+      namespaceV0: deps.namespaceV0,
+      namespaceV1: deps.namespaceV1
+    });
+    const normalizedMedia = xmppNormalizeJingleMessageMedia(media, {
+      defaultMedia: deps.defaultMedia
+    });
+    return {
+      to: (to || "").toString().trim(),
+      action: tag,
+      sessionId: (sessionId || "").toString().trim(),
+      namespaces,
+      media: normalizedMedia
+    };
+  }
+
   globalScope.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE = Object.freeze({
-    parseXmppJingleMessageAction
+    parseXmppJingleMessageAction,
+    xmppJingleMessageAllowedActions,
+    xmppNormalizeJingleMessageAction,
+    xmppIsJingleMessageActionSupported,
+    xmppJingleMessageNamespacesForFeatures,
+    xmppNormalizeJingleMessageMedia,
+    xmppBuildJingleMessageStanza,
+    xmppBuildJingleMessageStanzas,
+    xmppShouldLogJingleMessageCompatFallback,
+    xmppBuildJingleMessageSendPlan
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0353_jingle-message-parse", globalScope.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE);
