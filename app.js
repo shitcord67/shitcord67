@@ -97,6 +97,7 @@ const XEP_0461_0428_REPLIES_GLOBAL = xepModule("xep-0461_0428-message-replies", 
 const XEP_0313_MAM_LOADING_GLOBAL = xepModule("xep-0313_mam-loading", globalThis.SHITCORD67_XEP_0313_MAM_LOADING);
 const XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL = xepModule("xep-0333_0359_0372_0444_0482-message-builders", globalThis.SHITCORD67_XEP_0333_0359_0372_0444_0482_BUILDERS);
 const XEP_0030_0166_CALL_DISCO_GLOBAL = xepModule("xep-0030_0166-call-disco", globalThis.SHITCORD67_XEP_0030_0166_CALL_DISCO);
+const XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL = xepModule("xep-0308_0359_0424_0444-message-updates", globalThis.SHITCORD67_XEP_0308_0359_0424_0444_MESSAGE_UPDATES);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -12829,23 +12830,8 @@ function rememberXmppDmMessage(peerJid, stanzaId, message) {
 }
 
 function xmppStanzaReferenceIds(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
-  const out = [];
-  const seen = new Set();
-  const push = (value) => {
-    const key = (value || "").toString().trim();
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    out.push(key);
-  };
-  [...stanza.getElementsByTagName("stanza-id")].forEach((node) => {
-    push(node.getAttribute?.("id") || "");
-  });
-  [...stanza.getElementsByTagName("origin-id")].forEach((node) => {
-    push(node.getAttribute?.("id") || "");
-  });
-  push(stanza.getAttribute?.("id") || "");
-  return out;
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.xmppStanzaReferenceIds !== "function") return [];
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.xmppStanzaReferenceIds(stanza);
 }
 
 function findXmppRoomMessageByStanzaId(roomJid, stanzaId) {
@@ -12922,377 +12908,144 @@ function findXmppDmThreadByPeerJid(peerJid) {
 }
 
 function applyXmppDmMessageCorrection(peerJid, targetRefId, payload = {}) {
-  const barePeer = xmppBareJid(peerJid);
-  if (!barePeer || !targetRefId) return { handled: false, changed: false, contentChanged: false, thread: null };
-  const thread = findXmppDmThreadByPeerJid(barePeer);
-  if (!thread || !Array.isArray(thread.messages)) return { handled: false, changed: false, contentChanged: false, thread: null };
-  const mapped = findXmppDmMessageByAnyId(barePeer, targetRefId);
-  const target = thread.messages.find((entry) => (
-    messageMatchesXmppReference(entry, targetRefId)
-    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
-  )) || null;
-  if (!target) return { handled: false, changed: false, contentChanged: false, thread };
-  const applied = applyXmppCorrectionToMessageEntry(target, payload);
-  const trackedRefs = normalizeXmppRefIdsList([
-    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-    target.xmppStanzaId || "",
-    targetRefId,
-    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-    payload?.stanzaId || ""
-  ]);
-  trackedRefs.forEach((refId) => rememberXmppDmMessage(barePeer, refId, target));
-  return {
-    ...applied,
-    thread
-  };
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppDmMessageCorrection !== "function") {
+    return { handled: false, changed: false, contentChanged: false, thread: null };
+  }
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppDmMessageCorrection(peerJid, targetRefId, payload, {
+    bareJidFn: xmppBareJid,
+    findXmppDmThreadByPeerJidFn: findXmppDmThreadByPeerJid,
+    findXmppDmMessageByAnyIdFn: findXmppDmMessageByAnyId,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppCorrectionToMessageEntryFn: applyXmppCorrectionToMessageEntry,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    rememberXmppDmMessageFn: rememberXmppDmMessage
+  });
 }
 
 function applyXmppRoomMessageCorrection(roomJid, targetRefId, payload = {}) {
-  const bareRoom = xmppBareJid(roomJid);
-  if (!bareRoom || !targetRefId) return { handled: false, changed: false, contentChanged: false, channel: null };
-  const roomToken = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
-  const channel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(bareRoom);
-  if (!channel || !Array.isArray(channel.messages)) return { handled: false, changed: false, contentChanged: false, channel: null };
-  const mapped = findXmppRoomMessageByAnyId(bareRoom, targetRefId);
-  const target = channel.messages.find((entry) => (
-    messageMatchesXmppReference(entry, targetRefId)
-    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
-  )) || null;
-  if (!target) return { handled: false, changed: false, contentChanged: false, channel };
-  const applied = applyXmppCorrectionToMessageEntry(target, payload);
-  const trackedRefs = normalizeXmppRefIdsList([
-    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-    target.xmppStanzaId || "",
-    targetRefId,
-    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-    payload?.stanzaId || ""
-  ]);
-  trackedRefs.forEach((refId) => rememberXmppRoomMessage(bareRoom, refId, target));
-  return {
-    ...applied,
-    channel
-  };
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRoomMessageCorrection !== "function") {
+    return { handled: false, changed: false, contentChanged: false, channel: null };
+  }
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRoomMessageCorrection(roomJid, targetRefId, payload, {
+    bareJidFn: xmppBareJid,
+    xmppRoomByJid,
+    findRelayTargetChannelByRoomFn: findRelayTargetChannelByRoom,
+    findXmppRoomChannelByJidFn: findXmppRoomChannelByJid,
+    findXmppRoomMessageByAnyIdFn: findXmppRoomMessageByAnyId,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppCorrectionToMessageEntryFn: applyXmppCorrectionToMessageEntry,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    rememberXmppRoomMessageFn: rememberXmppRoomMessage
+  });
 }
 
 function applyXmppDmReactionUpdate(peerJid, targetRefId, payload = {}) {
-  const barePeer = xmppBareJid(peerJid);
-  if (!barePeer || !targetRefId) return { handled: false, changed: false, thread: null };
-  const thread = findXmppDmThreadByPeerJid(barePeer);
-  if (!thread || !Array.isArray(thread.messages)) return { handled: false, changed: false, thread: null };
-  const mapped = findXmppDmMessageByAnyId(barePeer, targetRefId);
-  const target = thread.messages.find((entry) => (
-    messageMatchesXmppReference(entry, targetRefId)
-    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
-  )) || null;
-  if (!target) return { handled: false, changed: false, thread };
-  const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis, {
-    processingHints: payload.processingHints
-  });
-  const mergedRefIds = normalizeXmppRefIdsList([
-    ...normalizeXmppRefIdsList(target.xmppRefIds),
-    ...normalizeXmppRefIdsList(payload.stanzaRefs),
-    payload.stanzaId || ""
-  ]);
-  const currentRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
-  let metaChanged = false;
-  if (mergedRefIds.length !== currentRefIds.length || mergedRefIds.some((entry, index) => entry !== currentRefIds[index])) {
-    target.xmppRefIds = mergedRefIds;
-    metaChanged = true;
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppDmReactionUpdate !== "function") {
+    return { handled: false, changed: false, thread: null };
   }
-  const trackedRefs = normalizeXmppRefIdsList([
-    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-    target.xmppStanzaId || "",
-    targetRefId,
-    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-    payload?.stanzaId || ""
-  ]);
-  trackedRefs.forEach((refId) => rememberXmppDmMessage(barePeer, refId, target));
-  return {
-    handled: true,
-    changed: Boolean(applied.changed || metaChanged),
-    thread
-  };
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppDmReactionUpdate(peerJid, targetRefId, payload, {
+    bareJidFn: xmppBareJid,
+    findXmppDmThreadByPeerJidFn: findXmppDmThreadByPeerJid,
+    findXmppDmMessageByAnyIdFn: findXmppDmMessageByAnyId,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppReactionsForActorFn: applyXmppReactionsForActor,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    rememberXmppDmMessageFn: rememberXmppDmMessage
+  });
 }
 
 function applyXmppRoomReactionUpdate(roomJid, targetRefId, payload = {}) {
-  const bareRoom = xmppBareJid(roomJid);
-  if (!bareRoom || !targetRefId) return { handled: false, changed: false, channel: null };
-  const roomToken = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
-  const channel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(bareRoom);
-  if (!channel || !Array.isArray(channel.messages)) return { handled: false, changed: false, channel: null };
-  const mapped = findXmppRoomMessageByAnyId(bareRoom, targetRefId);
-  const target = channel.messages.find((entry) => (
-    messageMatchesXmppReference(entry, targetRefId)
-    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
-  )) || null;
-  if (!target) return { handled: false, changed: false, channel };
-  const canonicalActorId = canonicalXmppRoomReactionActorId(bareRoom, payload.actorUserId || "");
-  const aliasActorId = canonicalXmppRoomReactionActorId(bareRoom, payload.aliasActorId || "");
-  let aliasChanged = false;
-  if (aliasActorId && aliasActorId !== canonicalActorId) {
-    aliasChanged = applyXmppReactionsForActor(target, aliasActorId, [], {
-      processingHints: payload.processingHints
-    }).changed;
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRoomReactionUpdate !== "function") {
+    return { handled: false, changed: false, channel: null };
   }
-  const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis, {
-    processingHints: payload.processingHints
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRoomReactionUpdate(roomJid, targetRefId, payload, {
+    bareJidFn: xmppBareJid,
+    xmppRoomByJid,
+    findRelayTargetChannelByRoomFn: findRelayTargetChannelByRoom,
+    findXmppRoomChannelByJidFn: findXmppRoomChannelByJid,
+    findXmppRoomMessageByAnyIdFn: findXmppRoomMessageByAnyId,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    canonicalXmppRoomReactionActorIdFn: canonicalXmppRoomReactionActorId,
+    applyXmppReactionsForActorFn: applyXmppReactionsForActor,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    rememberXmppRoomMessageFn: rememberXmppRoomMessage
   });
-  const mergedRefIds = normalizeXmppRefIdsList([
-    ...normalizeXmppRefIdsList(target.xmppRefIds),
-    ...normalizeXmppRefIdsList(payload.stanzaRefs),
-    payload.stanzaId || ""
-  ]);
-  const currentRefIds = normalizeXmppRefIdsList(target.xmppRefIds);
-  let metaChanged = false;
-  if (mergedRefIds.length !== currentRefIds.length || mergedRefIds.some((entry, index) => entry !== currentRefIds[index])) {
-    target.xmppRefIds = mergedRefIds;
-    metaChanged = true;
-  }
-  const trackedRefs = normalizeXmppRefIdsList([
-    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-    target.xmppStanzaId || "",
-    targetRefId,
-    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-    payload?.stanzaId || ""
-  ]);
-  trackedRefs.forEach((refId) => rememberXmppRoomMessage(bareRoom, refId, target));
-  return {
-    handled: true,
-    changed: Boolean(applied.changed || metaChanged || aliasChanged),
-    channel
-  };
 }
 
 function applyXmppDmMessageRetraction(peerJid, targetRefId, payload = {}) {
-  const barePeer = xmppBareJid(peerJid);
-  if (!barePeer || !targetRefId) return { handled: false, changed: false, contentChanged: false, thread: null };
-  const thread = findXmppDmThreadByPeerJid(barePeer);
-  if (!thread || !Array.isArray(thread.messages)) return { handled: false, changed: false, contentChanged: false, thread: null };
-  const mapped = findXmppDmMessageByAnyId(barePeer, targetRefId);
-  const target = thread.messages.find((entry) => (
-    messageMatchesXmppReference(entry, targetRefId)
-    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
-  )) || null;
-  if (!target) return { handled: false, changed: false, contentChanged: false, thread };
-  const applied = applyXmppRetractionToMessageEntry(target, payload);
-  const trackedRefs = normalizeXmppRefIdsList([
-    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-    target.xmppStanzaId || "",
-    targetRefId,
-    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-    payload?.stanzaId || ""
-  ]);
-  trackedRefs.forEach((refId) => rememberXmppDmMessage(barePeer, refId, target));
-  return {
-    ...applied,
-    thread
-  };
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppDmMessageRetraction !== "function") {
+    return { handled: false, changed: false, contentChanged: false, thread: null };
+  }
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppDmMessageRetraction(peerJid, targetRefId, payload, {
+    bareJidFn: xmppBareJid,
+    findXmppDmThreadByPeerJidFn: findXmppDmThreadByPeerJid,
+    findXmppDmMessageByAnyIdFn: findXmppDmMessageByAnyId,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppRetractionToMessageEntryFn: applyXmppRetractionToMessageEntry,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    rememberXmppDmMessageFn: rememberXmppDmMessage
+  });
 }
 
 function applyXmppRoomMessageRetraction(roomJid, targetRefId, payload = {}) {
-  const bareRoom = xmppBareJid(roomJid);
-  if (!bareRoom || !targetRefId) return { handled: false, changed: false, contentChanged: false, channel: null };
-  const roomToken = xmppRoomByJid.get(bareRoom) || `xmpp:${bareRoom}`;
-  const channel = findRelayTargetChannelByRoom(roomToken) || findXmppRoomChannelByJid(bareRoom);
-  if (!channel || !Array.isArray(channel.messages)) return { handled: false, changed: false, contentChanged: false, channel: null };
-  const mapped = findXmppRoomMessageByAnyId(bareRoom, targetRefId);
-  const target = channel.messages.find((entry) => (
-    messageMatchesXmppReference(entry, targetRefId)
-    || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
-  )) || null;
-  if (!target) return { handled: false, changed: false, contentChanged: false, channel };
-  const applied = applyXmppRetractionToMessageEntry(target, payload);
-  const trackedRefs = normalizeXmppRefIdsList([
-    ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-    target.xmppStanzaId || "",
-    targetRefId,
-    ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-    payload?.stanzaId || ""
-  ]);
-  trackedRefs.forEach((refId) => rememberXmppRoomMessage(bareRoom, refId, target));
-  return {
-    ...applied,
-    channel
-  };
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRoomMessageRetraction !== "function") {
+    return { handled: false, changed: false, contentChanged: false, channel: null };
+  }
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRoomMessageRetraction(roomJid, targetRefId, payload, {
+    bareJidFn: xmppBareJid,
+    xmppRoomByJid,
+    findRelayTargetChannelByRoomFn: findRelayTargetChannelByRoom,
+    findXmppRoomChannelByJidFn: findXmppRoomChannelByJid,
+    findXmppRoomMessageByAnyIdFn: findXmppRoomMessageByAnyId,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppRetractionToMessageEntryFn: applyXmppRetractionToMessageEntry,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    rememberXmppRoomMessageFn: rememberXmppRoomMessage
+  });
 }
 
 function applyXmppCorrectionFallback(targetRefId, payload = {}) {
-  const key = (targetRefId || "").toString().trim();
-  if (!key) return {
-    handled: false,
-    changed: false,
-    contentChanged: false,
-    scope: "",
-    thread: null,
-    channel: null
-  };
-  for (const thread of state.dmThreads) {
-    if (!thread || !Array.isArray(thread.messages)) continue;
-    const target = thread.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
-    if (!target) continue;
-    const applied = applyXmppCorrectionToMessageEntry(target, payload);
-    const current = getCurrentAccount();
-    const participantIds = Array.isArray(thread.participantIds) ? thread.participantIds : [];
-    const peerId = participantIds.find((id) => id && id !== current?.id) || "";
-    const peerJid = xmppBareJid(getAccountById(peerId)?.xmppJid || "");
-    const trackedRefs = normalizeXmppRefIdsList([
-      ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-      target.xmppStanzaId || "",
-      key,
-      ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-      payload?.stanzaId || ""
-    ]);
-    if (peerJid) trackedRefs.forEach((refId) => rememberXmppDmMessage(peerJid, refId, target));
-    return {
-      ...applied,
-      scope: "dm",
-      thread,
-      channel: null
-    };
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppCorrectionFallback !== "function") {
+    return { handled: false, changed: false, contentChanged: false, scope: "", thread: null, channel: null };
   }
-  for (const guild of state.guilds) {
-    const channels = Array.isArray(guild?.channels) ? guild.channels : [];
-    for (const channel of channels) {
-      if (!channel || !Array.isArray(channel.messages)) continue;
-      const target = channel.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
-      if (!target) continue;
-      const applied = applyXmppCorrectionToMessageEntry(target, payload);
-      const roomJid = xmppBareJid(channel.xmppRoomJid || "");
-      const trackedRefs = normalizeXmppRefIdsList([
-        ...(Array.isArray(target.xmppRefIds) ? target.xmppRefIds : []),
-        target.xmppStanzaId || "",
-        key,
-        ...(Array.isArray(payload?.stanzaRefs) ? payload.stanzaRefs : []),
-        payload?.stanzaId || ""
-      ]);
-      if (roomJid) trackedRefs.forEach((refId) => rememberXmppRoomMessage(roomJid, refId, target));
-      return {
-        ...applied,
-        scope: "muc",
-        thread: null,
-        channel
-      };
-    }
-  }
-  return {
-    handled: false,
-    changed: false,
-    contentChanged: false,
-    scope: "",
-    thread: null,
-    channel: null
-  };
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppCorrectionFallback(targetRefId, payload, {
+    dmThreads: state.dmThreads,
+    guilds: state.guilds,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppCorrectionToMessageEntryFn: applyXmppCorrectionToMessageEntry,
+    getCurrentAccountFn: getCurrentAccount,
+    getAccountByIdFn: getAccountById,
+    bareJidFn: xmppBareJid,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    rememberXmppDmMessageFn: rememberXmppDmMessage,
+    rememberXmppRoomMessageFn: rememberXmppRoomMessage
+  });
 }
 
 function applyXmppReactionFallback(targetRefId, payload = {}) {
-  const key = (targetRefId || "").toString().trim();
-  if (!key) return {
-    handled: false,
-    changed: false,
-    scope: "",
-    thread: null,
-    channel: null
-  };
-  for (const thread of state.dmThreads) {
-    if (!thread || !Array.isArray(thread.messages)) continue;
-    const target = thread.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
-    if (!target) continue;
-    const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis, {
-      processingHints: payload.processingHints
-    });
-    return {
-      handled: true,
-      changed: Boolean(applied.changed),
-      scope: "dm",
-      thread,
-      channel: null
-    };
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppReactionFallback !== "function") {
+    return { handled: false, changed: false, scope: "", thread: null, channel: null };
   }
-  for (const guild of state.guilds) {
-    const channels = Array.isArray(guild?.channels) ? guild.channels : [];
-    for (const channel of channels) {
-      if (!channel || !Array.isArray(channel.messages)) continue;
-      const target = channel.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
-      if (!target) continue;
-      const roomJid = xmppBareJid(channel.xmppRoomJid || "");
-      const canonicalActorId = roomJid
-        ? canonicalXmppRoomReactionActorId(roomJid, payload.actorUserId || "")
-        : (payload.actorUserId || "").toString().trim();
-      const aliasActorId = roomJid
-        ? canonicalXmppRoomReactionActorId(roomJid, payload.aliasActorId || "")
-        : (payload.aliasActorId || "").toString().trim();
-      let aliasChanged = false;
-      if (aliasActorId && aliasActorId !== canonicalActorId) {
-        aliasChanged = applyXmppReactionsForActor(target, aliasActorId, [], {
-          processingHints: payload.processingHints
-        }).changed;
-      }
-      const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis, {
-        processingHints: payload.processingHints
-      });
-      return {
-        handled: true,
-        changed: Boolean(applied.changed || aliasChanged),
-        scope: "muc",
-        thread: null,
-        channel
-      };
-    }
-  }
-  return {
-    handled: false,
-    changed: false,
-    scope: "",
-    thread: null,
-    channel: null
-  };
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppReactionFallback(targetRefId, payload, {
+    dmThreads: state.dmThreads,
+    guilds: state.guilds,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppReactionsForActorFn: applyXmppReactionsForActor,
+    bareJidFn: xmppBareJid,
+    canonicalXmppRoomReactionActorIdFn: canonicalXmppRoomReactionActorId
+  });
 }
 
 function applyXmppRetractionFallback(targetRefId, payload = {}) {
-  const key = (targetRefId || "").toString().trim();
-  if (!key) return {
-    handled: false,
-    changed: false,
-    contentChanged: false,
-    scope: "",
-    thread: null,
-    channel: null
-  };
-  for (const thread of state.dmThreads) {
-    if (!thread || !Array.isArray(thread.messages)) continue;
-    const target = thread.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
-    if (!target) continue;
-    const applied = applyXmppRetractionToMessageEntry(target, payload);
-    return {
-      ...applied,
-      scope: "dm",
-      thread,
-      channel: null
-    };
+  if (typeof XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRetractionFallback !== "function") {
+    return { handled: false, changed: false, contentChanged: false, scope: "", thread: null, channel: null };
   }
-  for (const guild of state.guilds) {
-    const channels = Array.isArray(guild?.channels) ? guild.channels : [];
-    for (const channel of channels) {
-      if (!channel || !Array.isArray(channel.messages)) continue;
-      const target = channel.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
-      if (!target) continue;
-      const applied = applyXmppRetractionToMessageEntry(target, payload);
-      return {
-        ...applied,
-        scope: "muc",
-        thread: null,
-        channel
-      };
-    }
-  }
-  return {
-    handled: false,
-    changed: false,
-    contentChanged: false,
-    scope: "",
-    thread: null,
-    channel: null
-  };
+  return XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL.applyXmppRetractionFallback(targetRefId, payload, {
+    dmThreads: state.dmThreads,
+    guilds: state.guilds,
+    messageMatchesXmppReferenceFn: messageMatchesXmppReference,
+    applyXmppRetractionToMessageEntryFn: applyXmppRetractionToMessageEntry
+  });
 }
 
 function hydrateXmppRepliesForRoom(roomToken, roomJid, stanzaId, referenced) {
