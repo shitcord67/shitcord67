@@ -17376,18 +17376,10 @@ function appendXmppCallInviteNode(stanza, {
 }
 
 function xmppSendIqPromise(connection, iqBuilder, timeoutMs = 7000) {
-  return new Promise((resolve, reject) => {
-    if (!connection || typeof connection.sendIQ !== "function") {
-      reject(new Error("XMPP IQ unavailable"));
-      return;
-    }
-    connection.sendIQ(
-      iqBuilder,
-      (stanza) => resolve(stanza),
-      (errorStanza) => reject(errorStanza || new Error("XMPP IQ failed")),
-      Math.max(2000, Number(timeoutMs) || 7000)
-    );
-  });
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqPromise !== "function") {
+    return Promise.reject(new Error("XMPP IQ helper unavailable"));
+  }
+  return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppSendIqPromise(connection, iqBuilder, timeoutMs);
 }
 
 function xmppParseMaxUploadBytesFromDiscoInfo(stanza) {

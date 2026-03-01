@@ -1,6 +1,33 @@
 (function initXep0030_0166CallDisco(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_XEP_0030_0166_CALL_DISCO) return;
 
+  function xmppSendIqPromise(connection, iqBuilder, timeoutMs = 7000) {
+    return new Promise((resolve, reject) => {
+      if (!connection || typeof connection.sendIQ !== "function") {
+        reject(new Error("XMPP IQ unavailable"));
+        return;
+      }
+      if (!iqBuilder) {
+        reject(new Error("XMPP IQ builder unavailable"));
+        return;
+      }
+      connection.sendIQ(
+        iqBuilder,
+        (stanza) => resolve(stanza),
+        (errorStanza) => {
+          if (errorStanza instanceof Error) {
+            reject(errorStanza);
+            return;
+          }
+          const error = new Error("XMPP IQ failed");
+          error.stanza = errorStanza || null;
+          reject(error);
+        },
+        Math.max(2000, Number(timeoutMs) || 7000)
+      );
+    });
+  }
+
   function xmppParseMaxUploadBytesFromDiscoInfo(stanza, deps = {}) {
     if (!stanza || typeof stanza.getElementsByTagName !== "function") return 0;
     const xmppNodeTextFn = deps.xmppNodeTextFn || ((node) => (node?.textContent || "").toString());
@@ -32,10 +59,13 @@
   }
 
   async function xmppFetchDiscoInfo(jid, connection = null, deps = {}) {
-    if (!jid || !connection || typeof deps.xmppSendIqPromiseFn !== "function" || typeof deps.$iq !== "function") {
+    const sendIqPromiseFn = typeof deps.xmppSendIqPromiseFn === "function"
+      ? deps.xmppSendIqPromiseFn
+      : xmppSendIqPromise;
+    if (!jid || !connection || typeof sendIqPromiseFn !== "function" || typeof deps.$iq !== "function") {
       throw new Error("XMPP discovery unavailable");
     }
-    const stanza = await deps.xmppSendIqPromiseFn(
+    const stanza = await sendIqPromiseFn(
       connection,
       deps.$iq({ type: "get", to: jid }).c("query", { xmlns: "http://jabber.org/protocol/disco#info" }),
       7000
@@ -422,6 +452,7 @@
   }
 
   globalScope.SHITCORD67_XEP_0030_0166_CALL_DISCO = Object.freeze({
+    xmppSendIqPromise,
     xmppParseMaxUploadBytesFromDiscoInfo,
     xmppFetchDiscoInfo,
     xmppFetchDiscoInfoCached,
