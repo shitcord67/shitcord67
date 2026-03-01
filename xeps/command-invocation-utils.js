@@ -25,7 +25,12 @@
     return value;
   }
 
+  function isInlineCommandHref(value) {
+    return /^s67cmd:/i.test((value || "").toString().trim());
+  }
+
   globalScope.SHITCORD67_COMMAND_INVOCATION_UTILS = Object.freeze({
-    normalizeSlashCommandInvocation
+    normalizeSlashCommandInvocation,
+    isInlineCommandHref
   });
 })(typeof window !== "undefined" ? window : globalThis);

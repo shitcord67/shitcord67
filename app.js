@@ -744,6 +744,9 @@ const normalizeSlashCommandInvocationViaModule = typeof COMMAND_INVOCATION_UTILS
     slashCommands: SLASH_COMMANDS
   }))
   : ((rawValue) => (rawValue || "").toString().trim());
+const isInlineCommandHrefViaModule = typeof COMMAND_INVOCATION_UTILS_GLOBAL.isInlineCommandHref === "function"
+  ? COMMAND_INVOCATION_UTILS_GLOBAL.isInlineCommandHref
+  : ((value) => /^s67cmd:/i.test((value || "").toString().trim()));
 const xmppSyntheticMessageIdViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppSyntheticMessageId === "function"
   ? ((payload = {}) => XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppSyntheticMessageId(payload, {
     normalizeAttachmentsFn: normalizeAttachments
@@ -19763,7 +19766,7 @@ function sanitizeRichTextHref(value) {
 }
 
 function isInlineCommandHref(value) {
-  return /^s67cmd:/i.test((value || "").toString().trim());
+  return isInlineCommandHrefViaModule(value);
 }
 
 function normalizeSlashCommandInvocation(rawValue) {
