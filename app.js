@@ -525,6 +525,9 @@ const normalizeForumThreadReadStateMapViaModule = typeof UI_STATE_NORMALIZERS_GL
 const normalizeForumThreadSortMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadSortMap === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadSortMap
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeForumThreadTagFilterMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadTagFilterMap === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadTagFilterMap
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11237,13 +11240,7 @@ function normalizeForumThreadSortMap(value) {
 }
 
 function normalizeForumThreadTagFilterMap(value) {
-  if (!value || typeof value !== "object") return {};
-  return Object.entries(value).reduce((acc, [channelId, tagIds]) => {
-    if (!channelId || !Array.isArray(tagIds)) return acc;
-    const cleaned = [...new Set(tagIds.map((entry) => (entry || "").toString()).filter(Boolean))].slice(0, 8);
-    if (cleaned.length > 0) acc[channelId] = cleaned;
-    return acc;
-  }, {});
+  return normalizeForumThreadTagFilterMapViaModule(value);
 }
 
 function normalizeLastChannelByGuildMap(value) {
