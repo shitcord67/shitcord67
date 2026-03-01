@@ -524,6 +524,15 @@ const normalizeRenderableAvatarUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_
     resolveMediaUrlFn: resolveMediaUrl
   }))
   : (() => "");
+const isLikelyImageDataUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isLikelyImageDataUrl === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isLikelyImageDataUrl
+  : ((value) => /^data:image\/[a-z0-9.+-]+;base64,/i.test((value || "").trim()));
+const isRenderableAvatarUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isRenderableAvatarUrl === "function"
+  ? ((value) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isRenderableAvatarUrl(value, {
+    isLikelyUrlFn: isLikelyUrl,
+    isLikelyImageDataUrlFn: isLikelyImageDataUrl
+  }))
+  : ((value) => isLikelyUrl(value) || isLikelyImageDataUrl(value));
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -19779,11 +19788,11 @@ function invokeInlineCommand(rawValue, { submit = false } = {}) {
 }
 
 function isLikelyImageDataUrl(value) {
-  return /^data:image\/[a-z0-9.+-]+;base64,/i.test((value || "").trim());
+  return isLikelyImageDataUrlViaModule(value);
 }
 
 function isRenderableAvatarUrl(value) {
-  return isLikelyUrl(value) || isLikelyImageDataUrl(value);
+  return isRenderableAvatarUrlViaModule(value);
 }
 
 function normalizeRenderableAvatarUrl(value) {

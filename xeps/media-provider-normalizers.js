@@ -139,6 +139,17 @@
     return resolveMediaUrlFn(raw);
   }
 
+  function isLikelyImageDataUrl(value) {
+    return /^data:image\/[a-z0-9.+-]+;base64,/i.test((value || "").trim());
+  }
+
+  function isRenderableAvatarUrl(value, {
+    isLikelyUrlFn = () => false,
+    isLikelyImageDataUrlFn = isLikelyImageDataUrl
+  } = {}) {
+    return isLikelyUrlFn(value) || isLikelyImageDataUrlFn(value);
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -155,6 +166,8 @@
     normalizeRelayTransportAttachmentUrl,
     normalizeMediaRuleToken,
     normalizeMediaPrivacyUrl,
-    normalizeRenderableAvatarUrl
+    normalizeRenderableAvatarUrl,
+    isLikelyImageDataUrl,
+    isRenderableAvatarUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);
