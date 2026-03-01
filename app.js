@@ -23228,7 +23228,7 @@ function handleSlashCommand(rawText, channel, account) {
   if (command === "invitexmpp" || command === "invitemuc") {
     addSystemMessage(
       channel,
-      "This command works in XMPP DMs. Use /invitexmpp <room@conference.domain> [| reason [| password]] in a DM."
+      "This command works in XMPP DMs. Use /invitexmpp <room@conference.domain> [| reason [| password [| continue [| thread-id]]]] in a DM."
     );
     return true;
   }
@@ -40532,14 +40532,14 @@ ui.messageForm.addEventListener("submit", (event) => {
       }
       const inviteArgs = parseXmppDirectMucInviteCommandArg(dmArg);
       if (!inviteArgs.roomJid) {
-        showToast("Usage: /invitexmpp <room@conference.example.org> [| reason [| password]]", { tone: "error" });
+        showToast("Usage: /invitexmpp <room@conference.example.org> [| reason [| password [| continue [| thread-id]]]]", { tone: "error" });
         return;
       }
       const sent = xmppSendDirectMucInvite(peerBare, inviteArgs.roomJid, {
         reason: inviteArgs.reason,
         password: inviteArgs.password,
-        thread: (conversation.thread?.id || "").toString().trim().slice(0, 120),
-        continueThread: false,
+        thread: inviteArgs.thread || (conversation.thread?.id || "").toString().trim().slice(0, 120),
+        continueThread: Boolean(inviteArgs.continueThread),
         preferFull: true
       });
       if (!sent.ok) {

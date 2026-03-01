@@ -58,11 +58,14 @@
     decodeHtmlEntitiesFn = decodeEntities,
     normalizeRoomJoinArgFn = normalizeXmppRoomJoinArg
   } = {}) {
-    const [roomTokenRaw, reasonRaw = "", passwordRaw = ""] = (rawArg || "").toString().split("|");
+    const [roomTokenRaw, reasonRaw = "", passwordRaw = "", continueRaw = "", threadRaw = ""] = (rawArg || "").toString().split("|");
     const roomJid = normalizeRoomJoinArgFn(roomTokenRaw);
     const reason = decodeHtmlEntitiesFn((reasonRaw || "").toString()).replace(/\s+/g, " ").trim().slice(0, 280);
     const password = (passwordRaw || "").toString().trim().slice(0, 120);
-    return { roomJid, reason, password };
+    const continueToken = (continueRaw || "").toString().trim().toLowerCase();
+    const continueThread = ["1", "true", "yes", "continue", "cont"].includes(continueToken);
+    const thread = (threadRaw || "").toString().trim().slice(0, 160);
+    return { roomJid, reason, password, continueThread, thread };
   }
 
   function parseXmppDirectMucInvite(stanza) {
