@@ -42,9 +42,17 @@
     return preferred || fallback;
   }
 
+  function xmppStanzaStableId(stanza, {
+    xmppStanzaReferenceIdsFn = () => []
+  } = {}) {
+    const ids = xmppStanzaReferenceIdsFn(stanza);
+    return ids[0] || "";
+  }
+
   globalScope.SHITCORD67_XMPP_MESSAGE_ID_UTILS = Object.freeze({
     xmppSyntheticMessageId,
     primaryXmppReferenceIdForMessage,
-    preferredXmppDmReferenceIdForMessage
+    preferredXmppDmReferenceIdForMessage,
+    xmppStanzaStableId
   });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -758,6 +758,11 @@ const preferredXmppDmReferenceIdForMessageViaModule = typeof XMPP_MESSAGE_ID_UTI
     primaryXmppReferenceIdForMessageFn: primaryXmppReferenceIdForMessage
   }))
   : (() => "");
+const xmppStanzaStableIdViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppStanzaStableId === "function"
+  ? ((stanza) => XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppStanzaStableId(stanza, {
+    xmppStanzaReferenceIdsFn: xmppStanzaReferenceIds
+  }))
+  : (() => "");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -17843,8 +17848,7 @@ function relayMessageBodyText(message) {
 }
 
 function xmppStanzaStableId(stanza) {
-  const ids = xmppStanzaReferenceIds(stanza);
-  return ids[0] || "";
+  return xmppStanzaStableIdViaModule(stanza);
 }
 
 function xmppSyntheticMessageId({ from = "", ts = "", text = "", attachments = [], replyId = "" } = {}) {
