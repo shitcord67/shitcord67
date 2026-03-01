@@ -11,8 +11,14 @@
     return (value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
+  function toTimestampMs(value) {
+    const parsed = Date.parse(value || "");
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   globalScope.SHITCORD67_TEXT_TIME_UTILS = Object.freeze({
     clampMessageTextForStorage,
-    escapeRegExp
+    escapeRegExp,
+    toTimestampMs
   });
 })(typeof window !== "undefined" ? window : globalThis);

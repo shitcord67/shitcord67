@@ -772,6 +772,9 @@ const clampMessageTextForStorageViaModule = typeof TEXT_TIME_UTILS_GLOBAL.clampM
 const escapeRegExpViaModule = typeof TEXT_TIME_UTILS_GLOBAL.escapeRegExp === "function"
   ? TEXT_TIME_UTILS_GLOBAL.escapeRegExp
   : ((value) => (value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+const toTimestampMsViaModule = typeof TEXT_TIME_UTILS_GLOBAL.toTimestampMs === "function"
+  ? TEXT_TIME_UTILS_GLOBAL.toTimestampMs
+  : ((value) => Number(Date.parse(value || "")) || 0);
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -1800,8 +1803,7 @@ function escapeRegExp(value) {
 }
 
 function toTimestampMs(value) {
-  const parsed = Date.parse(value || "");
-  return Number.isFinite(parsed) ? parsed : 0;
+  return toTimestampMsViaModule(value);
 }
 
 function rolePresetPermissions(preset) {
