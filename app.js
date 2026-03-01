@@ -100,6 +100,7 @@ const UI_STATE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_UI_STATE_NORMALIZERS |
 const ACCOUNT_PROFILE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS || {};
 const XMPP_CALL_TARGET_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_CALL_TARGET_UTILS || {};
 const COMMAND_INVOCATION_UTILS_GLOBAL = globalThis.SHITCORD67_COMMAND_INVOCATION_UTILS || {};
+const XMPP_MESSAGE_ID_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_MESSAGE_ID_UTILS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -741,6 +742,11 @@ const normalizeSlashCommandInvocationViaModule = typeof COMMAND_INVOCATION_UTILS
     slashCommands: SLASH_COMMANDS
   }))
   : ((rawValue) => (rawValue || "").toString().trim());
+const xmppSyntheticMessageIdViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppSyntheticMessageId === "function"
+  ? ((payload = {}) => XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppSyntheticMessageId(payload, {
+    normalizeAttachmentsFn: normalizeAttachments
+  }))
+  : (() => "");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -17831,20 +17837,7 @@ function xmppStanzaStableId(stanza) {
 }
 
 function xmppSyntheticMessageId({ from = "", ts = "", text = "", attachments = [], replyId = "" } = {}) {
-  const headAttachment = normalizeAttachments(attachments)[0]?.url || "";
-  const seed = [
-    (from || "").toString().trim().toLowerCase(),
-    (ts || "").toString().trim(),
-    (text || "").toString().trim(),
-    headAttachment,
-    (replyId || "").toString().trim()
-  ].join("|");
-  let hash = 2166136261;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash ^= seed.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return `xmpp-syn-${(hash >>> 0).toString(16)}`;
+  return xmppSyntheticMessageIdViaModule({ from, ts, text, attachments, replyId });
 }
 
 function primaryXmppReferenceIdForMessage(message) {
