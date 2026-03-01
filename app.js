@@ -101,6 +101,7 @@ const ACCOUNT_PROFILE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_ACCOUNT_PROFILE
 const XMPP_CALL_TARGET_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_CALL_TARGET_UTILS || {};
 const COMMAND_INVOCATION_UTILS_GLOBAL = globalThis.SHITCORD67_COMMAND_INVOCATION_UTILS || {};
 const XMPP_MESSAGE_ID_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_MESSAGE_ID_UTILS || {};
+const TEXT_TIME_UTILS_GLOBAL = globalThis.SHITCORD67_TEXT_TIME_UTILS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -763,6 +764,11 @@ const xmppStanzaStableIdViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.xmppStan
     xmppStanzaReferenceIdsFn: xmppStanzaReferenceIds
   }))
   : (() => "");
+const clampMessageTextForStorageViaModule = typeof TEXT_TIME_UTILS_GLOBAL.clampMessageTextForStorage === "function"
+  ? ((value) => TEXT_TIME_UTILS_GLOBAL.clampMessageTextForStorage(value, {
+    maxLength: MESSAGE_TEXT_STORAGE_MAX
+  }))
+  : ((value) => (value || "").toString());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -1783,7 +1789,7 @@ function normalizeComposerDrafts(value) {
 }
 
 function clampMessageTextForStorage(value) {
-  return (value || "").toString().slice(0, MESSAGE_TEXT_STORAGE_MAX);
+  return clampMessageTextForStorageViaModule(value);
 }
 
 function escapeRegExp(value) {
