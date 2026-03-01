@@ -540,6 +540,9 @@ const normalizePlatformOverrideViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.no
 const normalizePresenceViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizePresence === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizePresence
   : ((value) => (value === "idle" || value === "dnd" || value === "invisible" ? value : "online"));
+const detectBrowserUiLocaleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.detectBrowserUiLocale === "function"
+  ? (() => UI_STATE_NORMALIZERS_GLOBAL.detectBrowserUiLocale(navigator.language || ""))
+  : (() => "en");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11183,9 +11186,7 @@ function normalizeDmHomeRequestsFilter(value) {
 }
 
 function detectBrowserUiLocale() {
-  const explicit = (navigator.language || "").toString().trim().toLowerCase();
-  if (explicit.startsWith("de")) return "de";
-  return "en";
+  return detectBrowserUiLocaleViaModule();
 }
 
 function resolveUiLocale(prefs = getPreferences()) {

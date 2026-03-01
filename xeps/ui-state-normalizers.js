@@ -145,6 +145,12 @@
     return "online";
   }
 
+  function detectBrowserUiLocale(languageValue = "") {
+    const explicit = (languageValue || "").toString().trim().toLowerCase();
+    if (explicit.startsWith("de")) return "de";
+    return "en";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -166,6 +172,7 @@
     normalizeLastChannelByGuildMap,
     normalizeMediaDeviceId,
     normalizePlatformOverride,
-    normalizePresence
+    normalizePresence,
+    detectBrowserUiLocale
   });
 })(typeof window !== "undefined" ? window : globalThis);
