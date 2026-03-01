@@ -28771,7 +28771,9 @@ function attachmentUsesInlineVideoControls(attachment) {
   if (!attachment || typeof attachment !== "object") return false;
   const type = (attachment.type || "").toString().toLowerCase();
   const mediaUrl = resolveMediaUrl(attachment.url || "");
-  const videoLike = type === "video" || /\.(mp4|webm|mov|m4v|ogv|m3u8)([?#].*)?$/i.test(mediaUrl);
+  const videoLike = type === "video"
+    || inferAttachmentTypeFromUrl(mediaUrl) === "video"
+    || inferAttachmentTypeFromUrl(attachment.name || "") === "video";
   return videoLike && type !== "gif";
 }
 
