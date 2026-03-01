@@ -98,6 +98,7 @@ const XEP_0313_MAM_LOADING_GLOBAL = xepModule("xep-0313_mam-loading", globalThis
 const XEP_0333_0359_0372_0444_0482_BUILDERS_GLOBAL = xepModule("xep-0333_0359_0372_0444_0482-message-builders", globalThis.SHITCORD67_XEP_0333_0359_0372_0444_0482_BUILDERS);
 const XEP_0030_0166_CALL_DISCO_GLOBAL = xepModule("xep-0030_0166-call-disco", globalThis.SHITCORD67_XEP_0030_0166_CALL_DISCO);
 const XEP_0308_0359_0424_0444_MESSAGE_UPDATES_GLOBAL = xepModule("xep-0308_0359_0424_0444-message-updates", globalThis.SHITCORD67_XEP_0308_0359_0424_0444_MESSAGE_UPDATES);
+const XEP_0199_0410_0313_PRESENCE_PING_GLOBAL = xepModule("xep-0199_0410_0313-presence-ping", globalThis.SHITCORD67_XEP_0199_0410_0313_PRESENCE_PING);
 const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-hash", globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH);
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
@@ -4473,24 +4474,8 @@ function activeConversationHistoryState(conversation = getActiveConversation()) 
 }
 
 function xmppHistoryStatusLabel(mamState, { scope = "muc", target = "" } = {}) {
-  if (!mamState) return "";
-  const page = Math.max(1, (Number(mamState.pagesLoaded) || 0) + 1);
-  const isDm = scope === "dm";
-  const targetLabel = isDm
-    ? `DM ${target ? `(${target})` : ""}`
-    : `Room ${target ? `(${target})` : ""}`;
-  if (mamState.loading) {
-    if ((Number(mamState.pagesLoaded) || 0) <= 0) return `Syncing recent history… ${targetLabel}`;
-    return `Syncing older messages (page ${page})… ${targetLabel}`;
-  }
-  if ((Number(mamState.pagesLoaded) || 0) <= 0 && !mamState.complete) {
-    return `Recent history not loaded yet. ${targetLabel}`;
-  }
-  if (mamState.complete) {
-    const loaded = Math.max(0, Number(mamState.pagesLoaded) || 0);
-    return `History synced (${loaded} page${loaded === 1 ? "" : "s"}).`;
-  }
-  return `History synced through page ${Math.max(1, Number(mamState.pagesLoaded) || 1)}.`;
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppHistoryStatusLabel !== "function") return "";
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppHistoryStatusLabel(mamState, { scope, target });
 }
 
 function messageHasLink(message, channelType = "text") {
@@ -12052,192 +12037,104 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
 }
 
 function clearXmppPingLoop() {
-  if (xmppPingTimer) {
-    clearInterval(xmppPingTimer);
-    xmppPingTimer = null;
-  }
-  xmppPingOutstandingId = "";
-  xmppPingOutstandingAt = 0;
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearXmppPingLoop !== "function") return;
+  XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearXmppPingLoop({
+    getPingTimerFn: () => xmppPingTimer,
+    setPingTimerFn: (value) => { xmppPingTimer = value; },
+    setPingOutstandingIdFn: (value) => { xmppPingOutstandingId = value; },
+    setPingOutstandingAtFn: (value) => { xmppPingOutstandingAt = value; }
+  });
 }
 
 function sendXmppPing(connection = xmppConnection, { timeoutMs = XMPP_PING_TIMEOUT_MS } = {}) {
-  if (!connection || typeof connection.sendIQ !== "function" || !globalThis.$iq) return false;
-  if (xmppPingOutstandingId) return true;
-  const id = `s67-ping-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
-  xmppPingOutstandingId = id;
-  xmppPingOutstandingAt = Date.now();
-  const pingIq = globalThis.$iq({ type: "get", id }).c("ping", { xmlns: "urn:xmpp:ping" });
-  connection.sendIQ(
-    pingIq,
-    () => {
-      if (xmppPingOutstandingId !== id) return;
-      xmppPingOutstandingId = "";
-      xmppPingOutstandingAt = 0;
-    },
-    (errorStanza) => {
-      if (xmppPingOutstandingId !== id) return;
-      xmppPingOutstandingId = "";
-      xmppPingOutstandingAt = 0;
-      addXmppDebugEvent("warn", "XMPP ping failed", {
-        id,
-        error: trimXmppRaw(xmppSerializePayload(errorStanza))
-      });
-    },
-    timeoutMs
-  );
-  return true;
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.sendXmppPing !== "function") return false;
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.sendXmppPing(connection, { timeoutMs }, {
+    $iq: globalThis.$iq,
+    getPingOutstandingIdFn: () => xmppPingOutstandingId,
+    setPingOutstandingIdFn: (value) => { xmppPingOutstandingId = value; },
+    setPingOutstandingAtFn: (value) => { xmppPingOutstandingAt = value; },
+    addXmppDebugEventFn: addXmppDebugEvent,
+    xmppSerializePayloadFn: xmppSerializePayload,
+    trimXmppRawFn: trimXmppRaw
+  });
 }
 
 function startXmppPingLoop(connection = xmppConnection) {
-  clearXmppPingLoop();
-  if (!connection || typeof connection.sendIQ !== "function" || !globalThis.$iq) return;
-  xmppPingTimer = setInterval(() => {
-    if (!xmppConnection || connection !== xmppConnection) {
-      clearXmppPingLoop();
-      return;
-    }
-    if (relayStatus !== "connected") return;
-    sendXmppPing(connection);
-  }, XMPP_PING_INTERVAL_MS);
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.startXmppPingLoop !== "function") return;
+  XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.startXmppPingLoop(connection, {
+    $iq: globalThis.$iq,
+    intervalMs: XMPP_PING_INTERVAL_MS,
+    getXmppConnectionFn: () => xmppConnection,
+    getRelayStatusFn: () => relayStatus,
+    sendXmppPingFn: (conn) => sendXmppPing(conn),
+    clearXmppPingLoopFn: () => clearXmppPingLoop(),
+    setPingTimerFn: (value) => { xmppPingTimer = value; },
+    getPingTimerFn: () => xmppPingTimer,
+    setPingOutstandingIdFn: (value) => { xmppPingOutstandingId = value; },
+    setPingOutstandingAtFn: (value) => { xmppPingOutstandingAt = value; }
+  });
 }
 
 function clearXmppMucSelfPing(roomJid = "") {
-  const bare = xmppBareJid(roomJid);
-  if (!bare) return;
-  const state = xmppMucSelfPingStateByRoomJid.get(bare);
-  if (state?.timerId) clearTimeout(state.timerId);
-  xmppMucSelfPingStateByRoomJid.delete(bare);
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearXmppMucSelfPing !== "function") return;
+  XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearXmppMucSelfPing(roomJid, {
+    bareJidFn: xmppBareJid,
+    mucSelfPingStateByRoomJid: xmppMucSelfPingStateByRoomJid
+  });
 }
 
 function clearAllXmppMucSelfPings() {
-  for (const [roomJid, state] of xmppMucSelfPingStateByRoomJid.entries()) {
-    if (state?.timerId) clearTimeout(state.timerId);
-    xmppMucSelfPingStateByRoomJid.delete(roomJid);
-  }
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearAllXmppMucSelfPings !== "function") return;
+  XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearAllXmppMucSelfPings({
+    mucSelfPingStateByRoomJid: xmppMucSelfPingStateByRoomJid
+  });
 }
 
 function xmppMucSelfPingTarget(roomJid = "", fallbackNick = "") {
-  const bare = xmppBareJid(roomJid);
-  if (!bare) return "";
-  const joinState = xmppMucJoinStateByRoomJid.get(bare) || {};
-  const account = getCurrentAccount();
-  const fallback = sanitizeChannelName(
-    fallbackNick
-      || joinState.nick
-      || account?.username
-      || "user",
-    "user"
-  );
-  const nick = sanitizeChannelName((joinState.nick || fallback).toString(), fallback);
-  return nick ? `${bare}/${nick}` : "";
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppMucSelfPingTarget !== "function") return "";
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppMucSelfPingTarget(roomJid, fallbackNick, {
+    bareJidFn: xmppBareJid,
+    mucJoinStateByRoomJid: xmppMucJoinStateByRoomJid,
+    getCurrentAccountFn: getCurrentAccount,
+    sanitizeChannelNameFn: sanitizeChannelName
+  });
 }
 
 function scheduleXmppMucSelfPing(roomJid = "", {
   immediate = false,
   reason = ""
 } = {}) {
-  const bare = xmppBareJid(roomJid);
-  if (!bare) return false;
-  if (!xmppConnection || relayStatus !== "connected") {
-    clearXmppMucSelfPing(bare);
-    return false;
-  }
-  const next = xmppMucSelfPingStateByRoomJid.get(bare) || {
-    timerId: 0,
-    inFlightId: "",
-    failureCount: 0,
-    lastSuccessAt: 0,
-    lastFailureAt: 0,
-    lastRejoinAt: 0
-  };
-  if (next.timerId) clearTimeout(next.timerId);
-  const delay = immediate
-    ? 3500
-    : (XMPP_MUC_SELF_PING_INTERVAL_MS + Math.floor(Math.random() * 6000));
-  next.timerId = setTimeout(() => {
-    const current = xmppMucSelfPingStateByRoomJid.get(bare);
-    if (!current) return;
-    current.timerId = 0;
-    xmppMucSelfPingStateByRoomJid.set(bare, current);
-    sendXmppMucSelfPing(bare, { reason: reason || "scheduled" });
-  }, Math.max(1200, delay));
-  xmppMucSelfPingStateByRoomJid.set(bare, next);
-  return true;
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.scheduleXmppMucSelfPing !== "function") return false;
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.scheduleXmppMucSelfPing(roomJid, { immediate, reason }, {
+    bareJidFn: xmppBareJid,
+    mucSelfPingStateByRoomJid: xmppMucSelfPingStateByRoomJid,
+    getXmppConnectionFn: () => xmppConnection,
+    getRelayStatusFn: () => relayStatus,
+    clearXmppMucSelfPingFn: (jid) => clearXmppMucSelfPing(jid),
+    sendXmppMucSelfPingFn: (jid, options) => sendXmppMucSelfPing(jid, options),
+    mucSelfPingIntervalMs: XMPP_MUC_SELF_PING_INTERVAL_MS
+  });
 }
 
 function sendXmppMucSelfPing(roomJid = "", { reason = "manual" } = {}) {
-  const bare = xmppBareJid(roomJid);
-  if (!bare || !xmppConnection || relayStatus !== "connected" || !globalThis.$iq) return false;
-  const joinState = xmppMucJoinStateByRoomJid.get(bare) || {};
-  if (joinState.pending) {
-    scheduleXmppMucSelfPing(bare, { immediate: false, reason: "pending" });
-    return false;
-  }
-  const target = xmppMucSelfPingTarget(bare);
-  if (!target) return false;
-  const state = xmppMucSelfPingStateByRoomJid.get(bare) || {
-    timerId: 0,
-    inFlightId: "",
-    failureCount: 0,
-    lastSuccessAt: 0,
-    lastFailureAt: 0,
-    lastRejoinAt: 0
-  };
-  if (state.inFlightId) return true;
-  const pingId = `s67-muc-ping-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 7)}`;
-  state.inFlightId = pingId;
-  xmppMucSelfPingStateByRoomJid.set(bare, state);
-  const pingIq = globalThis.$iq({ type: "get", to: target, id: pingId }).c("ping", { xmlns: "urn:xmpp:ping" });
-  xmppConnection.sendIQ(
-    pingIq,
-    () => {
-      const live = xmppMucSelfPingStateByRoomJid.get(bare);
-      if (!live || live.inFlightId !== pingId) return;
-      live.inFlightId = "";
-      live.failureCount = 0;
-      live.lastSuccessAt = Date.now();
-      xmppMucSelfPingStateByRoomJid.set(bare, live);
-      scheduleXmppMucSelfPing(bare, { reason: "ok" });
-    },
-    (errorStanza) => {
-      const live = xmppMucSelfPingStateByRoomJid.get(bare);
-      if (!live || live.inFlightId !== pingId) return;
-      live.inFlightId = "";
-      live.lastFailureAt = Date.now();
-      live.failureCount = (Number(live.failureCount) || 0) + 1;
-      const error = xmppStanzaErrorDetails(errorStanza) || { condition: "", text: "" };
-      addXmppDebugEvent("warn", "XMPP MUC self-ping failed", {
-        roomJid: bare,
-        target,
-        reason,
-        condition: error.condition || "",
-        text: error.text || "",
-        failures: live.failureCount
-      });
-      if (live.failureCount >= XMPP_MUC_SELF_PING_REJOIN_AFTER_FAILURES) {
-        const now = Date.now();
-        const sinceRejoin = now - (Number(live.lastRejoinAt) || 0);
-        if (sinceRejoin >= XMPP_MUC_SELF_PING_REJOIN_COOLDOWN_MS) {
-          live.failureCount = 0;
-          live.lastRejoinAt = now;
-          xmppMucSelfPingStateByRoomJid.set(bare, live);
-          const roomToken = (joinState.roomToken || `xmpp:${bare}`).toString().trim() || `xmpp:${bare}`;
-          addXmppDebugEvent("presence", "Rejoining room after MUC self-ping failure", {
-            roomJid: bare,
-            roomToken,
-            condition: error.condition || ""
-          });
-          joinXmppRoom(roomToken, getCurrentAccount());
-          scheduleXmppMucSelfPing(bare, { immediate: true, reason: "rejoin-after-self-ping-failure" });
-          return;
-        }
-      }
-      xmppMucSelfPingStateByRoomJid.set(bare, live);
-      scheduleXmppMucSelfPing(bare, { reason: "failed" });
-    },
-    XMPP_MUC_SELF_PING_TIMEOUT_MS
-  );
-  return true;
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.sendXmppMucSelfPing !== "function") return false;
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.sendXmppMucSelfPing(roomJid, { reason }, {
+    bareJidFn: xmppBareJid,
+    $iq: globalThis.$iq,
+    mucJoinStateByRoomJid: xmppMucJoinStateByRoomJid,
+    mucSelfPingStateByRoomJid: xmppMucSelfPingStateByRoomJid,
+    getXmppConnectionFn: () => xmppConnection,
+    getRelayStatusFn: () => relayStatus,
+    scheduleXmppMucSelfPingFn: (jid, options) => scheduleXmppMucSelfPing(jid, options),
+    xmppMucSelfPingTargetFn: (jid) => xmppMucSelfPingTarget(jid),
+    xmppStanzaErrorDetailsFn: xmppStanzaErrorDetails,
+    addXmppDebugEventFn: addXmppDebugEvent,
+    joinXmppRoomFn: joinXmppRoom,
+    getCurrentAccountFn: getCurrentAccount,
+    mucSelfPingTimeoutMs: XMPP_MUC_SELF_PING_TIMEOUT_MS,
+    rejoinAfterFailures: XMPP_MUC_SELF_PING_REJOIN_AFTER_FAILURES,
+    rejoinCooldownMs: XMPP_MUC_SELF_PING_REJOIN_COOLDOWN_MS
+  });
 }
 
 function decodeHtmlEntities(text) {
@@ -13082,10 +12979,10 @@ function xmppReplyMetaFromStanza(stanza, roomJid = "", peerJid = "") {
 }
 
 function xmppPresenceShowToPresence(node) {
-  const show = (xmppNodeText(node) || "").toString().trim().toLowerCase();
-  if (show === "xa" || show === "away") return "idle";
-  if (show === "dnd") return "dnd";
-  return "online";
+  if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppPresenceShowToPresence !== "function") return "online";
+  return XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.xmppPresenceShowToPresence(node, {
+    xmppNodeTextFn: xmppNodeText
+  });
 }
 
 function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
