@@ -343,6 +343,20 @@ const xmppChannelDescriptionViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBA
     decodeHtmlEntitiesFn: decodeHtmlEntities
   }))
   : (() => "");
+const findXmppRoomChannelByJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.findXmppRoomChannelByJid === "function"
+  ? ((roomJid) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.findXmppRoomChannelByJid(roomJid, {
+    bareJidFn: xmppBareJid,
+    guilds: state.guilds || []
+  }))
+  : (() => null);
+const isKnownXmppRoomJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.isKnownXmppRoomJid === "function"
+  ? ((roomJid, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.isKnownXmppRoomJid(roomJid, {
+    bareJidFn: xmppBareJid,
+    looksLikeXmppMucJidFn: (value) => looksLikeXmppMucJid(value, prefs),
+    xmppRoomByJid,
+    findXmppRoomChannelByJidFn: (value) => findXmppRoomChannelByJid(value)
+  }))
+  : (() => false);
 const normalizeXmppRefIdsListViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.normalizeXmppRefIdsList === "function"
   ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.normalizeXmppRefIdsList
   : (() => []);
@@ -13995,22 +14009,11 @@ function cancelXmppOutgoingContactRequest(jid) {
 }
 
 function findXmppRoomChannelByJid(roomJid) {
-  const bare = xmppBareJid(roomJid);
-  if (!bare) return null;
-  for (const guild of state.guilds || []) {
-    if (!guild || !Array.isArray(guild.channels)) continue;
-    const match = guild.channels.find((channel) => xmppBareJid(channel?.xmppRoomJid || "") === bare) || null;
-    if (match) return match;
-  }
-  return null;
+  return findXmppRoomChannelByJidViaXep(roomJid);
 }
 
 function isKnownXmppRoomJid(roomJid, prefs = getPreferences()) {
-  const bare = xmppBareJid(roomJid);
-  if (!bare) return false;
-  if (!looksLikeXmppMucJid(bare, prefs)) return false;
-  if (xmppRoomByJid.has(bare)) return true;
-  return Boolean(findXmppRoomChannelByJid(bare));
+  return isKnownXmppRoomJidViaXep(roomJid, prefs);
 }
 
 function xmppStanzaErrorDetails(stanza) {

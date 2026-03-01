@@ -221,6 +221,33 @@
     return "";
   }
 
+  function findXmppRoomChannelByJid(roomJid, {
+    bareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    guilds = []
+  } = {}) {
+    const bare = bareJidFn(roomJid);
+    if (!bare) return null;
+    for (const guild of guilds || []) {
+      if (!guild || !Array.isArray(guild.channels)) continue;
+      const match = guild.channels.find((channel) => bareJidFn(channel?.xmppRoomJid || "") === bare) || null;
+      if (match) return match;
+    }
+    return null;
+  }
+
+  function isKnownXmppRoomJid(roomJid, {
+    bareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    looksLikeXmppMucJidFn = () => false,
+    xmppRoomByJid = null,
+    findXmppRoomChannelByJidFn = () => null
+  } = {}) {
+    const bare = bareJidFn(roomJid);
+    if (!bare) return false;
+    if (!looksLikeXmppMucJidFn(bare)) return false;
+    if (xmppRoomByJid instanceof Map && xmppRoomByJid.has(bare)) return true;
+    return Boolean(findXmppRoomChannelByJidFn(bare));
+  }
+
   globalScope.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS = Object.freeze({
     XMPP_BOOKMARKS_NAMESPACE,
     xmppBareJid,
@@ -234,7 +261,9 @@
     xmppStanzaErrorDetails,
     xmppMucJoinErrorHint,
     xmppChannelDisplayName,
-    xmppChannelDescription
+    xmppChannelDescription,
+    findXmppRoomChannelByJid,
+    isKnownXmppRoomJid
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0045_0402-roster-bookmarks", globalScope.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS);
