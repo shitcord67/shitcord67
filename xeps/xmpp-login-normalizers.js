@@ -5,7 +5,12 @@
     return (value || "").toString().trim().slice(0, 120);
   }
 
+  function normalizeXmppPassword(value) {
+    return (value || "").toString().slice(0, 120);
+  }
+
   globalScope.SHITCORD67_XMPP_LOGIN_NORMALIZERS = Object.freeze({
-    normalizeXmppJid
+    normalizeXmppJid,
+    normalizeXmppPassword
   });
 })(typeof window !== "undefined" ? window : globalThis);
