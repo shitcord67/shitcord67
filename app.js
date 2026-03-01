@@ -93,6 +93,7 @@ const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = xepModule("xep-0153_presence-photo-h
 const XEP_0156_HOST_META_PARSE_GLOBAL = xepModule("xep-0156_host-meta-parse", globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
+const CALL_ROOM_URL_UTILS_GLOBAL = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -393,6 +394,9 @@ const rememberXmppLocalSentRefsViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_G
 const isXmppLocalSentRefIdViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.isXmppLocalSentRefId === "function"
   ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.isXmppLocalSentRefId
   : (() => false);
+const normalizeConferenceProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceProviderUrl === "function"
+  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceProviderUrl
+  : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11223,17 +11227,7 @@ function normalizeRelayRoom(value) {
 }
 
 function normalizeConferenceProviderUrl(value) {
-  const raw = (value || "").toString().trim().slice(0, 200);
-  if (!raw) return "https://meet.jit.si";
-  const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  try {
-    const parsed = new URL(candidate);
-    if (!/^https?:$/i.test(parsed.protocol)) return "https://meet.jit.si";
-    const path = parsed.pathname.replace(/\/+$/, "");
-    return `${parsed.origin}${path}`.slice(0, 200);
-  } catch {
-    return "https://meet.jit.si";
-  }
+  return normalizeConferenceProviderUrlViaModule(value);
 }
 
 function normalizeConferenceRoomPrefix(value) {
