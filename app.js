@@ -61,6 +61,9 @@ const xepModule = (name, fallback = null) => (
   || {}
 );
 const XMPP_NS_GLOBAL = xepModule("xep-0384_crypto-namespaces", globalThis.SHITCORD67_XMPP_NS);
+const XEP_0503_SPACES_GLOBAL = xepModule("xep-0503_spaces", globalThis.SHITCORD67_XEP_0503_SPACES);
+const xmppRegisterSpaceRecord = XEP_0503_SPACES_GLOBAL.registerSpaceRecord || (() => false);
+const xmppListSpaceRecords = XEP_0503_SPACES_GLOBAL.listSpaceRecords || (() => []);
 const XMPP_EME_NAMESPACE = XMPP_NS_GLOBAL.XMPP_EME_NAMESPACE || "urn:xmpp:eme:0";
 const XMPP_OPENPGP_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_NAMESPACE || "urn:xmpp:openpgp:0";
 const XMPP_OPENPGP_LEGACY_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_LEGACY_NAMESPACE || "jabber:x:encrypted";
@@ -2815,6 +2818,7 @@ const ui = {
   relayHeaderBadge: document.getElementById("relayHeaderBadge"),
   omemoHeaderBtn: document.getElementById("omemoHeaderBtn"),
   openCallBtn: document.getElementById("openCallBtn"),
+  openScreenShareBtn: document.getElementById("openScreenShareBtn"),
   openXmppCallBtn: document.getElementById("openXmppCallBtn"),
   copyCallLinkBtn: document.getElementById("copyCallLinkBtn"),
   openWhiteboardBtn: document.getElementById("openWhiteboardBtn"),
@@ -3187,6 +3191,7 @@ if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 
 const HEADER_ACTION_BUTTONS = [
   { key: "openCallBtn", icon: "📹", fallback: "Call", preferIcon: true },
+  { key: "openScreenShareBtn", icon: "🖥", fallback: "Screen", preferIcon: true },
   { key: "openXmppCallBtn", icon: "📡", fallback: "Legacy XMPP", preferIcon: true },
   { key: "copyCallLinkBtn", icon: "🔗", fallback: "Copy Call", preferIcon: true },
   { key: "openWhiteboardBtn", icon: "📝", fallback: "Whiteboard", preferIcon: true },
@@ -35807,6 +35812,10 @@ function renderMessages() {
       ui.openCallBtn.hidden = true;
       ui.openCallBtn.disabled = true;
     }
+    if (ui.openScreenShareBtn) {
+      ui.openScreenShareBtn.hidden = true;
+      ui.openScreenShareBtn.disabled = true;
+    }
     if (ui.openXmppCallBtn) {
       ui.openXmppCallBtn.hidden = true;
       ui.openXmppCallBtn.disabled = true;
@@ -35826,6 +35835,11 @@ function renderMessages() {
     ui.openCallBtn.hidden = false;
     ui.openCallBtn.disabled = false;
     setHeaderActionButtonLabel(ui.openCallBtn, isDm ? "DM Call" : "Call");
+  }
+  if (ui.openScreenShareBtn) {
+    ui.openScreenShareBtn.hidden = false;
+    ui.openScreenShareBtn.disabled = false;
+    setHeaderActionButtonLabel(ui.openScreenShareBtn, "Screen");
   }
   if (ui.openXmppCallBtn) {
     ui.openXmppCallBtn.hidden = true;
@@ -38865,6 +38879,11 @@ function ensureXmppSpacesGuild(prefs = getPreferences(), account = getCurrentAcc
   let guild = state.guilds.find((entry) => entry.id === guildId) || null;
   if (guild) {
     ensureGuildMembership(guild, account);
+    xmppRegisterSpaceRecord({
+      spaceId: guildId,
+      name: guild.name || "XMPP Spaces",
+      description: guild.description || `Synced from ${domain}`
+    });
     return guild;
   }
   const everyoneRole = createRole("@everyone", "#b5bac1", "member");
@@ -38903,6 +38922,11 @@ function ensureXmppSpacesGuild(prefs = getPreferences(), account = getCurrentAcc
   };
   ensureGuildMembership(guild, account);
   state.guilds.push(guild);
+  xmppRegisterSpaceRecord({
+    spaceId: guildId,
+    name: guild.name || "XMPP Spaces",
+    description: guild.description || `Synced from ${domain}`
+  });
   return guild;
 }
 
@@ -39016,6 +39040,14 @@ function upsertXmppRoomChannel(roomJid, {
       changed = true;
     }
   }
+  xmppRegisterSpaceRecord({
+    spaceId: guild.id,
+    roomJid: normalizedRoomJid,
+    name: channel.xmppRoomName || channel.name || desiredDisplayName,
+    description: channel.xmppRoomDescription || channel.topic || "",
+    autojoin: channel.xmppSpaceAutojoin === true,
+    updatedAt: Date.now()
+  });
   if (changed && persist) saveState();
   return { channel, created, changed };
 }
@@ -41974,6 +42006,9 @@ ui.openFindBtn?.addEventListener("click", () => {
 });
 ui.openCallBtn?.addEventListener("click", () => {
   launchConversationCall({ screenShare: false, autoPost: true });
+});
+ui.openScreenShareBtn?.addEventListener("click", () => {
+  launchConversationCall({ screenShare: true, autoPost: true, allowNative: true });
 });
 ui.openCallBtn?.addEventListener("contextmenu", (event) => {
   openContextMenu(event, [
