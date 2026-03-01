@@ -841,6 +841,80 @@
     return lines.join("\r\n") + "\r\n";
   }
 
+  function xmppNormalizeRemoteDescriptionType(remoteType = "offer") {
+    return (remoteType || "offer").toString().trim().toLowerCase() === "answer" ? "answer" : "offer";
+  }
+
+  function xmppShouldCreateLocalOfferBeforeRemoteAnswer(remoteType = "offer", hasLocalDescription = false) {
+    return xmppNormalizeRemoteDescriptionType(remoteType) === "answer" && !hasLocalDescription;
+  }
+
+  function xmppSelectEffectiveRemoteContents(remoteType = "offer", remoteContents = [], localOfferSdp = "", deps = {}) {
+    if (xmppNormalizeRemoteDescriptionType(remoteType) !== "answer") {
+      return Array.isArray(remoteContents) ? remoteContents : [];
+    }
+    const alignFn = typeof deps.alignRemoteJingleContentsToLocalOfferFn === "function"
+      ? deps.alignRemoteJingleContentsToLocalOfferFn
+      : xmppAlignRemoteJingleContentsToLocalOffer;
+    return alignFn(remoteContents, localOfferSdp || "");
+  }
+
+  function xmppResolvePrimeRemoteSdpMedia(media = ["audio", "video"], session = null, deps = {}) {
+    const normalized = Array.isArray(media) ? media.filter(Boolean) : [];
+    if (normalized.length > 0) return normalized;
+    const mediaListFn = typeof deps.callSessionMediaListFn === "function"
+      ? deps.callSessionMediaListFn
+      : xmppCallSessionMediaList;
+    return mediaListFn(session);
+  }
+
+  function xmppResolvePrimeRemoteSdpContents(effectiveRemoteContents = [], session = null) {
+    const contents = Array.isArray(effectiveRemoteContents) ? effectiveRemoteContents : [];
+    if (contents.length > 0) return contents;
+    return Array.isArray(session?.remoteContents) ? session.remoteContents : [];
+  }
+
+  function xmppBuildPrimeRemoteSdpInput({
+    media = ["audio", "video"],
+    effectiveRemoteContents = [],
+    session = null,
+    remoteTransport = null,
+    remoteType = "offer",
+    localRole = "responder"
+  } = {}, deps = {}) {
+    return {
+      media: xmppResolvePrimeRemoteSdpMedia(media, session, deps),
+      contents: xmppResolvePrimeRemoteSdpContents(effectiveRemoteContents, session),
+      transport: remoteTransport,
+      type: xmppNormalizeRemoteDescriptionType(remoteType),
+      localRole
+    };
+  }
+
+  function xmppShouldRollbackBeforeApplyingRemoteOffer(remoteType = "offer", signalingState = "stable") {
+    return xmppNormalizeRemoteDescriptionType(remoteType) === "offer"
+      && (signalingState || "").toString().trim().toLowerCase() !== "stable";
+  }
+
+  function xmppBuildPeerConnectionRemoteDescriptionInit(remoteType = "offer", sdp = "") {
+    return {
+      type: xmppNormalizeRemoteDescriptionType(remoteType),
+      sdp: (sdp || "").toString()
+    };
+  }
+
+  function xmppShouldCreateLocalAnswerAfterRemoteOffer(remoteType = "offer", hasLocalDescription = false) {
+    return xmppNormalizeRemoteDescriptionType(remoteType) === "offer" && !hasLocalDescription;
+  }
+
+  function xmppNormalizeRemoteTransportInfo(remoteTransport = null) {
+    if (!remoteTransport || typeof remoteTransport !== "object") return null;
+    return {
+      ufrag: (remoteTransport.ufrag || "").toString().trim(),
+      pwd: (remoteTransport.pwd || "").toString().trim()
+    };
+  }
+
   globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS = Object.freeze({
     xmppParseIceCredsFromSdp,
     xmppParseDtlsFingerprintFromSdp,
@@ -872,7 +946,17 @@
     xmppBuildSelectedJingleSdpContents,
     xmppResolveJingleSdpTransport,
     xmppBuildJingleSdpContentMids,
-    xmppBuildMinimalJingleSdp
+    xmppBuildMinimalJingleSdp,
+    xmppNormalizeRemoteDescriptionType,
+    xmppShouldCreateLocalOfferBeforeRemoteAnswer,
+    xmppSelectEffectiveRemoteContents,
+    xmppResolvePrimeRemoteSdpMedia,
+    xmppResolvePrimeRemoteSdpContents,
+    xmppBuildPrimeRemoteSdpInput,
+    xmppShouldRollbackBeforeApplyingRemoteOffer,
+    xmppBuildPeerConnectionRemoteDescriptionInit,
+    xmppShouldCreateLocalAnswerAfterRemoteOffer,
+    xmppNormalizeRemoteTransportInfo
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0320_webrtc-sdp-basics", globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);

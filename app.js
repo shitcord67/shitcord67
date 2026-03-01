@@ -9280,8 +9280,14 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
   });
   if (!entry?.pc) return false;
   let pc = entry.pc;
-  const normalizedRemoteType = (remoteType || "offer").toString().trim().toLowerCase() === "answer" ? "answer" : "offer";
-  if (normalizedRemoteType === "answer" && !pc.localDescription) {
+  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
+  const normalizedRemoteType = typeof xep0320.xmppNormalizeRemoteDescriptionType === "function"
+    ? xep0320.xmppNormalizeRemoteDescriptionType(remoteType)
+    : ((remoteType || "offer").toString().trim().toLowerCase() === "answer" ? "answer" : "offer");
+  const needsLocalOfferBeforeAnswer = typeof xep0320.xmppShouldCreateLocalOfferBeforeRemoteAnswer === "function"
+    ? xep0320.xmppShouldCreateLocalOfferBeforeRemoteAnswer(normalizedRemoteType, Boolean(pc.localDescription))
+    : (normalizedRemoteType === "answer" && !pc.localDescription);
+  if (needsLocalOfferBeforeAnswer) {
     try {
       const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await pc.setLocalDescription(offer);
@@ -9289,23 +9295,45 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
       // Continue and let remote set attempt fail naturally.
     }
   }
-  const effectiveRemoteContents = normalizedRemoteType === "answer"
-    ? xmppAlignRemoteJingleContentsToLocalOffer(remoteContents, pc.localDescription?.sdp || "")
-    : remoteContents;
-  const sdp = xmppBuildMinimalJingleSdp({
-    media: Array.isArray(media) && media.length > 0 ? media : xmppCallSessionMediaList(session),
-    contents: Array.isArray(effectiveRemoteContents) && effectiveRemoteContents.length > 0
-      ? effectiveRemoteContents
-      : (Array.isArray(session?.remoteContents) ? session.remoteContents : []),
-    transport: remoteTransport,
-    type: normalizedRemoteType,
-    localRole
-  });
+  const effectiveRemoteContents = typeof xep0320.xmppSelectEffectiveRemoteContents === "function"
+    ? xep0320.xmppSelectEffectiveRemoteContents(normalizedRemoteType, remoteContents, pc.localDescription?.sdp || "", {
+      alignRemoteJingleContentsToLocalOfferFn: xmppAlignRemoteJingleContentsToLocalOffer
+    })
+    : (normalizedRemoteType === "answer"
+      ? xmppAlignRemoteJingleContentsToLocalOffer(remoteContents, pc.localDescription?.sdp || "")
+      : remoteContents);
+  const remoteSdpInput = typeof xep0320.xmppBuildPrimeRemoteSdpInput === "function"
+    ? xep0320.xmppBuildPrimeRemoteSdpInput({
+      media,
+      effectiveRemoteContents,
+      session,
+      remoteTransport,
+      remoteType: normalizedRemoteType,
+      localRole
+    }, {
+      callSessionMediaListFn: xmppCallSessionMediaList
+    })
+    : {
+      media: Array.isArray(media) && media.length > 0 ? media : xmppCallSessionMediaList(session),
+      contents: Array.isArray(effectiveRemoteContents) && effectiveRemoteContents.length > 0
+        ? effectiveRemoteContents
+        : (Array.isArray(session?.remoteContents) ? session.remoteContents : []),
+      transport: remoteTransport,
+      type: normalizedRemoteType,
+      localRole
+    };
+  const sdp = xmppBuildMinimalJingleSdp(remoteSdpInput);
+  const remoteDescriptionInit = typeof xep0320.xmppBuildPeerConnectionRemoteDescriptionInit === "function"
+    ? xep0320.xmppBuildPeerConnectionRemoteDescriptionInit(normalizedRemoteType, sdp)
+    : { type: normalizedRemoteType, sdp };
   const applyRemoteDescription = async () => {
-    await pc.setRemoteDescription({ type: normalizedRemoteType, sdp });
+    await pc.setRemoteDescription(remoteDescriptionInit);
   };
   try {
-    if (normalizedRemoteType === "offer" && pc.signalingState !== "stable") {
+    const shouldRollback = typeof xep0320.xmppShouldRollbackBeforeApplyingRemoteOffer === "function"
+      ? xep0320.xmppShouldRollbackBeforeApplyingRemoteOffer(normalizedRemoteType, pc.signalingState || "")
+      : (normalizedRemoteType === "offer" && pc.signalingState !== "stable");
+    if (shouldRollback) {
       try {
         await pc.setLocalDescription({ type: "rollback" });
       } catch {
@@ -9329,7 +9357,7 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
         createLocalOffer: normalizedRemoteType === "answer"
       });
       if (!retryEntry?.pc) return false;
-      await retryEntry.pc.setRemoteDescription({ type: normalizedRemoteType, sdp });
+      await retryEntry.pc.setRemoteDescription(remoteDescriptionInit);
       entry = retryEntry;
       pc = retryEntry.pc;
     } catch (retryError) {
@@ -9342,7 +9370,10 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
       return false;
     }
   }
-  if (normalizedRemoteType === "offer" && !pc.localDescription) {
+  const shouldCreateLocalAnswer = typeof xep0320.xmppShouldCreateLocalAnswerAfterRemoteOffer === "function"
+    ? xep0320.xmppShouldCreateLocalAnswerAfterRemoteOffer(normalizedRemoteType, Boolean(pc.localDescription))
+    : (normalizedRemoteType === "offer" && !pc.localDescription);
+  if (shouldCreateLocalAnswer) {
     try {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -9364,11 +9395,16 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
       });
     }
   }
-  if (session && remoteTransport && typeof remoteTransport === "object") {
-    session.remoteTransport = {
-      ufrag: (remoteTransport.ufrag || "").toString().trim(),
-      pwd: (remoteTransport.pwd || "").toString().trim()
-    };
+  const normalizedRemoteTransport = typeof xep0320.xmppNormalizeRemoteTransportInfo === "function"
+    ? xep0320.xmppNormalizeRemoteTransportInfo(remoteTransport)
+    : (remoteTransport && typeof remoteTransport === "object"
+      ? {
+        ufrag: (remoteTransport.ufrag || "").toString().trim(),
+        pwd: (remoteTransport.pwd || "").toString().trim()
+      }
+      : null);
+  if (session && normalizedRemoteTransport) {
+    session.remoteTransport = normalizedRemoteTransport;
   }
   const flushResult = await xmppFlushSessionRemoteIceCandidateQueue(sid);
   addXmppDebugEvent("runtime", "Primed peer connection from jingle mapping", {
