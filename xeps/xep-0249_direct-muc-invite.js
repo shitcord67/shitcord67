@@ -50,6 +50,21 @@
     return (value || "").toString().trim().replace(/^[^:]+:/, "").toLowerCase();
   }
 
+  function normalizeXmppRoomJoinArg(rawArg = "", { bareJidFn = normalizeJid } = {}) {
+    return bareJidFn((rawArg || "").toString().trim().replace(/^xmpp:/i, ""));
+  }
+
+  function parseXmppDirectMucInviteCommandArg(rawArg = "", {
+    decodeHtmlEntitiesFn = decodeEntities,
+    normalizeRoomJoinArgFn = normalizeXmppRoomJoinArg
+  } = {}) {
+    const [roomTokenRaw, reasonRaw = "", passwordRaw = ""] = (rawArg || "").toString().split("|");
+    const roomJid = normalizeRoomJoinArgFn(roomTokenRaw);
+    const reason = decodeHtmlEntitiesFn((reasonRaw || "").toString()).replace(/\s+/g, " ").trim().slice(0, 280);
+    const password = (passwordRaw || "").toString().trim().slice(0, 120);
+    return { roomJid, reason, password };
+  }
+
   function parseXmppDirectMucInvite(stanza) {
     if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
     const inviteNode = xmppElementsByLocalName(stanza, "x")
@@ -85,6 +100,8 @@
 
   globalScope.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE = Object.freeze({
     XMPP_DIRECT_MUC_INVITE_NAMESPACE,
+    normalizeXmppRoomJoinArg,
+    parseXmppDirectMucInviteCommandArg,
     parseXmppDirectMucInvite
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
