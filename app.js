@@ -701,6 +701,12 @@ const normalizeChannelPermissionOverridesViaModule = typeof UI_STATE_NORMALIZERS
 const accountActivitySummaryViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.accountActivitySummary === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.accountActivitySummary
   : (() => "");
+const tUiViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.tUi === "function"
+  ? ((key, fallback = "") => UI_STATE_NORMALIZERS_GLOBAL.tUi(key, fallback, {
+    resolveUiLocaleFn: resolveUiLocale,
+    uiI18n: UI_I18N
+  }))
+  : ((key, fallback = "") => fallback || key);
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11223,10 +11229,7 @@ function resolveUiLocale(prefs = getPreferences()) {
 }
 
 function tUi(key, fallback = "") {
-  const locale = resolveUiLocale();
-  const table = UI_I18N[locale] || UI_I18N.en;
-  const english = UI_I18N.en || {};
-  return table[key] || english[key] || fallback || key;
+  return tUiViaModule(key, fallback);
 }
 
 function tUiFmt(key, vars = {}, fallback = "") {

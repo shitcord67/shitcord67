@@ -252,6 +252,16 @@
     return "";
   }
 
+  function tUi(key, fallback = "", {
+    resolveUiLocaleFn = () => "en",
+    uiI18n = {}
+  } = {}) {
+    const locale = resolveUiLocaleFn();
+    const table = uiI18n[locale] || uiI18n.en || {};
+    const english = uiI18n.en || {};
+    return table[key] || english[key] || fallback || key;
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -281,6 +291,7 @@
     normalizeVoiceState,
     normalizeChannelPermissionValue,
     normalizeChannelPermissionOverrides,
-    accountActivitySummary
+    accountActivitySummary,
+    tUi
   });
 })(typeof window !== "undefined" ? window : globalThis);
