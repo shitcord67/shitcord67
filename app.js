@@ -16,6 +16,10 @@ const XMPP_LOCAL_AUTH_GATEWAY_URL = "http://localhost:8790";
 const XMPP_ENABLE_BROWSER_HOST_META_FALLBACK = false;
 const XMPP_PLAIN_ONLY_DOMAINS = new Set(["xmpp.jp"]);
 const XMPP_MAM_NAMESPACE = "urn:xmpp:mam:2";
+const XMPP_PUBSUB_NAMESPACE = "http://jabber.org/protocol/pubsub";
+const XMPP_BOOKMARKS_NAMESPACE = "urn:xmpp:bookmarks:1";
+const XMPP_BOOKMARKS_NOTIFY_FEATURE = `${XMPP_BOOKMARKS_NAMESPACE}+notify`;
+const XMPP_BOOKMARKS_LEGACY_NAMESPACE = "storage:bookmarks";
 const XMPP_HTTP_UPLOAD_NAMESPACE = "urn:xmpp:http:upload:0";
 const XMPP_HTTP_UPLOAD_LEGACY_NAMESPACE = "urn:xmpp:http:upload";
 const XMPP_REACTIONS_NAMESPACE = "urn:xmpp:reactions:0";
@@ -50,9 +54,14 @@ const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
 const XMPP_OCCUPANT_ID_NAMESPACE = "urn:xmpp:occupant-id:0";
+const XMPP_EME_NAMESPACE = "urn:xmpp:eme:0";
+const XMPP_OPENPGP_NAMESPACE = "urn:xmpp:openpgp:0";
+const XMPP_OPENPGP_LEGACY_NAMESPACE = "jabber:x:encrypted";
+const XMPP_OTR_PREFIX = "?OTR:";
 const XMPP_OMEMO_NAMESPACE = "eu.siacs.conversations.axolotl";
 const XMPP_OMEMO_DEVICELIST_NODE = "eu.siacs.conversations.axolotl.devicelist";
 const XMPP_OMEMO_BUNDLE_NODE_PREFIX = "eu.siacs.conversations.axolotl.bundles:";
+const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE = `${XMPP_OMEMO_DEVICELIST_NODE}+notify`;
 const XMPP_OMEMO_PREKEY_COUNT = 48;
 const XMPP_OMEMO_SIGNED_PREKEY_ID = 1;
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
@@ -656,6 +665,7 @@ const SLASH_COMMANDS = [
   { name: "xmppinspect", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Alias for /xmppconsole." },
   { name: "omemo", args: "[on|off|status|devices|refresh]", description: "Control OMEMO encryption for the active XMPP DM." },
   { name: "joinxmpp", args: "<room@conference.domain>", description: "Join an XMPP MUC room and map it into XMPP Spaces." },
+  { name: "leavexmpp", args: "[room@conference.domain]", description: "Leave an XMPP MUC room and remove it from XMPP Spaces." },
   { name: "invitexmpp", args: "<room@conference.domain> [| reason [| password]]", description: "Send XMPP direct room invite to current DM peer." },
   { name: "spacesxmpp", args: "[list|open|sync|discover|join <room@conference.domain>]", description: "Manage mapped XMPP Spaces rooms and discovery." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
@@ -5920,11 +5930,21 @@ function xmppSendDirectMucInvite(peerJid = "", roomJid = "", {
 function parseXmppCallInviteAction(stanza) {
   if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
   const actions = ["invite", "accept", "reject", "retract", "left"];
+  const hasCallInviteNamespace = (node) => {
+    if (!node) return false;
+    if (xmppNodeHasXmlns(node, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(node, XMPP_CALL_INVITES_NAMESPACE_PREFIX)) {
+      return true;
+    }
+    const parent = node.parentNode && node.parentNode.nodeType === 1 ? node.parentNode : null;
+    if (parent && (xmppNodeHasXmlns(parent, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(parent, XMPP_CALL_INVITES_NAMESPACE_PREFIX))) {
+      return true;
+    }
+    return false;
+  };
   for (const action of actions) {
     const node = xmppElementsByLocalName(stanza, action)
       .find((entry) => (
-        xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
-        || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
+        hasCallInviteNamespace(entry)
       )) || null;
     if (!node) continue;
     const rawId = (node.getAttribute("id") || "").toString().trim();
@@ -5935,16 +5955,14 @@ function parseXmppCallInviteAction(stanza) {
       .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_NAMESPACE))
       || jingleCandidates
         .find((entry) => (
-          xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
-          || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
+          hasCallInviteNamespace(entry)
         ))
       || jingleCandidates
         .find((entry) => !xmppNodeXmlns(entry)) || null;
     const jingleSid = (jingleNode?.getAttribute("sid") || "").toString().trim();
     const externals = xmppElementsByLocalName(node, "external")
       .filter((entry) => {
-        const scoped = xmppNodeHasXmlns(entry, XMPP_CALL_INVITES_NAMESPACE)
-          || xmppNodeHasXmlnsPrefix(entry, XMPP_CALL_INVITES_NAMESPACE_PREFIX);
+        const scoped = hasCallInviteNamespace(entry);
         const unscopedChild = !xmppNodeXmlns(entry) && entry.parentNode === node;
         return scoped || unscopedChild;
       })
@@ -14304,6 +14322,9 @@ function xmppEncryptedPayloadInfo(stanza) {
   const hasOmemo = encryptedNodes
     .some((node) => xmppNodeHasXmlnsPrefix(node, "urn:xmpp:omemo:"));
   if (hasOmemo) return { encrypted: true, type: "omemo2", label: "OMEMO" };
+  const hasOpenPgp = [...stanza.getElementsByTagName("openpgp")]
+    .some((node) => xmppNodeHasXmlns(node, XMPP_OPENPGP_NAMESPACE));
+  if (hasOpenPgp) return { encrypted: true, type: "openpgp", label: "OpenPGP" };
   const hasPgp = [...stanza.getElementsByTagName("x")]
     .some((node) => xmppNodeHasXmlns(node, "jabber:x:encrypted"));
   if (hasPgp) return { encrypted: true, type: "pgp", label: "OpenPGP" };
@@ -14913,6 +14934,14 @@ function appendXmppOmemoEncryptedNode(stanza, payload) {
   header.up();
   encrypted.c("payload").t(payload.payload || "").up();
   encrypted.up();
+  return stanza;
+}
+
+function appendXmppEmeNode(stanza, { namespace = "", name = "" } = {}) {
+  if (!stanza || !namespace) return stanza;
+  const attrs = { xmlns: XMPP_EME_NAMESPACE, namespace };
+  if (name) attrs.name = name;
+  stanza.c("encryption", attrs).up();
   return stanza;
 }
 
@@ -15743,6 +15772,66 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
   return true;
 }
 
+function leaveXmppRoom(roomJid, account = getCurrentAccount()) {
+  const bare = xmppBareJid(roomJid || "");
+  if (!bare || !xmppConnection || relayStatus !== "connected" || !globalThis.$pres) return false;
+  const joinState = xmppMucJoinStateByRoomJid.get(bare) || {};
+  const nick = (joinState.nick || sanitizeChannelName(account?.username || "user", "user")).toString().trim();
+  if (!nick) return false;
+  try {
+    xmppConnection.send(globalThis.$pres({ to: `${bare}/${nick}`, type: "unavailable" }));
+  } catch {
+    return false;
+  }
+  xmppRoomByJid.delete(bare);
+  clearXmppMucSelfPing(bare);
+  xmppMucJoinStateByRoomJid.set(bare, {
+    ...joinState,
+    roomToken: joinState.roomToken || `xmpp:${bare}`,
+    nick,
+    pending: false,
+    lastErrorAt: "",
+    lastErrorCondition: "",
+    lastErrorText: ""
+  });
+  addXmppDebugEvent("presence", "Left MUC room", { roomJid: bare, nick });
+  return true;
+}
+
+function removeXmppRoomChannelByJid(roomJid, {
+  account = getCurrentAccount(),
+  prefs = getPreferences(),
+  persist = false,
+  leave = false
+} = {}) {
+  const bare = xmppBareJid(roomJid || "");
+  if (!bare) return { removed: false, channel: null };
+  let targetGuild = null;
+  let targetIndex = -1;
+  let targetChannel = null;
+  for (const guild of state.guilds || []) {
+    if (!guild || !Array.isArray(guild.channels)) continue;
+    if (!guild.id || !guild.id.startsWith("xmpp-spaces:")) continue;
+    const idx = guild.channels.findIndex((entry) => xmppBareJid(entry?.xmppRoomJid || "") === bare);
+    if (idx >= 0) {
+      targetGuild = guild;
+      targetIndex = idx;
+      targetChannel = guild.channels[idx];
+      break;
+    }
+  }
+  if (!targetGuild || targetIndex < 0 || !targetChannel) return { removed: false, channel: null };
+  if (leave) leaveXmppRoom(bare, account);
+  targetGuild.channels.splice(targetIndex, 1);
+  xmppRoomByJid.delete(bare);
+  const wasActive = state.activeChannelId === targetChannel.id;
+  if (wasActive) {
+    state.activeChannelId = getFirstOpenableChannelIdForGuild(targetGuild) || "";
+  }
+  if (persist) saveState();
+  return { removed: true, channel: targetChannel };
+}
+
 function teardownXmppConnection() {
   addXmppDebugEvent("connect", "Tearing down XMPP connection");
   clearXmppPingLoop();
@@ -16402,11 +16491,17 @@ function connectRelaySocket({ force = false } = {}) {
         const subjectNode = xmppDirectChildByLocalName(stanza, "subject");
         const bodyText = (preferredBodyText || decodeHtmlEntities(xmppNodeText(bodyNode))).trim();
         const subjectText = decodeHtmlEntities(xmppNodeText(subjectNode)).trim();
-        const encryptedInfo = xmppEncryptedPayloadInfo(stanza);
-        const encrypted = encryptedInfo.encrypted;
+        let encryptedInfo = xmppEncryptedPayloadInfo(stanza);
+        let encrypted = encryptedInfo.encrypted;
         const attachmentHint = xmppHasOobAttachmentHint(stanza);
         const fallbackAttachmentText = xmppLooksLikeAttachmentFallbackText(bodyText);
         let text = bodyText;
+        const otrEncrypted = !encrypted && text.startsWith(XMPP_OTR_PREFIX);
+        if (otrEncrypted) {
+          encryptedInfo = { encrypted: true, type: "otr", label: "OTR" };
+          encrypted = true;
+          text = "";
+        }
         if (!text && subjectText) {
           text = type === "groupchat" ? `[Room subject] ${subjectText}` : subjectText;
         }
@@ -17388,6 +17483,9 @@ function connectRelaySocket({ force = false } = {}) {
       xmppConnection.addHandler((stanza) => {
         try {
           addXmppDebugEvent("message", "Incoming stanza", trimXmppRaw(xmppSerializePayload(stanza)));
+          if (xmppHandleBookmarksPubsubEvent(stanza, { account: current, prefs: getPreferences() })) {
+            return true;
+          }
           const forwarded = xmppMamForwardedMessages(stanza);
           if (forwarded.length > 0) {
             forwarded.forEach((entry) => {
@@ -18845,7 +18943,9 @@ function xmppClientDiscoFeatures() {
     XMPP_CHAT_MARKERS_NAMESPACE,
     XMPP_DIRECT_MUC_INVITE_NAMESPACE,
     XMPP_OCCUPANT_ID_NAMESPACE,
+    XMPP_BOOKMARKS_NOTIFY_FEATURE,
     XMPP_IDLE_NAMESPACE,
+    XMPP_EME_NAMESPACE,
     "urn:xmpp:ping"
   ];
   if (xmppOmemoRuntimeAvailable()) {
@@ -19728,6 +19828,7 @@ function publishRelayChannelMessage(channel, message, account) {
             return;
           }
           appendXmppOmemoEncryptedNode(stanza, encryptedPayload);
+          appendXmppEmeNode(stanza, { namespace: XMPP_OMEMO_NAMESPACE, name: "OMEMO" });
           message.xmppEncrypted = true;
           message.xmppEncryptedType = "omemo";
           message.xmppEncryptedLabel = "OMEMO";
@@ -19871,6 +19972,7 @@ function publishRelayDirectMessage(thread, message, account) {
             return;
           }
           appendXmppOmemoEncryptedNode(stanza, encryptedPayload);
+          appendXmppEmeNode(stanza, { namespace: XMPP_OMEMO_NAMESPACE, name: "OMEMO" });
           message.xmppEncrypted = true;
           message.xmppEncryptedType = "omemo";
           message.xmppEncryptedLabel = "OMEMO";
@@ -22256,6 +22358,16 @@ function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focu
     }
   }
   const joined = joinXmppRoom(roomToken, account);
+  if (joined || relayStatus === "connected") {
+    const nick = sanitizeChannelName(account?.username || "user", "user");
+    const channelName = mapped.channel?.xmppRoomName || mapped.channel?.name || roomJid.split("@")[0] || "";
+    void xmppPublishBookmark({
+      jid: roomJid,
+      name: channelName,
+      autojoin: mapped.channel?.xmppSpaceAutojoin === true,
+      nick
+    });
+  }
   if (mapped.changed || focusChanged) {
     saveState();
     render();
@@ -22269,6 +22381,40 @@ function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focu
     message: joined
       ? `Joining XMPP room ${roomJid}.`
       : `Added room ${roomJid} to XMPP Spaces. Connect XMPP relay and run /joinxmpp ${roomJid} again for live join.`
+  };
+}
+
+function handleLeaveXmppCommand(rawRoomArg, account = getCurrentAccount()) {
+  let roomJid = normalizeXmppRoomJoinArg(rawRoomArg);
+  if (!roomJid) {
+    const activeRoom = xmppBareJid(getActiveChannel()?.xmppRoomJid || "");
+    if (activeRoom) roomJid = activeRoom;
+  }
+  if (!roomJid) {
+    return {
+      ok: false,
+      roomJid: "",
+      message: "Usage: /leavexmpp [room@conference.example.org]"
+    };
+  }
+  const removed = removeXmppRoomChannelByJid(roomJid, {
+    account,
+    prefs: getPreferences(),
+    persist: true,
+    leave: true
+  });
+  if (!removed.removed) {
+    return {
+      ok: false,
+      roomJid,
+      message: `No mapped XMPP room found for ${roomJid}.`
+    };
+  }
+  void xmppRetractBookmark(roomJid);
+  return {
+    ok: true,
+    roomJid,
+    message: `Left XMPP room ${roomJid} and removed it from XMPP Spaces.`
   };
 }
 
@@ -23790,6 +23936,16 @@ function handleSlashCommand(rawText, channel, account) {
   if (command === "joinxmpp" || command === "joinmuc") {
     const result = handleJoinXmppCommand(arg, account, { focus: true });
     addSystemMessage(channel, result.message);
+    return true;
+  }
+
+  if (command === "leavexmpp" || command === "leavemuc") {
+    const result = handleLeaveXmppCommand(arg, account);
+    addSystemMessage(channel, result.message);
+    if (result.ok) {
+      renderServers();
+      renderChannels();
+    }
     return true;
   }
 
@@ -30999,6 +31155,37 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       return withLocalhostFallbacks;
     };
     const urlCandidates = buildSwfUrlCandidates();
+    const swfFileName = (attachment?.name || "").toString().trim();
+    const canAttemptDataLoad = (candidate) => {
+      if (!candidate) return false;
+      if (/^data:/i.test(candidate)) return false;
+      return !isExternalMediaUrl(candidate);
+    };
+    const tryDataLoad = async (candidate) => {
+      if (!canAttemptDataLoad(candidate)) return false;
+      try {
+        const response = await fetch(candidate, { cache: "no-store" });
+        if (!response.ok) return false;
+        const buffer = await response.arrayBuffer();
+        if (!buffer || buffer.byteLength === 0) return false;
+        await Promise.resolve(player.load({
+          data: buffer,
+          swfFileName: swfFileName || undefined,
+          base: candidate,
+          autoplay,
+          unmuteOverlay: "hidden",
+          scale: "showAll",
+          forceScale: true,
+          letterbox: "on",
+          openUrlMode: "allow"
+        }));
+        addDebugLog("info", "Ruffle loaded SWF via data payload", { url: candidate, name: swfFileName || "" });
+        return true;
+      } catch (error) {
+        addDebugLog("warn", "Ruffle data payload load failed", { url: candidate, error: String(error) });
+        return false;
+      }
+    };
     const loadWithFallback = async () => {
       const resolveLoadState = () => {
         const runtime = runtimeKey ? swfRuntimes.get(runtimeKey) : null;
@@ -31087,6 +31274,11 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             break;
           } catch (errorStringMode) {
             addDebugLog("warn", "Ruffle string payload load failed", { url: candidate, error: String(errorStringMode) });
+            const dataLoaded = await tryDataLoad(candidate);
+            if (dataLoaded) {
+              loaded = true;
+              break;
+            }
           }
         }
       }
@@ -39646,7 +39838,7 @@ function parseXmppBookmarks(stanza) {
   const seen = new Set();
   const list = [];
   [...stanza.getElementsByTagName("conference")].forEach((node) => {
-    const modernBookmark = xmppNodeHasXmlns(node, "urn:xmpp:bookmarks:1");
+    const modernBookmark = xmppNodeHasXmlns(node, XMPP_BOOKMARKS_NAMESPACE);
     let jid = normalizeXmppJid(node.getAttribute("jid") || "").toLowerCase();
     if (!jid && modernBookmark) {
       const parentItem = node.parentNode && node.parentNode.nodeType === 1
@@ -39659,11 +39851,15 @@ function parseXmppBookmarks(stanza) {
     if (!jid || seen.has(jid)) return;
     seen.add(jid);
     const nickNode = node.getElementsByTagName("nick")[0] || null;
+    const passwordNode = node.getElementsByTagName("password")[0] || null;
+    const extensionsNode = node.getElementsByTagName("extensions")[0] || null;
     list.push({
       jid,
       name: (node.getAttribute("name") || "").toString().trim(),
       autojoin: (node.getAttribute("autojoin") || "").toString().toLowerCase() === "true",
-      nick: xmppNodeText(nickNode).trim()
+      nick: xmppNodeText(nickNode).trim(),
+      password: xmppNodeText(passwordNode).trim(),
+      extensionsXml: extensionsNode ? xmppSerializePayload(extensionsNode) : ""
     });
   });
   return list;
@@ -39676,8 +39872,8 @@ function fetchXmppBookmarksPubsub(connection) {
       return;
     }
     const iq = globalThis.$iq({ type: "get" })
-      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
-      .c("items", { node: "urn:xmpp:bookmarks:1" });
+      .c("pubsub", { xmlns: XMPP_PUBSUB_NAMESPACE })
+      .c("items", { node: XMPP_BOOKMARKS_NAMESPACE });
     addXmppDebugEvent("iq", "Requesting bookmarks (XEP-0402 pubsub)");
     connection.sendIQ(
       iq,
@@ -39709,7 +39905,7 @@ function fetchXmppBookmarksLegacy(connection) {
     }
     const iq = globalThis.$iq({ type: "get" })
       .c("query", { xmlns: "jabber:iq:private" })
-      .c("storage", { xmlns: "storage:bookmarks" });
+      .c("storage", { xmlns: XMPP_BOOKMARKS_LEGACY_NAMESPACE });
     addXmppDebugEvent("iq", "Requesting bookmarks");
     connection.sendIQ(
       iq,
@@ -39743,13 +39939,19 @@ function mergeXmppBookmarks(...lists) {
         jid,
         name: "",
         autojoin: false,
-        nick: ""
+        nick: "",
+        password: "",
+        extensionsXml: ""
       };
       const nextName = (entry?.name || "").toString().trim();
       const nextNick = (entry?.nick || "").toString().trim();
+      const nextPassword = (entry?.password || "").toString().trim();
+      const nextExtensions = (entry?.extensionsXml || "").toString().trim();
       const nextAutojoin = entry?.autojoin === true;
       if (nextName && (!existing.name || existing.name === jid.split("@")[0])) existing.name = nextName;
       if (nextNick && !existing.nick) existing.nick = nextNick;
+      if (nextPassword && !existing.password) existing.password = nextPassword;
+      if (nextExtensions && !existing.extensionsXml) existing.extensionsXml = nextExtensions;
       if (nextAutojoin) existing.autojoin = true;
       merged.set(jid, existing);
     });
@@ -39775,6 +39977,234 @@ async function fetchXmppBookmarks(connection) {
     mergedCount: merged.length
   });
   return merged;
+}
+
+function xmppNormalizeBookmarkEntry(entry) {
+  const jid = xmppBareJid(entry?.jid || "");
+  if (!jid) return null;
+  const name = (entry?.name || "").toString().trim();
+  const nick = (entry?.nick || "").toString().trim();
+  const password = (entry?.password || "").toString().trim();
+  const extensionsXml = (entry?.extensionsXml || "").toString().trim();
+  return {
+    jid,
+    name,
+    autojoin: entry?.autojoin === true,
+    nick,
+    password,
+    extensionsXml
+  };
+}
+
+function appendXmppBookmarkExtensionsNode(builder, extensionsXml = "") {
+  if (!extensionsXml || typeof builder?.cnode !== "function") return false;
+  try {
+    const doc = new DOMParser().parseFromString(extensionsXml, "application/xml");
+    const node = doc?.documentElement || null;
+    if (!node || !node.nodeName) return false;
+    builder.cnode(node).up();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function appendXmppBookmarkConferenceNode(builder, entry) {
+  const normalized = xmppNormalizeBookmarkEntry(entry);
+  if (!normalized || !builder) return builder;
+  const attrs = {
+    xmlns: XMPP_BOOKMARKS_NAMESPACE,
+    jid: normalized.jid,
+    autojoin: normalized.autojoin ? "true" : "false"
+  };
+  if (normalized.name) attrs.name = normalized.name.slice(0, 180);
+  const conference = builder.c("conference", attrs);
+  if (normalized.nick) conference.c("nick").t(normalized.nick.slice(0, 60)).up();
+  if (normalized.password) conference.c("password").t(normalized.password.slice(0, 180)).up();
+  appendXmppBookmarkExtensionsNode(conference, normalized.extensionsXml);
+  conference.up();
+  return builder;
+}
+
+function appendXmppBookmarkPublishOptions(builder) {
+  if (!builder) return builder;
+  const options = builder.c("publish-options")
+    .c("x", { xmlns: "jabber:x:data", type: "submit" })
+    .c("field", { var: "FORM_TYPE", type: "hidden" })
+    .c("value").t("http://jabber.org/protocol/pubsub#publish-options").up().up()
+    .c("field", { var: "pubsub#persist_items" })
+    .c("value").t("true").up().up()
+    .c("field", { var: "pubsub#max_items" })
+    .c("value").t("max").up().up()
+    .c("field", { var: "pubsub#send_last_published_item" })
+    .c("value").t("never").up().up()
+    .c("field", { var: "pubsub#access_model" })
+    .c("value").t("whitelist").up().up();
+  options.up();
+  return builder;
+}
+
+async function xmppPublishBookmarkModern(entry, { connection = xmppConnection } = {}) {
+  const normalized = xmppNormalizeBookmarkEntry(entry);
+  if (!normalized || !connection || !globalThis.$iq) return false;
+  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+  const iqAttrs = { type: "set" };
+  if (ownBare) iqAttrs.to = ownBare;
+  const iq = globalThis.$iq(iqAttrs)
+    .c("pubsub", { xmlns: XMPP_PUBSUB_NAMESPACE })
+    .c("publish", { node: XMPP_BOOKMARKS_NAMESPACE })
+    .c("item", { id: normalized.jid });
+  appendXmppBookmarkConferenceNode(iq, normalized);
+  iq.up().up();
+  appendXmppBookmarkPublishOptions(iq);
+  try {
+    await xmppSendIqPromise(connection, iq, 7000);
+    addXmppDebugEvent("iq", "Published XEP-0402 bookmark", {
+      jid: normalized.jid,
+      autojoin: normalized.autojoin
+    });
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "Failed to publish XEP-0402 bookmark", {
+      jid: normalized.jid,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
+}
+
+async function xmppPublishBookmarkLegacy(entry, { connection = xmppConnection } = {}) {
+  const normalized = xmppNormalizeBookmarkEntry(entry);
+  if (!normalized || !connection || !globalThis.$iq) return false;
+  const existing = await fetchXmppBookmarksLegacy(connection);
+  const next = mergeXmppBookmarks(existing, [normalized]);
+  const iq = globalThis.$iq({ type: "set" })
+    .c("query", { xmlns: "jabber:iq:private" })
+    .c("storage", { xmlns: XMPP_BOOKMARKS_LEGACY_NAMESPACE });
+  next.forEach((bookmark) => {
+    const attrs = {
+      jid: bookmark.jid,
+      autojoin: bookmark.autojoin ? "true" : "false"
+    };
+    if (bookmark.name) attrs.name = bookmark.name.slice(0, 180);
+    const conference = iq.c("conference", attrs);
+    if (bookmark.nick) conference.c("nick").t(bookmark.nick.slice(0, 60)).up();
+    if (bookmark.password) conference.c("password").t(bookmark.password.slice(0, 180)).up();
+    appendXmppBookmarkExtensionsNode(conference, bookmark.extensionsXml);
+    conference.up();
+  });
+  try {
+    await xmppSendIqPromise(connection, iq, 7000);
+    addXmppDebugEvent("iq", "Published legacy XMPP bookmark", {
+      jid: normalized.jid,
+      count: next.length
+    });
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "Failed to publish legacy XMPP bookmark", {
+      jid: normalized.jid,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
+}
+
+async function xmppPublishBookmark(entry, { connection = xmppConnection } = {}) {
+  const modernOk = await xmppPublishBookmarkModern(entry, { connection });
+  const legacyOk = await xmppPublishBookmarkLegacy(entry, { connection });
+  return modernOk || legacyOk;
+}
+
+async function xmppRetractBookmarkModern(jid, { connection = xmppConnection } = {}) {
+  const bare = xmppBareJid(jid || "");
+  if (!bare || !connection || !globalThis.$iq) return false;
+  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+  const iqAttrs = { type: "set" };
+  if (ownBare) iqAttrs.to = ownBare;
+  const iq = globalThis.$iq(iqAttrs)
+    .c("pubsub", { xmlns: XMPP_PUBSUB_NAMESPACE })
+    .c("retract", { node: XMPP_BOOKMARKS_NAMESPACE, id: bare });
+  try {
+    await xmppSendIqPromise(connection, iq, 7000);
+    addXmppDebugEvent("iq", "Retracted XEP-0402 bookmark", { jid: bare });
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "Failed to retract XEP-0402 bookmark", {
+      jid: bare,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
+}
+
+async function xmppRetractBookmarkLegacy(jid, { connection = xmppConnection } = {}) {
+  const bare = xmppBareJid(jid || "");
+  if (!bare || !connection || !globalThis.$iq) return false;
+  const existing = await fetchXmppBookmarksLegacy(connection);
+  const next = existing.filter((entry) => xmppBareJid(entry?.jid || "") !== bare);
+  const iq = globalThis.$iq({ type: "set" })
+    .c("query", { xmlns: "jabber:iq:private" })
+    .c("storage", { xmlns: XMPP_BOOKMARKS_LEGACY_NAMESPACE });
+  next.forEach((bookmark) => {
+    const attrs = {
+      jid: xmppBareJid(bookmark?.jid || ""),
+      autojoin: bookmark?.autojoin === true ? "true" : "false"
+    };
+    if (!attrs.jid) return;
+    if (bookmark?.name) attrs.name = (bookmark.name || "").toString().trim().slice(0, 180);
+    const conference = iq.c("conference", attrs);
+    if (bookmark?.nick) conference.c("nick").t((bookmark.nick || "").toString().trim().slice(0, 60)).up();
+    if (bookmark?.password) conference.c("password").t((bookmark.password || "").toString().trim().slice(0, 180)).up();
+    appendXmppBookmarkExtensionsNode(conference, bookmark?.extensionsXml || "");
+    conference.up();
+  });
+  try {
+    await xmppSendIqPromise(connection, iq, 7000);
+    addXmppDebugEvent("iq", "Retracted legacy XMPP bookmark", { jid: bare });
+    return true;
+  } catch (error) {
+    addXmppDebugEvent("error", "Failed to retract legacy XMPP bookmark", {
+      jid: bare,
+      error: String(error?.message || error)
+    });
+    return false;
+  }
+}
+
+async function xmppRetractBookmark(jid, { connection = xmppConnection } = {}) {
+  const modernOk = await xmppRetractBookmarkModern(jid, { connection });
+  const legacyOk = await xmppRetractBookmarkLegacy(jid, { connection });
+  return modernOk || legacyOk;
+}
+
+function xmppHandleBookmarksPubsubEvent(stanza, { account = getCurrentAccount(), prefs = getPreferences() } = {}) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return false;
+  const eventNode = [...stanza.getElementsByTagName("event")]
+    .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/pubsub#event")) || null;
+  if (!eventNode) return false;
+  const itemsNode = [...eventNode.getElementsByTagName("items")]
+    .find((node) => (node.getAttribute("node") || "").toString().trim() === XMPP_BOOKMARKS_NAMESPACE) || null;
+  if (!itemsNode) return false;
+  const updated = parseXmppBookmarks(itemsNode);
+  if (updated.length > 0) {
+    upsertXmppSpaceChannels(updated, prefs, account);
+  }
+  const retracts = [...itemsNode.getElementsByTagName("retract")]
+    .map((node) => (node.getAttribute("id") || "").toString().trim())
+    .filter(Boolean);
+  retracts.forEach((jid) => {
+    removeXmppRoomChannelByJid(jid, { account, prefs, persist: true, leave: true });
+  });
+  if (updated.length > 0 || retracts.length > 0) {
+    saveState();
+    renderServers();
+    renderChannels();
+  }
+  addXmppDebugEvent("message", "Received bookmark pubsub update", {
+    updated: updated.length,
+    retracted: retracts.length
+  });
+  return true;
 }
 
 function validateXmppLoginCredentials({ jid, password, wsUrl, timeoutMs = 10000, onProgress = null }) {
@@ -40769,6 +41199,15 @@ ui.messageForm.addEventListener("submit", (event) => {
     if (dmCommand === "joinxmpp" || dmCommand === "joinmuc") {
       const result = handleJoinXmppCommand(dmArg, account, { focus: true });
       showToast(result.message, { tone: result.ok ? "info" : "error", duration: result.ok ? 2200 : 3200 });
+      return;
+    }
+    if (dmCommand === "leavexmpp" || dmCommand === "leavemuc") {
+      const result = handleLeaveXmppCommand(dmArg, account);
+      showToast(result.message, { tone: result.ok ? "info" : "error", duration: result.ok ? 2200 : 3200 });
+      if (result.ok) {
+        renderServers();
+        renderChannels();
+      }
       return;
     }
     if (dmCommand === "invitexmpp" || dmCommand === "invitemuc") {

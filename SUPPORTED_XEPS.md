@@ -38,7 +38,7 @@ Status labels:
 | XEP-0444 | Message Reactions | Partial | Incoming `<reactions/>` updates now apply to DM/MUC messages, and local reaction clicks publish outbound reaction stanzas using per-user reaction sets. |
 | XEP-0424 | Message Retraction | Partial | Incoming `<retract/>` (direct and `fasten:0 apply-to`) stanzas now retract matching DM/MUC messages instead of showing unsupported fallback text. |
 | XEP-0482 | Call Invites | Partial | Sends and consumes `urn:xmpp:call-invites:0` for DM and room flows, including Movim-style Muji room invites (`<muji room='...'>`) plus groupchat accept/reject/left handling; full native media interop is still incomplete. |
-| XEP-0402 | PEP Native Bookmarks | Partial | Reads modern bookmarks via PubSub, with legacy fallback. |
+| XEP-0402 | PEP Native Bookmarks | Implemented | Reads/publishes bookmarks via PubSub, mirrors legacy storage, and applies pubsub updates for XMPP Spaces. |
 | XEP-0410 | MUC Self-Ping | Partial | Joined MUC rooms now run periodic self-pings and trigger controlled rejoin attempts after repeated ping failures to improve room session continuity. |
 | XEP-0421 | Anonymous unique occupant identifiers for MUCs | Partial | Parses `urn:xmpp:occupant-id:0` in MUC message/presence stanzas and uses it to stabilize occupant/reaction actor mapping even when nicks change or real JIDs are hidden. |
 | XEP-0461 | Message Replies | Partial | Parses incoming reply metadata and now also publishes outbound `<reply/>` metadata with fallback quote ranges for DM/MUC sends. |

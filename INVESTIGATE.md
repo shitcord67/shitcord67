@@ -47,3 +47,23 @@ This file lists things that are likely environment- or content-specific and shou
 2. `https://github.com/fluxerapp/fluxer`
 - Focus: broad architecture scanning only.
 - Constraint used here: keep naming and UX wording independent in this codebase.
+
+## XMPP Messenger Codebase Survey (2026-03-01)
+
+Scope and scale:
+- `xmppmessengers` aggregate size: ~26k files, ~2.62M LOC (cloc sum).
+- Largest repos by size: `pade` (~1.3G), `monocles_chat` (~1.4G), `Spark` (~422M), `gajim` (~236M).
+- Smaller/quick-scan candidates: `convo` (~1.3M), `aparte` (~1.9M), `xmpp-web` (~3.1M), `converse-desktop` (~3.3M).
+
+Repos reviewed (light scan):
+- `xmppmessengers/convo`
+  - KaiOS client built on Converse.js. README highlights this; code exposes OMEMO toggle in UI (`src/stores.ts`, `src/routes/Chat.svelte`).
+- `xmppmessengers/converse-desktop`
+  - Electron wrapper around Converse.js. README explicitly lists OMEMO and MAM as features.
+- `xmppmessengers/xmpp-web`
+  - README lists features including MUC (XEP-0045), bookmarks (XEP-0048), HTTP upload (XEP-0066/XEP-0363), chat states (XEP-0085), message formatting (XEP-0393), moderation (XEP-0425), and vCard avatars (XEP-0054).
+- `xmppmessengers/aparte`
+  - `doap.xml` lists XEP support: XEP-0045, XEP-0048, XEP-0392, XEP-0313, XEP-0308 (partial), XEP-0384 (partial; OMEMO in MUC not supported), XEP-0245, XEP-0280, XEP-0402.
+
+Note:
+- Heavier repos (`Conversations`, `Dino`, `Gajim`, etc.) not fully re-read due to scale; worth targeted follow-up if specific feature gaps are discovered.

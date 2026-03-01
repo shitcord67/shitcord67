@@ -2355,3 +2355,45 @@ I thought you would work on my higher priority issues, spaces, some low hanging 
 
 ## 2026-02-28T09:38:16Z
 Did you investigate the movim folder yet to fix the issues mentioned in issues and especially the call related stuff? Also spaces support? This spaces stuff is very high priority.
+
+## 2026-02-28T09:50:21Z
+Maybe Android users should be able to set some manual spacing at the top and bottom so that they can comfortably reach/see all elements...
+2026-02-28T09:56:27Z | Can you continue?
+2026-02-28T10:07:26Z | Yes
+2026-02-28T10:07:44Z | And OMEMO is also VERY HIGH priority
+2026-02-28T10:07:54Z | Cause people want to write E2EE messages in 2026
+2026-02-28T10:08:16Z | You know the world is falling apart and thus we need encrypted messaging sooner than later umu
+2026-02-28T10:29:26Z | Maybe there could also be a lock and open lock emoji to display if encryption is active (and it may be interactable to enable/disable on click or see info on hover or some options on right click?) Oh also maybe /home/duda/shitcord67/converse-desktop can also help in integrating OMEMO stuff and maybe some other stuff? Investigate the repo and also https://xmpp.org/software/converse-js/ as well as https://conversejs.org/. Also yeah the spaces stuff needs to be done and OMEMU stuff finished. Also then there is some idea I got while reading converse.js code. Apparently that app has a plugin system, maybe we could also have something like this later... for a start we might split the code of each xep into its own file (or maybe multiple xeps for one file if it REALLY makes sense but ideally one file per XEP)? Do you think that makes sense?
+2026-02-28T10:36:25Z | Yes please work on what you proposed. And don't forget about the call interop fixes as step four as well
+
+[2026-02-28T10:43:45Z] Yes please work on what you proposed. And don't forget about the call interop fixes as step four as well
+
+[2026-02-28T12:38:21Z] Call invites from Movim still don
+
+[2026-02-28T12:39:17Z] Call invites from Movim still don't appear. Also I noticed that stickers sent in previous session don't re-appear in chat (only fallback message is shown). Oh and OMEMO does not seem to work correctly yet?
+[$ts] USER PROMPT:
+Well. Can you continue? Especially would like for you to finally finish the spaces XEP support, OMEME and maybe also OTR and OpenGPG to have encryption finally working? And ofc the call interop stuff. Btw. I think especially Converse.js has code for OMEMO: https://nlnet.nl/project/Converse.js-OMEMO/ Then SWFs still don't load in Ruffle on Android, can it even cope with the swf subfolder? You might also take a look at XMPP messengers I cloned to subfolder xmppmessengers and you can look at https://xmpp.org/software/?category=clients for features of those clients and their details. E.g. there are details links that then lead to subsites named after the clients like https://xmpp.org/software/psi/. Please heavily investigate. You may also choose to implement some cool XEPs autonoumously, low hanging fruits and useful stuff, etc. You may decide by number of lines (cloc or other tools), repo size and features which you take a look at first. Simpler repos with the most gain regarding things I want and you deem worth to add quick might be preferred. Also you may note down for future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff unless you state it might be worth it. Have fun
+
+[2026-03-01 02:27:30 +0100] So. Do you know my previous prompt? Repeat it and then continue working.
+
+[2026-03-01 02:27:48 +0100] No it was: Well. Can you continue? Especially would like for you to finally finish the spaces XEP support, OMEME and maybe also OTR\n  and OpenGPG to have encryption finally working? And ofc the call interop stuff. Btw. I think especially Converse.js has\n  code for OMEMO: https://nlnet.nl/project/Converse.js-OMEMO/ Then SWFs still don't load in Ruffle on Android, can it even\n  cope with the swf subfolder? You might also take a look at XMPP messengers I cloned to subfolder xmppmessengers and you\n  can look at https://xmpp.org/software/?category=clients for features of those clients and their details. E.g. there are\n  details links that then lead to subsites named after the clients like https://xmpp.org/software/psi/. Please heavily\n  investigate. You may also choose to implement some cool XEPs autonoumously, low hanging fruits and useful stuff, etc. You\n  may decide by number of lines (cloc or other tools), repo size and features which you take a look at first. Simpler repos\n  with the most gain regarding things I want and you deem worth to add quick might be preferred. Also you may note down for\n  future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff\n  unless you state it might be worth it. Have fun
+[2026-03-01T01:43:59Z] I previously asked the following and want you to continue on this: No it was: Well. Can you continue? Especially would like for you to finally finish the spaces XEP support, OMEME and
+  maybe also OTR
+    and OpenGPG to have encryption finally working? And ofc the call interop stuff. Btw. I think especially Converse.js has
+    code for OMEMO: https://nlnet.nl/project/Converse.js-OMEMO/ Then SWFs still don
+[2026-03-01T01:44:30Z] I previously asked the following and want you to continue on this: No it was: Well. Can you continue? Especially would like for you to finally finish the spaces XEP support, OMEME and
+  maybe also OTR
+    and OpenGPG to have encryption finally working? And ofc the call interop stuff. Btw. I think especially Converse.js has
+    code for OMEMO: https://nlnet.nl/project/Converse.js-OMEMO/ Then SWFs still don't load in Ruffle on Android, can it
+  even
+    cope with the swf subfolder? You might also take a look at XMPP messengers I cloned to subfolder xmppmessengers and you
+    can look at https://xmpp.org/software/?category=clients for features of those clients and their details. E.g. there are
+    details links that then lead to subsites named after the clients like https://xmpp.org/software/psi/. Please heavily
+    investigate. You may also choose to implement some cool XEPs autonoumously, low hanging fruits and useful stuff, etc.
+  You
+    may decide by number of lines (cloc or other tools), repo size and features which you take a look at first. Simpler
+  repos
+    with the most gain regarding things I want and you deem worth to add quick might be preferred. Also you may note down
+  for
+    future LLMs how much of a codebase you investigated, preferably with some details so they don't need to re-read stuff
+    unless you state it might be worth it. Have fun
