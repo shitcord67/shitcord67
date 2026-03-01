@@ -501,6 +501,9 @@ const normalizeRelayTransportAttachmentUrlViaModule = typeof MEDIA_PROVIDER_NORM
     resolveMediaUrlFn: resolveMediaUrl
   }))
   : (() => "");
+const normalizeMediaRuleTokenViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaRuleToken === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeMediaRuleToken
+  : ((rule) => (rule || "").toString().trim().toLowerCase());
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -20723,7 +20726,7 @@ function isBuiltInTrustedMediaHost(host = "") {
 }
 
 function normalizeMediaRuleToken(rule) {
-  return (rule || "").toString().trim().toLowerCase();
+  return normalizeMediaRuleTokenViaModule(rule);
 }
 
 function isBlockedMediaUrl(url) {

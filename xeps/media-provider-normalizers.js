@@ -112,6 +112,10 @@
     return /^https?:\/\//i.test(resolved) ? resolved : "";
   }
 
+  function normalizeMediaRuleToken(rule) {
+    return (rule || "").toString().trim().toLowerCase();
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -125,6 +129,7 @@
     normalizeGifFavorites,
     normalizeGifGroups,
     normalizeGifScope,
-    normalizeRelayTransportAttachmentUrl
+    normalizeRelayTransportAttachmentUrl,
+    normalizeMediaRuleToken
   });
 })(typeof window !== "undefined" ? window : globalThis);
