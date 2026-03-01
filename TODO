@@ -414,6 +414,10 @@ https://discord.js.org/docs/packages/discord.js/main
 - [done] Moved account/presence/call-state helpers out of `app.js` into `ui-state-normalizers` (`presence`, XMPP show-value mapping, voice-state normalization).
 - [done] Moved channel permission normalization helpers out of `app.js` into `ui-state-normalizers` (`permission value`, per-role override map).
 - [done] Moved OMEMO enabled-by-jid normalization into `ui-state-normalizers`.
+- [done] Added account/profile normalizer module `xeps/account-profile-normalizers.js` and moved username/drafts/cosmetics/color/android-insets helpers out of `app.js`.
+- [done] Added XMPP call target module `xeps/xmpp-call-target-utils.js` and moved peer full-jid/session target helpers out of `app.js`.
+- [done] Added command invocation module `xeps/command-invocation-utils.js` and moved slash command invocation normalization out of `app.js`.
+- [done] Extended media/login normalizer modules with relay/avatar/local-profile helpers (`normalizeRelayTransportAttachmentUrl`, `normalizeMediaRuleToken`, `normalizeMediaPrivacyUrl`, avatar URL checks, `normalizeLocalXmppProfiles`).
 - Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
 - Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.
