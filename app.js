@@ -536,6 +536,9 @@ const isRenderableAvatarUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.
     isLikelyImageDataUrlFn: isLikelyImageDataUrl
   }))
   : ((value) => isLikelyUrl(value) || isLikelyImageDataUrl(value));
+const doesMediaRuleMatchHostViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.doesMediaRuleMatchHost === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.doesMediaRuleMatchHost
+  : (() => false);
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -20722,19 +20725,7 @@ function isExternalMediaUrl(url) {
 }
 
 function doesMediaRuleMatchHost(rule, host) {
-  if (!rule || !host) return false;
-  if (rule.startsWith("/") && rule.endsWith("/") && rule.length > 2) {
-    try {
-      return new RegExp(rule.slice(1, -1), "i").test(host);
-    } catch {
-      return false;
-    }
-  }
-  if (rule.startsWith("*.")) {
-    const suffix = rule.slice(2);
-    return host === suffix || host.endsWith(`.${suffix}`);
-  }
-  return host === rule;
+  return doesMediaRuleMatchHostViaModule(rule, host);
 }
 
 function isBuiltInTrustedMediaHost(host = "") {
