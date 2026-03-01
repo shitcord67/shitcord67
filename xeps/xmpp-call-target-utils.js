@@ -45,8 +45,25 @@
     poolByBare.set(bare, pool);
   }
 
+  function xmppMostRecentPeerFullJid(jid = "", {
+    normalizeXmppJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    poolByBare = null
+  } = {}) {
+    if (!(poolByBare instanceof Map)) return "";
+    const normalized = normalizeXmppJidFn(jid).toLowerCase();
+    if (!normalized) return "";
+    if (normalized.includes("/")) return normalized;
+    const bare = xmppBareJidFn(normalized);
+    if (!bare) return "";
+    const pool = poolByBare.get(bare);
+    if (!(pool instanceof Map) || pool.size <= 0) return "";
+    return [...pool.entries()].sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))[0]?.[0] || "";
+  }
+
   globalScope.SHITCORD67_XMPP_CALL_TARGET_UTILS = Object.freeze({
     xmppRememberPeerFullJid,
-    xmppForgetPeerFullJid
+    xmppForgetPeerFullJid,
+    xmppMostRecentPeerFullJid
   });
 })(typeof window !== "undefined" ? window : globalThis);

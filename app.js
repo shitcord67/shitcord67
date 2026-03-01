@@ -534,6 +534,13 @@ const xmppForgetPeerFullJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmpp
     poolByBare: xmppAvailableFullJidsByBare
   }))
   : (() => {});
+const xmppMostRecentPeerFullJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppMostRecentPeerFullJid === "function"
+  ? ((jid = "") => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppMostRecentPeerFullJid(jid, {
+    normalizeXmppJidFn: normalizeXmppJid,
+    xmppBareJidFn: xmppBareJid,
+    poolByBare: xmppAvailableFullJidsByBare
+  }))
+  : (() => "");
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11027,14 +11034,7 @@ function xmppForgetPeerFullJid(jid = "") {
 }
 
 function xmppMostRecentPeerFullJid(jid = "") {
-  const normalized = normalizeXmppJid(jid).toLowerCase();
-  if (!normalized) return "";
-  if (normalized.includes("/")) return normalized;
-  const bare = xmppBareJid(normalized);
-  if (!bare) return "";
-  const pool = xmppAvailableFullJidsByBare.get(bare);
-  if (!(pool instanceof Map) || pool.size <= 0) return "";
-  return [...pool.entries()].sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))[0]?.[0] || "";
+  return xmppMostRecentPeerFullJidViaModule(jid);
 }
 
 function xmppNormalizeCallTargetJid(peerJid, { preferFull = false } = {}) {
