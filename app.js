@@ -456,6 +456,9 @@ const normalizeMediaDenyRulesViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBA
     normalizeMediaTrustRulesFn: normalizeMediaTrustRules
   }))
   : ((value) => normalizeMediaTrustRules(value));
+const normalizeProfileEffectViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeProfileEffect === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeProfileEffect
+  : ((value) => (value || "").toString().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11260,8 +11263,7 @@ function normalizeMessageCharLimit(value) {
 }
 
 function normalizeProfileEffect(value) {
-  const effect = (value || "").toString().toLowerCase();
-  return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
+  return normalizeProfileEffectViaModule(value);
 }
 
 function normalizeRelayMode(value) {

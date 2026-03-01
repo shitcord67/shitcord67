@@ -27,11 +27,17 @@
     return normalizeMediaTrustRulesFn(value);
   }
 
+  function normalizeProfileEffect(value) {
+    const effect = (value || "").toString().toLowerCase();
+    return ["none", "aurora", "flame", "ocean"].includes(effect) ? effect : "none";
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
     normalizeMediaPrivacyMode,
     normalizeMediaTrustRules,
-    normalizeMediaDenyRules
+    normalizeMediaDenyRules,
+    normalizeProfileEffect
   });
 })(typeof window !== "undefined" ? window : globalThis);
