@@ -5,7 +5,13 @@
     return value === "on" ? "on" : "off";
   }
 
+  function normalizeMemberPresenceFilter(value) {
+    if (value === "online" || value === "offline") return value;
+    return "all";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
-    normalizeToggle
+    normalizeToggle,
+    normalizeMemberPresenceFilter
   });
 })(typeof window !== "undefined" ? window : globalThis);

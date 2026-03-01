@@ -475,6 +475,9 @@ const normalizeMessageCharLimitViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLO
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
+const normalizeMemberPresenceFilterViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeMemberPresenceFilter === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeMemberPresenceFilter
+  : ((value) => (value === "online" || value === "offline" ? value : "all"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11079,8 +11082,7 @@ function setCurrentAccountPresence(mode, { persist = true, rerender = true, anno
 }
 
 function normalizeMemberPresenceFilter(value) {
-  if (value === "online" || value === "offline") return value;
-  return "all";
+  return normalizeMemberPresenceFilterViaModule(value);
 }
 
 function normalizeToggle(value) {
