@@ -511,6 +511,11 @@ const normalizeDmHomeRequestsFilterViaModule = typeof UI_STATE_NORMALIZERS_GLOBA
 const normalizeGuildNotificationModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationMode === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationMode
   : ((value) => (value === "mentions" || value === "mute" ? value : "all"));
+const normalizeGuildNotificationsMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationsMap === "function"
+  ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationsMap(value, {
+    normalizeGuildNotificationModeFn: normalizeGuildNotificationMode
+  }))
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11207,12 +11212,7 @@ function normalizeGuildNotificationMode(value) {
 }
 
 function normalizeGuildNotificationsMap(value) {
-  if (!value || typeof value !== "object") return {};
-  return Object.entries(value).reduce((acc, [guildId, mode]) => {
-    if (!guildId) return acc;
-    acc[guildId] = normalizeGuildNotificationMode(mode);
-    return acc;
-  }, {});
+  return normalizeGuildNotificationsMapViaModule(value);
 }
 
 function normalizeForumCollapsedThreadsMap(value) {

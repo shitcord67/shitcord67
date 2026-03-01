@@ -60,6 +60,17 @@
     return "all";
   }
 
+  function normalizeGuildNotificationsMap(value, {
+    normalizeGuildNotificationModeFn = normalizeGuildNotificationMode
+  } = {}) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [guildId, mode]) => {
+      if (!guildId) return acc;
+      acc[guildId] = normalizeGuildNotificationModeFn(mode);
+      return acc;
+    }, {});
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -72,6 +83,7 @@
     normalizeLanguage,
     normalizeDmHomeTab,
     normalizeDmHomeRequestsFilter,
-    normalizeGuildNotificationMode
+    normalizeGuildNotificationMode,
+    normalizeGuildNotificationsMap
   });
 })(typeof window !== "undefined" ? window : globalThis);
