@@ -97,6 +97,7 @@ const CALL_ROOM_URL_UTILS_GLOBAL = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || 
 const XMPP_LOGIN_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_XMPP_LOGIN_NORMALIZERS || {};
 const MEDIA_PROVIDER_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS || {};
 const UI_STATE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_UI_STATE_NORMALIZERS || {};
+const ACCOUNT_PROFILE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -494,6 +495,9 @@ const normalizeGifScopeViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.norm
     }
     return "all";
   });
+const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
+  ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -1604,22 +1608,7 @@ function createId() {
 }
 
 function normalizeUsername(value) {
-  const base = value
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .slice(0, 24);
-  try {
-    return base.replace(new RegExp("[^\\p{L}\\p{N}._-]", "gu"), "");
-  } catch {
-    // Older JS engines may not support Unicode property escapes.
-  }
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^a-z0-9._-]/g, "")
-    .slice(0, 24);
+  return normalizeUsernameViaModule(value);
 }
 
 function sanitizeChannelName(value, fallback) {
