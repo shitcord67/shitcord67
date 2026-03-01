@@ -422,6 +422,9 @@ const normalizeRelayModeViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeR
 const normalizeRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayUrl === "function"
   ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayUrl
   : ((value) => (value || "").toString().trim());
+const normalizeRelayRoomViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayRoom === "function"
+  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayRoom
+  : ((value) => (value || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11243,7 +11246,7 @@ function normalizeRelayUrl(value) {
 }
 
 function normalizeRelayRoom(value) {
-  return (value || "").toString().trim().slice(0, 80);
+  return normalizeRelayRoomViaModule(value);
 }
 
 function normalizeConferenceProviderUrl(value) {

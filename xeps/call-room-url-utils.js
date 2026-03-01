@@ -76,6 +76,10 @@
     return trimmed;
   }
 
+  function normalizeRelayRoom(value) {
+    return (value || "").toString().trim().slice(0, 80);
+  }
+
   globalScope.SHITCORD67_CALL_ROOM_URL_UTILS = Object.freeze({
     normalizeConferenceProviderUrl,
     normalizeConferenceRoomPrefix,
@@ -84,6 +88,7 @@
     normalizeWhiteboardRoomPrefix,
     relayHealthUrlFromRelayUrl,
     normalizeRelayMode,
-    normalizeRelayUrl
+    normalizeRelayUrl,
+    normalizeRelayRoom
   });
 })(typeof window !== "undefined" ? window : globalThis);
