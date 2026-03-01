@@ -198,6 +198,29 @@
     return "";
   }
 
+  function xmppChannelDisplayName(channel, {
+    isXmppBackedChannelFn = () => false,
+    decodeHtmlEntitiesFn = (value) => (value || "").toString(),
+    bareJidFn = (value) => (value || "").toString().trim().toLowerCase()
+  } = {}) {
+    if (!channel || !isXmppBackedChannelFn(channel)) return "";
+    const explicit = decodeHtmlEntitiesFn((channel.xmppRoomName || "").toString()).replace(/\s+/g, " ").trim();
+    if (explicit) return explicit.slice(0, 90);
+    const roomJid = bareJidFn(channel.xmppRoomJid || "");
+    if (roomJid) return (roomJid.split("@")[0] || "").slice(0, 90);
+    return "";
+  }
+
+  function xmppChannelDescription(channel, {
+    isXmppBackedChannelFn = () => false,
+    decodeHtmlEntitiesFn = (value) => (value || "").toString()
+  } = {}) {
+    if (!channel || !isXmppBackedChannelFn(channel)) return "";
+    const description = decodeHtmlEntitiesFn((channel.xmppRoomDescription || "").toString()).replace(/\s+/g, " ").trim();
+    if (description) return description.slice(0, 240);
+    return "";
+  }
+
   globalScope.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS = Object.freeze({
     XMPP_BOOKMARKS_NAMESPACE,
     xmppBareJid,
@@ -209,7 +232,9 @@
     isXmppMucRoomJid,
     xmppRoomJidForToken,
     xmppStanzaErrorDetails,
-    xmppMucJoinErrorHint
+    xmppMucJoinErrorHint,
+    xmppChannelDisplayName,
+    xmppChannelDescription
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0045_0402-roster-bookmarks", globalScope.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS);

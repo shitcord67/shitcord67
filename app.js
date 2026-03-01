@@ -330,6 +330,19 @@ const xmppStanzaErrorDetailsViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBA
 const xmppMucJoinErrorHintViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppMucJoinErrorHint === "function"
   ? XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppMucJoinErrorHint
   : (() => "");
+const xmppChannelDisplayNameViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDisplayName === "function"
+  ? ((channel) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDisplayName(channel, {
+    isXmppBackedChannelFn: isXmppBackedChannel,
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    bareJidFn: xmppBareJid
+  }))
+  : (() => "");
+const xmppChannelDescriptionViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDescription === "function"
+  ? ((channel) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDescription(channel, {
+    isXmppBackedChannelFn: isXmppBackedChannel,
+    decodeHtmlEntitiesFn: decodeHtmlEntities
+  }))
+  : (() => "");
 const normalizeXmppRefIdsListViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.normalizeXmppRefIdsList === "function"
   ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.normalizeXmppRefIdsList
   : (() => []);
@@ -38884,19 +38897,11 @@ function upsertXmppRoomChannel(roomJid, {
 }
 
 function xmppChannelDisplayName(channel) {
-  if (!channel || !isXmppBackedChannel(channel)) return "";
-  const explicit = decodeHtmlEntities((channel.xmppRoomName || "").toString()).replace(/\s+/g, " ").trim();
-  if (explicit) return explicit.slice(0, 90);
-  const roomJid = xmppBareJid(channel.xmppRoomJid || "");
-  if (roomJid) return (roomJid.split("@")[0] || "").slice(0, 90);
-  return "";
+  return xmppChannelDisplayNameViaXep(channel);
 }
 
 function xmppChannelDescription(channel) {
-  if (!channel || !isXmppBackedChannel(channel)) return "";
-  const description = decodeHtmlEntities((channel.xmppRoomDescription || "").toString()).replace(/\s+/g, " ").trim();
-  if (description) return description.slice(0, 240);
-  return "";
+  return xmppChannelDescriptionViaXep(channel);
 }
 
 function applyXmppRoomTopicFromSubject(roomJid, subject = "") {
