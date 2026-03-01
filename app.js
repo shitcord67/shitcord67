@@ -752,6 +752,12 @@ const primaryXmppReferenceIdForMessageViaModule = typeof XMPP_MESSAGE_ID_UTILS_G
     normalizeXmppRefIdsListFn: normalizeXmppRefIdsList
   }))
   : (() => "");
+const preferredXmppDmReferenceIdForMessageViaModule = typeof XMPP_MESSAGE_ID_UTILS_GLOBAL.preferredXmppDmReferenceIdForMessage === "function"
+  ? ((message) => XMPP_MESSAGE_ID_UTILS_GLOBAL.preferredXmppDmReferenceIdForMessage(message, {
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
+    primaryXmppReferenceIdForMessageFn: primaryXmppReferenceIdForMessage
+  }))
+  : (() => "");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -17850,12 +17856,7 @@ function primaryXmppReferenceIdForMessage(message) {
 }
 
 function preferredXmppDmReferenceIdForMessage(message) {
-  if (!message || typeof message !== "object") return "";
-  const refs = normalizeXmppRefIdsList(message.xmppRefIds);
-  const stanzaId = (message.xmppStanzaId || "").toString().trim();
-  const fallback = primaryXmppReferenceIdForMessage(message);
-  const preferred = refs.find((refId) => refId && refId !== stanzaId) || "";
-  return preferred || fallback;
+  return preferredXmppDmReferenceIdForMessageViaModule(message);
 }
 
 function preferredXmppReferenceIdForConversationMessage(conversation, message) {

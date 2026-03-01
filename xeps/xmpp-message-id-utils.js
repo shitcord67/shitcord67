@@ -30,8 +30,21 @@
     return refs[0] || "";
   }
 
+  function preferredXmppDmReferenceIdForMessage(message, {
+    normalizeXmppRefIdsListFn = () => [],
+    primaryXmppReferenceIdForMessageFn = () => ""
+  } = {}) {
+    if (!message || typeof message !== "object") return "";
+    const refs = normalizeXmppRefIdsListFn(message.xmppRefIds);
+    const stanzaId = (message.xmppStanzaId || "").toString().trim();
+    const fallback = primaryXmppReferenceIdForMessageFn(message);
+    const preferred = refs.find((refId) => refId && refId !== stanzaId) || "";
+    return preferred || fallback;
+  }
+
   globalScope.SHITCORD67_XMPP_MESSAGE_ID_UTILS = Object.freeze({
     xmppSyntheticMessageId,
-    primaryXmppReferenceIdForMessage
+    primaryXmppReferenceIdForMessage,
+    preferredXmppDmReferenceIdForMessage
   });
 })(typeof window !== "undefined" ? window : globalThis);
