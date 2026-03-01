@@ -1,0 +1,98 @@
+(function initXep0482CallInviteParse(globalScope) {
+  if (!globalScope || globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE) return;
+
+  const xml = globalScope.SHITCORD67_XMPP_XML || {};
+  const XMPP_CALL_INVITES_NAMESPACE = "urn:xmpp:call-invites:0";
+  const XMPP_CALL_INVITES_NAMESPACE_PREFIX = "urn:xmpp:call-invites";
+  const XMPP_JINGLE_NAMESPACE = "urn:xmpp:jingle:1";
+
+  function xmppNodeXmlns(node) {
+    if (typeof xml.xmppNodeXmlns === "function") return xml.xmppNodeXmlns(node);
+    if (!node || typeof node.getAttribute !== "function") return "";
+    return ((node.getAttribute("xmlns") || node.namespaceURI || "").toString().trim().toLowerCase());
+  }
+
+  function xmppNodeHasXmlns(node, xmlns) {
+    if (typeof xml.xmppNodeHasXmlns === "function") return xml.xmppNodeHasXmlns(node, xmlns);
+    return xmppNodeXmlns(node) === (xmlns || "").toString().trim().toLowerCase();
+  }
+
+  function xmppNodeHasXmlnsPrefix(node, prefix = "") {
+    if (typeof xml.xmppNodeHasXmlnsPrefix === "function") return xml.xmppNodeHasXmlnsPrefix(node, prefix);
+    const normalizedPrefix = (prefix || "").toString().trim().toLowerCase();
+    const value = xmppNodeXmlns(node);
+    const scopedPrefix = normalizedPrefix.endsWith(":") ? normalizedPrefix : `${normalizedPrefix}:`;
+    return Boolean(normalizedPrefix && (value === normalizedPrefix || value.startsWith(scopedPrefix)));
+  }
+
+  function xmppElementsByLocalName(root, name = "") {
+    if (typeof xml.xmppElementsByLocalName === "function") return xml.xmppElementsByLocalName(root, name);
+    if (!root || typeof root.getElementsByTagName !== "function") return [];
+    const wanted = (name || "").toString().trim().toLowerCase();
+    return wanted ? [...root.getElementsByTagName(wanted)] : [];
+  }
+
+  function xmppNodeText(node) {
+    if (typeof xml.xmppNodeText === "function") return xml.xmppNodeText(node);
+    return (node?.textContent || "").toString();
+  }
+
+  function parseXmppCallInviteAction(stanza) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+    const actions = ["invite", "accept", "reject", "retract", "left"];
+    const hasCallInviteNamespace = (node) => {
+      if (!node) return false;
+      if (xmppNodeHasXmlns(node, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(node, XMPP_CALL_INVITES_NAMESPACE_PREFIX)) return true;
+      const parent = node.parentNode && node.parentNode.nodeType === 1 ? node.parentNode : null;
+      if (!parent) return false;
+      return xmppNodeHasXmlns(parent, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(parent, XMPP_CALL_INVITES_NAMESPACE_PREFIX);
+    };
+    for (const action of actions) {
+      const node = xmppElementsByLocalName(stanza, action)
+        .find((entry) => hasCallInviteNamespace(entry)) || null;
+      if (!node) continue;
+      const rawId = (node.getAttribute("id") || "").toString().trim();
+      const audio = node.getAttribute("audio");
+      const video = node.getAttribute("video");
+      const jingleCandidates = xmppElementsByLocalName(node, "jingle");
+      const jingleNode = jingleCandidates
+        .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_NAMESPACE))
+        || jingleCandidates.find((entry) => hasCallInviteNamespace(entry))
+        || jingleCandidates.find((entry) => !xmppNodeXmlns(entry))
+        || null;
+      const jingleSid = (jingleNode?.getAttribute("sid") || "").toString().trim();
+      const externals = xmppElementsByLocalName(node, "external")
+        .filter((entry) => hasCallInviteNamespace(entry) || (!xmppNodeXmlns(entry) && entry.parentNode === node))
+        .map((entry) => (
+          entry.getAttribute("uri")
+          || entry.getAttribute("url")
+          || xmppNodeText(entry)
+          || ""
+        ).toString().trim())
+        .filter(Boolean);
+      const mujiNode = xmppElementsByLocalName(node, "muji")
+        .find((entry) => (
+          xmppNodeHasXmlns(entry, "urn:xmpp:jingle:muji:0")
+          || (!xmppNodeXmlns(entry) && entry.parentNode === node)
+        )) || null;
+      const mujiRoom = (mujiNode?.getAttribute("room") || "").toString().trim();
+      return {
+        action,
+        id: rawId,
+        audio: audio === "false" ? false : true,
+        video: video === "false" ? false : true,
+        externals,
+        jingleSid,
+        mujiRoom
+      };
+    }
+    return null;
+  }
+
+  globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE = Object.freeze({
+    parseXmppCallInviteAction
+  });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0482_call-invite-parse", globalScope.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
+  }
+})(typeof window !== "undefined" ? window : globalThis);

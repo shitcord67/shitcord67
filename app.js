@@ -80,6 +80,7 @@ const XEP_0334_HINTS_GLOBAL = xepModule("xep-0334_processing-hints", globalThis.
 const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints";
 const XEP_0184_0333_GLOBAL = xepModule("xep-0184_0333-message-markers", globalThis.SHITCORD67_XEP_0184_0333_MARKERS);
 const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = xepModule("xep-0249_direct-muc-invite", globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE);
+const XEP_0482_CALL_INVITE_PARSE_GLOBAL = xepModule("xep-0482_call-invite-parse", globalThis.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -227,6 +228,9 @@ const xmppChatMarkableNode = typeof XEP_0184_0333_GLOBAL.xmppChatMarkableNode ==
   : (() => null);
 const parseXmppDirectMucInvite = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite === "function"
   ? XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite
+  : (() => null);
+const parseXmppCallInviteAction = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction === "function"
+  ? XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction
   : (() => null);
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
@@ -6129,71 +6133,6 @@ function xmppSendDirectMucInvite(peerJid = "", roomJid = "", {
     to,
     roomJid: roomBare
   };
-}
-
-function parseXmppCallInviteAction(stanza) {
-  if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-  const actions = ["invite", "accept", "reject", "retract", "left"];
-  const hasCallInviteNamespace = (node) => {
-    if (!node) return false;
-    if (xmppNodeHasXmlns(node, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(node, XMPP_CALL_INVITES_NAMESPACE_PREFIX)) {
-      return true;
-    }
-    const parent = node.parentNode && node.parentNode.nodeType === 1 ? node.parentNode : null;
-    if (parent && (xmppNodeHasXmlns(parent, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(parent, XMPP_CALL_INVITES_NAMESPACE_PREFIX))) {
-      return true;
-    }
-    return false;
-  };
-  for (const action of actions) {
-    const node = xmppElementsByLocalName(stanza, action)
-      .find((entry) => (
-        hasCallInviteNamespace(entry)
-      )) || null;
-    if (!node) continue;
-    const rawId = (node.getAttribute("id") || "").toString().trim();
-    const audio = node.getAttribute("audio");
-    const video = node.getAttribute("video");
-    const jingleCandidates = xmppElementsByLocalName(node, "jingle");
-    const jingleNode = jingleCandidates
-      .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_NAMESPACE))
-      || jingleCandidates
-        .find((entry) => (
-          hasCallInviteNamespace(entry)
-        ))
-      || jingleCandidates
-        .find((entry) => !xmppNodeXmlns(entry)) || null;
-    const jingleSid = (jingleNode?.getAttribute("sid") || "").toString().trim();
-    const externals = xmppElementsByLocalName(node, "external")
-      .filter((entry) => {
-        const scoped = hasCallInviteNamespace(entry);
-        const unscopedChild = !xmppNodeXmlns(entry) && entry.parentNode === node;
-        return scoped || unscopedChild;
-      })
-      .map((entry) => (
-        entry.getAttribute("uri")
-        || entry.getAttribute("url")
-        || xmppNodeText(entry)
-        || ""
-      ).toString().trim())
-      .filter(Boolean);
-    const mujiNode = xmppElementsByLocalName(node, "muji")
-      .find((entry) => (
-        xmppNodeHasXmlns(entry, "urn:xmpp:jingle:muji:0")
-        || (!xmppNodeXmlns(entry) && entry.parentNode === node)
-      )) || null;
-    const mujiRoom = (mujiNode?.getAttribute("room") || "").toString().trim();
-    return {
-      action,
-      id: rawId,
-      audio: audio === "false" ? false : true,
-      video: video === "false" ? false : true,
-      externals,
-      jingleSid,
-      mujiRoom
-    };
-  }
-  return null;
 }
 
 function xmppSendCallInviteAction(peerJid = "", action = "invite", {
