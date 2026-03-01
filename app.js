@@ -2507,6 +2507,7 @@ let fullscreenRuntimeKey = null;
 let fullscreenRuntimeWasPlaying = false;
 let swfAudioFocusRuntimeKey = null;
 let swfSoloRuntimeKey = null;
+let swfAudioUnlockArmed = true;
 const swfRuntimes = new Map();
 const swfPendingAudio = new Map();
 const swfPendingUi = new Map();
@@ -25384,9 +25385,15 @@ function applyPreferencesToUI() {
     }
   }
   if (ui.toggleMemberPanelBtn) {
-    const hidden = prefs.hideMemberPanel === "on";
-    ui.toggleMemberPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
-    setHeaderActionButtonLabel(ui.toggleMemberPanelBtn, hidden ? "Members Off" : "Members");
+    if (narrowMobile) {
+      const membersVisible = prefs.mobilePane === "members";
+      ui.toggleMemberPanelBtn.classList.toggle("chat-topic-edit--active", membersVisible);
+      setHeaderActionButtonLabel(ui.toggleMemberPanelBtn, membersVisible ? "Chat" : "Members");
+    } else {
+      const hidden = prefs.hideMemberPanel === "on";
+      ui.toggleMemberPanelBtn.classList.toggle("chat-topic-edit--active", !hidden);
+      setHeaderActionButtonLabel(ui.toggleMemberPanelBtn, hidden ? "Members Off" : "Members");
+    }
   }
   if (ui.toggleDmSectionBtn) {
     const collapsed = prefs.collapseDmSection === "on";
@@ -25448,6 +25455,11 @@ function toggleChannelPanelVisibility() {
 }
 
 function toggleMemberPanelVisibility() {
+  if (isMobileNarrowLayout()) {
+    const prefs = getPreferences();
+    setMobilePane(prefs.mobilePane === "members" ? "chat" : "members");
+    return;
+  }
   state.preferences = getPreferences();
   state.preferences.hideMemberPanel = state.preferences.hideMemberPanel === "on" ? "off" : "on";
   saveState();
@@ -25522,11 +25534,20 @@ function onMobileNavTouchEnd(event) {
   if (dt > 900) return;
   if (Math.abs(dx) < 72) return;
   if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
+  const currentPane = normalizeMobilePane(getPreferences().mobilePane);
   if (dx > 0) {
+    if (currentPane === "members") {
+      setMobilePane("chat");
+      return;
+    }
     setMobilePane("nav");
     return;
   }
-  setMobilePane("chat");
+  if (currentPane === "nav") {
+    setMobilePane("chat");
+    return;
+  }
+  setMobilePane("members");
 }
 
 function setSwfQuickAudioMode(mode) {
@@ -28797,12 +28818,18 @@ function renderVideoPipDock() {
 }
 
 function pipViewportMargins() {
-  const appRect = document.getElementById("app")?.getBoundingClientRect?.();
+  const appEl = document.getElementById("app");
+  const appRect = appEl?.getBoundingClientRect?.();
+  const appStyles = appEl ? window.getComputedStyle(appEl) : null;
+  const paddingTop = appStyles ? Number.parseFloat(appStyles.paddingTop) || 0 : 0;
+  const paddingRight = appStyles ? Number.parseFloat(appStyles.paddingRight) || 0 : 0;
+  const paddingBottom = appStyles ? Number.parseFloat(appStyles.paddingBottom) || 0 : 0;
+  const paddingLeft = appStyles ? Number.parseFloat(appStyles.paddingLeft) || 0 : 0;
   return {
-    left: Math.max(8, Math.round((appRect?.left || 0) + 8)),
-    top: Math.max(8, Math.round((appRect?.top || 0) + 8)),
-    right: Math.max(8, Math.round(Math.max(0, window.innerWidth - (appRect?.right || window.innerWidth)) + 8)),
-    bottom: Math.max(8, Math.round(Math.max(0, window.innerHeight - (appRect?.bottom || window.innerHeight)) + 8))
+    left: Math.max(8, Math.round((appRect?.left || 0) + paddingLeft + 8)),
+    top: Math.max(8, Math.round((appRect?.top || 0) + paddingTop + 8)),
+    right: Math.max(8, Math.round(Math.max(0, window.innerWidth - (appRect?.right || window.innerWidth)) + paddingRight + 8)),
+    bottom: Math.max(8, Math.round(Math.max(0, window.innerHeight - (appRect?.bottom || window.innerHeight)) + paddingBottom + 8))
   };
 }
 
@@ -30184,6 +30211,27 @@ function bindSwfVisibilityObserver(runtimeKey) {
   runtime.observer.observe(target);
 }
 
+function ensureSwfAudioUnlockedByGesture() {
+  if (!swfAudioUnlockArmed) return;
+  swfAudioUnlockArmed = false;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  try {
+    const ctx = new AudioCtx();
+    void ctx.resume()
+      .catch(() => null)
+      .finally(() => {
+        window.setTimeout(() => {
+          if (typeof ctx.close === "function") {
+            void ctx.close().catch(() => null);
+          }
+        }, 120);
+      });
+  } catch {
+    // Ignore unlock bootstrap errors on restrictive browsers.
+  }
+}
+
 function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKey = null } = {}) {
   if (runtimeKey) {
     const existing = swfRuntimes.get(runtimeKey);
@@ -30210,6 +30258,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
     const player = ruffle.createPlayer();
     if (runtimeKey) {
       player.addEventListener("pointerdown", () => {
+        ensureSwfAudioUnlockedByGesture();
         grantSwfAudioClickFocus(runtimeKey);
         setSwfPlayback(runtimeKey, true, "user");
       });
@@ -42739,6 +42788,15 @@ ui.selfPresenceSelect?.addEventListener("change", () => {
 });
 
 ui.openSettingsBtn.addEventListener("click", openSettingsScreen);
+ui.openSettingsBtn.addEventListener("pointerup", (event) => {
+  if (event.pointerType !== "touch") return;
+  event.preventDefault();
+  openSettingsScreen();
+});
+ui.openSettingsBtn.addEventListener("touchend", (event) => {
+  event.preventDefault();
+  openSettingsScreen();
+}, { passive: false });
 
 ui.closeSettingsBtn.addEventListener("click", closeSettingsScreen);
 

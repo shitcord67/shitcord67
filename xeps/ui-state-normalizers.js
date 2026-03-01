@@ -11,7 +11,8 @@
   }
 
   function normalizeMobilePane(value) {
-    return value === "nav" ? "nav" : "chat";
+    if (value === "nav" || value === "members") return value;
+    return "chat";
   }
 
   function normalizeSwfAudioPolicy(value) {
