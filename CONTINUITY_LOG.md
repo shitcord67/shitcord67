@@ -2523,3 +2523,6 @@ Oh actually I think the .js files should ideally have the xep number in front. x
 
 ## 2026-03-01T03:41:12Z
 Yes. Also does it make sense to use xep-0000 even? If some files don't belong to a xep then obviously don't append one.
+
+## 2026-03-01T03:44:37Z
+Yeah

@@ -71,6 +71,34 @@ const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICE
 const XMPP_OMEMO_PREKEY_COUNT = XMPP_NS_GLOBAL.XMPP_OMEMO_PREKEY_COUNT || 48;
 const XMPP_OMEMO_SIGNED_PREKEY_ID = XMPP_NS_GLOBAL.XMPP_OMEMO_SIGNED_PREKEY_ID || 1;
 const XMPP_XML_GLOBAL = globalThis.SHITCORD67_XMPP_XML || {};
+const XEP_0384_CRYPTO_UTILS_GLOBAL = globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
+const base64ToArrayBuffer = XEP_0384_CRYPTO_UTILS_GLOBAL.base64ToArrayBuffer || function base64ToArrayBufferFallback(base64) {
+  const cleaned = (base64 || "").toString().trim();
+  if (!cleaned) return new ArrayBuffer(0);
+  const binary = atob(cleaned);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+const arrayBufferToBase64 = XEP_0384_CRYPTO_UTILS_GLOBAL.arrayBufferToBase64 || function arrayBufferToBase64Fallback(buffer) {
+  if (!buffer) return "";
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+const concatArrayBuffers = XEP_0384_CRYPTO_UTILS_GLOBAL.concatArrayBuffers || function concatArrayBuffersFallback(first, second) {
+  const a = first ? new Uint8Array(first) : new Uint8Array(0);
+  const b = second ? new Uint8Array(second) : new Uint8Array(0);
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out.buffer;
+};
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
   const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
@@ -14518,36 +14546,6 @@ function xmppEncryptedPlaceholderLabel(info) {
   const label = (info.label || "").toString().trim();
   if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
   return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
-}
-
-function base64ToArrayBuffer(base64) {
-  const cleaned = (base64 || "").toString().trim();
-  if (!cleaned) return new ArrayBuffer(0);
-  const binary = atob(cleaned);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-}
-
-function arrayBufferToBase64(buffer) {
-  if (!buffer) return "";
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function concatArrayBuffers(first, second) {
-  const a = first ? new Uint8Array(first) : new Uint8Array(0);
-  const b = second ? new Uint8Array(second) : new Uint8Array(0);
-  const out = new Uint8Array(a.length + b.length);
-  out.set(a, 0);
-  out.set(b, a.length);
-  return out.buffer;
 }
 
 class XmppOmemoStore {

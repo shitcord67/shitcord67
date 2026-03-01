@@ -174,7 +174,7 @@
 
 ## Others (user added to TODO, feel free to reposition)
 - Try to split the application into modules/parts/plugins. e.g. every XEP could be its own plugin or support for IRC/Discord, some UI elements, etc. 
-- [done] Started XEP-oriented split: extracted XMPP crypto namespaces into `xeps/xep-0384-crypto-namespaces.js`, OMEMO stanza helpers into `xeps/xep-0384-omemo-stanza.js`, XEP-0454 AES-GCM media-sharing helpers into `xeps/xep-0454-omemo-media-sharing-utils.js`, and shared XML helper utilities into `xeps/xmpp-xml-utils.js` (wired via `index.html` and mobile web bundle copy).
+- [done] Started XEP-oriented split: extracted XMPP crypto namespaces into `xeps/xep-0384-crypto-namespaces.js`, OMEMO crypto buffer helpers into `xeps/xep-0384-omemo-crypto-utils.js`, OMEMO stanza helpers into `xeps/xep-0384-omemo-stanza.js`, XEP-0454 AES-GCM media-sharing helpers into `xeps/xep-0454-omemo-media-sharing-utils.js`, and shared XML helper utilities into `xeps/xmpp-xml-utils.js` (wired via `index.html` and mobile web bundle copy).
 - Clients should build a P2P network and attachments should be stored there to make expensive server storage unnecessary
 - Group servers/guild together
 - Vencord-like plugins
