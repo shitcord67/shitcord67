@@ -86,6 +86,7 @@ const XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL = xepModule("xep-0353_jingle-message-
 const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", globalThis.SHITCORD67_XEP_0203_0319_DELAY_IDLE);
 const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant", globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);
 const XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL = xepModule("xep-0166_0167-jingle-iq-parse", globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE);
+const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = xepModule("xep-0320_webrtc-sdp-basics", globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
 const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
 const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
@@ -278,6 +279,15 @@ const xmppMucMessageAuthorJid = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppMuc
   : (() => "");
 const parseXmppJingleIq = typeof XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL.parseXmppJingleIq === "function"
   ? ((stanza) => XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL.parseXmppJingleIq(stanza, { bareJidFn: xmppBareJid }))
+  : (() => null);
+const xmppParseIceCredsFromSdp = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseIceCredsFromSdp === "function"
+  ? XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseIceCredsFromSdp
+  : (() => null);
+const xmppParseDtlsFingerprintFromSdp = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseDtlsFingerprintFromSdp === "function"
+  ? XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseDtlsFingerprintFromSdp
+  : (() => null);
+const xmppParseRtcIceCandidateForJingle = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseRtcIceCandidateForJingle === "function"
+  ? XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseRtcIceCandidateForJingle
   : (() => null);
 const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
   ? XMPP_XML_GLOBAL.xmppNodeXmlns
@@ -7882,30 +7892,6 @@ function xmppBuildJingleTransportCreds() {
   };
 }
 
-function xmppParseIceCredsFromSdp(sdp = "") {
-  const text = (sdp || "").toString();
-  if (!text) return null;
-  const ufragMatch = text.match(/^a=ice-ufrag:(.+)$/m);
-  const pwdMatch = text.match(/^a=ice-pwd:(.+)$/m);
-  const ufrag = (ufragMatch?.[1] || "").toString().trim();
-  const pwd = (pwdMatch?.[1] || "").toString().trim();
-  if (!ufrag && !pwd) return null;
-  return { ufrag, pwd };
-}
-
-function xmppParseDtlsFingerprintFromSdp(sdp = "") {
-  const text = (sdp || "").toString();
-  if (!text) return null;
-  const fingerprintMatch = text.match(/^a=fingerprint:([^\s]+)\s+(.+)$/m);
-  const setupMatch = text.match(/^a=setup:(.+)$/m);
-  if (!fingerprintMatch) return null;
-  return {
-    hash: (fingerprintMatch?.[1] || "sha-256").toString().trim().toLowerCase() || "sha-256",
-    value: (fingerprintMatch?.[2] || "").toString().trim(),
-    setup: (setupMatch?.[1] || "").toString().trim().toLowerCase()
-  };
-}
-
 function xmppGeneratePseudoDtlsFingerprint() {
   const chunks = [];
   const hex = "0123456789ABCDEF";
@@ -7914,50 +7900,6 @@ function xmppGeneratePseudoDtlsFingerprint() {
     chunks.push(byte);
   }
   return chunks.join(":");
-}
-
-function xmppParseRtcIceCandidateForJingle(candidateText = "", {
-  sdpMid = "",
-  sdpMLineIndex = null
-} = {}) {
-  const raw = (candidateText || "").toString().trim();
-  if (!raw) return null;
-  const tokenized = raw.startsWith("candidate:")
-    ? raw.slice("candidate:".length).trim()
-    : raw;
-  const parts = tokenized.split(/\s+/).filter(Boolean);
-  if (parts.length < 8) return null;
-  const foundation = parts[0] || "";
-  const component = Number(parts[1] || 0) || 1;
-  const protocol = (parts[2] || "udp").toString().toLowerCase();
-  const priority = Number(parts[3] || 0) || 1;
-  const ip = parts[4] || "";
-  const port = Number(parts[5] || 0) || 9;
-  let type = "host";
-  const typeIndex = parts.findIndex((entry) => entry.toLowerCase() === "typ");
-  if (typeIndex >= 0 && parts[typeIndex + 1]) type = (parts[typeIndex + 1] || "host").toString().toLowerCase();
-  if (!foundation || !protocol || !ip) return null;
-  const normalizedMid = (sdpMid || "").toString().trim();
-  const parsedLineIndex = Number(sdpMLineIndex);
-  const normalizedLineIndex = Number.isFinite(parsedLineIndex) && parsedLineIndex >= 0
-    ? parsedLineIndex
-    : null;
-  const inferredMedia = normalizedMid.toLowerCase().includes("video")
-    ? "video"
-    : (normalizedMid.toLowerCase().includes("audio") ? "audio" : "");
-  return {
-    foundation,
-    component,
-    protocol,
-    priority,
-    ip,
-    port,
-    type,
-    sdpMid: normalizedMid,
-    sdpMLineIndex: normalizedLineIndex,
-    contentName: normalizedMid,
-    media: inferredMedia
-  };
 }
 
 function xmppJingleCandidateToRtcInit(candidate = {}, index = 0, { session = null } = {}) {
