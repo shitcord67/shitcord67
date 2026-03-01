@@ -195,6 +195,21 @@
     }
   }
 
+  function extractUrlFromBackgroundImageValue(value, {
+    decodeHtmlEntitiesFn = (raw) => (raw || "").toString(),
+    isRenderableAvatarUrlFn = () => false,
+    resolveMediaUrlFn = (raw) => (raw || "").toString()
+  } = {}) {
+    const raw = (value || "").toString().trim();
+    if (!raw || raw === "none") return "";
+    const match = raw.match(/url\((['"]?)(.*?)\1\)/i);
+    if (!match) return "";
+    const candidate = decodeHtmlEntitiesFn((match[2] || "").toString().trim());
+    if (!candidate) return "";
+    if (!isRenderableAvatarUrlFn(candidate)) return "";
+    return resolveMediaUrlFn(candidate);
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -216,6 +231,7 @@
     isRenderableAvatarUrl,
     doesMediaRuleMatchHost,
     isBuiltInTrustedMediaHost,
-    isExternalMediaUrl
+    isExternalMediaUrl,
+    extractUrlFromBackgroundImageValue
   });
 })(typeof window !== "undefined" ? window : globalThis);

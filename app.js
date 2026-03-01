@@ -549,6 +549,13 @@ const isExternalMediaUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isE
     baseUrl: window.location.href
   }))
   : (() => false);
+const extractUrlFromBackgroundImageValueViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.extractUrlFromBackgroundImageValue === "function"
+  ? ((value) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.extractUrlFromBackgroundImageValue(value, {
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    isRenderableAvatarUrlFn: isRenderableAvatarUrl,
+    resolveMediaUrlFn: resolveMediaUrl
+  }))
+  : (() => "");
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -19829,14 +19836,7 @@ function normalizeRenderableAvatarUrl(value) {
 }
 
 function extractUrlFromBackgroundImageValue(value) {
-  const raw = (value || "").toString().trim();
-  if (!raw || raw === "none") return "";
-  const match = raw.match(/url\((['"]?)(.*?)\1\)/i);
-  if (!match) return "";
-  const candidate = decodeHtmlEntities((match[2] || "").toString().trim());
-  if (!candidate) return "";
-  if (!isRenderableAvatarUrl(candidate)) return "";
-  return resolveMediaUrl(candidate);
+  return extractUrlFromBackgroundImageValueViaModule(value);
 }
 
 function avatarUrlHintFromElement(element) {
