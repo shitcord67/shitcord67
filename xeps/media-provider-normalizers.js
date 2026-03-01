@@ -182,6 +182,19 @@
     return builtInRules.some((rule) => doesMediaRuleMatchHostFn(rule, normalized));
   }
 
+  function isExternalMediaUrl(url, {
+    baseUrl = ""
+  } = {}) {
+    try {
+      const resolved = new URL(url, baseUrl || undefined);
+      if (!/^https?:$/i.test(resolved.protocol)) return false;
+      if (!baseUrl) return true;
+      return resolved.origin !== new URL(baseUrl).origin;
+    } catch {
+      return false;
+    }
+  }
+
   globalScope.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS = Object.freeze({
     normalizeTenorApiKey,
     normalizeTenorClientKey,
@@ -202,6 +215,7 @@
     isLikelyImageDataUrl,
     isRenderableAvatarUrl,
     doesMediaRuleMatchHost,
-    isBuiltInTrustedMediaHost
+    isBuiltInTrustedMediaHost,
+    isExternalMediaUrl
   });
 })(typeof window !== "undefined" ? window : globalThis);

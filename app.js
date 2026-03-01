@@ -544,6 +544,11 @@ const isBuiltInTrustedMediaHostViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLO
     doesMediaRuleMatchHostFn: doesMediaRuleMatchHost
   }))
   : (() => false);
+const isExternalMediaUrlViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isExternalMediaUrl === "function"
+  ? ((url) => MEDIA_PROVIDER_NORMALIZERS_GLOBAL.isExternalMediaUrl(url, {
+    baseUrl: window.location.href
+  }))
+  : (() => false);
 const normalizeUsernameViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeUsername
   : ((value) => (value || "").toString().trim().toLowerCase());
@@ -20720,13 +20725,7 @@ function isMediaAttachmentAllowedOnce(attachment, contextKey = "") {
 }
 
 function isExternalMediaUrl(url) {
-  try {
-    const resolved = new URL(url, window.location.href);
-    if (!/^https?:$/i.test(resolved.protocol)) return false;
-    return resolved.origin !== window.location.origin;
-  } catch {
-    return false;
-  }
+  return isExternalMediaUrlViaModule(url);
 }
 
 function doesMediaRuleMatchHost(rule, host) {
