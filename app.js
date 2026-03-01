@@ -475,6 +475,9 @@ const normalizeMessageCharLimitViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLO
 const normalizeRecentEmojisViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRecentEmojis === "function"
   ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeRecentEmojis
   : ((value) => (Array.isArray(value) ? value : []));
+const normalizeGifFavoritesViaModule = typeof MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifFavorites === "function"
+  ? MEDIA_PROVIDER_NORMALIZERS_GLOBAL.normalizeGifFavorites
+  : ((value) => (Array.isArray(value) ? value : []));
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11392,16 +11395,7 @@ function normalizeRecentEmojis(value) {
 }
 
 function normalizeGifFavorites(value) {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set();
-  const output = [];
-  value.forEach((entry) => {
-    const url = (entry || "").toString().trim();
-    if (!url || seen.has(url)) return;
-    seen.add(url);
-    output.push(url);
-  });
-  return output.slice(0, 1200);
+  return normalizeGifFavoritesViaModule(value);
 }
 
 function normalizeGifGroups(value) {
