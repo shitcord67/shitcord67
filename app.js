@@ -12474,6 +12474,25 @@ function messageMatchesXmppReference(message, referenceId) {
   return false;
 }
 
+function normalizeXmppProcessingHints(value) {
+  if (!value || typeof value !== "object") return null;
+  const normalized = {
+    store: Boolean(value.store),
+    noStore: Boolean(value.noStore),
+    noPermanentStore: Boolean(value.noPermanentStore),
+    noCopy: Boolean(value.noCopy),
+    noPermanentCopy: Boolean(value.noPermanentCopy),
+    hasHints: Boolean(value.hasHints)
+  };
+  normalized.hasHints = normalized.hasHints
+    || normalized.store
+    || normalized.noStore
+    || normalized.noPermanentStore
+    || normalized.noCopy
+    || normalized.noPermanentCopy;
+  return normalized.hasHints ? normalized : null;
+}
+
 function applyXmppCorrectionToMessageEntry(target, {
   text = "",
   attachments = [],
@@ -12481,7 +12500,8 @@ function applyXmppCorrectionToMessageEntry(target, {
   editorUserId = "",
   editorName = "",
   stanzaId = "",
-  stanzaRefs = []
+  stanzaRefs = [],
+  processingHints = null
 } = {}) {
   if (!target) return { handled: false, changed: false };
   let contentChanged = false;
@@ -12522,6 +12542,12 @@ function applyXmppCorrectionToMessageEntry(target, {
     target.xmppStanzaId = stanzaId;
     metaChanged = true;
   }
+  const nextProcessingHints = normalizeXmppProcessingHints(processingHints);
+  const currentProcessingHints = normalizeXmppProcessingHints(target.xmppProcessingHints);
+  if (JSON.stringify(nextProcessingHints) !== JSON.stringify(currentProcessingHints)) {
+    target.xmppProcessingHints = nextProcessingHints;
+    metaChanged = true;
+  }
   if (contentChanged) {
     target.editedAt = Number.isFinite(Date.parse(timestamp || "")) ? new Date(timestamp).toISOString() : new Date().toISOString();
     target.editedByUserId = editorUserId || target.userId || "";
@@ -12535,7 +12561,7 @@ function applyXmppCorrectionToMessageEntry(target, {
   };
 }
 
-function applyXmppReactionsForActor(target, actorUserId, emojis = []) {
+function applyXmppReactionsForActor(target, actorUserId, emojis = [], { processingHints = null } = {}) {
   const actorId = (actorUserId || "").toString().trim();
   if (!target || !actorId) return { handled: false, changed: false };
   const normalized = [...new Set(
@@ -12561,6 +12587,8 @@ function applyXmppReactionsForActor(target, actorUserId, emojis = []) {
     if (!row.userIds.includes(actorId)) row.userIds.push(actorId);
   });
   target.reactions = next;
+  const nextProcessingHints = normalizeXmppProcessingHints(processingHints);
+  if (nextProcessingHints) target.xmppProcessingHints = nextProcessingHints;
   const after = normalizeReactions(target.reactions)
     .map((entry) => `${entry.emoji}|${entry.userIds.join(",")}`)
     .join("||");
@@ -12575,7 +12603,8 @@ function applyXmppRetractionToMessageEntry(target, {
   editorUserId = "",
   editorName = "",
   stanzaId = "",
-  stanzaRefs = []
+  stanzaRefs = [],
+  processingHints = null
 } = {}) {
   if (!target) return { handled: false, changed: false, contentChanged: false };
   const retractedText = "[Message retracted]";
@@ -12617,6 +12646,12 @@ function applyXmppRetractionToMessageEntry(target, {
   }
   if (stanzaId && (target.xmppStanzaId || "").toString() !== stanzaId) {
     target.xmppStanzaId = stanzaId;
+    metaChanged = true;
+  }
+  const nextProcessingHints = normalizeXmppProcessingHints(processingHints);
+  const currentProcessingHints = normalizeXmppProcessingHints(target.xmppProcessingHints);
+  if (JSON.stringify(nextProcessingHints) !== JSON.stringify(currentProcessingHints)) {
+    target.xmppProcessingHints = nextProcessingHints;
     metaChanged = true;
   }
   if (contentChanged) {
@@ -13577,7 +13612,9 @@ function applyXmppDmReactionUpdate(peerJid, targetRefId, payload = {}) {
     || (mapped?.messageId && (entry?.id || "").toString() === mapped.messageId)
   )) || null;
   if (!target) return { handled: false, changed: false, thread };
-  const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+  const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis, {
+    processingHints: payload.processingHints
+  });
   const mergedRefIds = normalizeXmppRefIdsList([
     ...normalizeXmppRefIdsList(target.xmppRefIds),
     ...normalizeXmppRefIdsList(payload.stanzaRefs),
@@ -13620,9 +13657,13 @@ function applyXmppRoomReactionUpdate(roomJid, targetRefId, payload = {}) {
   const aliasActorId = canonicalXmppRoomReactionActorId(bareRoom, payload.aliasActorId || "");
   let aliasChanged = false;
   if (aliasActorId && aliasActorId !== canonicalActorId) {
-    aliasChanged = applyXmppReactionsForActor(target, aliasActorId, []).changed;
+    aliasChanged = applyXmppReactionsForActor(target, aliasActorId, [], {
+      processingHints: payload.processingHints
+    }).changed;
   }
-  const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis);
+  const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis, {
+    processingHints: payload.processingHints
+  });
   const mergedRefIds = normalizeXmppRefIdsList([
     ...normalizeXmppRefIdsList(target.xmppRefIds),
     ...normalizeXmppRefIdsList(payload.stanzaRefs),
@@ -13783,7 +13824,9 @@ function applyXmppReactionFallback(targetRefId, payload = {}) {
     if (!thread || !Array.isArray(thread.messages)) continue;
     const target = thread.messages.find((entry) => messageMatchesXmppReference(entry, key)) || null;
     if (!target) continue;
-    const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis);
+    const applied = applyXmppReactionsForActor(target, payload.actorUserId, payload.emojis, {
+      processingHints: payload.processingHints
+    });
     return {
       handled: true,
       changed: Boolean(applied.changed),
@@ -13807,9 +13850,13 @@ function applyXmppReactionFallback(targetRefId, payload = {}) {
         : (payload.aliasActorId || "").toString().trim();
       let aliasChanged = false;
       if (aliasActorId && aliasActorId !== canonicalActorId) {
-        aliasChanged = applyXmppReactionsForActor(target, aliasActorId, []).changed;
+        aliasChanged = applyXmppReactionsForActor(target, aliasActorId, [], {
+          processingHints: payload.processingHints
+        }).changed;
       }
-      const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis);
+      const applied = applyXmppReactionsForActor(target, canonicalActorId, payload.emojis, {
+        processingHints: payload.processingHints
+      });
       return {
         handled: true,
         changed: Boolean(applied.changed || aliasChanged),
@@ -16466,6 +16513,7 @@ function connectRelaySocket({ force = false } = {}) {
             const reactionUpdate = {
               actorUserId: ownAuthor ? current.id : peer.id,
               emojis: reactionPayload.emojis,
+              processingHints,
               stanzaId: stanzaMessageId,
               stanzaRefs
             };
@@ -16511,6 +16559,7 @@ function connectRelaySocket({ force = false } = {}) {
               editorName: ownAuthor
                 ? (current.displayName || current.username)
                 : (peer.displayName || peer.username),
+              processingHints,
               stanzaId: stanzaMessageId,
               stanzaRefs
             };
@@ -16557,6 +16606,7 @@ function connectRelaySocket({ force = false } = {}) {
               editorName: ownAuthor
                 ? (current.displayName || current.username)
                 : (peer.displayName || peer.username),
+              processingHints,
               stanzaId: stanzaMessageId,
               stanzaRefs
             };
@@ -16901,6 +16951,7 @@ function connectRelaySocket({ force = false } = {}) {
             actorUserId,
             aliasActorId: fallbackActorId && actorUserId !== fallbackActorId ? fallbackActorId : "",
             emojis: reactionPayload.emojis,
+            processingHints,
             stanzaId: stanzaMessageId,
             stanzaRefs
           };
@@ -16944,6 +16995,7 @@ function connectRelaySocket({ force = false } = {}) {
             timestamp,
             editorUserId: "",
             editorName: nick || roomJid.split("@")[0] || "xmpp",
+            processingHints,
             stanzaId: stanzaMessageId,
             stanzaRefs
           };
@@ -16988,6 +17040,7 @@ function connectRelaySocket({ force = false } = {}) {
             timestamp,
             editorUserId: "",
             editorName: nick || roomJid.split("@")[0] || "xmpp",
+            processingHints,
             stanzaId: stanzaMessageId,
             stanzaRefs
           };
