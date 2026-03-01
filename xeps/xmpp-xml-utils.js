@@ -80,4 +80,7 @@
     xmppNodeHasAnyXmlns,
     xmppNodeText
   });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xmpp-xml-utils", globalScope.SHITCORD67_XMPP_XML);
+  }
 })(typeof window !== "undefined" ? window : globalThis);

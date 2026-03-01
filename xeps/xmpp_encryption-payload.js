@@ -57,4 +57,7 @@
     xmppHasEncryptedPayload,
     xmppEncryptedPlaceholderLabel
   });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xmpp_encryption-payload", globalScope.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
+  }
 })(typeof window !== "undefined" ? window : globalThis);

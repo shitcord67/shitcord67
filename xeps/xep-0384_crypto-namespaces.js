@@ -34,4 +34,7 @@
     XMPP_OMEMO_PREKEY_COUNT,
     XMPP_OMEMO_SIGNED_PREKEY_ID
   });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0384_crypto-namespaces", globalScope.SHITCORD67_XMPP_NS);
+  }
 })(typeof window !== "undefined" ? window : globalThis);

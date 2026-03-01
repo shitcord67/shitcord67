@@ -26,4 +26,7 @@
     XMPP_HINTS_NAMESPACE,
     appendXmppMessageProcessingHints
   });
+  if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
+    globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0334_processing-hints", globalScope.SHITCORD67_XEP_0334_HINTS);
+  }
 })(typeof window !== "undefined" ? window : globalThis);

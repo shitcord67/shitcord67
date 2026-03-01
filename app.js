@@ -54,8 +54,13 @@ const XMPP_FILE_METADATA_NAMESPACE = "urn:xmpp:file:metadata:0";
 const XMPP_BOB_NAMESPACE = "urn:xmpp:bob";
 const XMPP_DIRECT_MUC_INVITE_NAMESPACE = "jabber:x:conference";
 const XMPP_OCCUPANT_ID_NAMESPACE = "urn:xmpp:occupant-id:0";
-const XMPP_HINTS_NAMESPACE = (globalThis.SHITCORD67_XEP_0334_HINTS?.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints");
-const XMPP_NS_GLOBAL = globalThis.SHITCORD67_XMPP_NS || {};
+const XEP_REGISTRY = globalThis.SHITCORD67_XEP_REGISTRY || {};
+const xepModule = (name, fallback = null) => (
+  (typeof XEP_REGISTRY.get === "function" ? XEP_REGISTRY.get(name) : null)
+  || fallback
+  || {}
+);
+const XMPP_NS_GLOBAL = xepModule("xep-0384_crypto-namespaces", globalThis.SHITCORD67_XMPP_NS);
 const XMPP_EME_NAMESPACE = XMPP_NS_GLOBAL.XMPP_EME_NAMESPACE || "urn:xmpp:eme:0";
 const XMPP_OPENPGP_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_NAMESPACE || "urn:xmpp:openpgp:0";
 const XMPP_OPENPGP_LEGACY_NAMESPACE = XMPP_NS_GLOBAL.XMPP_OPENPGP_LEGACY_NAMESPACE || "jabber:x:encrypted";
@@ -71,7 +76,10 @@ const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICELIS
 const XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 = XMPP_NS_GLOBAL.XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE_V2 || `${XMPP_OMEMO_DEVICELIST_NODE_V2}+notify`;
 const XMPP_OMEMO_PREKEY_COUNT = XMPP_NS_GLOBAL.XMPP_OMEMO_PREKEY_COUNT || 48;
 const XMPP_OMEMO_SIGNED_PREKEY_ID = XMPP_NS_GLOBAL.XMPP_OMEMO_SIGNED_PREKEY_ID || 1;
-const XMPP_XML_GLOBAL = globalThis.SHITCORD67_XMPP_XML || {};
+const XEP_0334_HINTS_GLOBAL = xepModule("xep-0334_processing-hints", globalThis.SHITCORD67_XEP_0334_HINTS);
+const XMPP_HINTS_NAMESPACE = XEP_0334_HINTS_GLOBAL.XMPP_HINTS_NAMESPACE || "urn:xmpp:hints";
+const XMPP_XML_GLOBAL = xepModule("xmpp-xml-utils", globalThis.SHITCORD67_XMPP_XML);
+const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = xepModule("xmpp_encryption-payload", globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD);
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -87,7 +95,6 @@ const XEP_0384_TARGETS_GLOBAL = XEP_0384_GLOBAL.targets || globalThis.SHITCORD67
 const XEP_0384_MESSAGE_CRYPTO_GLOBAL = XEP_0384_GLOBAL.messageCrypto || globalThis.SHITCORD67_XEP_0384_MESSAGE_CRYPTO || {};
 const XEP_0384_DECRYPT_CONTENT_GLOBAL = XEP_0384_GLOBAL.decryptContent || globalThis.SHITCORD67_XEP_0384_DECRYPT_CONTENT || {};
 const XEP_0384_DECRYPT_FLOW_GLOBAL = XEP_0384_GLOBAL.decryptFlow || globalThis.SHITCORD67_XEP_0384_DECRYPT_FLOW || {};
-const XEP_0334_HINTS_GLOBAL = globalThis.SHITCORD67_XEP_0334_HINTS || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -222,7 +229,6 @@ const xmppNodeText = typeof XMPP_XML_GLOBAL.xmppNodeText === "function"
     if (typeof globalThis.Strophe?.getText === "function") return (globalThis.Strophe.getText(node) || "").toString();
     return (node.textContent || "").toString();
   });
-const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD || {};
 const xmppEncryptedPayloadInfo = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo === "function"
   ? XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo
   : (() => ({ encrypted: false, type: "", label: "" }));
