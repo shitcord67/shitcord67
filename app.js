@@ -89,6 +89,7 @@ const XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL = xepModule("xep-0359_0424-message-
 const XEP_0482_CALL_INVITE_PARSE_GLOBAL = xepModule("xep-0482_call-invite-parse", globalThis.SHITCORD67_XEP_0482_CALL_INVITE_PARSE);
 const XEP_0308_0424_0444_GLOBAL = xepModule("xep-0308_0424_0444-message-actions", globalThis.SHITCORD67_XEP_0308_0424_0444_ACTIONS);
 const XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL = xepModule("xep-0353_jingle-message-parse", globalThis.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE);
+const XEP_0115_CAPS_PRESENCE_GLOBAL = xepModule("xep-0115_caps-presence", globalThis.SHITCORD67_XEP_0115_CAPS_PRESENCE);
 const XEP_0203_0319_DELAY_IDLE_GLOBAL = xepModule("xep-0203_0319-delay-idle", globalThis.SHITCORD67_XEP_0203_0319_DELAY_IDLE);
 const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = xepModule("xep-0421_0045-muc-occupant", globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT);
 const XEP_0421_0045_MUC_ACTOR_CACHE_GLOBAL = xepModule("xep-0421_0045-muc-actor-cache", globalThis.SHITCORD67_XEP_0421_0045_MUC_ACTOR_CACHE);
@@ -1408,14 +1409,28 @@ function supportsEmojiGlyph(emoji) {
 }
 
 function xmppCapsIdentityStrings() {
+  if (typeof XEP_0115_CAPS_PRESENCE_GLOBAL.xmppCapsIdentityStrings === "function") {
+    return XEP_0115_CAPS_PRESENCE_GLOBAL.xmppCapsIdentityStrings();
+  }
   return ["client/web//shitcord67"];
 }
 
 function xmppCapsFeatureStrings() {
+  if (typeof XEP_0115_CAPS_PRESENCE_GLOBAL.xmppCapsFeatureStrings === "function") {
+    return XEP_0115_CAPS_PRESENCE_GLOBAL.xmppCapsFeatureStrings(xmppClientDiscoFeatures());
+  }
   return [...new Set(xmppClientDiscoFeatures())].sort();
 }
 
 async function computeXmppCapsHash() {
+  if (typeof XEP_0115_CAPS_PRESENCE_GLOBAL.computeXmppCapsHash === "function") {
+    return XEP_0115_CAPS_PRESENCE_GLOBAL.computeXmppCapsHash({
+      identities: xmppCapsIdentityStrings(),
+      features: xmppCapsFeatureStrings(),
+      cryptoRef: typeof crypto === "undefined" ? null : crypto,
+      TextEncoderRef: typeof TextEncoder === "undefined" ? null : TextEncoder
+    });
+  }
   if (typeof crypto === "undefined" || !crypto.subtle || typeof TextEncoder === "undefined") return "";
   const identities = xmppCapsIdentityStrings().slice().sort();
   const features = xmppCapsFeatureStrings();
@@ -1431,6 +1446,18 @@ async function computeXmppCapsHash() {
 }
 
 function ensureXmppCapsHash({ force = false } = {}) {
+  if (typeof XEP_0115_CAPS_PRESENCE_GLOBAL.ensureXmppCapsHash === "function") {
+    return XEP_0115_CAPS_PRESENCE_GLOBAL.ensureXmppCapsHash({ force }, {
+      refs: {
+        getCapsHash: () => xmppCapsHash,
+        setCapsHash: (value) => { xmppCapsHash = (value || "").toString(); },
+        getCapsPromise: () => xmppCapsPromise,
+        setCapsPromise: (value) => { xmppCapsPromise = value; }
+      },
+      computeXmppCapsHashFn: computeXmppCapsHash,
+      addXmppDebugEventFn: addXmppDebugEvent
+    });
+  }
   if (!force && xmppCapsHash) return Promise.resolve(xmppCapsHash);
   if (!force && xmppCapsPromise) return xmppCapsPromise;
   xmppCapsPromise = computeXmppCapsHash()
@@ -11378,36 +11405,37 @@ function sendCurrentXmppPresence({ skipCapsRetry = false } = {}) {
   if (!xmppConnection || relayStatus !== "connected" || !globalThis.$pres) return false;
   const account = getCurrentAccount();
   const mode = normalizePresence(account?.presence || "online");
-  if (mode === "invisible") {
-    xmppConnection.send(globalThis.$pres({ type: "unavailable" }));
-    return true;
-  }
   const show = xmppShowValueForPresence(mode);
-  const stanza = globalThis.$pres();
-  if (show) stanza.c("show").t(show);
-  stanza.c("priority").t("0").up();
-  const displayName = (account?.displayName || account?.username || "").toString().trim();
-  if (displayName) stanza.c("nick", { xmlns: "http://jabber.org/protocol/nick" }).t(displayName).up();
-  const statusText = (account?.customStatus || "").toString().trim();
-  if (statusText) stanza.c("status").t(statusText.slice(0, 80)).up();
-  if (mode === "idle") {
-    const idleSince = toTimestampMs(account?.xmppIdleSince || "")
-      ? new Date(toTimestampMs(account.xmppIdleSince || "")).toISOString()
-      : "";
-    if (idleSince) stanza.c("idle", { xmlns: XMPP_IDLE_NAMESPACE, since: idleSince }).up();
-  }
-  if (xmppCapsHash) {
-    stanza.c("c", {
-      xmlns: XMPP_CAPS_NAMESPACE,
-      hash: "sha-1",
-      node: XMPP_CAPS_NODE,
-      ver: xmppCapsHash
-    }).up();
-  } else if (!skipCapsRetry) {
+  if (!xmppCapsHash && !skipCapsRetry) {
     ensureXmppCapsHash().then((hash) => {
       if (!hash) return;
       sendCurrentXmppPresence({ skipCapsRetry: true });
     });
+  }
+  const stanza = (typeof XEP_0115_CAPS_PRESENCE_GLOBAL.xmppBuildPresenceStanza === "function")
+    ? XEP_0115_CAPS_PRESENCE_GLOBAL.xmppBuildPresenceStanza({
+      mode,
+      show,
+      account,
+      capsHash: xmppCapsHash,
+      $pres: globalThis.$pres,
+      idleNamespace: XMPP_IDLE_NAMESPACE,
+      capsNamespace: XMPP_CAPS_NAMESPACE,
+      capsNode: XMPP_CAPS_NODE
+    }, {
+      toTimestampMsFn: toTimestampMs
+    })
+    : null;
+  if (!stanza) {
+    if (mode === "invisible") {
+      xmppConnection.send(globalThis.$pres({ type: "unavailable" }));
+      return true;
+    }
+    const fallback = globalThis.$pres();
+    if (show) fallback.c("show").t(show);
+    fallback.c("priority").t("0").up();
+    xmppConnection.send(fallback);
+    return true;
   }
   xmppConnection.send(stanza);
   return true;
