@@ -779,6 +779,9 @@ const toTimestampMsViaModule = typeof TEXT_TIME_UTILS_GLOBAL.toTimestampMs === "
 const sanitizeChannelNameViaModule = typeof NAME_NORMALIZERS_GLOBAL.sanitizeChannelName === "function"
   ? NAME_NORMALIZERS_GLOBAL.sanitizeChannelName
   : ((value, fallback = "") => (value || "").toString().trim().toLowerCase() || fallback);
+const sanitizeForumTagNameViaModule = typeof NAME_NORMALIZERS_GLOBAL.sanitizeForumTagName === "function"
+  ? NAME_NORMALIZERS_GLOBAL.sanitizeForumTagName
+  : ((value) => (value || "").toString().trim().toLowerCase());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -1779,13 +1782,7 @@ function sanitizeChannelName(value, fallback) {
 }
 
 function sanitizeForumTagName(value) {
-  return (value || "")
-    .toString()
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9_-]/g, "")
-    .slice(0, 24);
+  return sanitizeForumTagNameViaModule(value);
 }
 
 function normalizeComposerDrafts(value) {
