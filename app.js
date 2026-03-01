@@ -99,6 +99,7 @@ const MEDIA_PROVIDER_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_MEDIA_PROVIDER_N
 const UI_STATE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_UI_STATE_NORMALIZERS || {};
 const ACCOUNT_PROFILE_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS || {};
 const XMPP_CALL_TARGET_UTILS_GLOBAL = globalThis.SHITCORD67_XMPP_CALL_TARGET_UTILS || {};
+const COMMAND_INVOCATION_UTILS_GLOBAL = globalThis.SHITCORD67_COMMAND_INVOCATION_UTILS || {};
 const XEP_0384_GLOBAL = globalThis.SHITCORD67_XEP_0384 || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = XEP_0384_GLOBAL.cryptoUtils || globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = XEP_0384_GLOBAL.namespaceSelection || globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
@@ -717,6 +718,13 @@ const tUiFmtViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.tUiFmt === "function"
       acc.replaceAll(`{${name}}`, String(value))
     ), template);
   });
+const normalizeSlashCommandInvocationViaModule = typeof COMMAND_INVOCATION_UTILS_GLOBAL.normalizeSlashCommandInvocation === "function"
+  ? ((rawValue) => COMMAND_INVOCATION_UTILS_GLOBAL.normalizeSlashCommandInvocation(rawValue, {
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    isInlineCommandHrefFn: isInlineCommandHref,
+    slashCommands: SLASH_COMMANDS
+  }))
+  : ((rawValue) => (rawValue || "").toString().trim());
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -19733,23 +19741,7 @@ function isInlineCommandHref(value) {
 }
 
 function normalizeSlashCommandInvocation(rawValue) {
-  let value = decodeHtmlEntities((rawValue || "").toString()).trim();
-  if (!value) return "";
-  if (isInlineCommandHref(value)) {
-    value = value.replace(/^s67cmd:/i, "");
-    try {
-      value = decodeURIComponent(value);
-    } catch {
-      // Keep undecoded payload when malformed.
-    }
-    value = value.trim();
-  }
-  if (!value) return "";
-  if (!value.startsWith("/")) value = `/${value}`;
-  const commandName = value.slice(1).split(/\s+/)[0].toLowerCase();
-  if (!commandName) return "";
-  if (!SLASH_COMMANDS.some((entry) => entry.name === commandName)) return "";
-  return value;
+  return normalizeSlashCommandInvocationViaModule(rawValue);
 }
 
 function invokeInlineCommand(rawValue, { submit = false } = {}) {
