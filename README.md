@@ -392,6 +392,7 @@ Notes:
 - XEP-0199 incoming ping IQ auto-reply handling now lives in `xeps/xep-0199_0410_0313-presence-ping.js` via `xmppHandleIncomingPingGet`, reducing ping-response logic in `app.js`.
 - XMPP sessions now detect CSI support (`urn:xmpp:csi:0`, XEP-0352) and publish `active`/`inactive` client-state hints on focus/visibility changes.
 - XEP-0030 disco response handling was further moved into `xeps/xep-0030_0166-call-disco.js`, and advertised client disco features now explicitly include chatstates (`XEP-0085`) and delivery receipts (`XEP-0184`).
+- XEP-0030 call-capability evaluation now relies on XEP module normalization of disco feature sets (Set/array/string/object forms) before interop scoring.
 - XMPP presence handling now parses idle interaction hints (`urn:xmpp:idle:1`, XEP-0319) and uses them for DM peer `Last active` status when available.
 - XMPP incoming replies (`urn:xmpp:reply:0`) are mapped into in-app reply previews when metadata is available.
 - XMPP outbound messages now include reply metadata (`urn:xmpp:reply:0`) with fallback quote ranges (`urn:xmpp:fallback:0`) when replying in DM/MUC.

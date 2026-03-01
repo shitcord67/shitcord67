@@ -17476,12 +17476,7 @@ function xmppClientDiscoFeatures() {
 
 function xmppRequiredCallFeatureBuckets() {
   if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppRequiredCallFeatureBuckets !== "function") {
-    return {
-      core: [XMPP_JINGLE_NAMESPACE],
-      media: [XMPP_JINGLE_RTP_NAMESPACE, XMPP_JINGLE_AUDIO_NAMESPACE, XMPP_JINGLE_VIDEO_NAMESPACE],
-      transport: [XMPP_JINGLE_ICE_UDP_NAMESPACE],
-      invite: [...XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES, XMPP_CALL_INVITES_NAMESPACE]
-    };
+    return { core: [], media: [], transport: [], invite: [] };
   }
   return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppRequiredCallFeatureBuckets({
     XMPP_JINGLE_NAMESPACE,
@@ -17495,9 +17490,7 @@ function xmppRequiredCallFeatureBuckets() {
 }
 
 function xmppEvaluateCallFeatures(features = new Set()) {
-  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppEvaluateCallFeatures !== "function") {
-    return { hasCore: false, hasMedia: false, hasTransport: false, hasInvite: false, ready: false };
-  }
+  if (typeof XEP_0030_0166_CALL_DISCO_GLOBAL.xmppEvaluateCallFeatures !== "function") return { hasCore: false, hasMedia: false, hasTransport: false, hasInvite: false, ready: false };
   return XEP_0030_0166_CALL_DISCO_GLOBAL.xmppEvaluateCallFeatures(features, {
     xmppRequiredCallFeatureBucketsFn: xmppRequiredCallFeatureBuckets,
     XMPP_JINGLE_NAMESPACE,

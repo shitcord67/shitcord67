@@ -169,14 +169,30 @@
     };
   }
 
+  function normalizeXmppFeatureSet(features = new Set()) {
+    const values = [];
+    if (features instanceof Set) values.push(...features);
+    else if (Array.isArray(features)) values.push(...features);
+    else if (typeof features === "string") values.push(features);
+    else if (features && typeof features === "object") {
+      Object.keys(features).forEach((key) => {
+        if (features[key]) values.push(key);
+      });
+    }
+    return new Set(values
+      .map((value) => (value || "").toString().trim())
+      .filter(Boolean));
+  }
+
   function xmppEvaluateCallFeatures(features = new Set(), deps = {}) {
+    const featureSet = normalizeXmppFeatureSet(features);
     const requiredBuckets = typeof deps.xmppRequiredCallFeatureBucketsFn === "function"
       ? deps.xmppRequiredCallFeatureBucketsFn()
       : xmppRequiredCallFeatureBuckets(deps);
-    const hasCore = requiredBuckets.core.every((feature) => features.has(feature));
-    const hasMedia = requiredBuckets.media.some((feature) => features.has(feature));
-    const hasTransport = requiredBuckets.transport.some((feature) => features.has(feature));
-    const hasInvite = requiredBuckets.invite.some((feature) => features.has(feature));
+    const hasCore = requiredBuckets.core.every((feature) => featureSet.has(feature));
+    const hasMedia = requiredBuckets.media.some((feature) => featureSet.has(feature));
+    const hasTransport = requiredBuckets.transport.some((feature) => featureSet.has(feature));
+    const hasInvite = requiredBuckets.invite.some((feature) => featureSet.has(feature));
     return {
       hasCore,
       hasMedia,
@@ -412,6 +428,7 @@
     xmppCallCapabilityTargetsForConversation,
     xmppClientDiscoFeatures,
     xmppRequiredCallFeatureBuckets,
+    normalizeXmppFeatureSet,
     xmppEvaluateCallFeatures,
     xmppCachedCallFeaturesForPeer,
     xmppNegotiatedCallMediaForPeer,
