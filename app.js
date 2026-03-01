@@ -9760,7 +9760,11 @@ async function xmppGatherLocalIceTransportInfo({
     ? xep0320.xmppCanCreatePeerConnection(globalThis)
     : (typeof globalThis.RTCPeerConnection === "function");
   if (!canCreatePc) {
-    return { transport: xmppBuildJingleTransportCreds(), candidates: [] };
+    return typeof xep0320.xmppBuildEmptyIceGatherResult === "function"
+      ? xep0320.xmppBuildEmptyIceGatherResult({
+        buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
+      })
+      : { transport: xmppBuildJingleTransportCreds(), candidates: [] };
   }
   const timeout = typeof xep0320.xmppNormalizeIceGatherTimeout === "function"
     ? xep0320.xmppNormalizeIceGatherTimeout(timeoutMs, XMPP_CALL_ICE_GATHER_TIMEOUT_MS)
@@ -9806,7 +9810,10 @@ async function xmppGatherLocalIceTransportInfo({
     };
     timerId = window.setTimeout(finish, timeout);
     try {
-      pc.createDataChannel("shitcord67-ice-probe");
+      const probeLabel = typeof xep0320.xmppBuildIceProbeChannelLabel === "function"
+        ? xep0320.xmppBuildIceProbeChannelLabel()
+        : "shitcord67-ice-probe";
+      pc.createDataChannel(probeLabel);
       pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
         .then((offer) => pc.setLocalDescription(offer))
         .catch(() => finish());
@@ -9817,24 +9824,36 @@ async function xmppGatherLocalIceTransportInfo({
 }
 
 function xmppQueueTransportInfoGatherAndSend(peerJid, sessionId, { force = false } = {}) {
+  const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
-  const sid = (sessionId || "").toString().trim();
+  const sid = typeof xep0320.xmppNormalizeSessionId === "function"
+    ? xep0320.xmppNormalizeSessionId(sessionId)
+    : (sessionId || "").toString().trim();
   if (!to || !sid) return false;
-  if (!force && xmppCallIceGatherInFlightBySessionId.has(sid)) return true;
+  const shouldSkip = typeof xep0320.xmppShouldSkipTransportInfoGather === "function"
+    ? xep0320.xmppShouldSkipTransportInfoGather(force, xmppCallIceGatherInFlightBySessionId.has(sid))
+    : (!force && xmppCallIceGatherInFlightBySessionId.has(sid));
+  if (shouldSkip) return true;
   const run = (async () => {
     const session = xmppCallSessionById.get(sid) || null;
     if (session) session.state = "transport-gathering";
     try {
       const gathered = await xmppGatherLocalIceTransportInfo();
-      const localTransport = gathered?.transport && typeof gathered.transport === "object"
-        ? {
-          ufrag: (gathered.transport.ufrag || "").toString().trim(),
-          pwd: (gathered.transport.pwd || "").toString().trim()
-        }
-        : xmppBuildJingleTransportCreds();
-      const localCandidates = Array.isArray(gathered?.candidates)
-        ? gathered.candidates.slice(0, XMPP_CALL_ICE_MAX_CANDIDATES)
-        : [];
+      const localTransport = typeof xep0320.xmppResolveGatheredTransport === "function"
+        ? xep0320.xmppResolveGatheredTransport(gathered, {
+          buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
+        })
+        : (gathered?.transport && typeof gathered.transport === "object"
+          ? {
+            ufrag: (gathered.transport.ufrag || "").toString().trim(),
+            pwd: (gathered.transport.pwd || "").toString().trim()
+          }
+          : xmppBuildJingleTransportCreds());
+      const localCandidates = typeof xep0320.xmppResolveGatheredCandidates === "function"
+        ? xep0320.xmppResolveGatheredCandidates(gathered, XMPP_CALL_ICE_MAX_CANDIDATES)
+        : (Array.isArray(gathered?.candidates)
+          ? gathered.candidates.slice(0, XMPP_CALL_ICE_MAX_CANDIDATES)
+          : []);
       if (session) {
         session.localTransport = localTransport;
         session.localCandidates = localCandidates;
@@ -9844,25 +9863,29 @@ function xmppQueueTransportInfoGatherAndSend(peerJid, sessionId, { force = false
         candidates: localCandidates
       });
       if (session) {
-        session.state = sent ? "transport-info-sent" : "transport-info-failed";
+        session.state = typeof xep0320.xmppResolveTransportInfoSessionState === "function"
+          ? xep0320.xmppResolveTransportInfoSessionState(sent)
+          : (sent ? "transport-info-sent" : "transport-info-failed");
       }
       if (sent) {
-        addXmppDebugEvent("iq", "Queued XMPP transport-info sent", {
-          to,
-          sid,
-          candidateCount: localCandidates.length
-        });
+        const debugPayload = typeof xep0320.xmppBuildTransportInfoDebugPayload === "function"
+          ? xep0320.xmppBuildTransportInfoDebugPayload({ to, sid, localCandidates })
+          : { to, sid, candidateCount: localCandidates.length };
+        addXmppDebugEvent("iq", "Queued XMPP transport-info sent", debugPayload);
       }
     } catch (error) {
-      addXmppDebugEvent("error", "XMPP ICE gather failed", {
-        to,
-        sid,
-        error: String(error?.message || error)
-      });
+      const errorPayload = typeof xep0320.xmppBuildIceGatherErrorPayload === "function"
+        ? xep0320.xmppBuildIceGatherErrorPayload({ to, sid, error })
+        : { to, sid, error: String(error?.message || error) };
+      addXmppDebugEvent("error", "XMPP ICE gather failed", errorPayload);
       const sessionFallback = xmppCallSessionById.get(sid) || null;
-      const fallbackTransport = sessionFallback?.localTransport && typeof sessionFallback.localTransport === "object"
-        ? sessionFallback.localTransport
-        : xmppBuildJingleTransportCreds();
+      const fallbackTransport = typeof xep0320.xmppResolveFallbackTransportForGatherFailure === "function"
+        ? xep0320.xmppResolveFallbackTransportForGatherFailure(sessionFallback, {
+          buildJingleTransportCredsFn: xmppBuildJingleTransportCreds
+        })
+        : (sessionFallback?.localTransport && typeof sessionFallback.localTransport === "object"
+          ? sessionFallback.localTransport
+          : xmppBuildJingleTransportCreds());
       xmppSendJingleTransportInfo(to, sid, {
         transport: fallbackTransport,
         candidates: []

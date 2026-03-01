@@ -1053,6 +1053,83 @@
     return Math.max(1, Number(maxCandidates) || Number(fallbackCap) || 50);
   }
 
+  function xmppBuildEmptyIceGatherResult(deps = {}) {
+    const buildJingleTransportCredsFn = typeof deps.buildJingleTransportCredsFn === "function"
+      ? deps.buildJingleTransportCredsFn
+      : xmppBuildJingleTransportCreds;
+    return { transport: buildJingleTransportCredsFn(), candidates: [] };
+  }
+
+  function xmppBuildIceProbeChannelLabel() {
+    return "shitcord67-ice-probe";
+  }
+
+  function xmppNormalizeTransportCreds(transport = null, deps = {}) {
+    const buildJingleTransportCredsFn = typeof deps.buildJingleTransportCredsFn === "function"
+      ? deps.buildJingleTransportCredsFn
+      : xmppBuildJingleTransportCreds;
+    if (!transport || typeof transport !== "object") return buildJingleTransportCredsFn();
+    const normalized = {
+      ufrag: (transport.ufrag || "").toString().trim(),
+      pwd: (transport.pwd || "").toString().trim()
+    };
+    if (normalized.ufrag && normalized.pwd) return normalized;
+    return buildJingleTransportCredsFn();
+  }
+
+  function xmppResolveGatheredTransport(gathered = null, deps = {}) {
+    return xmppNormalizeTransportCreds(gathered?.transport || null, deps);
+  }
+
+  function xmppResolveGatheredCandidates(gathered = null, maxCandidates = 50) {
+    const cap = xmppNormalizeIceGatherCandidateCap(maxCandidates, 50);
+    return Array.isArray(gathered?.candidates)
+      ? gathered.candidates.slice(0, cap)
+      : [];
+  }
+
+  function xmppShouldSkipTransportInfoGather(force = false, hasInFlight = false) {
+    return !force && hasInFlight;
+  }
+
+  function xmppResolveTransportInfoSessionState(sent = false) {
+    return sent ? "transport-info-sent" : "transport-info-failed";
+  }
+
+  function xmppBuildTransportInfoDebugPayload({
+    to = "",
+    sid = "",
+    localCandidates = []
+  } = {}) {
+    return {
+      to: (to || "").toString().trim(),
+      sid: (sid || "").toString().trim(),
+      candidateCount: Array.isArray(localCandidates) ? localCandidates.length : 0
+    };
+  }
+
+  function xmppBuildIceGatherErrorPayload({
+    to = "",
+    sid = "",
+    error = ""
+  } = {}) {
+    return {
+      to: (to || "").toString().trim(),
+      sid: (sid || "").toString().trim(),
+      error: String(error?.message || error || "")
+    };
+  }
+
+  function xmppResolveFallbackTransportForGatherFailure(sessionFallback = null, deps = {}) {
+    const buildJingleTransportCredsFn = typeof deps.buildJingleTransportCredsFn === "function"
+      ? deps.buildJingleTransportCredsFn
+      : xmppBuildJingleTransportCreds;
+    if (sessionFallback?.localTransport && typeof sessionFallback.localTransport === "object") {
+      return sessionFallback.localTransport;
+    }
+    return buildJingleTransportCredsFn();
+  }
+
   globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS = Object.freeze({
     xmppParseIceCredsFromSdp,
     xmppParseDtlsFingerprintFromSdp,
@@ -1114,7 +1191,17 @@
     xmppCanFlushPendingRemoteCandidates,
     xmppSnapshotAndClearPendingRemoteCandidates,
     xmppNormalizeIceGatherTimeout,
-    xmppNormalizeIceGatherCandidateCap
+    xmppNormalizeIceGatherCandidateCap,
+    xmppBuildEmptyIceGatherResult,
+    xmppBuildIceProbeChannelLabel,
+    xmppNormalizeTransportCreds,
+    xmppResolveGatheredTransport,
+    xmppResolveGatheredCandidates,
+    xmppShouldSkipTransportInfoGather,
+    xmppResolveTransportInfoSessionState,
+    xmppBuildTransportInfoDebugPayload,
+    xmppBuildIceGatherErrorPayload,
+    xmppResolveFallbackTransportForGatherFailure
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
     globalScope.SHITCORD67_XEP_REGISTRY.register("xep-0320_webrtc-sdp-basics", globalScope.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS);
