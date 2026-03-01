@@ -555,6 +555,11 @@ const normalizeXmppOmemoEnabledByJidViaModule = typeof UI_STATE_NORMALIZERS_GLOB
     normalizeToggleFn: normalizeToggle
   }))
   : ((value) => (value && typeof value === "object" ? value : {}));
+const xmppShowValueForPresenceViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.xmppShowValueForPresence === "function"
+  ? ((presence) => UI_STATE_NORMALIZERS_GLOBAL.xmppShowValueForPresence(presence, {
+    normalizePresenceFn: normalizePresence
+  }))
+  : (() => "");
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11089,10 +11094,7 @@ function xmppResolveSessionPeerJid(session, fallback = "", { preferFull = true }
 }
 
 function xmppShowValueForPresence(presence) {
-  const mode = normalizePresence(presence);
-  if (mode === "idle") return "away";
-  if (mode === "dnd") return "dnd";
-  return "";
+  return xmppShowValueForPresenceViaModule(presence);
 }
 
 function sendCurrentXmppPresence({ skipCapsRetry = false } = {}) {

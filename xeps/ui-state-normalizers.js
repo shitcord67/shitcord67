@@ -173,6 +173,15 @@
     }, {});
   }
 
+  function xmppShowValueForPresence(presence, {
+    normalizePresenceFn = normalizePresence
+  } = {}) {
+    const mode = normalizePresenceFn(presence);
+    if (mode === "idle") return "away";
+    if (mode === "dnd") return "dnd";
+    return "";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -197,6 +206,7 @@
     normalizePresence,
     detectBrowserUiLocale,
     resolveUiLocale,
-    normalizeXmppOmemoEnabledByJid
+    normalizeXmppOmemoEnabledByJid,
+    xmppShowValueForPresence
   });
 })(typeof window !== "undefined" ? window : globalThis);
