@@ -566,6 +566,12 @@ const normalizeVoiceStateViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normaliz
     nowIsoFn: () => new Date().toISOString()
   }))
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeChannelPermissionValueViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeChannelPermissionValue === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeChannelPermissionValue
+  : ((value) => {
+    const token = (value || "").toString().toLowerCase();
+    return token === "allow" || token === "deny" ? token : "inherit";
+  });
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11366,9 +11372,7 @@ function normalizeVoiceState(value) {
 }
 
 function normalizeChannelPermissionValue(value) {
-  const token = (value || "").toString().toLowerCase();
-  if (token === "allow" || token === "deny") return token;
-  return "inherit";
+  return normalizeChannelPermissionValueViaModule(value);
 }
 
 function normalizeChannelPermissionOverrides(value, roleIds = []) {

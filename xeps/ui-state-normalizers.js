@@ -209,6 +209,12 @@
     };
   }
 
+  function normalizeChannelPermissionValue(value) {
+    const token = (value || "").toString().toLowerCase();
+    if (token === "allow" || token === "deny") return token;
+    return "inherit";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
@@ -235,6 +241,7 @@
     resolveUiLocale,
     normalizeXmppOmemoEnabledByJid,
     xmppShowValueForPresence,
-    normalizeVoiceState
+    normalizeVoiceState,
+    normalizeChannelPermissionValue
   });
 })(typeof window !== "undefined" ? window : globalThis);
