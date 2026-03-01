@@ -418,6 +418,12 @@ https://discord.js.org/docs/packages/discord.js/main
 - [done] Added XMPP call target module `xeps/xmpp-call-target-utils.js` and moved peer full-jid/session target helpers out of `app.js`.
 - [done] Added command invocation module `xeps/command-invocation-utils.js` and moved slash command invocation normalization out of `app.js`.
 - [done] Extended media/login normalizer modules with relay/avatar/local-profile helpers (`normalizeRelayTransportAttachmentUrl`, `normalizeMediaRuleToken`, `normalizeMediaPrivacyUrl`, avatar URL checks, `normalizeLocalXmppProfiles`).
+- [done] Added XMPP message-id utility module `xeps/xmpp-message-id-utils.js` and moved stanza/message reference-ID helpers out of `app.js`.
+- [done] Added generic text/time utility module `xeps/text-time-utils.js` and moved text clamp/regex/timestamp helpers out of `app.js`.
+- [done] Added generic name normalizer module `xeps/name-normalizers.js` and moved channel/forum/slowmode sanitization helpers out of `app.js`.
+- [done] Extended media utility module with host/privacy helper extraction (`doesMediaRuleMatchHost`, trusted-host check, external URL check, CSS background URL extraction).
+- [done] Extended command utility module with inline command and rich-text href sanitization helpers.
+- [done] Extended login utility module with JID-domain extraction helper.
 - Cosmetic gifting flow for guild members (optional confirmation + anti-spam cooldown).
 - Switch to actually using XMPP protocol or maybe something that is a layer in-between so that we are compatible to XMPP and Matrix?
 - Well at the very least make it possible to login with a XMPP account and communicate with people from XMPP, sending them real XMPP events.
