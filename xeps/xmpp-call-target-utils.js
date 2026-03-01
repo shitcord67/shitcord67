@@ -118,12 +118,31 @@
     return retryTo;
   }
 
+  function xmppResolveSessionPeerJid(session, fallback = "", {
+    preferFull = true,
+    xmppMostRecentPeerFullJidFn = (value) => (value || "").toString().trim(),
+    xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase()
+  } = {}) {
+    const full = (session?.peerFullJid || "").toString().trim();
+    if (preferFull && full) return full;
+    const raw = (fallback || session?.peerJid || "").toString().trim();
+    if (!raw) return "";
+    if (preferFull) {
+      if (raw.includes("/")) return raw;
+      const recent = xmppMostRecentPeerFullJidFn(raw);
+      if (recent) return recent;
+    }
+    const bare = xmppBareJidFn(raw);
+    return bare || raw;
+  }
+
   globalScope.SHITCORD67_XMPP_CALL_TARGET_UTILS = Object.freeze({
     xmppRememberPeerFullJid,
     xmppForgetPeerFullJid,
     xmppMostRecentPeerFullJid,
     xmppNormalizeCallTargetJid,
     xmppCallIqSessionNotFoundError,
-    xmppResolveRetryCallTargetForSession
+    xmppResolveRetryCallTargetForSession,
+    xmppResolveSessionPeerJid
   });
 })(typeof window !== "undefined" ? window : globalThis);

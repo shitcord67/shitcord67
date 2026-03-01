@@ -563,6 +563,13 @@ const xmppResolveRetryCallTargetForSessionViaModule = typeof XMPP_CALL_TARGET_UT
     xmppRememberPeerFullJidFn: xmppRememberPeerFullJid
   }))
   : (() => "");
+const xmppResolveSessionPeerJidViaModule = typeof XMPP_CALL_TARGET_UTILS_GLOBAL.xmppResolveSessionPeerJid === "function"
+  ? ((session, fallback = "", options = {}) => XMPP_CALL_TARGET_UTILS_GLOBAL.xmppResolveSessionPeerJid(session, fallback, {
+    ...options,
+    xmppMostRecentPeerFullJidFn: xmppMostRecentPeerFullJid,
+    xmppBareJidFn: xmppBareJid
+  }))
+  : (() => "");
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -11072,17 +11079,7 @@ function xmppResolveRetryCallTargetForSession(sessionId = "", attemptedTo = "") 
 }
 
 function xmppResolveSessionPeerJid(session, fallback = "", { preferFull = true } = {}) {
-  const full = (session?.peerFullJid || "").toString().trim();
-  if (preferFull && full) return full;
-  const raw = (fallback || session?.peerJid || "").toString().trim();
-  if (!raw) return "";
-  if (preferFull) {
-    if (raw.includes("/")) return raw;
-    const recent = xmppMostRecentPeerFullJid(raw);
-    if (recent) return recent;
-  }
-  const bare = xmppBareJid(raw);
-  return bare || raw;
+  return xmppResolveSessionPeerJidViaModule(session, fallback, { preferFull });
 }
 
 function xmppShowValueForPresence(presence) {
