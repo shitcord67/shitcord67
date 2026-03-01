@@ -484,6 +484,9 @@ const normalizeMobilePaneViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normaliz
 const normalizeSwfAudioPolicyViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAudioPolicy === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAudioPolicy
   : ((value) => (value === "multi" ? "multi" : "single"));
+const normalizeSwfAudioScopeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAudioScope === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAudioScope
+  : ((value) => (value === "guild" ? "guild" : "global"));
 const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
   ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
   : (() => "");
@@ -11104,7 +11107,7 @@ function normalizeSwfAudioPolicy(value) {
 }
 
 function normalizeSwfAudioScope(value) {
-  return value === "guild" ? "guild" : "global";
+  return normalizeSwfAudioScopeViaModule(value);
 }
 
 function normalizeSwfAutoplay(value) {

@@ -18,10 +18,15 @@
     return value === "multi" ? "multi" : "single";
   }
 
+  function normalizeSwfAudioScope(value) {
+    return value === "guild" ? "guild" : "global";
+  }
+
   globalScope.SHITCORD67_UI_STATE_NORMALIZERS = Object.freeze({
     normalizeToggle,
     normalizeMemberPresenceFilter,
     normalizeMobilePane,
-    normalizeSwfAudioPolicy
+    normalizeSwfAudioPolicy,
+    normalizeSwfAudioScope
   });
 })(typeof window !== "undefined" ? window : globalThis);
