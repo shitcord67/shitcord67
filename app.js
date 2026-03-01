@@ -74,6 +74,7 @@ const XMPP_XML_GLOBAL = globalThis.SHITCORD67_XMPP_XML || {};
 const XEP_0384_CRYPTO_UTILS_GLOBAL = globalThis.SHITCORD67_XEP_0384_CRYPTO_UTILS || {};
 const XEP_0384_NAMESPACE_SELECTION_GLOBAL = globalThis.SHITCORD67_XEP_0384_NAMESPACE_SELECTION || {};
 const XEP_0384_OMEMO_STORE_GLOBAL = globalThis.SHITCORD67_XEP_0384_OMEMO_STORE || {};
+const XEP_0384_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_0384_RUNTIME || {};
 const xmppOmemoBuildNamespaceCandidates = XEP_0384_NAMESPACE_SELECTION_GLOBAL.xmppOmemoBuildNamespaceCandidates || function xmppOmemoBuildNamespaceCandidatesFallback({
   cachedPreferred = "",
   discoFeatures = new Set(),
@@ -308,6 +309,26 @@ const XmppOmemoStore = XEP_0384_OMEMO_STORE_GLOBAL.XmppOmemoStore || class XmppO
     return keys.map((key) => key.split(".").pop()).filter(Boolean);
   }
 };
+const xmppOmemoRuntimeAvailable = XEP_0384_RUNTIME_GLOBAL.xmppOmemoRuntimeAvailable || function xmppOmemoRuntimeAvailableFallback() {
+  return Boolean(globalThis.libsignal && globalThis.libsignal.KeyHelper && globalThis.crypto?.subtle);
+};
+const createXmppOmemoStoreRegistry = XEP_0384_RUNTIME_GLOBAL.createXmppOmemoStoreRegistry || function createXmppOmemoStoreRegistryFallback() {
+  const storesByBareJid = new Map();
+  return Object.freeze({
+    getStoreForAccount(jid, {
+      toBareJid = (value) => xmppBareJid(value || ""),
+      StoreCtor = XmppOmemoStore
+    } = {}) {
+      const bare = typeof toBareJid === "function" ? toBareJid(jid) : xmppBareJid(jid || "");
+      if (!bare || !StoreCtor) return null;
+      if (!storesByBareJid.has(bare)) {
+        storesByBareJid.set(bare, new StoreCtor(bare));
+      }
+      return storesByBareJid.get(bare) || null;
+    }
+  });
+};
+const xmppOmemoStoreRegistry = createXmppOmemoStoreRegistry();
 const xmppNodeXmlns = XMPP_XML_GLOBAL.xmppNodeXmlns || function xmppNodeXmlnsFallback(node) {
   if (!node || typeof node.getAttribute !== "function") return "";
   const inline = (node.getAttribute("xmlns") || "").toString().trim().toLowerCase();
@@ -14780,19 +14801,11 @@ function reportXmppMucJoinError(roomJid, nick, stanza) {
   if (mappedChannel && state.activeChannelId === mappedChannel.id) renderMessages();
 }
 
-const xmppOmemoStoreByAccountJid = new Map();
-
-function xmppOmemoRuntimeAvailable() {
-  return Boolean(globalThis.libsignal && globalThis.libsignal.KeyHelper && globalThis.crypto?.subtle);
-}
-
 function xmppOmemoStoreForAccount(jid) {
-  const bare = xmppBareJid(jid || "");
-  if (!bare) return null;
-  if (!xmppOmemoStoreByAccountJid.has(bare)) {
-    xmppOmemoStoreByAccountJid.set(bare, new XmppOmemoStore(bare));
-  }
-  return xmppOmemoStoreByAccountJid.get(bare) || null;
+  return xmppOmemoStoreRegistry.getStoreForAccount(jid, {
+    toBareJid: (value) => xmppBareJid(value || ""),
+    StoreCtor: XmppOmemoStore
+  });
 }
 
 function xmppOmemoEnabledForPeer(peerBare, prefs = getPreferences()) {
