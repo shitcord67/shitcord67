@@ -515,6 +515,9 @@ const normalizeCosmeticPurchasesViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_G
 const normalizeColorForPickerViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeColorForPicker === "function"
   ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeColorForPicker
   : ((value) => (value || "").toString().trim());
+const normalizeNativeAndroidInsetsViaModule = typeof ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeNativeAndroidInsets === "function"
+  ? ACCOUNT_PROFILE_NORMALIZERS_GLOBAL.normalizeNativeAndroidInsets
+  : (() => null);
 const normalizeToggleViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeToggle
   : ((value) => (value === "on" ? "on" : "off"));
@@ -1225,20 +1228,7 @@ let runtimeSafeAreaRaf = 0;
 let mobileSwipeNavState = null;
 
 function normalizeNativeAndroidInsets(rawInsets) {
-  if (!rawInsets || typeof rawInsets !== "object") return null;
-  const top = Number(rawInsets.top);
-  const right = Number(rawInsets.right);
-  const bottom = Number(rawInsets.bottom);
-  const left = Number(rawInsets.left);
-  if (![top, right, bottom, left].every((value) => Number.isFinite(value) && value >= 0)) {
-    return null;
-  }
-  return {
-    top: Math.round(top),
-    right: Math.round(right),
-    bottom: Math.round(bottom),
-    left: Math.round(left)
-  };
+  return normalizeNativeAndroidInsetsViaModule(rawInsets);
 }
 
 function updateRuntimeSafeArea() {

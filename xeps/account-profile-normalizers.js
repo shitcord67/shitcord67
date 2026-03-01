@@ -67,12 +67,30 @@
     return "#5865f2";
   }
 
+  function normalizeNativeAndroidInsets(rawInsets) {
+    if (!rawInsets || typeof rawInsets !== "object") return null;
+    const top = Number(rawInsets.top);
+    const right = Number(rawInsets.right);
+    const bottom = Number(rawInsets.bottom);
+    const left = Number(rawInsets.left);
+    if (![top, right, bottom, left].every((value) => Number.isFinite(value) && value >= 0)) {
+      return null;
+    }
+    return {
+      top: Math.round(top),
+      right: Math.round(right),
+      bottom: Math.round(bottom),
+      left: Math.round(left)
+    };
+  }
+
   globalScope.SHITCORD67_ACCOUNT_PROFILE_NORMALIZERS = Object.freeze({
     normalizeUsername,
     normalizeComposerDrafts,
     normalizeOwnedCosmetics,
     normalizeGuildTagGuildId,
     normalizeCosmeticPurchases,
-    normalizeColorForPicker
+    normalizeColorForPicker,
+    normalizeNativeAndroidInsets
   });
 })(typeof window !== "undefined" ? window : globalThis);
