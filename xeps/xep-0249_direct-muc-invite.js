@@ -97,13 +97,20 @@
     return { roomJid, reason, password, continueThread, thread };
   }
 
-  function inviteRoomJidFromBodyText(rawText = "") {
+  function parseInviteFromBodyText(rawText = "") {
     const text = (rawText || "").toString().trim();
-    if (!text) return "";
+    if (!text) return null;
     const uriMatch = text.match(/xmpp:([^\s"'<>]+)/i);
     if (uriMatch?.[1]) {
-      const candidate = normalizeJid(`xmpp:${uriMatch[1]}`);
-      if (candidate) return candidate;
+      const uri = `xmpp:${uriMatch[1]}`;
+      const candidate = normalizeJid(uri);
+      if (candidate) {
+        const params = parseXmppUriParams(uri);
+        return {
+          roomJid: candidate,
+          password: (params.get("password") || params.get("pwd") || "").toString().trim().slice(0, 120)
+        };
+      }
     }
     const joinUrlMatch = text.match(/https?:\/\/[^\s"'<>]+[?&]join(?:=[01]|=true)?[^\s"'<>]*/i);
     if (joinUrlMatch?.[0]) {
@@ -111,12 +118,17 @@
         const parsed = new URL(joinUrlMatch[0]);
         const room = parsed.searchParams.get("room") || parsed.searchParams.get("jid") || "";
         const candidate = normalizeJid(room);
-        if (candidate) return candidate;
+        if (candidate) {
+          return {
+            roomJid: candidate,
+            password: (parsed.searchParams.get("password") || parsed.searchParams.get("pwd") || "").toString().trim().slice(0, 120)
+          };
+        }
       } catch {
         // ignore malformed URL text snippets
       }
     }
-    return "";
+    return null;
   }
 
   function parseXmppDirectMucInvite(stanza) {
@@ -128,12 +140,12 @@
       )) || null;
     if (!inviteNode) {
       const bodyNode = xmppDirectChildByLocalName(stanza, "body");
-      const fallbackRoomJid = inviteRoomJidFromBodyText(xmppNodeText(bodyNode));
-      if (!fallbackRoomJid) return null;
+      const fallbackInvite = parseInviteFromBodyText(xmppNodeText(bodyNode));
+      if (!fallbackInvite?.roomJid) return null;
       return {
-        roomJid: fallbackRoomJid,
+        roomJid: fallbackInvite.roomJid,
         reason: "",
-        password: "",
+        password: fallbackInvite.password || "",
         thread: "",
         continueThread: false
       };
@@ -197,7 +209,7 @@
     XMPP_DIRECT_MUC_INVITE_NAMESPACE,
     normalizeXmppRoomJoinArg,
     parseXmppDirectMucInviteCommandArg,
-    inviteRoomJidFromBodyText,
+    parseInviteFromBodyText,
     parseXmppDirectMucInvite,
     rememberXmppDirectMucInviteSeen
   });
