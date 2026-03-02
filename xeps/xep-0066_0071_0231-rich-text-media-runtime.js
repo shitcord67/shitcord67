@@ -317,6 +317,8 @@ function extractImageUrl(text) {
 function inferAttachmentTypeFromUrl(url) {
   const raw = (url || "").toString().trim();
   if (!raw) return null;
+  const xmppWrapped = raw.match(/^xmpp:(https?:\/\/.+)$/i);
+  if (xmppWrapped?.[1]) return inferAttachmentTypeFromUrl(xmppWrapped[1]);
   if (typeof isAesgcmUrl === "function" && isAesgcmUrl(raw)) return "bin";
   const clean = raw.toLowerCase();
   let pathAndQuery = clean;
@@ -397,19 +399,20 @@ function inferAttachmentFormat(type, url) {
 function extractInlineAttachmentsFromText(text) {
   if (!text) return [];
   const results = [];
-  const matches = text.match(/(?:https?:\/\/\S+|aesgcm:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|png|jpe?g|gif|webp|bmp|avif|heic|heif|mp4|webm|mov|m4v|ogv|m3u8|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
+  const matches = text.match(/(?:xmpp:https?:\/\/\S+|https?:\/\/\S+|aesgcm:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|png|jpe?g|gif|webp|bmp|avif|heic|heif|mp4|webm|mov|m4v|ogv|m3u8|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
   const seen = new Set();
   matches.forEach((raw) => {
     const cleaned = raw.replace(/[),.!?]+$/, "");
-    if (seen.has(cleaned)) return;
-    const type = inferAttachmentTypeFromUrl(cleaned);
+    const normalized = cleaned.replace(/^xmpp:(https?:\/\/.+)$/i, "$1");
+    if (seen.has(normalized)) return;
+    const type = inferAttachmentTypeFromUrl(normalized);
     if (!type) return;
-    seen.add(cleaned);
+    seen.add(normalized);
     results.push({
       type,
-      url: cleaned,
-      name: cleaned.split("/").pop() || cleaned,
-      format: inferAttachmentFormat(type, cleaned)
+      url: normalized,
+      name: normalized.split("/").pop() || normalized,
+      format: inferAttachmentFormat(type, normalized)
     });
   });
   return results.slice(0, 4);
