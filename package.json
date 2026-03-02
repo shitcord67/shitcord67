@@ -35,16 +35,13 @@
   },
   "homepage": "https://github.com/shitcord67/shitcord67#readme",
   "dependencies": {
-    "@capacitor/android": "^6.2.1",
-    "@capacitor/cli": "^6.2.1",
-    "@capacitor/core": "^6.2.1",
+    "@capacitor/android": "^7.5.0",
+    "@capacitor/cli": "^7.5.0",
+    "@capacitor/core": "^7.5.0",
     "@xmpp/client": "^0.14.0",
     "@xmpp/debug": "^0.14.0",
     "strophe.js": "^1.6.2",
     "ws": "^8.19.0"
-  },
-  "overrides": {
-    "tar": "^7.5.8"
   },
   "devDependencies": {
     "electron": "^35.0.0"
