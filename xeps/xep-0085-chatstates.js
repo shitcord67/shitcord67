@@ -33,8 +33,24 @@
     const xmlnsMatcher = typeof deps.xmppNodeHasXmlnsFn === "function"
       ? deps.xmppNodeHasXmlnsFn
       : ((node, xmlns) => ((node?.getAttribute?.("xmlns") || "").toString().toLowerCase() === (xmlns || "").toString().toLowerCase()));
-    const hasNode = (name) => [...stanza.getElementsByTagName(name)]
-      .some((node) => xmlnsMatcher(node, deps.namespace || XMPP_CHATSTATES_NAMESPACE));
+    const chatStatesNamespace = deps.namespace || XMPP_CHATSTATES_NAMESPACE;
+    const directChildren = stanza?.childNodes ? [...stanza.childNodes] : [];
+    const byLocalName = (node) => (
+      (node?.localName || node?.nodeName || "")
+        .toString()
+        .trim()
+        .toLowerCase()
+        .split(":")
+        .pop()
+    );
+    const hasDirectNode = (name) => directChildren.some((node) => {
+      if (!node || node.nodeType !== 1) return false;
+      if (byLocalName(node) !== name) return false;
+      return xmlnsMatcher(node, chatStatesNamespace);
+    });
+    const hasNode = (name) => hasDirectNode(name)
+      || [...stanza.getElementsByTagName(name)]
+        .some((node) => xmlnsMatcher(node, chatStatesNamespace));
     return {
       composing: hasNode("composing"),
       paused: hasNode("paused"),
