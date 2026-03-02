@@ -14,14 +14,44 @@
     }
   }
 
+  function relTokenSet(value) {
+    const tokens = new Set();
+    const append = (item) => {
+      const raw = (item || "").toString().trim().toLowerCase();
+      if (!raw) return;
+      raw.split(/[\s,]+/).map((token) => token.trim()).filter(Boolean).forEach((token) => {
+        tokens.add(token);
+      });
+    };
+    if (Array.isArray(value)) {
+      value.forEach((item) => append(item));
+      return tokens;
+    }
+    append(value);
+    return tokens;
+  }
+
+  function hasXmppWsRel(entry = {}) {
+    const tokens = relTokenSet(entry.rel || entry.rels || "");
+    if (tokens.size === 0) return false;
+    if (tokens.has("urn:xmpp:alt-connections:websocket")) return true;
+    if (tokens.has("xmpp:alt-connections:websocket")) return true;
+    if (tokens.has("xmpp:alt-connections:ws")) return true;
+    if (tokens.has("urn:xmpp:alt-connections")) {
+      const type = (entry.type || "").toString().trim().toLowerCase();
+      if (type.includes("websocket")) return true;
+      if (type === "ws" || type === "wss") return true;
+    }
+    return false;
+  }
+
   function extractXmppAltConnectionUrls(links) {
     if (!Array.isArray(links)) return [];
     const urls = [];
     links.forEach((entry) => {
       if (!entry || typeof entry !== "object") return;
-      const rel = (entry.rel || "").toString().toLowerCase();
-      if (!rel.includes("xmpp:alt-connections") || !rel.includes("websocket")) return;
-      const href = normalizeXmppWsUrl(entry.href || entry.url || "");
+      if (!hasXmppWsRel(entry)) return;
+      const href = normalizeXmppWsUrl(entry.href || entry.url || entry.template || "");
       if (!href) return;
       if (!urls.includes(href)) urls.push(href);
     });
@@ -35,8 +65,12 @@
       const parser = new DOMParser();
       const doc = parser.parseFromString(xml, "application/xml");
       if (!doc) return [];
-      const links = [...doc.getElementsByTagName("Link")].map((node) => ({
+      const links = [...doc.getElementsByTagName("*")]
+        .filter((node) => (node?.localName || node?.nodeName || "").toString().trim().toLowerCase() === "link")
+        .map((node) => ({
         rel: node.getAttribute("rel") || "",
+        rels: node.getAttribute("rels") || "",
+        type: node.getAttribute("type") || "",
         href: node.getAttribute("href") || ""
       }));
       return extractXmppAltConnectionUrls(links);
