@@ -2825,3 +2825,62 @@ Move a lot more XEP code out of app.js into xeps subfolder while ideally
             complete. Please continue as long as you can, I expect 500 lines to
       leave
         app.js at the minimum before you stop
+
+## 2026-03-02T07:07:57Z
+Oh also I noticed when I open /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67 that the style stuff seems broken. I just see this list for some reason: Directory listing for /
+.discord_voice/
+.git/
+.gitignore
+.venv/
+.voice-config.json
+.worktrees/
+__pycache__/
+Add DAVE protocol support by Snazzah · Pull Request #10300 · Rapptz_discord.py · GitHub_files/
+Add support for DAVE (Discord Audio_Video end-to-end Encryption) protocol · Issue #9948 · Rapptz_discord.py.html
+Add support for DAVE (Discord Audio_Video end-to-end Encryption) protocol · Issue #9948 · Rapptz_discord.py_files/
+AGENTS.md
+bruh.wav
+bruh.wav.ffmpeg.log
+canary.discord.com.har
+discord-api-docs/
+discord-jack-voiceengine/
+discord-rtaudio/
+Discord-video-stream/
+discord.com.har
+discord_voice.zip
+downloadVoiceModule.js
+example.js
+Fensterfoto_2026-02-26_14-12-11_Xfce4-terminal.png
+Fensterfoto_2026-02-26_14-14-40_Xfce4-terminal.png
+Fensterfoto_2026-02-26_14-14-54_Xfce4-terminal.png
+file.mka
+index.js
+librediscord/
+llm-logs/
+node_modules/
+package-lock.json
+package.json
+readme.md
+Recording and processing a voice in Python _ r_Discord_Bots.html
+Recording and processing a voice in Python _ r_Discord_Bots_files/
+recordings/
+recv.raw
+requirements-selfbot.txt
+rickroll.gif
+rickroll.ogg
+run-audio-probe.sh
+run-video-experimental.sh
+run-video-probe.sh
+scripts/
+selfbot_voice.py
+send-audio.sh
+snapshot-codex-logs.sh
+speech_orig.wav
+start-selfbot.sh
+styropor gelber sack - Google Suche.html
+styropor gelber sack - Google Suche_files/
+TODO
+video-exp.log
+voice-logs/
+voice_gateway_opcodes.txt
+wheelchair.mp4

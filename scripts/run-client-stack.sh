@@ -65,6 +65,42 @@ is_http_responding() {
   return 0
 }
 
+is_expected_shitcord_client() {
+  local url="$1"
+  if command_exists curl; then
+    local html
+    html="$(curl -fsS --max-time 3 "$url" 2>/dev/null || true)"
+    [[ -n "${html}" ]] || return 1
+    if grep -qi "Directory listing for /" <<<"${html}"; then
+      return 1
+    fi
+    if grep -qi "shitcord67" <<<"${html}"; then
+      return 0
+    fi
+    if grep -qi "id=\"login-screen\"" <<<"${html}" && grep -qi "app.js" <<<"${html}"; then
+      return 0
+    fi
+    return 1
+  fi
+  if command_exists wget; then
+    local html
+    html="$(wget -qO- --timeout=3 "$url" 2>/dev/null || true)"
+    [[ -n "${html}" ]] || return 1
+    if grep -qi "Directory listing for /" <<<"${html}"; then
+      return 1
+    fi
+    if grep -qi "shitcord67" <<<"${html}"; then
+      return 0
+    fi
+    if grep -qi "id=\"login-screen\"" <<<"${html}" && grep -qi "app.js" <<<"${html}"; then
+      return 0
+    fi
+    return 1
+  fi
+  # Without an HTTP client, keep legacy optimistic behavior.
+  return 0
+}
+
 start_bg() {
   local name="$1"
   shift
@@ -197,7 +233,13 @@ CLIENT_URL="http://${CLIENT_HOST}:${CLIENT_PORT}/"
 
 if is_port_listening "${CLIENT_PORT}"; then
   if is_http_responding "${CLIENT_URL}"; then
-    echo "[run-client-stack] client server port ${CLIENT_PORT} already in use, reusing existing server."
+    if is_expected_shitcord_client "${CLIENT_URL}"; then
+      echo "[run-client-stack] client server port ${CLIENT_PORT} already in use, reusing existing shitcord67 server."
+    else
+      echo "[run-client-stack] client server port ${CLIENT_PORT} is occupied by a non-shitcord67 HTTP server." >&2
+      echo "[run-client-stack] refusing reuse so Electron can retry on fallback ports." >&2
+      exit 1
+    fi
   else
     echo "[run-client-stack] client server port ${CLIENT_PORT} is listening but ${CLIENT_URL} is not responding." >&2
     echo "[run-client-stack] refusing stale reuse; stop the process on port ${CLIENT_PORT} or pick another CLIENT_PORT." >&2
