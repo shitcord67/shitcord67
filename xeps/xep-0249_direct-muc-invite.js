@@ -97,6 +97,28 @@
     return { roomJid, reason, password, continueThread, thread };
   }
 
+  function inviteRoomJidFromBodyText(rawText = "") {
+    const text = (rawText || "").toString().trim();
+    if (!text) return "";
+    const uriMatch = text.match(/xmpp:([^\s"'<>]+)/i);
+    if (uriMatch?.[1]) {
+      const candidate = normalizeJid(`xmpp:${uriMatch[1]}`);
+      if (candidate) return candidate;
+    }
+    const joinUrlMatch = text.match(/https?:\/\/[^\s"'<>]+[?&]join(?:=[01]|=true)?[^\s"'<>]*/i);
+    if (joinUrlMatch?.[0]) {
+      try {
+        const parsed = new URL(joinUrlMatch[0]);
+        const room = parsed.searchParams.get("room") || parsed.searchParams.get("jid") || "";
+        const candidate = normalizeJid(room);
+        if (candidate) return candidate;
+      } catch {
+        // ignore malformed URL text snippets
+      }
+    }
+    return "";
+  }
+
   function parseXmppDirectMucInvite(stanza) {
     if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
     const inviteNode = xmppElementsByLocalName(stanza, "x")
@@ -104,7 +126,18 @@
         xmppNodeHasXmlns(entry, XMPP_DIRECT_MUC_INVITE_NAMESPACE)
         || (entry.parentNode === stanza && !xmppNodeXmlns(entry) && Boolean(entry.getAttribute("jid")))
       )) || null;
-    if (!inviteNode) return null;
+    if (!inviteNode) {
+      const bodyNode = xmppDirectChildByLocalName(stanza, "body");
+      const fallbackRoomJid = inviteRoomJidFromBodyText(xmppNodeText(bodyNode));
+      if (!fallbackRoomJid) return null;
+      return {
+        roomJid: fallbackRoomJid,
+        reason: "",
+        password: "",
+        thread: "",
+        continueThread: false
+      };
+    }
     const rawJidAttr = (inviteNode.getAttribute("jid") || "").toString();
     const rawUriAttr = (inviteNode.getAttribute("uri") || inviteNode.getAttribute("href") || "").toString();
     const rawRoomAttr = rawJidAttr || rawUriAttr;
@@ -164,6 +197,7 @@
     XMPP_DIRECT_MUC_INVITE_NAMESPACE,
     normalizeXmppRoomJoinArg,
     parseXmppDirectMucInviteCommandArg,
+    inviteRoomJidFromBodyText,
     parseXmppDirectMucInvite,
     rememberXmppDirectMucInviteSeen
   });
