@@ -751,7 +751,7 @@ const SLASH_COMMANDS = [
   { name: "joinxmpp", args: "<room@conference.domain>", description: "Join an XMPP MUC room and map it into XMPP Spaces." },
   { name: "leavexmpp", args: "[room@conference.domain]", description: "Leave an XMPP MUC room and remove it from XMPP Spaces." },
   { name: "invitexmpp", args: "<room@conference.domain> [| reason [| password]]", description: "Send XMPP direct room invite to current DM peer." },
-  { name: "spacesxmpp", args: "[list|open|sync|discover|join <room@conference.domain>]", description: "Manage mapped XMPP Spaces rooms and discovery." },
+  { name: "spacesxmpp", args: "[list|open|sync|discover|join <room@conference.domain>|leave [room@conference.domain]]", description: "Manage mapped XMPP Spaces rooms and discovery." },
   { name: "relay", args: "[status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url <http://...|ws://...>|room <name|clear>|roomsync|autoconnect <on|off|status>|ping]", description: "Control experimental realtime relay transport." },
   { name: "call", args: "[join|screen|link|copy] [room]", description: "Open/copy realtime AV call room for this conversation." },
   { name: "callweb", args: "[join|screen|link|copy] [room]", description: "Alias for web conference call flow." },
@@ -21890,7 +21890,7 @@ ui.messageForm.addEventListener("submit", (event) => {
         });
         return;
       }
-      showToast("Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>]", {
+      showToast("Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>|leave [room@conference.domain]]", {
         tone: "error",
         duration: 3200
       });
