@@ -106,9 +106,11 @@
       )) || null;
     if (!inviteNode) return null;
     const rawJidAttr = (inviteNode.getAttribute("jid") || "").toString();
-    const roomJid = normalizeJid(rawJidAttr);
+    const rawUriAttr = (inviteNode.getAttribute("uri") || inviteNode.getAttribute("href") || "").toString();
+    const rawRoomAttr = rawJidAttr || rawUriAttr;
+    const roomJid = normalizeJid(rawRoomAttr);
     if (!roomJid) return null;
-    const uriParams = parseXmppUriParams(rawJidAttr);
+    const uriParams = parseXmppUriParams(rawRoomAttr);
     const reasonNode = xmppDirectChildByLocalName(inviteNode, "reason");
     const passwordNode = xmppDirectChildByLocalName(inviteNode, "password");
     const reason = decodeEntities((
