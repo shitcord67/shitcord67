@@ -66,6 +66,10 @@
       const relValue = (rel || "").toString().trim();
       if (!relValue) return;
       const pushEntry = (entry) => {
+        if (typeof entry === "string") {
+          flattened.push({ rel: relValue, href: entry });
+          return;
+        }
         if (!entry || typeof entry !== "object") return;
         flattened.push({
           rel: entry.rel || relValue,
