@@ -933,11 +933,21 @@ function xmppHandleIncomingPingGet(stanza) {
   });
 }
 
-function maybeFetchXmppAvatarForJid(jid, { photoHash = "" } = {}) {
+function maybeFetchXmppAvatarForJid(jid, { photoHash = "", clearAvatar = false } = {}) {
   const bare = xmppBareJid(jid);
   if (!bare || !xmppConnection || !globalThis.$iq) return;
   const account = ensureAccountByXmppJid(bare, bare.split("@")[0] || "");
   if (!account) return;
+  if (clearAvatar) {
+    account.avatarUrl = "";
+    xmppAvatarMissingByJid.add(bare);
+    xmppAvatarHashByJid.delete(bare);
+    saveState();
+    renderDmList();
+    renderMemberList();
+    renderMessages();
+    return;
+  }
   const currentHash = (xmppAvatarHashByJid.get(bare) || "").toString();
   const requestedHash = (photoHash || "").toString().trim();
   if (!requestedHash && account.avatarUrl) return;

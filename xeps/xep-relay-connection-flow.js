@@ -81,6 +81,17 @@ function connectRelaySocket({ force = false } = {}) {
         addXmppDebugEvent("iq", "sendIQ()", trimXmppRaw(xmppSerializePayload(stanza)));
         return originalSendIQ(stanza, success, error, timeout);
       };
+      const applyXmppPhotoStateForJid = (jid, stanza) => {
+        const bare = xmppBareJid(jid);
+        if (!bare) return;
+        const state = xmppPresencePhotoState(stanza);
+        if (!state?.hasUpdate) return;
+        if (state.hash) xmppAvatarHashByJid.set(bare, state.hash);
+        maybeFetchXmppAvatarForJid(bare, {
+          photoHash: state.hash || "",
+          clearAvatar: Boolean(state.cleared)
+        });
+      };
       const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false, history = false } = {}) => {
       const from = stanza.getAttribute("from") || "";
       const type = (stanza.getAttribute("type") || "").toLowerCase();
@@ -469,9 +480,7 @@ function connectRelaySocket({ force = false } = {}) {
                 emojis: reactionPayload.emojis,
                 changed: fallbackResult.changed
               });
-              if (!ownAuthor) {
-                maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
-              }
+              if (!ownAuthor) applyXmppPhotoStateForJid(peerBare, stanza);
               return;
             }
             addXmppDebugEvent("message", "Ignored unmatched XMPP message reactions", {
@@ -514,9 +523,7 @@ function connectRelaySocket({ force = false } = {}) {
                 id: stanzaMessageId || "",
                 changed: fallbackResult.changed
               });
-              if (!ownAuthor) {
-                maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
-              }
+              if (!ownAuthor) applyXmppPhotoStateForJid(peerBare, stanza);
               return;
             }
             addXmppDebugEvent("message", "Ignored unmatched XMPP message retraction", {
@@ -562,9 +569,7 @@ function connectRelaySocket({ force = false } = {}) {
                 id: stanzaMessageId || "",
                 changed: fallbackResult.changed
               });
-              if (!ownAuthor) {
-                maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
-              }
+              if (!ownAuthor) applyXmppPhotoStateForJid(peerBare, stanza);
               return;
             }
             addXmppDebugEvent("message", "Ignored unmatched XMPP message correction", {
@@ -652,9 +657,7 @@ function connectRelaySocket({ force = false } = {}) {
               });
             }
           }
-          if (!ownAuthor) {
-            maybeFetchXmppAvatarForJid(peerBare, { photoHash: xmppPresencePhotoHash(stanza) });
-          }
+          if (!ownAuthor) applyXmppPhotoStateForJid(peerBare, stanza);
           return;
         }
         if (!isMucLike) return;
@@ -1104,11 +1107,7 @@ function connectRelaySocket({ force = false } = {}) {
             });
           }
         }
-        if (authorJid) {
-          const photoHash = xmppPresencePhotoHash(stanza);
-          if (photoHash) xmppAvatarHashByJid.set(authorJid, photoHash);
-          maybeFetchXmppAvatarForJid(authorJid, { photoHash });
-        }
+        if (authorJid) applyXmppPhotoStateForJid(authorJid, stanza);
       };
       xmppConnection.addHandler((stanza) => {
         try {
@@ -1705,9 +1704,16 @@ function connectRelaySocket({ force = false } = {}) {
               renderMemberList();
               renderMessages();
             }
-            const photoHash = xmppPresencePhotoHash(stanza);
-            if (photoHash) xmppAvatarHashByJid.set(roomJid, photoHash);
-            if (photoHash || !account.avatarUrl) maybeFetchXmppAvatarForJid(roomJid, { photoHash });
+            const photoState = xmppPresencePhotoState(stanza);
+            if (photoState.hasUpdate) {
+              if (photoState.hash) xmppAvatarHashByJid.set(roomJid, photoState.hash);
+              maybeFetchXmppAvatarForJid(roomJid, {
+                photoHash: photoState.hash || "",
+                clearAvatar: Boolean(photoState.cleared)
+              });
+            } else if (!account.avatarUrl) {
+              maybeFetchXmppAvatarForJid(roomJid, { photoHash: "" });
+            }
             addXmppDebugEvent("presence", "Peer presence updated", {
               jid: roomJid,
               type: type || "available",
@@ -1775,7 +1781,7 @@ function connectRelaySocket({ force = false } = {}) {
           const occupantId = xmppOccupantIdFromStanza(stanza);
           const role = (itemNode?.getAttribute("role") || "").toString().trim().toLowerCase();
           const affiliation = (itemNode?.getAttribute("affiliation") || "").toString().trim().toLowerCase();
-          const photoHash = xmppPresencePhotoHash(stanza);
+          const photoState = xmppPresencePhotoState(stanza);
           const occupants = xmppOccupantsByRoomJid.get(roomJid) || new Map();
           if (type === "unavailable") {
             if (occupantJid) occupants.delete(occupantJid);
@@ -1844,8 +1850,15 @@ function connectRelaySocket({ force = false } = {}) {
             });
             if (occupantJid) {
               rememberKnownXmppMucOccupantJid(roomJid, nick, occupantJid);
-              if (photoHash) xmppAvatarHashByJid.set(occupantJid, photoHash);
-              maybeFetchXmppAvatarForJid(occupantJid, { photoHash });
+              if (photoState.hash) xmppAvatarHashByJid.set(occupantJid, photoState.hash);
+              if (photoState.hasUpdate) {
+                maybeFetchXmppAvatarForJid(occupantJid, {
+                  photoHash: photoState.hash || "",
+                  clearAvatar: Boolean(photoState.cleared)
+                });
+              } else if (!account?.avatarUrl) {
+                maybeFetchXmppAvatarForJid(occupantJid, { photoHash: "" });
+              }
             } else if (nick) {
               maybeFetchXmppMucAvatar(roomJid, nick, from);
             }

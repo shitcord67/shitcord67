@@ -776,6 +776,17 @@ const xmppParseRtcIceCandidateForJingle = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOB
 const xmppPresencePhotoHash = typeof XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash === "function"
   ? XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash
   : (() => "");
+const xmppPresencePhotoState = typeof XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoState === "function"
+  ? XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoState
+  : ((stanza) => {
+    const hash = xmppPresencePhotoHash(stanza);
+    return {
+      hasUpdate: Boolean(hash),
+      hasPhotoNode: Boolean(hash),
+      hash,
+      cleared: false
+    };
+  });
 const extractXmppAltConnectionUrls = typeof XEP_0156_HOST_META_PARSE_GLOBAL.extractXmppAltConnectionUrls === "function"
   ? XEP_0156_HOST_META_PARSE_GLOBAL.extractXmppAltConnectionUrls
   : (() => []);

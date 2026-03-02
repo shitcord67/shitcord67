@@ -15,15 +15,32 @@
     return (node?.textContent || "").toString();
   }
 
-  function xmppPresencePhotoHash(stanza) {
-    if (!stanza || typeof stanza.getElementsByTagName !== "function") return "";
+  function xmppPresencePhotoState(stanza) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") {
+      return { hasUpdate: false, hasPhotoNode: false, hash: "", cleared: false };
+    }
     const node = [...stanza.getElementsByTagName("x")]
       .find((entry) => xmppNodeHasXmlns(entry, "vcard-temp:x:update")) || null;
-    const photoNode = node ? node.getElementsByTagName("photo")[0] : null;
-    return xmppNodeText(photoNode).trim();
+    if (!node) return { hasUpdate: false, hasPhotoNode: false, hash: "", cleared: false };
+    const photoNode = node.getElementsByTagName("photo")[0] || null;
+    if (!photoNode) {
+      return { hasUpdate: true, hasPhotoNode: false, hash: "", cleared: false };
+    }
+    const hash = xmppNodeText(photoNode).trim();
+    return {
+      hasUpdate: true,
+      hasPhotoNode: true,
+      hash,
+      cleared: hash.length === 0
+    };
+  }
+
+  function xmppPresencePhotoHash(stanza) {
+    return xmppPresencePhotoState(stanza).hash;
   }
 
   globalScope.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH = Object.freeze({
+    xmppPresencePhotoState,
     xmppPresencePhotoHash
   });
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {
