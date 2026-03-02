@@ -2884,3 +2884,30 @@ video-exp.log
 voice-logs/
 voice_gateway_opcodes.txt
 wheelchair.mp4
+
+## 2026-03-02 15:12:03 +0100
+15:11:37 ~/shitcord67:$ npm install
+npm warn deprecated tar@6.2.1: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@9.3.5: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+> discord-lookalike-flash@1.0.0 postinstall
+> node scripts/sync-strophe-runtime.mjs
+
+synced strophe runtime -> /home/duda/shitcord67/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+
+added 88 packages, and audited 239 packages in 1s
+
+40 packages are looking for funding
+  run `npm fund` for details
+
+3 high severity vulnerabilities
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.

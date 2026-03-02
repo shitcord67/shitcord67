@@ -43,6 +43,9 @@
     "strophe.js": "^1.6.2",
     "ws": "^8.19.0"
   },
+  "overrides": {
+    "tar": "^7.5.8"
+  },
   "devDependencies": {
     "electron": "^35.0.0"
   }
