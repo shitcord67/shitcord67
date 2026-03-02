@@ -48,7 +48,7 @@ Status labels:
 | XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`) and now parses returned `first`/`last`/`count` metadata from MAM result sets for more robust paging state updates. |
 | XEP-0048 | Bookmarks (legacy) | Partial | Legacy bookmark storage fallback is supported. |
 | XEP-0054 | vcard-temp | Partial | vCard retrieval is used for avatar lookup. |
-| XEP-0454 | OMEMO Media Sharing | Partial | Encrypts attachments with AES-256-GCM and shares `aesgcm://` URLs; inbound `aesgcm://` payloads can be decrypted/downloaded. |
+| XEP-0454 | OMEMO Media Sharing | Partial | Encrypts attachments with AES-256-GCM and shares `aesgcm://` URLs; inbound `aesgcm://` payloads can be decrypted/downloaded, and plain-text `aesgcm://` links are now auto-detected as encrypted attachments in message rendering. |
 | XEP-0384 | OMEMO Encryption | Partial | Supports OMEMO payload handling across legacy (`eu.siacs.conversations.axolotl`) and OMEMO 2 (`urn:xmpp:omemo:2`) namespaces, including dual-namespace device-list/bundle publish+fetch and namespace-aware EME markers for DM and non-anonymous MUC text payloads; anonymous-room OMEMO remains unsupported. |
 
 ## Planned / Not Yet Implemented
