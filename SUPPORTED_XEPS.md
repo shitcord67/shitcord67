@@ -24,7 +24,7 @@ Status labels:
 | XEP-0199 | XMPP Ping | Implemented | Replies to incoming ping IQs and sends periodic keepalive pings on active XMPP sessions. Incoming ping reply handling is now centralized in the XEP module (`xmppHandleIncomingPingGet`) for spec-consistent `iq/result` responses. |
 | XEP-0319 | Last User Interaction in Presence | Partial | Parses incoming `<idle xmlns='urn:xmpp:idle:1' since='...'>` hints and uses them for DM peer `Last active` metadata when available. |
 | XEP-0352 | Client State Indication | Partial | Detects CSI feature support from stream features and sends `active`/`inactive` hints based on app focus/visibility while connected. |
-| XEP-0153 | vCard-Based Avatars | Partial | Reads `vcard-temp:x:update` and fetches avatar via vCard, now distinguishing no-update vs explicit `<photo/>` clear semantics to invalidate cached avatars correctly on presence updates. Publish/update from client is not implemented. |
+| XEP-0153 | vCard-Based Avatars | Partial | Reads `vcard-temp:x:update` and fetches avatar via vCard, now distinguishing no-update vs explicit `<photo/>` clear semantics to invalidate cached avatars correctly on presence updates, with local-name tolerant parsing for variant/prefixed XML forms. Publish/update from client is not implemented. |
 | XEP-0203 | Delayed Delivery | Partial | Delay stamps are parsed and used for timeline ordering. |
 | XEP-0280 | Message Carbons | Partial | Client requests carbons and processes carbon forwarded stanzas. |
 | XEP-0115 | Entity Capabilities | Partial | Broadcasts caps hash in presence and answers disco#info queries with supported feature list. |
