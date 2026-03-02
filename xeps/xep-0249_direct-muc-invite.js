@@ -55,6 +55,30 @@
     return bare.trim().toLowerCase();
   }
 
+  function parseXmppUriParams(rawValue = "") {
+    const raw = (rawValue || "").toString().trim();
+    if (!raw) return new Map();
+    const withoutScheme = raw.replace(/^xmpp:/i, "");
+    const queryPart = withoutScheme.includes("?")
+      ? withoutScheme.slice(withoutScheme.indexOf("?") + 1)
+      : "";
+    const params = new Map();
+    queryPart.split(/[;&]/).forEach((segment) => {
+      const part = (segment || "").toString().trim();
+      if (!part) return;
+      const eqIndex = part.indexOf("=");
+      if (eqIndex < 0) {
+        params.set(part.toLowerCase(), "");
+        return;
+      }
+      const key = part.slice(0, eqIndex).trim().toLowerCase();
+      const value = part.slice(eqIndex + 1).trim();
+      if (!key) return;
+      params.set(key, decodeURIComponent(value));
+    });
+    return params;
+  }
+
   function normalizeXmppRoomJoinArg(rawArg = "", { bareJidFn = normalizeJid } = {}) {
     return bareJidFn((rawArg || "").toString().trim().replace(/^xmpp:/i, ""));
   }
@@ -81,8 +105,10 @@
         || (entry.parentNode === stanza && !xmppNodeXmlns(entry) && Boolean(entry.getAttribute("jid")))
       )) || null;
     if (!inviteNode) return null;
-    const roomJid = normalizeJid(inviteNode.getAttribute("jid") || "");
+    const rawJidAttr = (inviteNode.getAttribute("jid") || "").toString();
+    const roomJid = normalizeJid(rawJidAttr);
     if (!roomJid) return null;
+    const uriParams = parseXmppUriParams(rawJidAttr);
     const reasonNode = xmppDirectChildByLocalName(inviteNode, "reason");
     const passwordNode = xmppDirectChildByLocalName(inviteNode, "password");
     const reason = decodeEntities((
@@ -93,6 +119,8 @@
     const password = (
       inviteNode.getAttribute("password")
       || xmppNodeText(passwordNode)
+      || uriParams.get("password")
+      || uriParams.get("pwd")
       || ""
     ).toString().trim().slice(0, 120);
     const thread = (inviteNode.getAttribute("thread") || "").toString().trim().slice(0, 160);
