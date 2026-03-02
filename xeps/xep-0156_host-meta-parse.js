@@ -58,6 +58,37 @@
     return urls;
   }
 
+  function flattenHostMetaJsonLinks(rawLinks) {
+    if (Array.isArray(rawLinks)) return rawLinks;
+    if (!rawLinks || typeof rawLinks !== "object") return [];
+    const flattened = [];
+    Object.entries(rawLinks).forEach(([rel, value]) => {
+      const relValue = (rel || "").toString().trim();
+      if (!relValue) return;
+      const pushEntry = (entry) => {
+        if (!entry || typeof entry !== "object") return;
+        flattened.push({
+          rel: entry.rel || relValue,
+          rels: entry.rels || "",
+          type: entry.type || "",
+          href: entry.href || "",
+          url: entry.url || "",
+          template: entry.template || ""
+        });
+      };
+      if (Array.isArray(value)) {
+        value.forEach((entry) => pushEntry(entry));
+        return;
+      }
+      if (typeof value === "string") {
+        flattened.push({ rel: relValue, href: value });
+        return;
+      }
+      pushEntry(value);
+    });
+    return flattened;
+  }
+
   function parseXmppHostMetaXml(rawXml) {
     const xml = (rawXml || "").toString().trim();
     if (!xml) return [];
@@ -81,12 +112,13 @@
 
   function parseXmppHostMetaJson(payload) {
     const data = payload && typeof payload === "object" ? payload : {};
-    const links = Array.isArray(data.links) ? data.links : [];
+    const links = flattenHostMetaJsonLinks(data.links);
     return extractXmppAltConnectionUrls(links);
   }
 
   globalScope.SHITCORD67_XEP_0156_HOST_META_PARSE = Object.freeze({
     extractXmppAltConnectionUrls,
+    flattenHostMetaJsonLinks,
     parseXmppHostMetaXml,
     parseXmppHostMetaJson
   });
