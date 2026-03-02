@@ -47,7 +47,12 @@
   }
 
   function normalizeJid(value = "") {
-    return (value || "").toString().trim().replace(/^[^:]+:/, "").toLowerCase();
+    const raw = (value || "").toString().trim();
+    if (!raw) return "";
+    const withoutScheme = raw.replace(/^xmpp:/i, "");
+    const withoutUriPunctuation = withoutScheme.replace(/^\/\//, "").replace(/[?#].*$/, "");
+    const bare = withoutUriPunctuation.split("/")[0] || "";
+    return bare.trim().toLowerCase();
   }
 
   function normalizeXmppRoomJoinArg(rawArg = "", { bareJidFn = normalizeJid } = {}) {
@@ -91,7 +96,13 @@
       || ""
     ).toString().trim().slice(0, 120);
     const thread = (inviteNode.getAttribute("thread") || "").toString().trim().slice(0, 160);
-    const continueRaw = (inviteNode.getAttribute("continue") || "").toString().trim().toLowerCase();
+    const continueNode = xmppDirectChildByLocalName(inviteNode, "continue");
+    const continueRaw = (
+      inviteNode.getAttribute("continue")
+      || continueNode?.getAttribute?.("thread")
+      || xmppNodeText(continueNode)
+      || ""
+    ).toString().trim().toLowerCase();
     return {
       roomJid,
       reason,
