@@ -2689,3 +2689,5 @@ Move more code beloning to XEPs out of app.js into xeps subfolder while ideally 
 [2026-03-02T01:43:33+01:00] › Move a lot more XEP code out of app.js into xeps subfolder while ideally completing the implementation of a xep or at least making it more complete. Please continue as long as you can, I expect 500 lines to leave app.js at the minimum before you stop
 
 [2026-03-02T01:44:33+01:00] › Move a lot more XEP code out of app.js into xeps subfolder while ideally completing the implementation of a xep or at least making it more complete. Please continue as long as you can, I expect 500 lines to leave app.js at the minimum before you stop
+
+[2026-03-02T02:17:32+01:00] › Move a lot more XEP code out of app.js into xeps subfolder while ideally completing the implementation of a xep or at least making it more complete. Please continue as long as you can, I expect 500 lines to leave app.js at the minimum before you stop
