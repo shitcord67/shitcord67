@@ -318,7 +318,12 @@ function normalizeInlineBobCidToken(value = "") {
   const raw = (value || "").toString().trim();
   if (!raw) return "";
   const xmppWrapped = raw.match(/^xmpp:(cid:.+)$/i);
-  const normalized = (xmppWrapped?.[1] || raw).toString().trim().replace(/^cid:/i, "");
+  let normalized = (xmppWrapped?.[1] || raw).toString().trim().replace(/^cid:/i, "");
+  try {
+    normalized = decodeURIComponent(normalized);
+  } catch {
+    // Ignore malformed percent-encoding and use raw token.
+  }
   const clean = normalized
     .split("?")[0]
     .split("#")[0]
