@@ -314,9 +314,45 @@ function extractImageUrl(text) {
   return imageUrl || null;
 }
 
+function normalizeInlineBobCidToken(value = "") {
+  const raw = (value || "").toString().trim();
+  if (!raw) return "";
+  const xmppWrapped = raw.match(/^xmpp:(cid:.+)$/i);
+  const normalized = (xmppWrapped?.[1] || raw).toString().trim().replace(/^cid:/i, "");
+  const clean = normalized
+    .split("?")[0]
+    .split("#")[0]
+    .replace(/^<+|>+$/g, "")
+    .trim()
+    .toLowerCase();
+  return clean || "";
+}
+
+function resolveInlineBobCacheEntry(url = "") {
+  const cidKey = normalizeInlineBobCidToken(url);
+  if (!cidKey) return null;
+  const cache = globalThis.xmppBobCacheByCid;
+  if (!(cache instanceof Map)) return null;
+  const cached = cache.get(cidKey);
+  if (!cached || typeof cached !== "object") return null;
+  const dataUrl = (cached.url || "").toString().trim();
+  if (!/^data:/i.test(dataUrl)) return null;
+  const mime = (cached.mime || "").toString().trim().toLowerCase();
+  return {
+    cidKey,
+    url: dataUrl,
+    mime,
+    name: (cached.name || cached.cid || cidKey).toString().trim()
+  };
+}
+
 function inferAttachmentTypeFromUrl(url) {
   const raw = (url || "").toString().trim();
   if (!raw) return null;
+  const inlineBob = resolveInlineBobCacheEntry(raw);
+  if (inlineBob?.mime) {
+    return inferAttachmentTypeFromMime(inlineBob.mime) || "file";
+  }
   const xmppWrapped = raw.match(/^xmpp:(https?:\/\/.+)$/i);
   if (xmppWrapped?.[1]) return inferAttachmentTypeFromUrl(xmppWrapped[1]);
   if (typeof isAesgcmUrl === "function" && isAesgcmUrl(raw)) return "bin";
@@ -399,11 +435,14 @@ function inferAttachmentFormat(type, url) {
 function extractInlineAttachmentsFromText(text) {
   if (!text) return [];
   const results = [];
-  const matches = text.match(/(?:xmpp:https?:\/\/\S+|https?:\/\/\S+|aesgcm:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|png|jpe?g|gif|webp|bmp|avif|heic|heif|mp4|webm|mov|m4v|ogv|m3u8|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
+  const matches = text.match(/(?:xmpp:https?:\/\/\S+|https?:\/\/\S+|xmpp:cid:\S+|cid:\S+|aesgcm:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|png|jpe?g|gif|webp|bmp|avif|heic|heif|mp4|webm|mov|m4v|ogv|m3u8|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
   const seen = new Set();
   matches.forEach((raw) => {
     const cleaned = raw.replace(/[),.!?]+$/, "");
-    const normalized = cleaned.replace(/^xmpp:(https?:\/\/.+)$/i, "$1");
+    const inlineBob = resolveInlineBobCacheEntry(cleaned);
+    const normalized = inlineBob
+      ? inlineBob.url
+      : cleaned.replace(/^xmpp:(https?:\/\/.+)$/i, "$1");
     if (seen.has(normalized)) return;
     const type = inferAttachmentTypeFromUrl(normalized);
     if (!type) return;
@@ -411,7 +450,7 @@ function extractInlineAttachmentsFromText(text) {
     results.push({
       type,
       url: normalized,
-      name: normalized.split("/").pop() || normalized,
+      name: inlineBob?.name || normalized.split("/").pop() || normalized,
       format: inferAttachmentFormat(type, normalized)
     });
   });
