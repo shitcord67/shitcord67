@@ -1766,12 +1766,20 @@ function renderSlashSuggestions() {
   if (typeof globalScope.findLastEditableMessageInActiveConversation !== "function") {
     globalScope.findLastEditableMessageInActiveConversation = findLastEditableMessageInActiveConversation;
   }
+  if (typeof globalScope.bindMessageActionHoverState !== "function") {
+    globalScope.bindMessageActionHoverState = bindMessageActionHoverState;
+  }
+  if (typeof globalScope.bindMessageAttachmentControlLock !== "function") {
+    globalScope.bindMessageAttachmentControlLock = bindMessageAttachmentControlLock;
+  }
 
   globalScope.SHITCORD67_XEP_SLASH_COMMAND_RUNTIME = Object.freeze({
     handleSlashCommandRuntime,
     canEditMessageEntry,
     openMessageEditor,
-    findLastEditableMessageInActiveConversation
+    findLastEditableMessageInActiveConversation,
+    bindMessageActionHoverState,
+    bindMessageAttachmentControlLock
   });
 
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {

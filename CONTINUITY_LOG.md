@@ -6116,3 +6116,57 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
     }
   ]
 )
+2026-03-03T08:45:29+01:00
+08:41:11 ~/shitcord67:$ ./build-all.sh
+[build-platform] clean step enabled
+[build-platform] building web bundle
+
+> discord-lookalike-flash@1.0.0 mobile:build:web
+> node scripts/build-mobile-web.mjs
+
+[mobile-build] wrote .mobile-web
+[build-platform] web output: dist/web
+[build-platform] clean step enabled
+[build-platform] packaging electron app (linux/x64)
+Packaging app for platform linux x64 using electron v35.7.5
+Wrote new app to: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+[build-platform] linux desktop entry: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67.desktop
+[build-platform] electron output: dist/electron
+[build-platform] clean step enabled
+
+BUILD SUCCESSFUL in 751ms
+4 actionable tasks: 4 executed
+[build-platform] syncing android project
+
+> discord-lookalike-flash@1.0.0 mobile:android:sync
+> npm run mobile:build:web && npx cap sync android && npm run mobile:android:patch-gradle
+
+
+> discord-lookalike-flash@1.0.0 mobile:build:web
+> node scripts/build-mobile-web.mjs
+
+[mobile-build] wrote .mobile-web
+✔ Copying web assets from .mobile-web to android/app/src/main/assets/public in 15.95ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 1.17ms
+✔ copy android in 24.06ms
+✔ Updating Android plugins in 711.57μs
+✔ update android in 16.95ms
+[info] Sync finished in 0.05s
+
+> discord-lookalike-flash@1.0.0 mobile:android:patch-gradle
+> node scripts/patch-capacitor-android-gradle.cjs
+
+[patch-capacitor-android-gradle] updated 1 file(s)
+[build-platform] building debug APK
+
+> Task :capacitor-android:compileDebugJavaWithJavac
+Hinweis: Einige Eingabedateien verwenden nicht geprüfte oder unsichere Vorgänge.
+Hinweis: Wiederholen Sie die Kompilierung mit -Xlint:unchecked, um Details zu erhalten.
+[Incubating] Problems report is available at: file:///home/duda/shitcord67/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 3s
+85 actionable tasks: 76 executed, 9 up-to-date
+[build-platform] android output: dist/android/app-debug.apk
+08:42:33 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67
+... (full log provided in prompt) ...
+Devtools still not working, danctnix room still missing. Also I think you may be able to use the cli by using a socket or something, maybe calling tmux? Cause then it may have internet

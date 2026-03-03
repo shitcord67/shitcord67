@@ -2582,13 +2582,7 @@ document.addEventListener("keydown", (event) => {
     || (event.metaKey && event.altKey && key === "i");
   if (wantsDevtools) {
     event.preventDefault();
-    const runtime = typeof resolveElectronRuntime === "function"
-      ? resolveElectronRuntime({ refresh: true })
-      : null;
-    const hasElectronBridge = Boolean(runtime?.bridge || runtime?.ipcRenderer);
-    if (!hasElectronBridge) {
-      requestDevtoolsToggle();
-    }
+    requestDevtoolsToggle();
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key === "/") {
