@@ -3,7 +3,7 @@
  * This file is loaded after app.js so it can bind listeners against initialized UI state.
  */
 
-const XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || {};
+var XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || {};
 
 if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppLoginUiRuntimeBindings === "function") {
   XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppLoginUiRuntimeBindings();
@@ -1813,7 +1813,7 @@ ui.selfPresenceSelect?.addEventListener("change", () => {
   if (changed) showToast(`Presence: ${presenceLabel(next)}`);
 });
 
-const bindSettingsOpenButton = (button) => {
+function bindSettingsOpenButton(button) {
   if (!(button instanceof HTMLElement)) return;
   button.addEventListener("click", openSettingsScreen);
   button.addEventListener("pointerup", (event) => {
@@ -1825,7 +1825,7 @@ const bindSettingsOpenButton = (button) => {
     event.preventDefault();
     openSettingsScreen();
   }, { passive: false });
-};
+}
 
 bindSettingsOpenButton(ui.openSettingsBtn);
 bindSettingsOpenButton(ui.openSettingsBtnMobile);
@@ -3008,12 +3008,12 @@ ui.chatScreen?.addEventListener("touchcancel", () => {
   mobileSwipeNavState = null;
 }, { passive: true });
 
-const handleMobileLayoutViewportChange = () => {
+function handleMobileLayoutViewportChange() {
   if (!state.currentAccountId) return;
   applyPreferencesToUI();
   renderChannels();
   renderMemberList();
-};
+}
 
 if (mobileLayoutMediaQuery) {
   if (typeof mobileLayoutMediaQuery.addEventListener === "function") {
