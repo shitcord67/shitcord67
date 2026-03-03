@@ -357,7 +357,10 @@ async function openNativeCallCameraPicker(sessionId = "") {
     state.preferences = getPreferences();
     state.preferences.callVideoInputId = (select.value || "").toString().trim();
     saveState();
-    const ok = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+    const localSnapshot = xmppLocalMediaSnapshot(sid);
+    const ok = (localSnapshot.mode === "camera" && localSnapshot.videoTracks.length > 0)
+      ? await xmppReplaceLocalCameraTrackForSession(sid, state.preferences.callVideoInputId).catch(() => false)
+      : await xmppReacquireLocalMediaForSession(sid).catch(() => false);
     showToast(ok ? "Camera device updated." : "Failed to switch camera device.", {
       tone: ok ? "info" : "error",
       duration: 2600
@@ -1347,9 +1350,19 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const applyLocalInputDeviceChange = async ({ kind = "audio", label = "Microphone" } = {}) => {
     setInputSelectBusy(true);
     try {
-      const ok = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+      const localSnapshot = xmppLocalMediaSnapshot(sid);
+      let ok = false;
+      let customToast = "";
+      if (kind === "video" && localSnapshot.mode === "camera" && localSnapshot.videoTracks.length > 0) {
+        ok = await xmppReplaceLocalCameraTrackForSession(sid, getPreferences().callVideoInputId || "").catch(() => false);
+      } else if (kind === "video" && localSnapshot.mode === "screen") {
+        ok = true;
+        customToast = "Camera updated. It will apply when you switch back from screen share.";
+      } else {
+        ok = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+      }
       showToast(
-        ok ? `${label} device updated.` : `Failed to switch ${label.toLowerCase()} device.`,
+        customToast || (ok ? `${label} device updated.` : `Failed to switch ${label.toLowerCase()} device.`),
         { tone: ok ? "info" : "error", duration: 2600 }
       );
       if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);

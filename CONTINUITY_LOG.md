@@ -7184,3 +7184,4 @@ You can work on stuff you want for as long as you want. Please just never ask me
 [2026-03-03T20:51:56+01:00] Apropos call, is the screen sharing feature now working? Please really make it work if now.
 [2026-03-03T20:59:48+01:00] I will look at this later. Can you continue working on high priority item? Also important is that I get an actual selector for screen sharing in which I can see my windows and monitors and if running in web then browser tabs as well. Also ideally for webcam there should be also a picker with preview.
 [2026-03-03T21:05:18+01:00] It is actually. In Discord I can select browser tabs of Chromium. Then please work on next items
+[2026-03-03T21:17:35+01:00] Yeah, feel free to continue working on items from the TODO list.
