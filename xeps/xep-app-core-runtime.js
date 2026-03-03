@@ -377,6 +377,11 @@ function updateRuntimeSafeArea() {
     body.style.setProperty("--runtime-safe-right", nextSafeRight);
     body.style.setProperty("--runtime-safe-bottom", nextSafeBottom);
     body.style.setProperty("--runtime-safe-left", nextSafeLeft);
+    if (isMobileRuntime) {
+      body.dataset.keyboardOpen = roundedImeOffsetPx >= 64 ? "on" : "off";
+    } else if (body.dataset.keyboardOpen) {
+      body.dataset.keyboardOpen = "off";
+    }
   }
   if (isMobileRuntime && imeOffsetChanged) scheduleRuntimeKeyboardListAdjust();
 }

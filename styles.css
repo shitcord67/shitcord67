@@ -1153,6 +1153,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
   flex-wrap: wrap;
   position: relative;
   z-index: 22;
+  transition: padding 120ms ease-out, min-height 120ms ease-out, gap 120ms ease-out;
 }
 
 .chat-header h2 {
@@ -6610,6 +6611,22 @@ body[data-debug-overlay="on"] .chat-panel {
     flex: 1 1 100%;
     justify-content: flex-start;
     gap: 0.28rem;
+  }
+
+  body[data-mobile="on"][data-keyboard-open="on"] .chat-panel {
+    grid-template-rows: minmax(40px, auto) 1fr auto;
+  }
+
+  body[data-mobile="on"][data-keyboard-open="on"] .chat-header {
+    min-height: 40px;
+    padding: 0.16rem 0.44rem;
+    gap: 0.2rem;
+  }
+
+  body[data-mobile="on"][data-keyboard-open="on"] .chat-channel-description,
+  body[data-mobile="on"][data-keyboard-open="on"] #relayHeaderBadge,
+  body[data-mobile="on"][data-keyboard-open="on"] .chat-header__right {
+    display: none !important;
   }
 
   .chat-topic,
