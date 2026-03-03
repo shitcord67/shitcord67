@@ -2791,6 +2791,78 @@ document.addEventListener("keydown", (event) => {
     closeMediaLightbox();
     return;
   }
+  const activeNativeCallSid = (xmppActiveNativeCallSessionId || "").toString().trim();
+  const nativeCallLightboxOpen = Boolean(
+    activeNativeCallSid
+    && lightbox
+    && !lightbox.hidden
+    && lightbox.querySelector(".native-call-surface")
+  );
+  if (nativeCallLightboxOpen && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    const target = event.target;
+    const editableTarget = (
+      target instanceof HTMLInputElement
+      || target instanceof HTMLTextAreaElement
+      || target instanceof HTMLSelectElement
+      || (target instanceof HTMLElement && target.isContentEditable)
+    );
+    if (!editableTarget) {
+      const callKey = (event.key || "").toLowerCase();
+      if (["m", "v", "h", "r"].includes(callKey)) {
+        event.preventDefault();
+        const sid = activeNativeCallSid;
+        if (callKey === "m") {
+          void (async () => {
+            const snap = xmppLocalMediaSnapshot(sid);
+            if (snap.audioTracks.length === 0) {
+              await xmppEnsureLocalMediaAttached(sid, { screenShare: snap.mode === "screen" });
+            }
+            const next = !xmppLocalMediaSnapshot(sid).audioEnabled;
+            xmppSetLocalTracksEnabled(sid, "audio", next);
+            showToast(next ? "Mic unmuted." : "Mic muted.", { tone: "info", duration: 1400 });
+          })();
+          return;
+        }
+        if (callKey === "v") {
+          void (async () => {
+            const snap = xmppLocalMediaSnapshot(sid);
+            if (snap.videoTracks.length === 0) {
+              await xmppEnsureLocalMediaAttached(sid, { screenShare: snap.mode === "screen" });
+            }
+            const next = !xmppLocalMediaSnapshot(sid).videoEnabled;
+            xmppSetLocalTracksEnabled(sid, "video", next);
+            showToast(next ? "Camera enabled." : "Camera disabled.", { tone: "info", duration: 1400 });
+          })();
+          return;
+        }
+        if (callKey === "h") {
+          void (async () => {
+            const live = xmppCallSessionById.get(sid) || null;
+            const nextHold = !Boolean(live?.localHold);
+            const ok = await xmppSetLocalSessionHold(sid, nextHold).catch(() => false);
+            showToast(ok ? (nextHold ? "Call on hold." : "Call resumed.") : "Hold/resume failed.", {
+              tone: ok ? "info" : "error",
+              duration: 1800
+            });
+          })();
+          return;
+        }
+        if (callKey === "r") {
+          void (async () => {
+            const refreshed = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+            const reprimeQueued = xmppForceNativeCallSessionReprime(sid);
+            const transportQueued = xmppForceNativeCallSessionTransportRefresh(sid);
+            const ok = refreshed || reprimeQueued || transportQueued;
+            showToast(ok ? "Soft reconnect queued." : "Soft reconnect failed.", {
+              tone: ok ? "info" : "error",
+              duration: 2000
+            });
+          })();
+          return;
+        }
+      }
+    }
+  }
   const key = (event.key || "").toLowerCase();
   const wantsDevtools = event.key === "F12"
     || (event.ctrlKey && event.shiftKey && key === "i")

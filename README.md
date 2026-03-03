@@ -506,6 +506,7 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 - Native call surface now includes a `Reconnect` action for soft recovery (local media reacquire + Jingle re-prime + transport refresh) without ending the session.
 - Native call surface now includes `Hold/Resume` controls that signal Jingle `session-info` (`hold`/`active`) and apply matching local media behavior.
 - Native call tiles now show explicit avatar-style placeholders when video is off/held, so participant state remains readable without live video frames.
+- Native call lightbox now supports keyboard shortcuts for rapid control: `M` (mic), `V` (camera), `H` (hold/resume), `R` (soft reconnect).
 - Not implemented yet: native XMPP voice/video/screenshare signaling in-client (Jingle/WebRTC stack is not wired).
 - Tracked next: XEP-0166/XEP-0167/XEP-0353/XEP-0320 for call/media flows and XEP-0503 (Draft) for spaces hierarchy.
 - Interop target: maximize compatibility with standards-compliant XMPP clients (including Movim-centric behaviors) rather than provider-specific lock-in.
