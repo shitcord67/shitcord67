@@ -1,5 +1,6 @@
 (function initXep0198StreamManagement(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_XEP_0198_STREAM_MANAGEMENT) return;
+  const XMPP_SM_COUNTER_MOD = 0x100000000;
 
   function createXmppSmState() {
     return {
@@ -92,7 +93,7 @@
     if (!smState || !stanza) return smState;
     const name = ((stanza?.nodeName || stanza?.tagName || "").toString().trim().toLowerCase());
     if (!["message", "presence", "iq"].includes(name)) return smState;
-    smState.outboundStanzaCount = Math.max(0, Number(smState.outboundStanzaCount) || 0) + 1;
+    smState.outboundStanzaCount = incrementXmppSmCounter(smState.outboundStanzaCount);
     return smState;
   }
 
@@ -100,14 +101,24 @@
     if (!smState || !stanza) return smState;
     const name = ((stanza?.nodeName || stanza?.tagName || "").toString().trim().toLowerCase());
     if (!["message", "presence", "iq"].includes(name)) return smState;
-    smState.inboundHandledCount = Math.max(0, Number(smState.inboundHandledCount) || 0) + 1;
+    smState.inboundHandledCount = incrementXmppSmCounter(smState.inboundHandledCount);
     return smState;
   }
 
   function clampXmppSmCounter(value = 0) {
     const normalized = Math.floor(Number(value) || 0);
     if (!Number.isFinite(normalized) || normalized < 0) return 0;
-    return normalized;
+    return normalized % XMPP_SM_COUNTER_MOD;
+  }
+
+  function incrementXmppSmCounter(value = 0) {
+    return clampXmppSmCounter(clampXmppSmCounter(value) + 1);
+  }
+
+  function xmppSmCounterDistance(fromValue = 0, toValue = 0) {
+    const from = clampXmppSmCounter(fromValue);
+    const to = clampXmppSmCounter(toValue);
+    return (to - from + XMPP_SM_COUNTER_MOD) % XMPP_SM_COUNTER_MOD;
   }
 
   function sendXmppSmNode(connection = null, node = null) {
@@ -193,7 +204,7 @@
     if (!connection || !smState || !smState.enabled) return false;
     const outbound = clampXmppSmCounter(smState.outboundStanzaCount);
     const acked = clampXmppSmCounter(smState.lastAckedByServer);
-    const unacked = Math.max(0, outbound - acked);
+    const unacked = xmppSmCounterDistance(acked, outbound);
     const threshold = Math.max(1, Number(minUnacked) || 8);
     if (unacked < threshold) return false;
     return requestXmppSmAck(connection, smState, { reason: reason || "outbound-backlog", minIntervalMs }, deps);
