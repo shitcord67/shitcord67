@@ -3,10 +3,10 @@
  * This file is loaded after app.js so it can bind listeners against initialized UI state.
  */
 
-var XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || {};
+var XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL = globalThis.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || {};
 
-if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppLoginUiRuntimeBindings === "function") {
-  XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppLoginUiRuntimeBindings();
+if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppLoginUiRuntimeBindings === "function") {
+  XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppLoginUiRuntimeBindings();
 }
 
 ui.messageForm.addEventListener("submit", (event) => {
@@ -1927,8 +1927,8 @@ ui.settingsLogout.addEventListener("click", () => {
   render();
 });
 
-if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppSettingsUiRuntimeBindings === "function") {
-  XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppSettingsUiRuntimeBindings();
+if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppSettingsUiRuntimeBindings === "function") {
+  XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppSettingsUiRuntimeBindings();
 }
 
 ui.importDataInput.addEventListener("change", async () => {
