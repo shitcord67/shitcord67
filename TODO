@@ -228,7 +228,7 @@
 - [done] Allow message types that multiple people can edit (showing name and small profile icon)
 - [done] Show message editing history
 - [done] Allow moderators on guild to edit member messages; show (edited by staff) instead of just (edited)
-- Option to build a local client (electron for now or alternative to that?)
+- [done] Local desktop client path available via Electron (`npm run electron`, `npm run build:electron`, plus packaged build flow documented in README).
 - [done] Implement drag & drop on window to attach files to chat (into the preview; user needs to still press enter once to send)
 - [done] Option to store documents and texts in the picker
 - [done] Implement viewer for displaying OpenDocument formats (spreadsheet, presentation, rich text documents)
