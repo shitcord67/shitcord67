@@ -575,6 +575,7 @@ let lastRenderedConversationId = null;
 const relayLocalTypingState = {
   room: "",
   active: false,
+  chatState: "",
   lastSentAt: 0
 };
 let loginXmppProgressStartedAt = 0;

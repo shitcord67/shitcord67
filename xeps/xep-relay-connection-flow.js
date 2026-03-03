@@ -2212,7 +2212,11 @@ function syncRelayRoomForActiveConversation() {
   if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return;
   const nextRoom = relayRoomForActiveConversation();
   if (relayLocalTypingState.active && relayLocalTypingState.room && relayLocalTypingState.room !== nextRoom) {
-    publishRelayTypingState(false, { force: true, room: relayLocalTypingState.room });
+    publishRelayTypingState(false, {
+      force: true,
+      room: relayLocalTypingState.room,
+      chatState: "inactive"
+    });
   }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return;

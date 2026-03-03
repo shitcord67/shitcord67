@@ -608,6 +608,7 @@ function clearRelayTypingState() {
   if (relayLocalTypingState.active || relayLocalTypingState.room) {
     relayLocalTypingState.active = false;
     relayLocalTypingState.room = "";
+    relayLocalTypingState.chatState = "";
     relayLocalTypingState.lastSentAt = 0;
   }
 }
@@ -748,7 +749,13 @@ function xmppRelayTypingPayloadFromChatState(chatState = "", { authorUsername = 
   return XEP_0085_CHATSTATES_GLOBAL.xmppRelayTypingPayloadFromChatState(chatState, { authorUsername, authorDisplay });
 }
 
-function publishRelayTypingState(active, { force = false, room: roomOverride = "" } = {}) {
+function normalizeXmppChatStateName(value = "") {
+  const normalized = (value || "").toString().trim().toLowerCase();
+  if (!normalized) return "";
+  return ["composing", "paused", "inactive", "gone", "active"].includes(normalized) ? normalized : "";
+}
+
+function publishRelayTypingState(active, { force = false, room: roomOverride = "", chatState = "" } = {}) {
   const prefs = getPreferences();
   if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
   const current = getCurrentAccount();
@@ -756,11 +763,14 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
   const room = roomOverride || relayRoomForActiveConversation();
   if (!room) return false;
   const now = Date.now();
+  const explicitState = normalizeXmppChatStateName(chatState);
+  const chatStateNode = explicitState || xmppChatStateNodeForTypingActive(active);
   if (!force && active && relayLocalTypingState.active && relayLocalTypingState.room === room && (now - relayLocalTypingState.lastSentAt) < RELAY_TYPING_THROTTLE_MS) {
     return true;
   }
-  if (!force && !active && !relayLocalTypingState.active && relayLocalTypingState.room === room) return true;
-  const chatStateNode = xmppChatStateNodeForTypingActive(active);
+  if (!force && !active && !relayLocalTypingState.active && relayLocalTypingState.room === room && relayLocalTypingState.chatState === chatStateNode) {
+    return true;
+  }
   const typingPayload = {
     state: chatStateNode,
     active: Boolean(active),
@@ -780,6 +790,7 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
         xmppConnection.send(stanza);
         relayLocalTypingState.active = Boolean(active);
         relayLocalTypingState.room = room;
+        relayLocalTypingState.chatState = chatStateNode;
         relayLocalTypingState.lastSentAt = now;
         return true;
       }
@@ -792,6 +803,7 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     xmppConnection.send(stanza);
     relayLocalTypingState.active = Boolean(active);
     relayLocalTypingState.room = room;
+    relayLocalTypingState.chatState = chatStateNode;
     relayLocalTypingState.lastSentAt = now;
     return true;
   }
@@ -813,6 +825,7 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     });
     relayLocalTypingState.active = Boolean(active);
     relayLocalTypingState.room = room;
+    relayLocalTypingState.chatState = chatStateNode;
     relayLocalTypingState.lastSentAt = now;
     return true;
   }
@@ -828,6 +841,7 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
   if (ok) {
     relayLocalTypingState.active = Boolean(active);
     relayLocalTypingState.room = room;
+    relayLocalTypingState.chatState = chatStateNode;
     relayLocalTypingState.lastSentAt = now;
   }
   return ok;
@@ -1079,7 +1093,11 @@ function scheduleRelayReconnect() {
 
 function disconnectRelaySocket({ manual = true } = {}) {
   if (relayLocalTypingState.active && relayLocalTypingState.room) {
-    publishRelayTypingState(false, { force: true, room: relayLocalTypingState.room });
+    publishRelayTypingState(false, {
+      force: true,
+      room: relayLocalTypingState.room,
+      chatState: "inactive"
+    });
   }
   relayManualDisconnect = manual;
   clearRelayReconnectTimer();

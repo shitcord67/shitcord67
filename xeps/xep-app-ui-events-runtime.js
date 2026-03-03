@@ -145,7 +145,7 @@ if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppLoginUiRuntimeBindings ===
 
 ui.messageForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  publishRelayTypingState(false, { force: true });
+  publishRelayTypingState(false, { force: true, chatState: "active" });
   const conversation = getActiveConversation();
   const text = trimTextForConversation((ui.messageInput.value || "").trim(), conversation);
   const account = getCurrentAccount();
@@ -339,7 +339,7 @@ ui.messageInput.addEventListener("input", () => {
 });
 
 ui.messageInput.addEventListener("blur", () => {
-  publishRelayTypingState(false, { force: true });
+  publishRelayTypingState(false, { force: true, chatState: "inactive" });
 });
 
 window.addEventListener("keydown", (event) => {
