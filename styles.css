@@ -5055,12 +5055,131 @@ body[data-compact-members="on"] .member-item {
   background: #1c2231;
 }
 
+.native-call-surface__device-preview {
+  border: 1px solid #4c5773;
+  background: #252d40;
+  color: #e8efff;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 0.16rem 0.5rem;
+}
+
 .native-call-surface__select {
   background: transparent;
   border: 0;
   color: #eaf0ff;
   font-size: 0.7rem;
   outline: none;
+}
+
+.native-call-picker-dialog {
+  border: 1px solid #334059;
+  border-radius: 16px;
+  padding: 0;
+  background: #121823;
+  color: #e8efff;
+  width: min(920px, calc(100vw - 2rem));
+}
+
+.native-call-picker-dialog::backdrop {
+  background: rgba(8, 12, 20, 0.76);
+  backdrop-filter: blur(3px);
+}
+
+.native-call-picker-dialog__shell {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+}
+
+.native-call-picker-dialog__shell h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.native-call-picker-dialog__meta {
+  margin: 0;
+  color: #9cadcf;
+  font-size: 0.78rem;
+}
+
+.native-call-picker-dialog__meta.is-error {
+  color: #ffb4be;
+}
+
+.native-call-picker-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.native-call-picker-dialog__actions button {
+  border: 1px solid #4a5879;
+  background: #253048;
+  color: #f1f5ff;
+  border-radius: 10px;
+  padding: 0.36rem 0.62rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.native-call-source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.5rem;
+  max-height: min(52vh, 560px);
+  overflow: auto;
+}
+
+.native-call-source-card {
+  border: 1px solid #31405d;
+  background: #1a2232;
+  border-radius: 12px;
+  padding: 0.4rem;
+  color: #e6ecff;
+  text-align: left;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.native-call-source-card:hover,
+.native-call-source-card:focus-visible {
+  border-color: #5471aa;
+  background: #222d44;
+}
+
+.native-call-source-card__thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #0f131d;
+  border: 1px solid #303a50;
+}
+
+.native-call-source-card__body {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.native-call-source-card__body strong {
+  font-size: 0.76rem;
+}
+
+.native-call-source-card__body small {
+  color: #95a8cf;
+  font-size: 0.68rem;
+}
+
+.native-call-camera-preview {
+  width: 100%;
+  max-height: min(52vh, 420px);
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid #32415d;
+  background: #0e131d;
 }
 
 .native-call-surface__grid {

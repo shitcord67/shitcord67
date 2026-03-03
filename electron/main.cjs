@@ -260,6 +260,9 @@ let isShuttingDown = false;
 let securityHeadersInstalled = false;
 let displayMediaRequestHandlerInstalled = false;
 let permissionHandlersInstalled = false;
+let preferredDisplayCaptureSourceId = "";
+let preferredDisplayCaptureSourceSetAt = 0;
+const PREFERRED_DISPLAY_CAPTURE_TTL_MS = 45_000;
 let activeClientPort = CLIENT_PORT;
 let activeGatewayPort = GATEWAY_PORT;
 let lastStackExitCode = null;
@@ -533,6 +536,17 @@ function pickPreferredDisplayCaptureSource(sources = []) {
     .sort((a, b) => scoreDisplayCaptureSource(b) - scoreDisplayCaptureSource(a))[0] || null;
 }
 
+function consumePreferredDisplayCaptureSourceId() {
+  const now = Date.now();
+  const sourceId = (preferredDisplayCaptureSourceId || "").toString().trim();
+  const age = now - (Number(preferredDisplayCaptureSourceSetAt) || 0);
+  preferredDisplayCaptureSourceId = "";
+  preferredDisplayCaptureSourceSetAt = 0;
+  if (!sourceId) return "";
+  if (age <= 0 || age > PREFERRED_DISPLAY_CAPTURE_TTL_MS) return "";
+  return sourceId;
+}
+
 function installDisplayMediaRequestHandler() {
   if (displayMediaRequestHandlerInstalled) return;
   const defaultSession = session.defaultSession;
@@ -549,7 +563,12 @@ function installDisplayMediaRequestHandler() {
             thumbnailSize: { width: 0, height: 0 },
             fetchWindowIcons: false
           });
-          const selectedSource = pickPreferredDisplayCaptureSource(sources);
+          const preferredSourceId = consumePreferredDisplayCaptureSourceId();
+          const selectedSource = (
+            preferredSourceId
+              ? sources.find((source) => (source?.id || "").toString().trim() === preferredSourceId) || null
+              : null
+          ) || pickPreferredDisplayCaptureSource(sources);
           if (!selectedSource) {
             callback({});
             return;
@@ -564,7 +583,7 @@ function installDisplayMediaRequestHandler() {
           }
         }
       },
-      { useSystemPicker: true }
+      { useSystemPicker: false }
     );
     displayMediaRequestHandlerInstalled = true;
     log("display media request handler installed");
@@ -853,6 +872,43 @@ async function createMainWindow({ startupWarning = "" } = {}) {
   ipcMain.on("s67-toggle-devtools", (event) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
     toggleDevtoolsForWindow(senderWindow || mainWindow, { dedupeMs: 900 });
+  });
+  ipcMain.removeHandler("s67-list-display-capture-sources");
+  ipcMain.handle("s67-list-display-capture-sources", async () => {
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ["screen", "window"],
+        thumbnailSize: { width: 480, height: 270 },
+        fetchWindowIcons: true
+      });
+      const mapped = sources.map((source) => ({
+        id: (source?.id || "").toString(),
+        name: (source?.name || "").toString() || "Display source",
+        type: String(source?.id || "").toLowerCase().startsWith("screen:") ? "screen" : "window",
+        displayId: (source?.display_id || "").toString(),
+        thumbnailDataUrl: source?.thumbnail?.isEmpty?.() ? "" : (source?.thumbnail?.toDataURL?.() || ""),
+        iconDataUrl: source?.appIcon?.isEmpty?.() ? "" : (source?.appIcon?.toDataURL?.() || "")
+      }));
+      return { ok: true, sources: mapped };
+    } catch (error) {
+      return {
+        ok: false,
+        error: String(error?.message || error || "Failed to enumerate display capture sources."),
+        sources: []
+      };
+    }
+  });
+  ipcMain.removeHandler("s67-set-display-capture-source");
+  ipcMain.handle("s67-set-display-capture-source", async (_event, payload) => {
+    const sourceId = (payload?.sourceId || payload || "").toString().trim();
+    if (!sourceId) {
+      preferredDisplayCaptureSourceId = "";
+      preferredDisplayCaptureSourceSetAt = 0;
+      return { ok: false, error: "Missing display source id." };
+    }
+    preferredDisplayCaptureSourceId = sourceId;
+    preferredDisplayCaptureSourceSetAt = Date.now();
+    return { ok: true };
   });
   ipcMain.removeHandler("s67-read-local-xmpp-profiles");
   ipcMain.handle("s67-read-local-xmpp-profiles", async () => {

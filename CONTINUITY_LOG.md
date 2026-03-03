@@ -7182,3 +7182,4 @@ You can work on stuff you want for as long as you want. Please just never ask me
 You can work on stuff you want for as long as you want. Please just never ask me and never stop working on different stuff. If you are done with something, switch to the next thing you like to work on. Please prefer fancy new stuff useful for Discord-like functionality and high priority
 [2026-03-03T20:51:07+01:00] Please continue
 [2026-03-03T20:51:56+01:00] Apropos call, is the screen sharing feature now working? Please really make it work if now.
+[2026-03-03T20:59:48+01:00] I will look at this later. Can you continue working on high priority item? Also important is that I get an actual selector for screen sharing in which I can see my windows and monitors and if running in web then browser tabs as well. Also ideally for webcam there should be also a picker with preview.

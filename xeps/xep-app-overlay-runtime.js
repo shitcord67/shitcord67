@@ -175,6 +175,10 @@ function closeMediaLightbox({ force = false } = {}) {
   overlay.hidden = true;
   const stage = overlay.querySelector(".media-lightbox__stage");
   if (stage) stage.innerHTML = "";
+  if (typeof closeNativeCallPickerDialogByClass === "function") {
+    closeNativeCallPickerDialogByClass("native-call-picker-dialog--screen");
+    closeNativeCallPickerDialogByClass("native-call-picker-dialog--camera");
+  }
   const activeNativeSid = (xmppActiveNativeCallSessionId || "").toString().trim();
   if (activeNativeSid) stopXmppNativeCallTileSpeakingMonitor(activeNativeSid);
   xmppActiveNativeCallSessionId = "";

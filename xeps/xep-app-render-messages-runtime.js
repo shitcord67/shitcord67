@@ -504,7 +504,13 @@ function renderMessages() {
           screenBtn.title = cap.reason || "Screen share unavailable";
         }
         screenBtn.addEventListener("click", async () => {
-          await xmppSwitchLocalMediaMode(sessionId, localSnapshot.mode === "screen" ? "camera" : "screen");
+          if (localSnapshot.mode === "screen") {
+            await xmppSwitchLocalMediaMode(sessionId, "camera");
+          } else if (typeof openNativeCallScreenSharePicker === "function") {
+            await openNativeCallScreenSharePicker(sessionId);
+          } else {
+            await xmppSwitchLocalMediaMode(sessionId, "screen");
+          }
           renderMessages();
         });
         controls.appendChild(screenBtn);

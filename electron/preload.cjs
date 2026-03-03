@@ -31,6 +31,27 @@ contextBridge.exposeInMainWorld("s67Electron", {
   toggleDevtools() {
     ipcRenderer.send("s67-toggle-devtools");
   },
+  async listDisplayCaptureSources() {
+    try {
+      return await ipcRenderer.invoke("s67-list-display-capture-sources");
+    } catch (error) {
+      return {
+        ok: false,
+        error: String(error?.message || error || "IPC bridge unavailable"),
+        sources: []
+      };
+    }
+  },
+  async setDisplayCaptureSource(sourceId = "") {
+    try {
+      return await ipcRenderer.invoke("s67-set-display-capture-source", { sourceId });
+    } catch (error) {
+      return {
+        ok: false,
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
   async readLocalXmppProfiles() {
     try {
       return await ipcRenderer.invoke("s67-read-local-xmpp-profiles");

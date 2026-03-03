@@ -86,6 +86,245 @@ function showXmppScreenShareWarning(message = "") {
   showToast(text, { tone: "info", duration: 3600 });
 }
 
+function closeNativeCallPickerDialogByClass(className = "") {
+  const selector = (className || "").toString().trim();
+  if (!selector) return;
+  document.querySelectorAll(`dialog.${selector}`).forEach((dialog) => {
+    if (!(dialog instanceof HTMLDialogElement)) return;
+    try {
+      if (dialog.open) dialog.close();
+    } catch {
+      // Ignore close failures.
+    }
+    dialog.remove();
+  });
+}
+
+function resolveNativeCallElectronBridge() {
+  const runtime = resolveElectronRuntime({ refresh: true });
+  const bridge = runtime?.bridge || null;
+  if (!bridge || typeof bridge !== "object") return null;
+  return bridge;
+}
+
+async function openNativeCallScreenSharePicker(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const bridge = resolveNativeCallElectronBridge();
+  if (!bridge || typeof bridge.listDisplayCaptureSources !== "function" || typeof bridge.setDisplayCaptureSource !== "function") {
+    showToast("Browser screen picker will show tabs/windows/screens.", { tone: "info", duration: 2600 });
+    return xmppSwitchLocalMediaMode(sid, "screen");
+  }
+  closeNativeCallPickerDialogByClass("native-call-picker-dialog--screen");
+  const dialog = document.createElement("dialog");
+  dialog.className = "native-call-picker-dialog native-call-picker-dialog--screen";
+  const shell = document.createElement("div");
+  shell.className = "native-call-picker-dialog__shell";
+  const heading = document.createElement("h3");
+  heading.textContent = "Share Screen";
+  const sub = document.createElement("p");
+  sub.className = "native-call-picker-dialog__meta";
+  sub.textContent = "Choose a monitor or window.";
+  const grid = document.createElement("div");
+  grid.className = "native-call-source-grid";
+  const status = document.createElement("p");
+  status.className = "native-call-picker-dialog__meta";
+  status.textContent = "Loading capture sources…";
+  const actions = document.createElement("div");
+  actions.className = "native-call-picker-dialog__actions";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", () => dialog.close());
+  actions.appendChild(cancelBtn);
+  shell.appendChild(heading);
+  shell.appendChild(sub);
+  shell.appendChild(status);
+  shell.appendChild(grid);
+  shell.appendChild(actions);
+  dialog.appendChild(shell);
+  dialog.addEventListener("close", () => {
+    dialog.remove();
+  });
+  document.body.appendChild(dialog);
+  try {
+    dialog.showModal();
+  } catch {
+    dialog.setAttribute("open", "open");
+  }
+  const listed = await bridge.listDisplayCaptureSources();
+  if (!listed?.ok) {
+    status.textContent = listed?.error || "Failed to list display capture sources.";
+    status.classList.add("is-error");
+    return false;
+  }
+  const sources = Array.isArray(listed.sources) ? listed.sources : [];
+  if (sources.length <= 0) {
+    status.textContent = "No display sources are available right now.";
+    status.classList.add("is-error");
+    return false;
+  }
+  status.textContent = "Select a source to start sharing.";
+  grid.innerHTML = "";
+  sources.forEach((source, index) => {
+    const sourceId = (source?.id || "").toString().trim();
+    if (!sourceId) return;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "native-call-source-card";
+    const thumb = document.createElement("img");
+    thumb.className = "native-call-source-card__thumb";
+    thumb.alt = (source?.name || `source-${index + 1}`).toString();
+    thumb.src = (source?.thumbnailDataUrl || "").toString().trim() || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    const body = document.createElement("span");
+    body.className = "native-call-source-card__body";
+    const title = document.createElement("strong");
+    title.textContent = (source?.name || `Source ${index + 1}`).toString().trim() || `Source ${index + 1}`;
+    const meta = document.createElement("small");
+    meta.textContent = source?.type === "screen" ? "Monitor" : "Window";
+    body.appendChild(title);
+    body.appendChild(meta);
+    card.appendChild(thumb);
+    card.appendChild(body);
+    card.addEventListener("click", async () => {
+      const saved = await bridge.setDisplayCaptureSource(sourceId);
+      if (!saved?.ok) {
+        showToast(saved?.error || "Could not queue selected display source.", { tone: "error", duration: 2600 });
+        return;
+      }
+      dialog.close();
+      await xmppSwitchLocalMediaMode(sid, "screen");
+    });
+    grid.appendChild(card);
+  });
+  return true;
+}
+
+function buildNativeCallDeviceSelectOptions(select, items, selectedId, fallbackLabel) {
+  select.innerHTML = "";
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = fallbackLabel;
+  select.appendChild(defaultOption);
+  let hasSelected = !selectedId;
+  (Array.isArray(items) ? items : []).forEach((device, index) => {
+    const option = document.createElement("option");
+    option.value = (device?.id || "").toString();
+    option.textContent = formatMediaDeviceLabel(device, `${fallbackLabel} ${index + 1}`);
+    if (option.value === selectedId) {
+      option.selected = true;
+      hasSelected = true;
+    }
+    select.appendChild(option);
+  });
+  if (selectedId && !hasSelected) {
+    const option = document.createElement("option");
+    option.value = selectedId;
+    option.textContent = "Previously selected (missing)";
+    option.selected = true;
+    select.appendChild(option);
+  }
+}
+
+async function openNativeCallCameraPicker(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    showToast("Camera preview is unavailable in this runtime.", { tone: "error", duration: 2600 });
+    return false;
+  }
+  await refreshMediaDeviceSnapshot({ force: false });
+  closeNativeCallPickerDialogByClass("native-call-picker-dialog--camera");
+  const dialog = document.createElement("dialog");
+  dialog.className = "native-call-picker-dialog native-call-picker-dialog--camera";
+  const shell = document.createElement("div");
+  shell.className = "native-call-picker-dialog__shell";
+  const heading = document.createElement("h3");
+  heading.textContent = "Camera Preview";
+  const select = document.createElement("select");
+  select.className = "native-call-surface__select";
+  const prefs = getPreferences();
+  buildNativeCallDeviceSelectOptions(select, mediaDeviceSnapshot.video || [], prefs.callVideoInputId || "", "Default Camera");
+  const status = document.createElement("p");
+  status.className = "native-call-picker-dialog__meta";
+  const preview = document.createElement("video");
+  preview.className = "native-call-camera-preview";
+  preview.autoplay = true;
+  preview.muted = true;
+  preview.playsInline = true;
+  const actions = document.createElement("div");
+  actions.className = "native-call-picker-dialog__actions";
+  const useBtn = document.createElement("button");
+  useBtn.type = "button";
+  useBtn.textContent = "Use Selected";
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.textContent = "Close";
+  actions.appendChild(useBtn);
+  actions.appendChild(closeBtn);
+  shell.appendChild(heading);
+  shell.appendChild(select);
+  shell.appendChild(status);
+  shell.appendChild(preview);
+  shell.appendChild(actions);
+  dialog.appendChild(shell);
+  let previewStream = null;
+  const stopPreview = () => {
+    if (!(previewStream instanceof MediaStream)) return;
+    previewStream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+      } catch {
+        // Ignore preview stop failures.
+      }
+    });
+    previewStream = null;
+    preview.srcObject = null;
+  };
+  const startPreview = async () => {
+    stopPreview();
+    const targetId = (select.value || "").toString().trim();
+    const videoConstraint = targetId ? { deviceId: { exact: targetId } } : true;
+    try {
+      previewStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraint });
+      preview.srcObject = previewStream;
+      status.textContent = "Preview active.";
+      status.classList.remove("is-error");
+    } catch (error) {
+      status.textContent = describeMediaAccessError(error, "Could not start camera preview.");
+      status.classList.add("is-error");
+    }
+  };
+  select.addEventListener("change", () => {
+    void startPreview();
+  });
+  useBtn.addEventListener("click", async () => {
+    state.preferences = getPreferences();
+    state.preferences.callVideoInputId = (select.value || "").toString().trim();
+    saveState();
+    const ok = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+    showToast(ok ? "Camera device updated." : "Failed to switch camera device.", {
+      tone: ok ? "info" : "error",
+      duration: 2600
+    });
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    dialog.close();
+  });
+  closeBtn.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => {
+    stopPreview();
+    dialog.remove();
+  });
+  document.body.appendChild(dialog);
+  try {
+    dialog.showModal();
+  } catch {
+    dialog.setAttribute("open", "open");
+  }
+  await startPreview();
+  return true;
+}
+
 function showXmppMediaDeviceChangeToast(ok = true) {
   const now = Date.now();
   if (now - xmppMediaDeviceChangeToastAt < 3200) return;
@@ -913,7 +1152,11 @@ function renderNativeXmppCallSurface(sessionId = "") {
       showToast(cap.reason || "Screen sharing unavailable.", { tone: "error" });
       return;
     }
-    await xmppSwitchLocalMediaMode(sid, screenActive ? "camera" : "screen");
+    if (screenActive) {
+      await xmppSwitchLocalMediaMode(sid, "camera");
+      return;
+    }
+    await openNativeCallScreenSharePicker(sid);
   });
   const audioTestBtn = document.createElement("button");
   audioTestBtn.type = "button";
@@ -1039,34 +1282,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
   videoSelect.className = "native-call-surface__select";
   const outputSelect = document.createElement("select");
   outputSelect.className = "native-call-surface__select";
-  const buildSelectOptions = (select, items, selectedId, fallbackLabel) => {
-    select.innerHTML = "";
-    const defaultOption = document.createElement("option");
-    defaultOption.value = "";
-    defaultOption.textContent = fallbackLabel;
-    select.appendChild(defaultOption);
-    let hasSelected = !selectedId;
-    items.forEach((device, index) => {
-      const option = document.createElement("option");
-      option.value = device.id;
-      option.textContent = formatMediaDeviceLabel(device, `${fallbackLabel} ${index + 1}`);
-      if (device.id === selectedId) {
-        option.selected = true;
-        hasSelected = true;
-      }
-      select.appendChild(option);
-    });
-    if (selectedId && !hasSelected) {
-      const option = document.createElement("option");
-      option.value = selectedId;
-      option.textContent = "Previously selected (missing)";
-      option.selected = true;
-      select.appendChild(option);
-    }
-  };
-  buildSelectOptions(audioSelect, mediaDeviceSnapshot.audio || [], prefs.callAudioInputId, "Default Mic");
-  buildSelectOptions(videoSelect, mediaDeviceSnapshot.video || [], prefs.callVideoInputId, "Default Camera");
-  buildSelectOptions(outputSelect, mediaDeviceSnapshot.output || [], prefs.callAudioOutputId, "Default Speaker");
+  buildNativeCallDeviceSelectOptions(audioSelect, mediaDeviceSnapshot.audio || [], prefs.callAudioInputId, "Default Mic");
+  buildNativeCallDeviceSelectOptions(videoSelect, mediaDeviceSnapshot.video || [], prefs.callVideoInputId, "Default Camera");
+  buildNativeCallDeviceSelectOptions(outputSelect, mediaDeviceSnapshot.output || [], prefs.callAudioOutputId, "Default Speaker");
   const setInputSelectBusy = (busy = false) => {
     audioSelect.disabled = busy;
     videoSelect.disabled = busy;
@@ -1123,6 +1341,15 @@ function renderNativeXmppCallSurface(sessionId = "") {
   videoWrap.className = "native-call-surface__device";
   videoWrap.textContent = "Cam";
   videoWrap.appendChild(videoSelect);
+  const camPreviewBtn = document.createElement("button");
+  camPreviewBtn.type = "button";
+  camPreviewBtn.className = "native-call-surface__device-preview";
+  camPreviewBtn.textContent = "Preview";
+  camPreviewBtn.title = "Open camera picker with live preview";
+  camPreviewBtn.addEventListener("click", () => {
+    void openNativeCallCameraPicker(sid);
+  });
+  videoWrap.appendChild(camPreviewBtn);
   const outputWrap = document.createElement("label");
   outputWrap.className = "native-call-surface__device";
   outputWrap.textContent = "Out";

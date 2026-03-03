@@ -314,6 +314,7 @@ Notes:
 - XMPP console runtime snapshot now includes active native call session diagnostics for quicker interop troubleshooting.
 - Native Jingle session-initiate/session-accept now attempt local media attachment to peer connections (`getUserMedia` for AV, `getDisplayMedia` for screen mode with optional mic merge) as practical groundwork toward real in-client media.
 - Native XMPP sessions now open an in-app media surface (local preview + remote stream tiles) with quick actions (`Copy SID`, `Refresh`, `Debug`, `End`) for real-time AV/screen-share validation.
+- Native call surface now includes an Electron in-app screen source picker (window/monitor thumbnails) and a camera picker dialog with live preview before applying; web runtime keeps the browser-native tab/window/screen chooser flow.
 - The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
