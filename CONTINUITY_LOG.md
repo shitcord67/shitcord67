@@ -6170,3 +6170,12 @@ BUILD SUCCESSFUL in 3s
 08:42:33 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67
 ... (full log provided in prompt) ...
 Devtools still not working, danctnix room still missing. Also I think you may be able to use the cli by using a socket or something, maybe calling tmux? Cause then it may have internet
+
+## 2026-03-03T08:16:00Z
+Oh also why is the loading of SWF soooo slow?
+
+## 2026-03-03T08:16:05Z
+Performance is really bad
+
+## 2026-03-03T08:16:10Z
+Like even the file picker is slow when I open it due to that I think

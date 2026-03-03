@@ -201,8 +201,6 @@ if (IS_PACKAGED_LINUX) {
 }
 
 if (process.platform === "linux") {
-  // Always force /tmp-backed shared memory on Linux for better compatibility in sandboxed/containers.
-  app.commandLine.appendSwitch("disable-dev-shm-usage");
   const runtimeDir = EARLY_RUNTIME_DIR || resolveWritableRuntimeDir();
   if (runtimeDir) {
     applyEarlyRuntimeEnv(runtimeDir);

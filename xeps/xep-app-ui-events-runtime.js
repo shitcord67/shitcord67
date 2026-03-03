@@ -762,11 +762,19 @@ ui.messageInput.addEventListener("keydown", (event) => {
         return;
       }
       event.preventDefault();
-      if (selected) applySlashCompletion(selected.name);
+      if (selected && typeof applySlashCompletion === "function") {
+        applySlashCompletion(selected.name);
+      } else if (selected) {
+        ui.messageInput.value = `/${selected.name} `;
+        slashSelectionIndex = 0;
+        renderSlashSuggestions();
+      }
     } else {
       event.preventDefault();
       const selected = suggestion.items[mentionSelectionIndex] || suggestion.items[0];
-      if (selected) applyMentionCompletion(selected);
+      if (selected && typeof applyMentionCompletion === "function") {
+        applyMentionCompletion(selected);
+      }
     }
   }
 });

@@ -134,7 +134,7 @@
     if (!bare || !bare.includes("@")) return false;
     const mucService = resolveXmppMucServiceFn();
     if (mucService && bare.endsWith(`@${mucService}`)) return true;
-    return /@(?:conference|muc)\./i.test(bare);
+    return /@(?:conference|muc|chat)\./i.test(bare);
   }
 
   function isXmppMucRoomJid(roomJid, {

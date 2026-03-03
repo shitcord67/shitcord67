@@ -1757,6 +1757,12 @@ function renderSlashSuggestions() {
   if (typeof globalScope.renderSlashSuggestions !== "function") {
     globalScope.renderSlashSuggestions = renderSlashSuggestions;
   }
+  if (typeof globalScope.applySlashCompletion !== "function") {
+    globalScope.applySlashCompletion = applySlashCompletion;
+  }
+  if (typeof globalScope.applyMentionCompletion !== "function") {
+    globalScope.applyMentionCompletion = applyMentionCompletion;
+  }
   if (typeof globalScope.canEditMessageEntry !== "function") {
     globalScope.canEditMessageEntry = canEditMessageEntry;
   }
@@ -1775,6 +1781,8 @@ function renderSlashSuggestions() {
 
   globalScope.SHITCORD67_XEP_SLASH_COMMAND_RUNTIME = Object.freeze({
     handleSlashCommandRuntime,
+    applySlashCompletion,
+    applyMentionCompletion,
     canEditMessageEntry,
     openMessageEditor,
     findLastEditableMessageInActiveConversation,

@@ -21,6 +21,8 @@ function getAccountByXmppJid(jid) {
 function ensureAccountByXmppJid(jid, displayName = "") {
   const bare = normalizeXmppJid(jid).toLowerCase();
   const normalizedDisplayName = decodeHtmlEntities((displayName || "").toString()).slice(0, 32);
+  const localPart = bare.split("@")[0] || "";
+  const localUsername = normalizeUsername(localPart);
   if (!bare) return null;
   const mapped = xmppRosterByJid.get(bare);
   if (mapped) {
@@ -37,6 +39,20 @@ function ensureAccountByXmppJid(jid, displayName = "") {
     existing.xmppJid = bare;
     xmppRosterByJid.set(bare, { accountId: existing.id, groups: [] });
     return existing;
+  }
+  if (localUsername) {
+    const unresolvedLocal = state.accounts.find((account) => {
+      if (!account || normalizeXmppJid(account.xmppJid || "")) return false;
+      const usernameMatch = normalizeUsername(account.username || "") === localUsername;
+      const displayMatch = normalizeUsername(account.displayName || "") === localUsername;
+      return usernameMatch || displayMatch;
+    }) || null;
+    if (unresolvedLocal) {
+      unresolvedLocal.xmppJid = bare;
+      if (normalizedDisplayName) unresolvedLocal.displayName = normalizedDisplayName || unresolvedLocal.displayName;
+      xmppRosterByJid.set(bare, { accountId: unresolvedLocal.id, groups: [] });
+      return unresolvedLocal;
+    }
   }
   const username = xmppUserLabelFromJid(bare, bare.split("@")[0] || "xmpp");
   let account = getAccountByUsername(username);
