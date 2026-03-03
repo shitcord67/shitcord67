@@ -109,7 +109,7 @@
 - [done] Added native local media capture/attachment scaffolding for Jingle sessions (`getUserMedia` AV + `getDisplayMedia` screen mode) with session cleanup.
 - [done] Added native in-app XMPP call media surface (local preview + remote tiles) with end/refresh/session-id actions.
 - [priority] Map real browser SDP offer/answer details back into outbound Jingle content (instead of synthetic content-only mapping) for stronger interop.
-- [priority] Polish native call surface UX for web/Linux/Android (responsive layouts, reconnect indicators, device-change handling).
+- [done] Polished native call surface UX for web/Linux/Android (responsive layouts, reconnect indicators, device-change handling).
 - [done] Added automatic media-device-change handling for active native XMPP calls (device snapshot refresh + local media reacquire + call-surface refresh).
 - [done] Added native call reconnect warning banner with one-click `Recover` action (reacquire local media + force transport refresh when `pc`/`ice` enters unstable states).
 - [done] Upgraded native call mic/cam device switching to live in-session apply flow (busy-state guarded reacquire + success/failure diagnostics + immediate surface refresh).
@@ -125,7 +125,7 @@
 - [done] Added explicit screen-share audio controls (system/tab audio + optional mic mix) with persisted preferences and runtime capture wiring.
 - [done] Added live in-session camera device track replacement (camera-mode swap without full local media teardown; screen-share mode defers camera apply).
 - [done] Added live in-session microphone device track replacement in camera mode (screen-share mode falls back to full reacquire for mixed audio path).
-- [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
+- [done] Added explicit in-call media controls (camera/mic/screen toggles, track replacement) with Jingle `content-modify` propagation on media-state changes.
 - [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).
 - [priority] (High) Track and implement XEP-0503 (Draft) spaces model for Discord-like server/space hierarchy.

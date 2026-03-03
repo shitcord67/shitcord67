@@ -5329,6 +5329,53 @@ body[data-compact-members="on"] .member-item {
   padding: 0.7rem;
 }
 
+@media (max-width: 760px) {
+  .native-call-surface {
+    gap: 0.5rem;
+  }
+
+  .native-call-surface__header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+  }
+
+  .native-call-surface__actions {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .native-call-surface__actions button {
+    font-size: 0.72rem;
+    padding: 0.28rem 0.62rem;
+  }
+
+  .native-call-surface__devices {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .native-call-surface__device {
+    justify-content: space-between;
+  }
+
+  .native-call-picker-dialog {
+    width: min(100vw - 0.7rem, 1000px);
+    border-radius: 12px;
+  }
+
+  .native-call-picker-dialog__shell {
+    padding: 0.62rem;
+  }
+
+  .native-call-source-grid {
+    grid-template-columns: 1fr;
+    max-height: 52vh;
+  }
+}
+
 .native-call-debug {
   border: 1px solid #36445f;
   border-radius: 10px;
