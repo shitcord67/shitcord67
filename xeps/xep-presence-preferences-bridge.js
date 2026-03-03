@@ -1417,7 +1417,32 @@ function applyRelayIncomingMessage(packet) {
     replyTo: replyMeta
   };
   if (room.startsWith("dm:")) {
-    const thread = getOrCreateDmThread(current, remoteAccount);
+    let dmPeerAccount = remoteAccount;
+    if (dmPeerAccount?.id === current.id) {
+      const existingThread = findDmThreadByRelayRoom(room, current);
+      const existingPeerId = existingThread?.participantIds?.find((id) => id && id !== current.id) || "";
+      const existingPeer = existingPeerId ? getAccountById(existingPeerId) : null;
+      if (existingPeer?.id && existingPeer.id !== current.id) {
+        dmPeerAccount = existingPeer;
+      } else {
+        const roomParts = room
+          .slice(3)
+          .split(":")
+          .map((value) => normalizeUsername(value || ""))
+          .filter(Boolean);
+        const currentName = normalizeUsername(current.username || "");
+        const peerName = roomParts.find((value) => value && value !== currentName) || "";
+        if (peerName) {
+          let peerAccount = getAccountByUsername(peerName);
+          if (!peerAccount) {
+            peerAccount = createAccount(peerName, peerName);
+            state.accounts.push(peerAccount);
+          }
+          dmPeerAccount = peerAccount;
+        }
+      }
+    }
+    const thread = getOrCreateDmThread(current, dmPeerAccount);
     if (!thread) return null;
     const duplicate = findDuplicateRelayMessage(thread.messages, entry, { history: historyMessage });
     if (duplicate) {

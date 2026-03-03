@@ -155,7 +155,7 @@ Notes:
 - Tabbed SWF PiP dock lets you keep selected SWFs open while switching guilds/channels.
 - SWF PiP now parks/reattaches live runtimes instead of destroying them when the original chat host is gone.
 - SWF picker now supports muted Ruffle previews with lightweight sampled frame playback.
-- SWF link opens are configured with confirmation prompts (`openUrlMode: "confirm"`).
+- SWF link opens are blocked by default (`openUrlMode: "deny"`).
 - Advanced settings now include dedicated `Export SWF Saves` / `Import SWF Saves` (browser local-storage based).
 - SVG attachments in chat include a direct `Download SVG` action.
 - PDF links/attachments render inline using a custom canvas-based viewer (page + zoom controls) with open/download fallback links.

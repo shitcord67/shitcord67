@@ -1018,8 +1018,34 @@ function sendMediaAttachment(entry, type) {
     }],
     replyTo: nextReply
   };
-  const messageBucket = conversation.type === "dm" ? conversation.thread.messages : conversation.channel.messages;
-  messageBucket.push(nextMessage);
+  if (conversation.type === "channel" && conversation.channel.type === "forum") {
+    if (nextReply?.threadId) {
+      nextMessage.forumThreadId = nextReply.threadId;
+      nextMessage.forumParentId = nextReply.messageId || nextReply.threadId;
+    } else {
+      if (!canCurrentUserCreateThreadsInChannel(conversation.channel, getActiveGuild())) {
+        showToast("You do not have permission to create forum posts in this channel.", { tone: "error" });
+        renderComposerMeta();
+        return;
+      }
+      const [firstLine, ...rest] = text.split("\n");
+      nextMessage.forumTitle = (firstLine || "Untitled Post").trim().slice(0, 100) || "Untitled Post";
+      nextMessage.text = rest.join("\n").trim();
+      const defaultTags = normalizeThreadTagIds(
+        getForumThreadTagFilter(conversation.channel.id),
+        forumTagsForChannel(conversation.channel)
+      );
+      if (defaultTags.length > 0) nextMessage.forumTagIds = defaultTags;
+    }
+  }
+  if (conversation.type === "dm") {
+    conversation.thread.messages.push(nextMessage);
+    publishRelayDirectMessage(conversation.thread, nextMessage, account);
+  } else {
+    conversation.channel.messages.push(nextMessage);
+    recordChannelSlowmodeSend(conversation.channel, account.id);
+    publishRelayChannelMessage(conversation.channel, nextMessage, account);
+  }
   if (type === "gif") {
     trackGifUsage(entry.url, conversation.id);
   }
@@ -1370,4 +1396,3 @@ function appendMediaPickerPrivacyBanner({
   ui.mediaGrid.appendChild(gate);
   return true;
 }
-

@@ -1778,7 +1778,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           scale: "showAll",
           forceScale: true,
           letterbox: "on",
-          openUrlMode: "allow"
+          openUrlMode: "deny"
         }));
         addDebugLog("info", "Ruffle loaded SWF via data payload", { url: candidate, name: swfFileName || "" });
         return true;
@@ -1861,7 +1861,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             scale: "showAll",
             forceScale: true,
             letterbox: "on",
-            openUrlMode: "allow"
+            openUrlMode: "deny"
           }));
           addDebugLog("info", "Ruffle loaded SWF via object payload", { url: candidate, name: attachment.name || "" });
           loaded = true;
