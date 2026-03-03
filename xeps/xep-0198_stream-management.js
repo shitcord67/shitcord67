@@ -121,6 +121,15 @@
     return (to - from + XMPP_SM_COUNTER_MOD) % XMPP_SM_COUNTER_MOD;
   }
 
+  function shouldAdvanceXmppSmAckCounter(currentValue = 0, nextValue = 0) {
+    const current = clampXmppSmCounter(currentValue);
+    const next = clampXmppSmCounter(nextValue);
+    if (current === next) return false;
+    const forward = xmppSmCounterDistance(current, next);
+    const backward = xmppSmCounterDistance(next, current);
+    return forward < backward;
+  }
+
   function sendXmppSmNode(connection = null, node = null) {
     if (!connection || !node || typeof connection.send !== "function") return false;
     connection.send(node);
@@ -256,8 +265,10 @@
     if (name === "a") {
       const h = clampXmppSmCounter(stanza.getAttribute("h"));
       if (smState) {
-        smState.lastAckedByServer = h;
-        smState.lastAckAt = Date.now();
+        if (shouldAdvanceXmppSmAckCounter(smState.lastAckedByServer, h)) {
+          smState.lastAckedByServer = h;
+          smState.lastAckAt = Date.now();
+        }
       }
       if (addDebug) {
         addDebug("iq", "Received XMPP stream-management ack", {
@@ -294,8 +305,10 @@
         smState.enabled = true;
         smState.failed = false;
         smState.resumed = true;
-        smState.lastAckedByServer = h;
-        smState.lastAckAt = Date.now();
+        if (shouldAdvanceXmppSmAckCounter(smState.lastAckedByServer, h)) {
+          smState.lastAckedByServer = h;
+          smState.lastAckAt = Date.now();
+        }
       }
       if (addDebug) {
         addDebug("connect", "XMPP stream management resumed", {
@@ -311,7 +324,7 @@
       const hasH = hAttr !== null && hAttr !== undefined && hAttr !== "";
       const h = hasH ? clampXmppSmCounter(hAttr) : null;
       if (smState) {
-        if (h !== null) {
+        if (h !== null && shouldAdvanceXmppSmAckCounter(smState.lastAckedByServer, h)) {
           smState.lastAckedByServer = h;
           smState.lastAckAt = Date.now();
         }
