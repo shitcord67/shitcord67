@@ -3,6 +3,8 @@
  * This file is loaded after app.js so it can bind listeners against initialized UI state.
  */
 
+const XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL = globalThis.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || {};
+
 if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppLoginUiRuntimeBindings === "function") {
   XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL.bindXmppLoginUiRuntimeBindings();
 }
@@ -3045,4 +3047,3 @@ ensureMediaRuntimeBootstrapped();
 if (state.currentAccountId && ["ws", "http", "xmpp"].includes(getPreferences().relayMode) && getPreferences().relayAutoConnect === "on") {
   connectRelaySocket();
 }
-

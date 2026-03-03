@@ -1751,6 +1751,12 @@ function renderSlashSuggestions() {
   if (typeof globalScope.openShortcutsDialog !== "function") {
     globalScope.openShortcutsDialog = openShortcutsDialog;
   }
+  if (typeof globalScope.getComposerSuggestionState !== "function") {
+    globalScope.getComposerSuggestionState = getComposerSuggestionState;
+  }
+  if (typeof globalScope.renderSlashSuggestions !== "function") {
+    globalScope.renderSlashSuggestions = renderSlashSuggestions;
+  }
 
   globalScope.SHITCORD67_XEP_SLASH_COMMAND_RUNTIME = Object.freeze({
     handleSlashCommandRuntime

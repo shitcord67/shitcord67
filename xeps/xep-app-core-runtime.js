@@ -578,6 +578,19 @@ let currentViewerRuntimeKey = null;
 let fullscreenRuntimeKey = null;
 let fullscreenRuntimeWasPlaying = false;
 let swfAudioFocusRuntimeKey = null;
+
+function clearReplyComposer() {
+  replyTarget = null;
+  if (typeof renderReplyComposer === "function") {
+    renderReplyComposer();
+  } else if (ui?.composerReplyBar instanceof HTMLElement) {
+    ui.composerReplyBar.classList.add("composer-reply--hidden");
+    if (ui.replyPreviewText) ui.replyPreviewText.textContent = "";
+  }
+  if (typeof renderComposerMeta === "function") {
+    renderComposerMeta();
+  }
+}
 let swfSoloRuntimeKey = null;
 let swfAudioUnlockArmed = true;
 const swfRuntimes = new Map();
@@ -1102,4 +1115,3 @@ const ui = {
   settingsNavTitle: document.querySelector(".settings-nav__title"),
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
-

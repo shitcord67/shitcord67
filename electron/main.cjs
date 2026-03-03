@@ -588,10 +588,21 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
   if (dedupeMs > 0 && now - lastDevtoolsToggleAt < dedupeMs) return true;
   if (!windowInstance || windowInstance.isDestroyed?.()) return false;
   if (!windowInstance.webContents || windowInstance.webContents.isDestroyed?.()) return false;
-  const runtimeTempDir = app.getPath("temp") || process.env.TMPDIR || process.env.TMP || process.env.TEMP || "/tmp";
+  let runtimeTempDir = app.getPath("temp") || process.env.TMPDIR || process.env.TMP || process.env.TEMP || "/tmp";
   if (process.platform === "linux" && !canAccessDir(runtimeTempDir)) {
-    notifyDevtoolsUnavailable(windowInstance, `Chromium DevTools disabled: temp dir is not writable (${runtimeTempDir}).`);
-    return false;
+    const fallbackDir = resolveWritableRuntimeDir();
+    if (fallbackDir && canAccessDir(fallbackDir)) {
+      runtimeTempDir = fallbackDir;
+      try {
+        applyEarlyRuntimeEnv(fallbackDir);
+        app.setPath("temp", fallbackDir);
+      } catch {
+        // ignore setPath errors and continue with env-based fallback
+      }
+    } else {
+      notifyDevtoolsUnavailable(windowInstance, `Chromium DevTools disabled: temp dir is not writable (${runtimeTempDir}).`);
+      return false;
+    }
   }
   try {
     lastDevtoolsToggleAt = now;

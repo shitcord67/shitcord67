@@ -4500,3 +4500,765 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
 [electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-app-ui-events-runtime.js:6 Uncaught ReferenceError: XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL is not defined
 [255216:0303/065443.944444:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.88Al1j failed: No such process (3)
 [255216:0303/065443.944535:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+2026-03-03T06:15:35Z
+USER PROMPT:
+I noticed that xmpp:danctnix-trash2@chat.disroot.org is missing in my list despite I'm being in this XMPP chat. You can use command line tools to login into my account and check this. Please just don't send any messages, READ ONLY. Oh also looks like in shitcord67 I don't see any chat history and can't send messages currently. Please investigate if other stuff is broken and fix it. Oh also can't still open devtools. Also I think buttons to copy logs are broken right now. {
+  "runtime": {
+    "location": "http://127.0.0.1:6773/",
+    "ruffleReady": true,
+    "dotLottieReady": true,
+    "activeGuildId": "xmpp-spaces:pimux.de",
+    "activeChannelId": "72e9ed27-ba1b-464d-a17b-fff7e99b706c"
+  },
+  "logs": [
+    {
+      "ts": "2026-03-03T06:08:39.929Z",
+      "level": "info",
+      "message": "Loaded CDN Ruffle runtime",
+      "data": {
+        "src": "https://unpkg.com/@ruffle-rs/ruffle"
+      }
+    },
+    {
+      "ts": "2026-03-03T06:08:39.954Z",
+      "level": "info",
+      "message": "Loaded CDN dotLottie runtime",
+      "data": {
+        "src": "https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs"
+      }
+    }
+  ]
+} Copied my XMPP log to the file xmpp-log in this dir. Oh also here the output from running shitcor67: :55:47 ~/shitcord67:$ ./build-all.sh 
+[build-platform] clean step enabled
+[build-platform] building web bundle
+
+> discord-lookalike-flash@1.0.0 mobile:build:web
+> node scripts/build-mobile-web.mjs
+
+[mobile-build] wrote .mobile-web
+[build-platform] web output: dist/web
+[build-platform] clean step enabled
+[build-platform] packaging electron app (linux/x64)
+Packaging app for platform linux x64 using electron v35.7.5
+Wrote new app to: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+[build-platform] linux desktop entry: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67.desktop
+[build-platform] electron output: dist/electron
+[build-platform] clean step enabled
+
+BUILD SUCCESSFUL in 768ms
+4 actionable tasks: 4 executed
+[build-platform] syncing android project
+
+> discord-lookalike-flash@1.0.0 mobile:android:sync
+> npm run mobile:build:web && npx cap sync android && npm run mobile:android:patch-gradle
+
+
+> discord-lookalike-flash@1.0.0 mobile:build:web
+> node scripts/build-mobile-web.mjs
+
+[mobile-build] wrote .mobile-web
+✔ Copying web assets from .mobile-web to android/app/src/main/assets/public in 18.82ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 977.75μs
+✔ copy android in 25.19ms
+✔ Updating Android plugins in 738.10μs
+✔ update android in 16.95ms
+[info] Sync finished in 0.05s
+
+> discord-lookalike-flash@1.0.0 mobile:android:patch-gradle
+> node scripts/patch-capacitor-android-gradle.cjs
+
+[patch-capacitor-android-gradle] updated 1 file(s)
+[build-platform] building debug APK
+
+> Task :capacitor-android:compileDebugJavaWithJavac
+Hinweis: Einige Eingabedateien verwenden nicht geprüfte oder unsichere Vorgänge.
+Hinweis: Wiederholen Sie die Kompilierung mit -Xlint:unchecked, um Details zu erhalten.
+[Incubating] Problems report is available at: file:///home/duda/shitcord67/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 4s
+85 actionable tasks: 76 executed, 9 up-to-date
+[build-platform] android output: dist/android/app-debug.apk
+07:05:10 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67
+[electron] packaged linux flags: sandbox=off shm=shm runtimeTmp=/home/duda/.cache/shitcord67/runtime temp=/home/duda/.cache/shitcord67/runtime
+[electron] display media request handler installed
+[electron] starting local stack (client=127.0.0.1:6769, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6769 is listening but http://127.0.0.1:6769/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6769 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6769 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6771
+[electron] starting local stack (client=127.0.0.1:6771, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6771 is listening but http://127.0.0.1:6771/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6771 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6771 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6772
+[electron] starting local stack (client=127.0.0.1:6772, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6772 is listening but http://127.0.0.1:6772/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6772 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6772 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6773
+[electron] starting local stack (client=127.0.0.1:6773, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] [run-client-stack] started client-server (pid 282095)
+[electron] [run-client-stack] xmpp gateway port 6770 already in use, reusing existing gateway.
+[run-client-stack] client: http://127.0.0.1:6773/
+[run-client-stack] gateway: http://127.0.0.1:6770
+[run-client-stack] press Ctrl+C to stop.
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:38] "GET / HTTP/1.1" 200 -
+[electron] permission handlers installed for trusted local renderer origin
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:38] "GET / HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:38] "GET /styles.css HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:38] "GET /assets/libsignal_protocol.min.js HTTP/1.1" 200 -
+(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-loader.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/call-room-url-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xmpp-login-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/media-provider-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/ui-state-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/account-profile-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xmpp-call-target-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/command-invocation-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xmpp-message-id-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/text-time-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/name-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_crypto-namespaces.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_namespace-selection.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_omemo-crypto-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_preferences.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_identity.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_sessions.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_devices.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_bundles.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_own-bundle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_targets.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_message-crypto.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_decrypt-content.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_decrypt-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0334_processing-hints.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0085-chatstates.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0184_0333-message-markers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0184_0333-marker-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0249_direct-muc-invite.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0045_0402-roster-bookmarks.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0359_0424-message-ref-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0482_call-invite-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0308_0424_0444-message-actions.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0353_jingle-message-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0115_caps-presence.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0203_0319-delay-idle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0421_0045-muc-occupant.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0421_0045-muc-actor-cache.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0166_0167-jingle-iq-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0166_0167-jingle-send.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0320_webrtc-sdp-basics.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0066_0071_0231-oob-media.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0461_0428-message-replies.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0313_mam-loading.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0333_0359_0372_0444_0482-message-builders.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0030_0166-call-disco.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0308_0359_0424_0444-message-updates.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0199_0410_0313-presence-ping.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0048_0402-bookmarks-ops.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0048_0402-bookmarks-sync.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0045_0503-room-lifecycle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0184_0333_0359-delivery-indexes.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0280_0352-csi-carbons.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0482_0503-spaces-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0503_spaces.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0153_presence-photo-hash.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0156_host-meta-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0156_xmpp-login-discovery-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_omemo-store.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xmpp-xml-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xmpp_encryption-payload.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384_omemo-stanza.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0454_omemo-media-sharing-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-runtime-bindings.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-transport-interop.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0030_0166-jingle-call-core.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-relay-connection-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-presence-preferences-bridge.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-xmpp-dm-bridge.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0334-processing-hints-storage.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-upload-disco-attachments.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-xmpp-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-slash-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-dm-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-call-invite-web-console-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-xmpp-ui-bindings-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-xmpp-roster-bookmarks-login-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-native-call-ui-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-jingle-call-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0166_0320-webrtc-session-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0384.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0454.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-bootstrap.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-xmpp-bridges.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-message-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-render-messages-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-member-list-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-shell-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-servers-dms-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-xmpp-state-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0066_0071_0231-rich-text-media-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0066_0071_0231-attachment-render-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0066_0071_0231-swf-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-0066_0071_0231-media-picker-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-state-bootstrap-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-core-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /app.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /xeps/xep-app-ui-events-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] code 404, message File not found
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] code 404, message File not found
+127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /swf/index.json HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "HEAD /vendor/ruffle/ruffle.js HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] code 404, message File not found
+127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /swf/swf-index.json HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] "GET /swf-index.json HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:39] code 404, message File not found
+127.0.0.1 - - [03/Mar/2026 07:08:39] "HEAD /vendor/dotlottie/dotlottie-player.mjs HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 07:08:42] "GET /vendor/strophe.umd.min.js HTTP/1.1" 200 -
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:4320 Render failed (login-submit) ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:297:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20491)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:297:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20491)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:297:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20491)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:273:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:273:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:273:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:297:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20491)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:297:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20491)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:297:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20491)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[288909:0303/071058.444371:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.3m6YNn failed: No such process (3)
+[288909:0303/071058.444464:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[281879:0303/071123.842389:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[281879:0303/071123.842389:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[281879:0303/071123.842389:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[281879:0303/071123.842389:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[281879:0303/071123.842389:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:142 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-ui-events-runtime.js:684 Uncaught ReferenceError: getComposerSuggestionState is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/app.js:2255 Uncaught ReferenceError: clearReplyComposer is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174 Uncaught ReferenceError: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 ReferenceError: renderSlashSuggestions is not defined
+    at Object.renderMessages [as renderMessagesFn] (http://127.0.0.1:6773/xeps/xep-app-render-messages-runtime.js:174:3)
+    at http://127.0.0.1:6773/xeps/xep-0313_mam-loading.js:418:36
+    at k.handler (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:20387)
+    at k.run (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:11361)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24096
+    at Array.reduce (<anonymous>)
+    at http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:24020
+    at Object.v [as forEachChild] (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:7178)
+    at Connection._dataRecv (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:23956)
+    at G.Websocket._onMessage (http://127.0.0.1:6773/vendor/strophe.umd.min.js:1:52862)
+[electron] renderer [level=3] http://127.0.0.1:6773/vendor/strophe.umd.min.js:1 error: renderSlashSuggestions is not defined
+[281879:0303/071123.842389:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
