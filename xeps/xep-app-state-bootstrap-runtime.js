@@ -152,6 +152,7 @@ function buildInitialState() {
       relayAutoConnect: "on",
       relayClientId: createId(),
       rememberLogin: "on",
+      rememberLoginStorage: "off",
       xmppJid: "",
       xmppPassword: "",
       xmppWsUrl: "",
@@ -577,4 +578,3 @@ function loadState() {
     return buildInitialState();
   }
 }
-

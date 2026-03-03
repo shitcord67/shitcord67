@@ -278,6 +278,7 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences = getPreferences();
   state.preferences.developerMode = normalizeToggle(ui.developerModeInput.value);
   state.preferences.debugOverlay = normalizeToggle(ui.debugOverlayInput.value);
+  state.preferences.rememberLoginStorage = normalizeToggle(ui.rememberLoginStorageInput?.value || "off");
   state.preferences.swfAudioPolicy = normalizeSwfAudioPolicy(ui.swfAudioPolicyInput.value);
   state.preferences.swfAudioScope = normalizeSwfAudioScope(ui.swfAudioScopeInput.value);
   state.preferences.swfAutoplay = normalizeSwfAutoplay(ui.swfAutoplayInput.value);
@@ -304,6 +305,9 @@ ui.advancedForm.addEventListener("submit", (event) => {
     showToast("Could not save Tenor credentials.", { tone: "error" });
   }
   saveState();
+  if (window.SHITCORD67_NATIVE_CREDENTIALS?.syncFromState) {
+    void window.SHITCORD67_NATIVE_CREDENTIALS.syncFromState({ force: true });
+  }
   if (["ws", "http", "xmpp"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
     connectRelaySocket({ force: true });
   } else if (!["ws", "http", "xmpp"].includes(state.preferences.relayMode)) {

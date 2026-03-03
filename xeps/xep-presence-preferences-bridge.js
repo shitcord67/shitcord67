@@ -362,6 +362,7 @@ function getPreferences() {
     relayAutoConnect: normalizeToggle(current.relayAutoConnect),
     relayClientId: (current.relayClientId || createId()).toString(),
     rememberLogin: normalizeToggle(current.rememberLogin),
+    rememberLoginStorage: normalizeToggle(current.rememberLoginStorage),
     xmppJid: normalizeXmppJid(current.xmppJid),
     xmppPassword: normalizeXmppPassword(current.xmppPassword),
     xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),

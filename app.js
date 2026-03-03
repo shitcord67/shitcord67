@@ -4390,6 +4390,9 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   ensureCurrentUserInActiveServer();
   const prefs = getPreferences();
   if (["ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
+  if (window.SHITCORD67_NATIVE_CREDENTIALS?.syncFromState) {
+    void window.SHITCORD67_NATIVE_CREDENTIALS.syncFromState();
+  }
   return true;
 }
 

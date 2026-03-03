@@ -241,7 +241,23 @@ let runtimeSafeAreaRaf = 0;
 let mobileSwipeNavState = null;
 
 function normalizeNativeAndroidInsets(rawInsets) {
-  return normalizeNativeAndroidInsetsViaModule(rawInsets);
+  if (typeof normalizeNativeAndroidInsetsViaModule === "function") {
+    return normalizeNativeAndroidInsetsViaModule(rawInsets);
+  }
+  if (!rawInsets || typeof rawInsets !== "object") return null;
+  const top = Number(rawInsets.top);
+  const right = Number(rawInsets.right);
+  const bottom = Number(rawInsets.bottom);
+  const left = Number(rawInsets.left);
+  if (![top, right, bottom, left].every((value) => Number.isFinite(value) && value >= 0)) {
+    return null;
+  }
+  return {
+    top: Math.round(top),
+    right: Math.round(right),
+    bottom: Math.round(bottom),
+    left: Math.round(left)
+  };
 }
 
 function updateRuntimeSafeArea() {
@@ -980,6 +996,7 @@ const ui = {
   advancedForm: document.getElementById("advancedForm"),
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
+  rememberLoginStorageInput: document.getElementById("rememberLoginStorageInput"),
   platformOverrideInput: document.getElementById("platformOverrideInput"),
   platformDetectedNote: document.getElementById("platformDetectedNote"),
   runtimeDiagnosticsNote: document.getElementById("runtimeDiagnosticsNote"),
@@ -1115,3 +1132,131 @@ const ui = {
   settingsNavTitle: document.querySelector(".settings-nav__title"),
   settingsPanels: [...document.querySelectorAll(".settings-panel")]
 };
+
+const NATIVE_CREDENTIALS_FILENAME = "shitcord67-credentials.json";
+
+function resolveNativeFilesystem() {
+  const cap = typeof window !== "undefined" ? window.Capacitor : null;
+  if (!cap) return null;
+  return cap.Plugins?.Filesystem || cap.Filesystem || cap.plugins?.Filesystem || null;
+}
+
+function resolveNativeDocumentsDirectory(fs) {
+  if (!fs) return null;
+  return fs.Directory?.Documents || fs.Directory?.DOCUMENTS || "DOCUMENTS";
+}
+
+async function readNativeCredentials() {
+  const fs = resolveNativeFilesystem();
+  const directory = resolveNativeDocumentsDirectory(fs);
+  if (!fs || !directory) return null;
+  try {
+    const result = await fs.readFile({
+      path: NATIVE_CREDENTIALS_FILENAME,
+      directory,
+      encoding: "utf8"
+    });
+    const raw = (result?.data || "").toString();
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeNativeCredentials(payload) {
+  const fs = resolveNativeFilesystem();
+  const directory = resolveNativeDocumentsDirectory(fs);
+  if (!fs || !directory) return false;
+  if (!payload || typeof payload !== "object") return false;
+  try {
+    await fs.writeFile({
+      path: NATIVE_CREDENTIALS_FILENAME,
+      directory,
+      data: JSON.stringify(payload),
+      encoding: "utf8"
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function clearNativeCredentials() {
+  const fs = resolveNativeFilesystem();
+  const directory = resolveNativeDocumentsDirectory(fs);
+  if (!fs || !directory) return false;
+  try {
+    await fs.deleteFile({
+      path: NATIVE_CREDENTIALS_FILENAME,
+      directory
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function hydrateNativeCredentialsIntoState({ force = false } = {}) {
+  const saved = await readNativeCredentials();
+  if (!saved) return false;
+  const jid = normalizeXmppJid(saved.jid || "");
+  const password = normalizeXmppPassword(saved.password || "");
+  const wsUrl = normalizeXmppWsUrl(saved.wsUrl || "");
+  if (!jid && !password && !wsUrl) return false;
+  const prefs = getPreferences();
+  if (!force && prefs.rememberLoginStorage !== "on" && saved.rememberLoginStorage !== true) {
+    return false;
+  }
+  state.preferences = prefs;
+  if (jid) state.preferences.xmppJid = jid;
+  if (typeof saved.password === "string") state.preferences.xmppPassword = password;
+  if (wsUrl) state.preferences.xmppWsUrl = wsUrl;
+  state.preferences.rememberLoginStorage = "on";
+  state.preferences.rememberLogin = "on";
+  if (ui.loginUsername && jid) ui.loginUsername.value = jid;
+  if (ui.loginPassword && typeof saved.password === "string") ui.loginPassword.value = password;
+  if (ui.loginXmppServer && wsUrl) ui.loginXmppServer.value = wsUrl;
+  queueMicrotask(() => {
+    if (typeof saveState === "function") saveState();
+    if (typeof renderSettingsScreen === "function") renderSettingsScreen();
+  });
+  return true;
+}
+
+async function syncNativeCredentialsFromState({ force = false } = {}) {
+  const prefs = getPreferences();
+  if (!force && prefs.rememberLoginStorage !== "on") {
+    await clearNativeCredentials();
+    return false;
+  }
+  if (prefs.rememberLogin !== "on") {
+    await clearNativeCredentials();
+    return false;
+  }
+  const payload = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    rememberLoginStorage: true,
+    jid: prefs.xmppJid || "",
+    password: prefs.xmppPassword || "",
+    wsUrl: prefs.xmppWsUrl || ""
+  };
+  if (!payload.jid && !payload.password && !payload.wsUrl) {
+    await clearNativeCredentials();
+    return false;
+  }
+  return writeNativeCredentials(payload);
+}
+
+if (typeof window !== "undefined") {
+  window.SHITCORD67_NATIVE_CREDENTIALS = {
+    read: readNativeCredentials,
+    write: writeNativeCredentials,
+    clear: clearNativeCredentials,
+    hydrateIntoState: hydrateNativeCredentialsIntoState,
+    syncFromState: syncNativeCredentialsFromState
+  };
+  void hydrateNativeCredentialsIntoState();
+}

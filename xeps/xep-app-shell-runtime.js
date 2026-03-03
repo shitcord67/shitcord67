@@ -340,6 +340,13 @@ function renderSettingsScreen() {
     const on = ui.compactModeInput.querySelector('option[value="on"]');
     if (on) on.textContent = tUi("settings.compact.on", "On");
   }
+  if (ui.rememberLoginStorageInput) {
+    ui.rememberLoginStorageInput.value = prefs.rememberLoginStorage || "off";
+    const off = ui.rememberLoginStorageInput.querySelector('option[value="off"]');
+    if (off) off.textContent = tUi("settings.advanced.credentialStorage.off", "Off");
+    const on = ui.rememberLoginStorageInput.querySelector('option[value="on"]');
+    if (on) on.textContent = tUi("settings.advanced.credentialStorage.on", "On (Android)");
+  }
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;
@@ -600,4 +607,3 @@ function renderChannelPermissionEditor() {
   if (ui.channelPermReactInput) ui.channelPermReactInput.value = getChannelPermissionOverride(channel, roleId, "addReactions");
   if (ui.channelPermThreadInput) ui.channelPermThreadInput.value = getChannelPermissionOverride(channel, roleId, "createThreads");
 }
-

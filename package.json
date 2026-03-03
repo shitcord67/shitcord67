@@ -39,6 +39,7 @@
     "@capacitor/android": "^7.5.0",
     "@capacitor/cli": "^7.5.0",
     "@capacitor/core": "^7.5.0",
+    "@capacitor/filesystem": "^7.5.0",
     "@xmpp/client": "^0.14.0",
     "@xmpp/debug": "^0.14.0",
     "strophe.js": "^1.6.2",
