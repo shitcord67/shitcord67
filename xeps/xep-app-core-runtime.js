@@ -265,9 +265,10 @@ function updateRuntimeSafeArea() {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   if (!root) return;
+  const body = document.body || null;
   const nativeInsets = normalizeNativeAndroidInsets(window.__shitcord67AndroidInsets);
   const hasNativeInsets = Boolean(nativeInsets && (nativeInsets.top || nativeInsets.right || nativeInsets.bottom || nativeInsets.left));
-  const isAndroid = document.body?.dataset?.platform === "android" || hasNativeInsets;
+  const isAndroid = body?.dataset?.platform === "android" || hasNativeInsets;
   const viewport = window.visualViewport;
   let safeTop = 0;
   let safeRight = 0;
@@ -301,13 +302,29 @@ function updateRuntimeSafeArea() {
     const statusGuess = screenHeight && innerHeight ? Math.max(0, screenHeight - innerHeight) : 0;
     const fallbackTop = hasNativeInsets ? 0 : Math.max(36, Math.round(statusGuess));
     const fallbackBottom = hasNativeInsets ? 0 : 32;
-    root.style.setProperty("--android-safe-extra-top", `${fallbackTop}px`);
-    root.style.setProperty("--android-safe-extra-bottom", `${keyboardLikelyOpen ? 0 : fallbackBottom}px`);
+    const nextTop = `${fallbackTop}px`;
+    const nextBottom = `${keyboardLikelyOpen ? 0 : fallbackBottom}px`;
+    root.style.setProperty("--android-safe-extra-top", nextTop);
+    root.style.setProperty("--android-safe-extra-bottom", nextBottom);
+    if (body) {
+      body.style.setProperty("--android-safe-extra-top", nextTop);
+      body.style.setProperty("--android-safe-extra-bottom", nextBottom);
+    }
   }
-  root.style.setProperty("--runtime-safe-top", `${Math.round(safeTop)}px`);
-  root.style.setProperty("--runtime-safe-right", `${Math.round(safeRight)}px`);
-  root.style.setProperty("--runtime-safe-bottom", `${Math.round(safeBottom)}px`);
-  root.style.setProperty("--runtime-safe-left", `${Math.round(safeLeft)}px`);
+  const nextSafeTop = `${Math.round(safeTop)}px`;
+  const nextSafeRight = `${Math.round(safeRight)}px`;
+  const nextSafeBottom = `${Math.round(safeBottom)}px`;
+  const nextSafeLeft = `${Math.round(safeLeft)}px`;
+  root.style.setProperty("--runtime-safe-top", nextSafeTop);
+  root.style.setProperty("--runtime-safe-right", nextSafeRight);
+  root.style.setProperty("--runtime-safe-bottom", nextSafeBottom);
+  root.style.setProperty("--runtime-safe-left", nextSafeLeft);
+  if (body) {
+    body.style.setProperty("--runtime-safe-top", nextSafeTop);
+    body.style.setProperty("--runtime-safe-right", nextSafeRight);
+    body.style.setProperty("--runtime-safe-bottom", nextSafeBottom);
+    body.style.setProperty("--runtime-safe-left", nextSafeLeft);
+  }
 }
 
 function scheduleRuntimeSafeAreaUpdate() {

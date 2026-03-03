@@ -176,13 +176,15 @@ select {
 
 body[data-platform="android"] {
   --android-touch-size: 40px;
-  --android-safe-extra-top: 28px;
-  --android-safe-extra-bottom: 26px;
+  --android-safe-extra-top: 0px;
+  --android-safe-extra-bottom: 0px;
 }
 
 body[data-platform="android"] #app {
   padding-top: max(var(--app-safe-top), var(--android-safe-extra-top));
+  padding-right: var(--app-safe-right);
   padding-bottom: max(var(--app-safe-bottom), var(--android-safe-extra-bottom));
+  padding-left: var(--app-safe-left);
 }
 
 body[data-platform="android"] .chat-topic-edit {

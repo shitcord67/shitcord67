@@ -7099,3 +7099,6 @@ Yeah. Also why on Android are my creadentials not properly stored in the Documen
 
 ## 2026-03-03T16:49:22Z
 Yeah
+
+## 2026-03-03T16:52:20Z
+Any idea on how to make the Android UX better? Especially maybe actually using padding for users with notch?
