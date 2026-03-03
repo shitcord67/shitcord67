@@ -269,6 +269,7 @@ function updateRuntimeSafeArea() {
   const nativeInsets = normalizeNativeAndroidInsets(window.__shitcord67AndroidInsets);
   const hasNativeInsets = Boolean(nativeInsets && (nativeInsets.top || nativeInsets.right || nativeInsets.bottom || nativeInsets.left));
   const isAndroid = body?.dataset?.platform === "android" || hasNativeInsets;
+  const isMobileRuntime = body?.dataset?.mobile === "on" || isAndroid;
   const viewport = window.visualViewport;
   let safeTop = 0;
   let safeRight = 0;
@@ -292,10 +293,11 @@ function updateRuntimeSafeArea() {
     safeBottom = Math.max(safeBottom, nativeInsets.bottom);
     safeLeft = Math.max(safeLeft, nativeInsets.left);
   }
+  const viewportHeight = viewport && Number.isFinite(viewport.height) ? viewport.height : window.innerHeight;
+  const viewportOffsetTop = viewport && Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
+  const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
+  const imeOffset = isMobileRuntime && keyboardGap >= 64 ? keyboardGap : 0;
   if (isAndroid) {
-    const viewportHeight = viewport && Number.isFinite(viewport.height) ? viewport.height : window.innerHeight;
-    const viewportOffsetTop = viewport && Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
-    const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
     const keyboardLikelyOpen = keyboardGap >= 110;
     const screenHeight = Number.isFinite(window.screen?.height) ? window.screen.height : 0;
     const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : 0;
@@ -311,6 +313,8 @@ function updateRuntimeSafeArea() {
       body.style.setProperty("--android-safe-extra-bottom", nextBottom);
     }
   }
+  const nextImeOffset = `${Math.round(imeOffset)}px`;
+  root.style.setProperty("--runtime-ime-offset", nextImeOffset);
   const nextSafeTop = `${Math.round(safeTop)}px`;
   const nextSafeRight = `${Math.round(safeRight)}px`;
   const nextSafeBottom = `${Math.round(safeBottom)}px`;
@@ -320,6 +324,7 @@ function updateRuntimeSafeArea() {
   root.style.setProperty("--runtime-safe-bottom", nextSafeBottom);
   root.style.setProperty("--runtime-safe-left", nextSafeLeft);
   if (body) {
+    body.style.setProperty("--runtime-ime-offset", nextImeOffset);
     body.style.setProperty("--runtime-safe-top", nextSafeTop);
     body.style.setProperty("--runtime-safe-right", nextSafeRight);
     body.style.setProperty("--runtime-safe-bottom", nextSafeBottom);

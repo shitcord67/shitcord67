@@ -20,6 +20,7 @@
   --runtime-safe-right: 0px;
   --runtime-safe-bottom: 0px;
   --runtime-safe-left: 0px;
+  --runtime-ime-offset: 0px;
   --android-safe-extra-top: 0px;
   --android-safe-extra-bottom: 0px;
   --app-safe-top: max(var(--safe-top), var(--runtime-safe-top));
@@ -228,10 +229,6 @@ body[data-platform="android"] .member-filter-btn {
 
 body[data-platform="android"] .message-form {
   padding: 0.4rem 0.55rem;
-}
-
-body[data-platform="android"] .composer-stack {
-  padding-bottom: calc(1.1rem + (var(--android-safe-extra-bottom) * 0.45));
 }
 
 body[data-platform="android"] .message-form textarea {
@@ -2211,11 +2208,17 @@ body[data-hide-channel-panel="on"] .chat-panel {
 }
 
 .composer-stack {
-  padding: 0.3rem 1rem 1.1rem;
+  --composer-base-bottom: 1.1rem;
+  padding: 0.3rem 1rem var(--composer-base-bottom);
+  padding-bottom: calc(
+    var(--composer-base-bottom)
+    + max(calc(var(--android-safe-extra-bottom) * 0.45), var(--runtime-ime-offset))
+  );
   min-height: 0;
   position: relative;
   z-index: 22;
   background: var(--bg-main);
+  transition: padding-bottom 120ms ease-out;
 }
 
 .composer-stack--collapsed #messageForm,
@@ -6595,11 +6598,8 @@ body[data-debug-overlay="on"] .chat-panel {
   }
 
   .composer-stack {
-    padding: 0.24rem 0.55rem 0.72rem;
-  }
-
-  body[data-platform="android"] .composer-stack {
-    padding-bottom: calc(0.72rem + (var(--android-safe-extra-bottom) * 0.45));
+    --composer-base-bottom: 0.72rem;
+    padding: 0.24rem 0.55rem var(--composer-base-bottom);
   }
 
   .media-picker {
