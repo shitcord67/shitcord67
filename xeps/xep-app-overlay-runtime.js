@@ -175,6 +175,8 @@ function closeMediaLightbox({ force = false } = {}) {
   overlay.hidden = true;
   const stage = overlay.querySelector(".media-lightbox__stage");
   if (stage) stage.innerHTML = "";
+  const activeNativeSid = (xmppActiveNativeCallSessionId || "").toString().trim();
+  if (activeNativeSid) stopXmppNativeCallTileSpeakingMonitor(activeNativeSid);
   xmppActiveNativeCallSessionId = "";
   nativeCallDebugDialogSessionId = "";
   if (nativeCallSurfaceTickerId) {

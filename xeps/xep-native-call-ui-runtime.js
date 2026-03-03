@@ -288,6 +288,186 @@ function appendNativeCallTileBadges(tile, badges = []) {
   tile.appendChild(wrap);
 }
 
+function ensureXmppNativeCallSpeakingContext() {
+  if (xmppCallSpeakingAudioContext) return xmppCallSpeakingAudioContext;
+  try {
+    xmppCallSpeakingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    xmppCallSpeakingAudioContext = null;
+  }
+  return xmppCallSpeakingAudioContext;
+}
+
+function xmppAnalyzeNativeCallSpeakingLevel(analyser, buffer) {
+  if (!analyser || !buffer) return 0;
+  analyser.getByteTimeDomainData(buffer);
+  let sum = 0;
+  for (let i = 0; i < buffer.length; i += 1) {
+    const centered = (buffer[i] - 128) / 128;
+    sum += centered * centered;
+  }
+  return Math.sqrt(sum / buffer.length);
+}
+
+function updateXmppNativeCallTileSpeakingUi(sessionId = "", state = null) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid || !(state && state.speakingByKey instanceof Map)) return;
+  const surface = document.querySelector(`.native-call-surface[data-session-id="${sid}"]`);
+  if (!(surface instanceof HTMLElement)) return;
+  const tiles = surface.querySelectorAll(".native-call-surface__tile[data-native-call-speaker-key]");
+  tiles.forEach((tile) => {
+    if (!(tile instanceof HTMLElement)) return;
+    const key = (tile.dataset.nativeCallSpeakerKey || "").toString().trim();
+    tile.classList.toggle("native-call-surface__tile--speaking", Boolean(state.speakingByKey.get(key)));
+  });
+}
+
+function syncXmppNativeCallSpeakingAnalyzers(sessionId = "", state = null) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid || !state || !(state.participants instanceof Map)) return;
+  const localStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  const remoteStreams = xmppRemoteStreamListForSession(sid);
+  const desired = [];
+  if (localStream instanceof MediaStream) {
+    desired.push({ key: "local", stream: localStream, local: true });
+  }
+  remoteStreams.forEach((stream, index) => {
+    if (!(stream instanceof MediaStream)) return;
+    const track = stream.getAudioTracks()[0] || null;
+    const streamKey = (stream.id || track?.id || `${index + 1}`).toString().trim();
+    desired.push({ key: `remote:${streamKey}`, stream, local: false });
+  });
+  const desiredKeys = new Set(desired.map((entry) => entry.key));
+  state.participants.forEach((entry, key) => {
+    if (desiredKeys.has(key)) return;
+    if (entry?.source && typeof entry.source.disconnect === "function") {
+      try {
+        entry.source.disconnect();
+      } catch {
+        // Ignore analyser disconnect failures during stream churn.
+      }
+    }
+    state.participants.delete(key);
+    state.speakingByKey.delete(key);
+  });
+  desired.forEach((entry) => {
+    const track = entry.stream.getAudioTracks()[0] || null;
+    const existing = state.participants.get(entry.key) || null;
+    const trackId = (track?.id || "").toString();
+    if (existing && existing.stream === entry.stream && existing.trackId === trackId) {
+      existing.trackEnabled = Boolean(track?.enabled);
+      return;
+    }
+    if (existing?.source && typeof existing.source.disconnect === "function") {
+      try {
+        existing.source.disconnect();
+      } catch {
+        // Ignore analyser disconnect failures during stream replacement.
+      }
+    }
+    if (!(entry.stream instanceof MediaStream) || !track) {
+      state.participants.delete(entry.key);
+      state.speakingByKey.set(entry.key, false);
+      return;
+    }
+    try {
+      const analyser = state.ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.28;
+      const source = state.ctx.createMediaStreamSource(entry.stream);
+      source.connect(analyser);
+      state.participants.set(entry.key, {
+        key: entry.key,
+        stream: entry.stream,
+        local: Boolean(entry.local),
+        source,
+        analyser,
+        buffer: new Uint8Array(analyser.fftSize),
+        trackId,
+        trackEnabled: Boolean(track.enabled),
+        lastAboveAt: 0,
+        level: 0
+      });
+    } catch {
+      state.participants.delete(entry.key);
+      state.speakingByKey.set(entry.key, false);
+    }
+  });
+}
+
+function tickXmppNativeCallTileSpeakingMonitor(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  const state = xmppNativeCallTileSpeakingStateBySessionId.get(sid) || null;
+  if (!sid || !state) return;
+  if (xmppActiveNativeCallSessionId !== sid || !xmppCallSessionById.has(sid)) {
+    stopXmppNativeCallTileSpeakingMonitor(sid);
+    return;
+  }
+  syncXmppNativeCallSpeakingAnalyzers(sid, state);
+  const now = Date.now();
+  state.participants.forEach((entry, key) => {
+    const level = entry?.analyser ? xmppAnalyzeNativeCallSpeakingLevel(entry.analyser, entry.buffer) : 0;
+    const above = level >= 0.048;
+    if (above) entry.lastAboveAt = now;
+    const held = now - (Number(entry.lastAboveAt) || 0) <= 320;
+    const speaking = Boolean(entry.trackEnabled) && (above || held);
+    entry.level = level;
+    state.speakingByKey.set(key, speaking);
+  });
+  updateXmppNativeCallTileSpeakingUi(sid, state);
+  state.timerId = window.setTimeout(() => tickXmppNativeCallTileSpeakingMonitor(sid), 130);
+}
+
+function ensureXmppNativeCallTileSpeakingMonitor(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  let state = xmppNativeCallTileSpeakingStateBySessionId.get(sid) || null;
+  if (!state) {
+    const ctx = ensureXmppNativeCallSpeakingContext();
+    if (!ctx) return;
+    state = {
+      ctx,
+      timerId: 0,
+      participants: new Map(),
+      speakingByKey: new Map()
+    };
+    xmppNativeCallTileSpeakingStateBySessionId.set(sid, state);
+  }
+  if (state.ctx?.state === "suspended" && typeof state.ctx.resume === "function") {
+    void state.ctx.resume().catch(() => null);
+  }
+  syncXmppNativeCallSpeakingAnalyzers(sid, state);
+  if (!state.timerId) {
+    state.timerId = window.setTimeout(() => tickXmppNativeCallTileSpeakingMonitor(sid), 80);
+  }
+}
+
+function stopXmppNativeCallTileSpeakingMonitor(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const state = xmppNativeCallTileSpeakingStateBySessionId.get(sid) || null;
+  if (!state) return;
+  if (state.timerId) clearTimeout(state.timerId);
+  state.timerId = 0;
+  state.participants.forEach((entry) => {
+    if (entry?.source && typeof entry.source.disconnect === "function") {
+      try {
+        entry.source.disconnect();
+      } catch {
+        // Ignore analyser disconnect failures during teardown.
+      }
+    }
+  });
+  xmppNativeCallTileSpeakingStateBySessionId.delete(sid);
+}
+
+function xmppNativeCallTileSpeakingSnapshot(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return new Map();
+  const state = xmppNativeCallTileSpeakingStateBySessionId.get(sid) || null;
+  return state?.speakingByKey instanceof Map ? state.speakingByKey : new Map();
+}
+
 function xmppDebugTokenFragment(value = "") {
   const raw = (value || "").toString().trim();
   if (!raw) return "";
@@ -616,6 +796,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   stage.innerHTML = "";
   const shell = document.createElement("div");
   shell.className = "native-call-surface";
+  shell.dataset.sessionId = sid;
   const header = document.createElement("div");
   header.className = "native-call-surface__header";
   const title = document.createElement("strong");
@@ -953,13 +1134,17 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const grid = document.createElement("div");
   grid.className = "native-call-surface__grid";
   const localStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  ensureXmppNativeCallTileSpeakingMonitor(sid);
+  const speakingByKey = xmppNativeCallTileSpeakingSnapshot(sid);
   if (localStream instanceof MediaStream) {
     const localTile = document.createElement("div");
     localTile.className = "native-call-surface__tile";
+    localTile.dataset.nativeCallSpeakerKey = "local";
     const localMeta = xmppLocalMediaSnapshot(sid);
     const localVideoHidden = localMeta.videoTracks.length > 0 && !localMeta.videoEnabled;
     localTile.classList.toggle("native-call-surface__tile--muted", localMeta.audioTracks.length > 0 && !localMeta.audioEnabled);
     localTile.classList.toggle("native-call-surface__tile--video-off", localVideoHidden);
+    localTile.classList.toggle("native-call-surface__tile--speaking", Boolean(speakingByKey.get("local")));
     const video = document.createElement("video");
     video.className = "native-call-surface__video";
     video.autoplay = true;
@@ -990,9 +1175,14 @@ function renderNativeXmppCallSurface(sessionId = "") {
   remoteStreams.forEach((stream, index) => {
     const tile = document.createElement("div");
     tile.className = "native-call-surface__tile";
+    const remoteTrack = stream.getAudioTracks()[0] || null;
+    const remoteKeySeed = (stream.id || remoteTrack?.id || `${index + 1}`).toString().trim();
+    const speakerKey = `remote:${remoteKeySeed}`;
+    tile.dataset.nativeCallSpeakerKey = speakerKey;
     const remoteVideoHidden = Boolean(session?.remoteVideoMuted);
     if (session?.remoteMuted) tile.classList.add("native-call-surface__tile--muted");
     if (remoteVideoHidden) tile.classList.add("native-call-surface__tile--video-off");
+    tile.classList.toggle("native-call-surface__tile--speaking", Boolean(speakingByKey.get(speakerKey)));
     const video = document.createElement("video");
     video.className = "native-call-surface__video";
     video.autoplay = true;

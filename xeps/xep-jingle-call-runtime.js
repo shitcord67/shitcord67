@@ -159,6 +159,7 @@ function forgetXmppCallSession(sessionId = "") {
   xmppStopLocalMediaStreamForSession(id);
   xmppCallRemoteStreamsBySessionId.delete(id);
   stopXmppCallSpeakingMonitor(id);
+  stopXmppNativeCallTileSpeakingMonitor(id);
   xmppCloseSessionPeerConnection(id);
   clearXmppCallSignalTimeout(id);
   if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);

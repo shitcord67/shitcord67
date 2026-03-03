@@ -536,6 +536,7 @@ const webCallInviteSeenTokens = new Set();
 const webCallInvitePendingByToken = new Map();
 const xmppCallInviteTokenById = new Map();
 const xmppCallSpeakingStateBySessionId = new Map();
+const xmppNativeCallTileSpeakingStateBySessionId = new Map();
 let xmppCallSpeakingAudioContext = null;
 let xmppMediaAccessToastAt = 0;
 let xmppScreenShareWarningToastAt = 0;
