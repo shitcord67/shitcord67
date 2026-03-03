@@ -3811,7 +3811,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
   pointer-events: auto;
 }
 
-.message-attachment--video:hover .message-video-controls,
+.message-attachment--video.message-attachment--player-hover .message-video-controls,
 .message-attachment--video:focus-within .message-video-controls,
 .message-attachment--gif:hover .message-gif-controls,
 .message-attachment--gif.message-attachment--gif-controls-open .message-gif-controls,
@@ -3821,18 +3821,13 @@ body[data-hide-channel-panel="on"] .chat-panel {
 .message-pdf-viewer:focus-within .message-pdf-controls,
 .message-attachment--swf-runtime-hover .message-swf-top-controls,
 .message-attachment--swf:focus-within .message-swf-top-controls,
-.message-attachment--swf:hover .message-swf-top-controls,
 .message-attachment--swf-runtime-hover .message-swf-audio-rail,
-.message-attachment--swf:focus-within .message-swf-audio-rail,
-.message-attachment--swf:hover .message-swf-audio-rail {
+.message-attachment--swf:focus-within .message-swf-audio-rail {
   display: flex;
 }
 
-.message.message--actions-hover .message-video-controls,
 .message.message--actions-hover .message-gif-controls,
 .message.message--actions-hover .message-lottie-controls,
-.message.message--actions-hover .message-swf-top-controls,
-.message.message--actions-hover .message-swf-audio-rail,
 .message.message--controls-lock .message-video-controls,
 .message.message--controls-lock .message-gif-controls,
 .message.message--controls-lock .message-lottie-controls,

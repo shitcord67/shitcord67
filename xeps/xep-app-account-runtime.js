@@ -7,6 +7,14 @@
   if (!globalScope || globalScope.SHITCORD67_APP_ACCOUNT_RUNTIME) return;
   let protocolLoginProfilesLoadedOnce = false;
 
+  function normalizeProtocolAddress(address = "") {
+    const raw = (address || "").toString().trim();
+    if (!raw) return "";
+    const withoutScheme = raw.replace(/^xmpp:/i, "");
+    const withoutResource = withoutScheme.split("/")[0] || "";
+    return withoutResource.trim().toLowerCase();
+  }
+
   function snapshotStateForStorage(state) {
     const snapshotFn = globalScope.xmppSnapshotStateForStorage;
     if (typeof snapshotFn === "function") {
@@ -92,7 +100,7 @@
     }
   } = {}) {
     if (!account || typeof account !== "object") return true;
-    const address = (accountProtocolAddressFn(account) || "").toString().trim();
+    const address = normalizeProtocolAddress(accountProtocolAddressFn(account));
     if (!address) return true;
     return Boolean(isKnownMissingAvatarForAddressFn(address));
   }
@@ -133,7 +141,7 @@
   function protocolAccountAddress(account, {
     accountAddressFn = globalScope.accountBareXmppJid || ((entry) => entry?.xmppJid || "")
   } = {}) {
-    return (accountAddressFn(account) || "").toString().trim();
+    return normalizeProtocolAddress(accountAddressFn(account));
   }
 
   function legacyCallButtonKey() {

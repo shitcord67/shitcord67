@@ -282,6 +282,46 @@ function formatVideoTimeLabel(seconds) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+const videoAttachmentHoverBindingByElement = new WeakMap();
+
+function bindAttachmentPlayerHoverClass(wrap, player, hoverClass = "message-attachment--player-hover") {
+  if (!(wrap instanceof HTMLElement) || !(player instanceof HTMLMediaElement)) return;
+  let binding = videoAttachmentHoverBindingByElement.get(player);
+  if (!binding) {
+    binding = {
+      wrap: null,
+      onEnter: null,
+      onLeave: null,
+      onWrapLeave: null,
+      hoverClass
+    };
+    binding.onEnter = () => {
+      if (!(binding.wrap instanceof HTMLElement) || !binding.wrap.isConnected) return;
+      binding.wrap.classList.add(binding.hoverClass);
+    };
+    binding.onLeave = () => {
+      if (!(binding.wrap instanceof HTMLElement)) return;
+      binding.wrap.classList.remove(binding.hoverClass);
+    };
+    binding.onWrapLeave = () => {
+      if (!(binding.wrap instanceof HTMLElement)) return;
+      binding.wrap.classList.remove(binding.hoverClass);
+    };
+    player.addEventListener("pointerenter", binding.onEnter);
+    player.addEventListener("pointerleave", binding.onLeave);
+    player.addEventListener("mouseenter", binding.onEnter);
+    player.addEventListener("mouseleave", binding.onLeave);
+    videoAttachmentHoverBindingByElement.set(player, binding);
+  }
+  if (binding.wrap instanceof HTMLElement && binding.wrap !== wrap) {
+    binding.wrap.classList.remove(binding.hoverClass);
+    binding.wrap.removeEventListener("mouseleave", binding.onWrapLeave);
+  }
+  binding.wrap = wrap;
+  binding.hoverClass = hoverClass;
+  wrap.addEventListener("mouseleave", binding.onWrapLeave);
+}
+
 function createVideoControlStrip(video, { label = "Video", runtimeKey = "" } = {}) {
   if (!(video instanceof HTMLVideoElement)) return null;
   const row = document.createElement("div");
@@ -1832,6 +1872,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
             mount.innerHTML = "";
             mount.appendChild(runtime.video);
             ensureMobileVideoPlayOverlay(runtime.video, mount);
+            bindAttachmentPlayerHoverClass(wrap, runtime.video);
           }
           if (!(runtime.controlsEl instanceof HTMLElement)) {
             runtime.controlsEl = createVideoControlStrip(runtime.video, {
