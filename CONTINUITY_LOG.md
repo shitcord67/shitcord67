@@ -7042,3 +7042,6 @@ Commit: 3f0a915501efe29fe28f7d7d3d958b6ec7d91388
 Is extension: false
 
 # Metadata why does this happen? On Android it works. Oh also when I send some SWF on desktop then I might not see it on Android. Duh. Also in general, can you improve how the Ruffle thing is displayed? E.g. when I scroll then I can see that there is some delay with the Ruffle instances moving with the scrolling on Android. This is bad UX, they should scroll without any noticeable delay. Also on desktop when I have two messages with Ruffle instances after another and for the first one the controls open, then the second one does not seem to move correctly with its mssage down/up live. Then in general why do the controls open immiadetly when I'm over the message? Please only open them when I hover over the content. Not only for Ruffle but for videos as well. Also speaking of videos: on Android the video player does not seem to work, can we maybe ship a custom one or is there some package we can use? Then is there still some XMPP-specific stuff in app.js that could potentially be split out into own files?
+
+## 2026-03-03T15:58:00+01:00 User Prompt
+Yeah then feel free to split out more. Oh also please really make it possible to open Chrome/electorn devtools.

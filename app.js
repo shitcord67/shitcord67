@@ -4362,21 +4362,33 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   }
   state.currentAccountId = account.id;
   rememberAccountSession(account.id, rememberLogin === "on");
-  const xmpp = options.xmpp && typeof options.xmpp === "object" ? options.xmpp : null;
-  if (xmpp) {
-    const jid = normalizeXmppJid(xmpp.jid || "");
-    const password = normalizeXmppPassword(xmpp.password || "");
-    const wsInput = normalizeXmppWsUrl(xmpp.wsUrl || "") || inferXmppWsUrlFromJid(jid);
-    if (jid) state.preferences.xmppJid = jid;
-    if (typeof xmpp.password === "string") state.preferences.xmppPassword = password;
-    if (wsInput) state.preferences.xmppWsUrl = wsInput;
-    if (jid && !state.preferences.xmppMucService) {
-      const domain = xmppDomainFromJid(jid);
-      if (domain) state.preferences.xmppMucService = `conference.${domain}`;
-    }
-    if (jid && password && (!requestedRelayMode || requestedRelayMode === "xmpp")) {
-      state.preferences.relayMode = "xmpp";
-      state.preferences.relayAutoConnect = "on";
+  const applyXmppLoginOptions = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.applyXmppLoginOptionsToPreferences;
+  if (typeof applyXmppLoginOptions === "function") {
+    applyXmppLoginOptions(options, state.preferences, {
+      requestedRelayMode,
+      normalizeXmppJidFn: normalizeXmppJid,
+      normalizeXmppPasswordFn: normalizeXmppPassword,
+      normalizeXmppWsUrlFn: normalizeXmppWsUrl,
+      inferXmppWsUrlFromJidFn: inferXmppWsUrlFromJid,
+      xmppDomainFromJidFn: xmppDomainFromJid
+    });
+  } else {
+    const xmpp = options.xmpp && typeof options.xmpp === "object" ? options.xmpp : null;
+    if (xmpp) {
+      const jid = normalizeXmppJid(xmpp.jid || "");
+      const password = normalizeXmppPassword(xmpp.password || "");
+      const wsInput = normalizeXmppWsUrl(xmpp.wsUrl || "") || inferXmppWsUrlFromJid(jid);
+      if (jid) state.preferences.xmppJid = jid;
+      if (typeof xmpp.password === "string") state.preferences.xmppPassword = password;
+      if (wsInput) state.preferences.xmppWsUrl = wsInput;
+      if (jid && !state.preferences.xmppMucService) {
+        const domain = xmppDomainFromJid(jid);
+        if (domain) state.preferences.xmppMucService = `conference.${domain}`;
+      }
+      if (jid && password && (!requestedRelayMode || requestedRelayMode === "xmpp")) {
+        state.preferences.relayMode = "xmpp";
+        state.preferences.relayAutoConnect = "on";
+      }
     }
   }
   if (state.viewMode !== "dm" && state.viewMode !== "guild") state.viewMode = "guild";

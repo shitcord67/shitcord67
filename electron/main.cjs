@@ -61,7 +61,7 @@ if (process.platform === "linux") {
   applyEarlyRuntimeEnv(EARLY_RUNTIME_DIR);
 }
 
-const { app, BrowserWindow, dialog, session, ipcMain, desktopCapturer } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain, desktopCapturer, globalShortcut, Menu } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const https = require("node:https");
@@ -72,6 +72,7 @@ const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
 const ELECTRON_PIPEWIRE = String(process.env.S67_ELECTRON_PIPEWIRE || "on").toLowerCase();
 const ELECTRON_OZONE_HINT = String(process.env.S67_ELECTRON_OZONE_HINT || "auto").toLowerCase();
 const ELECTRON_PLATFORM_OVERRIDE = String(process.env.S67_ELECTRON_PLATFORM_OVERRIDE || "").toLowerCase();
+const ELECTRON_REMOTE_DEBUG_PORT = String(process.env.S67_REMOTE_DEBUGGING_PORT || "9222").trim();
 
 function appendChromiumFeatureFlag(flag) {
   if (!flag) return;
@@ -246,6 +247,10 @@ if (process.platform === "linux") {
   if (ELECTRON_OZONE_HINT && ELECTRON_OZONE_HINT !== "off") {
     app.commandLine.appendSwitch("ozone-platform-hint", ELECTRON_OZONE_HINT);
   }
+}
+if (/^\d+$/.test(ELECTRON_REMOTE_DEBUG_PORT)) {
+  app.commandLine.appendSwitch("remote-debugging-port", ELECTRON_REMOTE_DEBUG_PORT);
+  app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
 }
 
 let mainWindow = null;
@@ -646,11 +651,69 @@ function handleInternalS67Url(target, windowInstance) {
 
 function registerDevtoolsGlobalShortcuts() {
   if (devtoolsShortcutsRegistered) return;
-  devtoolsShortcutsRegistered = false;
+  const shortcuts = [
+    "F12",
+    "CommandOrControl+Shift+I",
+    "CommandOrControl+Shift+J",
+    "CommandOrControl+Alt+I"
+  ];
+  let registeredAny = false;
+  shortcuts.forEach((accelerator) => {
+    try {
+      const ok = globalShortcut.register(accelerator, () => {
+        toggleDevtoolsForWindow(BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs: 450 });
+      });
+      if (ok) registeredAny = true;
+    } catch (error) {
+      log("failed to register devtools shortcut", `${accelerator} ${String(error?.message || error)}`);
+    }
+  });
+  devtoolsShortcutsRegistered = registeredAny;
 }
 
 function unregisterDevtoolsGlobalShortcuts() {
+  try {
+    globalShortcut.unregisterAll();
+  } catch {
+    // no-op
+  }
   devtoolsShortcutsRegistered = false;
+}
+
+function installApplicationMenu() {
+  const template = [
+    {
+      label: "App",
+      submenu: [
+        { role: "quit" }
+      ]
+    },
+    {
+      label: "View",
+      submenu: [
+        {
+          label: "Toggle DevTools",
+          accelerator: "F12",
+          click: () => toggleDevtoolsForWindow(BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs: 250 })
+        },
+        {
+          label: "Force Open DevTools",
+          accelerator: process.platform === "darwin" ? "Cmd+Shift+Alt+I" : "Ctrl+Shift+Alt+I",
+          click: () => toggleDevtoolsForWindow(BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs: 0 })
+        },
+        { type: "separator" },
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "togglefullscreen" }
+      ]
+    }
+  ];
+  try {
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+  } catch (error) {
+    log("failed to install application menu", String(error?.message || error));
+  }
 }
 
 function attachNavigationGuards(windowInstance, allowedOrigin) {
@@ -687,6 +750,33 @@ function attachNavigationGuards(windowInstance, allowedOrigin) {
 
 function attachDeveloperShortcuts(windowInstance) {
   if (!windowInstance?.webContents) return;
+  windowInstance.webContents.on("context-menu", (_event, params) => {
+    const hasTarget = Number.isFinite(params?.x) && Number.isFinite(params?.y);
+    const menu = Menu.buildFromTemplate([
+      {
+        label: "Toggle DevTools",
+        click: () => {
+          toggleDevtoolsForWindow(windowInstance, { dedupeMs: 0 });
+        }
+      },
+      {
+        label: "Inspect Element",
+        enabled: hasTarget,
+        click: () => {
+          if (!hasTarget) return;
+          if (!windowInstance.webContents.isDevToolsOpened()) {
+            toggleDevtoolsForWindow(windowInstance, { dedupeMs: 0 });
+          }
+          try {
+            windowInstance.webContents.inspectElement(params.x, params.y);
+          } catch {
+            // no-op
+          }
+        }
+      }
+    ]);
+    menu.popup({ window: windowInstance });
+  });
   windowInstance.webContents.on("before-input-event", (event, input) => {
     const key = (input?.key || "").toUpperCase();
     const wantsF12 = key === "F12";
@@ -714,6 +804,7 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: windowSandbox,
+      devTools: true,
       preload: PRELOAD_PATH
     }
   });
@@ -928,6 +1019,7 @@ app.whenReady().then(async () => {
   try {
     installClientSecurityHeaders();
     installDisplayMediaRequestHandler();
+    installApplicationMenu();
     registerDevtoolsGlobalShortcuts();
     const result = await startClientStackWithFallback();
     startupRecovered = Boolean(result.recovered);
