@@ -2207,6 +2207,31 @@ body[data-hide-channel-panel="on"] .chat-panel {
   font-size: 0.74rem;
 }
 
+body[data-mobile="on"] .message-actions {
+  gap: 0.3rem;
+  padding: 0.26rem;
+}
+
+body[data-mobile="on"] .message-action-btn {
+  min-height: 42px;
+  min-width: 42px;
+  padding: 0.28rem 0.52rem;
+}
+
+body[data-mobile="on"] .message-action-emoji-btn {
+  min-width: 42px;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 0.42rem;
+  font-size: 1rem;
+}
+
+body[data-mobile="on"] .reaction-chip,
+body[data-mobile="on"] .reaction-picker button {
+  min-height: 40px;
+  padding: 0.24rem 0.58rem;
+}
+
 .composer-stack {
   --composer-base-bottom: 1.1rem;
   padding: 0.3rem 1rem var(--composer-base-bottom);

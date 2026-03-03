@@ -292,17 +292,13 @@ function scheduleRuntimeKeyboardListAdjust() {
   if (typeof window === "undefined") return;
   const list = document.getElementById("messageList");
   if (!(list instanceof HTMLElement)) return;
-  const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
-  const nearBottom = distanceFromBottom <= 64;
-  const anchor = nearBottom ? null : captureRuntimeMessageListAnchor(list);
+  const anchor = captureRuntimeMessageListAnchor(list);
   if (runtimeKeyboardAdjustRaf) window.cancelAnimationFrame(runtimeKeyboardAdjustRaf);
   runtimeKeyboardAdjustRaf = window.requestAnimationFrame(() => {
     runtimeKeyboardAdjustRaf = 0;
     const currentList = document.getElementById("messageList");
     if (!(currentList instanceof HTMLElement)) return;
-    if (nearBottom) {
-      currentList.scrollTop = currentList.scrollHeight;
-    } else if (anchor) {
+    if (anchor) {
       restoreRuntimeMessageListAnchor(currentList, anchor);
     }
     if (typeof updateJumpToBottomButton === "function") updateJumpToBottomButton();
