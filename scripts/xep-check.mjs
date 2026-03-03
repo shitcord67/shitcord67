@@ -36,6 +36,97 @@ function uniqueList(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function resolveAccountList(config) {
+  if (Array.isArray(config?.accounts)) return config.accounts.filter(Boolean);
+  if (Array.isArray(config?.profiles)) return config.profiles.filter(Boolean);
+  if (config?.account && typeof config.account === "object") return [config.account];
+  return [];
+}
+
+function normalizeAccountEntry(entry = {}) {
+  return {
+    label: (entry.label || entry.name || entry.jid || "").toString(),
+    jid: (entry.jid || entry.username || "").toString(),
+    password: (entry.password || "").toString(),
+    service: (entry.service || entry.ws || entry.websocket || "").toString(),
+    resource: (entry.resource || "").toString()
+  };
+}
+
+function isTtyInteractive() {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+async function promptSelectAccount(accounts) {
+  const list = accounts.map((entry, index) => {
+    const label = entry.label || entry.jid || `account-${index + 1}`;
+    return { index, label, jid: entry.jid || "" };
+  });
+  if (!isTtyInteractive()) {
+    console.log("Available accounts:");
+    list.forEach((item, index) => {
+      console.log(`  ${index + 1}. ${item.label}${item.jid ? ` (${item.jid})` : ""}`);
+    });
+    throw new Error("Select an account using --account <index|jid|label>.");
+  }
+  const readline = await import("node:readline");
+  readline.emitKeypressEvents(process.stdin);
+  if (process.stdin.setRawMode) process.stdin.setRawMode(true);
+  let selected = 0;
+  const render = () => {
+    process.stdout.write("\u001b[2J\u001b[H");
+    process.stdout.write("Select XMPP account (use ↑/↓, Enter to confirm):\n");
+    list.forEach((item, index) => {
+      const prefix = index === selected ? "›" : " ";
+      process.stdout.write(` ${prefix} ${item.label}${item.jid ? ` (${item.jid})` : ""}\n`);
+    });
+  };
+  render();
+  return new Promise((resolve, reject) => {
+    const onKey = (_str, key) => {
+      if (!key) return;
+      if (key.name === "down") {
+        selected = (selected + 1) % list.length;
+        render();
+        return;
+      }
+      if (key.name === "up") {
+        selected = (selected - 1 + list.length) % list.length;
+        render();
+        return;
+      }
+      if (key.name === "return") {
+        cleanup();
+        resolve(list[selected].index);
+        return;
+      }
+      if (key.ctrl && key.name === "c") {
+        cleanup();
+        reject(new Error("Cancelled."));
+      }
+    };
+    const cleanup = () => {
+      process.stdin.off("keypress", onKey);
+      if (process.stdin.setRawMode) process.stdin.setRawMode(false);
+      process.stdout.write("\u001b[2J\u001b[H");
+    };
+    process.stdin.on("keypress", onKey);
+  });
+}
+
+function resolveAccountBySelector(accounts, selector = "") {
+  if (!selector) return null;
+  const token = selector.toString().trim().toLowerCase();
+  if (!token) return null;
+  const index = Number(token);
+  if (Number.isFinite(index) && index > 0 && index <= accounts.length) return accounts[index - 1];
+  return accounts.find((entry) => {
+    const label = (entry.label || "").toString().toLowerCase();
+    const jid = (entry.jid || "").toString().toLowerCase();
+    return label === token || jid === token;
+  }) || null;
+}
+
 const DISCO_NS = "http://jabber.org/protocol/disco#info";
 const XEP_CHECKS = [
   { key: "xep-0030", label: "Service discovery", ns: "http://jabber.org/protocol/disco#info", target: "server" },
@@ -70,6 +161,7 @@ async function main() {
   let configPath = defaultConfig;
   let roomJid = "";
   let verbose = false;
+  let accountSelector = "";
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === "--config") {
@@ -82,13 +174,28 @@ async function main() {
       i += 1;
       continue;
     }
+    if (arg === "--account") {
+      accountSelector = (args[i + 1] || "").trim();
+      i += 1;
+      continue;
+    }
     if (arg === "--verbose") {
       verbose = true;
     }
   }
 
   const config = readConfig(configPath);
-  const account = config?.account || {};
+  const accountList = resolveAccountList(config).map(normalizeAccountEntry);
+  if (accountList.length === 0) throw new Error("No accounts found in config.");
+  let account = resolveAccountBySelector(accountList, accountSelector);
+  if (!account) {
+    if (accountList.length === 1) {
+      account = accountList[0];
+    } else {
+      const index = await promptSelectAccount(accountList);
+      account = accountList[index];
+    }
+  }
   const parsed = parseJid(account.jid);
   if (!parsed) throw new Error("Invalid account.jid in config.");
   const service = (account.service || "").toString().trim();
