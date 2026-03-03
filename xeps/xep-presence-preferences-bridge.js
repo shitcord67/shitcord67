@@ -765,6 +765,9 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
   const now = Date.now();
   const explicitState = normalizeXmppChatStateName(chatState);
   const chatStateNode = explicitState || xmppChatStateNodeForTypingActive(active);
+  const relayTypingStateNode = prefs.relayMode === "xmpp"
+    ? chatStateNode
+    : (active ? "composing" : "paused");
   if (!force && active && relayLocalTypingState.active && relayLocalTypingState.room === room && (now - relayLocalTypingState.lastSentAt) < RELAY_TYPING_THROTTLE_MS) {
     return true;
   }
@@ -772,7 +775,7 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     return true;
   }
   const typingPayload = {
-    state: chatStateNode,
+    state: relayTypingStateNode,
     active: Boolean(active),
     ts: new Date().toISOString(),
     authorUsername: current.username,

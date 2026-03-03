@@ -343,7 +343,7 @@ ui.messageInput.addEventListener("blur", () => {
 });
 
 ui.messageInput.addEventListener("focus", () => {
-  publishRelayTypingState(false, { force: true, chatState: "active" });
+  publishRelayTypingState(false, { force: false, chatState: "active" });
 });
 
 window.addEventListener("keydown", (event) => {
