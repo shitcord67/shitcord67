@@ -212,7 +212,7 @@ function connectRelaySocket({ force = false } = {}) {
         }
         const timestamp = xmppStanzaDelayTimestamp(stanza, fallbackTs);
         let attachmentEntries = xmppExtractOobAttachments(stanza);
-        if (attachmentEntries.length === 0 && fallbackAttachmentText) {
+        if (attachmentEntries.length === 0) {
           attachmentEntries = xmppInlineBobEntries(stanza);
         }
         if (attachmentEntries.length === 0 && fallbackAttachmentText) {
