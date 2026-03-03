@@ -468,6 +468,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
   const pcState = (pcEntry?.pc?.connectionState || "").toString().trim();
   const iceState = (pcEntry?.pc?.iceConnectionState || "").toString().trim();
+  const pcStateLower = pcState.toLowerCase();
+  const iceStateLower = iceState.toLowerCase();
   stage.innerHTML = "";
   const shell = document.createElement("div");
   shell.className = "native-call-surface";
@@ -490,6 +492,38 @@ function renderNativeXmppCallSurface(sessionId = "") {
     ...(flags.length > 0 ? flags : [])
   ].filter(Boolean);
   meta.textContent = stateBits.join(" · ");
+  const reconnectNoticeNeeded = ["disconnected", "failed"].includes(pcStateLower)
+    || ["disconnected", "failed"].includes(iceStateLower);
+  const reconnectNotice = reconnectNoticeNeeded
+    ? document.createElement("div")
+    : null;
+  if (reconnectNotice) {
+    reconnectNotice.className = "native-call-surface__notice";
+    const detail = [
+      pcState ? `pc:${pcState}` : "",
+      iceState ? `ice:${iceState}` : ""
+    ].filter(Boolean).join(" · ");
+    const label = document.createElement("span");
+    label.textContent = detail
+      ? `Connection unstable (${detail}).`
+      : "Connection unstable.";
+    const recoverBtn = document.createElement("button");
+    recoverBtn.type = "button";
+    recoverBtn.textContent = "Recover";
+    recoverBtn.addEventListener("click", async () => {
+      recoverBtn.disabled = true;
+      const refreshed = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+      const peerJid = xmppBareJid(session?.peerJid || "");
+      if (peerJid) xmppQueueTransportInfoGatherAndSend(peerJid, sid, { force: true });
+      showToast(
+        refreshed ? "Recovery refresh queued." : "Recovery refresh failed.",
+        { tone: refreshed ? "info" : "error", duration: 2600 }
+      );
+      if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    });
+    reconnectNotice.appendChild(label);
+    reconnectNotice.appendChild(recoverBtn);
+  }
   const actions = document.createElement("div");
   actions.className = "native-call-surface__actions";
   const localSnapshot = xmppLocalMediaSnapshot(sid);
@@ -616,6 +650,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   header.appendChild(title);
   header.appendChild(meta);
   header.appendChild(actions);
+  if (reconnectNotice) shell.appendChild(reconnectNotice);
   const devicesRow = document.createElement("div");
   devicesRow.className = "native-call-surface__devices";
   const prefs = getPreferences();

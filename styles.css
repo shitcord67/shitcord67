@@ -4979,6 +4979,34 @@ body[data-compact-members="on"] .member-item {
   background: #5a2a30;
 }
 
+.native-call-surface__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border: 1px solid #6e5a2f;
+  background: #2a2315;
+  color: #f7e5b2;
+  border-radius: 10px;
+  padding: 0.34rem 0.52rem;
+  font-size: 0.72rem;
+}
+
+.native-call-surface__notice button {
+  border-radius: 999px;
+  border: 1px solid #7f6a38;
+  background: #3a2f16;
+  color: #ffe6a9;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.2rem 0.58rem;
+}
+
+.native-call-surface__notice button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .native-call-surface__devices {
   display: flex;
   gap: 0.5rem;

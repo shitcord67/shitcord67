@@ -499,6 +499,7 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 - `XMPP Call` now sends DM-native call proposals (`propose`) when compatibility checks pass, waits for peer `proceed`, and falls back to `Web Call` on timeout.
 - In DM native-signaling path, peer `proceed` now triggers `session-initiate` scaffolding; incoming `session-initiate/session-accept/session-terminate` are handled and reflected in DM system events.
 - Active native XMPP call sessions now listen for browser media-device changes and automatically refresh local call tracks/device snapshot to reduce mic/cam hot-swap disruption.
+- Native call surface now shows explicit unstable-connection notices (`pc`/`ice` state) with a one-click `Recover` action to reacquire local media and re-publish transport updates.
 - Not implemented yet: native XMPP voice/video/screenshare signaling in-client (Jingle/WebRTC stack is not wired).
 - Tracked next: XEP-0166/XEP-0167/XEP-0353/XEP-0320 for call/media flows and XEP-0503 (Draft) for spaces hierarchy.
 - Interop target: maximize compatibility with standards-compliant XMPP clients (including Movim-centric behaviors) rather than provider-specific lock-in.
