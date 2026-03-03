@@ -49,15 +49,33 @@
         };
       }
     }
-    for (const thread of deps.state?.dmThreads || []) {
-      const hasPeer = !normalizedPeer || (thread.participantIds || []).some((id) => (
+    const threadHasPeer = (thread) => {
+      if (!normalizedPeer) return true;
+      return (thread?.participantIds || []).some((id) => (
         (typeof deps.xmppBareJidFn === "function" ? deps.xmppBareJidFn(deps.getAccountByIdFn?.(id)?.xmppJid || "") : "") === normalizedPeer
       ));
-      if (!hasPeer) continue;
-      const found = (thread.messages || []).find((message) => (
+    };
+    const findInThread = (thread) => {
+      const found = (thread?.messages || []).find((message) => (
         isOwnMessage(message)
         && (typeof deps.messageMatchesXmppReferenceFn === "function" ? deps.messageMatchesXmppReferenceFn(message, key) : false)
       )) || null;
+      return found;
+    };
+    const threads = deps.state?.dmThreads || [];
+    if (normalizedPeer) {
+      for (const thread of threads) {
+        if (!threadHasPeer(thread)) continue;
+        const found = findInThread(thread);
+        if (!found) continue;
+        return {
+          thread,
+          message: found
+        };
+      }
+    }
+    for (const thread of threads) {
+      const found = findInThread(thread);
       if (found) {
         return {
           thread,
@@ -74,6 +92,17 @@
     const { thread: targetThread, message: targetMessage } = resolveXmppOutboundDmMessageByReference(key, peerJid, deps);
     deps.xmppPendingReceiptByStanzaId?.delete?.(key);
     if (!targetMessage || !targetThread) return false;
+    const aliasRefs = typeof deps.normalizeXmppRefIdsListFn === "function"
+      ? deps.normalizeXmppRefIdsListFn([
+        (targetMessage.xmppStanzaId || "").toString().trim(),
+        ...(Array.isArray(targetMessage.xmppRefIds) ? targetMessage.xmppRefIds : [])
+      ])
+      : [];
+    aliasRefs.forEach((refId) => {
+      const aliasKey = (refId || "").toString().trim();
+      if (!aliasKey) return;
+      deps.xmppPendingReceiptByStanzaId?.delete?.(aliasKey);
+    });
     const nowIso = new Date().toISOString();
     const currentState = (targetMessage.xmppDeliveryState || "").toString().toLowerCase();
     let changed = false;
@@ -94,6 +123,17 @@
     const { thread, message } = resolveXmppOutboundDmMessageByReference(key, peerJid, deps);
     deps.xmppPendingReceiptByStanzaId?.delete?.(key);
     if (!thread || !message) return false;
+    const aliasRefs = typeof deps.normalizeXmppRefIdsListFn === "function"
+      ? deps.normalizeXmppRefIdsListFn([
+        (message.xmppStanzaId || "").toString().trim(),
+        ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : [])
+      ])
+      : [];
+    aliasRefs.forEach((refId) => {
+      const aliasKey = (refId || "").toString().trim();
+      if (!aliasKey) return;
+      deps.xmppPendingReceiptByStanzaId?.delete?.(aliasKey);
+    });
     const nowIso = new Date().toISOString();
     const current = typeof deps.getCurrentAccountFn === "function" ? deps.getCurrentAccountFn() : null;
     const ownUserId = (current?.id || "").toString();

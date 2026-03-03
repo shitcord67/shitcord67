@@ -478,6 +478,7 @@ function markXmppMessageDeliveredByReceipt(stanzaId, peerJid = "") {
   return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.markXmppMessageDeliveredByReceipt(stanzaId, peerJid, {
     xmppPendingReceiptByStanzaId,
     xmppBareJidFn: xmppBareJid,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
     getCurrentAccountFn: getCurrentAccount,
     state,
     findMessageInChannelFn: findMessageInChannel,
@@ -491,6 +492,7 @@ function markXmppMessageReadByMarker(stanzaId, peerJid = "") {
   return XEP_0184_0333_0359_DELIVERY_INDEXES_GLOBAL.markXmppMessageReadByMarker(stanzaId, peerJid, {
     xmppPendingReceiptByStanzaId,
     xmppBareJidFn: xmppBareJid,
+    normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
     getCurrentAccountFn: getCurrentAccount,
     state,
     findMessageInChannelFn: findMessageInChannel,
