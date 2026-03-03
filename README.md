@@ -52,7 +52,7 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 2. Start desktop client:
    - `npm run electron`
    - launches Electron and starts/stops local stack automatically.
-   - if `8080` is stale/non-responsive, Electron auto-retries fixed fallbacks (`18080`, `8081`, `38080`, `18081`) and then additional OS-assigned free ports.
+   - if `6769` is stale/non-responsive, Electron auto-retries fixed fallbacks (`6771`, `6772`, `6773`, `6970`) and then additional OS-assigned free ports.
    - if startup warns that a port is listening but not responding, free it first:
      - `lsof -nP -iTCP:<PORT> -sTCP:LISTEN`
      - `kill <PID>`
@@ -66,8 +66,8 @@ XMPP protocol coverage is tracked in `SUPPORTED_XEPS.md`.
 2. Start client + optional XMPP auth gateway with lifecycle cleanup:
    - `npm run dev:stack`
    - runs `scripts/run-client-stack.sh`
-   - starts client at `http://127.0.0.1:8080`
-   - in `auto` mode, starts gateway at `http://127.0.0.1:8790` when `.xmpp.local.json` exists (auth/discovery + media compatibility proxy)
+   - starts client at `http://127.0.0.1:6769`
+   - in `auto` mode, starts gateway at `http://127.0.0.1:6770` when `.xmpp.local.json` exists (auth/discovery + media compatibility proxy)
    - child processes started by the script are terminated on `Ctrl+C`/`TERM`/script exit
 3. Override gateway mode when needed:
    - `npm run dev:stack -- --with-gateway`
@@ -517,10 +517,10 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 - Keep browser/devtools network policy open for script loading if you rely on CDN fallback.
 - If browser login shows `AUTHFAIL` but Node-based auth works, run local fallback gateway:
   - `npm run xmpp:auth-gateway`
-  - Login validator can auto-try `http://localhost:8790/auth-check` (or gateway-first for known provider quirks).
-  - Host-meta discovery now also calls `http://localhost:8790/discover` first, which avoids browser CORS blocks on providers that do not expose `Access-Control-Allow-Origin` for `/.well-known/host-meta*`.
+  - Login validator can auto-try `http://localhost:6770/auth-check` (or gateway-first for known provider quirks).
+  - Host-meta discovery now also calls `http://localhost:6770/discover` first, which avoids browser CORS blocks on providers that do not expose `Access-Control-Allow-Origin` for `/.well-known/host-meta*`.
   - If you pulled new code while an old gateway process was still running, restart it so `/discover` is available.
-  - In-client registration uses `http://localhost:8790/register`.
+  - In-client registration uses `http://localhost:6770/register`.
   - This is intended for local web + Electron compatibility where browser auth stacks can differ.
 - For `xmpp.jp`, relay auth now uses a PLAIN-only SASL workaround in Strophe due SCRAM challenge incompatibility (`Response decoding failed`) seen with this runtime build.
 

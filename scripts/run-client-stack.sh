@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 CLIENT_HOST="${CLIENT_HOST:-127.0.0.1}"
-CLIENT_PORT="${CLIENT_PORT:-8080}"
+CLIENT_PORT="${CLIENT_PORT:-6769}"
 GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"
-GATEWAY_PORT="${GATEWAY_PORT:-8790}"
+GATEWAY_PORT="${GATEWAY_PORT:-6770}"
 GATEWAY_MODE="${GATEWAY_MODE:-auto}" # auto|on|off
 
 PIDS=()
@@ -21,9 +21,9 @@ Any processes started by this script are stopped automatically on exit/INT/TERM.
 
 Options:
   --client-host <host>       Client server host (default: 127.0.0.1)
-  --client-port <port>       Client server port (default: 8080)
+  --client-port <port>       Client server port (default: 6769)
   --gateway-host <host>      Gateway host (default: 127.0.0.1)
-  --gateway-port <port>      Gateway port (default: 8790)
+  --gateway-port <port>      Gateway port (default: 6770)
   --gateway-mode <mode>      auto | on | off (default: auto)
   --with-gateway             Same as --gateway-mode on
   --no-gateway               Same as --gateway-mode off
