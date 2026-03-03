@@ -1134,6 +1134,7 @@ const ui = {
 };
 
 const NATIVE_CREDENTIALS_FILENAME = "shitcord67-credentials.json";
+const NATIVE_CREDENTIALS_DIR = "shitcord67";
 
 function resolveNativeFilesystem() {
   const cap = typeof window !== "undefined" ? window.Capacitor : null;
@@ -1146,13 +1147,64 @@ function resolveNativeDocumentsDirectory(fs) {
   return fs.Directory?.Documents || fs.Directory?.DOCUMENTS || "DOCUMENTS";
 }
 
+function isNativeAndroidPlatform() {
+  const cap = typeof window !== "undefined" ? window.Capacitor : null;
+  if (!cap || typeof cap.getPlatform !== "function") return false;
+  return cap.getPlatform() === "android";
+}
+
+function nativeCredentialPath(filename = NATIVE_CREDENTIALS_FILENAME) {
+  const safe = (filename || "").toString().trim();
+  if (!safe) return `${NATIVE_CREDENTIALS_DIR}/${NATIVE_CREDENTIALS_FILENAME}`;
+  if (safe.includes("/")) return safe;
+  return `${NATIVE_CREDENTIALS_DIR}/${safe}`;
+}
+
+function notifyNativeCredentialStorageIssue(message, {
+  tone = "error",
+  duration = 3200
+} = {}) {
+  if (typeof showToast === "function") {
+    showToast(message, { tone, duration });
+  }
+}
+
+async function ensureNativeFilesystemPermissions({
+  prompt = true
+} = {}) {
+  const fs = resolveNativeFilesystem();
+  if (!fs) return false;
+  if (!isNativeAndroidPlatform()) return true;
+  if (typeof fs.checkPermissions !== "function") return true;
+  try {
+    const status = await fs.checkPermissions();
+    const current = (status?.publicStorage || "").toString().toLowerCase();
+    if (current === "granted") return true;
+    if (!prompt || typeof fs.requestPermissions !== "function") return false;
+    const requested = await fs.requestPermissions();
+    const next = (requested?.publicStorage || "").toString().toLowerCase();
+    if (next === "granted") return true;
+    notifyNativeCredentialStorageIssue("Storage permission denied. Cannot persist credentials in Documents.", {
+      duration: 4200
+    });
+    return false;
+  } catch {
+    notifyNativeCredentialStorageIssue("Failed to request Android storage permission for credential persistence.", {
+      duration: 4200
+    });
+    return false;
+  }
+}
+
 async function readNativeCredentials() {
   const fs = resolveNativeFilesystem();
   const directory = resolveNativeDocumentsDirectory(fs);
   if (!fs || !directory) return null;
+  const granted = await ensureNativeFilesystemPermissions({ prompt: false });
+  if (!granted) return null;
   try {
     const result = await fs.readFile({
-      path: NATIVE_CREDENTIALS_FILENAME,
+      path: nativeCredentialPath(),
       directory,
       encoding: "utf8"
     });
@@ -1161,7 +1213,21 @@ async function readNativeCredentials() {
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
-    return null;
+    try {
+      const legacy = await fs.readFile({
+        path: NATIVE_CREDENTIALS_FILENAME,
+        directory,
+        encoding: "utf8"
+      });
+      const raw = (legacy?.data || "").toString();
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      await writeNativeCredentials(parsed);
+      return parsed;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -1170,15 +1236,26 @@ async function writeNativeCredentials(payload) {
   const directory = resolveNativeDocumentsDirectory(fs);
   if (!fs || !directory) return false;
   if (!payload || typeof payload !== "object") return false;
+  const granted = await ensureNativeFilesystemPermissions({ prompt: true });
+  if (!granted) return false;
   try {
+    if (typeof fs.mkdir === "function") {
+      await fs.mkdir({
+        path: NATIVE_CREDENTIALS_DIR,
+        directory,
+        recursive: true
+      }).catch(() => {});
+    }
     await fs.writeFile({
-      path: NATIVE_CREDENTIALS_FILENAME,
+      path: nativeCredentialPath(),
       directory,
       data: JSON.stringify(payload),
-      encoding: "utf8"
+      encoding: "utf8",
+      recursive: true
     });
     return true;
   } catch {
+    notifyNativeCredentialStorageIssue("Failed writing credentials to Documents.");
     return false;
   }
 }
@@ -1187,14 +1264,24 @@ async function clearNativeCredentials() {
   const fs = resolveNativeFilesystem();
   const directory = resolveNativeDocumentsDirectory(fs);
   if (!fs || !directory) return false;
+  const granted = await ensureNativeFilesystemPermissions({ prompt: false });
+  if (!granted) return false;
   try {
     await fs.deleteFile({
-      path: NATIVE_CREDENTIALS_FILENAME,
+      path: nativeCredentialPath(),
       directory
     });
     return true;
   } catch {
-    return false;
+    try {
+      await fs.deleteFile({
+        path: NATIVE_CREDENTIALS_FILENAME,
+        directory
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -1234,6 +1321,10 @@ async function syncNativeCredentialsFromState({ force = false } = {}) {
   if (prefs.rememberLogin !== "on") {
     await clearNativeCredentials();
     return false;
+  }
+  if (isNativeAndroidPlatform()) {
+    const granted = await ensureNativeFilesystemPermissions({ prompt: true });
+    if (!granted) return false;
   }
   const payload = {
     version: 1,
