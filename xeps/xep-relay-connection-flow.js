@@ -234,6 +234,7 @@ function connectRelaySocket({ force = false } = {}) {
         const chatMarkable = Boolean(xmppChatMarkableNode(stanza));
         const stanzaMessageId = (stanza.getAttribute("id") || "").toString().trim();
         const stanzaRefs = xmppStanzaReferenceIds(stanza);
+        const stanzaDeliveryRefId = stanzaMessageId || (Array.isArray(stanzaRefs) ? stanzaRefs.find((entry) => (entry || "").toString().trim()) : "") || "";
         const correctionTargetId = xmppMessageCorrectionTargetId(stanza);
         const retractionTargetId = xmppMessageRetractionTargetId(stanza);
         const reactionPayload = xmppReactionPayloadFromStanza(stanza);
@@ -458,21 +459,21 @@ function connectRelaySocket({ force = false } = {}) {
               });
             }
           }
-          if (!ownAuthor && receiptRequest && stanzaMessageId && xmppConnection) {
-            const receiptAck = buildXmppReceiptAckStanza(peerBare, stanzaMessageId, { type: "chat" });
+          if (!ownAuthor && receiptRequest && stanzaDeliveryRefId && xmppConnection) {
+            const receiptAck = buildXmppReceiptAckStanza(peerBare, stanzaDeliveryRefId, { type: "chat" });
             if (receiptAck) {
               xmppConnection.send(receiptAck);
-              addXmppDebugEvent("message", "Sent XMPP delivery receipt", { to: peerBare, id: stanzaMessageId });
+              addXmppDebugEvent("message", "Sent XMPP delivery receipt", { to: peerBare, id: stanzaDeliveryRefId });
             }
           }
-          if (!ownAuthor && chatMarkable && stanzaMessageId && xmppConnection) {
-            const markerAck = buildXmppChatMarkerAckStanza(peerBare, stanzaMessageId, { type: "chat", marker: "received" });
+          if (!ownAuthor && chatMarkable && stanzaDeliveryRefId && xmppConnection) {
+            const markerAck = buildXmppChatMarkerAckStanza(peerBare, stanzaDeliveryRefId, { type: "chat", marker: "received" });
             if (markerAck) {
               xmppConnection.send(markerAck);
               addXmppDebugEvent("message", "Sent XMPP chat marker", {
                 to: peerBare,
                 marker: "received",
-                id: stanzaMessageId
+                id: stanzaDeliveryRefId
               });
             }
             const activeConversation = getActiveConversation();
@@ -484,7 +485,7 @@ function connectRelaySocket({ force = false } = {}) {
               ? true
               : document.visibilityState === "visible";
             if (activePeerBare && activePeerBare === peerBare && visibilityVisible) {
-              sendXmppDisplayedMarkerToPeer(peerBare, stanzaMessageId, { trigger: "incoming-markable-visible" });
+              sendXmppDisplayedMarkerToPeer(peerBare, stanzaDeliveryRefId, { trigger: "incoming-markable-visible" });
             }
           }
           if (receiptReceivedId) {
