@@ -22,6 +22,123 @@ const DM_GENERIC_SLASH_FALLBACK_COMMANDS = new Set([
   "vote"
 ]);
 
+const SED_SUB_FLAGS = new Set(["g", "i", "m", "s", "u", "y"]);
+
+function parseSedSubstitution(rawText) {
+  const text = (rawText || "").toString();
+  if (!text.startsWith("s") || text.length < 3) return null;
+  const delimiter = text[1];
+  if (!delimiter || /\s/.test(delimiter)) return null;
+  let index = 2;
+  let part = "";
+  let foundPattern = false;
+  let foundReplacement = false;
+  let pattern = "";
+  let replacement = "";
+  while (index < text.length) {
+    const char = text[index];
+    if (char === "\\" && index + 1 < text.length) {
+      part += text[index + 1];
+      index += 2;
+      continue;
+    }
+    if (char === delimiter) {
+      if (!foundPattern) {
+        pattern = part;
+        part = "";
+        foundPattern = true;
+        index += 1;
+        continue;
+      }
+      replacement = part;
+      foundReplacement = true;
+      index += 1;
+      break;
+    }
+    part += char;
+    index += 1;
+  }
+  if (!foundPattern || !foundReplacement || !pattern) return null;
+  const flagsRaw = text.slice(index);
+  let flags = "";
+  flagsRaw.split("").forEach((flag) => {
+    if (SED_SUB_FLAGS.has(flag) && !flags.includes(flag)) flags += flag;
+  });
+  let regex = null;
+  try {
+    regex = new RegExp(pattern, flags);
+  } catch {
+    return null;
+  }
+  return { regex, replacement };
+}
+
+function decodeSedReplacement(value = "") {
+  return (value || "")
+    .toString()
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\\\/g, "\\");
+}
+
+function findLastOwnMessage(conversation, account) {
+  if (!conversation || !account) return null;
+  const bucket = conversation.type === "dm"
+    ? conversation.thread?.messages
+    : conversation.channel?.messages;
+  if (!Array.isArray(bucket)) return null;
+  for (let i = bucket.length - 1; i >= 0; i -= 1) {
+    const message = bucket[i];
+    if (!message || message.userId !== account.id) continue;
+    return message;
+  }
+  return null;
+}
+
+function commitMessageEdit(scopedConversation, scopedMessage, editor, nextText) {
+  if (!scopedConversation || !scopedMessage || !editor) return { ok: false, reason: "invalid" };
+  const isDmConversation = scopedConversation.type === "dm";
+  const scopedChannel = isDmConversation ? null : scopedConversation.channel;
+  const canManage = !isDmConversation
+    && scopedChannel
+    && hasServerPermission(getActiveServer(), editor.id, "manageMessages");
+  const canEdit = canEditMessageEntry(scopedMessage, {
+    isDm: isDmConversation,
+    canManageMessages: Boolean(canManage),
+    currentUser: editor
+  });
+  if (!canEdit) return { ok: false, reason: "forbidden" };
+  const trimmedNextText = trimTextForConversation(nextText || "", scopedConversation);
+  const previousText = (scopedMessage.text || "").toString();
+  const textChanged = previousText !== trimmedNextText;
+  if (textChanged) {
+    if (!Array.isArray(scopedMessage.editHistory)) scopedMessage.editHistory = [];
+    scopedMessage.editHistory.unshift({
+      editedAt: new Date().toISOString(),
+      editorUserId: editor.id,
+      editorName: editor.username,
+      previousText
+    });
+    if (scopedMessage.editHistory.length > 25) scopedMessage.editHistory = scopedMessage.editHistory.slice(0, 25);
+  }
+  scopedMessage.text = trimmedNextText;
+  scopedMessage.editedAt = new Date().toISOString();
+  scopedMessage.editedByUserId = editor.id;
+  scopedMessage.editedByName = editor.username;
+  scopedMessage.editedByStaff = Boolean(!isDmConversation && canManage && scopedMessage.userId && scopedMessage.userId !== editor.id);
+  if (textChanged && scopedMessage.userId === editor.id) {
+    const correction = publishXmppMessageCorrection(scopedConversation, scopedMessage, editor);
+    if (!correction.ok && correction.reason === "missing-reference") {
+      addXmppDebugEvent("warn", "Skipped XMPP correction sync: missing stanza reference", {
+        conversationId: scopedConversation.id,
+        messageId: scopedMessage.id
+      });
+    }
+  }
+  saveState();
+  return { ok: true, changed: textChanged };
+}
+
 if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppLoginUiRuntimeBindings === "function") {
   XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppLoginUiRuntimeBindings();
 }
@@ -33,6 +150,39 @@ ui.messageForm.addEventListener("submit", (event) => {
   const text = trimTextForConversation((ui.messageInput.value || "").trim(), conversation);
   const account = getCurrentAccount();
   if (!conversation || !account || (!text && composerPendingAttachments.length === 0)) return;
+  if (text && composerPendingAttachments.length === 0) {
+    const sed = parseSedSubstitution(text);
+    if (sed) {
+      const target = findLastOwnMessage(conversation, account);
+      if (!target) {
+        showToast("No recent message to edit.", { tone: "error" });
+        return;
+      }
+      const nextText = (target.text || "").toString().replace(sed.regex, decodeSedReplacement(sed.replacement));
+      if (nextText === (target.text || "").toString()) {
+        showToast("No match found for substitution.", { tone: "error" });
+        return;
+      }
+      const result = commitMessageEdit(conversation, target, account, nextText);
+      if (!result.ok) {
+        showToast("You cannot edit that message.", { tone: "error" });
+        return;
+      }
+      ui.messageInput.value = "";
+      setComposerDraft(conversation.id, "");
+      composerTempLimitConversationId = null;
+      composerTempLimitExtra = 0;
+      applyComposerInputLimit();
+      clearComposerPendingAttachment();
+      slashSelectionIndex = 0;
+      closeMediaPicker();
+      resizeComposerInput();
+      renderMessages();
+      renderMemberList();
+      renderComposerMeta();
+      return;
+    }
+  }
   let handledSlashMessage = null;
   if (conversation.type === "dm" && text.startsWith("/")) {
     const handledDmSlash = typeof XEP_DM_COMMAND_RUNTIME_GLOBAL.handleDmSlashCommandRuntime === "function"
