@@ -700,17 +700,16 @@ function resetFindMatchCache() {
 }
 
 function activeConversationHistoryState(conversation = getActiveConversation()) {
-  if (!conversation || getPreferences().relayMode !== "xmpp") return null;
-  if (conversation.type === "dm" && conversation.thread) {
-    const peerJid = xmppPeerJidForDmThread(conversation.thread, getCurrentAccount());
-    const barePeer = xmppBareJid(peerJid);
-    if (!barePeer) return null;
-    return ensureXmppDmMamState(barePeer);
-  }
-  if (conversation.type === "channel" && conversation.channel?.xmppRoomJid) {
-    const roomJid = xmppBareJid(conversation.channel.xmppRoomJid);
-    if (!roomJid) return null;
-    return ensureXmppMamState(roomJid);
+  const runtime = window.SHITCORD67_APP_XMPP_HISTORY_RUNTIME;
+  if (runtime?.activeConversationHistoryState) {
+    return runtime.activeConversationHistoryState(conversation, {
+      getPreferencesFn: getPreferences,
+      getCurrentAccountFn: getCurrentAccount,
+      xmppPeerJidForDmThreadFn: xmppPeerJidForDmThread,
+      xmppBareJidFn: xmppBareJid,
+      ensureXmppDmMamStateFn: ensureXmppDmMamState,
+      ensureXmppMamStateFn: ensureXmppMamState
+    });
   }
   return null;
 }
@@ -1460,614 +1459,131 @@ async function copyText(value) {
   }
 }
 
-function copyTextToChannelWithFeedback(channel, value, {
-  successText = "Copied.",
-  emptyText = "Nothing to copy.",
-  failureText = "Failed to copy."
-} = {}) {
-  const text = (value || "").toString();
-  if (!text.trim()) {
-    addSystemMessage(channel, emptyText);
-    return;
-  }
-  void copyText(text).then((ok) => {
-    addSystemMessage(channel, ok ? successText : failureText);
-  });
+
+function appOverlayRuntime() {
+  return window.SHITCORD67_APP_OVERLAY_RUNTIME || null;
 }
 
-function ensureToastHost() {
-  let host = document.getElementById("appToastHost");
-  if (host) return host;
-  host = document.createElement("div");
-  host.id = "appToastHost";
-  host.className = "toast-host";
-  host.setAttribute("role", "status");
-  host.setAttribute("aria-live", "polite");
-  document.body.appendChild(host);
-  return host;
+function copyTextToChannelWithFeedback(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.copyTextToChannelWithFeedback) return;
+  return runtime.copyTextToChannelWithFeedback(...args);
 }
 
-function showToast(message, { tone = "info", duration = 1800 } = {}) {
-  if (!message) return;
-  const host = ensureToastHost();
-  host.textContent = message;
-  host.classList.toggle("is-error", tone === "error");
-  host.classList.add("is-visible");
-  if (toastHideTimer) clearTimeout(toastHideTimer);
-  toastHideTimer = setTimeout(() => {
-    host.classList.remove("is-visible");
-  }, Math.max(500, Number(duration) || 1800));
+function ensureToastHost(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.ensureToastHost) return null;
+  return runtime.ensureToastHost(...args);
 }
 
-function ensureMediaLightbox() {
-  let overlay = document.getElementById("mediaLightbox");
-  if (overlay) return overlay;
-  overlay = document.createElement("div");
-  overlay.id = "mediaLightbox";
-  overlay.className = "media-lightbox";
-  overlay.tabIndex = -1;
-  overlay.hidden = true;
-  overlay.innerHTML = [
-    "<button type=\"button\" class=\"media-lightbox__close\" data-lightbox-close=\"1\" aria-label=\"Close\">✕</button>",
-    "<div class=\"media-lightbox__stage\"></div>",
-    "<div class=\"media-lightbox__caption\"></div>"
-  ].join("");
-  const closeBtn = overlay.querySelector(".media-lightbox__close");
-  closeBtn?.addEventListener("click", () => {
-    closeMediaLightbox();
-  });
-  const shouldKeepOpenForTarget = (target) => {
-    if (!(target instanceof HTMLElement)) return false;
-    if (target.closest("[data-lightbox-close=\"1\"]")) return false;
-    if (target.closest(".media-lightbox__media")) return true;
-    if (target.closest(".media-lightbox__actions")) return true;
-    if (target.closest(".native-call-surface")) return true;
-    if (target.closest(".message-swf-link")) return true;
-    if (target.closest(".external-link-gate")) return true;
-    if (target.closest(".incoming-call-gate")) return true;
-    if (target.closest(".in-app-confirm")) return true;
-    return false;
-  };
-  overlay.addEventListener("click", (event) => {
-    if (!(event.target instanceof HTMLElement)) return;
-    if (event.target.closest("[data-lightbox-close=\"1\"]")) {
-      closeMediaLightbox();
-      return;
-    }
-    if (shouldKeepOpenForTarget(event.target)) return;
-    closeMediaLightbox();
-  });
-  document.body.appendChild(overlay);
-  return overlay;
+function showToast(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.showToast) return;
+  return runtime.showToast(...args);
 }
 
-function hasPinnedNativeCallLightbox() {
-  const sid = (xmppActiveNativeCallSessionId || "").toString().trim();
-  if (!sid) return false;
-  if (!xmppCallSessionById.has(sid)) return false;
-  const overlay = document.getElementById("mediaLightbox");
-  if (!overlay || overlay.hidden) return false;
-  return Boolean(overlay.querySelector(".native-call-surface"));
+function ensureMediaLightbox(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.ensureMediaLightbox) return null;
+  return runtime.ensureMediaLightbox(...args);
 }
 
-function hasPinnedWebCallLightbox() {
-  if (!activeWebCallLightbox) return false;
-  const overlay = document.getElementById("mediaLightbox");
-  if (!overlay || overlay.hidden) return false;
-  return true;
+function hasPinnedNativeCallLightbox(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.hasPinnedNativeCallLightbox) return false;
+  return runtime.hasPinnedNativeCallLightbox(...args);
 }
 
-function isNativeCallAudioTestActive(sessionId = "") {
-  const sid = (sessionId || "").toString().trim();
-  if (!sid || nativeCallAudioTestSessionId !== sid) return false;
-  const audio = nativeCallAudioTestElement;
-  if (!(audio instanceof HTMLAudioElement)) return false;
-  return !audio.paused && !audio.ended;
+function hasPinnedWebCallLightbox(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.hasPinnedWebCallLightbox) return false;
+  return runtime.hasPinnedWebCallLightbox(...args);
 }
 
-function stopNativeCallAudioTest() {
-  const audio = nativeCallAudioTestElement;
-  if (audio instanceof HTMLAudioElement) {
-    try {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.removeAttribute("src");
-      audio.load();
-    } catch {
-      // Ignore audio cleanup failures.
-    }
-    audio.onended = null;
-    audio.onerror = null;
-  }
-  nativeCallAudioTestElement = null;
-  nativeCallAudioTestSessionId = "";
+function isNativeCallAudioTestActive(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.isNativeCallAudioTestActive) return false;
+  return runtime.isNativeCallAudioTestActive(...args);
 }
 
-async function startNativeCallAudioTest(sessionId = "") {
-  const sid = (sessionId || "").toString().trim();
-  if (!sid) return false;
-  const clipUrl = resolveMediaUrl("./rickroll.ogg");
-  if (!clipUrl) return false;
-  if (nativeCallAudioTestSessionId && nativeCallAudioTestSessionId !== sid) {
-    stopNativeCallAudioTest();
-  }
-  let audio = nativeCallAudioTestElement;
-  if (!(audio instanceof HTMLAudioElement)) {
-    audio = new Audio();
-    audio.preload = "auto";
-    nativeCallAudioTestElement = audio;
-  }
-  nativeCallAudioTestSessionId = sid;
-  audio.onended = () => {
-    stopNativeCallAudioTest();
-    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
-  };
-  audio.onerror = () => {
-    stopNativeCallAudioTest();
-    showToast("Could not play local rickroll.ogg clip.", { tone: "error", duration: 2600 });
-    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
-  };
-  try {
-    audio.pause();
-    audio.src = clipUrl;
-    audio.currentTime = 0;
-    void applyAudioOutputDeviceToElement(audio, getPreferences().callAudioOutputId || "");
-    await audio.play();
-    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
-    return true;
-  } catch {
-    stopNativeCallAudioTest();
-    showToast("Audio playback was blocked. Click the page and try again.", { tone: "error", duration: 2800 });
-    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
-    return false;
-  }
+function stopNativeCallAudioTest(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.stopNativeCallAudioTest) return;
+  return runtime.stopNativeCallAudioTest(...args);
 }
 
-function closeMediaLightbox({ force = false } = {}) {
-  if (!force && (hasPinnedNativeCallLightbox() || hasPinnedWebCallLightbox())) return false;
-  const overlay = document.getElementById("mediaLightbox");
-  if (!overlay) return false;
-  overlay.hidden = true;
-  const stage = overlay.querySelector(".media-lightbox__stage");
-  if (stage) stage.innerHTML = "";
-  xmppActiveNativeCallSessionId = "";
-  nativeCallDebugDialogSessionId = "";
-  if (activeWebCallLightbox) {
-    const { conversationId, conversationType, screenShare, fromLabel, incoming } = activeWebCallLightbox;
-    activeWebCallLightbox = null;
-    const conversation = resolveConversationById(conversationId, conversationType);
-    if (conversation) {
-      const endedText = incoming
-        ? `Call with ${fromLabel || "peer"} ended.`
-        : `Your ${screenShare ? "screen-share" : "voice/video"} call ended.`;
-      if (addSystemMessageToConversation(conversation, endedText)) {
-        refreshConversationUi(conversation);
-        saveState();
-      }
-    }
-  }
-  stopWebCallRingtone();
-  stopNativeCallAudioTest();
-  document.body.style.removeProperty("overflow");
-  return true;
+async function startNativeCallAudioTest(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.startNativeCallAudioTest) return false;
+  return runtime.startNativeCallAudioTest(...args);
 }
 
-function lightboxDownloadNameFromLabel(label = "", fallbackExt = "bin") {
-  const ext = (fallbackExt || "bin").toString().replace(/^\./, "").toLowerCase() || "bin";
-  const base = (label || "media")
-    .toString()
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, " ")
-    .slice(0, 64)
-    || "media";
-  if (/\.[a-z0-9]{1,8}$/i.test(base)) return base;
-  return `${base}.${ext}`;
+function closeMediaLightbox(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.closeMediaLightbox) return false;
+  return runtime.closeMediaLightbox(...args);
 }
 
-function triggerMediaDownload(url, filename = "media.bin") {
-  const href = resolveMediaUrl((url || "").toString().trim());
-  if (!href) return;
-  const anchor = document.createElement("a");
-  anchor.href = href;
-  anchor.download = filename || "media.bin";
-  anchor.rel = "noopener noreferrer";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
+function lightboxDownloadNameFromLabel(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.lightboxDownloadNameFromLabel) return "media.bin";
+  return runtime.lightboxDownloadNameFromLabel(...args);
 }
 
-function bindMediaPreviewContextMenu(target, {
-  url = "",
-  label = "media",
-  fallbackExt = "bin"
-} = {}) {
-  if (!(target instanceof HTMLElement)) return;
-  const mediaUrl = resolveMediaUrl(url);
-  if (!mediaUrl) return;
-  target.addEventListener("contextmenu", (event) => {
-    openContextMenu(event, [
-      {
-        label: "Copy Media URL",
-        action: () => copyText(mediaUrl)
-      },
-      {
-        label: "Download Media",
-        action: () => {
-          triggerMediaDownload(mediaUrl, lightboxDownloadNameFromLabel(label, fallbackExt));
-        }
-      }
-    ]);
-  });
+function triggerMediaDownload(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.triggerMediaDownload) return;
+  return runtime.triggerMediaDownload(...args);
 }
 
-function showInAppConfirmDialog({
-  title = "Confirm action",
-  message = "",
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
-  danger = false,
-  hideCancel = false
-} = {}) {
-  return new Promise((resolve) => {
-    const overlay = ensureMediaLightbox();
-    const stage = overlay.querySelector(".media-lightbox__stage");
-    const caption = overlay.querySelector(".media-lightbox__caption");
-    if (!stage || !caption) {
-      resolve(false);
-      return;
-    }
-    stage.innerHTML = "";
-    const card = document.createElement("div");
-    card.className = "in-app-confirm";
-    const heading = document.createElement("strong");
-    heading.textContent = title;
-    const body = document.createElement("div");
-    body.className = "in-app-confirm__body";
-    body.textContent = message || "";
-    const actions = document.createElement("div");
-    actions.className = "in-app-confirm__actions";
-    const confirmBtn = document.createElement("button");
-    confirmBtn.type = "button";
-    confirmBtn.textContent = confirmLabel;
-    if (danger) confirmBtn.classList.add("is-danger");
-    let settled = false;
-    const finish = (result) => {
-      if (settled) return;
-      settled = true;
-      closeMediaLightbox();
-      resolve(Boolean(result));
-    };
-    confirmBtn.addEventListener("click", () => finish(true));
-    actions.appendChild(confirmBtn);
-    if (!hideCancel) {
-      const cancelBtn = document.createElement("button");
-      cancelBtn.type = "button";
-      cancelBtn.textContent = cancelLabel;
-      cancelBtn.addEventListener("click", () => finish(false));
-      actions.appendChild(cancelBtn);
-    }
-    card.appendChild(heading);
-    if (message) card.appendChild(body);
-    card.appendChild(actions);
-    stage.appendChild(card);
-    caption.textContent = "Confirmation";
-    overlay.hidden = false;
-    document.body.style.overflow = "hidden";
-    overlay.focus({ preventScroll: true });
-  });
+function bindMediaPreviewContextMenu(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.bindMediaPreviewContextMenu) return;
+  return runtime.bindMediaPreviewContextMenu(...args);
 }
 
-function showInAppAlertDialog({
-  title = "Notice",
-  message = "",
-  confirmLabel = "OK"
-} = {}) {
-  return showInAppConfirmDialog({
-    title,
-    message,
-    confirmLabel,
-    hideCancel: true
-  });
+function showInAppConfirmDialog(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.showInAppConfirmDialog) return Promise.resolve(false);
+  return runtime.showInAppConfirmDialog(...args);
 }
 
-function showInAppPromptDialog({
-  title = "Enter value",
-  message = "",
-  defaultValue = "",
-  placeholder = "",
-  confirmLabel = "OK",
-  cancelLabel = "Cancel",
-  multiline = false
-} = {}) {
-  return new Promise((resolve) => {
-    const overlay = ensureMediaLightbox();
-    const stage = overlay.querySelector(".media-lightbox__stage");
-    const caption = overlay.querySelector(".media-lightbox__caption");
-    if (!stage || !caption) {
-      resolve(null);
-      return;
-    }
-    stage.innerHTML = "";
-    const card = document.createElement("div");
-    card.className = "in-app-confirm";
-    const heading = document.createElement("strong");
-    heading.textContent = title;
-    const body = document.createElement("div");
-    body.className = "in-app-confirm__body";
-    body.textContent = message || "";
-    const input = multiline ? document.createElement("textarea") : document.createElement("input");
-    input.className = "in-app-confirm__input";
-    input.value = (defaultValue ?? "").toString();
-    input.placeholder = placeholder || "";
-    if (!multiline) input.type = "text";
-    const actions = document.createElement("div");
-    actions.className = "in-app-confirm__actions";
-    const confirmBtn = document.createElement("button");
-    confirmBtn.type = "button";
-    confirmBtn.textContent = confirmLabel;
-    const cancelBtn = document.createElement("button");
-    cancelBtn.type = "button";
-    cancelBtn.textContent = cancelLabel;
-    let settled = false;
-    const finish = (value) => {
-      if (settled) return;
-      settled = true;
-      closeMediaLightbox();
-      resolve(value);
-    };
-    confirmBtn.addEventListener("click", () => finish(input.value));
-    cancelBtn.addEventListener("click", () => finish(null));
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        finish(null);
-        return;
-      }
-      if (!multiline && event.key === "Enter") {
-        event.preventDefault();
-        finish(input.value);
-      }
-    });
-    actions.appendChild(confirmBtn);
-    actions.appendChild(cancelBtn);
-    card.appendChild(heading);
-    if (message) card.appendChild(body);
-    card.appendChild(input);
-    card.appendChild(actions);
-    stage.appendChild(card);
-    caption.textContent = "Input";
-    overlay.hidden = false;
-    document.body.style.overflow = "hidden";
-    overlay.focus({ preventScroll: true });
-    requestAnimationFrame(() => {
-      try {
-        input.focus();
-        input.select?.();
-      } catch {
-        // Ignore focus failures.
-      }
-    });
-  });
+function showInAppAlertDialog(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.showInAppAlertDialog) return Promise.resolve(false);
+  return runtime.showInAppAlertDialog(...args);
 }
 
-function showInAppCopyDialog(text = "") {
-  return new Promise((resolve) => {
-    const overlay = ensureMediaLightbox();
-    const stage = overlay.querySelector(".media-lightbox__stage");
-    const caption = overlay.querySelector(".media-lightbox__caption");
-    if (!stage || !caption) {
-      resolve(false);
-      return;
-    }
-    stage.innerHTML = "";
-    const card = document.createElement("div");
-    card.className = "in-app-confirm";
-    const heading = document.createElement("strong");
-    heading.textContent = "Copy text";
-    const body = document.createElement("div");
-    body.className = "in-app-confirm__body";
-    body.textContent = "Select the text below and copy it.";
-    const area = document.createElement("textarea");
-    area.className = "in-app-confirm__input";
-    area.readOnly = true;
-    area.value = (text ?? "").toString();
-    const actions = document.createElement("div");
-    actions.className = "in-app-confirm__actions";
-    const closeBtn = document.createElement("button");
-    closeBtn.type = "button";
-    closeBtn.textContent = "Close";
-    closeBtn.addEventListener("click", () => {
-      closeMediaLightbox();
-      resolve(true);
-    });
-    actions.appendChild(closeBtn);
-    card.appendChild(heading);
-    card.appendChild(body);
-    card.appendChild(area);
-    card.appendChild(actions);
-    stage.appendChild(card);
-    caption.textContent = "Manual copy";
-    overlay.hidden = false;
-    document.body.style.overflow = "hidden";
-    overlay.focus({ preventScroll: true });
-    requestAnimationFrame(() => {
-      try {
-        area.focus();
-        area.select();
-      } catch {
-        // Ignore focus failures.
-      }
-    });
-  });
+function showInAppPromptDialog(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.showInAppPromptDialog) return Promise.resolve(null);
+  return runtime.showInAppPromptDialog(...args);
 }
 
-function openMediaLightbox({ url, label = "", video = false } = {}) {
-  if (!url) return;
-  const mediaUrl = resolveMediaUrl(url);
-  const overlay = ensureMediaLightbox();
-  const stage = overlay.querySelector(".media-lightbox__stage");
-  const caption = overlay.querySelector(".media-lightbox__caption");
-  if (!stage || !caption) return;
-  stage.innerHTML = "";
-  let media = null;
-  const normalizedLabel = (label || "").toString().trim() || "media";
-  const fallbackExt = video ? "mp4" : "png";
-  if (video) {
-    media = createVideoPreviewElement(mediaUrl, label || "Video", stage);
-    media.className = "media-lightbox__media";
-    bindMediaPreviewContextMenu(media, {
-      url: mediaUrl,
-      label: normalizedLabel,
-      fallbackExt
-    });
-  } else {
-    media = document.createElement("img");
-    media.className = "media-lightbox__media";
-    media.alt = label || "media preview";
-    media.loading = "eager";
-    media.src = mediaUrl;
-    media.addEventListener("error", () => {
-      const note = document.createElement("div");
-      note.className = "message-embed-note";
-      note.textContent = "Preview unavailable. Open in a new tab.";
-      const openLink = document.createElement("a");
-      openLink.className = "message-swf-link";
-      openLink.href = mediaUrl;
-      openLink.target = "_blank";
-      openLink.rel = "noopener noreferrer";
-      openLink.textContent = "Open media";
-      stage.innerHTML = "";
-      stage.appendChild(note);
-      stage.appendChild(openLink);
-    });
-    bindMediaPreviewContextMenu(media, {
-      url: mediaUrl,
-      label: normalizedLabel,
-      fallbackExt: /\.svg(\?|#|$)/i.test(mediaUrl) ? "svg" : fallbackExt
-    });
-  }
-  stage.appendChild(media);
-  const actions = document.createElement("div");
-  actions.className = "media-lightbox__actions";
-  const copyBtn = document.createElement("button");
-  copyBtn.type = "button";
-  copyBtn.textContent = "Copy URL";
-  copyBtn.addEventListener("click", async () => {
-    const copied = await copyText(mediaUrl);
-    showToast(copied ? "URL copied." : "Could not copy URL.", { tone: copied ? "info" : "error" });
-  });
-  const downloadBtn = document.createElement("button");
-  downloadBtn.type = "button";
-  downloadBtn.textContent = "Download";
-  downloadBtn.addEventListener("click", () => {
-    const resolvedExt = /\.svg(\?|#|$)/i.test(mediaUrl)
-      ? "svg"
-      : fallbackExt;
-    triggerMediaDownload(mediaUrl, lightboxDownloadNameFromLabel(normalizedLabel, resolvedExt));
-  });
-  actions.appendChild(copyBtn);
-  actions.appendChild(downloadBtn);
-  stage.appendChild(actions);
-  caption.textContent = label || "";
-  overlay.hidden = false;
-  document.body.style.overflow = "hidden";
-  overlay.focus({ preventScroll: true });
+function showInAppCopyDialog(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.showInAppCopyDialog) return Promise.resolve(false);
+  return runtime.showInAppCopyDialog(...args);
 }
 
-function showExternalLinkPrompt(targetUrl, { allowEmbed = true } = {}) {
-  const overlay = ensureMediaLightbox();
-  const stage = overlay.querySelector(".media-lightbox__stage");
-  const caption = overlay.querySelector(".media-lightbox__caption");
-  if (!stage || !caption) return;
-  stage.innerHTML = "";
-  const gate = document.createElement("div");
-  gate.className = "external-link-gate";
-  const title = document.createElement("strong");
-  title.textContent = "Open external link?";
-  const preview = document.createElement("code");
-  preview.className = "external-link-gate__url";
-  preview.textContent = targetUrl;
-  const actions = document.createElement("div");
-  actions.className = "external-link-gate__actions";
-  const confirmBtn = document.createElement("button");
-  confirmBtn.type = "button";
-  confirmBtn.textContent = "Confirm";
-  confirmBtn.addEventListener("click", () => {
-    if (!allowEmbed) {
-      showToast("External protocols are blocked in-app.", { tone: "warn" });
-      closeMediaLightbox();
-      return;
-    }
-    stage.innerHTML = "";
-    const frame = document.createElement("iframe");
-    frame.className = "media-lightbox__media media-lightbox__media--frame";
-    frame.src = targetUrl;
-    frame.loading = "eager";
-    frame.referrerPolicy = "no-referrer";
-    frame.allow = "fullscreen";
-    const controls = document.createElement("div");
-    controls.className = "external-link-gate__actions";
-    const externalBtn = document.createElement("button");
-    externalBtn.type = "button";
-    externalBtn.textContent = "Open External";
-    externalBtn.addEventListener("click", () => {
-      if (nativeWindowOpen) {
-        nativeWindowOpen(targetUrl, "_blank", "noopener,noreferrer");
-      } else {
-        window.location.href = targetUrl;
-      }
-    });
-    const closeBtn = document.createElement("button");
-    closeBtn.type = "button";
-    closeBtn.textContent = "Close";
-    closeBtn.addEventListener("click", () => closeMediaLightbox());
-    controls.appendChild(externalBtn);
-    controls.appendChild(closeBtn);
-    stage.appendChild(frame);
-    stage.appendChild(controls);
-    caption.textContent = targetUrl;
-  });
-  const denyBtn = document.createElement("button");
-  denyBtn.type = "button";
-  denyBtn.textContent = "Deny";
-  denyBtn.addEventListener("click", () => closeMediaLightbox());
-  actions.appendChild(confirmBtn);
-  actions.appendChild(denyBtn);
-  gate.appendChild(title);
-  gate.appendChild(preview);
-  gate.appendChild(actions);
-  stage.appendChild(gate);
-  caption.textContent = "External link request";
-  overlay.hidden = false;
-  document.body.style.overflow = "hidden";
-  overlay.focus({ preventScroll: true });
+function openMediaLightbox(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.openMediaLightbox) return;
+  return runtime.openMediaLightbox(...args);
 }
 
-function openExternalUrlInClient(rawUrl) {
-  const targetUrl = resolveMediaUrl((rawUrl || "").toString().trim());
-  if (!targetUrl) return;
-  const allowEmbed = /^https?:\/\//i.test(targetUrl);
-  showExternalLinkPrompt(targetUrl, { allowEmbed });
+function showExternalLinkPrompt(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.showExternalLinkPrompt) return;
+  return runtime.showExternalLinkPrompt(...args);
 }
 
-if (nativeWindowOpen && window.__s67ExternalOpenProxy !== true) {
-  window.__s67ExternalOpenProxy = true;
-  window.open = (url) => {
-    const targetUrl = (url || "").toString();
-    if (/^s67:/i.test(targetUrl)) {
-      return nativeWindowOpen(targetUrl, "_blank", "noopener");
-    }
-    openExternalUrlInClient(targetUrl);
-    return null;
-  };
+function openExternalUrlInClient(...args) {
+  const runtime = appOverlayRuntime();
+  if (!runtime?.openExternalUrlInClient) return;
+  return runtime.openExternalUrlInClient(...args);
 }
 
-window.addEventListener("s67-open-external-url", (event) => {
-  const requestedUrl = (event?.detail || "").toString();
-  if (!requestedUrl) return;
-  openExternalUrlInClient(requestedUrl);
-});
 
 function formatDebugLogs() {
   const runtime = {
@@ -4335,14 +3851,19 @@ function createOrSwitchAccount(usernameInput, options = {}) {
     ensureAccountCosmetics(account);
     state.accounts.push(account);
   } else {
-    if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
-    if (typeof account.xmppIdleSince !== "string") account.xmppIdleSince = "";
-    if (typeof account.xmppLastActiveAt !== "string") account.xmppLastActiveAt = "";
-    if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
-    if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
-    if (typeof account.activityText !== "string") account.activityText = "";
-    if (!Array.isArray(account.activities)) account.activities = [];
-    ensureAccountCosmetics(account);
+    const ensureAccountShape = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.ensureAccountRuntimeShape;
+    if (typeof ensureAccountShape === "function") {
+      ensureAccountShape(account, { ensureAccountCosmeticsFn: ensureAccountCosmetics });
+    } else {
+      if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+      if (typeof account.xmppIdleSince !== "string") account.xmppIdleSince = "";
+      if (typeof account.xmppLastActiveAt !== "string") account.xmppLastActiveAt = "";
+      if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
+      if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
+      if (typeof account.activityText !== "string") account.activityText = "";
+      if (!Array.isArray(account.activities)) account.activities = [];
+      ensureAccountCosmetics(account);
+    }
   }
 
   state.preferences = getPreferences();

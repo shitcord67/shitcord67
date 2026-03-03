@@ -7045,3 +7045,9 @@ Is extension: false
 
 ## 2026-03-03T15:58:00+01:00 User Prompt
 Yeah then feel free to split out more. Oh also please really make it possible to open Chrome/electorn devtools.
+
+## 2026-03-03T16:01:00+01:00 User Prompt
+Yes
+
+## 2026-03-03T16:03:00+01:00 User Prompt
+Would be good if you could move our 500 lines + regarding XMPP stuff

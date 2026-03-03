@@ -34,7 +34,23 @@
     return true;
   }
 
+  function ensureAccountRuntimeShape(account, {
+    ensureAccountCosmeticsFn = () => {}
+  } = {}) {
+    if (!account || typeof account !== "object") return null;
+    if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
+    if (typeof account.xmppIdleSince !== "string") account.xmppIdleSince = "";
+    if (typeof account.xmppLastActiveAt !== "string") account.xmppLastActiveAt = "";
+    if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
+    if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
+    if (typeof account.activityText !== "string") account.activityText = "";
+    if (!Array.isArray(account.activities)) account.activities = [];
+    ensureAccountCosmeticsFn(account);
+    return account;
+  }
+
   globalScope.SHITCORD67_APP_ACCOUNT_RUNTIME = Object.freeze({
-    applyXmppLoginOptionsToPreferences
+    applyXmppLoginOptionsToPreferences,
+    ensureAccountRuntimeShape
   });
 })(typeof window !== "undefined" ? window : globalThis);
