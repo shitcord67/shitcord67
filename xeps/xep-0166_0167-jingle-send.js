@@ -123,6 +123,56 @@
     return iq;
   }
 
+  function xmppValidateLocalSdpForJingle(localSdp = "", {
+    sid = "",
+    medias = [],
+    buildJingleContentsFromSdpFn = null
+  } = {}, deps = {}) {
+    const addXmppDebugEventFn = deps.addXmppDebugEventFn;
+    const notifyUserFn = deps.notifyUserFn;
+    const sdp = (localSdp || "").toString();
+    const targetMedias = [...new Set(
+      (Array.isArray(medias) ? medias : [])
+        .map((item) => (item || "").toString().trim().toLowerCase())
+        .filter((item) => item === "audio" || item === "video")
+    )];
+    const issues = [];
+    if (!sdp.trim()) {
+      issues.push("missing-local-sdp");
+    }
+    const contents = sdp && typeof buildJingleContentsFromSdpFn === "function"
+      ? (buildJingleContentsFromSdpFn(sdp, { localRole: "initiator" }) || [])
+      : [];
+    targetMedias.forEach((mediaType) => {
+      const content = contents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === mediaType) || null;
+      if (!content) {
+        issues.push(`missing-content:${mediaType}`);
+        return;
+      }
+      const transport = content.transport && typeof content.transport === "object" ? content.transport : null;
+      if (!((transport?.ufrag || "").toString().trim() && (transport?.pwd || "").toString().trim())) {
+        issues.push(`missing-ice-creds:${mediaType}`);
+      }
+      const fingerprint = (transport?.fingerprint || "").toString().trim();
+      if (!fingerprint) {
+        issues.push(`missing-dtls-fingerprint:${mediaType}`);
+      }
+    });
+    if (issues.length > 0) {
+      if (typeof addXmppDebugEventFn === "function") {
+        addXmppDebugEventFn("error", "Local SDP compatibility checks flagged missing transport details", {
+          sid: (sid || "").toString().trim(),
+          issues,
+          media: targetMedias
+        });
+      }
+      if (typeof notifyUserFn === "function") {
+        notifyUserFn("Call transport compatibility warning: some SDP/Jingle fields are missing; interoperability may be reduced.");
+      }
+    }
+    return { ok: issues.length === 0, issues, contents };
+  }
+
   function xmppBuildJingleRtpContent(builder, {
     media = "audio",
     name = "",
@@ -709,6 +759,7 @@
     const parseDtlsFingerprintFromSdpFn = deps.parseDtlsFingerprintFromSdpFn;
     const resolveLocalDtlsForSessionFn = deps.resolveLocalDtlsForSessionFn;
     const buildJingleContentsFromSdpFn = deps.buildJingleContentsFromSdpFn;
+    const notifyUserFn = deps.notifyUserFn;
     const addXmppDebugEventFn = deps.addXmppDebugEventFn;
     const trimXmppRawFn = deps.trimXmppRawFn;
     const serializePayloadFn = deps.serializePayloadFn;
@@ -778,6 +829,14 @@
       || (typeof resolveLocalDtlsForSessionFn === "function"
         ? resolveLocalDtlsForSessionFn(sid, { fallbackSetup: "actpass" })
         : null);
+    xmppValidateLocalSdpForJingle(localSdp, {
+      sid,
+      medias,
+      buildJingleContentsFromSdpFn
+    }, {
+      addXmppDebugEventFn,
+      notifyUserFn
+    });
     const contents = (!useMinimalRtp && localSdp && typeof buildJingleContentsFromSdpFn === "function")
       ? buildJingleContentsFromSdpFn(localSdp, { localRole: "initiator" })
       : [];
@@ -900,6 +959,7 @@
     const parseDtlsFingerprintFromSdpFn = deps.parseDtlsFingerprintFromSdpFn;
     const resolveLocalDtlsForSessionFn = deps.resolveLocalDtlsForSessionFn;
     const buildJingleContentsFromSdpFn = deps.buildJingleContentsFromSdpFn;
+    const notifyUserFn = deps.notifyUserFn;
     const alignLocalJingleContentsToRemoteSessionFn = deps.alignLocalJingleContentsToRemoteSessionFn;
     const addXmppDebugEventFn = deps.addXmppDebugEventFn;
     const trimXmppRawFn = deps.trimXmppRawFn;
@@ -970,6 +1030,14 @@
       || (typeof resolveLocalDtlsForSessionFn === "function"
         ? resolveLocalDtlsForSessionFn(sid, { fallbackSetup: "active" })
         : null);
+    xmppValidateLocalSdpForJingle(localSdp, {
+      sid,
+      medias,
+      buildJingleContentsFromSdpFn
+    }, {
+      addXmppDebugEventFn,
+      notifyUserFn
+    });
     const rawContents = (!useMinimalRtp && localSdp && typeof buildJingleContentsFromSdpFn === "function")
       ? buildJingleContentsFromSdpFn(localSdp, { localRole: "responder" })
       : [];

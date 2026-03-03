@@ -320,6 +320,7 @@ Notes:
 - In camera mode, microphone device switches now also use live audio track replacement; when screen-sharing with mixed audio, mic changes use full media reacquire to keep mix integrity.
 - Native call surface and in-call picker dialogs now include mobile-focused responsive layout adjustments for tighter screens.
 - Jingle `content-modify` updates now derive content-name fallbacks from active local SDP when remote content catalogs are missing, improving strict-peer compatibility.
+- Outbound Jingle `session-initiate`/`session-accept` now run SDP transport compatibility checks (ICE creds + DTLS fingerprints per media) with explicit diagnostics/warnings when fields are missing.
 - The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
