@@ -688,19 +688,39 @@ function renderNativeXmppCallSurface(sessionId = "") {
   buildSelectOptions(audioSelect, mediaDeviceSnapshot.audio || [], prefs.callAudioInputId, "Default Mic");
   buildSelectOptions(videoSelect, mediaDeviceSnapshot.video || [], prefs.callVideoInputId, "Default Camera");
   buildSelectOptions(outputSelect, mediaDeviceSnapshot.output || [], prefs.callAudioOutputId, "Default Speaker");
+  const setInputSelectBusy = (busy = false) => {
+    audioSelect.disabled = busy;
+    videoSelect.disabled = busy;
+  };
+  const applyLocalInputDeviceChange = async ({ kind = "audio", label = "Microphone" } = {}) => {
+    setInputSelectBusy(true);
+    try {
+      const ok = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+      showToast(
+        ok ? `${label} device updated.` : `Failed to switch ${label.toLowerCase()} device.`,
+        { tone: ok ? "info" : "error", duration: 2600 }
+      );
+      if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+      addXmppDebugEvent(
+        ok ? "runtime" : "error",
+        ok ? "Applied native call input device change" : "Failed native call input device change",
+        { sid, kind }
+      );
+    } finally {
+      setInputSelectBusy(false);
+    }
+  };
   audioSelect.addEventListener("change", () => {
     state.preferences = getPreferences();
     state.preferences.callAudioInputId = audioSelect.value;
     saveState();
-    void xmppReacquireLocalMediaForSession(sid);
-    showToast("Microphone device updated.");
+    void applyLocalInputDeviceChange({ kind: "audio", label: "Microphone" });
   });
   videoSelect.addEventListener("change", () => {
     state.preferences = getPreferences();
     state.preferences.callVideoInputId = videoSelect.value;
     saveState();
-    void xmppReacquireLocalMediaForSession(sid);
-    showToast("Camera device updated.");
+    void applyLocalInputDeviceChange({ kind: "video", label: "Camera" });
   });
   outputSelect.addEventListener("change", () => {
     state.preferences = getPreferences();
