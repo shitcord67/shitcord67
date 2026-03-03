@@ -165,7 +165,8 @@
 
   function requestXmppSmAck(connection = null, smState = null, {
     reason = "",
-    minIntervalMs = 15_000
+    minIntervalMs = 15_000,
+    debugMeta = null
   } = {}, deps = {}) {
     if (!connection || !smState || !smState.enabled) return false;
     const now = Date.now();
@@ -181,7 +182,8 @@
       if (typeof deps.addXmppDebugEventFn === "function") {
         deps.addXmppDebugEventFn("iq", "Requested XMPP stream-management ack", {
           reason: reason || "",
-          outboundCount: clampXmppSmCounter(smState.outboundStanzaCount)
+          outboundCount: clampXmppSmCounter(smState.outboundStanzaCount),
+          ...(debugMeta && typeof debugMeta === "object" ? debugMeta : {})
         });
       }
       return true;
@@ -207,7 +209,15 @@
     const unacked = xmppSmCounterDistance(acked, outbound);
     const threshold = Math.max(1, Number(minUnacked) || 8);
     if (unacked < threshold) return false;
-    return requestXmppSmAck(connection, smState, { reason: reason || "outbound-backlog", minIntervalMs }, deps);
+    return requestXmppSmAck(connection, smState, {
+      reason: reason || "outbound-backlog",
+      minIntervalMs,
+      debugMeta: {
+        ackedCount: acked,
+        unackedCount: unacked,
+        backlogThreshold: threshold
+      }
+    }, deps);
   }
 
   function handleXmppSmStanza(stanza = null, {
