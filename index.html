@@ -53,6 +53,22 @@
       </div>
     </div>
 
+    <dialog id="languageOnboardingDialog" class="modal">
+      <form method="dialog" class="modal-form">
+        <h3>Language Check</h3>
+        <p>Is English okay for the app interface? You can switch now or keep auto-detect.</p>
+        <label for="languageOnboardingSelect">Switch to</label>
+        <select id="languageOnboardingSelect">
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+        </select>
+        <div class="modal-actions">
+          <button id="languageOnboardingKeepAutoBtn" type="button">Keep Auto</button>
+          <button id="languageOnboardingSwitchBtn" type="button">Switch</button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="chatScreen" class="screen">
       <aside class="server-rail">
         <div class="server-rail-scroll">

@@ -236,7 +236,7 @@
 - [done] Implement some other funny viewers... (example: inline HEX viewer for `.bin`)
 - [done] Implement PDF viewer independent from browser
 - Emoji picker should allow to search for all up-to-date emojis (ideally also taking other languages into account)
-- Language settings, localized to system per default (on on-boarding asking in english if the language is correct and option to switch to other language via dropdown and "Switch to" button with English per default selected)
+- [done] Language settings now default to system locale (`Auto detect`) and onboarding includes an English language-check prompt with dropdown + `Switch` action (English preselected).
 - Some things should use dropdowns like some status-related things
 - Please really think about how to improve UX
 - Make sure emojis display correctly not only in Chromium but also Gecko

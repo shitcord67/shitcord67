@@ -31,7 +31,57 @@
     return false;
   }
 
+  function markLanguageOnboardingSeen() {
+    state.preferences = getPreferences();
+    state.preferences.languageOnboardingSeen = "on";
+    saveState();
+  }
+
+  function shouldShowLanguageOnboardingPrompt() {
+    if (!(ui.languageOnboardingDialog instanceof HTMLDialogElement)) return false;
+    if (Boolean(state.currentAccountId)) return false;
+    const prefs = getPreferences();
+    if (normalizeToggle(prefs.languageOnboardingSeen || "off") === "on") return false;
+    if (normalizeLanguage(prefs.language || "auto") !== "auto") return false;
+    return detectBrowserUiLocale() !== "en";
+  }
+
+  function maybeShowLanguageOnboardingPrompt() {
+    if (!shouldShowLanguageOnboardingPrompt()) return false;
+    if (ui.languageOnboardingDialog.open) return true;
+    if (ui.languageOnboardingSelect instanceof HTMLSelectElement) {
+      ui.languageOnboardingSelect.value = "en";
+    }
+    ui.languageOnboardingDialog.showModal();
+    return true;
+  }
+
   function bindXmppLoginUiRuntimeBindings() {
+ui.languageOnboardingKeepAutoBtn?.addEventListener("click", () => {
+  markLanguageOnboardingSeen();
+  ui.languageOnboardingDialog?.close();
+});
+
+ui.languageOnboardingSwitchBtn?.addEventListener("click", () => {
+  state.preferences = getPreferences();
+  const selected = normalizeLanguage(ui.languageOnboardingSelect?.value || "en");
+  state.preferences.language = selected === "auto" ? "en" : selected;
+  state.preferences.languageOnboardingSeen = "on";
+  saveState();
+  render();
+  ui.languageOnboardingDialog?.close();
+});
+
+ui.languageOnboardingDialog?.addEventListener("cancel", () => {
+  markLanguageOnboardingSeen();
+});
+
+ui.languageOnboardingDialog?.addEventListener("close", () => {
+  const prefs = getPreferences();
+  if (normalizeToggle(prefs.languageOnboardingSeen || "off") === "on") return;
+  markLanguageOnboardingSeen();
+});
+
 ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const typed = ui.loginUsername.value;
@@ -246,6 +296,10 @@ ui.xmppRegisterForm?.addEventListener("submit", async (event) => {
   } finally {
     if (ui.registerSubmitBtn instanceof HTMLButtonElement) ui.registerSubmitBtn.disabled = false;
   }
+});
+
+requestAnimationFrame(() => {
+  maybeShowLanguageOnboardingPrompt();
 });
 
   }
@@ -596,7 +650,8 @@ ui.xmppConsoleCloseBtn?.addEventListener("click", () => {
 
   globalScope.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME = Object.freeze({
     bindXmppLoginUiRuntimeBindings,
-    bindXmppSettingsUiRuntimeBindings
+    bindXmppSettingsUiRuntimeBindings,
+    maybeShowLanguageOnboardingPrompt
   });
 
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {

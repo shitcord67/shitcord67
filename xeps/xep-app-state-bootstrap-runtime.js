@@ -108,6 +108,7 @@ function buildInitialState() {
       uiScale: 100,
       theme: "discord",
       language: "auto",
+      languageOnboardingSeen: "off",
       dmHomeTab: "friends",
       compactMembers: "off",
       developerMode: "off",

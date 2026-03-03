@@ -1912,6 +1912,10 @@ function renderScreens() {
     if (typeof accountRuntime?.maybeLoadProtocolLoginProfiles === "function") {
       accountRuntime.maybeLoadProtocolLoginProfiles({ loggedIn });
     }
+    const uiBindings = window.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || null;
+    if (typeof uiBindings?.maybeShowLanguageOnboardingPrompt === "function") {
+      uiBindings.maybeShowLanguageOnboardingPrompt();
+    }
   }
   if (!loggedIn && ui.settingsScreen.classList.contains("settings-screen--active")) {
     closeSettingsScreen();

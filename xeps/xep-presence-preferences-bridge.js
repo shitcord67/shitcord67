@@ -326,6 +326,7 @@ function getPreferences() {
     uiScale: Number.isFinite(Number(current.uiScale)) ? Math.min(115, Math.max(90, Number(current.uiScale))) : defaults.uiScale,
     theme: normalizeTheme(current.theme),
     language: normalizeLanguage(current.language),
+    languageOnboardingSeen: normalizeToggle(current.languageOnboardingSeen ?? "off"),
     dmHomeTab: normalizeDmHomeTab(current.dmHomeTab),
     compactMembers: normalizeToggle(current.compactMembers),
     developerMode: normalizeToggle(current.developerMode),
