@@ -3439,3 +3439,61 @@ Yes
 Yeah
 ## ${ts}
 Also do we actually need Java21? Cause my archlinux-java is set to 17. I can switch it to 21 tho if we REALLY need it.
+## ${ts}
+05:39:58 ~/codex-cli-account-switcher:$ npm install
+
+added 1 package, removed 68 packages, changed 20 packages, and audited 743 packages in 7s
+
+165 packages are looking for funding
+  run `npm fund` for details
+
+27 vulnerabilities (3 low, 15 moderate, 6 high, 3 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+05:40:09 ~/codex-cli-account-switcher:$ npm run mobile:android:sync
+npm error Missing script: "mobile:android:sync"
+npm error
+npm error To see a list of scripts, run:
+npm error   npm run
+npm error A complete log of this run can be found in: /home/duda/.npm/_logs/2026-03-03T04_40_26_751Z-debug-0.log
+05:40:26 ~/codex-cli-account-switcher:$
+2026-03-03T04:52:46Z
+USER PROMPT:
+05:43:28 ~/shitcord67:$ rmdir buid/
+05:43:30 ~/shitcord67:$ ./build.sh electron && ./build.sh android
+[build-platform] Clean before build? [Y/n] 
+[build-platform] clean step enabled
+[build-platform] packaging electron app (linux/x64)
+Packaging app for platform linux x64 using electron v35.7.5
+Wrote new app to: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+[build-platform] linux desktop entry: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67.desktop
+[build-platform] electron output: dist/electron
+[build-platform] Clean before build? [Y/n] 
+[build-platform] clean step enabled
+Starting a Gradle Daemon, 1 incompatible and 1 stopped Daemons could not be reused, use --status for details
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file '/home/duda/shitcord67/android/capacitor-cordova-android-plugins/build.gradle' line: 12
+
+* What went wrong:
+A problem occurred evaluating project ':capacitor-cordova-android-plugins'.
+> Could not find method implementation() for arguments [directory 'libs'] on object of type org.gradle.api.internal.artifacts.dsl.dependencies.DefaultDependencyHandler.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 7s
