@@ -36,6 +36,40 @@ function uniqueList(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+async function probeHttpUrl(url, timeoutMs = 2000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { method: "GET", signal: controller.signal });
+    return (response.status || 0) >= 200 && (response.status || 0) < 500;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function inferServiceFromDomain(domain) {
+  const host = (domain || "").toString().trim();
+  if (!host) return "";
+  const paths = ["/ws", "/websocket", "/xmpp-websocket", "/xmpp", "/ws/xmpp"];
+  const schemes = ["wss", "ws"];
+  const candidates = [];
+  schemes.forEach((scheme) => {
+    paths.forEach((route) => {
+      candidates.push(`${scheme}://${host}${route}`);
+    });
+  });
+  for (const candidate of candidates) {
+    const probeUrl = candidate.replace(/^ws:/, "http:").replace(/^wss:/, "https:");
+    // Accept any HTTP response under 500 as reachable (some WS endpoints return 400 to GET).
+    // eslint-disable-next-line no-await-in-loop
+    const ok = await probeHttpUrl(probeUrl);
+    if (ok) return candidate;
+  }
+  return "";
+}
+
 function resolveAccountList(config) {
   if (Array.isArray(config?.accounts)) return config.accounts.filter(Boolean);
   if (Array.isArray(config?.profiles)) return config.profiles.filter(Boolean);
@@ -163,6 +197,7 @@ async function main() {
   let verbose = false;
   let accountSelector = "";
   let serviceOverride = "";
+  let inferService = true;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === "--config") {
@@ -185,6 +220,14 @@ async function main() {
       i += 1;
       continue;
     }
+    if (arg === "--infer-service") {
+      inferService = true;
+      continue;
+    }
+    if (arg === "--no-infer-service") {
+      inferService = false;
+      continue;
+    }
     if (arg === "--verbose") {
       verbose = true;
     }
@@ -204,7 +247,11 @@ async function main() {
   }
   const parsed = parseJid(account.jid);
   if (!parsed) throw new Error("Invalid account.jid in config.");
-  const service = (serviceOverride || account.service || "").toString().trim();
+  let service = (serviceOverride || account.service || "").toString().trim();
+  if (!service && inferService) {
+    service = await inferServiceFromDomain(parsed.domain);
+    if (service) console.log(`Inferred service: ${service}`);
+  }
   if (!service) throw new Error("Missing account.service in config.");
   const password = (account.password || "").toString();
   if (!password) throw new Error("Missing account.password in config.");
