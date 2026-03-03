@@ -152,6 +152,7 @@ function resolveShmMode(rawMode) {
 
   if (normalized === "tmp") {
     if (tmpOk) return { mode: "tmp", reason: "forced", shmOk, tmpOk };
+    if (shmOk) return { mode: "shm", reason: "fallback", fallbackFrom: "tmp", shmOk, tmpOk };
     return { mode: "tmp", reason: "forced-unavailable", shmOk, tmpOk };
   }
 

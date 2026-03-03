@@ -57,19 +57,35 @@ function appendInlineCommandChip(target, label, invocation, { submit = false, ti
   return true;
 }
 
+const INLINE_MD_ESCAPE_SENTINEL = "S67_ESC_";
+
+function encodeInlineMarkdownEscapes(value = "") {
+  const raw = (value || "").toString();
+  return raw.replace(/\\([\\`*_~|])/g, (_match, token) => `${INLINE_MD_ESCAPE_SENTINEL}${token.charCodeAt(0)};`);
+}
+
+function decodeInlineMarkdownEscapes(value = "") {
+  const raw = (value || "").toString();
+  const pattern = new RegExp(`${INLINE_MD_ESCAPE_SENTINEL}(\\d+);`, "g");
+  return raw.replace(pattern, (_match, code) => String.fromCharCode(Number(code) || 0));
+}
+
 function appendInlineRichText(target, text, context) {
   const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:)[^\s)]+\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:|s67cmd:)[^\s)]+\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|s67cmd:[^\s]+|\/[a-z][a-z0-9-]{1,31}\b|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  const workingText = encodeInlineMarkdownEscapes(text);
   let lastIndex = 0;
-  let match = tokenPattern.exec(text);
+  let match = tokenPattern.exec(workingText);
   while (match) {
     if (match.index > lastIndex) {
-      target.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      target.appendChild(document.createTextNode(
+        decodeInlineMarkdownEscapes(workingText.slice(lastIndex, match.index))
+      ));
     }
     const token = match[0];
     if (token.startsWith("||") && token.endsWith("||")) {
       const spoiler = document.createElement("span");
       spoiler.className = "message-spoiler";
-      spoiler.textContent = token.slice(2, -2);
+      spoiler.textContent = decodeInlineMarkdownEscapes(token.slice(2, -2));
       spoiler.title = "Click to reveal spoiler";
       spoiler.addEventListener("click", () => {
         spoiler.classList.toggle("is-revealed");
@@ -77,51 +93,51 @@ function appendInlineRichText(target, text, context) {
       target.appendChild(spoiler);
     } else if (token.startsWith("**") && token.endsWith("**")) {
       const strong = document.createElement("strong");
-      strong.textContent = token.slice(2, -2);
+      strong.textContent = decodeInlineMarkdownEscapes(token.slice(2, -2));
       target.appendChild(strong);
     } else if (token.startsWith("__") && token.endsWith("__")) {
-      const prev = text[match.index - 1] || "";
-      const next = text[match.index + token.length] || "";
+      const prev = workingText[match.index - 1] || "";
+      const next = workingText[match.index + token.length] || "";
       if (/[a-z0-9]/i.test(prev) || /[a-z0-9]/i.test(next)) {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
         lastIndex = tokenPattern.lastIndex;
-        match = tokenPattern.exec(text);
+        match = tokenPattern.exec(workingText);
         continue;
       }
       const strong = document.createElement("strong");
-      strong.textContent = token.slice(2, -2);
+      strong.textContent = decodeInlineMarkdownEscapes(token.slice(2, -2));
       target.appendChild(strong);
     } else if (token.startsWith("*") && token.endsWith("*")) {
-      const prev = text[match.index - 1] || "";
-      const next = text[match.index + token.length] || "";
+      const prev = workingText[match.index - 1] || "";
+      const next = workingText[match.index + token.length] || "";
       if (/[a-z0-9]/i.test(prev) || /[a-z0-9]/i.test(next)) {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
         lastIndex = tokenPattern.lastIndex;
-        match = tokenPattern.exec(text);
+        match = tokenPattern.exec(workingText);
         continue;
       }
       const em = document.createElement("em");
-      em.textContent = token.slice(1, -1);
+      em.textContent = decodeInlineMarkdownEscapes(token.slice(1, -1));
       target.appendChild(em);
     } else if (token.startsWith("_") && token.endsWith("_")) {
-      const prev = text[match.index - 1] || "";
-      const next = text[match.index + token.length] || "";
+      const prev = workingText[match.index - 1] || "";
+      const next = workingText[match.index + token.length] || "";
       if (/[a-z0-9]/i.test(prev) || /[a-z0-9]/i.test(next)) {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
         lastIndex = tokenPattern.lastIndex;
-        match = tokenPattern.exec(text);
+        match = tokenPattern.exec(workingText);
         continue;
       }
       const em = document.createElement("em");
-      em.textContent = token.slice(1, -1);
+      em.textContent = decodeInlineMarkdownEscapes(token.slice(1, -1));
       target.appendChild(em);
     } else if (token.startsWith("~~") && token.endsWith("~~")) {
       const strike = document.createElement("s");
-      strike.textContent = token.slice(2, -2);
+      strike.textContent = decodeInlineMarkdownEscapes(token.slice(2, -2));
       target.appendChild(strike);
     } else if (token.startsWith("`") && token.endsWith("`")) {
       const code = document.createElement("code");
-      code.textContent = token.slice(1, -1);
+      code.textContent = decodeInlineMarkdownEscapes(token.slice(1, -1));
       target.appendChild(code);
     } else if (token.startsWith("![") && token.includes("](") && token.endsWith(")")) {
       const parts = token.match(/^!\[([^\]]{0,80})\]\(((?:https?:\/\/|mailto:|xmpp:)[^\s)]+)\)$/i);
@@ -129,67 +145,69 @@ function appendInlineRichText(target, text, context) {
       if (parts && href) {
         const link = document.createElement("a");
         link.href = href;
-        link.textContent = parts[1] || href;
+        link.textContent = decodeInlineMarkdownEscapes(parts[1] || href);
         link.target = "_blank";
         link.rel = "noreferrer noopener";
         target.appendChild(link);
       } else {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
       }
     } else if (token.startsWith("[") && token.includes("](") && token.endsWith(")")) {
       const parts = token.match(/^\[([^\]]{1,80})\]\(((?:https?:\/\/|mailto:|xmpp:|s67cmd:)[^\s)]+)\)$/i);
       const href = sanitizeRichTextHref(parts?.[2] || "");
       if (parts && href) {
         if (isInlineCommandHref(href)) {
-          const label = parts[1] || normalizeSlashCommandInvocation(href) || "Run command";
+          const label = decodeInlineMarkdownEscapes(parts[1] || normalizeSlashCommandInvocation(href) || "Run command");
           if (!appendInlineCommandChip(target, label, href, { submit: true })) {
-            target.appendChild(document.createTextNode(token));
+            target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
           }
         } else {
           const link = document.createElement("a");
           link.href = href;
-          link.textContent = parts[1];
+          link.textContent = decodeInlineMarkdownEscapes(parts[1]);
           link.target = "_blank";
           link.rel = "noreferrer noopener";
           target.appendChild(link);
         }
       } else {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
       }
     } else if (isInlineCommandHref(token)) {
       const label = normalizeSlashCommandInvocation(token) || token;
       if (!appendInlineCommandChip(target, label, token, { submit: true })) {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
       }
     } else if (/^\/[a-z][a-z0-9-]{1,31}$/i.test(token)) {
       if (!appendInlineCommandChip(target, token, token, { submit: false })) {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
       }
     } else if (isLikelyRichTextLink(token)) {
       const cleaned = token.replace(/[),.!?]+$/, "");
       const trailing = token.slice(cleaned.length);
-      const href = sanitizeRichTextHref(cleaned);
+      const href = sanitizeRichTextHref(decodeInlineMarkdownEscapes(cleaned));
       if (!href) {
-        target.appendChild(document.createTextNode(token));
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
         lastIndex = tokenPattern.lastIndex;
-        match = tokenPattern.exec(text);
+        match = tokenPattern.exec(workingText);
         continue;
       }
       const link = document.createElement("a");
       link.href = href;
-      link.textContent = cleaned;
+      link.textContent = decodeInlineMarkdownEscapes(cleaned);
       link.target = "_blank";
       link.rel = "noreferrer noopener";
       target.appendChild(link);
-      if (trailing) target.appendChild(document.createTextNode(trailing));
+      if (trailing) target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(trailing)));
     } else {
-      appendMentionOrEmoji(target, token, context);
+      appendMentionOrEmoji(target, decodeInlineMarkdownEscapes(token), context);
     }
     lastIndex = tokenPattern.lastIndex;
-    match = tokenPattern.exec(text);
+    match = tokenPattern.exec(workingText);
   }
-  if (lastIndex < text.length) {
-    target.appendChild(document.createTextNode(text.slice(lastIndex)));
+  if (lastIndex < workingText.length) {
+    target.appendChild(document.createTextNode(
+      decodeInlineMarkdownEscapes(workingText.slice(lastIndex))
+    ));
   }
 }
 
