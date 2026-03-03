@@ -30,7 +30,7 @@ Status labels:
 | XEP-0115 | Entity Capabilities | Partial | Broadcasts caps hash in presence and answers disco#info queries with supported feature list. |
 | XEP-0297 | Stanza Forwarding | Partial | Forwarded stanzas are consumed for MAM/carbons handling. |
 | XEP-0313 | Message Archive Management (MAM) | Partial | Loads archived history for MUC and DM, with module-driven paging/retry orchestration (including alternate DM archive targets), stale-load recovery, and richer page metadata parsing from `<fin/>` responses. |
-| XEP-0066 | Out of Band Data | Partial | Inbound `jabber:x:oob` attachment payloads are parsed into message attachments with namespace/local-name tolerant matching, loose attachment URLs are extracted from compatible message payloads as a fallback, and `xmpp:https://...` wrapped OOB links are normalized for media rendering. Unsupported OOB payloads keep visible fallback text instead of being silently dropped. |
+| XEP-0066 | Out of Band Data | Partial | Inbound `jabber:x:oob` attachment payloads are parsed into message attachments with namespace/local-name tolerant matching, loose attachment URLs are extracted from compatible message payloads as a fallback, and `xmpp:https://...` wrapped OOB links are normalized for media rendering. Media picker URL adds now also accept `xmpp:` URIs for OOB-compatible links; unsupported OOB payloads keep visible fallback text instead of being silently dropped. |
 | XEP-0372 | References | Partial | Consumes `urn:xmpp:reference:0` attachment references (URI/name/media metadata) for DM/MUC attachment rendering with compatibility handling for prefixed stanzas. |
 | XEP-0385 | Stateless Inline Media Sharing (SIMS) | Partial | Parses inbound `urn:xmpp:sims:1` `media-sharing` payloads (including Movim-style nested references/URIs) into message attachments. Outbound attachment sends now include lightweight SIMS/file metadata URL hints, but full standalone SIMS publish workflows are still incomplete. |
 | XEP-0446 | File Metadata Element | Partial | Consumes `urn:xmpp:file:metadata:0` file metadata fields (name/media type/URI hints) to improve inbound attachment rendering and type detection. |
@@ -48,7 +48,7 @@ Status labels:
 | XEP-0059 | Result Set Management | Partial | Used with MAM paging (`max`, `before`) and now parses returned `first`/`last`/`count` metadata from MAM result sets for more robust paging state updates. |
 | XEP-0048 | Bookmarks (legacy) | Partial | Legacy bookmark storage fallback is supported. |
 | XEP-0054 | vcard-temp | Partial | vCard retrieval is used for avatar lookup. |
-| XEP-0454 | OMEMO Media Sharing | Partial | Encrypts attachments with AES-256-GCM and shares `aesgcm://` URLs; inbound `aesgcm://` payloads can be decrypted/downloaded, and plain-text `aesgcm://` links are now auto-detected as encrypted attachments in message rendering. |
+| XEP-0454 | OMEMO Media Sharing | Partial | Encrypts attachments with AES-256-GCM and shares `aesgcm://` URLs; inbound `aesgcm://` payloads can be decrypted/downloaded, plain-text `aesgcm://` links are auto-detected as encrypted attachments in message rendering, and media picker URL adds now accept `aesgcm://` links directly. |
 | XEP-0384 | OMEMO Encryption | Partial | Supports OMEMO payload handling across legacy (`eu.siacs.conversations.axolotl`) and OMEMO 2 (`urn:xmpp:omemo:2`) namespaces, including dual-namespace device-list/bundle publish+fetch and namespace-aware EME markers for DM and non-anonymous MUC text payloads; anonymous-room OMEMO remains unsupported. |
 
 ## Planned / Not Yet Implemented

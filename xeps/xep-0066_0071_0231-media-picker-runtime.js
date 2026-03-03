@@ -1131,6 +1131,17 @@ function mediaPickerEntryIsUserAdded(entry) {
   return source === "guild-custom" || source === "user-custom" || source === "user";
 }
 
+function mediaUrlAcceptedByPicker(rawUrl = "") {
+  const url = (rawUrl || "").toString().trim();
+  if (!url) return false;
+  if (/^https?:\/\//i.test(url)) return true;
+  if (/^data:/i.test(url)) return true;
+  // XEP-0454 encrypted media and xmpp URI links are valid OOB payload targets.
+  if (/^aesgcm:\/\//i.test(url)) return true;
+  if (/^xmpp:/i.test(url)) return true;
+  return false;
+}
+
 async function addMediaFromUrlFlow() {
   const tab = mediaPickerTab;
   const details = await openMediaUrlEntryDialog(tab);
@@ -1138,8 +1149,8 @@ async function addMediaFromUrlFlow() {
   const { typedName = "", typedUrl = "" } = details;
   const name = sanitizeMediaName(typedName, `${tab}-${Date.now().toString().slice(-4)}`);
   const url = typedUrl.trim();
-  if (!/^https?:\/\//i.test(url) && !/^data:/i.test(url)) {
-    showToast("Only http(s) or data URLs are supported.", { tone: "error" });
+  if (!mediaUrlAcceptedByPicker(url)) {
+    showToast("Only http(s), data:, aesgcm://, or xmpp: URLs are supported.", { tone: "error" });
     return;
   }
   const inferredType = inferAttachmentTypeFromUrl(url);
@@ -1398,4 +1409,787 @@ function appendMediaPickerPrivacyBanner({
   if (hostActions) gate.appendChild(hostActions);
   ui.mediaGrid.appendChild(gate);
   return true;
+}
+
+/*
+ * Emoji dataset loading + picker rendering extracted from app.js
+ * to keep XEP-0066/0071/0231 media UX code in xeps/.
+ */
+
+function normalizeEmojiLibraryEntry(entry, source = "builtin") {
+  if (!entry || typeof entry !== "object") return null;
+  const value = (entry.value || entry.emoji || entry.unicode || "").toString().trim();
+  if (!value) return null;
+  const rawName = (entry.name || entry.annotation || entry.label || "").toString().trim();
+  const fallbackName = [...value].map((ch) => ch.codePointAt(0)?.toString(16).padStart(4, "0")).join("_");
+  const normalizedName = sanitizeMediaName(rawName.toLowerCase().replace(/\s+/g, "_"), `emoji_${fallbackName}`);
+  const aliases = Array.isArray(entry.aliases)
+    ? entry.aliases
+    : Array.isArray(entry.shortcodes)
+      ? entry.shortcodes
+      : typeof entry.shortcode === "string"
+        ? [entry.shortcode]
+        : [];
+  const keywords = Array.isArray(entry.keywords)
+    ? entry.keywords
+    : Array.isArray(entry.tags)
+      ? entry.tags
+      : [];
+  return {
+    name: normalizedName || `emoji_${fallbackName}`,
+    value,
+    aliases: [...new Set(aliases.map((item) => (item || "").toString().trim().toLowerCase()).filter(Boolean))].slice(0, 24),
+    keywords: [...new Set(keywords.map((item) => (item || "").toString().trim().toLowerCase()).filter(Boolean))].slice(0, 32),
+    source: (entry.source || source || "builtin").toString()
+  };
+}
+
+function normalizeEmojiDatasetEntries(rawEntries) {
+  if (!Array.isArray(rawEntries)) return [];
+  const deduped = new Map();
+  const appendEntry = (entry) => {
+    const normalized = normalizeEmojiLibraryEntry(entry, "builtin");
+    if (!normalized) return;
+    if (deduped.has(normalized.value)) return;
+    deduped.set(normalized.value, normalized);
+  };
+  rawEntries.forEach((entry) => {
+    appendEntry(entry);
+    if (Array.isArray(entry?.skins)) {
+      entry.skins.forEach((skin) => {
+        appendEntry({
+          ...skin,
+          name: (entry?.annotation || entry?.name || entry?.label || "").toString() || skin?.annotation || skin?.name || "",
+          aliases: Array.isArray(entry?.shortcodes) ? entry.shortcodes : skin?.shortcodes || [],
+          keywords: Array.isArray(entry?.tags) ? entry.tags : skin?.tags || []
+        });
+      });
+    }
+  });
+  return [...deduped.values()];
+}
+
+function normalizeEmojiCachedEntries(rawEntries) {
+  if (!Array.isArray(rawEntries)) return [];
+  const deduped = new Map();
+  rawEntries.forEach((entry) => {
+    const normalized = normalizeEmojiLibraryEntry(entry, "builtin");
+    if (!normalized) return;
+    if (deduped.has(normalized.value)) return;
+    deduped.set(normalized.value, normalized);
+  });
+  return [...deduped.values()];
+}
+
+function parseEmojiTestDataset(text) {
+  if (typeof text !== "string" || !text.trim()) return [];
+  const deduped = new Map();
+  text.split(/\r?\n/).forEach((line) => {
+    const clean = line.trim();
+    if (!clean || clean.startsWith("#")) return;
+    if (!/;\s*fully-qualified/.test(clean)) return;
+    const hashIndex = clean.indexOf("#");
+    if (hashIndex <= 0) return;
+    const left = clean.slice(0, hashIndex).trim();
+    const right = clean.slice(hashIndex + 1).trim();
+    const codepointHex = left.split(";")[0].trim();
+    if (!codepointHex) return;
+    const codepoints = codepointHex.split(/\s+/).map((token) => Number.parseInt(token, 16)).filter(Number.isFinite);
+    if (codepoints.length === 0) return;
+    let value = "";
+    try {
+      value = String.fromCodePoint(...codepoints);
+    } catch {
+      value = "";
+    }
+    if (!value || deduped.has(value)) return;
+    const nameMatch = right.match(/^\S+\s+E[\d.]+\s+(.+)$/);
+    const label = (nameMatch?.[1] || "").toString().trim();
+    const words = label.toLowerCase().split(/[\s,_-]+/).filter(Boolean);
+    const alias = words.slice(0, 4).join("_");
+    const normalized = normalizeEmojiLibraryEntry({
+      value,
+      name: label || value,
+      aliases: alias ? [alias] : [],
+      keywords: words.slice(0, 12)
+    }, "builtin");
+    if (!normalized) return;
+    deduped.set(value, normalized);
+  });
+  return [...deduped.values()];
+}
+
+function loadCachedEmojiDataset() {
+  try {
+    const raw = localStorage.getItem(EMOJI_DATASET_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.some((entry) => entry && typeof entry.value === "string")) {
+      return normalizeEmojiCachedEntries(parsed);
+    }
+    return normalizeEmojiDatasetEntries(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function cacheEmojiDataset(normalizedEntries) {
+  try {
+    if (!Array.isArray(normalizedEntries) || normalizedEntries.length === 0) return;
+    localStorage.setItem(EMOJI_DATASET_CACHE_KEY, JSON.stringify(normalizedEntries));
+  } catch {
+    // Ignore quota/storage failures.
+  }
+}
+
+async function ensureEmojiLibraryLoaded({ force = false } = {}) {
+  if (emojiLibraryLoading && emojiLibraryLoadPromise) return emojiLibraryLoadPromise;
+  if (!force && emojiLibraryLoaded) return emojiLibraryEntries;
+  if (!force) {
+    const cached = loadCachedEmojiDataset();
+    if (cached.length > 0) {
+      emojiLibraryEntries = cached;
+      emojiLibraryLoaded = true;
+      emojiLibraryError = "";
+      return emojiLibraryEntries;
+    }
+  }
+  emojiLibraryLoading = true;
+  emojiLibraryError = "";
+  emojiLibraryLoadPromise = (async () => {
+    let lastError = "";
+    for (const source of EMOJI_DATASET_SOURCES) {
+      try {
+        const response = await fetch(source, { cache: "no-store" });
+        if (!response.ok) {
+          lastError = `HTTP ${response.status}`;
+          continue;
+        }
+        const isTextDataset = /\.txt(\?|$)/i.test(source);
+        const normalized = isTextDataset
+          ? parseEmojiTestDataset(await response.text())
+          : normalizeEmojiDatasetEntries(await response.json());
+        if (normalized.length === 0) {
+          lastError = "Dataset was empty";
+          continue;
+        }
+        emojiLibraryEntries = normalized;
+        emojiLibraryLoaded = true;
+        emojiLibraryError = "";
+        cacheEmojiDataset(normalized);
+        return emojiLibraryEntries;
+      } catch (error) {
+        lastError = String(error || "Request failed");
+      }
+    }
+    emojiLibraryLoaded = false;
+    emojiLibraryError = lastError ? `Could not load full emoji set (${lastError}).` : "Could not load full emoji set.";
+    return emojiLibraryEntries;
+  })().finally(() => {
+    emojiLibraryLoading = false;
+    emojiLibraryLoadPromise = null;
+    if (mediaPickerOpen && mediaPickerTab === "emoji") renderMediaPicker();
+  });
+  return emojiLibraryLoadPromise;
+}
+
+function renderMediaPicker() {
+  const renderToken = ++mediaPickerRenderToken;
+  renderComposerMediaButtons();
+  if (ui.mediaGrid) {
+    ui.mediaGrid.classList.toggle("media-picker__grid--sticker", mediaPickerTab === "sticker");
+  }
+  ui.mediaTabs.forEach((tabBtn) => {
+    tabBtn.classList.toggle("active", tabBtn.dataset.mediaTab === mediaPickerTab);
+  });
+  ui.mediaSearchInput.placeholder = mediaPlaceholderForTab(mediaPickerTab);
+  if (ui.mediaSearchInput.value !== mediaPickerQuery) {
+    ui.mediaSearchInput.value = mediaPickerQuery;
+  }
+  const header = ui.mediaPicker?.querySelector(".media-picker__header");
+  if (header instanceof HTMLElement) {
+    header.querySelector(".media-picker__gif-tools")?.remove();
+    if (mediaPickerTab === "gif") {
+      const prefs = getPreferences();
+      const scope = normalizeGifScope(prefs.gifScope, prefs.gifGroups);
+      const scopeRow = document.createElement("div");
+      scopeRow.className = "media-picker__gif-tools";
+      const scopeSelect = document.createElement("select");
+      scopeSelect.className = "media-picker__gif-scope";
+      const scopeOptions = [
+        { value: "all", label: "All GIFs" },
+        { value: "favorites", label: "Favorites" },
+        { value: "chat", label: "This Chat" },
+        { value: "time", label: `This ${gifTimeScopeKey(new Date())}` },
+        { value: "network", label: "This Network" }
+      ];
+      scopeOptions.forEach((entry) => {
+        const option = document.createElement("option");
+        option.value = entry.value;
+        option.textContent = entry.label;
+        scopeSelect.appendChild(option);
+      });
+      prefs.gifGroups.forEach((group) => {
+        const option = document.createElement("option");
+        option.value = `group:${group.id}`;
+        option.textContent = `Group: ${group.name}`;
+        scopeSelect.appendChild(option);
+      });
+      scopeSelect.value = scope;
+      scopeSelect.addEventListener("change", () => {
+        updateGifScope(scopeSelect.value);
+        gifPickerVisibleCount = GIF_PICKER_INITIAL_PAGE_SIZE;
+        renderMediaPicker();
+      });
+      const newGroupBtn = document.createElement("button");
+      newGroupBtn.type = "button";
+      newGroupBtn.textContent = "New Group";
+      newGroupBtn.addEventListener("click", async () => {
+        const nextName = await showInAppPromptDialog({
+          title: "New GIF group",
+          message: "New GIF group name",
+          defaultValue: "Favorites"
+        });
+        if (typeof nextName !== "string") return;
+        const groupId = upsertGifGroup(nextName);
+        if (!groupId) return;
+        updateGifScope(`group:${groupId}`);
+        renderMediaPicker();
+      });
+      const renameGroupBtn = document.createElement("button");
+      renameGroupBtn.type = "button";
+      renameGroupBtn.textContent = "Rename";
+      const deleteGroupBtn = document.createElement("button");
+      deleteGroupBtn.type = "button";
+      deleteGroupBtn.textContent = "Delete";
+      const currentGroupId = scope.startsWith("group:") ? scope.slice(6) : "";
+      const currentGroup = currentGroupId
+        ? prefs.gifGroups.find((entry) => entry.id === currentGroupId)
+        : null;
+      renameGroupBtn.disabled = !currentGroup;
+      deleteGroupBtn.disabled = !currentGroup;
+      renameGroupBtn.addEventListener("click", async () => {
+        if (!currentGroup) return;
+        const nextName = await showInAppPromptDialog({
+          title: "Rename GIF group",
+          message: "Rename GIF group",
+          defaultValue: currentGroup.name
+        });
+        if (typeof nextName !== "string") return;
+        state.preferences = getPreferences();
+        state.preferences.gifGroups = normalizeGifGroups(state.preferences.gifGroups).map((group) => (
+          group.id === currentGroup.id
+            ? { ...group, name: nextName.toString().trim().slice(0, 40) || group.name }
+            : group
+        ));
+        saveState();
+        renderMediaPicker();
+      });
+      deleteGroupBtn.addEventListener("click", async () => {
+        if (!currentGroup) return;
+        const confirmed = await showInAppConfirmDialog({
+          title: "Delete GIF group?",
+          message: `Delete GIF group "${currentGroup.name}"?`,
+          confirmLabel: "Delete",
+          cancelLabel: "Cancel",
+          danger: true
+        });
+        if (!confirmed) return;
+        state.preferences = getPreferences();
+        state.preferences.gifGroups = normalizeGifGroups(state.preferences.gifGroups).filter((group) => group.id !== currentGroup.id);
+        state.preferences.gifScope = "all";
+        saveState();
+        renderMediaPicker();
+      });
+      scopeRow.appendChild(scopeSelect);
+      scopeRow.appendChild(newGroupBtn);
+      scopeRow.appendChild(renameGroupBtn);
+      scopeRow.appendChild(deleteGroupBtn);
+      header.appendChild(scopeRow);
+    }
+  }
+  ui.mediaGrid.innerHTML = "";
+  const allEntries = filteredMediaEntries();
+  const hiddenPrivacyUrls = new Set();
+  const hiddenPrivacyGatedUrls = new Set();
+  const hiddenPrivacyGatedHosts = new Set();
+  const hiddenPrivacyBlockedHosts = new Set();
+  const entries = allEntries.filter((entry) => {
+    const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
+    if (!resolvedEntryUrl || mediaPickerEntryIsUserAdded(entry)) return true;
+    if (!shouldGateMediaUrl(resolvedEntryUrl)) return true;
+    hiddenPrivacyUrls.add(resolvedEntryUrl);
+    const blocked = isBlockedMediaUrl(resolvedEntryUrl);
+    const host = mediaUrlHost(resolvedEntryUrl);
+    if (blocked) {
+      if (host) hiddenPrivacyBlockedHosts.add(host);
+    } else {
+      hiddenPrivacyGatedUrls.add(resolvedEntryUrl);
+      if (host) hiddenPrivacyGatedHosts.add(host);
+    }
+    return false;
+  });
+  const hiddenPrivacyCount = hiddenPrivacyUrls.size;
+  if (entries.length === 0) {
+    if (hiddenPrivacyCount > 0) {
+      appendMediaPickerPrivacyBanner({
+        hiddenCount: hiddenPrivacyCount,
+        hiddenGatedUrls: hiddenPrivacyGatedUrls,
+        hiddenGatedHosts: hiddenPrivacyGatedHosts,
+        hiddenBlockedHosts: hiddenPrivacyBlockedHosts
+      });
+    }
+    const empty = document.createElement("div");
+    empty.className = "media-card--empty";
+    if (mediaPickerTab === "swf") {
+      empty.textContent = "No SWFs found. Run a local server and keep swf-index.json available.";
+    } else if (mediaPickerTab === "sticker" && stickerPickerRemoteLoading) {
+      empty.textContent = "Loading stickers...";
+    } else if (mediaPickerTab === "sticker" && stickerPickerRemoteError) {
+      empty.textContent = stickerPickerRemoteError;
+    } else if (mediaPickerTab === "emoji" && emojiLibraryLoading) {
+      empty.textContent = "Loading full emoji list…";
+    } else if (mediaPickerTab === "emoji" && emojiLibraryError) {
+      empty.textContent = emojiLibraryError;
+    } else if (hiddenPrivacyCount > 0) {
+      empty.textContent = "Everything in this view is hidden by privacy rules.";
+    } else {
+      empty.textContent = "No media found for this query.";
+    }
+    ui.mediaGrid.appendChild(empty);
+    return;
+  }
+
+  const maxVisible = mediaPickerTab === "swf"
+    ? entries.length
+    : mediaPickerTab === "gif"
+      ? Math.max(GIF_PICKER_INITIAL_PAGE_SIZE, gifPickerVisibleCount)
+      : mediaPickerTab === "sticker"
+        ? Math.max(STICKER_PICKER_INITIAL_PAGE_SIZE, stickerPickerVisibleCount)
+      : mediaPickerTab === "emoji"
+        ? Math.max(EMOJI_PICKER_INITIAL_PAGE_SIZE, emojiPickerVisibleCount)
+      : 140;
+  const visibleEntries = entries.slice(0, maxVisible);
+  if (hiddenPrivacyCount > 0) {
+    appendMediaPickerPrivacyBanner({
+      hiddenCount: hiddenPrivacyCount,
+      hiddenGatedUrls: hiddenPrivacyGatedUrls,
+      hiddenGatedHosts: hiddenPrivacyGatedHosts,
+      hiddenBlockedHosts: hiddenPrivacyBlockedHosts
+    });
+  }
+  visibleEntries.forEach((entry, index) => {
+    const sendType = attachmentTypeForMediaPickerTab(mediaPickerTab, entry);
+    const resolvedEntryUrl = entry?.url ? resolveMediaUrl(entry.url) : "";
+    const useSwfCard = mediaPickerTab === "swf";
+    const useDivCard = useSwfCard || mediaPickerTab === "gif";
+    const card = document.createElement(useDivCard ? "div" : "button");
+    if (card instanceof HTMLButtonElement) card.type = "button";
+    card.className = `media-card${useSwfCard ? " media-card--swf" : ""}`;
+    if (mediaPickerTab === "gif") card.classList.add("media-card--gif");
+    if (mediaPickerTab === "sticker") card.classList.add("media-card--sticker");
+    if (useSwfCard || mediaPickerTab === "gif") {
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+    }
+    if (mediaPickerTab === "emoji") {
+      card.classList.add("media-card--emoji");
+      if (entry.recentIndex >= 0) card.classList.add("media-card--emoji-recent");
+      if (entry.value) {
+        card.textContent = entry.value;
+      } else if (entry.url) {
+        const emojiImage = document.createElement("img");
+        emojiImage.className = "media-card__preview";
+        emojiImage.style.height = "80px";
+        emojiImage.src = entry.url;
+        emojiImage.alt = entry.name || "emoji";
+        card.appendChild(emojiImage);
+      }
+      card.title = `:${entry.name || "emoji"}:`;
+      card.addEventListener("click", () => {
+        if (entry.value && mediaPickerEmojiOnlyMode && mediaPickerEmojiSelectHandler) {
+          mediaPickerEmojiSelectHandler(entry.value, entry);
+          rememberRecentEmoji(entry.value);
+          saveState();
+          closeMediaPicker();
+          return;
+        }
+        if (entry.value) {
+          insertTextAtCursor(entry.value);
+          rememberRecentEmoji(entry.value);
+          saveState();
+        } else {
+          insertTextAtCursor(`:${sanitizeMediaName(entry.name || "emoji")}:`);
+        }
+      });
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    const label = document.createElement("span");
+    label.className = "media-card__label";
+    label.textContent = entry.name || "media";
+    if (entry.source === "guild-custom") {
+      const kind = document.createElement("span");
+      kind.className = "media-card__kind";
+      kind.textContent = "guild";
+      label.appendChild(kind);
+    }
+
+    if (mediaPickerTab === "swf") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      const previewMedia = document.createElement("div");
+      previewMedia.className = "media-card__preview-media";
+      const overlay = document.createElement("span");
+      overlay.className = "media-card__overlay";
+      overlay.textContent = "";
+      preview.appendChild(previewMedia);
+      preview.appendChild(overlay);
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        sendMediaAttachment(entry, sendType);
+      });
+      ui.mediaGrid.appendChild(card);
+      requestAnimationFrame(() => {
+        if (!previewMedia.isConnected) return;
+        renderSwfPickerPreview(previewMedia, entry, index, renderToken);
+      });
+      return;
+    }
+
+    if (mediaPickerTab === "html") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = "HTML";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    if (mediaPickerTab === "pdf") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = "PDF";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    if (mediaPickerTab === "text") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = "TXT";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    if (mediaPickerTab === "docs") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.fontWeight = "800";
+      preview.style.fontSize = "0.76rem";
+      preview.textContent = entry.type === "rtf" ? "RTF" : "DOC";
+      card.appendChild(preview);
+      card.appendChild(label);
+      card.addEventListener("click", () => sendMediaAttachment(entry, sendType));
+      ui.mediaGrid.appendChild(card);
+      return;
+    }
+
+    const entryUrlForPreview = resolvedEntryUrl || entry.url || "";
+    const stickerLooksVideo = mediaPickerTab === "sticker" && /\.(mp4|webm|mov|m4v)(\?|$|#|&)/i.test(entryUrlForPreview);
+    if ((mediaPickerTab === "gif" && entry.preview === "video") || stickerLooksVideo) {
+      const video = document.createElement("video");
+      video.className = "media-card__preview";
+      video.src = entryUrlForPreview;
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      if (mediaPickerTab === "sticker") enforceStickerPreviewSizing(video);
+      card.appendChild(video);
+    } else if (mediaPickerTab === "sticker" && stickerFormatFromName(entry.name, entry.url) === "dotlottie") {
+      const preview = document.createElement("div");
+      preview.className = "media-card__preview";
+      preview.style.display = "grid";
+      preview.style.placeItems = "center";
+      preview.style.color = "#c4ccd8";
+      preview.style.fontSize = "0.72rem";
+      preview.textContent = ".lottie";
+      enforceStickerPreviewSizing(preview);
+      card.appendChild(preview);
+    } else {
+      const img = document.createElement("img");
+      img.className = "media-card__preview";
+      img.loading = "lazy";
+      img.src = entryUrlForPreview;
+      img.alt = entry.name || "media";
+      if (mediaPickerTab === "sticker") enforceStickerPreviewSizing(img);
+      card.appendChild(img);
+    }
+    if (mediaPickerTab === "gif") {
+      const prefs = getPreferences();
+      const gifUrl = (entry?.url || "").toString().trim();
+      const quickActions = document.createElement("div");
+      quickActions.className = "media-card__quick-actions";
+      const favoriteBtn = document.createElement("button");
+      favoriteBtn.type = "button";
+      favoriteBtn.className = "media-card__quick-btn";
+      const favorited = prefs.gifFavorites.includes(gifUrl);
+      favoriteBtn.textContent = favorited ? "★" : "☆";
+      favoriteBtn.title = favorited ? "Remove from favorites" : "Add to favorites";
+      favoriteBtn.classList.toggle("is-active", favorited);
+      favoriteBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const added = toggleGifFavorite(gifUrl);
+        renderMediaPicker();
+        showToast(added ? "Added GIF to favorites." : "Removed GIF from favorites.");
+      });
+      const groupBtn = document.createElement("button");
+      groupBtn.type = "button";
+      groupBtn.className = "media-card__quick-btn";
+      const scope = activeGifScope();
+      const activeGroupId = scope.startsWith("group:") ? scope.slice(6) : "";
+      const activeGroup = activeGroupId
+        ? prefs.gifGroups.find((group) => group.id === activeGroupId)
+        : null;
+      const inActiveGroup = Boolean(activeGroup && activeGroup.urls.includes(gifUrl));
+      groupBtn.textContent = inActiveGroup ? "−" : "+";
+      groupBtn.title = activeGroup
+        ? (inActiveGroup ? `Remove from ${activeGroup.name}` : `Add to ${activeGroup.name}`)
+        : "Add to GIF group";
+      groupBtn.classList.toggle("is-active", inActiveGroup);
+      groupBtn.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (activeGroup) {
+          const added = toggleGifGroupMembership(gifUrl, activeGroup.id);
+          renderMediaPicker();
+          showToast(added ? `Added to ${activeGroup.name}.` : `Removed from ${activeGroup.name}.`);
+          return;
+        }
+        const added = await promptGifGroupForUrl(gifUrl);
+        renderMediaPicker();
+        if (added) showToast("GIF added to group.");
+      });
+      quickActions.appendChild(favoriteBtn);
+      quickActions.appendChild(groupBtn);
+      card.appendChild(quickActions);
+    }
+    card.appendChild(label);
+    card.addEventListener("click", () => {
+      sendMediaAttachment(entry, sendType);
+    });
+    if (mediaPickerTab === "gif") {
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        sendMediaAttachment(entry, sendType);
+      });
+    }
+    ui.mediaGrid.appendChild(card);
+  });
+
+  if (mediaPickerTab === "gif") {
+    const privacyModeOff = getPreferences().mediaPrivacyMode === "off";
+    const scope = activeGifScope();
+    const scopedMode = scope !== "all";
+    const hasMoreVisible = entries.length > visibleEntries.length;
+    const canLoadRemote = Boolean(gifPickerRemoteNext || (gifPickerRemoteEntries.length === 0 && !gifPickerRemoteError));
+    const canRetryRemote = Boolean(gifPickerRemoteError && !gifPickerRemoteLoading);
+    const footer = document.createElement("div");
+    footer.className = "media-card--empty";
+    footer.style.display = "grid";
+    footer.style.gap = "0.35rem";
+    const info = document.createElement("div");
+    if (scopedMode) {
+      const label = scope.startsWith("group:")
+        ? `Group view: ${entries.length} GIF${entries.length === 1 ? "" : "s"}`
+        : `${scope.charAt(0).toUpperCase()}${scope.slice(1)} view: ${entries.length} GIF${entries.length === 1 ? "" : "s"}`;
+      info.textContent = label;
+    } else if (gifPickerRemoteLoading) {
+      info.textContent = "Loading more GIFs...";
+    } else if (gifPickerRemoteError) {
+      info.textContent = gifPickerRemoteError;
+    } else {
+      info.textContent = `${entries.length} GIFs ready.`;
+    }
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "message-action-btn";
+    loadBtn.disabled = scopedMode || gifPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote && !canRetryRemote);
+    if (scopedMode) {
+      loadBtn.textContent = "Switch to All to load more";
+    } else if (hasMoreVisible) {
+      loadBtn.textContent = "Show more GIFs";
+    } else if (gifPickerRemoteLoading) {
+      loadBtn.textContent = "Loading...";
+    } else if (canRetryRemote) {
+      loadBtn.textContent = "Retry GIF provider";
+    } else {
+      loadBtn.textContent = "Load more GIFs";
+    }
+    loadBtn.addEventListener("click", () => {
+      if (scopedMode) return;
+      if (hasMoreVisible) {
+        gifPickerVisibleCount = Math.min(GIF_PICKER_VISIBLE_MAX, gifPickerVisibleCount + GIF_PICKER_PAGE_STEP);
+        renderMediaPicker();
+        return;
+      }
+      maybeLoadMoreGifPickerEntries({ reset: false, force: canRetryRemote });
+      renderMediaPicker();
+    });
+    footer.appendChild(info);
+    if (privacyModeOff) {
+      const gateHint = document.createElement("small");
+      gateHint.textContent = "Privacy gate is disabled for GIFs.";
+      footer.appendChild(gateHint);
+    }
+    footer.appendChild(loadBtn);
+    ui.mediaGrid.appendChild(footer);
+    if (!scopedMode && !gifPickerRemoteLoading && !gifPickerRemoteError && visibleEntries.length < gifPickerVisibleCount && canLoadRemote) {
+      maybeLoadMoreGifPickerEntries({ reset: false });
+    }
+  }
+  if (mediaPickerTab === "sticker") {
+    const privacyModeOff = getPreferences().mediaPrivacyMode === "off";
+    const hasMoreVisible = entries.length > visibleEntries.length;
+    const canLoadRemote = Boolean(
+      stickerPickerRemoteNext || (stickerPickerRemoteEntries.length === 0 && !stickerPickerRemoteError)
+    );
+    const canRetryRemote = Boolean(stickerPickerRemoteError && !stickerPickerRemoteLoading);
+    const footer = document.createElement("div");
+    footer.className = "media-card--empty";
+    footer.style.display = "grid";
+    footer.style.gap = "0.35rem";
+    const info = document.createElement("div");
+    if (stickerPickerRemoteLoading) {
+      info.textContent = "Loading stickers...";
+    } else if (stickerPickerRemoteError) {
+      info.textContent = stickerPickerRemoteError;
+    } else {
+      const hiddenSuffix = hiddenPrivacyCount > 0 ? ` · ${hiddenPrivacyCount} hidden` : "";
+      info.textContent = `${entries.length} stickers ready${hiddenSuffix}.`;
+    }
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "message-action-btn";
+    loadBtn.disabled = stickerPickerRemoteLoading || (!hasMoreVisible && !canLoadRemote && !canRetryRemote);
+    if (hasMoreVisible) {
+      loadBtn.textContent = "Show more stickers";
+    } else if (stickerPickerRemoteLoading) {
+      loadBtn.textContent = "Loading...";
+    } else if (canRetryRemote) {
+      loadBtn.textContent = "Retry sticker provider";
+    } else {
+      loadBtn.textContent = "Load more stickers";
+    }
+    loadBtn.addEventListener("click", () => {
+      if (hasMoreVisible) {
+        stickerPickerVisibleCount = Math.min(
+          STICKER_PICKER_VISIBLE_MAX,
+          stickerPickerVisibleCount + STICKER_PICKER_PAGE_STEP
+        );
+        renderMediaPicker();
+        return;
+      }
+      maybeLoadMoreStickerPickerEntries({ reset: false, force: canRetryRemote });
+      renderMediaPicker();
+    });
+    footer.appendChild(info);
+    if (privacyModeOff) {
+      const gateHint = document.createElement("small");
+      gateHint.textContent = "Privacy gate is currently off for stickers.";
+      const gateEnableBtn = document.createElement("button");
+      gateEnableBtn.type = "button";
+      gateEnableBtn.className = "message-action-btn";
+      gateEnableBtn.textContent = "Enable Privacy Gate";
+      gateEnableBtn.addEventListener("click", () => {
+        state.preferences = getPreferences();
+        state.preferences.mediaPrivacyMode = "safe";
+        saveState();
+        applyPreferencesToUI();
+        renderMediaPicker();
+        showToast("Media privacy gate enabled.");
+      });
+      footer.appendChild(gateHint);
+      footer.appendChild(gateEnableBtn);
+    }
+    footer.appendChild(loadBtn);
+    ui.mediaGrid.appendChild(footer);
+    if (!stickerPickerRemoteLoading && !stickerPickerRemoteError && visibleEntries.length < stickerPickerVisibleCount && canLoadRemote) {
+      maybeLoadMoreStickerPickerEntries({ reset: false });
+    }
+  }
+  if (mediaPickerTab === "emoji") {
+    const hasMoreVisible = entries.length > visibleEntries.length;
+    const canRetryEmojiDataset = Boolean(emojiLibraryError && !emojiLibraryLoading);
+    const canLoadEmojiDataset = Boolean(!emojiLibraryLoaded && !emojiLibraryLoading && !emojiLibraryError);
+    const footer = document.createElement("div");
+    footer.className = "media-card--empty";
+    footer.style.display = "grid";
+    footer.style.gap = "0.35rem";
+    const info = document.createElement("div");
+    if (emojiLibraryLoading) {
+      info.textContent = "Loading full emoji list...";
+    } else if (emojiLibraryError) {
+      info.textContent = emojiLibraryError;
+    } else {
+      info.textContent = `${entries.length} emojis ready.`;
+    }
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.className = "message-action-btn";
+    loadBtn.disabled = emojiLibraryLoading || (!hasMoreVisible && !canRetryEmojiDataset && !canLoadEmojiDataset);
+    if (hasMoreVisible) {
+      loadBtn.textContent = "Show more emojis";
+    } else if (emojiLibraryLoading) {
+      loadBtn.textContent = "Loading...";
+    } else if (canRetryEmojiDataset) {
+      loadBtn.textContent = "Retry full emoji list";
+    } else if (canLoadEmojiDataset) {
+      loadBtn.textContent = "Load full emoji list";
+    } else {
+      loadBtn.textContent = "All emojis shown";
+    }
+    loadBtn.addEventListener("click", () => {
+      if (hasMoreVisible) {
+        emojiPickerVisibleCount = Math.min(6000, emojiPickerVisibleCount + EMOJI_PICKER_PAGE_STEP);
+        renderMediaPicker();
+        return;
+      }
+      void ensureEmojiLibraryLoaded({ force: true });
+      renderMediaPicker();
+    });
+    footer.appendChild(info);
+    footer.appendChild(loadBtn);
+    ui.mediaGrid.appendChild(footer);
+  }
 }
