@@ -27,6 +27,11 @@
     return value === "off" ? "off" : "on";
   }
 
+  function normalizeHapticMode(value) {
+    if (value === "off" || value === "light") return value;
+    return "full";
+  }
+
   function normalizeSwfQuickAudioMode(value) {
     if (value === "on" || value === "off" || value === "click") return value;
     return "click";
@@ -286,6 +291,7 @@
     normalizeSwfAudioPolicy,
     normalizeSwfAudioScope,
     normalizeSwfAutoplay,
+    normalizeHapticMode,
     normalizeSwfQuickAudioMode,
     normalizeTheme,
     normalizeLanguage,

@@ -282,6 +282,7 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.swfAudioPolicy = normalizeSwfAudioPolicy(ui.swfAudioPolicyInput.value);
   state.preferences.swfAudioScope = normalizeSwfAudioScope(ui.swfAudioScopeInput.value);
   state.preferences.swfAutoplay = normalizeSwfAutoplay(ui.swfAutoplayInput.value);
+  state.preferences.hapticMode = normalizeHapticMode(ui.hapticModeInput?.value || "full");
   state.preferences.swfPauseOnMute = normalizeToggle(ui.swfPauseOnMuteInput.value);
   state.preferences.swfVuMeter = normalizeToggle(ui.swfVuMeterInput.value);
   state.preferences.relayMode = normalizeRelayMode(ui.relayModeInput?.value || "local");

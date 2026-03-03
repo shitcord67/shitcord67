@@ -1076,6 +1076,7 @@ const ui = {
   swfAudioPolicyInput: document.getElementById("swfAudioPolicyInput"),
   swfAudioScopeInput: document.getElementById("swfAudioScopeInput"),
   swfAutoplayInput: document.getElementById("swfAutoplayInput"),
+  hapticModeInput: document.getElementById("hapticModeInput"),
   swfPauseOnMuteInput: document.getElementById("swfPauseOnMuteInput"),
   swfVuMeterInput: document.getElementById("swfVuMeterInput"),
   androidSafeManualTopInput: document.getElementById("androidSafeManualTopInput"),
@@ -1235,8 +1236,16 @@ function resolveNativeHaptics() {
 
 async function triggerHapticFeedback(style = "light") {
   const tone = (style || "light").toString().toLowerCase();
+  const prefs = typeof getPreferences === "function" ? getPreferences() : null;
+  const mode = typeof normalizeHapticMode === "function"
+    ? normalizeHapticMode(prefs?.hapticMode || "full")
+    : ((prefs?.hapticMode === "off" || prefs?.hapticMode === "light") ? prefs.hapticMode : "full");
+  if (mode === "off") return false;
+  const effectiveTone = mode === "light" && (tone === "medium" || tone === "heavy")
+    ? "light"
+    : tone;
   const now = Date.now();
-  const minGap = tone === "selection" ? 22 : 58;
+  const minGap = effectiveTone === "selection" ? 22 : 58;
   if (now - lastHapticFeedbackAtMs < minGap) return false;
   const body = document.body || null;
   const mobileRuntime = body?.dataset?.mobile === "on" || body?.dataset?.platform === "android" || body?.dataset?.platform === "ios";
@@ -1245,17 +1254,17 @@ async function triggerHapticFeedback(style = "light") {
   const plugin = resolveNativeHaptics();
   if (plugin) {
     try {
-      if (tone === "selection" && typeof plugin.selectionChanged === "function") {
+      if (effectiveTone === "selection" && typeof plugin.selectionChanged === "function") {
         await plugin.selectionChanged();
         return true;
       }
       if (typeof plugin.impact === "function") {
-        const impactStyle = tone === "heavy" ? "HEAVY" : (tone === "medium" ? "MEDIUM" : "LIGHT");
+        const impactStyle = effectiveTone === "heavy" ? "HEAVY" : (effectiveTone === "medium" ? "MEDIUM" : "LIGHT");
         await plugin.impact({ style: impactStyle });
         return true;
       }
       if (typeof plugin.vibrate === "function") {
-        await plugin.vibrate({ duration: tone === "heavy" ? 18 : 12 });
+        await plugin.vibrate({ duration: effectiveTone === "heavy" ? 18 : 12 });
         return true;
       }
     } catch {
@@ -1264,7 +1273,7 @@ async function triggerHapticFeedback(style = "light") {
   }
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     try {
-      return Boolean(navigator.vibrate(tone === "heavy" ? 18 : 12));
+      return Boolean(navigator.vibrate(effectiveTone === "heavy" ? 18 : 12));
     } catch {
       return false;
     }

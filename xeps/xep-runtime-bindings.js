@@ -588,6 +588,9 @@ const normalizeSwfAudioScopeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.norma
 const normalizeSwfAutoplayViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAutoplay === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfAutoplay
   : ((value) => (value === "off" ? "off" : "on"));
+const normalizeHapticModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeHapticMode === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeHapticMode
+  : ((value) => (value === "off" || value === "light" ? value : "full"));
 const normalizeSwfQuickAudioModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfQuickAudioMode === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeSwfQuickAudioMode
   : ((value) => (value === "on" || value === "off" || value === "click" ? value : "click"));

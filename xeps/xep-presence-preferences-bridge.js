@@ -130,6 +130,10 @@ function normalizeSwfAutoplay(value) {
   return normalizeSwfAutoplayViaModule(value);
 }
 
+function normalizeHapticMode(value) {
+  return normalizeHapticModeViaModule(value);
+}
+
 function normalizeSwfQuickAudioMode(value) {
   return normalizeSwfQuickAudioModeViaModule(value);
 }
@@ -333,6 +337,7 @@ function getPreferences() {
     swfAudioPolicy: normalizeSwfAudioPolicy(current.swfAudioPolicy),
     swfAudioScope: normalizeSwfAudioScope(current.swfAudioScope),
     swfAutoplay: normalizeSwfAutoplay(current.swfAutoplay),
+    hapticMode: normalizeHapticMode(current.hapticMode ?? defaults.hapticMode),
     swfPauseOnMute: normalizeToggle(current.swfPauseOnMute),
     swfVuMeter: normalizeToggle(current.swfVuMeter),
     swfQuickAudioMode: normalizeSwfQuickAudioMode(current.swfQuickAudioMode),

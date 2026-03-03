@@ -119,6 +119,7 @@ function buildInitialState() {
       swfAudioPolicy: "single",
       swfAudioScope: "global",
       swfAutoplay: "on",
+      hapticMode: "full",
       swfPauseOnMute: "off",
       swfVuMeter: "off",
       swfQuickAudioMode: "click",

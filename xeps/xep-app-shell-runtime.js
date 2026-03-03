@@ -387,6 +387,7 @@ function renderSettingsScreen() {
   ui.swfAudioPolicyInput.value = prefs.swfAudioPolicy;
   ui.swfAudioScopeInput.value = prefs.swfAudioScope;
   ui.swfAutoplayInput.value = prefs.swfAutoplay;
+  if (ui.hapticModeInput) ui.hapticModeInput.value = prefs.hapticMode || "full";
   ui.swfPauseOnMuteInput.value = prefs.swfPauseOnMute;
   ui.swfVuMeterInput.value = prefs.swfVuMeter;
   renderTenorCredentialSettings();
