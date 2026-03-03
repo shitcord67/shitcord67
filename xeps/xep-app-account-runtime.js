@@ -6,13 +6,21 @@
 (function initAppAccountRuntime(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_APP_ACCOUNT_RUNTIME) return;
 
+  function snapshotStateForStorage(state) {
+    const snapshotFn = globalScope.xmppSnapshotStateForStorage;
+    if (typeof snapshotFn === "function") {
+      return snapshotFn(state);
+    }
+    return state;
+  }
+
   function applyXmppLoginOptionsToPreferences(options, prefs, {
     requestedRelayMode = "",
-    normalizeXmppJidFn = (value) => (value || "").toString().trim(),
-    normalizeXmppPasswordFn = (value) => (value || "").toString(),
-    normalizeXmppWsUrlFn = (value) => (value || "").toString().trim(),
-    inferXmppWsUrlFromJidFn = () => "",
-    xmppDomainFromJidFn = () => ""
+    normalizeXmppJidFn = globalScope.normalizeXmppJid || ((value) => (value || "").toString().trim()),
+    normalizeXmppPasswordFn = globalScope.normalizeXmppPassword || ((value) => (value || "").toString()),
+    normalizeXmppWsUrlFn = globalScope.normalizeXmppWsUrl || ((value) => (value || "").toString().trim()),
+    inferXmppWsUrlFromJidFn = globalScope.inferXmppWsUrlFromJid || (() => ""),
+    xmppDomainFromJidFn = globalScope.xmppDomainFromJid || (() => "")
   } = {}) {
     const nextPrefs = prefs && typeof prefs === "object" ? prefs : {};
     const xmpp = options && typeof options.xmpp === "object" ? options.xmpp : null;
@@ -49,8 +57,68 @@
     return account;
   }
 
+  function canAccountAccessProtocolGuild(guild, account, {
+    domainFromJidFn = globalScope.xmppDomainFromJid || (() => ""),
+    jidFromAccountFn = (entry) => entry?.xmppJid || "",
+    protocolGuildPrefix = "xmpp-spaces:"
+  } = {}) {
+    if (!guild || !account) return false;
+    const guildId = (guild.id || "").toString().toLowerCase();
+    if (!protocolGuildPrefix) return true;
+    if (!guildId.startsWith(protocolGuildPrefix)) return true;
+    const guildDomain = guildId.slice(protocolGuildPrefix.length);
+    const accountDomain = domainFromJidFn(jidFromAccountFn(account) || "");
+    if (guildDomain && accountDomain && guildDomain !== accountDomain) return false;
+    return true;
+  }
+
+  function isProtocolBackedGuild(guild, {
+    isXmppBackedGuildFn = null
+  } = {}) {
+    if (typeof isXmppBackedGuildFn === "function") return Boolean(isXmppBackedGuildFn(guild));
+    return false;
+  }
+
+  function shouldUseStrictInitialAvatarForProtocol(account, {
+    accountProtocolAddressFn = globalScope.accountBareXmppJid || ((entry) => entry?.xmppJid || ""),
+    isKnownMissingAvatarForAddressFn = (address) => {
+      const knownMissing = globalScope.xmppAvatarMissingByJid;
+      return Boolean(knownMissing && typeof knownMissing.has === "function" && knownMissing.has(address));
+    }
+  } = {}) {
+    if (!account || typeof account !== "object") return true;
+    const address = (accountProtocolAddressFn(account) || "").toString().trim();
+    if (!address) return true;
+    return Boolean(isKnownMissingAvatarForAddressFn(address));
+  }
+
+  function shouldAutoConnectRelayMode(mode) {
+    const token = (mode || "").toString().trim().toLowerCase();
+    return token === "ws" || token === "http" || token === "xmpp";
+  }
+
+  function maybeLoadProtocolLoginProfiles({
+    loggedIn = false,
+    loadedOnce = false,
+    loadLocalXmppProfilesFn = null
+  } = {}) {
+    if (loggedIn) return Boolean(loadedOnce);
+    if (loadedOnce) return true;
+    if (typeof loadLocalXmppProfilesFn === "function") {
+      void loadLocalXmppProfilesFn();
+      return true;
+    }
+    return false;
+  }
+
   globalScope.SHITCORD67_APP_ACCOUNT_RUNTIME = Object.freeze({
+    snapshotStateForStorage,
     applyXmppLoginOptionsToPreferences,
-    ensureAccountRuntimeShape
+    ensureAccountRuntimeShape,
+    canAccountAccessProtocolGuild,
+    isProtocolBackedGuild,
+    shouldUseStrictInitialAvatarForProtocol,
+    shouldAutoConnectRelayMode,
+    maybeLoadProtocolLoginProfiles
   });
 })(typeof window !== "undefined" ? window : globalThis);

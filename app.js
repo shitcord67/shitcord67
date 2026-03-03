@@ -9,7 +9,7 @@ if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 const HEADER_ACTION_BUTTONS = [
   { key: "openCallBtn", icon: "📹", fallback: "Call", preferIcon: true },
   { key: "openScreenShareBtn", icon: "🖥", fallback: "Screen", preferIcon: true },
-  { key: "openXmppCallBtn", icon: "📡", fallback: "Legacy XMPP", preferIcon: true },
+  { key: "openXmppCallBtn", icon: "📡", fallback: "Legacy Call", preferIcon: true },
   { key: "copyCallLinkBtn", icon: "🔗", fallback: "Copy Call", preferIcon: true },
   { key: "openWhiteboardBtn", icon: "📝", fallback: "Whiteboard", preferIcon: true },
   { key: "openFindBtn", icon: "🔍", fallback: "Find", preferIcon: true },
@@ -81,8 +81,9 @@ function refreshHeaderActionButtonLabels() {
 }
 
 function saveState() {
-  const snapshot = typeof xmppSnapshotStateForStorage === "function"
-    ? xmppSnapshotStateForStorage(state)
+  const accountRuntime = window.SHITCORD67_APP_ACCOUNT_RUNTIME || null;
+  const snapshot = typeof accountRuntime?.snapshotStateForStorage === "function"
+    ? accountRuntime.snapshotStateForStorage(state)
     : state;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
 }
@@ -124,16 +125,18 @@ function getActiveGuild() {
 
 function canAccountAccessGuild(guild, account = getCurrentAccount()) {
   if (!guild || !account) return false;
-  const guildId = (guild.id || "").toString().toLowerCase();
-  if (guildId.startsWith("xmpp-spaces:")) {
-    const guildDomain = guildId.slice("xmpp-spaces:".length);
-    const accountDomain = xmppDomainFromJid(account.xmppJid || "");
-    if (guildDomain && accountDomain && guildDomain !== accountDomain) return false;
+  const accountRuntime = window.SHITCORD67_APP_ACCOUNT_RUNTIME || null;
+  if (typeof accountRuntime?.canAccountAccessProtocolGuild === "function") {
+    const allowed = accountRuntime.canAccountAccessProtocolGuild(guild, account);
+    if (!allowed) return false;
   }
   const members = Array.isArray(guild.memberIds) ? guild.memberIds.filter(Boolean) : [];
   if (members.includes(account.id)) return true;
   // Keep legacy local guilds reachable when memberIds was never populated.
-  if (members.length === 0 && !isXmppBackedGuild(guild)) return true;
+  const protocolBacked = typeof accountRuntime?.isProtocolBackedGuild === "function"
+    ? accountRuntime.isProtocolBackedGuild(guild, { isXmppBackedGuildFn: isXmppBackedGuild })
+    : false;
+  if (members.length === 0 && !protocolBacked) return true;
   return false;
 }
 
@@ -1870,9 +1873,10 @@ function shouldUseStrictInitialAvatar(account, guildId = null) {
   if (!account || typeof account !== "object") return false;
   const avatar = resolveAccountAvatar(account, guildId);
   if (isRenderableAvatarUrl(avatar.url || "")) return false;
-  const bareJid = accountBareXmppJid(account);
-  // For XMPP contacts, only use initials after we explicitly confirmed avatar absence.
-  if (bareJid) return xmppAvatarMissingByJid.has(bareJid);
+  const accountRuntime = window.SHITCORD67_APP_ACCOUNT_RUNTIME || null;
+  if (typeof accountRuntime?.shouldUseStrictInitialAvatarForProtocol === "function") {
+    return accountRuntime.shouldUseStrictInitialAvatarForProtocol(account);
+  }
   // Local-only accounts without an avatar URL are considered explicitly avatar-less.
   return true;
 }
@@ -1891,14 +1895,18 @@ function shouldGroupMessageWithPrevious(currentMessage, previousMessage) {
 
 
 function renderScreens() {
+  const accountRuntime = window.SHITCORD67_APP_ACCOUNT_RUNTIME || null;
   const loggedIn = Boolean(state.currentAccountId);
   ui.loginScreen.classList.toggle("screen--active", !loggedIn);
   ui.chatScreen.classList.toggle("screen--active", loggedIn);
   if (!loggedIn) {
     syncLoginFieldsFromSessionPrefs();
-    if (!loginLocalXmppProfilesLoadedOnce) {
-      loginLocalXmppProfilesLoadedOnce = true;
-      void loadLocalXmppProfiles();
+    if (typeof accountRuntime?.maybeLoadProtocolLoginProfiles === "function") {
+      loginLocalXmppProfilesLoadedOnce = accountRuntime.maybeLoadProtocolLoginProfiles({
+        loggedIn,
+        loadedOnce: loginLocalXmppProfilesLoadedOnce,
+        loadLocalXmppProfilesFn: loadLocalXmppProfiles
+      });
     }
   }
   if (!loggedIn && ui.settingsScreen.classList.contains("settings-screen--active")) {
@@ -1933,8 +1941,6 @@ function createOrSwitchAccount(usernameInput, options = {}) {
       ensureAccountShape(account, { ensureAccountCosmeticsFn: ensureAccountCosmetics });
     } else {
       if (!account.guildProfiles || typeof account.guildProfiles !== "object") account.guildProfiles = {};
-      if (typeof account.xmppIdleSince !== "string") account.xmppIdleSince = "";
-      if (typeof account.xmppLastActiveAt !== "string") account.xmppLastActiveAt = "";
       if (typeof account.customStatusEmoji !== "string") account.customStatusEmoji = "";
       if (!("customStatusExpiresAt" in account)) account.customStatusExpiresAt = null;
       if (typeof account.activityText !== "string") account.activityText = "";
@@ -1954,7 +1960,8 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   state.preferences.rememberLogin = rememberLogin;
   if (requestedRelayMode) {
     state.preferences.relayMode = requestedRelayMode;
-    if (["ws", "http", "xmpp"].includes(requestedRelayMode)) {
+    const shouldAutoConnectRequested = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.shouldAutoConnectRelayMode;
+    if (typeof shouldAutoConnectRequested === "function" && shouldAutoConnectRequested(requestedRelayMode)) {
       state.preferences.relayAutoConnect = "on";
     }
   }
@@ -1962,32 +1969,7 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   rememberAccountSession(account.id, rememberLogin === "on");
   const applyXmppLoginOptions = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.applyXmppLoginOptionsToPreferences;
   if (typeof applyXmppLoginOptions === "function") {
-    applyXmppLoginOptions(options, state.preferences, {
-      requestedRelayMode,
-      normalizeXmppJidFn: normalizeXmppJid,
-      normalizeXmppPasswordFn: normalizeXmppPassword,
-      normalizeXmppWsUrlFn: normalizeXmppWsUrl,
-      inferXmppWsUrlFromJidFn: inferXmppWsUrlFromJid,
-      xmppDomainFromJidFn: xmppDomainFromJid
-    });
-  } else {
-    const xmpp = options.xmpp && typeof options.xmpp === "object" ? options.xmpp : null;
-    if (xmpp) {
-      const jid = normalizeXmppJid(xmpp.jid || "");
-      const password = normalizeXmppPassword(xmpp.password || "");
-      const wsInput = normalizeXmppWsUrl(xmpp.wsUrl || "") || inferXmppWsUrlFromJid(jid);
-      if (jid) state.preferences.xmppJid = jid;
-      if (typeof xmpp.password === "string") state.preferences.xmppPassword = password;
-      if (wsInput) state.preferences.xmppWsUrl = wsInput;
-      if (jid && !state.preferences.xmppMucService) {
-        const domain = xmppDomainFromJid(jid);
-        if (domain) state.preferences.xmppMucService = `conference.${domain}`;
-      }
-      if (jid && password && (!requestedRelayMode || requestedRelayMode === "xmpp")) {
-        state.preferences.relayMode = "xmpp";
-        state.preferences.relayAutoConnect = "on";
-      }
-    }
+    applyXmppLoginOptions(options, state.preferences, { requestedRelayMode });
   }
   if (state.viewMode !== "dm" && state.viewMode !== "guild") state.viewMode = "guild";
   if (!state.activeGuildId && state.guilds[0]) {
@@ -1999,11 +1981,12 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   ensureActiveGuildForCurrentAccount();
   ensureCurrentUserInActiveServer();
   const prefs = getPreferences();
-  if (["ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
+  const shouldAutoConnectRelayMode = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.shouldAutoConnectRelayMode;
+  if (typeof shouldAutoConnectRelayMode === "function" && shouldAutoConnectRelayMode(prefs.relayMode) && prefs.relayAutoConnect === "on") {
+    connectRelaySocket({ force: true });
+  }
   if (window.SHITCORD67_NATIVE_CREDENTIALS?.syncFromState) {
     void window.SHITCORD67_NATIVE_CREDENTIALS.syncFromState();
   }
   return true;
 }
-
-

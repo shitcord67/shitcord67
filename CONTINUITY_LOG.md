@@ -7068,3 +7068,6 @@ Move a lot more XEP code out of app.js into xeps subfolder while ideally complet
 
 ## 2026-03-03T15:59:30Z
 Move a lot more XEP code out of app.js into xeps subfolder while ideally completing the implementation of a xep or at least making it more complete. Please continue as long as you can, I expect 500 lines to leave app.js at the minimum before you stop
+
+## 2026-03-03T16:01:20Z
+Is there still XMPP-specific code in app.js? If se then move that out of that. Later I want to support other protocols as well and we only need to run protocols when we need them.
