@@ -1534,9 +1534,27 @@ function connectRelaySocket({ force = false } = {}) {
               showToast("XMPP session is ringing.");
             } else if (info === "mute") {
               session.remoteMuted = true;
+            } else if (info === "hold") {
+              session.remoteHold = true;
+              session.remoteHoldRestore = {
+                remoteMuted: Boolean(session.remoteMuted),
+                remoteVideoMuted: Boolean(session.remoteVideoMuted)
+              };
+              session.remoteMuted = true;
+              session.remoteVideoMuted = true;
+              showToast("Peer placed the call on hold.");
+            } else if (info === "active") {
+              session.remoteHold = false;
+              const restore = session.remoteHoldRestore && typeof session.remoteHoldRestore === "object"
+                ? session.remoteHoldRestore
+                : {};
+              if (typeof restore.remoteMuted === "boolean") session.remoteMuted = restore.remoteMuted;
+              if (typeof restore.remoteVideoMuted === "boolean") session.remoteVideoMuted = restore.remoteVideoMuted;
+              session.remoteHoldRestore = null;
+              showToast("Peer resumed the call.");
             } else if (info) {
               showToast(`XMPP session info: ${info}.`);
-              if (info === "unmute") session.remoteMuted = false;
+              if (info === "unmute" && !session.remoteHold) session.remoteMuted = false;
             }
             if (addSystemDmMessageByPeerJid(fromBare, `XMPP session-info (${jingle.sid.slice(0, 8)}): ${info || "unknown"}.`)) {
               refreshDmUiForPeerJid(fromBare);

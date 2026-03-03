@@ -598,7 +598,7 @@ async function xmppReacquireLocalMediaForSession(sessionId = "") {
   return Boolean(after.stream);
 }
 
-function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true) {
+function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true, { suppressSessionInfo = false } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
   const snapshot = xmppLocalMediaSnapshot(sid);
@@ -611,7 +611,7 @@ function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true) {
     if (kind === "audio") snapshot.session.localMuted = !enabled;
     if (kind === "video") snapshot.session.localVideoMuted = !enabled;
   }
-  if (kind === "audio" && snapshot.session?.peerJid) {
+  if (kind === "audio" && snapshot.session?.peerJid && !suppressSessionInfo) {
     xmppSendJingleSessionInfo(snapshot.session.peerJid, sid, { info: enabled ? "unmute" : "mute" });
   }
   if (snapshot.session?.peerJid) {
@@ -637,6 +637,43 @@ function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true) {
       xmppSendJingleContentModify(snapshot.session.peerJid, sid, updates);
     }
   }
+  if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  return true;
+}
+
+async function xmppSetLocalSessionHold(sessionId = "", hold = true) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const session = xmppCallSessionById.get(sid) || null;
+  if (!session) return false;
+  const nextHold = Boolean(hold);
+  if (Boolean(session.localHold) === nextHold) return true;
+  const snapshot = xmppLocalMediaSnapshot(sid);
+  if (nextHold) {
+    session.localHold = true;
+    session.localHoldRestore = {
+      audioEnabled: Boolean(snapshot.audioEnabled),
+      videoEnabled: Boolean(snapshot.videoEnabled)
+    };
+    if (snapshot.audioTracks.length > 0) xmppSetLocalTracksEnabled(sid, "audio", false, { suppressSessionInfo: true });
+    if (snapshot.videoTracks.length > 0) xmppSetLocalTracksEnabled(sid, "video", false, { suppressSessionInfo: true });
+    if (session.peerJid) xmppSendJingleSessionInfo(session.peerJid, sid, { info: "hold" });
+  } else {
+    session.localHold = false;
+    const restore = session.localHoldRestore && typeof session.localHoldRestore === "object"
+      ? session.localHoldRestore
+      : {};
+    const restoreAudio = typeof restore.audioEnabled === "boolean" ? restore.audioEnabled : true;
+    const restoreVideo = typeof restore.videoEnabled === "boolean" ? restore.videoEnabled : true;
+    if (snapshot.audioTracks.length > 0) xmppSetLocalTracksEnabled(sid, "audio", restoreAudio, { suppressSessionInfo: true });
+    if (snapshot.videoTracks.length > 0) xmppSetLocalTracksEnabled(sid, "video", restoreVideo, { suppressSessionInfo: true });
+    session.localHoldRestore = null;
+    if (session.peerJid) xmppSendJingleSessionInfo(session.peerJid, sid, { info: "active" });
+  }
+  addXmppDebugEvent("call", nextHold ? "Local call hold enabled" : "Local call hold disabled", {
+    sid,
+    peer: xmppBareJid(session.peerJid || "")
+  });
   if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   return true;
 }

@@ -615,7 +615,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const flags = [
     session?.pendingLocalRenegotiation ? "reprime" : "",
     xmppCallSessionTaskChainBySessionId.has(sid) ? "queued" : "",
-    xmppCallPendingReprimeBySessionId.has(sid) ? "debounce" : ""
+    xmppCallPendingReprimeBySessionId.has(sid) ? "debounce" : "",
+    session?.localHold ? "hold" : "",
+    session?.remoteHold ? "peer-hold" : ""
   ].filter(Boolean);
   const stateBits = [
     peer || "peer",
@@ -732,6 +734,24 @@ function renderNativeXmppCallSurface(sessionId = "") {
     }
     void startNativeCallAudioTest(sid);
   });
+  const holdBtn = document.createElement("button");
+  holdBtn.type = "button";
+  holdBtn.className = "native-call-surface__toggle";
+  const localHoldActive = Boolean(session?.localHold);
+  holdBtn.textContent = localHoldActive ? "Resume" : "Hold";
+  holdBtn.title = localHoldActive ? "Resume call media and notify peer" : "Temporarily hold local call media";
+  if (localHoldActive) holdBtn.classList.add("is-active");
+  holdBtn.addEventListener("click", async () => {
+    holdBtn.disabled = true;
+    const liveSession = xmppCallSessionById.get(sid) || null;
+    const nextHold = !Boolean(liveSession?.localHold);
+    const ok = await xmppSetLocalSessionHold(sid, nextHold).catch(() => false);
+    showToast(ok ? (nextHold ? "Call on hold." : "Call resumed.") : "Hold/resume failed.", {
+      tone: ok ? "info" : "error",
+      duration: 2400
+    });
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  });
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.textContent = "Copy SID";
@@ -799,6 +819,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   actions.appendChild(micBtn);
   actions.appendChild(camBtn);
   actions.appendChild(screenBtn);
+  actions.appendChild(holdBtn);
   actions.appendChild(audioTestBtn);
   actions.appendChild(copyBtn);
   actions.appendChild(refreshBtn);
@@ -953,6 +974,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     label.className = "native-call-surface__label";
     const baseLabel = index === 0 ? (peer || "Peer") : `${peer || "Peer"} ${index + 1}`;
     const badges = [];
+    if (session?.remoteHold) badges.push("on hold");
     if (session?.remoteMuted) badges.push("mic off");
     if (session?.remoteVideoMuted) badges.push("cam off");
     label.textContent = badges.length > 0 ? `${baseLabel} · ${badges.join(" · ")}` : baseLabel;
