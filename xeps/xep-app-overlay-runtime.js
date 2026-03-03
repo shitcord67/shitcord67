@@ -177,6 +177,11 @@ function closeMediaLightbox({ force = false } = {}) {
   if (stage) stage.innerHTML = "";
   xmppActiveNativeCallSessionId = "";
   nativeCallDebugDialogSessionId = "";
+  if (nativeCallSurfaceTickerId) {
+    clearTimeout(nativeCallSurfaceTickerId);
+    nativeCallSurfaceTickerId = 0;
+  }
+  nativeCallSurfaceTickerSessionId = "";
   if (activeWebCallLightbox) {
     const { conversationId, conversationType, screenShare, fromLabel, incoming } = activeWebCallLightbox;
     activeWebCallLightbox = null;

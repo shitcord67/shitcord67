@@ -145,6 +145,42 @@ function ensureXmppMediaDeviceChangeBinding() {
   }
 }
 
+function clearNativeCallSurfaceTicker() {
+  if (nativeCallSurfaceTickerId) clearTimeout(nativeCallSurfaceTickerId);
+  nativeCallSurfaceTickerId = 0;
+  nativeCallSurfaceTickerSessionId = "";
+}
+
+function scheduleNativeCallSurfaceTicker(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid || xmppActiveNativeCallSessionId !== sid) {
+    if (nativeCallSurfaceTickerSessionId === sid || !sid) clearNativeCallSurfaceTicker();
+    return;
+  }
+  if (nativeCallSurfaceTickerId && nativeCallSurfaceTickerSessionId === sid) return;
+  clearNativeCallSurfaceTicker();
+  nativeCallSurfaceTickerSessionId = sid;
+  nativeCallSurfaceTickerId = window.setTimeout(() => {
+    nativeCallSurfaceTickerId = 0;
+    if (xmppActiveNativeCallSessionId !== sid) {
+      clearNativeCallSurfaceTicker();
+      return;
+    }
+    renderNativeXmppCallSurface(sid);
+  }, 1000);
+}
+
+function formatNativeCallDuration(ms = 0) {
+  const totalSeconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function xmppDebugTokenFragment(value = "") {
   const raw = (value || "").toString().trim();
   if (!raw) return "";
@@ -479,6 +515,13 @@ function renderNativeXmppCallSurface(sessionId = "") {
   title.textContent = `Native XMPP Call ${sid.slice(0, 8)}`;
   const meta = document.createElement("span");
   const state = (session?.state || "starting").toString().trim();
+  const createdAtMsRaw = Number(session?.createdAt);
+  const createdAtMs = Number.isFinite(createdAtMsRaw) && createdAtMsRaw > 0
+    ? createdAtMsRaw
+    : Date.parse((session?.createdAt || "").toString());
+  const durationText = Number.isFinite(createdAtMs) && createdAtMs > 0
+    ? formatNativeCallDuration(Date.now() - createdAtMs)
+    : "";
   const flags = [
     session?.pendingLocalRenegotiation ? "reprime" : "",
     xmppCallSessionTaskChainBySessionId.has(sid) ? "queued" : "",
@@ -487,6 +530,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const stateBits = [
     peer || "peer",
     state,
+    durationText ? `dur:${durationText}` : "",
     pcState ? `pc:${pcState}` : "",
     iceState ? `ice:${iceState}` : "",
     ...(flags.length > 0 ? flags : [])
@@ -625,6 +669,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
         text: "Ended from in-app native call surface"
       });
     }
+    clearNativeCallSurfaceTicker();
     forgetXmppCallSession(sid);
     closeMediaLightbox();
   });
@@ -812,6 +857,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   shell.appendChild(grid);
   stage.appendChild(shell);
   caption.textContent = `Native session ${sid.slice(0, 8)} · l${Array.isArray(session?.localCandidates) ? session.localCandidates.length : 0}/r${Array.isArray(session?.remoteCandidates) ? session.remoteCandidates.length : 0}`;
+  scheduleNativeCallSurfaceTicker(sid);
   if (!mediaDeviceSnapshot.ready && !mediaDeviceSnapshot.loading) {
     void refreshMediaDeviceSnapshot().then(() => {
       if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
@@ -849,6 +895,9 @@ async function xmppRejoinNativeCallSession(sessionId = "") {
 function openNativeXmppCallSurface(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
+  if (nativeCallSurfaceTickerSessionId && nativeCallSurfaceTickerSessionId !== sid) {
+    clearNativeCallSurfaceTicker();
+  }
   ensureXmppMediaDeviceChangeBinding();
   if (nativeCallAudioTestSessionId && nativeCallAudioTestSessionId !== sid) {
     stopNativeCallAudioTest();

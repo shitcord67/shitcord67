@@ -113,6 +113,7 @@
 - [done] Added automatic media-device-change handling for active native XMPP calls (device snapshot refresh + local media reacquire + call-surface refresh).
 - [done] Added native call reconnect warning banner with one-click `Recover` action (reacquire local media + force transport refresh when `pc`/`ice` enters unstable states).
 - [done] Upgraded native call mic/cam device switching to live in-session apply flow (busy-state guarded reacquire + success/failure diagnostics + immediate surface refresh).
+- [done] Added live native call session duration ticker in call surface metadata (with timer cleanup on overlay close/end).
 - [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
 - [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).
