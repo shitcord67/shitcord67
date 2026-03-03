@@ -394,6 +394,7 @@ Notes:
 - XEP-0199 incoming ping IQ auto-reply handling now lives in `xeps/xep-0199_0410_0313-presence-ping.js` via `xmppHandleIncomingPingGet`, reducing ping-response logic in `app.js`.
 - XMPP sessions now detect CSI support (`urn:xmpp:csi:0`, XEP-0352) and publish `active`/`inactive` client-state hints on focus/visibility changes.
 - XEP-0030 disco response handling was further moved into `xeps/xep-0030_0166-call-disco.js`, and advertised client disco features now explicitly include chatstates (`XEP-0085`) and delivery receipts (`XEP-0184`).
+- Incoming `disco#info` requests for stale/unknown capability `node#ver` values now return `item-not-found` instead of echoing a foreign node in successful replies.
 - XEP-0030 call-capability evaluation now relies on XEP module normalization of disco feature sets (Set/array/string/object forms) before interop scoring.
 - Shared XEP IQ request promise handling (`xmppSendIqPromise`) is now module-owned in `xeps/xep-0030_0166-call-disco.js` with consistent timeout clamping and error normalization for IQ failures.
 - Conversation call interop assessment is now module-owned in `xeps/xep-0030_0166-call-disco.js` and now distinguishes full discovery failure (`discovery-failed`) from successful discovery that still lacks required call features (`missing-features`).

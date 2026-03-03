@@ -474,17 +474,20 @@
         node: "",
         requestedNode: "",
         expectedNode,
-        warn: false
+        warn: false,
+        reject: false
       };
     }
     const warn = Boolean(expectedNode && payload.node !== expectedNode);
+    const reject = warn;
     return {
       id: payload.id,
       to: payload.to,
       node: payload.node,
       requestedNode: payload.node,
       expectedNode,
-      warn
+      warn,
+      reject
     };
   }
 
@@ -498,10 +501,30 @@
       void deps.ensureXmppCapsHashFn();
     }
     if (resolved.warn && typeof deps.addXmppDebugEventFn === "function") {
-      deps.addXmppDebugEventFn("presence", "Answered disco#info request for non-current caps node", {
+      deps.addXmppDebugEventFn("presence", "Received disco#info request for non-current caps node", {
         requestedNode: resolved.requestedNode || "",
         expectedNode: resolved.expectedNode || ""
       });
+    }
+    if (resolved.reject) {
+      if (typeof deps.addXmppDebugEventFn === "function") {
+        deps.addXmppDebugEventFn("presence", "Rejected disco#info request for unknown caps node", {
+          requestedNode: resolved.requestedNode || "",
+          expectedNode: resolved.expectedNode || ""
+        });
+      }
+      if (typeof deps.xmppSendDiscoInfoErrorFn === "function") {
+        return deps.xmppSendDiscoInfoErrorFn({
+          id: resolved.id,
+          to: resolved.to,
+          node: resolved.requestedNode || ""
+        });
+      }
+      return xmppSendDiscoInfoError({
+        id: resolved.id,
+        to: resolved.to,
+        node: resolved.requestedNode || ""
+      }, deps);
     }
     if (typeof deps.xmppSendDiscoInfoResultFn === "function") {
       return deps.xmppSendDiscoInfoResultFn({
