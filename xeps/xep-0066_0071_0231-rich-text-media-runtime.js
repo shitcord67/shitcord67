@@ -306,9 +306,30 @@ function stripInlineAttachmentUrlsFromText(text, attachments = []) {
   const raw = (text || "").toString();
   if (!raw) return "";
   if (!Array.isArray(attachments) || attachments.length === 0) return raw;
+  const normalizeInlineCidToken = (value = "") => {
+    const token = (value || "").toString().trim();
+    if (!token) return "";
+    const xmppWrapped = token.match(/^xmpp:(cid:.+)$/i);
+    let normalized = (xmppWrapped?.[1] || token).toString().trim().replace(/^cid:/i, "");
+    try {
+      normalized = decodeURIComponent(normalized);
+    } catch {
+      // Keep raw value when percent-decoding fails.
+    }
+    return normalized
+      .split("?")[0]
+      .split("#")[0]
+      .replace(/^<+|>+$/g, "")
+      .trim()
+      .toLowerCase();
+  };
   const normalizeComparableUrl = (value = "") => {
     const token = (value || "").toString().trim();
     if (!token) return "";
+    if (/^(xmpp:)?cid:/i.test(token)) {
+      const cid = normalizeInlineCidToken(token);
+      return cid ? `cid:${cid}` : "";
+    }
     const unwrapped = token.replace(/^xmpp:(https?:\/\/.+)$/i, "$1");
     const withoutTrail = unwrapped.replace(/[),.!?]+$/, "");
     return withoutTrail;
@@ -319,13 +340,13 @@ function stripInlineAttachmentUrlsFromText(text, attachments = []) {
         const source = (entry?.url || "").toString().trim();
         if (!source) return [];
         const normalized = normalizeComparableUrl(source);
-        const xmppWrapped = /^(https?:\/\/)/i.test(normalized) ? `xmpp:${normalized}` : "";
-        return [source, normalized, xmppWrapped].filter(Boolean);
+        const wrapped = /^(https?:\/\/|cid:)/i.test(normalized) ? `xmpp:${normalized}` : "";
+        return [source, normalized, wrapped].filter(Boolean);
       })
       .filter(Boolean)
   );
   if (attachmentUrls.size === 0) return raw;
-  const stripped = raw.replace(/(?:xmpp:https?:\/\/\S+|https?:\/\/\S+|aesgcm:\/\/\S+)/gi, (token) => {
+  const stripped = raw.replace(/(?:xmpp:https?:\/\/\S+|https?:\/\/\S+|xmpp:cid:\S+|cid:\S+|aesgcm:\/\/\S+)/gi, (token) => {
     const cleanedRaw = (token || "").toString().replace(/[),.!?]+$/, "");
     const cleaned = normalizeComparableUrl(cleanedRaw);
     const normalizedToken = normalizeComparableUrl(token);

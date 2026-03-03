@@ -7083,3 +7083,6 @@ Oh also I noticed that the SWF PiP is not movable and resizeable anymore?
 
 ## 2026-03-03T16:24:58Z
 Please investigate if moving out some of the stuff out of app.js might have broken some other thing in the GUI
+
+## 2026-03-03T16:32:19Z
+Also yeah feel free to do the pass
