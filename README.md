@@ -369,6 +369,7 @@ Notes:
 - Receipt/read matching now tolerates mixed `id`/`origin-id`/`stanza-id` reference aliases and can resolve delivery state even when peer-JID hints are inconsistent.
 - Inbound receipt/marker acknowledgements now also use stanza reference IDs when `message@id` is omitted by the sender.
 - XEP-0184 marker/receipt stanza builders are now fully delegated to `xeps/xep-0184_0333-message-markers.js`, including idempotent receipt-request insertion to avoid duplicate `<request/>` elements on reused builders.
+- XEP-0184/XEP-0333 receipt and marker parsing now uses namespace/local-name tolerant lookups for better compatibility with prefixed stanza payloads.
 - XMPP DM read-state now also uses chat markers (`urn:xmpp:chat-markers:0`, XEP-0333): outbound direct messages are marked `markable`, inbound markable DMs now receive `received` markers, incoming `displayed` markers mark your sent DMs as read, and opening/reading a DM publishes `displayed` markers back to peers.
 - DM displayed-marker publish flow is now centralized in `xeps/xep-0184_0333-marker-flow.js`, including fallback reference selection from known stanza/reference IDs when choosing the read target.
 - DM threads now show a Discord-like tail receipt: the latest read outbound DM message gets a small peer-avatar `Seen` indicator.
