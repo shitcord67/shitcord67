@@ -970,6 +970,10 @@ function teardownXmppConnection() {
     }
   }
   xmppConnection = null;
+  xmppConnectCount = 0;
+  if (typeof resetXmppSmRuntime === "function") {
+    resetXmppSmRuntime({ keepSupport: false, reason: "teardown" });
+  }
   xmppRoomByJid.clear();
   xmppOccupantsByRoomJid.clear();
   xmppMamStateByRoomJid.clear();

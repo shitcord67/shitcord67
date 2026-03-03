@@ -21,6 +21,33 @@ function ensureXmppCsiSignalBindings() {
   xmppCsiSignalBindingsInstalled = true;
 }
 
+function recoverXmppMamAfterReconnect({ reason = "reconnect" } = {}) {
+  const conversation = getActiveConversation();
+  if (!conversation) return;
+  if (conversation.type === "channel" && conversation.channel?.xmppRoomJid) {
+    const roomJid = xmppBareJid(conversation.channel.xmppRoomJid);
+    if (roomJid) {
+      requestXmppRoomHistory(roomJid, {
+        reason: `${reason}-active-room-gap`,
+        force: true,
+        prefetchPages: 1
+      });
+    }
+    return;
+  }
+  if (conversation.type === "dm" && conversation.thread) {
+    const peerJid = xmppPeerJidForDmThread(conversation.thread, getCurrentAccount());
+    const barePeer = xmppBareJid(peerJid);
+    if (barePeer) {
+      requestXmppDirectHistory(barePeer, {
+        reason: `${reason}-active-dm-gap`,
+        force: true,
+        prefetchPages: 1
+      });
+    }
+  }
+}
+
 function connectRelaySocket({ force = false } = {}) {
   const prefs = getPreferences();
   const current = getCurrentAccount();
@@ -74,11 +101,13 @@ function connectRelaySocket({ force = false } = {}) {
       const originalSend = xmppConnection.send.bind(xmppConnection);
       xmppConnection.send = (stanza) => {
         addXmppDebugEvent("stanza", "send()", trimXmppRaw(xmppSerializePayload(stanza)));
+        noteXmppSmOutboundStanza(stanza);
         return originalSend(stanza);
       };
       const originalSendIQ = xmppConnection.sendIQ.bind(xmppConnection);
       xmppConnection.sendIQ = (stanza, success, error, timeout) => {
         addXmppDebugEvent("iq", "sendIQ()", trimXmppRaw(xmppSerializePayload(stanza)));
+        noteXmppSmOutboundStanza(stanza);
         return originalSendIQ(stanza, success, error, timeout);
       };
       const applyXmppPhotoStateForJid = (jid, stanza) => {
@@ -1111,6 +1140,7 @@ function connectRelaySocket({ force = false } = {}) {
       };
       xmppConnection.addHandler((stanza) => {
         try {
+          noteXmppSmInboundStanza(stanza);
           addXmppDebugEvent("message", "Incoming stanza", trimXmppRaw(xmppSerializePayload(stanza)));
           if (xmppHandleBookmarksPubsubEvent(stanza, { account: current, prefs: getPreferences() })) {
             return true;
@@ -1142,6 +1172,7 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "message", null, null, null);
       xmppConnection.addHandler((stanza) => {
         try {
+          noteXmppSmInboundStanza(stanza);
           const type = (stanza?.getAttribute("type") || "").toLowerCase();
           if (type !== "set") return true;
           const fromFull = (stanza?.getAttribute("from") || "").toString().trim();
@@ -1556,6 +1587,7 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "set", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
+          noteXmppSmInboundStanza(stanza);
           const type = (stanza?.getAttribute("type") || "").toLowerCase();
           if (type !== "get") return true;
           const handled = xmppSendDiscoInfoResultForIncomingGet(stanza);
@@ -1570,6 +1602,7 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "get", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
+          noteXmppSmInboundStanza(stanza);
           const pingPayload = xmppHandleIncomingPingGet(stanza);
           if (!pingPayload) return true;
           addXmppDebugEvent("iq", "Handled XMPP ping", {
@@ -1583,6 +1616,7 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "get", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
+          noteXmppSmInboundStanza(stanza);
           const rosterPush = xmppRosterPushPayload(stanza);
           if (!rosterPush) return true;
           const resultAttrs = xmppIqResultAttrsFromStanza(stanza);
@@ -1603,6 +1637,7 @@ function connectRelaySocket({ force = false } = {}) {
       }, null, "iq", "set", null, null);
       xmppConnection.addHandler((stanza) => {
         try {
+          noteXmppSmInboundStanza(stanza);
           const from = stanza?.getAttribute("from") || "";
           const type = (stanza?.getAttribute("type") || "").toLowerCase();
           const roomJid = xmppBareJid(from);
@@ -1873,6 +1908,10 @@ function connectRelaySocket({ force = false } = {}) {
         }
         return true;
       }, null, "presence", null, null, null);
+      xmppConnection.addHandler((stanza) => {
+        const result = handleXmppSmStanza(stanza, xmppConnection);
+        return !result || result.handled !== false;
+      }, XMPP_STREAM_MANAGEMENT_NAMESPACE, null, null, null, null);
       xmppConnection.connect(jid, prefs.xmppPassword || "", (status) => {
         const S = globalThis.Strophe.Status;
         const statusName = Object.entries(S || {}).find(([, value]) => value === status)?.[0] || String(status);
@@ -1888,10 +1927,20 @@ function connectRelaySocket({ force = false } = {}) {
           return;
         }
         if (status === S.CONNECTED) {
+          xmppConnectCount = (Number(xmppConnectCount) || 0) + 1;
+          const reconnect = xmppConnectCount > 1;
+          resetXmppSmRuntime({ keepSupport: false, reason: reconnect ? "reconnected" : "connected" });
           setRelayStatus("connected");
           void ensureXmppCapsHash();
           sendCurrentXmppPresence();
           refreshXmppCsiCapability(xmppConnection);
+          maybeEnableXmppStreamManagement(xmppConnection, {
+            allowResume: true,
+            reason: reconnect ? "reconnected" : "connected"
+          });
+          if (reconnect) {
+            recoverXmppMamAfterReconnect({ reason: "reconnect" });
+          }
           syncXmppClientStateHint({ force: true, reason: "connected" });
           ensureXmppCsiSignalBindings();
           enableXmppCarbons(xmppConnection);
@@ -1974,6 +2023,7 @@ function connectRelaySocket({ force = false } = {}) {
         if (status === S.DISCONNECTED) {
           clearXmppPingLoop();
           clearAllXmppMucSelfPings();
+          resetXmppSmRuntime({ keepSupport: true, reason: "disconnected" });
           xmppConnection = null;
           if (relayManualDisconnect) {
             setRelayStatus("disconnected");

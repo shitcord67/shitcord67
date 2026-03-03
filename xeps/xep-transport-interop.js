@@ -80,6 +80,7 @@ function startXmppPingLoop(connection = xmppConnection) {
     xmppPingTimer = setInterval(() => {
       if (relayStatus !== "connected" || !xmppConnection) return;
       sendXmppPing(xmppConnection);
+      requestXmppSmAck(xmppConnection, { reason: "ping-loop", minIntervalMs: XMPP_SM_ACK_REQUEST_INTERVAL_MS });
     }, XMPP_PING_INTERVAL_MS);
     return;
   }
@@ -88,13 +89,96 @@ function startXmppPingLoop(connection = xmppConnection) {
     intervalMs: XMPP_PING_INTERVAL_MS,
     getXmppConnectionFn: () => xmppConnection,
     getRelayStatusFn: () => relayStatus,
-    sendXmppPingFn: (conn) => sendXmppPing(conn),
+    sendXmppPingFn: (conn) => {
+      const sent = sendXmppPing(conn);
+      requestXmppSmAck(conn, { reason: "ping-loop", minIntervalMs: XMPP_SM_ACK_REQUEST_INTERVAL_MS });
+      return sent;
+    },
     clearXmppPingLoopFn: () => clearXmppPingLoop(),
     setPingTimerFn: (value) => { xmppPingTimer = value; },
     getPingTimerFn: () => xmppPingTimer,
     setPingOutstandingIdFn: (value) => { xmppPingOutstandingId = value; },
     setPingOutstandingAtFn: (value) => { xmppPingOutstandingAt = value; }
   });
+}
+
+function resetXmppSmRuntime({ keepSupport = false, reason = "" } = {}) {
+  if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.resetXmppSmState !== "function") {
+    xmppSmState = {
+      supported: Boolean(keepSupport && xmppSmState?.supported),
+      enabled: false,
+      allowResume: false,
+      resumed: false,
+      failed: false,
+      id: "",
+      inboundHandledCount: 0,
+      outboundStanzaCount: 0,
+      lastAckedByServer: 0,
+      lastEnableAt: 0,
+      lastAckAt: 0,
+      lastAckRequestAt: 0
+    };
+    return xmppSmState;
+  }
+  const next = XEP_0198_STREAM_MANAGEMENT_GLOBAL.resetXmppSmState(xmppSmState, { keepSupport });
+  if (getPreferences().relayMode === "xmpp" && reason) {
+    addXmppDebugEvent("connect", "Reset XMPP stream-management runtime state", { keepSupport, reason });
+  }
+  return next;
+}
+
+function noteXmppSmOutboundStanza(stanza) {
+  if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.noteXmppSmOutboundStanza !== "function") return;
+  XEP_0198_STREAM_MANAGEMENT_GLOBAL.noteXmppSmOutboundStanza(xmppSmState, stanza);
+}
+
+function noteXmppSmInboundStanza(stanza) {
+  if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.noteXmppSmInboundStanza !== "function") return;
+  XEP_0198_STREAM_MANAGEMENT_GLOBAL.noteXmppSmInboundStanza(xmppSmState, stanza);
+}
+
+function maybeEnableXmppStreamManagement(connection = xmppConnection, { allowResume = true, reason = "" } = {}) {
+  if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.maybeEnableXmppStreamManagement !== "function") return false;
+  return XEP_0198_STREAM_MANAGEMENT_GLOBAL.maybeEnableXmppStreamManagement(
+    connection,
+    xmppSmState,
+    { allowResume, reason },
+    {
+      Strophe: globalThis.Strophe,
+      streamManagementNamespace: XMPP_STREAM_MANAGEMENT_NAMESPACE,
+      xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+      addXmppDebugEventFn: addXmppDebugEvent
+    }
+  );
+}
+
+function requestXmppSmAck(connection = xmppConnection, { reason = "", minIntervalMs = XMPP_SM_ACK_REQUEST_INTERVAL_MS } = {}) {
+  if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.requestXmppSmAck !== "function") return false;
+  return XEP_0198_STREAM_MANAGEMENT_GLOBAL.requestXmppSmAck(
+    connection,
+    xmppSmState,
+    { reason, minIntervalMs },
+    {
+      Strophe: globalThis.Strophe,
+      streamManagementNamespace: XMPP_STREAM_MANAGEMENT_NAMESPACE,
+      addXmppDebugEventFn: addXmppDebugEvent
+    }
+  );
+}
+
+function handleXmppSmStanza(stanza, connection = xmppConnection) {
+  if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.handleXmppSmStanza !== "function") return { handled: false, type: "" };
+  return XEP_0198_STREAM_MANAGEMENT_GLOBAL.handleXmppSmStanza(
+    stanza,
+    { streamManagementNamespace: XMPP_STREAM_MANAGEMENT_NAMESPACE },
+    {
+      smState: xmppSmState,
+      connection,
+      Strophe: globalThis.Strophe,
+      xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
+      addXmppDebugEventFn: addXmppDebugEvent
+    }
+  );
 }
 
 function clearXmppMucSelfPing(roomJid = "") {
