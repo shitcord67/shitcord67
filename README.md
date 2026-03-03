@@ -323,6 +323,7 @@ Notes:
 - Outbound Jingle `session-initiate`/`session-accept` now run SDP transport compatibility checks (ICE creds + DTLS fingerprints per media) with explicit diagnostics/warnings when fields are missing.
 - Outbound `content-modify` updates can now include richer SDP-derived media detail (payload/feedback/transport when available) instead of media-only stubs, improving strict-client interop.
 - Native XMPP call surface now includes in-call whiteboard actions (`Whiteboard`, `Post WB`) that resolve/post against the call session’s bound DM/channel conversation context.
+- Compact native-call message tiles now also include whiteboard quick actions (`WB`, `Post WB`) for faster in-conversation collaboration flow.
 - The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.

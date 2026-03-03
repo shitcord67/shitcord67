@@ -514,6 +514,22 @@ function renderMessages() {
           renderMessages();
         });
         controls.appendChild(screenBtn);
+        const wbBtn = document.createElement("button");
+        wbBtn.type = "button";
+        wbBtn.textContent = "WB";
+        wbBtn.title = "Open shared whiteboard";
+        wbBtn.addEventListener("click", () => {
+          launchConversationWhiteboard({ autoPost: false });
+        });
+        controls.appendChild(wbBtn);
+        const wbPostBtn = document.createElement("button");
+        wbPostBtn.type = "button";
+        wbPostBtn.textContent = "Post WB";
+        wbPostBtn.title = "Post shared whiteboard link to this conversation";
+        wbPostBtn.addEventListener("click", () => {
+          launchConversationWhiteboard({ autoPost: true });
+        });
+        controls.appendChild(wbPostBtn);
         if (openAction) {
           const openBtn = document.createElement("button");
           openBtn.type = "button";

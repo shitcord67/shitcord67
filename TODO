@@ -102,6 +102,7 @@
 - [done] Added OMEMO 2 namespace support (XEP-0384 updates) alongside legacy OMEMO payloads.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [done] Implemented native-call whiteboard path for XMPP sessions (in-call open + invite-post actions bound to session conversation context).
+- [done] Added whiteboard quick actions to compact native-call message tiles (`WB`, `Post WB`) for faster collaboration entry.
 - [priority] Implement XMPP Jingle foundation (XEP-0166 + XEP-0167) for native in-client voice/video sessions.
 - [priority] Implement call invite/ringing flow with Jingle Message Initiation (XEP-0353), including DM and room entry points.
 - [priority] Add secure WebRTC media transport alignment for Jingle (XEP-0320 DTLS-SRTP path and browser compatibility checks).
