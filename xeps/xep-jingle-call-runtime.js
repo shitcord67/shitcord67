@@ -284,11 +284,8 @@ function xmppRequestSessionReprime(sessionId, {
   return true;
 }
 
-function xmppStopLocalMediaStreamForSession(sessionId = "") {
-  const sid = (sessionId || "").toString().trim();
-  if (!sid) return;
-  const stream = xmppCallLocalMediaStreamBySessionId.get(sid);
-  if (!stream) return;
+function stopMediaStreamTracksSafe(stream = null) {
+  if (!(stream instanceof MediaStream)) return;
   try {
     stream.getTracks().forEach((track) => {
       try {
@@ -300,31 +297,33 @@ function xmppStopLocalMediaStreamForSession(sessionId = "") {
   } catch {
     // Ignore stream cleanup failures.
   }
-  xmppCallLocalMediaStreamBySessionId.delete(sid);
-  const aux = xmppCallLocalAuxStreamsBySessionId.get(sid);
-  if (aux && typeof aux === "object") {
-    const streams = Array.isArray(aux.streams) ? aux.streams : [];
-    streams.forEach((item) => {
-      try {
-        item.getTracks().forEach((track) => {
-          try {
-            track.stop();
-          } catch {
-            // Ignore track stop failures.
-          }
-        });
-      } catch {
-        // Ignore aux cleanup failures.
-      }
-    });
-    if (aux.audioContext && typeof aux.audioContext.close === "function") {
-      try {
-        aux.audioContext.close();
-      } catch {
-        // Ignore audio context close failures.
-      }
+}
+
+function stopLocalAuxMediaForSessionEntry(entry = null) {
+  if (!entry || typeof entry !== "object") return;
+  const streams = Array.isArray(entry.streams) ? entry.streams : [];
+  streams.forEach((item) => {
+    if (!(item instanceof MediaStream)) return;
+    stopMediaStreamTracksSafe(item);
+  });
+  if (entry.audioContext && typeof entry.audioContext.close === "function") {
+    try {
+      entry.audioContext.close();
+    } catch {
+      // Ignore audio context close failures.
     }
   }
+}
+
+function xmppStopLocalMediaStreamForSession(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const stream = xmppCallLocalMediaStreamBySessionId.get(sid);
+  if (!stream) return;
+  stopMediaStreamTracksSafe(stream);
+  xmppCallLocalMediaStreamBySessionId.delete(sid);
+  const aux = xmppCallLocalAuxStreamsBySessionId.get(sid);
+  stopLocalAuxMediaForSessionEntry(aux);
   xmppCallLocalAuxStreamsBySessionId.delete(sid);
 }
 
@@ -381,15 +380,16 @@ function mixMediaStreamAudioTracks(streams = []) {
   return { stream: destination.stream, audioContext };
 }
 
-async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = false } = {}) {
+async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = false, forceNew = false } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return null;
   const existing = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
-  if (existing) return existing;
+  if (existing && !forceNew) return existing;
   const wantsScreen = Boolean(screenShare);
   const prefs = getPreferences();
   const audioDeviceId = prefs.callAudioInputId || "";
   const videoDeviceId = prefs.callVideoInputId || "";
+  let nextAux = null;
   let stream = null;
   let displayError = null;
   let usedDisplayCapture = false;
@@ -432,10 +432,10 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
           mixed.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
         }
         if (micStream || mixed.audioContext) {
-          xmppCallLocalAuxStreamsBySessionId.set(sid, {
+          nextAux = {
             streams: [micStream].filter(Boolean),
             audioContext: mixed.audioContext || null
-          });
+          };
         }
       }
     }
@@ -465,11 +465,17 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
     return null;
   }
   xmppCallLocalMediaStreamBySessionId.set(sid, stream);
+  if (nextAux) {
+    xmppCallLocalAuxStreamsBySessionId.set(sid, nextAux);
+  } else if (forceNew) {
+    xmppCallLocalAuxStreamsBySessionId.delete(sid);
+  }
   return stream;
 }
 
 async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
-  screenShare = false
+  screenShare = false,
+  forceNewStream = false
 } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
@@ -480,7 +486,12 @@ async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
     createLocalOffer: session?.direction === "outgoing"
   });
   if (!entry?.pc) return false;
-  const stream = await xmppAcquireLocalMediaStreamForSession(sid, { screenShare });
+  const previousStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  const previousAux = xmppCallLocalAuxStreamsBySessionId.get(sid) || null;
+  const stream = await xmppAcquireLocalMediaStreamForSession(sid, {
+    screenShare,
+    forceNew: Boolean(forceNewStream)
+  });
   if (!stream) return false;
   const tracks = stream.getTracks();
   if (tracks.length <= 0) return false;
@@ -503,8 +514,21 @@ async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
       // Ignore addTrack failures.
     }
   }
+  if (forceNewStream && previousStream && previousStream !== stream) {
+    stopMediaStreamTracksSafe(previousStream);
+    stopLocalAuxMediaForSessionEntry(previousAux);
+  }
   if (session) {
     session.localMediaMode = screenShare ? "screen" : "camera";
+  }
+  if (screenShare) {
+    stream.getVideoTracks().forEach((track) => {
+      track.addEventListener("ended", () => {
+        const activeSession = xmppCallSessionById.get(sid) || null;
+        if (!activeSession || activeSession.localMediaMode !== "screen") return;
+        void xmppSwitchLocalMediaMode(sid, "camera");
+      }, { once: true });
+    });
   }
   if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   return true;
@@ -587,8 +611,10 @@ async function xmppReacquireLocalMediaForSession(sessionId = "") {
   const before = xmppLocalMediaSnapshot(sid);
   const mode = before.mode;
   const peerJid = before.session?.peerJid || "";
-  xmppStopLocalMediaStreamForSession(sid);
-  await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: mode === "screen" });
+  await xmppAttachLocalMediaToSessionPeerConnection(sid, {
+    screenShare: mode === "screen",
+    forceNewStream: true
+  });
   const after = xmppLocalMediaSnapshot(sid);
   if (before.audioTracks.length > 0) xmppSetLocalTracksEnabled(sid, "audio", before.audioEnabled);
   if (before.videoTracks.length > 0) xmppSetLocalTracksEnabled(sid, "video", before.videoEnabled);
@@ -704,8 +730,17 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
       showXmppScreenShareWarning(capability.warning);
     }
   }
-  xmppStopLocalMediaStreamForSession(sid);
-  await xmppAttachLocalMediaToSessionPeerConnection(sid, { screenShare: wantsScreen });
+  const attached = await xmppAttachLocalMediaToSessionPeerConnection(sid, {
+    screenShare: wantsScreen,
+    forceNewStream: true
+  });
+  if (!attached) {
+    const failureMessage = wantsScreen
+      ? "Screen share start canceled or unavailable. Keeping current media."
+      : "Could not switch back to camera. Keeping current media.";
+    showToast(failureMessage, { tone: "error", duration: 2800 });
+    return false;
+  }
   const session = xmppCallSessionById.get(sid) || null;
   if (session) session.localMediaMode = wantsScreen ? "screen" : "camera";
   if (before.audioTracks.length > 0) xmppSetLocalTracksEnabled(sid, "audio", before.audioEnabled);
@@ -734,14 +769,6 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
       xmppSendJingleContentModify(session.peerJid, sid, updates);
     }
     xmppQueueTransportInfoGatherAndSend(session.peerJid, sid, { force: true });
-  }
-  const stream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
-  if (wantsScreen && stream) {
-    stream.getVideoTracks().forEach((track) => {
-      track.addEventListener("ended", () => {
-        void xmppSwitchLocalMediaMode(sid, "camera");
-      }, { once: true });
-    });
   }
   if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   return true;
