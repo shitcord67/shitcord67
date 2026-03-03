@@ -5,6 +5,7 @@
 
 (function initAppAccountRuntime(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_APP_ACCOUNT_RUNTIME) return;
+  let protocolLoginProfilesLoadedOnce = false;
 
   function snapshotStateForStorage(state) {
     const snapshotFn = globalScope.xmppSnapshotStateForStorage;
@@ -42,6 +43,10 @@
     return true;
   }
 
+  function applyProtocolLoginOptionsToPreferences(options, prefs, deps = {}) {
+    return applyXmppLoginOptionsToPreferences(options, prefs, deps);
+  }
+
   function ensureAccountRuntimeShape(account, {
     ensureAccountCosmeticsFn = () => {}
   } = {}) {
@@ -73,7 +78,7 @@
   }
 
   function isProtocolBackedGuild(guild, {
-    isXmppBackedGuildFn = null
+    isXmppBackedGuildFn = globalScope.isXmppBackedGuild || null
   } = {}) {
     if (typeof isXmppBackedGuildFn === "function") return Boolean(isXmppBackedGuildFn(guild));
     return false;
@@ -99,26 +104,53 @@
 
   function maybeLoadProtocolLoginProfiles({
     loggedIn = false,
-    loadedOnce = false,
+    loadedOnce = null,
+    loadLocalProfilesFn = null,
     loadLocalXmppProfilesFn = null
   } = {}) {
-    if (loggedIn) return Boolean(loadedOnce);
-    if (loadedOnce) return true;
-    if (typeof loadLocalXmppProfilesFn === "function") {
-      void loadLocalXmppProfilesFn();
+    const alreadyLoaded = typeof loadedOnce === "boolean"
+      ? loadedOnce
+      : protocolLoginProfilesLoadedOnce;
+    if (loggedIn) return Boolean(alreadyLoaded);
+    if (alreadyLoaded) return true;
+    const loader = typeof loadLocalProfilesFn === "function"
+      ? loadLocalProfilesFn
+      : typeof loadLocalXmppProfilesFn === "function"
+        ? loadLocalXmppProfilesFn
+        : typeof globalScope.loadLocalProtocolProfiles === "function"
+          ? globalScope.loadLocalProtocolProfiles
+          : typeof globalScope.loadLocalXmppProfiles === "function"
+            ? globalScope.loadLocalXmppProfiles
+        : null;
+    if (typeof loader === "function") {
+      void loader();
+      protocolLoginProfilesLoadedOnce = true;
       return true;
     }
     return false;
   }
 
+  function protocolAccountAddress(account, {
+    accountAddressFn = globalScope.accountBareXmppJid || ((entry) => entry?.xmppJid || "")
+  } = {}) {
+    return (accountAddressFn(account) || "").toString().trim();
+  }
+
+  function legacyCallButtonKey() {
+    return "openXmppCallBtn";
+  }
+
   globalScope.SHITCORD67_APP_ACCOUNT_RUNTIME = Object.freeze({
     snapshotStateForStorage,
     applyXmppLoginOptionsToPreferences,
+    applyProtocolLoginOptionsToPreferences,
     ensureAccountRuntimeShape,
     canAccountAccessProtocolGuild,
     isProtocolBackedGuild,
     shouldUseStrictInitialAvatarForProtocol,
     shouldAutoConnectRelayMode,
-    maybeLoadProtocolLoginProfiles
+    maybeLoadProtocolLoginProfiles,
+    protocolAccountAddress,
+    legacyCallButtonKey
   });
 })(typeof window !== "undefined" ? window : globalThis);

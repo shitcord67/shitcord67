@@ -7071,3 +7071,6 @@ Move a lot more XEP code out of app.js into xeps subfolder while ideally complet
 
 ## 2026-03-03T16:01:20Z
 Is there still XMPP-specific code in app.js? If se then move that out of that. Later I want to support other protocols as well and we only need to run protocols when we need them.
+
+## 2026-03-03T16:16:49Z
+Is there more XMPP-specific stuff in app.js? If so move that out, ideally extend or complete XEP-related implementation if possible.

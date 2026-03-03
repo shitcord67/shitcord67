@@ -9,7 +9,12 @@ if (ui.saveComposerAttachmentBtn) ui.saveComposerAttachmentBtn.hidden = true;
 const HEADER_ACTION_BUTTONS = [
   { key: "openCallBtn", icon: "📹", fallback: "Call", preferIcon: true },
   { key: "openScreenShareBtn", icon: "🖥", fallback: "Screen", preferIcon: true },
-  { key: "openXmppCallBtn", icon: "📡", fallback: "Legacy Call", preferIcon: true },
+  {
+    key: (window.SHITCORD67_APP_ACCOUNT_RUNTIME?.legacyCallButtonKey?.() || "openLegacyCallBtn"),
+    icon: "📡",
+    fallback: "Legacy Call",
+    preferIcon: true
+  },
   { key: "copyCallLinkBtn", icon: "🔗", fallback: "Copy Call", preferIcon: true },
   { key: "openWhiteboardBtn", icon: "📝", fallback: "Whiteboard", preferIcon: true },
   { key: "openFindBtn", icon: "🔍", fallback: "Find", preferIcon: true },
@@ -134,7 +139,7 @@ function canAccountAccessGuild(guild, account = getCurrentAccount()) {
   if (members.includes(account.id)) return true;
   // Keep legacy local guilds reachable when memberIds was never populated.
   const protocolBacked = typeof accountRuntime?.isProtocolBackedGuild === "function"
-    ? accountRuntime.isProtocolBackedGuild(guild, { isXmppBackedGuildFn: isXmppBackedGuild })
+    ? accountRuntime.isProtocolBackedGuild(guild)
     : false;
   if (members.length === 0 && !protocolBacked) return true;
   return false;
@@ -1861,8 +1866,11 @@ function fallbackAvatarColorForSeed(seed, currentColor = "") {
 
 function fallbackAvatarColorForAccount(account, guildId = null, currentColor = "") {
   if (!account || typeof account !== "object") return currentColor || "#57f287";
+  const accountRuntime = window.SHITCORD67_APP_ACCOUNT_RUNTIME || null;
   const fallbackSeed = [
-    accountBareXmppJid(account),
+    typeof accountRuntime?.protocolAccountAddress === "function"
+      ? accountRuntime.protocolAccountAddress(account)
+      : "",
     (account.username || "").toString(),
     (displayNameForAccount(account, guildId) || "").toString()
   ].find((entry) => (entry || "").toString().trim()) || "avatar";
@@ -1902,11 +1910,7 @@ function renderScreens() {
   if (!loggedIn) {
     syncLoginFieldsFromSessionPrefs();
     if (typeof accountRuntime?.maybeLoadProtocolLoginProfiles === "function") {
-      loginLocalXmppProfilesLoadedOnce = accountRuntime.maybeLoadProtocolLoginProfiles({
-        loggedIn,
-        loadedOnce: loginLocalXmppProfilesLoadedOnce,
-        loadLocalXmppProfilesFn: loadLocalXmppProfiles
-      });
+      accountRuntime.maybeLoadProtocolLoginProfiles({ loggedIn });
     }
   }
   if (!loggedIn && ui.settingsScreen.classList.contains("settings-screen--active")) {
@@ -1967,9 +1971,9 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   }
   state.currentAccountId = account.id;
   rememberAccountSession(account.id, rememberLogin === "on");
-  const applyXmppLoginOptions = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.applyXmppLoginOptionsToPreferences;
-  if (typeof applyXmppLoginOptions === "function") {
-    applyXmppLoginOptions(options, state.preferences, { requestedRelayMode });
+  const applyProtocolLoginOptions = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.applyProtocolLoginOptionsToPreferences;
+  if (typeof applyProtocolLoginOptions === "function") {
+    applyProtocolLoginOptions(options, state.preferences, { requestedRelayMode });
   }
   if (state.viewMode !== "dm" && state.viewMode !== "guild") state.viewMode = "guild";
   if (!state.activeGuildId && state.guilds[0]) {
