@@ -238,6 +238,8 @@ const mobileLayoutMediaQuery = typeof window !== "undefined" && typeof window.ma
   : null;
 
 let runtimeSafeAreaRaf = 0;
+let runtimeImeOffsetPx = 0;
+let runtimeKeyboardAdjustRaf = 0;
 let mobileSwipeNavState = null;
 
 function normalizeNativeAndroidInsets(rawInsets) {
@@ -258,6 +260,53 @@ function normalizeNativeAndroidInsets(rawInsets) {
     bottom: Math.round(bottom),
     left: Math.round(left)
   };
+}
+
+function captureRuntimeMessageListAnchor(list) {
+  if (!(list instanceof HTMLElement)) return null;
+  const listRect = list.getBoundingClientRect();
+  const rows = [...list.querySelectorAll(".message[data-message-id]")];
+  for (const row of rows) {
+    if (!(row instanceof HTMLElement)) continue;
+    const rect = row.getBoundingClientRect();
+    if (rect.bottom < listRect.top + 2) continue;
+    return {
+      messageId: (row.dataset.messageId || "").toString(),
+      offsetTop: rect.top - listRect.top
+    };
+  }
+  return null;
+}
+
+function restoreRuntimeMessageListAnchor(list, anchor) {
+  if (!(list instanceof HTMLElement) || !anchor?.messageId) return false;
+  const row = list.querySelector(`[data-message-id="${anchor.messageId}"]`);
+  if (!(row instanceof HTMLElement)) return false;
+  const listRect = list.getBoundingClientRect();
+  const rect = row.getBoundingClientRect();
+  list.scrollTop += (rect.top - listRect.top) - (Number(anchor.offsetTop) || 0);
+  return true;
+}
+
+function scheduleRuntimeKeyboardListAdjust() {
+  if (typeof window === "undefined") return;
+  const list = document.getElementById("messageList");
+  if (!(list instanceof HTMLElement)) return;
+  const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+  const nearBottom = distanceFromBottom <= 64;
+  const anchor = nearBottom ? null : captureRuntimeMessageListAnchor(list);
+  if (runtimeKeyboardAdjustRaf) window.cancelAnimationFrame(runtimeKeyboardAdjustRaf);
+  runtimeKeyboardAdjustRaf = window.requestAnimationFrame(() => {
+    runtimeKeyboardAdjustRaf = 0;
+    const currentList = document.getElementById("messageList");
+    if (!(currentList instanceof HTMLElement)) return;
+    if (nearBottom) {
+      currentList.scrollTop = currentList.scrollHeight;
+    } else if (anchor) {
+      restoreRuntimeMessageListAnchor(currentList, anchor);
+    }
+    if (typeof updateJumpToBottomButton === "function") updateJumpToBottomButton();
+  });
 }
 
 function updateRuntimeSafeArea() {
@@ -297,6 +346,9 @@ function updateRuntimeSafeArea() {
   const viewportOffsetTop = viewport && Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
   const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
   const imeOffset = isMobileRuntime && keyboardGap >= 64 ? keyboardGap : 0;
+  const roundedImeOffsetPx = Math.round(imeOffset);
+  const imeOffsetChanged = Math.abs(runtimeImeOffsetPx - roundedImeOffsetPx) >= 6;
+  runtimeImeOffsetPx = roundedImeOffsetPx;
   if (isAndroid) {
     const keyboardLikelyOpen = keyboardGap >= 110;
     const screenHeight = Number.isFinite(window.screen?.height) ? window.screen.height : 0;
@@ -313,7 +365,7 @@ function updateRuntimeSafeArea() {
       body.style.setProperty("--android-safe-extra-bottom", nextBottom);
     }
   }
-  const nextImeOffset = `${Math.round(imeOffset)}px`;
+  const nextImeOffset = `${roundedImeOffsetPx}px`;
   root.style.setProperty("--runtime-ime-offset", nextImeOffset);
   const nextSafeTop = `${Math.round(safeTop)}px`;
   const nextSafeRight = `${Math.round(safeRight)}px`;
@@ -330,6 +382,7 @@ function updateRuntimeSafeArea() {
     body.style.setProperty("--runtime-safe-bottom", nextSafeBottom);
     body.style.setProperty("--runtime-safe-left", nextSafeLeft);
   }
+  if (isMobileRuntime && imeOffsetChanged) scheduleRuntimeKeyboardListAdjust();
 }
 
 function scheduleRuntimeSafeAreaUpdate() {

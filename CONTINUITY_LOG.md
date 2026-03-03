@@ -7105,3 +7105,9 @@ Any idea on how to make the Android UX better? Especially maybe actually using p
 
 ## 2026-03-03T16:54:15Z
 Yeah
+
+## 2026-03-03T17:01:37Z
+/status
+
+## 2026-03-03T17:46:22Z
+Yeah ignore status. Can you work on the other stuff?
