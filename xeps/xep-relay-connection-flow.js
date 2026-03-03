@@ -121,6 +121,46 @@ function connectRelaySocket({ force = false } = {}) {
           clearAvatar: Boolean(state.cleared)
         });
       };
+      const xmppAvatarMetadataEventPayload = (stanza) => {
+        if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
+        const events = xmppElementsByLocalName(stanza, "event")
+          .filter((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/pubsub#event"));
+        if (events.length === 0) return null;
+        for (const eventNode of events) {
+          const itemsNodes = xmppElementsByLocalName(eventNode, "items")
+            .filter((node) => (
+              (node?.getAttribute?.("node") || "").toString().trim().toLowerCase() === "urn:xmpp:avatar:metadata"
+            ));
+          for (const itemsNode of itemsNodes) {
+            const itemNodes = xmppElementsByLocalName(itemsNode, "item");
+            const retractNode = xmppElementsByLocalName(itemsNode, "retract")[0] || null;
+            const purgeNode = xmppElementsByLocalName(itemsNode, "purge")[0] || null;
+            let hash = "";
+            if (itemNodes.length > 0) {
+              for (const itemNode of itemNodes) {
+                const itemId = (itemNode?.getAttribute?.("id") || "").toString().trim();
+                if (itemId) {
+                  hash = itemId;
+                  break;
+                }
+                const metadataNode = xmppElementsByLocalName(itemNode, "metadata")
+                  .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:avatar:metadata")) || null;
+                if (!metadataNode) continue;
+                const infoNode = xmppElementsByLocalName(metadataNode, "info")[0] || null;
+                const infoId = (infoNode?.getAttribute?.("id") || "").toString().trim();
+                if (infoId) {
+                  hash = infoId;
+                  break;
+                }
+              }
+            }
+            const cleared = Boolean((retractNode && retractNode.getAttribute("id")) || purgeNode || (!hash && itemNodes.length === 0));
+            if (!hash && !cleared) continue;
+            return { hash, cleared };
+          }
+        }
+        return null;
+      };
       const handleXmppIncomingMessage = (stanza, { fallbackTs = "", allowSelf = false, history = false } = {}) => {
       const from = stanza.getAttribute("from") || "";
       const type = (stanza.getAttribute("type") || "").toLowerCase();
@@ -140,6 +180,19 @@ function connectRelaySocket({ force = false } = {}) {
         const subjectNode = xmppDirectChildByLocalName(stanza, "subject");
         const bodyText = (preferredBodyText || decodeHtmlEntities(xmppNodeText(bodyNode))).trim();
         const subjectText = decodeHtmlEntities(xmppNodeText(subjectNode)).trim();
+        const avatarMetadataEvent = xmppAvatarMetadataEventPayload(stanza);
+        if (!history && avatarMetadataEvent && bareFrom && !isMucLike) {
+          maybeFetchXmppAvatarForJid(bareFrom, {
+            photoHash: avatarMetadataEvent.hash || "",
+            clearAvatar: Boolean(avatarMetadataEvent.cleared)
+          });
+          addXmppDebugEvent("message", "Processed XMPP avatar metadata notification", {
+            from: bareFrom,
+            hash: avatarMetadataEvent.hash || "",
+            cleared: Boolean(avatarMetadataEvent.cleared)
+          });
+          if (!bodyText && !subjectText && !earlyJingleAction && !earlyCallInvite) return;
+        }
         let encryptedInfo = xmppEncryptedPayloadInfo(stanza);
         let encrypted = encryptedInfo.encrypted;
         const attachmentHint = xmppHasOobAttachmentHint(stanza);
