@@ -1061,6 +1061,7 @@ const ui = {
   settingsDisplayName: document.getElementById("settingsDisplayName"),
   settingsUsername: document.getElementById("settingsUsername"),
   settingsCurrentStatus: document.getElementById("settingsCurrentStatus"),
+  settingsPresenceSelect: document.getElementById("settingsPresenceSelect"),
   settingsEditProfile: document.getElementById("settingsEditProfile"),
   settingsSwitchAccount: document.getElementById("settingsSwitchAccount"),
   settingsLogout: document.getElementById("settingsLogout"),

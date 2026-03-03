@@ -2017,6 +2017,12 @@ ui.selfPresenceSelect?.addEventListener("change", () => {
   if (changed) showToast(`Presence: ${presenceLabel(next)}`);
 });
 
+ui.settingsPresenceSelect?.addEventListener("change", () => {
+  const next = normalizePresence(ui.settingsPresenceSelect?.value || "online");
+  const changed = setCurrentAccountPresence(next, { persist: true, rerender: true, announceXmpp: true });
+  if (changed) showToast(`Presence: ${presenceLabel(next)}`);
+});
+
 function bindSettingsOpenButton(button) {
   if (!(button instanceof HTMLElement)) return;
   button.addEventListener("click", openSettingsScreen);

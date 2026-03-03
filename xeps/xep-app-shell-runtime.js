@@ -337,6 +337,9 @@ function renderSettingsScreen() {
   ui.settingsDisplayName.textContent = displayNameForAccount(account, guild?.id || null);
   ui.settingsUsername.textContent = `@${account.username}`;
   ui.settingsCurrentStatus.textContent = displayStatus(account, guild?.id || null);
+  if (ui.settingsPresenceSelect) {
+    ui.settingsPresenceSelect.value = normalizePresence(account.presence || "online");
+  }
   ui.uiScaleInput.value = String(prefs.uiScale);
   ui.themeInput.value = prefs.theme;
   const appearancePanel = ui.appearanceForm;
