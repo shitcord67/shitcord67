@@ -383,6 +383,46 @@ async function openNativeCallCameraPicker(sessionId = "") {
   return true;
 }
 
+function nativeCallConversationForSession(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return null;
+  const session = xmppCallSessionById.get(sid) || null;
+  const conversationId = (session?.conversationId || "").toString().trim();
+  const conversationType = (session?.conversationType || "").toString().trim().toLowerCase();
+  if (conversationType === "dm") {
+    const dm = state.dmThreads.find((thread) => (thread?.id || "").toString() === conversationId) || null;
+    if (dm) return { type: "dm", thread: dm, id: dm.id };
+  }
+  if (conversationType === "channel") {
+    const channel = typeof findChannelById === "function" ? findChannelById(conversationId) : null;
+    if (channel) return { type: "channel", channel, id: channel.id };
+  }
+  return getActiveConversation();
+}
+
+function nativeCallWhiteboardUrlForSession(sessionId = "") {
+  const conversation = nativeCallConversationForSession(sessionId);
+  if (!conversation) return "";
+  return conversationWhiteboardUrl(conversation, "");
+}
+
+function nativeCallPostWhiteboardInvite(sessionId = "", url = "") {
+  const conversation = nativeCallConversationForSession(sessionId);
+  const account = getCurrentAccount();
+  if (!conversation || !account || !url) return false;
+  const posted = postWhiteboardInviteToConversation(conversation, account, url);
+  if (!posted) return false;
+  saveState();
+  if (conversation.type === "channel") {
+    renderChannels();
+    renderMessages();
+  } else {
+    renderDmList();
+    renderMessages();
+  }
+  return true;
+}
+
 function showXmppMediaDeviceChangeToast(ok = true) {
   const now = Date.now();
   if (now - xmppMediaDeviceChangeToastAt < 3200) return;
@@ -1216,6 +1256,36 @@ function renderNativeXmppCallSurface(sessionId = "") {
     }
     await openNativeCallScreenSharePicker(sid);
   });
+  const whiteboardBtn = document.createElement("button");
+  whiteboardBtn.type = "button";
+  whiteboardBtn.className = "native-call-surface__toggle";
+  whiteboardBtn.textContent = "Whiteboard";
+  whiteboardBtn.title = "Open shared whiteboard for this call conversation";
+  whiteboardBtn.addEventListener("click", () => {
+    const url = nativeCallWhiteboardUrlForSession(sid);
+    if (!url) {
+      showToast("Could not resolve whiteboard room URL.", { tone: "error" });
+      return;
+    }
+    openConferenceLightbox(url, { title: "Shared Whiteboard" });
+  });
+  const whiteboardPostBtn = document.createElement("button");
+  whiteboardPostBtn.type = "button";
+  whiteboardPostBtn.className = "native-call-surface__toggle";
+  whiteboardPostBtn.textContent = "Post WB";
+  whiteboardPostBtn.title = "Post whiteboard invite to this call conversation";
+  whiteboardPostBtn.addEventListener("click", () => {
+    const url = nativeCallWhiteboardUrlForSession(sid);
+    if (!url) {
+      showToast("Could not resolve whiteboard room URL.", { tone: "error" });
+      return;
+    }
+    const posted = nativeCallPostWhiteboardInvite(sid, url);
+    showToast(posted ? "Whiteboard invite posted." : "Failed to post whiteboard invite.", {
+      tone: posted ? "info" : "error",
+      duration: 2600
+    });
+  });
   const audioTestBtn = document.createElement("button");
   audioTestBtn.type = "button";
   audioTestBtn.className = "native-call-surface__toggle";
@@ -1318,6 +1388,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
   actions.appendChild(micBtn);
   actions.appendChild(camBtn);
   actions.appendChild(screenBtn);
+  actions.appendChild(whiteboardBtn);
+  actions.appendChild(whiteboardPostBtn);
   actions.appendChild(holdBtn);
   actions.appendChild(audioTestBtn);
   actions.appendChild(copyBtn);
