@@ -86,6 +86,65 @@ function showXmppScreenShareWarning(message = "") {
   showToast(text, { tone: "info", duration: 3600 });
 }
 
+function showXmppMediaDeviceChangeToast(ok = true) {
+  const now = Date.now();
+  if (now - xmppMediaDeviceChangeToastAt < 3200) return;
+  xmppMediaDeviceChangeToastAt = now;
+  showToast(
+    ok
+      ? "Call devices changed. Refreshed local media."
+      : "Call devices changed. Local media refresh failed.",
+    { tone: ok ? "info" : "error", duration: 3000 }
+  );
+}
+
+function queueXmppMediaDeviceChangeRefresh({ reason = "devicechange" } = {}) {
+  if (xmppMediaDeviceChangeTimer) clearTimeout(xmppMediaDeviceChangeTimer);
+  xmppMediaDeviceChangeTimer = window.setTimeout(async () => {
+    xmppMediaDeviceChangeTimer = 0;
+    if (xmppMediaDeviceChangeInFlight) return;
+    xmppMediaDeviceChangeInFlight = true;
+    const sid = (xmppActiveNativeCallSessionId || "").toString().trim();
+    try {
+      await refreshMediaDeviceSnapshot({ force: true });
+      if (!sid) return;
+      if (!xmppCallSessionById.has(sid)) {
+        if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+        return;
+      }
+      const refreshed = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+      showXmppMediaDeviceChangeToast(Boolean(refreshed));
+      addXmppDebugEvent(
+        refreshed ? "runtime" : "error",
+        refreshed ? "Native call local media refreshed after device change" : "Native call local media refresh failed after device change",
+        { sid, reason: (reason || "").toString() }
+      );
+      if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+    } finally {
+      xmppMediaDeviceChangeInFlight = false;
+    }
+  }, 220);
+}
+
+function ensureXmppMediaDeviceChangeBinding() {
+  if (xmppMediaDeviceChangeBound) return;
+  const mediaDevices = navigator.mediaDevices;
+  if (!mediaDevices) return;
+  if (typeof mediaDevices.addEventListener === "function") {
+    mediaDevices.addEventListener("devicechange", () => {
+      queueXmppMediaDeviceChangeRefresh({ reason: "navigator-devicechange" });
+    });
+    xmppMediaDeviceChangeBound = true;
+    return;
+  }
+  if ("ondevicechange" in mediaDevices) {
+    mediaDevices.ondevicechange = () => {
+      queueXmppMediaDeviceChangeRefresh({ reason: "navigator-devicechange-fallback" });
+    };
+    xmppMediaDeviceChangeBound = true;
+  }
+}
+
 function xmppDebugTokenFragment(value = "") {
   const raw = (value || "").toString().trim();
   if (!raw) return "";
@@ -735,6 +794,7 @@ async function xmppRejoinNativeCallSession(sessionId = "") {
 function openNativeXmppCallSurface(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
+  ensureXmppMediaDeviceChangeBinding();
   if (nativeCallAudioTestSessionId && nativeCallAudioTestSessionId !== sid) {
     stopNativeCallAudioTest();
   }
