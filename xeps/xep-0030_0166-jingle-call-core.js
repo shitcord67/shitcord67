@@ -701,7 +701,10 @@ function xmppSendJingleContentModify(peerJid, sessionId, contents = [], {
     iqFactory: globalThis.$iq,
     namespaces: {
       jingleNamespace: XMPP_JINGLE_NAMESPACE,
-      jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE
+      jingleRtpNamespace: XMPP_JINGLE_RTP_NAMESPACE,
+      rtcpFbNamespace: XMPP_JINGLE_RTP_RTCP_FB_NAMESPACE,
+      iceUdpNamespace: XMPP_JINGLE_ICE_UDP_NAMESPACE,
+      dtlsNamespace: "urn:xmpp:jingle:apps:dtls:0"
     },
     addXmppDebugEventFn: addXmppDebugEvent,
     trimXmppRawFn: trimXmppRaw,

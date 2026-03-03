@@ -34,7 +34,26 @@
       const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
       const senders = (entry?.senders || "both").toString().trim().toLowerCase() || "both";
       const creator = (entry?.creator || "initiator").toString().trim().toLowerCase() || "initiator";
-      return { media, name, senders, creator };
+      const payloadTypes = Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [];
+      const rtcpFeedback = Array.isArray(entry?.rtcpFeedback) ? entry.rtcpFeedback : [];
+      const transport = entry?.transport && typeof entry.transport === "object"
+        ? {
+          ufrag: (entry.transport.ufrag || "").toString().trim(),
+          pwd: (entry.transport.pwd || "").toString().trim(),
+          hash: (entry.transport.hash || "").toString().trim().toLowerCase(),
+          fingerprint: (entry.transport.fingerprint || entry.transport.value || "").toString().trim(),
+          setup: (entry.transport.setup || "").toString().trim().toLowerCase()
+        }
+        : null;
+      return {
+        media,
+        name,
+        senders,
+        creator,
+        payloadTypes,
+        rtcpFeedback,
+        transport
+      };
     }).filter(Boolean);
   }
 
@@ -56,11 +75,68 @@
         action: "content-modify",
         sid
       });
+    const iceUdpNamespace = deps.namespaces?.iceUdpNamespace || "urn:xmpp:jingle:transports:ice-udp:1";
+    const dtlsNamespace = deps.namespaces?.dtlsNamespace || "urn:xmpp:jingle:apps:dtls:0";
+    const rtcpFbNamespace = deps.namespaces?.rtcpFbNamespace || "urn:xmpp:jingle:apps:rtp:rtcp-fb:0";
     normalizedContents.forEach((content) => {
-      iq.c("content", { creator: content.creator, name: content.name, senders: content.senders })
-        .c("description", { xmlns: rtpNamespace, media: content.media })
-        .up()
-        .up();
+      iq.c("content", { creator: content.creator, name: content.name, senders: content.senders });
+      iq.c("description", { xmlns: rtpNamespace, media: content.media });
+      const payloads = Array.isArray(content.payloadTypes) ? content.payloadTypes : [];
+      payloads.forEach((payload) => {
+        const payloadId = (payload?.id || "").toString().trim();
+        if (!payloadId) return;
+        const payloadAttrs = {
+          id: payloadId,
+          name: (payload?.name || "").toString().trim() || (content.media === "audio" ? "opus" : "VP8"),
+          clockrate: String(Number(payload?.clockrate) || (content.media === "audio" ? 48000 : 90000))
+        };
+        if (content.media === "audio") {
+          payloadAttrs.channels = String(Math.max(1, Number(payload?.channels) || 2));
+        }
+        iq.c("payload-type", payloadAttrs);
+        const parameters = Array.isArray(payload?.parameters) ? payload.parameters : [];
+        parameters.forEach((param) => {
+          if (!param?.name) return;
+          const attrs = { name: String(param.name) };
+          if (param.value) attrs.value = String(param.value);
+          iq.c("parameter", attrs).up();
+        });
+        const feedbacks = Array.isArray(payload?.rtcpFeedback) ? payload.rtcpFeedback : [];
+        feedbacks.forEach((feedback) => {
+          if (!feedback?.type) return;
+          const attrs = { xmlns: rtcpFbNamespace, type: String(feedback.type) };
+          if (feedback.subtype) attrs.subtype = String(feedback.subtype);
+          iq.c("rtcp-fb", attrs).up();
+        });
+        iq.up();
+      });
+      const contentFeedback = Array.isArray(content.rtcpFeedback) ? content.rtcpFeedback : [];
+      contentFeedback.forEach((feedback) => {
+        if (!feedback?.type) return;
+        const attrs = { xmlns: rtcpFbNamespace, type: String(feedback.type) };
+        if (feedback.subtype) attrs.subtype = String(feedback.subtype);
+        iq.c("rtcp-fb", attrs).up();
+      });
+      iq.up();
+      const transport = content.transport && typeof content.transport === "object" ? content.transport : null;
+      const hasIceCreds = Boolean((transport?.ufrag || "").toString().trim() && (transport?.pwd || "").toString().trim());
+      const hasFingerprint = Boolean((transport?.fingerprint || "").toString().trim());
+      if (hasIceCreds || hasFingerprint) {
+        iq.c("transport", {
+          xmlns: iceUdpNamespace,
+          ufrag: (transport?.ufrag || "").toString().trim(),
+          pwd: (transport?.pwd || "").toString().trim()
+        });
+        if (hasFingerprint) {
+          iq.c("fingerprint", {
+            xmlns: dtlsNamespace,
+            hash: (transport?.hash || "sha-256").toString().trim().toLowerCase() || "sha-256",
+            setup: (transport?.setup || "actpass").toString().trim().toLowerCase() || "actpass"
+          }).t((transport?.fingerprint || "").toString().trim()).up();
+        }
+        iq.up();
+      }
+      iq.up();
     });
     iq.up();
     return iq;

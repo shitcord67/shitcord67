@@ -772,7 +772,10 @@ function xmppContentModifyCatalogForSession(sessionId = "", session = null, { lo
     return session.remoteContents
       .map((entry, index) => ({
         name: (entry?.name || `${entry?.media || "audio"}${index}`).toString().trim(),
-        media: (entry?.media || "").toString().trim().toLowerCase()
+        media: (entry?.media || "").toString().trim().toLowerCase(),
+        payloadTypes: Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [],
+        rtcpFeedback: Array.isArray(entry?.rtcpFeedback) ? entry.rtcpFeedback : [],
+        transport: entry?.transport && typeof entry.transport === "object" ? entry.transport : null
       }))
       .filter((entry) => entry.name && (entry.media === "audio" || entry.media === "video"));
   }
@@ -783,14 +786,20 @@ function xmppContentModifyCatalogForSession(sessionId = "", session = null, { lo
       return built
         .map((entry, index) => ({
           name: (entry?.name || `${entry?.media || "audio"}${index}`).toString().trim(),
-          media: (entry?.media || "").toString().trim().toLowerCase()
+          media: (entry?.media || "").toString().trim().toLowerCase(),
+          payloadTypes: Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [],
+          rtcpFeedback: Array.isArray(entry?.rtcpFeedback) ? entry.rtcpFeedback : [],
+          transport: entry?.transport && typeof entry.transport === "object" ? entry.transport : null
         }))
         .filter((entry) => entry.name && (entry.media === "audio" || entry.media === "video"));
     }
   }
   return xmppCallSessionMediaList(session).map((mediaType, index) => ({
     name: `${mediaType}${index}`,
-    media: mediaType
+    media: mediaType,
+    payloadTypes: [],
+    rtcpFeedback: [],
+    transport: null
   }));
 }
 
@@ -822,6 +831,7 @@ function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true, { 
     const updates = contents
       .filter((entry) => (entry.media || "").toString().trim().toLowerCase() === kind)
       .map((entry, index) => ({
+        ...entry,
         name: (entry.name || `${kind}${index}`).toString().trim(),
         media: kind,
         senders,
@@ -926,6 +936,7 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera", { scree
     const updates = contents
       .filter((entry) => (entry.media || "").toString().trim().toLowerCase() === "video")
       .map((entry, index) => ({
+        ...entry,
         name: (entry.name || `video${index}`).toString().trim(),
         media: "video",
         senders,
