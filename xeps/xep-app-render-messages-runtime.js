@@ -1387,6 +1387,7 @@ function renderMessages() {
 
 function appendMessageRowLite(channel, message) {
   if (!channel || !message) return;
+  const shouldStickToBottom = isMessageListNearBottom();
   const currentUser = getCurrentAccount();
   const isDm = Boolean(channel.participantIds);
   const dmPeerAccount = isDm && currentUser?.id ? dmPeerAccountForThread(channel, currentUser.id) : null;
@@ -1495,7 +1496,9 @@ function appendMessageRowLite(channel, message) {
     appendDmSeenIndicator(messageRow, message, dmPeerAccount);
   }
   ui.messageList.appendChild(messageRow);
-  ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  if (shouldStickToBottom) {
+    ui.messageList.scrollTop = ui.messageList.scrollHeight;
+  }
   updateJumpToBottomButton();
   renderComposerMeta();
   requestSwfRuntimeLayoutSync();
