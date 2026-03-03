@@ -3433,3 +3433,9 @@ Please continue: › > Configure project :app
 
 ■ You've hit your usage limit. To continue using Codex and get access to GPT-5.3-Codex, start a free trial of Plus today (https://
 chatgpt.com/explore/plus), or try again at Mar 10th, 2026 3:58 AM.
+## ${ts}
+Yes
+## ${ts}
+Yeah
+## ${ts}
+Also do we actually need Java21? Cause my archlinux-java is set to 17. I can switch it to 21 tho if we REALLY need it.
