@@ -3528,6 +3528,8 @@ body[data-hide-channel-panel="on"] .chat-panel {
   border-radius: 6px;
   border: 1px solid #2f3239;
   overflow: hidden;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .message-swf-player--floating {
@@ -3810,22 +3812,18 @@ body[data-hide-channel-panel="on"] .chat-panel {
 }
 
 .message-attachment--video:hover .message-video-controls,
-.message:hover .message-video-controls,
-.message:focus-within .message-video-controls,
+.message-attachment--video:focus-within .message-video-controls,
 .message-attachment--gif:hover .message-gif-controls,
 .message-attachment--gif.message-attachment--gif-controls-open .message-gif-controls,
 .message-attachment--sticker:hover .message-lottie-controls,
-.message:hover .message-lottie-controls,
-.message:focus-within .message-lottie-controls,
+.message-attachment--sticker:focus-within .message-lottie-controls,
 .message-pdf-viewer:hover .message-pdf-controls,
 .message-pdf-viewer:focus-within .message-pdf-controls,
 .message-attachment--swf-runtime-hover .message-swf-top-controls,
-.message:hover .message-swf-top-controls,
-.message:focus-within .message-swf-top-controls,
+.message-attachment--swf:focus-within .message-swf-top-controls,
 .message-attachment--swf:hover .message-swf-top-controls,
 .message-attachment--swf-runtime-hover .message-swf-audio-rail,
-.message:hover .message-swf-audio-rail,
-.message:focus-within .message-swf-audio-rail,
+.message-attachment--swf:focus-within .message-swf-audio-rail,
 .message-attachment--swf:hover .message-swf-audio-rail {
   display: flex;
 }

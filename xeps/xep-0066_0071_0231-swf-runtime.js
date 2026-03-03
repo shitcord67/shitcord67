@@ -522,6 +522,7 @@ function setSwfRuntimeHoverState(runtimeKey, hovered) {
     if (attachment instanceof HTMLElement) {
       attachment.classList.add("message-attachment--swf-runtime-hover");
     }
+    requestSwfRuntimeLayoutSync();
     return;
   }
   runtime.runtimeHover = false;
@@ -531,6 +532,7 @@ function setSwfRuntimeHoverState(runtimeKey, hovered) {
     if (!attachment.isConnected) return;
     if (attachment.matches(":hover") || attachment.matches(":focus-within")) return;
     attachment.classList.remove("message-attachment--swf-runtime-hover");
+    requestSwfRuntimeLayoutSync();
   };
   swfRuntimeHoverOffTimerByKey.set(runtimeKey, setTimeout(clearHover, 220));
 }
@@ -1718,34 +1720,40 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       });
       const withLocalhostFallbacks = [];
       const addLocalhostVariants = (value) => {
-        addUrlVariant(withLocalhostFallbacks, value);
+        const variants = [];
+        const addVariant = (candidateValue) => {
+          addUrlVariant(variants, candidateValue);
+        };
         try {
           const parsed = new URL(value);
           const host = (parsed.hostname || "").toLowerCase();
-          if (!["localhost", "127.0.0.1"].includes(host)) return;
-          if (parsed.protocol === "https:") {
-            parsed.protocol = "http:";
-            addUrlVariant(withLocalhostFallbacks, parsed.toString());
-          } else if (parsed.protocol === "http:") {
-            parsed.protocol = "https:";
-            addUrlVariant(withLocalhostFallbacks, parsed.toString());
-          }
-          try {
-            const current = new URL(window.location.href);
-            const currentHost = (current.hostname || "").toLowerCase();
-            if (["localhost", "127.0.0.1"].includes(currentHost)) {
-              const remapped = new URL(value);
-              remapped.protocol = current.protocol;
-              remapped.hostname = current.hostname;
-              remapped.port = current.port;
-              addUrlVariant(withLocalhostFallbacks, remapped.toString());
+          if (["localhost", "127.0.0.1"].includes(host)) {
+            try {
+              const current = new URL(window.location.href);
+              const currentHost = (current.hostname || "").toLowerCase();
+              if (["localhost", "127.0.0.1"].includes(currentHost)) {
+                const remapped = new URL(value);
+                remapped.protocol = current.protocol;
+                remapped.hostname = current.hostname;
+                remapped.port = current.port;
+                addVariant(remapped.toString());
+              }
+            } catch {
+              // ignore current origin remap failures
             }
-          } catch {
-            // ignore current origin remap failures
+            if (parsed.protocol === "https:") {
+              parsed.protocol = "http:";
+              addVariant(parsed.toString());
+            } else if (parsed.protocol === "http:") {
+              parsed.protocol = "https:";
+              addVariant(parsed.toString());
+            }
           }
         } catch {
           // ignore URL parse failures
         }
+        addVariant(value);
+        variants.forEach((candidateValue) => addUrlVariant(withLocalhostFallbacks, candidateValue));
       };
       resolvedCandidates.forEach(addLocalhostVariants);
       return withLocalhostFallbacks;

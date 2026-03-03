@@ -265,8 +265,9 @@ function updateRuntimeSafeArea() {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   if (!root) return;
-  const isAndroid = document.body?.dataset?.platform === "android";
   const nativeInsets = normalizeNativeAndroidInsets(window.__shitcord67AndroidInsets);
+  const hasNativeInsets = Boolean(nativeInsets && (nativeInsets.top || nativeInsets.right || nativeInsets.bottom || nativeInsets.left));
+  const isAndroid = document.body?.dataset?.platform === "android" || hasNativeInsets;
   const viewport = window.visualViewport;
   let safeTop = 0;
   let safeRight = 0;
@@ -295,12 +296,11 @@ function updateRuntimeSafeArea() {
     const viewportOffsetTop = viewport && Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
     const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
     const keyboardLikelyOpen = keyboardGap >= 110;
-    const hasNativeInsets = nativeInsets && (nativeInsets.top || nativeInsets.right || nativeInsets.bottom || nativeInsets.left);
     const screenHeight = Number.isFinite(window.screen?.height) ? window.screen.height : 0;
     const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : 0;
     const statusGuess = screenHeight && innerHeight ? Math.max(0, screenHeight - innerHeight) : 0;
-    const fallbackTop = hasNativeInsets ? 0 : Math.max(28, Math.round(statusGuess));
-    const fallbackBottom = hasNativeInsets ? 0 : 26;
+    const fallbackTop = hasNativeInsets ? 0 : Math.max(36, Math.round(statusGuess));
+    const fallbackBottom = hasNativeInsets ? 0 : 32;
     root.style.setProperty("--android-safe-extra-top", `${fallbackTop}px`);
     root.style.setProperty("--android-safe-extra-bottom", `${keyboardLikelyOpen ? 0 : fallbackBottom}px`);
   }

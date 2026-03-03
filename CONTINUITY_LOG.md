@@ -6422,3 +6422,623 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
 [600981:0303/093142.018873:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.lsQZ4b failed: No such process (3)
 [600981:0303/093142.018960:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
 [600981:0303/093142.018983:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[2026-03-03T09:55:00Z] USER PROMPT:
+Oh can you maybe make a markdown exception for shrug? so that I see ¯\_(ツ)_/¯ in chat. Also I'm still not seing the messages sent from the same account but in a different client. The SWF stuff is still unresponsive as fuck. Devtools still doesn't open at all. 09:45:12 ~/shitcord67:$ ./build-all.sh
+[build-platform] clean step enabled
+[build-platform] building web bundle
+
+> discord-lookalike-flash@1.0.0 mobile:build:web
+> node scripts/build-mobile-web.mjs
+
+[mobile-build] wrote .mobile-web
+[build-platform] web output: dist/web
+[build-platform] clean step enabled
+[build-platform] packaging electron app (linux/x64)
+Packaging app for platform linux x64 using electron v35.7.5
+Wrote new app to: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+[build-platform] linux desktop entry: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67.desktop
+[build-platform] electron output: dist/electron
+[build-platform] clean step enabled
+
+BUILD SUCCESSFUL in 847ms
+4 actionable tasks: 4 executed
+[build-platform] syncing android project
+
+> discord-lookalike-flash@1.0.0 mobile:android:sync
+> npm run mobile:build:web && npx cap sync android && npm run mobile:android:patch-gradle
+
+
+> discord-lookalike-flash@1.0.0 mobile:build:web
+> node scripts/build-mobile-web.mjs
+
+[mobile-build] wrote .mobile-web
+✔ Copying web assets from .mobile-web to android/app/src/main/assets/public in 15.29ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 775.18μs
+✔ copy android in 22.74ms
+✔ Updating Android plugins in 879.77μs
+✔ update android in 15.40ms
+[info] Sync finished in 0.044s
+
+> discord-lookalike-flash@1.0.0 mobile:android:patch-gradle
+> node scripts/patch-capacitor-android-gradle.cjs
+
+[patch-capacitor-android-gradle] updated 1 file(s)
+[build-platform] building debug APK
+
+> Task :capacitor-android:compileDebugJavaWithJavac
+Hinweis: Einige Eingabedateien verwenden nicht geprüfte oder unsichere Vorgänge.
+Hinweis: Wiederholen Sie die Kompilierung mit -Xlint:unchecked, um Details zu erhalten.
+[Incubating] Problems report is available at: file:///home/duda/shitcord67/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 3s
+85 actionable tasks: 76 executed, 9 up-to-date
+[build-platform] android output: dist/android/app-debug.apk
+09:46:27 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67
+[electron] packaged linux flags: sandbox=off shm=tmp runtimeTmp=/home/duda/.cache/shitcord67/runtime temp=/home/duda/.cache/shitcord67/runtime
+[electron] display media request handler installed
+[electron] starting local stack (client=127.0.0.1:6769, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6769 is listening but http://127.0.0.1:6769/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6769 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6769 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6771
+[electron] starting local stack (client=127.0.0.1:6771, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6771 is listening but http://127.0.0.1:6771/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6771 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6771 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6772
+[electron] starting local stack (client=127.0.0.1:6772, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6772 is listening but http://127.0.0.1:6772/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6772 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6772 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6773
+[electron] starting local stack (client=127.0.0.1:6773, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6773 is listening but http://127.0.0.1:6773/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6773 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6773 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6970
+[electron] starting local stack (client=127.0.0.1:6970, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6970 is listening but http://127.0.0.1:6970/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6970 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6970 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:32799
+[electron] starting local stack (client=127.0.0.1:32799, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] [run-client-stack] started client-server (pid 636731)
+[electron] [run-client-stack] xmpp gateway port 6770 already in use, reusing existing gateway.
+[run-client-stack] client: http://127.0.0.1:32799/
+[run-client-stack] gateway: http://127.0.0.1:6770
+[run-client-stack] press Ctrl+C to stop.
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET / HTTP/1.1" 200 -
+[electron] permission handlers installed for trusted local renderer origin
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET / HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /styles.css HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /assets/libsignal_protocol.min.js HTTP/1.1" 200 -
+(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /xeps/xep-loader.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /xeps/call-room-url-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /xeps/xmpp-login-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /xeps/media-provider-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /xeps/ui-state-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /xeps/account-profile-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:49] "GET /xeps/xmpp-call-target-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/command-invocation-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xmpp-message-id-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/text-time-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/name-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_crypto-namespaces.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_namespace-selection.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_omemo-crypto-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_preferences.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_identity.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_sessions.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_devices.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_bundles.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_own-bundle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_targets.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_message-crypto.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_decrypt-content.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_decrypt-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0334_processing-hints.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0085-chatstates.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0184_0333-message-markers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0184_0333-marker-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0249_direct-muc-invite.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0045_0402-roster-bookmarks.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0359_0424-message-ref-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0482_call-invite-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0308_0424_0444-message-actions.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0353_jingle-message-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0115_caps-presence.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0203_0319-delay-idle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0421_0045-muc-occupant.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0421_0045-muc-actor-cache.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0166_0167-jingle-iq-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0166_0167-jingle-send.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0320_webrtc-sdp-basics.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0066_0071_0231-oob-media.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0461_0428-message-replies.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0313_mam-loading.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0333_0359_0372_0444_0482-message-builders.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0030_0166-call-disco.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0308_0359_0424_0444-message-updates.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0199_0410_0313-presence-ping.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0048_0402-bookmarks-ops.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0048_0402-bookmarks-sync.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0045_0503-room-lifecycle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0184_0333_0359-delivery-indexes.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0280_0352-csi-carbons.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0482_0503-spaces-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0503_spaces.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0153_presence-photo-hash.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0156_host-meta-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0156_xmpp-login-discovery-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_omemo-store.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xmpp-xml-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xmpp_encryption-payload.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384_omemo-stanza.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0454_omemo-media-sharing-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-runtime-bindings.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-transport-interop.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0030_0166-jingle-call-core.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-relay-connection-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-presence-preferences-bridge.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-xmpp-dm-bridge.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0334-processing-hints-storage.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-upload-disco-attachments.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-xmpp-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-slash-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-dm-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-call-invite-web-console-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-xmpp-ui-bindings-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-xmpp-roster-bookmarks-login-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-native-call-ui-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-jingle-call-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0166_0320-webrtc-session-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0384.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0454.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-bootstrap.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-xmpp-bridges.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-message-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-render-messages-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-member-list-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-shell-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-servers-dms-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-xmpp-state-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0066_0071_0231-rich-text-media-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0066_0071_0231-attachment-render-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0066_0071_0231-swf-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-0066_0071_0231-media-picker-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-state-bootstrap-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-core-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /app.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /xeps/xep-app-ui-events-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] code 404, message File not found
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /swf/index.json HTTP/1.1" 404 -
+127.0.0.1 - - [03/Mar/2026 09:47:50] code 404, message File not found
+127.0.0.1 - - [03/Mar/2026 09:47:50] "HEAD /vendor/ruffle/ruffle.js HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] code 404, message File not found
+127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /swf/swf-index.json HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] "GET /swf-index.json HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:50] code 404, message File not found
+127.0.0.1 - - [03/Mar/2026 09:47:50] "HEAD /vendor/dotlottie/dotlottie-player.mjs HTTP/1.1" 404 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:47:53] "GET /vendor/strophe.umd.min.js HTTP/1.1" 200 -
+[636470:0303/094925.184615:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:53:02] "GET /swf/nanaca-crash_v110.swf HTTP/1.1" 200 -
+127.0.0.1 - - [03/Mar/2026 09:53:02] "GET /swf/precious_thing.swf HTTP/1.1" 200 -
+127.0.0.1 - - [03/Mar/2026 09:53:02] "GET /swf/protectorNDM0.swf HTTP/1.1" 200 -
+127.0.0.1 - - [03/Mar/2026 09:53:02] "GET /swf/Protector%20IVv.swf HTTP/1.1" 200 -
+127.0.0.1 - - [03/Mar/2026 09:53:02] "GET /swf/renaming.swf HTTP/1.1" 200 -
+127.0.0.1 - - [03/Mar/2026 09:53:02] "GET /swf/protector_3_1_12_Secure.swf HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 09:53:02] "GET /swf/protector_3_map-editor.swf HTTP/1.1" 200 -
+[electron] renderer [level=1] https://unpkg.com/@ruffle-rs/ruffle/core.ruffle.3a151f1d9c5f65729f8d.js:1 %cERROR%c core/src/loader.rs:796%c Error during movie loading of "http://x.mochiads.com/srv/1/14db77fb5595fde6.swf": BlockedHost("*.mochiads.com") color: red; background: #444 color: gray; font-style: italic color: inherit
+[electron] renderer [level=1] https://unpkg.com/@ruffle-rs/ruffle/core.ruffle.3a151f1d9c5f65729f8d.js:1 %cERROR%c core/src/loader.rs:796%c Error during movie loading of "http://www.mochiads.com/static/lib/services/services.swf": BlockedHost("*.mochiads.com") color: red; background: #444 color: gray; font-style: italic color: inherit
+[electron] renderer [level=1] https://unpkg.com/@ruffle-rs/ruffle/core.ruffle.3a151f1d9c5f65729f8d.js:1 %cERROR%c core/src/loader.rs:796%c Error during movie loading of "http://x.mochiads.com/srv/1/37160f3507c6546c.swf": BlockedHost("*.mochiads.com") color: red; background: #444 color: gray; font-style: italic color: inherit
+[electron] renderer [level=1] https://unpkg.com/@ruffle-rs/ruffle/core.ruffle.3a151f1d9c5f65729f8d.js:1 %cERROR%c core/src/loader.rs:796%c Error during movie loading of "http://mochibot.com/my/core.swf?mv=7&fv=8&v=LNX%2032%2C0%2C0%2C0&swfid=439256e5&l=10301&f=_level0&sb=remote&t=1": FetchError("Got JS error") color: red; background: #444 color: gray; font-style: italic color: inherit
+[electron] renderer [level=1] https://unpkg.com/@ruffle-rs/ruffle/core.ruffle.3a151f1d9c5f65729f8d.js:1 %cERROR%c core/src/loader.rs:796%c Error during movie loading of "http://mochibot.com/my/core.swf?mv=8&fv=10&v=LNX%2032%2C0%2C0%2C0&swfid=8583bee5&l=10301&f=_level0&sb=remote&t=1": FetchError("Got JS error") color: red; background: #444 color: gray; font-style: italic color: inherit
+[650279:0303/095332.415656:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.E1njZe failed: No such process (3)
+[650279:0303/095332.415734:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+ At least sending image attachments seems to work but SWFs and GIFs from the file picker are still not sent to other people. {
+  "relayMode": "xmpp",
+  "relayStatus": "connected",
+  "xmppConnected": true,
+  "xmppRuntimeReady": true,
+  "xmppRuntimeLastError": "",
+  "filter": "all",
+  "search": "kazue@xmpp.jp",
+  "paused": true,
+  "eventsTotal": 92,
+  "eventsShown": 67,
+  "activeCallSessions": []
+}
+
+[2026-03-03T09:02:04.426Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:04.426Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:08.559Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:08.559Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:11.371Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:11.371Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:13.231Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:13.231Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:13.239Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:13.239Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:13.268Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" id="s67-10e501b9-6c6" xmlns="jabber:client"><body>/xmppinspect here</body><origin-id xmlns="urn:xmpp:sid:0" id="s67-origin-f8610d45-df4"/><store xmlns="urn:xmpp:hints"/><markable xmlns="urn:xmpp:chat-markers:0"/><request xmlns="urn:xmpp:receipts"/></message>
+
+[2026-03-03T09:02:13.268Z] [raw] TX
+<message id="s67-10e501b9-6c6" to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><body>/xmppinspect here</body><origin-id id="s67-origin-f8610d45-df4" xmlns="urn:xmpp:sid:0"/><store xmlns="urn:xmpp:hints"/><markable xmlns="urn:xmpp:chat-markers:0"/><request xmlns="urn:xmpp:receipts"/></message>
+
+[2026-03-03T09:02:14.091Z] [raw] RX
+<message from='kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm' id='35d3f899-4452-4169-95f2-7322b4ec45f1' type='chat' to='derberg@pimux.de' xmlns='jabber:client' xml:lang='en'><received xmlns='urn:xmpp:receipts' id='s67-origin-f8610d45-df4'/><no-store xmlns='urn:xmpp:hints'/><no-copy xmlns='urn:xmpp:hints'/><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-03T09:02:14Z'/></message>
+
+[2026-03-03T09:02:14.092Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm" id="35d3f899-4452-4169-95f2-7322b4ec45f1" type="chat" to="derberg@pimux.de" xml:lang="en"><received xmlns="urn:xmpp:receipts" id="s67-origin-f8610d45-df4"/><no-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><delay xmlns="urn:xmpp:delay" from="derberg@pimux.de" stamp="2026-03-03T09:02:14Z"/></message>
+
+[2026-03-03T09:02:14.097Z] [message] Received XMPP delivery receipt
+{
+  "from": "kazue@xmpp.jp",
+  "id": "s67-origin-f8610d45-df4",
+  "matched": true
+}
+
+[2026-03-03T09:02:14.355Z] [raw] RX
+<message from='kazue@xmpp.jp/dino.13eb7ed4' id='940fdcae-ab05-4799-b16b-48587dd684d8' to='derberg@pimux.de/TTOTUVyRZauN' xmlns='jabber:client' xml:lang='en'><received id='s67-origin-f8610d45-df4' xmlns='urn:xmpp:receipts'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2ef-0344-7291-8e92-a468ae64c0ba'/></message>
+
+[2026-03-03T09:02:14.355Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/dino.13eb7ed4" id="940fdcae-ab05-4799-b16b-48587dd684d8" to="derberg@pimux.de/TTOTUVyRZauN" xml:lang="en"><received xmlns="urn:xmpp:receipts" id="s67-origin-f8610d45-df4"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2ef-0344-7291-8e92-a468ae64c0ba"/></message>
+
+[2026-03-03T09:02:14.356Z] [raw] RX
+<message from='kazue@xmpp.jp/dino.13eb7ed4' id='1d6e0614-9c16-4773-9010-b4f5010d07d1' type='chat' to='derberg@pimux.de/TTOTUVyRZauN' xmlns='jabber:client' xml:lang='en'><received id='s67-origin-f8610d45-df4' xmlns='urn:xmpp:chat-markers:0'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2ef-0345-7234-885d-3448d1d9dfef'/></message>
+
+[2026-03-03T09:02:14.356Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/dino.13eb7ed4" id="1d6e0614-9c16-4773-9010-b4f5010d07d1" type="chat" to="derberg@pimux.de/TTOTUVyRZauN" xml:lang="en"><received xmlns="urn:xmpp:chat-markers:0" id="s67-origin-f8610d45-df4"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2ef-0345-7234-885d-3448d1d9dfef"/></message>
+
+[2026-03-03T09:02:14.356Z] [message] Received XMPP chat marker
+{
+  "from": "kazue@xmpp.jp",
+  "marker": "received",
+  "id": "s67-origin-f8610d45-df4",
+  "matched": false
+}
+
+[2026-03-03T09:02:14.615Z] [raw] RX
+<message from='kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm' id='be25e585-42fe-4f64-b10b-1316698cb021' type='chat' to='derberg@pimux.de' xmlns='jabber:client' xml:lang='en'><displayed id='s67-10e501b9-6c6' xmlns='urn:xmpp:chat-markers:0'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2ef-0449-76f7-9420-4710b755169e'/></message>
+
+[2026-03-03T09:02:14.616Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm" id="be25e585-42fe-4f64-b10b-1316698cb021" type="chat" to="derberg@pimux.de" xml:lang="en"><displayed xmlns="urn:xmpp:chat-markers:0" id="s67-10e501b9-6c6"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2ef-0449-76f7-9420-4710b755169e"/></message>
+
+[2026-03-03T09:02:14.621Z] [message] Received XMPP chat marker
+{
+  "from": "kazue@xmpp.jp",
+  "marker": "displayed",
+  "id": "s67-10e501b9-6c6",
+  "matched": true
+}
+
+[2026-03-03T09:02:18.967Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:18.967Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:42.539Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:42.539Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:49.304Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:49.304Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:49.400Z] [raw] RX
+<message from='derberg@pimux.de' xmlns='jabber:client' to='derberg@pimux.de/TTOTUVyRZauN' type='chat'><sent xmlns='urn:xmpp:carbons:2'><forwarded xmlns='urn:xmpp:forward:0'><message from='derberg@pimux.de/gajim.WCL9KBQU' id='40676145-81e3-4626-b5c1-179a670900c3' type='chat' to='kazue@xmpp.jp' xmlns='jabber:client' xml:lang='de-DE'><origin-id id='40676145-81e3-4626-b5c1-179a670900c3' xmlns='urn:xmpp:sid:0'/><composing xmlns='http://jabber.org/protocol/chatstates'/><no-store xmlns='urn:xmpp:hints'/></message></forwarded></sent><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-03T09:02:46Z'/></message>
+
+[2026-03-03T09:02:49.400Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="derberg@pimux.de" to="derberg@pimux.de/TTOTUVyRZauN" type="chat"><sent xmlns="urn:xmpp:carbons:2"><forwarded xmlns="urn:xmpp:forward:0"><message xmlns="jabber:client" from="derberg@pimux.de/gajim.WCL9KBQU" id="40676145-81e3-4626-b5c1-179a670900c3" type="chat" to="kazue@xmpp.jp" xml:lang="de-DE"><origin-id xmlns="urn:xmpp:sid:0" id="40676145-81e3-4626-b5c1-179a670900c3"/><composing xmlns="http://jabber.org/protocol/chatstates"/><no-store xmlns="urn:xmpp:hints"/></message></forwarded></sent><delay xmlns="urn:xmpp:delay" from="derberg@pimux.de" stamp="2026-03-03T09:02:46Z"/></message>
+
+[2026-03-03T09:02:49.406Z] [raw] RX
+<message from='derberg@pimux.de' xmlns='jabber:client' to='derberg@pimux.de/TTOTUVyRZauN' type='chat'><sent xmlns='urn:xmpp:carbons:2'><forwarded xmlns='urn:xmpp:forward:0'><message from='derberg@pimux.de/gajim.WCL9KBQU' id='a962ed9e-75a7-4153-82ae-d1c563bf54e3' type='chat' to='kazue@xmpp.jp' xmlns='jabber:client' xml:lang='de-DE'><body>wallah</body><origin-id xmlns='urn:xmpp:sid:0' id='a962ed9e-75a7-4153-82ae-d1c563bf54e3'/><request xmlns='urn:xmpp:receipts'/><active xmlns='http://jabber.org/protocol/chatstates'/><markable xmlns='urn:xmpp:chat-markers:0'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2ef-8531-78f6-a5cf-5cc39bca6c4d'/></message></forwarded></sent></message>
+
+[2026-03-03T09:02:49.406Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="derberg@pimux.de" to="derberg@pimux.de/TTOTUVyRZauN" type="chat"><sent xmlns="urn:xmpp:carbons:2"><forwarded xmlns="urn:xmpp:forward:0"><message xmlns="jabber:client" from="derberg@pimux.de/gajim.WCL9KBQU" id="a962ed9e-75a7-4153-82ae-d1c563bf54e3" type="chat" to="kazue@xmpp.jp" xml:lang="de-DE"><body>wallah</body><origin-id xmlns="urn:xmpp:sid:0" id="a962ed9e-75a7-4153-82ae-d1c563bf54e3"/><request xmlns="urn:xmpp:receipts"/><active xmlns="http://jabber.org/protocol/chatstates"/><markable xmlns="urn:xmpp:chat-markers:0"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2ef-8531-78f6-a5cf-5cc39bca6c4d"/></message></forwarded></sent></message>
+
+[2026-03-03T09:02:49.407Z] [raw] RX
+<message from='kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm' id='09085f77-ba01-4a44-b729-96c0ae632dca' type='chat' to='derberg@pimux.de' xmlns='jabber:client' xml:lang='en'><received xmlns='urn:xmpp:receipts' id='a962ed9e-75a7-4153-82ae-d1c563bf54e3'/><no-store xmlns='urn:xmpp:hints'/><no-copy xmlns='urn:xmpp:hints'/><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-03T09:02:48Z'/></message>
+
+[2026-03-03T09:02:49.407Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm" id="09085f77-ba01-4a44-b729-96c0ae632dca" type="chat" to="derberg@pimux.de" xml:lang="en"><received xmlns="urn:xmpp:receipts" id="a962ed9e-75a7-4153-82ae-d1c563bf54e3"/><no-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><delay xmlns="urn:xmpp:delay" from="derberg@pimux.de" stamp="2026-03-03T09:02:48Z"/></message>
+
+[2026-03-03T09:02:49.408Z] [message] Received XMPP delivery receipt
+{
+  "from": "kazue@xmpp.jp",
+  "id": "a962ed9e-75a7-4153-82ae-d1c563bf54e3",
+  "matched": false
+}
+
+[2026-03-03T09:02:49.408Z] [raw] RX
+<message from='kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm' id='8f70f124-5203-4848-9a58-69f531cb2d33' type='chat' to='derberg@pimux.de' xmlns='jabber:client' xml:lang='en'><displayed id='a962ed9e-75a7-4153-82ae-d1c563bf54e3' xmlns='urn:xmpp:chat-markers:0'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2ef-887f-74ae-9a11-fcb10f8a0fb7'/></message>
+
+[2026-03-03T09:02:49.408Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm" id="8f70f124-5203-4848-9a58-69f531cb2d33" type="chat" to="derberg@pimux.de" xml:lang="en"><displayed xmlns="urn:xmpp:chat-markers:0" id="a962ed9e-75a7-4153-82ae-d1c563bf54e3"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2ef-887f-74ae-9a11-fcb10f8a0fb7"/></message>
+
+[2026-03-03T09:02:49.408Z] [message] Received XMPP chat marker
+{
+  "from": "kazue@xmpp.jp",
+  "marker": "displayed",
+  "id": "a962ed9e-75a7-4153-82ae-d1c563bf54e3",
+  "matched": false
+}
+
+[2026-03-03T09:02:50.505Z] [raw] RX
+<message from='derberg@pimux.de' xmlns='jabber:client' to='derberg@pimux.de/TTOTUVyRZauN' type='chat'><received xmlns='urn:xmpp:carbons:2'><forwarded xmlns='urn:xmpp:forward:0'><message from='kazue@xmpp.jp/dino.13eb7ed4' id='13d932c1-7a13-47a1-bf3d-6a81f654185c' type='chat' to='derberg@pimux.de/gajim.WCL9KBQU' xmlns='jabber:client' xml:lang='en'><received xmlns='urn:xmpp:chat-markers:0' id='a962ed9e-75a7-4153-82ae-d1c563bf54e3'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2ef-8df2-73dc-b02c-dd343216ec95'/></message></forwarded></received></message>
+
+[2026-03-03T09:02:50.506Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="derberg@pimux.de" to="derberg@pimux.de/TTOTUVyRZauN" type="chat"><received xmlns="urn:xmpp:carbons:2"><forwarded xmlns="urn:xmpp:forward:0"><message xmlns="jabber:client" from="kazue@xmpp.jp/dino.13eb7ed4" id="13d932c1-7a13-47a1-bf3d-6a81f654185c" type="chat" to="derberg@pimux.de/gajim.WCL9KBQU" xml:lang="en"><received xmlns="urn:xmpp:chat-markers:0" id="a962ed9e-75a7-4153-82ae-d1c563bf54e3"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2ef-8df2-73dc-b02c-dd343216ec95"/></message></forwarded></received></message>
+
+[2026-03-03T09:02:50.506Z] [message] Received XMPP chat marker
+{
+  "from": "kazue@xmpp.jp",
+  "marker": "received",
+  "id": "a962ed9e-75a7-4153-82ae-d1c563bf54e3",
+  "matched": false
+}
+
+[2026-03-03T09:02:52.396Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:02:52.396Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:36.532Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:36.532Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:36.585Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:36.585Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:36.593Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:36.593Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:40.189Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:40.189Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:40.201Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:40.201Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><paused xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-03T09:03:40.239Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" id="s67-4af59648-44a" xmlns="jabber:client"><body>/xmppinspect here</body><origin-id xmlns="urn:xmpp:sid:0" id="s67-origin-e25aab5b-da6"/><store xmlns="urn:xmpp:hints"/><markable xmlns="urn:xmpp:chat-markers:0"/><request xmlns="urn:xmpp:receipts"/></message>
+
+[2026-03-03T09:03:40.239Z] [raw] TX
+<message id="s67-4af59648-44a" to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><body>/xmppinspect here</body><origin-id id="s67-origin-e25aab5b-da6" xmlns="urn:xmpp:sid:0"/><store xmlns="urn:xmpp:hints"/><markable xmlns="urn:xmpp:chat-markers:0"/><request xmlns="urn:xmpp:receipts"/></message>
+
+[2026-03-03T09:03:41.063Z] [raw] RX
+<message from='kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm' id='fa12f2c1-fd2c-4c82-82a8-b88e23e50ef4' type='chat' to='derberg@pimux.de' xmlns='jabber:client' xml:lang='en'><received xmlns='urn:xmpp:receipts' id='s67-origin-e25aab5b-da6'/><no-store xmlns='urn:xmpp:hints'/><no-copy xmlns='urn:xmpp:hints'/><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-03T09:03:41Z'/></message>
+
+[2026-03-03T09:03:41.064Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm" id="fa12f2c1-fd2c-4c82-82a8-b88e23e50ef4" type="chat" to="derberg@pimux.de" xml:lang="en"><received xmlns="urn:xmpp:receipts" id="s67-origin-e25aab5b-da6"/><no-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><delay xmlns="urn:xmpp:delay" from="derberg@pimux.de" stamp="2026-03-03T09:03:41Z"/></message>
+
+[2026-03-03T09:03:41.071Z] [message] Received XMPP delivery receipt
+{
+  "from": "kazue@xmpp.jp",
+  "id": "s67-origin-e25aab5b-da6",
+  "matched": true
+}
+
+[2026-03-03T09:03:41.357Z] [raw] RX
+<message from='kazue@xmpp.jp/dino.13eb7ed4' id='f126a6df-819b-460e-9d17-6e9226fd107c' to='derberg@pimux.de/TTOTUVyRZauN' xmlns='jabber:client' xml:lang='en'><received id='s67-origin-e25aab5b-da6' xmlns='urn:xmpp:receipts'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2f0-56ff-77fb-803b-c0a9ffab13e2'/></message>
+
+[2026-03-03T09:03:41.357Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/dino.13eb7ed4" id="f126a6df-819b-460e-9d17-6e9226fd107c" to="derberg@pimux.de/TTOTUVyRZauN" xml:lang="en"><received xmlns="urn:xmpp:receipts" id="s67-origin-e25aab5b-da6"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2f0-56ff-77fb-803b-c0a9ffab13e2"/></message>
+
+[2026-03-03T09:03:41.450Z] [raw] RX
+<message from='kazue@xmpp.jp/dino.13eb7ed4' id='dea51909-6a45-4a7c-b725-ecff8dc59e3d' type='chat' to='derberg@pimux.de/TTOTUVyRZauN' xmlns='jabber:client' xml:lang='en'><received id='s67-origin-e25aab5b-da6' xmlns='urn:xmpp:chat-markers:0'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2f0-5701-728d-a94b-0874f12ef493'/></message>
+
+[2026-03-03T09:03:41.451Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/dino.13eb7ed4" id="dea51909-6a45-4a7c-b725-ecff8dc59e3d" type="chat" to="derberg@pimux.de/TTOTUVyRZauN" xml:lang="en"><received xmlns="urn:xmpp:chat-markers:0" id="s67-origin-e25aab5b-da6"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2f0-5701-728d-a94b-0874f12ef493"/></message>
+
+[2026-03-03T09:03:41.451Z] [message] Received XMPP chat marker
+{
+  "from": "kazue@xmpp.jp",
+  "marker": "received",
+  "id": "s67-origin-e25aab5b-da6",
+  "matched": false
+}
+
+[2026-03-03T09:03:41.612Z] [raw] RX
+<message from='kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm' id='fc2b2d4c-7643-4d6d-9d4a-6ddd55f37779' type='chat' to='derberg@pimux.de' xmlns='jabber:client' xml:lang='en'><displayed id='s67-4af59648-44a' xmlns='urn:xmpp:chat-markers:0'/><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cb2f0-5804-7ca2-ad92-f76eafc5373d'/></message>
+
+[2026-03-03T09:03:41.613Z] [message] Incoming stanza
+<message xmlns="jabber:client" from="kazue@xmpp.jp/Movim.SsA8O1.KIy8f5-OEm" id="fc2b2d4c-7643-4d6d-9d4a-6ddd55f37779" type="chat" to="derberg@pimux.de" xml:lang="en"><displayed xmlns="urn:xmpp:chat-markers:0" id="s67-4af59648-44a"/><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cb2f0-5804-7ca2-ad92-f76eafc5373d"/></message>
+
+[2026-03-03T09:03:41.621Z] [message] Received XMPP chat marker
+{
+  "from": "kazue@xmpp.jp",
+  "marker": "displayed",
+  "id": "s67-4af59648-44a",
+  "matched": true
+}
+
+[2026-03-03T09:18:39Z] Can you continue working on what you did before? There is continuity log you can read. Also this is a snippet from your last output: • I found an additional SWF bottleneck: the runtime still allowed external URL loading inside SWFs (openUrlMode: "allow" in load  paths), which matches your MochiAds spam/errors and UI hangs. I’m patching that to deny, plus fixing DM self-carbon routing and  media-picker send publishing now.  • Edited xeps/xep-presence-preferences-bridge.js (+26 -1)     1419    if (room.startsWith("dm:")) {     1420 -    const thread = getOrCreateDmThread(current, remoteAccount);     1420 +    let dmPeerAccount = remoteAccount;     1421 +    if (dmPeerAccount?.id === current.id) {     1422 +      const existingThread = findDmThreadByRelayRoom(room, current);     1423 +      const existingPeerId = existingThread?.participantIds?.find((id) => id && id !== current.id) || "";     1424 +      const existingPeer = existingPeerId ? getAccountById(existingPeerId) : null;     1425 +      if (existingPeer?.id && existingPeer.id !== current.id) {     1426 +        dmPeerAccount = existingPeer;     1427 +      } else {     1428 +        const roomParts = room     1429 +          .slice(3)     1430 +          .split(":")     1431 +          .map((value) => normalizeUsername(value || ""))     1432 +          .filter(Boolean);     1433 +        const currentName = normalizeUsername(current.username || "");     1434 +        const peerName = roomParts.find((value) => value && value !== currentName) || "";     1435 +        if (peerName) {     1436 +          let peerAccount = getAccountByUsername(peerName);     1437 +          if (!peerAccount) {     1438 +            peerAccount = createAccount(peerName, peerName);     1439 +            state.accounts.push(peerAccount);     1440 +          }     1441 +          dmPeerAccount = peerAccount;     1442 +        }     1443 +      }     1444 +    }     1445 +    const thread = getOrCreateDmThread(current, dmPeerAccount);     1446      if (!thread) return null;  ■ You've hit your usage limit. To continue using Codex and get access to GPT-5.3-Codex, start a free trial of Plus today (https:// chatgpt.com/explore/plus), or try again at Mar 10th, 2026 8:49 AM.
+
+[2026-03-03T10:50:58Z] Okay yeah SWFs are not slowing the app down significantly anymore and other issues I mentioned are fixed except the devtools issue. {\n  "relayMode": "xmpp",\n  "relayStatus": "connected",\n  "xmppConnected": true,\n  "xmppRuntimeReady": true,\n  "xmppRuntimeLastError": "",\n  "filter": "all",\n  "search": "kazue@xmpp.jp",\n  "paused": true,\n  "eventsTotal": 600,\n  "eventsShown": 126,\n  "activeCallSessions": []\n}\n\n[2026-03-03T10:46:14.684Z] [stanza] send()\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>\n... (logs truncated) ...\n Oh also /shrug still has no markdown formatting exception so it shows like  ¯\(ツ)/¯ instead of ¯\_(ツ)_/¯
+
+[2026-03-03T10:56:11Z] Can we also get sed-like substitutions, similar to Discord has them so we can quickly edit the last message?
+
+[2026-03-03T10:57:38Z] Then is there a way we can test if XEPs are working correctly and if they are missing things?
+
+[2026-03-03T11:15:10Z] Maybe actually try that by default..
+
+[2026-03-03T11:16:12Z] How to get the service thing?
+2026-03-03T11:26:37Z Can you please continue working on something?
+
+2026-03-03T00:00:00Z Oh. When I start shitcord67 again then I see Ruffle not being able to load SWF files send in chat. # Error Info
+Error name: Error
+Error message: Failed to fetch http://127.0.0.1:36481/swf/renaming.swf
+Error stack:
+```
+Error: Failed to fetch http://127.0.0.1:36481/swf/renaming.swf
+    at un.displayRootMovieDownloadFailedMessage (https://unpkg.com/@ruffle-rs/ruffle:1:433968)
+    at __wbg_displayRootMovieDownloadFailedMessage_886113d10fb6f986 (https://unpkg.com/@ruffle-rs/ruffle/core.ruffle.3a151f1d9c5f65729f8d.js:1:28712)
+    at ruffle_web.wasm.ruffle_web::JavascriptPlayer::display_root_movie_download_failed_message::__wbg_displayRootMovieDownloadFailedMessage_886113d10fb6f986::hff68a2dd5e2c54bf externref shim (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[12583]:0x93744e)
+    at ruffle_web.wasm.<ruffle_web::ui::WebUiBackend as ruffle_core::backend::ui::UiBackend>::display_root_movie_download_failed_message::hdc20f0a3d67640fb (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[8735]:0x8cd86a)
+    at ruffle_web.wasm.ruffle_core::loader::load_root_movie::{{closure}}::h0cb2593c63eb8873 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[1293]:0x315486)
+    at ruffle_web.wasm.<ruffle_web::navigator::WebNavigatorBackend as ruffle_core::backend::navigator::NavigatorBackend>::spawn_future::{{closure}}::h765a217c6682c0a4 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[1271]:0x2f0992)
+    at ruffle_web.wasm.wasm_bindgen_futures::queue::QueueState::run_all::he611081c89e90c4d (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[4533]:0x74a0ee)
+    at ruffle_web.wasm.wasm_bindgen_futures::queue::Queue::new::{{closure}}::h4b157e95d8b77ad5 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[11584]:0x92623e)
+    at ruffle_web.wasm.wasm_bindgen::convert::closures::_::invoke::h8dee5e9efdde44a9 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[11414]:0x92348d)
+    at ruffle_web.wasm.wasm_bindgen::convert::closures::_::invoke::h8dee5e9efdde44a9 externref shim (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[12310]:0x92e9ef)
+```
+
+# Player Info
+Allows script access: false
+Renderer: wgpu
+Adapter Backend: Gl
+Adapter Name: "ANGLE (AMD, AMD Radeon RX 560 Series (radeonsi polaris11 ACO), OpenGL 4.6)"
+Adapter Device Type: Other
+Adapter Driver Name: ""
+Adapter Driver Info: "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+Enabled features: Features { features_wgpu: FeaturesWGPU(TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES), features_webgpu: FeaturesWebGPU(TEXTURE_COMPRESSION_BC | FLOAT32_FILTERABLE) }
+Available features: Features { features_wgpu: FeaturesWGPU(PUSH_CONSTANTS | CLEAR_TEXTURE | MULTIVIEW), features_webgpu: FeaturesWebGPU(DEPTH32FLOAT_STENCIL8 | TEXTURE_COMPRESSION_BC_SLICED_3D) }
+Current limits: Limits { max_texture_dimension_1d: 16384, max_texture_dimension_2d: 16384, max_texture_dimension_3d: 2048, max_texture_array_layers: 256, max_bind_groups: 4, max_bindings_per_bind_group: 1000, max_dynamic_uniform_buffers_per_pipeline_layout: 8, max_dynamic_storage_buffers_per_pipeline_layout: 0, max_sampled_textures_per_shader_stage: 16, max_samplers_per_shader_stage: 16, max_storage_buffers_per_shader_stage: 0, max_storage_textures_per_shader_stage: 0, max_uniform_buffers_per_shader_stage: 11, max_uniform_buffer_binding_size: 65536, max_storage_buffer_binding_size: 0, max_vertex_buffers: 8, max_vertex_attributes: 16, max_vertex_buffer_array_stride: 255, min_uniform_buffer_offset_alignment: 32, min_storage_buffer_offset_alignment: 256, max_inter_stage_shader_components: 128, max_color_attachments: 4, max_color_attachment_bytes_per_sample: 32, max_compute_workgroup_storage_size: 0, max_compute_invocations_per_workgroup: 0, max_compute_workgroup_size_x: 0, max_compute_workgroup_size_y: 0, max_compute_workgroup_size_z: 0, max_compute_workgroups_per_dimension: 0, min_subgroup_size: 0, max_subgroup_size: 0, max_push_constant_size: 0, max_non_sampler_bindings: 1000000, max_task_workgroup_total_count: 0, max_task_workgroups_per_dimension: 0, max_mesh_output_layers: 0, max_mesh_multiview_count: 0, max_blas_primitive_count: 0, max_blas_geometry_count: 0, max_tlas_instance_count: 0, max_acceleration_structures_per_shader_stage: 0 }
+Surface quality: high
+Surface samples: 4
+Surface size: (550, 400, 1)
+
+# Page Info
+Page URL: http://127.0.0.1:44837/
+SWF URL: http://127.0.0.1:36481/swf/renaming.swf
+
+# Browser Info
+User Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) discord-lookalike-flash/1.0.0 Chrome/134.0.6998.205 Electron/35.7.5 Safari/537.36
+Platform: Linux x86_64
+Has touch support: false
+
+# Ruffle Info
+Version: 0.2.0-nightly.2026.3.3
+Name: 0.2.0-nightly.2026.3.3
+Channel: nightly
+Built: 2026-03-03T00:12:57.283Z
+Commit: 3f0a915501efe29fe28f7d7d3d958b6ec7d91388
+Is extension: false
+
+# Metadata
+ Also on Android: the lower part of the GUI is drawn below my navigation bar and the upper part of the GUI is drawn behind my status bar and my notch. This is VERY BAD UX. Can't you investigate on what to do to shift the content a bit and instead show just gray padding at the top and bottom at the height of the navigation bar and the status bar at least but ideally notch? Also could we store and load the credentials somewhere, ideally with option to survive app reinstallation. E.g. in Documents folder in android.
+2026-03-03T12:05:38Z Oh. When I start shitcord67 again then I see Ruffle not being able to load SWF files send in chat. Also Android safe area and credential persistence request. (Relogged after initial append failed.)
+2026-03-03T00:00:00Z Do separate commits.
+2026-03-03T12:34:39Z Do separate commits.
+2026-03-03T00:00:00Z Commit them all and run all
+
+## 2026-03-03T15:40:30+01:00 User Prompt
+Also on Android: the lower part of the GUI is drawn below my navigation bar and the upper part of the GUI is drawn behind my
+  status bar and my notch. This is VERY BAD UX. Can't you investigate on what to do to shift the content a bit and instead show
+  just gray padding at the top and bottom at the height of the navigation bar and the status bar at least but ideally notch? Also are the credentials stored there somewhere, ideally with option to survive app reinstallation. E.g. in Documents folder
+  in android? THen on desktop: # Error Info
+Error name: Error
+Error message: Failed to fetch https://localhost/swf/renaming.swf
+Error stack:
+```
+Error: Failed to fetch https://localhost/swf/renaming.swf
+    at un.displayRootMovieDownloadFailedMessage (https://unpkg.com/@ruffle-rs/ruffle:1:433968)
+    at __wbg_displayRootMovieDownloadFailedMessage_886113d10fb6f986 (https://unpkg.com/@ruffle-rs/ruffle/core.ruffle.3a151f1d9c5f65729f8d.js:1:28712)
+    at ruffle_web.wasm.ruffle_web::JavascriptPlayer::display_root_movie_download_failed_message::__wbg_displayRootMovieDownloadFailedMessage_886113d10fb6f986::hff68a2dd5e2c54bf externref shim (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[12583]:0x93744e)
+    at ruffle_web.wasm.<ruffle_web::ui::WebUiBackend as ruffle_core::backend::ui::UiBackend>::display_root_movie_download_failed_message::hdc20f0a3d67640fb (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[8735]:0x8cd86a)
+    at ruffle_web.wasm.ruffle_core::loader::load_root_movie::{{closure}}::h0cb2593c63eb8873 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[1293]:0x315486)
+    at ruffle_web.wasm.<ruffle_web::navigator::WebNavigatorBackend as ruffle_core::backend::navigator::NavigatorBackend>::spawn_future::{{closure}}::h765a217c6682c0a4 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[1271]:0x2f0992)
+    at ruffle_web.wasm.wasm_bindgen_futures::queue::QueueState::run_all::he611081c89e90c4d (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[4533]:0x74a0ee)
+    at ruffle_web.wasm.wasm_bindgen_futures::queue::Queue::new::{{closure}}::h4b157e95d8b77ad5 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[11584]:0x92623e)
+    at ruffle_web.wasm.wasm_bindgen::convert::closures::_::invoke::h8dee5e9efdde44a9 (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[11414]:0x92348d)
+    at ruffle_web.wasm.wasm_bindgen::convert::closures::_::invoke::h8dee5e9efdde44a9 externref shim (wasm://wasm/ruffle_web.wasm-03167d72:wasm-function[12310]:0x92e9ef)
+```
+
+# Player Info
+Allows script access: false
+Renderer: wgpu
+Adapter Backend: Gl
+Adapter Name: "ANGLE (AMD, AMD Radeon RX 560 Series (radeonsi polaris11 ACO), OpenGL 4.6)"
+Adapter Device Type: Other
+Adapter Driver Name: ""
+Adapter Driver Info: "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+Enabled features: Features { features_wgpu: FeaturesWGPU(TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES), features_webgpu: FeaturesWebGPU(TEXTURE_COMPRESSION_BC | FLOAT32_FILTERABLE) }
+Available features: Features { features_wgpu: FeaturesWGPU(PUSH_CONSTANTS | CLEAR_TEXTURE | MULTIVIEW), features_webgpu: FeaturesWebGPU(DEPTH32FLOAT_STENCIL8 | TEXTURE_COMPRESSION_BC_SLICED_3D) }
+Current limits: Limits { max_texture_dimension_1d: 16384, max_texture_dimension_2d: 16384, max_texture_dimension_3d: 2048, max_texture_array_layers: 256, max_bind_groups: 4, max_bindings_per_bind_group: 1000, max_dynamic_uniform_buffers_per_pipeline_layout: 8, max_dynamic_storage_buffers_per_pipeline_layout: 0, max_sampled_textures_per_shader_stage: 16, max_samplers_per_shader_stage: 16, max_storage_buffers_per_shader_stage: 0, max_storage_textures_per_shader_stage: 0, max_uniform_buffers_per_shader_stage: 11, max_binding_array_elements_per_shader_stage: 0, max_binding_array_sampler_elements_per_shader_stage: 0, max_uniform_buffer_binding_size: 65536, max_storage_buffer_binding_size: 0, max_vertex_buffers: 8, max_buffer_size: 268435456, max_vertex_attributes: 16, max_vertex_buffer_array_stride: 255, min_uniform_buffer_offset_alignment: 32, min_storage_buffer_offset_alignment: 256, max_inter_stage_shader_components: 128, max_color_attachments: 4, max_color_attachment_bytes_per_sample: 32, max_compute_workgroup_storage_size: 0, max_compute_invocations_per_workgroup: 0, max_compute_workgroup_size_x: 0, max_compute_workgroup_size_y: 0, max_compute_workgroup_size_z: 0, max_compute_workgroups_per_dimension: 0, min_subgroup_size: 0, max_subgroup_size: 0, max_push_constant_size: 0, max_non_sampler_bindings: 1000000, max_task_workgroup_total_count: 0, max_task_workgroups_per_dimension: 0, max_mesh_output_layers: 0, max_mesh_multiview_count: 0, max_blas_primitive_count: 0, max_blas_geometry_count: 0, max_tlas_instance_count: 0, max_acceleration_structures_per_shader_stage: 0 }
+Surface quality: high
+Surface samples: 4
+Surface size: (550, 400, 1)
+
+# Page Info
+Page URL: http://127.0.0.1:35767/
+SWF URL: https://localhost/swf/renaming.swf
+
+# Browser Info
+User Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) discord-lookalike-flash/1.0.0 Chrome/134.0.6998.205 Electron/35.7.5 Safari/537.36
+Platform: Linux x86_64
+Has touch support: false
+
+# Ruffle Info
+Version: 0.2.0-nightly.2026.3.3
+Name: 0.2.0-nightly.2026.3.3
+Channel: nightly
+Built: 2026-03-03T00:12:57.283Z
+Commit: 3f0a915501efe29fe28f7d7d3d958b6ec7d91388
+Is extension: false
+
+# Metadata why does this happen? On Android it works. Oh also when I send some SWF on desktop then I might not see it on Android. Duh. Also in general, can you improve how the Ruffle thing is displayed? E.g. when I scroll then I can see that there is some delay with the Ruffle instances moving with the scrolling on Android. This is bad UX, they should scroll without any noticeable delay. Also on desktop when I have two messages with Ruffle instances after another and for the first one the controls open, then the second one does not seem to move correctly with its mssage down/up live. Then in general why do the controls open immiadetly when I'm over the message? Please only open them when I hover over the content. Not only for Ruffle but for videos as well. Also speaking of videos: on Android the video player does not seem to work, can we maybe ship a custom one or is there some package we can use? Then is there still some XMPP-specific stuff in app.js that could potentially be split out into own files?

@@ -242,13 +242,15 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   };
   applyCandidate();
   if (!animatedLoop) {
-    video.addEventListener("click", () => {
-      if (video.paused || video.ended) {
-        void video.play().catch(() => {});
-      } else {
-        video.pause();
-      }
-    });
+    if (!preferNativeControls) {
+      video.addEventListener("click", () => {
+        if (video.paused || video.ended) {
+          void video.play().catch(() => {});
+        } else {
+          video.pause();
+        }
+      });
+    }
   }
   video.addEventListener("error", () => {
     if (candidateIndex + 1 < candidates.length) {
@@ -739,6 +741,7 @@ function ensureMobileVideoPlayOverlay(video, container) {
   if (!(video instanceof HTMLVideoElement)) return;
   if (!(container instanceof HTMLElement)) return;
   if (document.body?.dataset?.mobile !== "on" && document.body?.dataset?.platform !== "android") return;
+  if (video.controls) return;
   if (container.querySelector(".video-play-overlay")) return;
   container.classList.add("message-video-mount--overlay");
   const overlay = document.createElement("button");

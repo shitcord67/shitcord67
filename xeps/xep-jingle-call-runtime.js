@@ -1746,7 +1746,7 @@ function normalizeAttachments(attachments) {
     .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
     .map((item) => ({
       type: allowedTypes.has(item.type) ? item.type : "gif",
-      url: item.url,
+      url: canonicalizeAttachmentUrlForStorage(item.url, { kind: item.type }),
       name: (item.name || "").toString().slice(0, 120),
       format: allowedFormats.has(item.format) ? item.format : "image"
     }))
@@ -1847,7 +1847,7 @@ function normalizeSavedSwfs(list) {
     .filter((entry) => entry && typeof entry.url === "string")
     .map((entry) => ({
       name: (entry.name || "swf").toString().slice(0, 120),
-      url: entry.url
+      url: canonicalizeAttachmentUrlForStorage(entry.url, { kind: "swf" })
     }))
     .slice(0, 24);
 }
@@ -2058,6 +2058,33 @@ function resolveMediaUrl(url) {
     return new URL(url, window.location.href).href;
   } catch {
     return url;
+  }
+}
+
+function canonicalizeAttachmentUrlForStorage(url, { kind = "" } = {}) {
+  const raw = (url || "").toString().trim();
+  if (!raw) return "";
+  if (/^(data:|blob:|aesgcm:)/i.test(raw)) return raw;
+  const normalizedKind = (kind || "").toString().trim().toLowerCase();
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) {
+    const cleaned = raw.replace(/^\.\//, "");
+    if (cleaned.startsWith("/")) return cleaned;
+    if (normalizedKind === "swf" && cleaned.startsWith("swf/")) return `/${cleaned}`;
+    return raw;
+  }
+  try {
+    const parsed = new URL(raw, window.location.href);
+    if (!/^https?:$/i.test(parsed.protocol || "")) return raw;
+    const current = new URL(window.location.href);
+    const host = (parsed.hostname || "").toLowerCase();
+    const currentHost = (current.hostname || "").toLowerCase();
+    const localHost = host === "localhost" || host === "127.0.0.1";
+    const sameHost = host === currentHost;
+    const samePort = (parsed.port || "") === (current.port || "");
+    if (!(localHost || (sameHost && samePort))) return parsed.href;
+    return `${parsed.pathname || "/"}${parsed.search || ""}${parsed.hash || ""}`;
+  } catch {
+    return raw;
   }
 }
 
@@ -2278,4 +2305,3 @@ function addDebugLog(level, message, data = null) {
   debugLogs.push(entry);
   if (debugLogs.length > 220) debugLogs.shift();
 }
-

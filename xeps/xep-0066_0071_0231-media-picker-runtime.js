@@ -999,6 +999,9 @@ function sendMediaAttachment(entry, type) {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
   if (!conversation || !account || !entry || !entry.url) return;
+  const attachmentUrl = typeof canonicalizeAttachmentUrlForStorage === "function"
+    ? canonicalizeAttachmentUrlForStorage(entry.url, { kind: type })
+    : entry.url;
   const text = trimTextForConversation((ui.messageInput.value || "").trim(), conversation);
   const nextReply = replyTarget && replyTarget.channelId === conversation.id
     ? { messageId: replyTarget.messageId, authorName: replyTarget.authorName, text: replyTarget.text }
@@ -1012,7 +1015,7 @@ function sendMediaAttachment(entry, type) {
     reactions: [],
     attachments: [{
       type,
-      url: entry.url,
+      url: attachmentUrl,
       name: entry.name || type,
       format: entry.format || (type === "sticker" ? stickerFormatFromName(entry.name, entry.url) : "image")
     }],
@@ -1050,7 +1053,7 @@ function sendMediaAttachment(entry, type) {
     trackGifUsage(entry.url, conversation.id);
   }
   if (type === "swf") {
-    addDebugLog("info", "Sent SWF attachment message", { url: entry.url, name: entry.name || "" });
+    addDebugLog("info", "Sent SWF attachment message", { url: attachmentUrl, name: entry.name || "" });
   }
   replyTarget = null;
   ui.messageInput.value = "";

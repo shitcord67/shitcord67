@@ -2713,9 +2713,14 @@ window.addEventListener("blur", () => {
   if (getPreferences().relayMode !== "xmpp") return;
   syncXmppClientStateHint({ reason: "window-blur" });
 });
+const syncSwfRuntimeLayoutForScroll = () => {
+  if (typeof positionSwfAnchoredRuntimeHosts === "function") positionSwfAnchoredRuntimeHosts();
+  if (typeof positionSwfPipRuntimeHosts === "function") positionSwfPipRuntimeHosts();
+  requestSwfRuntimeLayoutSync();
+};
 document.addEventListener("scroll", closeContextMenu, true);
 document.addEventListener("scroll", () => {
-  requestSwfRuntimeLayoutSync();
+  syncSwfRuntimeLayoutForScroll();
 }, true);
 
 if (window.visualViewport) {
@@ -2731,12 +2736,12 @@ if (window.visualViewport) {
     updateSwfPipDockLayout();
     renderSwfPipDock();
     updateVideoPipDockLayout();
-    requestSwfRuntimeLayoutSync();
+    syncSwfRuntimeLayoutForScroll();
   });
 }
 
 ui.messageList?.addEventListener("scroll", () => {
-  requestSwfRuntimeLayoutSync();
+  syncSwfRuntimeLayoutForScroll();
 });
 ui.messageList?.addEventListener("load", (event) => {
   if (!(event.target instanceof HTMLElement)) return;

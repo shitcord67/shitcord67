@@ -1414,7 +1414,10 @@ function bindMessageAttachmentControlLock(messageRow) {
   };
   const keepLocked = () => {
     if (!messageRow.isConnected) return false;
-    if (messageRow.matches(":hover") || messageRow.matches(":focus-within")) return true;
+    const activeAttachment = messageRow.querySelector(
+      ".message-attachment--video:hover, .message-attachment--video:focus-within, .message-attachment--gif:hover, .message-attachment--gif:focus-within, .message-attachment--sticker:hover, .message-attachment--sticker:focus-within, .message-attachment--swf:hover, .message-attachment--swf:focus-within, .message-pdf-viewer:hover, .message-pdf-viewer:focus-within"
+    );
+    if (activeAttachment) return true;
     return controls.some((control) => (
       control.matches(":hover") || control.matches(":focus-within") || control.matches(":active")
     ));
@@ -1439,7 +1442,6 @@ function bindMessageAttachmentControlLock(messageRow) {
     control.addEventListener("focusout", () => unlockLater(280));
     control.addEventListener("click", () => unlockLater(280));
   });
-  messageRow.addEventListener("mouseenter", lock);
   messageRow.addEventListener("mouseleave", () => unlockLater(240));
   messageRow.addEventListener("focusout", () => unlockLater(280));
 }
