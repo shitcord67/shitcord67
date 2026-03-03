@@ -206,7 +206,7 @@
 - OLED theme by default (with considerations for blue light filter users. Mentions in white, green or red?)
 - Add full nested context menu variants (invite/copy-id/submenus) and keyboard navigation.
 - Markdown support (preferably Discord-compatible, maybe even more like GitHub-flavoured?)
-- Discord embeds
+- [done] Added Discord-style basic link embeds in chat: detected message URLs now render compact metadata cards (host/path/full link) beneath message text.
 - Discord RPC
 - [done] Implement PDF viewer in chat
 - Implement local Linux terminal emulator with some syntax to run some commands, SIXEL display?

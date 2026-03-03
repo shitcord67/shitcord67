@@ -3,6 +3,78 @@
  * Functions here intentionally bind to app globals at call time.
  */
 
+function shouldSkipUrlForMessageEmbed(url = "", attachments = []) {
+  const normalized = (url || "").toString().trim();
+  if (!normalized) return true;
+  const attachmentUrls = new Set(
+    (Array.isArray(attachments) ? attachments : [])
+      .map((item) => resolveMediaUrl(item?.url || ""))
+      .filter(Boolean)
+  );
+  if (attachmentUrls.has(normalized)) return true;
+  return false;
+}
+
+function summarizeEmbedUrl(url = "") {
+  const href = (url || "").toString().trim();
+  if (!href) return { host: "", path: "", label: "" };
+  try {
+    const parsed = new URL(href);
+    const host = (parsed.hostname || "").replace(/^www\./i, "");
+    const pathPart = `${parsed.pathname || "/"}${parsed.search || ""}` || "/";
+    const trimmedPath = pathPart.length > 92 ? `${pathPart.slice(0, 89)}...` : pathPart;
+    return {
+      host,
+      path: trimmedPath,
+      label: `${host}${trimmedPath}`
+    };
+  } catch {
+    const fallback = href.length > 108 ? `${href.slice(0, 105)}...` : href;
+    return { host: "", path: "", label: fallback };
+  }
+}
+
+function appendMessageLinkEmbeds(messageRow, textNode, { attachments = [], limit = 3 } = {}) {
+  if (!(messageRow instanceof HTMLElement) || !(textNode instanceof HTMLElement)) return;
+  const links = [...textNode.querySelectorAll("a[href]")];
+  if (links.length === 0) return;
+  const seen = new Set();
+  const urls = [];
+  links.forEach((link) => {
+    const href = (link.getAttribute("href") || "").toString().trim();
+    if (!href || !/^https?:\/\//i.test(href)) return;
+    const resolved = resolveMediaUrl(href);
+    if (!resolved || seen.has(resolved)) return;
+    if (shouldSkipUrlForMessageEmbed(resolved, attachments)) return;
+    seen.add(resolved);
+    urls.push(resolved);
+  });
+  const max = Math.max(1, Math.min(6, Number(limit) || 3));
+  const selected = urls.slice(0, max);
+  if (selected.length === 0) return;
+  const wraps = document.createElement("div");
+  wraps.className = "message-link-embeds";
+  selected.forEach((url) => {
+    const summary = summarizeEmbedUrl(url);
+    const card = document.createElement("a");
+    card.className = "message-link-embed";
+    card.href = url;
+    card.target = "_blank";
+    card.rel = "noreferrer noopener";
+    const host = document.createElement("strong");
+    host.textContent = summary.host || "External Link";
+    const path = document.createElement("span");
+    path.textContent = summary.path || summary.label || url;
+    const footer = document.createElement("small");
+    footer.textContent = url;
+    card.appendChild(host);
+    card.appendChild(path);
+    card.appendChild(footer);
+    wraps.appendChild(card);
+  });
+  messageRow.appendChild(wraps);
+}
+
 function renderMessages() {
   const conversation = getActiveConversation();
   const isDm = conversation?.type === "dm";
@@ -1107,6 +1179,7 @@ function renderMessages() {
     messageRow.appendChild(actionBar);
     if (renderedTextWithoutMediaLinks.trim()) {
       messageRow.appendChild(text);
+      appendMessageLinkEmbeds(messageRow, text, { attachments, limit: 3 });
     }
     renderMessagePoll(messageRow, message, {
       currentUser,
@@ -1494,6 +1567,7 @@ function appendMessageRowLite(channel, message) {
   renderMessageText(text, renderedText);
   if (renderedText.trim()) {
     messageRow.appendChild(text);
+    appendMessageLinkEmbeds(messageRow, text, { attachments, limit: 3 });
   }
   renderMessagePoll(messageRow, message, {
     currentUser,

@@ -1866,6 +1866,52 @@ body[data-hide-channel-panel="on"] .chat-panel {
   vertical-align: -0.25em;
 }
 
+.message-link-embeds {
+  display: grid;
+  gap: 0.36rem;
+  margin-top: 0.34rem;
+}
+
+.message-link-embed {
+  display: grid;
+  gap: 0.08rem;
+  padding: 0.44rem 0.56rem;
+  border-radius: 8px;
+  border-left: 3px solid #5865f2;
+  border-top: 1px solid #2f3340;
+  border-right: 1px solid #2f3340;
+  border-bottom: 1px solid #2f3340;
+  background: rgba(28, 31, 38, 0.88);
+  color: #d7dce5;
+  text-decoration: none;
+  max-width: min(560px, 92vw);
+}
+
+.message-link-embed:hover {
+  background: rgba(37, 41, 50, 0.94);
+  border-left-color: #7381ff;
+}
+
+.message-link-embed strong {
+  font-size: 0.78rem;
+  color: #b7c8ff;
+  line-height: 1.15;
+  text-transform: lowercase;
+}
+
+.message-link-embed span {
+  font-size: 0.75rem;
+  color: #e0e5ee;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.message-link-embed small {
+  font-size: 0.66rem;
+  color: #9aa1ad;
+  overflow-wrap: anywhere;
+}
+
 .message-edited {
   color: #8f96a1;
   font-size: 0.72rem;
