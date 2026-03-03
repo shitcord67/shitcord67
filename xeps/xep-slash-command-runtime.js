@@ -1757,9 +1757,21 @@ function renderSlashSuggestions() {
   if (typeof globalScope.renderSlashSuggestions !== "function") {
     globalScope.renderSlashSuggestions = renderSlashSuggestions;
   }
+  if (typeof globalScope.canEditMessageEntry !== "function") {
+    globalScope.canEditMessageEntry = canEditMessageEntry;
+  }
+  if (typeof globalScope.openMessageEditor !== "function") {
+    globalScope.openMessageEditor = openMessageEditor;
+  }
+  if (typeof globalScope.findLastEditableMessageInActiveConversation !== "function") {
+    globalScope.findLastEditableMessageInActiveConversation = findLastEditableMessageInActiveConversation;
+  }
 
   globalScope.SHITCORD67_XEP_SLASH_COMMAND_RUNTIME = Object.freeze({
-    handleSlashCommandRuntime
+    handleSlashCommandRuntime,
+    canEditMessageEntry,
+    openMessageEditor,
+    findLastEditableMessageInActiveConversation
   });
 
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {

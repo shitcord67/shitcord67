@@ -583,7 +583,7 @@ function notifyDevtoolsUnavailable(windowInstance, reason = "") {
   }
 }
 
-function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs = 180 } = {}) {
+function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs = 900 } = {}) {
   const now = Date.now();
   if (dedupeMs > 0 && now - lastDevtoolsToggleAt < dedupeMs) return true;
   if (!windowInstance || windowInstance.isDestroyed?.()) return false;
@@ -614,6 +614,17 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
         windowInstance.webContents.openDevTools({ mode: "right", activate: true });
       } catch {
         windowInstance.webContents.openDevTools({ mode: "detach", activate: true });
+      }
+      if (!windowInstance.webContents.isDevToolsOpened()) {
+        try {
+          windowInstance.webContents.openDevTools({ mode: "undocked", activate: true });
+        } catch {
+          // ignore; handled below if still unavailable
+        }
+      }
+      if (!windowInstance.webContents.isDevToolsOpened()) {
+        notifyDevtoolsUnavailable(windowInstance, "DevTools did not open (runtime blocked or unavailable).");
+        return false;
       }
     }
     return true;
@@ -685,7 +696,7 @@ function attachDeveloperShortcuts(windowInstance) {
     const wantsCmdAltI = key === "I" && input.meta && input.alt;
     if (!wantsF12 && !wantsCtrlShiftI && !wantsCmdAltI) return;
     event.preventDefault();
-    toggleDevtoolsForWindow(windowInstance, { dedupeMs: 220 });
+    toggleDevtoolsForWindow(windowInstance, { dedupeMs: 900 });
   });
 }
 
@@ -752,7 +763,7 @@ async function createMainWindow({ startupWarning = "" } = {}) {
   });
   ipcMain.on("s67-toggle-devtools", (event) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
-    toggleDevtoolsForWindow(senderWindow || mainWindow, { dedupeMs: 220 });
+    toggleDevtoolsForWindow(senderWindow || mainWindow, { dedupeMs: 900 });
   });
   ipcMain.removeHandler("s67-read-local-xmpp-profiles");
   ipcMain.handle("s67-read-local-xmpp-profiles", async () => {

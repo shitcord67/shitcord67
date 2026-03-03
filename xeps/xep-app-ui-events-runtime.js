@@ -2580,8 +2580,15 @@ document.addEventListener("keydown", (event) => {
   const wantsDevtools = event.key === "F12"
     || (event.ctrlKey && event.shiftKey && key === "i")
     || (event.metaKey && event.altKey && key === "i");
-  if (wantsDevtools && requestDevtoolsToggle()) {
+  if (wantsDevtools) {
     event.preventDefault();
+    const runtime = typeof resolveElectronRuntime === "function"
+      ? resolveElectronRuntime({ refresh: true })
+      : null;
+    const hasElectronBridge = Boolean(runtime?.bridge || runtime?.ipcRenderer);
+    if (!hasElectronBridge) {
+      requestDevtoolsToggle();
+    }
     return;
   }
   if ((event.ctrlKey || event.metaKey) && event.key === "/") {
