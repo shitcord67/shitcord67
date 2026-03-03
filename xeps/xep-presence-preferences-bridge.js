@@ -800,7 +800,10 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     }
     const roomJid = xmppRoomJidForToken(room, prefs);
     if (!roomJid) return false;
-    joinXmppRoom(room, current);
+    const bareRoomJid = xmppBareJid(roomJid);
+    if (!bareRoomJid || !xmppRoomByJid.has(bareRoomJid)) {
+      joinXmppRoom(room, current);
+    }
     const stanza = xmppBuildChatStateStanza({ to: roomJid, type: "groupchat", state: chatStateNode });
     if (!stanza) return false;
     xmppConnection.send(stanza);
