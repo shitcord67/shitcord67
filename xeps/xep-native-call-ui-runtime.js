@@ -271,6 +271,23 @@ function xmppCallQualityChipData(sessionId = "", {
   };
 }
 
+function appendNativeCallTileBadges(tile, badges = []) {
+  if (!(tile instanceof HTMLElement)) return;
+  const list = Array.isArray(badges)
+    ? badges.map((entry) => (entry || "").toString().trim()).filter(Boolean)
+    : [];
+  if (list.length === 0) return;
+  const wrap = document.createElement("div");
+  wrap.className = "native-call-surface__badges";
+  list.slice(0, 3).forEach((label) => {
+    const chip = document.createElement("span");
+    chip.className = "native-call-surface__badge";
+    chip.textContent = label;
+    wrap.appendChild(chip);
+  });
+  tile.appendChild(wrap);
+}
+
 function xmppDebugTokenFragment(value = "") {
   const raw = (value || "").toString().trim();
   if (!raw) return "";
@@ -959,10 +976,13 @@ function renderNativeXmppCallSurface(sessionId = "") {
     const label = document.createElement("span");
     label.className = "native-call-surface__label";
     const badges = [];
+    if (session?.localHold) badges.push("on hold");
     if (localMeta.audioTracks.length > 0 && !localMeta.audioEnabled) badges.push("mic off");
     if (localMeta.videoTracks.length > 0 && !localMeta.videoEnabled) badges.push("cam off");
-    label.textContent = badges.length > 0 ? `You · ${badges.join(" · ")}` : "You";
+    if (session?.pendingLocalRenegotiation || xmppCallSessionTaskChainBySessionId.has(sid)) badges.push("reconnecting");
+    label.textContent = "You";
     localTile.appendChild(video);
+    appendNativeCallTileBadges(localTile, badges);
     localTile.appendChild(label);
     grid.appendChild(localTile);
   }
@@ -993,8 +1013,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
     if (session?.remoteHold) badges.push("on hold");
     if (session?.remoteMuted) badges.push("mic off");
     if (session?.remoteVideoMuted) badges.push("cam off");
-    label.textContent = badges.length > 0 ? `${baseLabel} · ${badges.join(" · ")}` : baseLabel;
+    label.textContent = baseLabel;
     tile.appendChild(video);
+    appendNativeCallTileBadges(tile, badges);
     tile.appendChild(label);
     grid.appendChild(tile);
   });

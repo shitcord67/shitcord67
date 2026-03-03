@@ -5122,6 +5122,28 @@ body[data-compact-members="on"] .member-item {
     linear-gradient(160deg, #161d2b, #111622);
 }
 
+.native-call-surface__badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  gap: 0.26rem;
+  flex-wrap: wrap;
+  max-width: calc(100% - 16px);
+}
+
+.native-call-surface__badge {
+  border-radius: 999px;
+  border: 1px solid rgba(121, 132, 166, 0.56);
+  background: rgba(12, 16, 24, 0.72);
+  color: #e7edf9;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.38rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .native-call-surface__label {
   position: absolute;
   left: 8px;

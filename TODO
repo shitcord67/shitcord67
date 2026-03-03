@@ -119,6 +119,7 @@
 - [done] Added native call `Hold/Resume` controls with Jingle session-info signaling (`hold`/`active`) and local media hold-state restore behavior.
 - [done] Added native call video-off/hold placeholders (avatar-style tile fallback when participant video is disabled).
 - [done] Added native call keyboard shortcuts in lightbox: `M` mic toggle, `V` camera toggle, `H` hold/resume, `R` soft reconnect.
+- [done] Added native call participant status chips in tiles (`on hold`, `mic off`, `cam off`, `reconnecting`) for quicker call-state readability.
 - [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
 - [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).
