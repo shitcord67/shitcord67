@@ -1114,11 +1114,16 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "", clearAvatar = false }
       7000
     );
   };
-  if (requestedHash) {
+  const fetchPepAvatarDataById = (itemId, mimeHint = "", { fallback = null } = {}) => {
+    const targetId = (itemId || "").toString().trim();
+    if (!targetId) {
+      if (typeof fallback === "function") fallback();
+      return;
+    }
     const pepIq = globalThis.$iq({ type: "get", to: bare })
       .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
       .c("items", { node: "urn:xmpp:avatar:data" })
-      .c("item", { id: requestedHash });
+      .c("item", { id: targetId });
     xmppConnection.sendIQ(
       pepIq,
       (stanza) => {
@@ -1126,7 +1131,7 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "", clearAvatar = false }
           const dataNode = [...stanza.getElementsByTagName("data")]
             .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:avatar:data")) || null;
           const bin = xmppNodeText(dataNode).trim().replace(/\s+/g, "");
-          const ok = applyAvatar(bin, "", requestedHash);
+          const ok = applyAvatar(bin, mimeHint, targetId);
           if (ok) {
             xmppAvatarFetchInFlight.delete(bare);
             return;
@@ -1134,16 +1139,73 @@ function maybeFetchXmppAvatarForJid(jid, { photoHash = "", clearAvatar = false }
         } catch {
           // Fall back to vCard below.
         }
-        fetchVCardAvatar();
+        if (typeof fallback === "function") {
+          fallback();
+        } else {
+          fetchVCardAvatar();
+        }
       },
       () => {
-        fetchVCardAvatar();
+        if (typeof fallback === "function") {
+          fallback();
+        } else {
+          fetchVCardAvatar();
+        }
       },
       7000
     );
+  };
+  const fetchPepAvatarFromMetadata = ({ fallback = null } = {}) => {
+    const pepIq = globalThis.$iq({ type: "get", to: bare })
+      .c("pubsub", { xmlns: "http://jabber.org/protocol/pubsub" })
+      .c("items", { node: "urn:xmpp:avatar:metadata" });
+    xmppConnection.sendIQ(
+      pepIq,
+      (stanza) => {
+        try {
+          const metadataNode = [...stanza.getElementsByTagName("metadata")]
+            .find((node) => xmppNodeHasXmlns(node, "urn:xmpp:avatar:metadata")) || null;
+          const infoNodes = metadataNode
+            ? [...metadataNode.getElementsByTagName("info")]
+            : [];
+          const candidates = infoNodes
+            .map((node) => ({
+              id: (node?.getAttribute?.("id") || "").toString().trim(),
+              type: (node?.getAttribute?.("type") || "").toString().trim().toLowerCase(),
+              bytes: Number(node?.getAttribute?.("bytes") || 0)
+            }))
+            .filter((entry) => entry.id);
+          const preferred = candidates.find((entry) => /^image\//i.test(entry.type))
+            || candidates[0]
+            || null;
+          if (preferred?.id) {
+            fetchPepAvatarDataById(preferred.id, preferred.type, { fallback });
+            return;
+          }
+        } catch {
+          // Fall through to fallback below.
+        }
+        if (typeof fallback === "function") {
+          fallback();
+        } else {
+          fetchVCardAvatar();
+        }
+      },
+      () => {
+        if (typeof fallback === "function") {
+          fallback();
+        } else {
+          fetchVCardAvatar();
+        }
+      },
+      7000
+    );
+  };
+  if (requestedHash) {
+    fetchPepAvatarDataById(requestedHash, "", { fallback: fetchVCardAvatar });
     return;
   }
-  fetchVCardAvatar();
+  fetchPepAvatarFromMetadata({ fallback: fetchVCardAvatar });
 }
 
 function xmppMucOccupantByNick(roomJid, nick = "") {

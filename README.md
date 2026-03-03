@@ -406,7 +406,7 @@ Notes:
 - XMPP relay dedupe now tracks multiple stanza reference IDs per message to reduce double-rendering when the same stanza arrives via live + archive paths.
 - XMPP presence updates now refresh mapped account status/avatar (vCard fetch) for DMs and visible MUC occupants.
 - XMPP MUC occupant-id hints (`urn:xmpp:occupant-id:0`, XEP-0421) are now tracked from presence/message stanzas to keep occupant/reaction actor identity more stable when nicks rotate or real JIDs stay hidden.
-- XMPP avatar fetch now attempts PEP avatar data (`urn:xmpp:avatar:data`, XEP-0084) with vCard fallback for broader profile-photo compatibility.
+- XMPP avatar fetch now queries PEP avatar metadata (`urn:xmpp:avatar:metadata`) then fetches PEP avatar data (`urn:xmpp:avatar:data`, XEP-0084), with vCard fallback for broader profile-photo compatibility.
 - Member sidebar avatar rendering now proactively requests XMPP avatars for visible contacts/occupants to reduce missing profile photos.
 - For MUC occupants without exposed real JID, the client now also tries occupant-address vCard fetch (`room@service/nick`) and uses that avatar when available.
 - Message-row avatars in XMPP rooms now also use MUC occupant-avatar fallback when account-level avatar data is missing.
