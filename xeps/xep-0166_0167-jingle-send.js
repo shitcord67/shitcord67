@@ -202,6 +202,7 @@
   function xmppValidateLocalSdpForJingle(localSdp = "", {
     sid = "",
     medias = [],
+    localRole = "initiator",
     buildJingleContentsFromSdpFn = null
   } = {}, deps = {}) {
     const addXmppDebugEventFn = deps.addXmppDebugEventFn;
@@ -217,7 +218,9 @@
       issues.push("missing-local-sdp");
     }
     const contents = sdp && typeof buildJingleContentsFromSdpFn === "function"
-      ? (buildJingleContentsFromSdpFn(sdp, { localRole: "initiator" }) || [])
+      ? (buildJingleContentsFromSdpFn(sdp, {
+        localRole: (localRole || "").toString().trim().toLowerCase() === "responder" ? "responder" : "initiator"
+      }) || [])
       : [];
     targetMedias.forEach((mediaType) => {
       const content = contents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === mediaType) || null;
@@ -908,6 +911,7 @@
     xmppValidateLocalSdpForJingle(localSdp, {
       sid,
       medias,
+      localRole: "initiator",
       buildJingleContentsFromSdpFn
     }, {
       addXmppDebugEventFn,
@@ -1109,6 +1113,7 @@
     xmppValidateLocalSdpForJingle(localSdp, {
       sid,
       medias,
+      localRole: "responder",
       buildJingleContentsFromSdpFn
     }, {
       addXmppDebugEventFn,
