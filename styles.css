@@ -5105,6 +5105,23 @@ body[data-compact-members="on"] .member-item {
   background: #0a0d12;
 }
 
+.native-call-surface__video--hidden {
+  visibility: hidden;
+}
+
+.native-call-surface__avatar-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.92rem;
+  color: #e7eefc;
+  background:
+    radial-gradient(70% 70% at 25% 25%, rgba(98, 122, 175, 0.28), transparent 70%),
+    radial-gradient(65% 65% at 80% 20%, rgba(124, 168, 124, 0.2), transparent 72%),
+    linear-gradient(160deg, #161d2b, #111622);
+}
+
 .native-call-surface__label {
   position: absolute;
   left: 8px;

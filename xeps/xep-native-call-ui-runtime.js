@@ -940,14 +940,22 @@ function renderNativeXmppCallSurface(sessionId = "") {
     const localTile = document.createElement("div");
     localTile.className = "native-call-surface__tile";
     const localMeta = xmppLocalMediaSnapshot(sid);
+    const localVideoHidden = localMeta.videoTracks.length > 0 && !localMeta.videoEnabled;
     localTile.classList.toggle("native-call-surface__tile--muted", localMeta.audioTracks.length > 0 && !localMeta.audioEnabled);
-    localTile.classList.toggle("native-call-surface__tile--video-off", localMeta.videoTracks.length > 0 && !localMeta.videoEnabled);
+    localTile.classList.toggle("native-call-surface__tile--video-off", localVideoHidden);
     const video = document.createElement("video");
     video.className = "native-call-surface__video";
     video.autoplay = true;
     video.muted = true;
     video.playsInline = true;
     video.srcObject = localStream;
+    video.classList.toggle("native-call-surface__video--hidden", localVideoHidden);
+    if (localVideoHidden) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "native-call-surface__avatar-placeholder";
+      placeholder.textContent = "You";
+      localTile.appendChild(placeholder);
+    }
     const label = document.createElement("span");
     label.className = "native-call-surface__label";
     const badges = [];
@@ -962,13 +970,21 @@ function renderNativeXmppCallSurface(sessionId = "") {
   remoteStreams.forEach((stream, index) => {
     const tile = document.createElement("div");
     tile.className = "native-call-surface__tile";
+    const remoteVideoHidden = Boolean(session?.remoteVideoMuted);
     if (session?.remoteMuted) tile.classList.add("native-call-surface__tile--muted");
-    if (session?.remoteVideoMuted) tile.classList.add("native-call-surface__tile--video-off");
+    if (remoteVideoHidden) tile.classList.add("native-call-surface__tile--video-off");
     const video = document.createElement("video");
     video.className = "native-call-surface__video";
     video.autoplay = true;
     video.playsInline = true;
     video.srcObject = stream;
+    video.classList.toggle("native-call-surface__video--hidden", remoteVideoHidden);
+    if (remoteVideoHidden) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "native-call-surface__avatar-placeholder";
+      placeholder.textContent = (peer || "Peer").slice(0, 24);
+      tile.appendChild(placeholder);
+    }
     void applyAudioOutputDeviceToElement(video, prefs.callAudioOutputId || "");
     const label = document.createElement("span");
     label.className = "native-call-surface__label";
