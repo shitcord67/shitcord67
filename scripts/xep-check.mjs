@@ -162,6 +162,7 @@ async function main() {
   let roomJid = "";
   let verbose = false;
   let accountSelector = "";
+  let serviceOverride = "";
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === "--config") {
@@ -176,6 +177,11 @@ async function main() {
     }
     if (arg === "--account") {
       accountSelector = (args[i + 1] || "").trim();
+      i += 1;
+      continue;
+    }
+    if (arg === "--service") {
+      serviceOverride = (args[i + 1] || "").trim();
       i += 1;
       continue;
     }
@@ -198,7 +204,7 @@ async function main() {
   }
   const parsed = parseJid(account.jid);
   if (!parsed) throw new Error("Invalid account.jid in config.");
-  const service = (account.service || "").toString().trim();
+  const service = (serviceOverride || account.service || "").toString().trim();
   if (!service) throw new Error("Missing account.service in config.");
   const password = (account.password || "").toString();
   if (!password) throw new Error("Missing account.password in config.");
