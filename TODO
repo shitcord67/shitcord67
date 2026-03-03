@@ -487,6 +487,11 @@ The underlying utility library I wrote to wrap around PipeWire video is here: ht
 - TeamSpeak 3 (and maybe 5&6) compability? Actually making it possible to speak with people from there, lol.
 - Noise supression. At least Krisp-like quality but maybe better with LLMs (https://krisp.ai/discord/ https://support.discord.com/hc/de/articles/360040843952-Krisp-FAQ https://help.krisp.ai/hc/en-us/articles/4420145521436-Set-up-Discord-with-Krisp)
 - TTS (LLMs, open-source)
+- Command line interface
+- TUI
+- Custom scripts runable via GUI
+- Custom CSS, HTML and JS for shitcord67 interface
+- Theme store where users can share themes
 - Implement my owo sheets stuff... Cause I can!
 - Voice transcription (Whisper)
 - Transcription that allows each participant/speaker to be independently recognized (neat for podcasts which one might actually record; maybe add podcasting tools? Terms: sherpa-onnx https://en.wikipedia.org/wiki/Speaker_diarisation diarization)
