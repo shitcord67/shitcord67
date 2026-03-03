@@ -27,6 +27,7 @@
   --app-safe-right: max(var(--safe-right), var(--runtime-safe-right));
   --app-safe-bottom: max(var(--safe-bottom), var(--runtime-safe-bottom));
   --app-safe-left: max(var(--safe-left), var(--runtime-safe-left));
+  --emoji-font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", "EmojiOne Color", sans-serif;
 }
 
 body[data-theme="discord"] {
@@ -117,7 +118,7 @@ body {
 
 body {
   margin: 0;
-  font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, var(--emoji-font-family);
   background: var(--bg-main);
   color: var(--text-main);
   min-height: 100vh;
@@ -500,6 +501,7 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 .server-brand__emoji {
   font-size: 1.25rem;
   line-height: 1;
+  font-family: var(--emoji-font-family);
   display: none;
 }
 
@@ -2150,6 +2152,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--emoji-font-family);
 }
 
 .message-action-emoji-btn:hover {
@@ -2756,6 +2759,8 @@ body[data-mobile="on"] .reaction-picker button {
   place-items: center;
   min-height: 80px;
   font-size: 1.5rem;
+  font-family: var(--emoji-font-family);
+  font-variant-emoji: emoji;
 }
 
 .media-card--emoji-recent {

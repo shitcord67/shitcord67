@@ -239,7 +239,7 @@
 - [done] Language settings now default to system locale (`Auto detect`) and onboarding includes an English language-check prompt with dropdown + `Switch` action (English preselected).
 - [done] Added status-related dropdown control in User Settings (`My Account`) with live presence apply (`online/idle/dnd/invisible`).
 - Please really think about how to improve UX
-- Make sure emojis display correctly not only in Chromium but also Gecko
+- [done] Hardened cross-browser emoji rendering (including Gecko) with explicit emoji font stack and emoji-focused control/card styling.
 - Telegram-style polls in channels/DMs (single-choice and optional multiple-choice)
 - [done] Discord-style forum tags and per-thread tag filtering
 - [done] Telegram-style message scheduling / send later
