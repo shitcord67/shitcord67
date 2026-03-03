@@ -30,5 +30,15 @@ contextBridge.exposeInMainWorld("s67Electron", {
   onDevtoolsUnavailable,
   toggleDevtools() {
     ipcRenderer.send("s67-toggle-devtools");
+  },
+  async readLocalXmppProfiles() {
+    try {
+      return await ipcRenderer.invoke("s67-read-local-xmpp-profiles");
+    } catch (error) {
+      return {
+        ok: false,
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
   }
 });

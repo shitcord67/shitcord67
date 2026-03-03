@@ -642,6 +642,20 @@
   }
 
   async function loadLocalXmppProfiles() {
+    const electronBridge = globalScope?.s67Electron;
+    if (electronBridge && typeof electronBridge.readLocalXmppProfiles === "function") {
+      try {
+        const payload = await electronBridge.readLocalXmppProfiles();
+        const parsed = normalizeLocalXmppProfiles(payload?.data || null);
+        if (payload?.ok && parsed.length > 0) {
+          loginLocalXmppProfiles = parsed;
+          renderLocalXmppProfileSelect();
+          return true;
+        }
+      } catch {
+        // Fall through to HTTP fetch fallback.
+      }
+    }
     const candidates = [".xmpp.local.json", "./.xmpp.local.json"];
     for (const path of candidates) {
       try {

@@ -203,6 +203,15 @@ if (IS_PACKAGED_LINUX) {
 if (process.platform === "linux") {
   // Always force /tmp-backed shared memory on Linux for better compatibility in sandboxed/containers.
   app.commandLine.appendSwitch("disable-dev-shm-usage");
+  const runtimeDir = EARLY_RUNTIME_DIR || resolveWritableRuntimeDir();
+  if (runtimeDir) {
+    applyEarlyRuntimeEnv(runtimeDir);
+    try {
+      app.setPath("temp", runtimeDir);
+    } catch {
+      // ignore setPath errors and continue with env-based fallback
+    }
+  }
   if (!IS_PACKAGED_LINUX) {
     const disableSandbox = !LINUX_SANDBOX_ENABLED;
     if (disableSandbox) {
@@ -230,7 +239,7 @@ if (process.platform === "linux") {
     }
     // eslint-disable-next-line no-console
     console.log(
-      `[electron] linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${shmDecision.mode}`
+      `[electron] linux flags: sandbox=${disableSandbox ? "off" : "on"} shm=${shmDecision.mode} temp=${app.getPath("temp") || process.env.TMPDIR || "unresolved"}`
     );
   }
   if (ELECTRON_PIPEWIRE !== "off") {
@@ -579,8 +588,9 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
   if (dedupeMs > 0 && now - lastDevtoolsToggleAt < dedupeMs) return true;
   if (!windowInstance || windowInstance.isDestroyed?.()) return false;
   if (!windowInstance.webContents || windowInstance.webContents.isDestroyed?.()) return false;
-  if (process.platform === "linux" && !canAccessDir("/tmp")) {
-    notifyDevtoolsUnavailable(windowInstance, "Chromium DevTools disabled: /tmp is not writable in this runtime.");
+  const runtimeTempDir = app.getPath("temp") || process.env.TMPDIR || process.env.TMP || process.env.TEMP || "/tmp";
+  if (process.platform === "linux" && !canAccessDir(runtimeTempDir)) {
+    notifyDevtoolsUnavailable(windowInstance, `Chromium DevTools disabled: temp dir is not writable (${runtimeTempDir}).`);
     return false;
   }
   try {
@@ -715,6 +725,30 @@ async function createMainWindow({ startupWarning = "" } = {}) {
   ipcMain.on("s67-toggle-devtools", (event) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
     toggleDevtoolsForWindow(senderWindow || mainWindow, { dedupeMs: 220 });
+  });
+  ipcMain.removeHandler("s67-read-local-xmpp-profiles");
+  ipcMain.handle("s67-read-local-xmpp-profiles", async () => {
+    const candidates = [
+      path.join(ROOT_DIR, ".xmpp.local.json"),
+      path.join(process.cwd(), ".xmpp.local.json")
+    ];
+    for (const candidate of candidates) {
+      try {
+        const raw = await fs.promises.readFile(candidate, "utf8");
+        const parsed = JSON.parse(raw);
+        return {
+          ok: true,
+          path: candidate,
+          data: parsed
+        };
+      } catch {
+        // try next candidate
+      }
+    }
+    return {
+      ok: false,
+      error: "No readable .xmpp.local.json file found."
+    };
   });
 
   let loadedClient = false;
