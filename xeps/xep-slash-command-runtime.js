@@ -1748,6 +1748,10 @@ function renderSlashSuggestions() {
 }
 
 
+  if (typeof globalScope.openShortcutsDialog !== "function") {
+    globalScope.openShortcutsDialog = openShortcutsDialog;
+  }
+
   globalScope.SHITCORD67_XEP_SLASH_COMMAND_RUNTIME = Object.freeze({
     handleSlashCommandRuntime
   });
