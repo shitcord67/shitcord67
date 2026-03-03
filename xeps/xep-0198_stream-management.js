@@ -185,6 +185,20 @@
     }
   }
 
+  function maybeRequestXmppSmAckForBacklog(connection = null, smState = null, {
+    reason = "",
+    minUnacked = 8,
+    minIntervalMs = 5_000
+  } = {}, deps = {}) {
+    if (!connection || !smState || !smState.enabled) return false;
+    const outbound = clampXmppSmCounter(smState.outboundStanzaCount);
+    const acked = clampXmppSmCounter(smState.lastAckedByServer);
+    const unacked = Math.max(0, outbound - acked);
+    const threshold = Math.max(1, Number(minUnacked) || 8);
+    if (unacked < threshold) return false;
+    return requestXmppSmAck(connection, smState, { reason: reason || "outbound-backlog", minIntervalMs }, deps);
+  }
+
   function handleXmppSmStanza(stanza = null, {
     streamManagementNamespace = "urn:xmpp:sm:3"
   } = {}, deps = {}) {
@@ -297,6 +311,7 @@
     noteXmppSmInboundStanza,
     maybeEnableXmppStreamManagement,
     requestXmppSmAck,
+    maybeRequestXmppSmAckForBacklog,
     handleXmppSmStanza
   });
 

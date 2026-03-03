@@ -102,12 +102,22 @@ function connectRelaySocket({ force = false } = {}) {
       xmppConnection.send = (stanza) => {
         addXmppDebugEvent("stanza", "send()", trimXmppRaw(xmppSerializePayload(stanza)));
         noteXmppSmOutboundStanza(stanza);
+        maybeRequestXmppSmAckForBacklog(xmppConnection, {
+          reason: "send-backlog",
+          minUnacked: 8,
+          minIntervalMs: 5000
+        });
         return originalSend(stanza);
       };
       const originalSendIQ = xmppConnection.sendIQ.bind(xmppConnection);
       xmppConnection.sendIQ = (stanza, success, error, timeout) => {
         addXmppDebugEvent("iq", "sendIQ()", trimXmppRaw(xmppSerializePayload(stanza)));
         noteXmppSmOutboundStanza(stanza);
+        maybeRequestXmppSmAckForBacklog(xmppConnection, {
+          reason: "sendiq-backlog",
+          minUnacked: 8,
+          minIntervalMs: 5000
+        });
         return originalSendIQ(stanza, success, error, timeout);
       };
       const applyXmppPhotoStateForJid = (jid, stanza) => {

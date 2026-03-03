@@ -166,6 +166,24 @@ function requestXmppSmAck(connection = xmppConnection, { reason = "", minInterva
   );
 }
 
+function maybeRequestXmppSmAckForBacklog(connection = xmppConnection, {
+  reason = "",
+  minUnacked = 8,
+  minIntervalMs = 5000
+} = {}) {
+  if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.maybeRequestXmppSmAckForBacklog !== "function") return false;
+  return XEP_0198_STREAM_MANAGEMENT_GLOBAL.maybeRequestXmppSmAckForBacklog(
+    connection,
+    xmppSmState,
+    { reason, minUnacked, minIntervalMs },
+    {
+      Strophe: globalThis.Strophe,
+      streamManagementNamespace: XMPP_STREAM_MANAGEMENT_NAMESPACE,
+      addXmppDebugEventFn: addXmppDebugEvent
+    }
+  );
+}
+
 function handleXmppSmStanza(stanza, connection = xmppConnection) {
   if (typeof XEP_0198_STREAM_MANAGEMENT_GLOBAL.handleXmppSmStanza !== "function") return { handled: false, type: "" };
   return XEP_0198_STREAM_MANAGEMENT_GLOBAL.handleXmppSmStanza(
