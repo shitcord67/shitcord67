@@ -2443,8 +2443,8 @@ async function ensurePdfRuntimeLoaded() {
   return pdfRuntimeLoadPromise;
 }
 
-const swfPipHeader = ui.swfPipDock.querySelector(".swf-pip__header");
-const videoPipHeader = ui.videoPipDock?.querySelector(".video-pip__header");
+let pipInteractionBindingsReady = false;
+let pipInteractionBindRaf = 0;
 
 function beginPipDrag(event, target, dockElement) {
   if (!(dockElement instanceof HTMLElement)) return;
@@ -2528,46 +2528,6 @@ function clampPipBoundsForRect(target, left, top, width, height) {
     height: Math.min(nextHeight, Math.max(120, window.innerHeight - (margins.top + margins.bottom)))
   };
 }
-
-if (swfPipHeader) {
-  swfPipHeader.addEventListener("mousedown", (event) => {
-    beginPipDrag(event, "swf", ui.swfPipDock);
-  });
-  swfPipHeader.addEventListener("pointerdown", (event) => {
-    beginPipDrag(event, "swf", ui.swfPipDock);
-  });
-  swfPipHeader.addEventListener("click", (event) => {
-    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
-    if (pipSuppressHeaderToggle) {
-      pipSuppressHeaderToggle = false;
-      return;
-    }
-    swfPipCollapsed = !swfPipCollapsed;
-    renderSwfPipDock();
-  });
-}
-
-if (videoPipHeader) {
-  videoPipHeader.addEventListener("mousedown", (event) => {
-    beginPipDrag(event, "video", ui.videoPipDock);
-  });
-  videoPipHeader.addEventListener("pointerdown", (event) => {
-    beginPipDrag(event, "video", ui.videoPipDock);
-  });
-  videoPipHeader.addEventListener("click", (event) => {
-    if (event.target instanceof HTMLElement && event.target.closest("button")) return;
-    if (videoPipSuppressHeaderToggle) {
-      videoPipSuppressHeaderToggle = false;
-      return;
-    }
-    videoPipCollapsed = !videoPipCollapsed;
-    renderVideoPipDock();
-    requestSwfRuntimeLayoutSync();
-  });
-}
-
-ensurePipResizeHandles("swf", ui.swfPipDock);
-ensurePipResizeHandles("video", ui.videoPipDock);
 
 const handlePipDragMove = (event) => {
   if (pipResizeState?.resizing) return;
@@ -2700,20 +2660,98 @@ const finishPipResize = () => {
   pipResizeState = null;
 };
 
-document.addEventListener("mousemove", handlePipDragMove);
-document.addEventListener("pointermove", handlePipDragMove);
-document.addEventListener("mousemove", handlePipResizeMove);
-document.addEventListener("pointermove", handlePipResizeMove);
-document.addEventListener("mouseup", finishPipDrag);
-document.addEventListener("pointerup", finishPipDrag);
-document.addEventListener("pointercancel", finishPipDrag);
-document.addEventListener("mouseup", finishPipResize);
-document.addEventListener("pointerup", finishPipResize);
-document.addEventListener("pointercancel", finishPipResize);
-ui.clearSwfShelfBtn.addEventListener("click", () => {
-  state.savedSwfs = [];
-  saveState();
-  renderSwfShelf();
-});
-ui.swfViewerZoomInput.addEventListener("input", applySwfViewerZoom);
+function bindPipInteractionListeners() {
+  if (pipInteractionBindingsReady) return true;
+  const uiRef = typeof ui !== "undefined" ? ui : null;
+  if (!uiRef?.swfPipDock || !uiRef?.videoPipDock) return false;
 
+  const swfPipHeader = uiRef.swfPipDock.querySelector(".swf-pip__header");
+  const videoPipHeader = uiRef.videoPipDock?.querySelector(".video-pip__header");
+
+  if (swfPipHeader instanceof HTMLElement && swfPipHeader.dataset.dragBound !== "on") {
+    swfPipHeader.dataset.dragBound = "on";
+    swfPipHeader.addEventListener("mousedown", (event) => {
+      beginPipDrag(event, "swf", uiRef.swfPipDock);
+    });
+    swfPipHeader.addEventListener("pointerdown", (event) => {
+      beginPipDrag(event, "swf", uiRef.swfPipDock);
+    });
+    swfPipHeader.addEventListener("click", (event) => {
+      if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+      if (pipSuppressHeaderToggle) {
+        pipSuppressHeaderToggle = false;
+        return;
+      }
+      swfPipCollapsed = !swfPipCollapsed;
+      renderSwfPipDock();
+    });
+  }
+
+  if (videoPipHeader instanceof HTMLElement && videoPipHeader.dataset.dragBound !== "on") {
+    videoPipHeader.dataset.dragBound = "on";
+    videoPipHeader.addEventListener("mousedown", (event) => {
+      beginPipDrag(event, "video", uiRef.videoPipDock);
+    });
+    videoPipHeader.addEventListener("pointerdown", (event) => {
+      beginPipDrag(event, "video", uiRef.videoPipDock);
+    });
+    videoPipHeader.addEventListener("click", (event) => {
+      if (event.target instanceof HTMLElement && event.target.closest("button")) return;
+      if (videoPipSuppressHeaderToggle) {
+        videoPipSuppressHeaderToggle = false;
+        return;
+      }
+      videoPipCollapsed = !videoPipCollapsed;
+      renderVideoPipDock();
+      requestSwfRuntimeLayoutSync();
+    });
+  }
+
+  ensurePipResizeHandles("swf", uiRef.swfPipDock);
+  ensurePipResizeHandles("video", uiRef.videoPipDock);
+
+  if (uiRef.clearSwfShelfBtn instanceof HTMLElement && uiRef.clearSwfShelfBtn.dataset.bound !== "on") {
+    uiRef.clearSwfShelfBtn.dataset.bound = "on";
+    uiRef.clearSwfShelfBtn.addEventListener("click", () => {
+      state.savedSwfs = [];
+      saveState();
+      renderSwfShelf();
+    });
+  }
+
+  if (uiRef.swfViewerZoomInput instanceof HTMLElement && uiRef.swfViewerZoomInput.dataset.bound !== "on") {
+    uiRef.swfViewerZoomInput.dataset.bound = "on";
+    uiRef.swfViewerZoomInput.addEventListener("input", applySwfViewerZoom);
+  }
+
+  document.addEventListener("mousemove", handlePipDragMove);
+  document.addEventListener("pointermove", handlePipDragMove);
+  document.addEventListener("mousemove", handlePipResizeMove);
+  document.addEventListener("pointermove", handlePipResizeMove);
+  document.addEventListener("mouseup", finishPipDrag);
+  document.addEventListener("pointerup", finishPipDrag);
+  document.addEventListener("pointercancel", finishPipDrag);
+  document.addEventListener("mouseup", finishPipResize);
+  document.addEventListener("pointerup", finishPipResize);
+  document.addEventListener("pointercancel", finishPipResize);
+
+  pipInteractionBindingsReady = true;
+  return true;
+}
+
+function schedulePipInteractionBinding() {
+  if (pipInteractionBindingsReady || pipInteractionBindRaf) return;
+  pipInteractionBindRaf = requestAnimationFrame(() => {
+    pipInteractionBindRaf = 0;
+    if (!bindPipInteractionListeners()) {
+      schedulePipInteractionBinding();
+    }
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", schedulePipInteractionBinding, { once: true });
+} else {
+  schedulePipInteractionBinding();
+}
+window.addEventListener("load", schedulePipInteractionBinding, { once: true });

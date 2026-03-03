@@ -7077,3 +7077,9 @@ Is there more XMPP-specific stuff in app.js? If so move that out, ideally extend
 
 ## 2026-03-03T16:20:54Z
 Then I noticed that user avatars are broken again. They worked a few commits ago. Also the controls for SWF ans video do show up when I'm just hovering over the message where the players are contained but I asked that they should only start becoming visible after I hover over the players itself (and when I leave the message then they should be not visible anymore ofc)
+
+## 2026-03-03T16:24:20Z
+Oh also I noticed that the SWF PiP is not movable and resizeable anymore?
+
+## 2026-03-03T16:24:58Z
+Please investigate if moving out some of the stuff out of app.js might have broken some other thing in the GUI
