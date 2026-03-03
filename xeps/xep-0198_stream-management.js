@@ -265,7 +265,10 @@
     if (name === "a") {
       const h = clampXmppSmCounter(stanza.getAttribute("h"));
       if (smState) {
-        if (shouldAdvanceXmppSmAckCounter(smState.lastAckedByServer, h)) {
+        const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
+        if (h === currentAck) {
+          smState.lastAckAt = Date.now();
+        } else if (shouldAdvanceXmppSmAckCounter(currentAck, h)) {
           smState.lastAckedByServer = h;
           smState.lastAckAt = Date.now();
         }
@@ -305,7 +308,10 @@
         smState.enabled = true;
         smState.failed = false;
         smState.resumed = true;
-        if (shouldAdvanceXmppSmAckCounter(smState.lastAckedByServer, h)) {
+        const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
+        if (h === currentAck) {
+          smState.lastAckAt = Date.now();
+        } else if (shouldAdvanceXmppSmAckCounter(currentAck, h)) {
           smState.lastAckedByServer = h;
           smState.lastAckAt = Date.now();
         }
@@ -324,9 +330,14 @@
       const hasH = hAttr !== null && hAttr !== undefined && hAttr !== "";
       const h = hasH ? clampXmppSmCounter(hAttr) : null;
       if (smState) {
-        if (h !== null && shouldAdvanceXmppSmAckCounter(smState.lastAckedByServer, h)) {
-          smState.lastAckedByServer = h;
-          smState.lastAckAt = Date.now();
+        if (h !== null) {
+          const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
+          if (h === currentAck) {
+            smState.lastAckAt = Date.now();
+          } else if (shouldAdvanceXmppSmAckCounter(currentAck, h)) {
+            smState.lastAckedByServer = h;
+            smState.lastAckAt = Date.now();
+          }
         }
         smState.enabled = false;
         smState.failed = true;
