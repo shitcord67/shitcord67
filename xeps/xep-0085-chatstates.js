@@ -20,7 +20,9 @@
     let node = (state || "").toString().trim().toLowerCase();
     if (!node) node = xmppChatStateNodeForTypingActive(active === true);
     if (!["composing", "paused", "inactive", "gone", "active"].includes(node)) return null;
-    const attrs = { to: target, type: (type || "chat").toString().trim().toLowerCase() || "chat" };
+    const normalizedType = (type || "chat").toString().trim().toLowerCase() || "chat";
+    const chatStateType = ["chat", "groupchat", "normal"].includes(normalizedType) ? normalizedType : "chat";
+    const attrs = { to: target, type: chatStateType };
     const stanzaId = (id || "").toString().trim();
     if (stanzaId) attrs.id = stanzaId;
     return deps.$msg(attrs).c(node, { xmlns: deps.namespace || XMPP_CHATSTATES_NAMESPACE });
