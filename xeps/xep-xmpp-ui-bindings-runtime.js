@@ -1,6 +1,36 @@
 (function initXepXmppUiBindingsRuntime(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME) return;
 
+  function openXmppConsoleDialogSafe() {
+    if (ui.xmppConsoleDialog?.open) {
+      if (typeof renderXmppConsoleDialog === "function") renderXmppConsoleDialog();
+      ui.xmppConsoleSearchInput?.focus();
+      return true;
+    }
+    if (typeof openXmppConsoleDialog === "function") {
+      try {
+        openXmppConsoleDialog();
+        return true;
+      } catch {
+        // Fall through to direct dialog open fallback.
+      }
+    }
+    if (ui.xmppConsoleDialog && typeof ui.xmppConsoleDialog.showModal === "function") {
+      if (typeof renderXmppConsoleDialog === "function") renderXmppConsoleDialog();
+      try {
+        ui.xmppConsoleDialog.showModal();
+        return true;
+      } catch {
+        // Continue to debug dialog fallback.
+      }
+    }
+    if (typeof openDebugDialog === "function") {
+      openDebugDialog();
+      return true;
+    }
+    return false;
+  }
+
   function bindXmppLoginUiRuntimeBindings() {
 ui.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -68,11 +98,24 @@ ui.loginForm.addEventListener("submit", async (event) => {
     requestAnimationFrame(() => {
       ui.messageInput.focus();
     });
+  } catch (error) {
+    const message = String(error?.message || error || "Unknown login error");
+    addXmppDebugEvent("error", "Login flow threw an exception", {
+      jid: parsed?.xmppJid || "",
+      wsUrl: normalizeXmppWsUrl(wsServer),
+      error: message
+    });
+    showToast(`Login failed: ${message}`, { tone: "error", duration: 4200 });
   } finally {
     if (loginSucceeded) resetLoginXmppProgress();
     if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
   }
 });
+
+ui.loginForm.addEventListener("invalid", (event) => {
+  event.preventDefault();
+  showToast("Please fill in the login fields before continuing.", { tone: "error" });
+}, true);
 
 ui.loginUsername?.addEventListener("input", () => {
   resetLoginXmppProgress();
@@ -121,7 +164,8 @@ ui.loginRegisterBtn?.addEventListener("click", () => {
 });
 
 ui.loginXmppConsoleBtn?.addEventListener("click", () => {
-  openXmppConsoleDialog();
+  const opened = openXmppConsoleDialogSafe();
+  if (!opened) showToast("XMPP console is unavailable in this runtime.", { tone: "error" });
 });
 
 ui.xmppProviderCloseBtn?.addEventListener("click", () => {
@@ -394,7 +438,8 @@ ui.openDebugConsoleBtn.addEventListener("click", () => {
 });
 
 ui.openXmppConsoleBtn?.addEventListener("click", () => {
-  openXmppConsoleDialog();
+  const opened = openXmppConsoleDialogSafe();
+  if (!opened) showToast("XMPP console is unavailable in this runtime.", { tone: "error" });
 });
 
 ui.refreshDebugBtn.addEventListener("click", () => {

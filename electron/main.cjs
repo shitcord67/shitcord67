@@ -598,8 +598,12 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
     if (windowInstance.webContents.isDevToolsOpened()) {
       windowInstance.webContents.closeDevTools();
     } else {
-      // Prefer docked DevTools to avoid detached-process shared-memory failures in restricted Linux environments.
-      windowInstance.webContents.openDevTools({ mode: "right", activate: true });
+      // Prefer docked DevTools first, then fallback to detached mode if docking fails.
+      try {
+        windowInstance.webContents.openDevTools({ mode: "right", activate: true });
+      } catch {
+        windowInstance.webContents.openDevTools({ mode: "detach", activate: true });
+      }
     }
     return true;
   } catch (error) {
@@ -700,6 +704,19 @@ async function createMainWindow({ startupWarning = "" } = {}) {
   const origin = new URL(activeClientUrl).origin;
   attachNavigationGuards(browser, origin);
   attachDeveloperShortcuts(browser);
+  browser.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    const text = String(message || "");
+    const source = String(sourceId || "");
+    const isImportant = Number(level) >= 2 || /uncaught|error|exception/i.test(text);
+    if (!isImportant) return;
+    log("renderer", `[level=${level}] ${source}:${line} ${text}`.trim());
+  });
+  browser.webContents.on("render-process-gone", (_event, details) => {
+    log("renderer process gone", JSON.stringify(details || {}));
+  });
+  browser.webContents.on("unresponsive", () => {
+    log("renderer unresponsive");
+  });
 
   const platformSummary = resolvePlatformOverride(detectPlatformSummary());
   browser.webContents.on("did-finish-load", () => {

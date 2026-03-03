@@ -3497,3 +3497,134 @@ A problem occurred evaluating project ':capacitor-cordova-android-plugins'.
 > Get more help at https://help.gradle.org.
 
 BUILD FAILED in 7s
+2026-03-03T05:18:58Z
+USER PROMPT:
+Why doesn't it show the dropdown for user accounts from .xmpp.local.example.json?
+2026-03-03T05:19:42Z
+USER PROMPT:
+Also when I click on the 🛠 symbol nothing opens up on the login screen.
+2026-03-03T05:21:30Z
+USER PROMPT:
+And I don't see anything when I press on "Log In". 06:20:25 ~/shitcord67:$ npm run electron
+
+> discord-lookalike-flash@1.0.0 electron
+> electron electron/main.cjs
+
+[electron] linux flags: sandbox=off shm=shm temp=/home/duda/.cache/shitcord67/runtime
+[electron] display media request handler installed
+[electron] starting local stack (client=127.0.0.1:6769, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] [run-client-stack] started client-server (pid 178405)
+[electron] [run-client-stack] started xmpp-auth-gateway (pid 178426)
+[run-client-stack] client: http://127.0.0.1:6769/
+[run-client-stack] gateway: http://127.0.0.1:6770
+[run-client-stack] press Ctrl+C to stop.
+[electron] xmpp auth gateway listening on http://127.0.0.1:6770
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET / HTTP/1.1" 200 -
+[electron] permission handlers installed for trusted local renderer origin
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET / HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /styles.css HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /assets/libsignal_protocol.min.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-loader.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/call-room-url-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xmpp-login-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/media-provider-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/ui-state-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/account-profile-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xmpp-call-target-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/command-invocation-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xmpp-message-id-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/text-time-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/name-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_crypto-namespaces.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_namespace-selection.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_omemo-crypto-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_preferences.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_identity.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_sessions.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_devices.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_bundles.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_own-bundle.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_targets.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_message-crypto.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_decrypt-content.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_decrypt-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0334_processing-hints.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0085-chatstates.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0184_0333-message-markers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0184_0333-marker-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0249_direct-muc-invite.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0045_0402-roster-bookmarks.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0359_0424-message-ref-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0482_call-invite-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0308_0424_0444-message-actions.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0353_jingle-message-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0115_caps-presence.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0203_0319-delay-idle.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0421_0045-muc-occupant.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0421_0045-muc-actor-cache.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0166_0167-jingle-iq-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0166_0167-jingle-send.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0320_webrtc-sdp-basics.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0066_0071_0231-oob-media.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0461_0428-message-replies.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0313_mam-loading.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0333_0359_0372_0444_0482-message-builders.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0030_0166-call-disco.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0308_0359_0424_0444-message-updates.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0199_0410_0313-presence-ping.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0048_0402-bookmarks-ops.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0048_0402-bookmarks-sync.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0045_0503-room-lifecycle.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0184_0333_0359-delivery-indexes.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0280_0352-csi-carbons.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0482_0503-spaces-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0503_spaces.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0153_presence-photo-hash.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0156_host-meta-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0156_xmpp-login-discovery-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_omemo-store.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xmpp-xml-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xmpp_encryption-payload.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384_omemo-stanza.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0454_omemo-media-sharing-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-runtime-bindings.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-transport-interop.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0030_0166-jingle-call-core.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-relay-connection-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-presence-preferences-bridge.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-xmpp-dm-bridge.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0334-processing-hints-storage.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-upload-disco-attachments.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-xmpp-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-slash-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-dm-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-xmpp-ui-bindings-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-xmpp-roster-bookmarks-login-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-native-call-ui-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-jingle-call-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0166_0320-webrtc-session-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0384.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-0454.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-app-bootstrap.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:30] "GET /xeps/xep-app-xmpp-bridges.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-message-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-render-messages-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-member-list-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-shell-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-servers-dms-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-xmpp-state-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-0066_0071_0231-rich-text-media-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-0066_0071_0231-attachment-render-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-0066_0071_0231-swf-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-0066_0071_0231-media-picker-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-state-bootstrap-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-core-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /app.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:20:31] "GET /xeps/xep-app-ui-events-runtime.js HTTP/1.1" 304 -
+[178755:0303/062033.064167:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.9MoozB failed: No such process (3)
+[178755:0303/062033.064259:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
+ And when I try to open devtools it doesn't work. Why did it work in the past?
