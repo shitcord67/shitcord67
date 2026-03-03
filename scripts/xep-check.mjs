@@ -36,6 +36,81 @@ function uniqueList(values) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function xmppDomainFromJid(jid) {
+  const token = (jid || "").toString().trim();
+  const at = token.indexOf("@");
+  if (at < 1) return "";
+  return token.slice(at + 1).toLowerCase();
+}
+
+function normalizeXmppWsUrl(raw = "") {
+  const value = (raw || "").toString().trim();
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "ws:" && url.protocol !== "wss:") return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+function knownXmppWsForDomain(domain) {
+  const normalized = (domain || "").toString().trim().toLowerCase();
+  const known = {
+    "xmpp.jp": "wss://api.xmpp.jp/ws"
+  };
+  return known[normalized] || "";
+}
+
+function resolveXmppWsCandidates(jid, explicitWs = "") {
+  const candidates = [];
+  const push = (url) => {
+    const normalized = normalizeXmppWsUrl(url);
+    if (!normalized) return;
+    if (!candidates.includes(normalized)) candidates.push(normalized);
+  };
+  const domain = xmppDomainFromJid(jid);
+  const explicit = normalizeXmppWsUrl(explicitWs);
+  const explicitMatchesDomain = (() => {
+    if (!explicit || !domain) return true;
+    try {
+      const host = new URL(explicit).hostname.toLowerCase();
+      return host === domain || host.endsWith(`.${domain}`);
+    } catch {
+      return false;
+    }
+  })();
+  if (explicit && explicitMatchesDomain) push(explicit);
+  if (!domain) {
+    if (explicit && !explicitMatchesDomain) push(explicit);
+    return candidates;
+  }
+  const knownWs = knownXmppWsForDomain(domain);
+  if (knownWs) {
+    push(knownWs);
+    if (explicit && !explicitMatchesDomain) push(explicit);
+    return candidates;
+  }
+  push(`wss://api.${domain}/ws`);
+  push(`wss://${domain}/ws`);
+  push(`wss://${domain}/xmpp-websocket`);
+  push(`wss://${domain}/xmpp-websocket/`);
+  push(`wss://ws.${domain}/ws`);
+  push(`wss://ws.${domain}/xmpp-websocket`);
+  push(`wss://ws.${domain}/xmpp-websocket/`);
+  push(`wss://xmpp.${domain}/ws`);
+  push(`wss://xmpp.${domain}/xmpp-websocket`);
+  push(`wss://xmpp.${domain}/xmpp-websocket/`);
+  push(`wss://chat.${domain}/ws`);
+  push(`wss://chat.${domain}/xmpp-websocket`);
+  push(`wss://chat.${domain}/xmpp-websocket/`);
+  push(`wss://${domain}:5281/ws`);
+  push(`wss://${domain}:5281/xmpp-websocket`);
+  if (explicit && !explicitMatchesDomain) push(explicit);
+  return candidates.slice(0, 18);
+}
+
 async function probeHttpUrl(url, timeoutMs = 2000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -49,25 +124,83 @@ async function probeHttpUrl(url, timeoutMs = 2000) {
   }
 }
 
-async function inferServiceFromDomain(domain) {
+async function inferServiceCandidates(jid, explicitWs = "") {
+  const domain = xmppDomainFromJid(jid);
   const host = (domain || "").toString().trim();
-  if (!host) return "";
-  const paths = ["/ws", "/websocket", "/xmpp-websocket", "/xmpp", "/ws/xmpp"];
-  const schemes = ["wss", "ws"];
+  if (!host) return [];
   const candidates = [];
-  schemes.forEach((scheme) => {
-    paths.forEach((route) => {
-      candidates.push(`${scheme}://${host}${route}`);
-    });
-  });
+  const add = (value) => {
+    if (!value) return;
+    const normalized = normalizeXmppWsUrl(value) || value;
+    if (!candidates.includes(normalized)) candidates.push(normalized);
+  };
+  const parseHostMetaLinks = (raw) => {
+    if (!raw) return;
+    const regex = /rel=[\"']urn:xmpp:alt-connections:websocket[\"'][^>]*href=[\"']([^\"']+)[\"']/gi;
+    let match = regex.exec(raw);
+    while (match) {
+      add(match[1]);
+      match = regex.exec(raw);
+    }
+  };
+  try {
+    const response = await fetch(`https://${host}/.well-known/host-meta`, { method: "GET" });
+    if (response.ok) {
+      const raw = await response.text();
+      parseHostMetaLinks(raw);
+    }
+  } catch {
+    // ignore host-meta failures
+  }
+  try {
+    const response = await fetch(`https://${host}/.well-known/host-meta.json`, { method: "GET" });
+    if (response.ok) {
+      const json = await response.json();
+      const links = Array.isArray(json?.links) ? json.links : [];
+      links.forEach((link) => {
+        if (link?.rel === "urn:xmpp:alt-connections:websocket" && link?.href) {
+          add(String(link.href));
+        }
+      });
+    }
+  } catch {
+    // ignore host-meta json failures
+  }
+  resolveXmppWsCandidates(jid, explicitWs).forEach(add);
+  const probed = [];
   for (const candidate of candidates) {
     const probeUrl = candidate.replace(/^ws:/, "http:").replace(/^wss:/, "https:");
-    // Accept any HTTP response under 500 as reachable (some WS endpoints return 400 to GET).
     // eslint-disable-next-line no-await-in-loop
     const ok = await probeHttpUrl(probeUrl);
-    if (ok) return candidate;
+    if (ok) probed.push(candidate);
   }
-  return "";
+  return probed.length > 0 ? probed : candidates;
+}
+
+async function probeWebSocket(url, timeoutMs = 4000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const ws = new WebSocket(url);
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { ws.terminate(); } catch {}
+      resolve({ ok: false, reason: "timeout" });
+    }, timeoutMs);
+    ws.on("open", () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      try { ws.close(); } catch {}
+      resolve({ ok: true, reason: "open" });
+    });
+    ws.on("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      resolve({ ok: false, reason: String(error?.message || error) });
+    });
+  });
 }
 
 function resolveAccountList(config) {
@@ -198,6 +331,7 @@ async function main() {
   let accountSelector = "";
   let serviceOverride = "";
   let inferService = true;
+  let testService = true;
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === "--config") {
@@ -228,6 +362,10 @@ async function main() {
       inferService = false;
       continue;
     }
+    if (arg === "--no-test-service") {
+      testService = false;
+      continue;
+    }
     if (arg === "--verbose") {
       verbose = true;
     }
@@ -247,10 +385,24 @@ async function main() {
   }
   const parsed = parseJid(account.jid);
   if (!parsed) throw new Error("Invalid account.jid in config.");
-  let service = (serviceOverride || account.service || "").toString().trim();
+  let service = normalizeXmppWsUrl(serviceOverride || account.service || "");
   if (!service && inferService) {
-    service = await inferServiceFromDomain(parsed.domain);
-    if (service) console.log(`Inferred service: ${service}`);
+    const candidates = await inferServiceCandidates(account.jid, serviceOverride);
+    let picked = candidates[0] || "";
+    if (testService && candidates.length > 0) {
+      for (const candidate of candidates) {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await probeWebSocket(candidate);
+        if (result.ok) {
+          picked = candidate;
+          break;
+        }
+      }
+    }
+    if (picked) {
+      service = picked;
+      console.log(`Inferred service: ${service}`);
+    }
   }
   if (!service) throw new Error("Missing account.service in config.");
   const password = (account.password || "").toString();
