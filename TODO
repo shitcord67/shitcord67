@@ -115,6 +115,7 @@
 - [done] Upgraded native call mic/cam device switching to live in-session apply flow (busy-state guarded reacquire + success/failure diagnostics + immediate surface refresh).
 - [done] Added live native call session duration ticker in call surface metadata (with timer cleanup on overlay close/end).
 - [done] Added live native call network-quality chip (`good/fair/poor`) from WebRTC RTT/loss stats for in-call health visibility.
+- [done] Added native call soft `Reconnect` action (media reacquire + Jingle re-prime + forced transport refresh) for fast in-session recovery.
 - [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
 - [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).

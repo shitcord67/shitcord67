@@ -742,6 +742,23 @@ function renderNativeXmppCallSurface(sessionId = "") {
   refreshBtn.type = "button";
   refreshBtn.textContent = "Refresh";
   refreshBtn.addEventListener("click", () => renderNativeXmppCallSurface(sid));
+  const reconnectBtn = document.createElement("button");
+  reconnectBtn.type = "button";
+  reconnectBtn.className = "native-call-surface__toggle";
+  reconnectBtn.textContent = "Reconnect";
+  reconnectBtn.title = "Queue media re-prime and transport refresh without ending the call";
+  reconnectBtn.addEventListener("click", async () => {
+    reconnectBtn.disabled = true;
+    const refreshed = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
+    const reprimeQueued = xmppForceNativeCallSessionReprime(sid);
+    const transportQueued = xmppForceNativeCallSessionTransportRefresh(sid);
+    const ok = refreshed || reprimeQueued || transportQueued;
+    showToast(
+      ok ? "Soft reconnect queued." : "Soft reconnect failed.",
+      { tone: ok ? "info" : "error", duration: 2600 }
+    );
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  });
   const debugBtn = document.createElement("button");
   debugBtn.type = "button";
   debugBtn.className = "native-call-surface__toggle";
@@ -785,6 +802,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   actions.appendChild(audioTestBtn);
   actions.appendChild(copyBtn);
   actions.appendChild(refreshBtn);
+  actions.appendChild(reconnectBtn);
   actions.appendChild(debugBtn);
   actions.appendChild(rejoinBtn);
   actions.appendChild(endBtn);
