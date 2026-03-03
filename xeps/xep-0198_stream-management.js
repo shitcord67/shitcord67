@@ -226,6 +226,7 @@
     if (!connection || !smState || !smState.enabled) return false;
     const outbound = clampXmppSmCounter(smState.outboundStanzaCount);
     const acked = clampXmppSmCounter(smState.lastAckedByServer);
+    if (!shouldAdvanceXmppSmAckCounter(acked, outbound)) return false;
     const unacked = xmppSmCounterDistance(acked, outbound);
     const threshold = Math.max(1, Number(minUnacked) || 8);
     if (unacked < threshold) return false;
