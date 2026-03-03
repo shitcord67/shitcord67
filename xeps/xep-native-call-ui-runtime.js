@@ -111,10 +111,11 @@ async function openNativeCallScreenSharePicker(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
   const bridge = resolveNativeCallElectronBridge();
-  if (!bridge || typeof bridge.listDisplayCaptureSources !== "function" || typeof bridge.setDisplayCaptureSource !== "function") {
-    showToast("Browser screen picker will show tabs/windows/screens.", { tone: "info", duration: 2600 });
-    return xmppSwitchLocalMediaMode(sid, "screen");
-  }
+  const hasElectronSourcePicker = Boolean(
+    bridge
+    && typeof bridge.listDisplayCaptureSources === "function"
+    && typeof bridge.setDisplayCaptureSource === "function"
+  );
   closeNativeCallPickerDialogByClass("native-call-picker-dialog--screen");
   const dialog = document.createElement("dialog");
   dialog.className = "native-call-picker-dialog native-call-picker-dialog--screen";
@@ -124,21 +125,60 @@ async function openNativeCallScreenSharePicker(sessionId = "") {
   heading.textContent = "Share Screen";
   const sub = document.createElement("p");
   sub.className = "native-call-picker-dialog__meta";
-  sub.textContent = "Choose a monitor or window.";
+  sub.textContent = hasElectronSourcePicker
+    ? "Choose a monitor or window."
+    : "Your browser picker can include tabs, windows, and screens.";
+  const prefs = getPreferences();
+  const optionsRow = document.createElement("div");
+  optionsRow.className = "native-call-picker-dialog__options";
+  const systemAudioWrap = document.createElement("label");
+  const systemAudioInput = document.createElement("input");
+  systemAudioInput.type = "checkbox";
+  systemAudioInput.checked = (prefs.callScreenSystemAudio || "on") !== "off";
+  systemAudioWrap.appendChild(systemAudioInput);
+  systemAudioWrap.appendChild(document.createTextNode(" Share system/tab audio"));
+  const micMixWrap = document.createElement("label");
+  const micMixInput = document.createElement("input");
+  micMixInput.type = "checkbox";
+  micMixInput.checked = (prefs.callScreenMicMix || "on") !== "off";
+  micMixWrap.appendChild(micMixInput);
+  micMixWrap.appendChild(document.createTextNode(" Mix microphone"));
+  optionsRow.appendChild(systemAudioWrap);
+  optionsRow.appendChild(micMixWrap);
   const grid = document.createElement("div");
   grid.className = "native-call-source-grid";
   const status = document.createElement("p");
   status.className = "native-call-picker-dialog__meta";
-  status.textContent = "Loading capture sources…";
+  status.textContent = hasElectronSourcePicker
+    ? "Loading capture sources…"
+    : "Click Start Share to open the browser source picker.";
   const actions = document.createElement("div");
   actions.className = "native-call-picker-dialog__actions";
+  const startBtn = document.createElement("button");
+  startBtn.type = "button";
+  startBtn.textContent = "Start Share";
   const cancelBtn = document.createElement("button");
   cancelBtn.type = "button";
   cancelBtn.textContent = "Cancel";
   cancelBtn.addEventListener("click", () => dialog.close());
+  startBtn.addEventListener("click", async () => {
+    state.preferences = getPreferences();
+    state.preferences.callScreenSystemAudio = systemAudioInput.checked ? "on" : "off";
+    state.preferences.callScreenMicMix = micMixInput.checked ? "on" : "off";
+    saveState();
+    dialog.close();
+    await xmppSwitchLocalMediaMode(sid, "screen", {
+      screenOptions: {
+        includeSystemAudio: systemAudioInput.checked,
+        includeMic: micMixInput.checked
+      }
+    });
+  });
+  actions.appendChild(startBtn);
   actions.appendChild(cancelBtn);
   shell.appendChild(heading);
   shell.appendChild(sub);
+  shell.appendChild(optionsRow);
   shell.appendChild(status);
   shell.appendChild(grid);
   shell.appendChild(actions);
@@ -151,6 +191,11 @@ async function openNativeCallScreenSharePicker(sessionId = "") {
     dialog.showModal();
   } catch {
     dialog.setAttribute("open", "open");
+  }
+  if (!hasElectronSourcePicker) {
+    grid.innerHTML = "";
+    startBtn.disabled = false;
+    return true;
   }
   const listed = await bridge.listDisplayCaptureSources();
   if (!listed?.ok) {
@@ -166,6 +211,7 @@ async function openNativeCallScreenSharePicker(sessionId = "") {
   }
   status.textContent = "Select a source to start sharing.";
   grid.innerHTML = "";
+  startBtn.disabled = true;
   sources.forEach((source, index) => {
     const sourceId = (source?.id || "").toString().trim();
     if (!sourceId) return;
@@ -192,8 +238,17 @@ async function openNativeCallScreenSharePicker(sessionId = "") {
         showToast(saved?.error || "Could not queue selected display source.", { tone: "error", duration: 2600 });
         return;
       }
+      state.preferences = getPreferences();
+      state.preferences.callScreenSystemAudio = systemAudioInput.checked ? "on" : "off";
+      state.preferences.callScreenMicMix = micMixInput.checked ? "on" : "off";
+      saveState();
       dialog.close();
-      await xmppSwitchLocalMediaMode(sid, "screen");
+      await xmppSwitchLocalMediaMode(sid, "screen", {
+        screenOptions: {
+          includeSystemAudio: systemAudioInput.checked,
+          includeMic: micMixInput.checked
+        }
+      });
     });
     grid.appendChild(card);
   });

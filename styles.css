@@ -5108,6 +5108,20 @@ body[data-compact-members="on"] .member-item {
   color: #ffb4be;
 }
 
+.native-call-picker-dialog__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.native-call-picker-dialog__options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  color: #c8d6f3;
+}
+
 .native-call-picker-dialog__actions {
   display: flex;
   justify-content: flex-end;

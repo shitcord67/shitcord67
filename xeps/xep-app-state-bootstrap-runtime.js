@@ -166,6 +166,8 @@ function buildInitialState() {
       callAudioInputId: "",
       callVideoInputId: "",
       callAudioOutputId: "",
+      callScreenSystemAudio: "on",
+      callScreenMicMix: "on",
       platformOverride: "auto",
       whiteboardProviderUrl: "https://wbo.ophir.dev/boards",
       whiteboardRoomPrefix: "shitcord67-wb",

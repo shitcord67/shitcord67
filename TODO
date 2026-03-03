@@ -122,6 +122,7 @@
 - [done] Added native call participant status chips in tiles (`on hold`, `mic off`, `cam off`, `reconnecting`) for quicker call-state readability.
 - [done] Added active-speaker tile highlighting for native XMPP call surfaces (local + remote audio-level detection with cleanup on end/close).
 - [done] Added in-call source pickers: Electron display/window chooser for screenshare and camera picker with live preview before apply.
+- [done] Added explicit screen-share audio controls (system/tab audio + optional mic mix) with persisted preferences and runtime capture wiring.
 - [priority] Add explicit in-call media controls (camera/mic/screen toggles, track replacement) and propagate updates through Jingle content actions.
 - [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).

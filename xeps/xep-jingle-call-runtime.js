@@ -380,7 +380,11 @@ function mixMediaStreamAudioTracks(streams = []) {
   return { stream: destination.stream, audioContext };
 }
 
-async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = false, forceNew = false } = {}) {
+async function xmppAcquireLocalMediaStreamForSession(sessionId, {
+  screenShare = false,
+  forceNew = false,
+  screenOptions = null
+} = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return null;
   const existing = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
@@ -389,6 +393,12 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
   const prefs = getPreferences();
   const audioDeviceId = prefs.callAudioInputId || "";
   const videoDeviceId = prefs.callVideoInputId || "";
+  const includeSystemAudio = screenOptions && typeof screenOptions.includeSystemAudio === "boolean"
+    ? screenOptions.includeSystemAudio
+    : (prefs.callScreenSystemAudio || "on") !== "off";
+  const includeMic = screenOptions && typeof screenOptions.includeMic === "boolean"
+    ? screenOptions.includeMic
+    : (prefs.callScreenMicMix || "on") !== "off";
   let nextAux = null;
   let stream = null;
   let displayError = null;
@@ -398,7 +408,7 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
     try {
       stream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
-        audio: true
+        audio: Boolean(includeSystemAudio)
       });
       usedDisplayCapture = Boolean(stream);
     } catch (error) {
@@ -414,7 +424,7 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
         stream = null;
       }
     }
-    if (stream && navigator.mediaDevices?.getUserMedia) {
+    if (stream && includeMic && navigator.mediaDevices?.getUserMedia) {
       try {
         micStream = await requestUserMediaWithFallback({ audioId: audioDeviceId, wantsVideo: false });
       } catch {
@@ -475,7 +485,8 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, { screenShare = 
 
 async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
   screenShare = false,
-  forceNewStream = false
+  forceNewStream = false,
+  screenOptions = null
 } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
@@ -490,7 +501,8 @@ async function xmppAttachLocalMediaToSessionPeerConnection(sessionId, {
   const previousAux = xmppCallLocalAuxStreamsBySessionId.get(sid) || null;
   const stream = await xmppAcquireLocalMediaStreamForSession(sid, {
     screenShare,
-    forceNew: Boolean(forceNewStream)
+    forceNew: Boolean(forceNewStream),
+    screenOptions
   });
   if (!stream) return false;
   const tracks = stream.getTracks();
@@ -715,7 +727,7 @@ async function xmppEnsureLocalMediaAttached(sessionId = "", { screenShare = fals
   return xmppCallLocalMediaStreamBySessionId.get(sid) || null;
 }
 
-async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
+async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera", { screenOptions = null } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
   const before = xmppLocalMediaSnapshot(sid);
@@ -732,7 +744,8 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera") {
   }
   const attached = await xmppAttachLocalMediaToSessionPeerConnection(sid, {
     screenShare: wantsScreen,
-    forceNewStream: true
+    forceNewStream: true,
+    screenOptions
   });
   if (!attached) {
     const failureMessage = wantsScreen

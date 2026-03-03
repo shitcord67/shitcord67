@@ -380,6 +380,8 @@ function getPreferences() {
     callAudioInputId: normalizeMediaDeviceId(current.callAudioInputId),
     callVideoInputId: normalizeMediaDeviceId(current.callVideoInputId),
     callAudioOutputId: normalizeMediaDeviceId(current.callAudioOutputId),
+    callScreenSystemAudio: normalizeToggle(current.callScreenSystemAudio ?? "on"),
+    callScreenMicMix: normalizeToggle(current.callScreenMicMix ?? "on"),
     platformOverride: normalizePlatformOverride(current.platformOverride),
     whiteboardProviderUrl: normalizeWhiteboardProviderUrl(current.whiteboardProviderUrl),
     whiteboardRoomPrefix: normalizeWhiteboardRoomPrefix(current.whiteboardRoomPrefix),
