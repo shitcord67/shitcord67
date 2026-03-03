@@ -7096,3 +7096,6 @@ Yes
 
 ## 2026-03-03T16:45:15Z
 Yeah. Also why on Android are my creadentials not properly stored in the Documents folder and preserved even after I uninstall the app? Does the app need folder permissions? If so, then please ask for it?
+
+## 2026-03-03T16:49:22Z
+Yeah

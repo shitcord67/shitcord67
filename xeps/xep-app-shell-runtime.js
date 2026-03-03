@@ -274,6 +274,39 @@ function addMediaRuleFromSettingsInput() {
   return true;
 }
 
+async function updateCredentialStoragePermissionUi() {
+  if (!ui.credentialStoragePermissionNote || !ui.credentialStoragePermissionBtn) return;
+  const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+  const isAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());
+  if (!isAndroid) {
+    ui.credentialStoragePermissionNote.textContent = "Storage permission is Android-only.";
+    ui.credentialStoragePermissionBtn.hidden = true;
+    ui.credentialStoragePermissionBtn.disabled = true;
+    return;
+  }
+  ui.credentialStoragePermissionBtn.hidden = false;
+  ui.credentialStoragePermissionBtn.disabled = false;
+  if (!nativeCreds || typeof nativeCreds.permissionStatus !== "function") {
+    ui.credentialStoragePermissionNote.textContent = "Storage permission status unavailable.";
+    return;
+  }
+  const status = await nativeCreds.permissionStatus();
+  const normalized = (status || "").toString().trim().toLowerCase();
+  if (normalized === "granted") {
+    ui.credentialStoragePermissionNote.textContent = "Storage permission: granted.";
+    return;
+  }
+  if (normalized === "denied") {
+    ui.credentialStoragePermissionNote.textContent = "Storage permission: denied. Tap the button to request again.";
+    return;
+  }
+  if (normalized === "prompt") {
+    ui.credentialStoragePermissionNote.textContent = "Storage permission: not granted yet. Tap the button to allow Documents access.";
+    return;
+  }
+  ui.credentialStoragePermissionNote.textContent = `Storage permission status: ${normalized || "unknown"}.`;
+}
+
 function renderSettingsScreen() {
   const account = getCurrentAccount();
   const guild = getActiveGuild();
@@ -347,6 +380,7 @@ function renderSettingsScreen() {
     const on = ui.rememberLoginStorageInput.querySelector('option[value="on"]');
     if (on) on.textContent = tUi("settings.advanced.credentialStorage.on", "On (Android)");
   }
+  void updateCredentialStoragePermissionUi();
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;

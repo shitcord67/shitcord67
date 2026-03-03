@@ -318,6 +318,23 @@ ui.advancedForm.addEventListener("submit", (event) => {
   render();
 });
 
+ui.credentialStoragePermissionBtn?.addEventListener("click", async () => {
+  const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+  if (!nativeCreds || typeof nativeCreds.requestPermission !== "function") {
+    showToast("Storage permission request is unavailable in this runtime.", { tone: "error" });
+    return;
+  }
+  ui.credentialStoragePermissionBtn.disabled = true;
+  const result = await nativeCreds.requestPermission();
+  ui.credentialStoragePermissionBtn.disabled = false;
+  if (result?.granted) {
+    showToast("Storage permission granted.");
+  } else {
+    showToast("Storage permission not granted.", { tone: "error" });
+  }
+  renderSettingsScreen();
+});
+
 ui.addMediaRuleBtn?.addEventListener("click", () => {
   addMediaRuleFromSettingsInput();
 });

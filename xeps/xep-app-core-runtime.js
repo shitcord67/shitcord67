@@ -997,6 +997,8 @@ const ui = {
   developerModeInput: document.getElementById("developerModeInput"),
   debugOverlayInput: document.getElementById("debugOverlayInput"),
   rememberLoginStorageInput: document.getElementById("rememberLoginStorageInput"),
+  credentialStoragePermissionNote: document.getElementById("credentialStoragePermissionNote"),
+  credentialStoragePermissionBtn: document.getElementById("credentialStoragePermissionBtn"),
   platformOverrideInput: document.getElementById("platformOverrideInput"),
   platformDetectedNote: document.getElementById("platformDetectedNote"),
   runtimeDiagnosticsNote: document.getElementById("runtimeDiagnosticsNote"),
@@ -1196,6 +1198,26 @@ async function ensureNativeFilesystemPermissions({
   }
 }
 
+async function getNativeFilesystemPermissionStatus() {
+  const fs = resolveNativeFilesystem();
+  if (!fs) return "unavailable";
+  if (!isNativeAndroidPlatform()) return "unavailable";
+  if (typeof fs.checkPermissions !== "function") return "unknown";
+  try {
+    const status = await fs.checkPermissions();
+    const current = (status?.publicStorage || "").toString().trim().toLowerCase();
+    return current || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+async function requestNativeFilesystemPermission() {
+  const granted = await ensureNativeFilesystemPermissions({ prompt: true });
+  const status = await getNativeFilesystemPermissionStatus();
+  return { granted, status };
+}
+
 async function readNativeCredentials() {
   const fs = resolveNativeFilesystem();
   const directory = resolveNativeDocumentsDirectory(fs);
@@ -1343,6 +1365,9 @@ async function syncNativeCredentialsFromState({ force = false } = {}) {
 
 if (typeof window !== "undefined") {
   window.SHITCORD67_NATIVE_CREDENTIALS = {
+    isAndroid: isNativeAndroidPlatform,
+    permissionStatus: getNativeFilesystemPermissionStatus,
+    requestPermission: requestNativeFilesystemPermission,
     read: readNativeCredentials,
     write: writeNativeCredentials,
     clear: clearNativeCredentials,
