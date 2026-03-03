@@ -1600,7 +1600,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           scale: "showAll",
           forceScale: true,
           letterbox: "on",
-          openUrlMode: "allow"
+          openUrlMode: "deny"
         };
       } catch {
         // Ignore config API failures and fall back to load options.
@@ -2033,4 +2033,3 @@ function closeSwfViewerAndRestore() {
   }
   if (ui.swfViewerDialog.open) ui.swfViewerDialog.close();
 }
-

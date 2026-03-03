@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
-const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "auto").toLowerCase();
+const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "tmp").toLowerCase();
 const LINUX_SANDBOX_MODE = String(process.env.S67_LINUX_SANDBOX || "off").toLowerCase();
 const PACKAGED_LINUX_RUNTIME_DIR = String(process.env.S67_PACKAGED_LINUX_RUNTIME_DIR || "").trim();
 
@@ -152,7 +152,6 @@ function resolveShmMode(rawMode) {
 
   if (normalized === "tmp") {
     if (tmpOk) return { mode: "tmp", reason: "forced", shmOk, tmpOk };
-    if (shmOk) return { mode: "shm", reason: "fallback", fallbackFrom: "tmp", shmOk, tmpOk };
     return { mode: "tmp", reason: "forced-unavailable", shmOk, tmpOk };
   }
 
@@ -217,7 +216,7 @@ if (process.platform === "linux") {
       app.commandLine.appendSwitch("disable-setuid-sandbox");
       app.commandLine.appendSwitch("disable-gpu-sandbox");
     }
-    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "auto").toLowerCase();
+    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "tmp").toLowerCase();
     const shmDecision = resolveShmMode(devShmMode);
     if (shmDecision.mode === "tmp") {
       // Some restricted Linux/dev environments do not expose writable /dev/shm (e.g. sandboxes/containers).

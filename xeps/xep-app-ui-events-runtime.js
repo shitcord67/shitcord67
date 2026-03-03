@@ -4,6 +4,23 @@
  */
 
 var XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL = globalThis.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || {};
+const DM_GENERIC_SLASH_FALLBACK_COMMANDS = new Set([
+  "me",
+  "shrug",
+  "note",
+  "spoiler",
+  "tableflip",
+  "unflip",
+  "lenny",
+  "roll",
+  "timestamp",
+  "poll",
+  "pollm",
+  "closepoll",
+  "reopenpoll",
+  "pollresults",
+  "vote"
+]);
 
 if (typeof XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppLoginUiRuntimeBindings === "function") {
   XEP_XMPP_UI_BINDINGS_RUNTIME_LOCAL.bindXmppLoginUiRuntimeBindings();
@@ -16,11 +33,23 @@ ui.messageForm.addEventListener("submit", (event) => {
   const text = trimTextForConversation((ui.messageInput.value || "").trim(), conversation);
   const account = getCurrentAccount();
   if (!conversation || !account || (!text && composerPendingAttachments.length === 0)) return;
+  let handledSlashMessage = null;
   if (conversation.type === "dm" && text.startsWith("/")) {
     const handledDmSlash = typeof XEP_DM_COMMAND_RUNTIME_GLOBAL.handleDmSlashCommandRuntime === "function"
       ? XEP_DM_COMMAND_RUNTIME_GLOBAL.handleDmSlashCommandRuntime({ text, conversation, account })
       : false;
     if (handledDmSlash !== false) return;
+    const dmSlashName = (text.slice(1).split(/\s+/, 1)[0] || "").toLowerCase();
+    if (DM_GENERIC_SLASH_FALLBACK_COMMANDS.has(dmSlashName)) {
+      const beforeCount = Array.isArray(conversation.thread?.messages) ? conversation.thread.messages.length : 0;
+      if (handleSlashCommand(text, { id: conversation.id, messages: conversation.thread.messages }, account)) {
+        const afterCount = Array.isArray(conversation.thread?.messages) ? conversation.thread.messages.length : 0;
+        if (afterCount > beforeCount) {
+          handledSlashMessage = conversation.thread.messages[afterCount - 1] || null;
+          if (handledSlashMessage) publishRelayDirectMessage(conversation.thread, handledSlashMessage, account);
+        }
+      }
+    }
   }
 
   if (conversation.type === "channel" && !canCurrentUserPostInChannel(conversation.channel, account)) {
@@ -43,7 +72,19 @@ ui.messageForm.addEventListener("submit", (event) => {
   }
 
   if (conversation.type === "channel" && text) ensureCurrentUserInActiveServer();
-  if (!(conversation.type === "channel" && text && handleSlashCommand(text, conversation.channel, account))) {
+  if (!handledSlashMessage && conversation.type === "channel" && text) {
+    const beforeCount = Array.isArray(conversation.channel?.messages) ? conversation.channel.messages.length : 0;
+    const handledChannelSlash = handleSlashCommand(text, conversation.channel, account);
+    if (handledChannelSlash) {
+      const afterCount = Array.isArray(conversation.channel?.messages) ? conversation.channel.messages.length : 0;
+      if (afterCount > beforeCount) {
+        handledSlashMessage = conversation.channel.messages[afterCount - 1] || null;
+        if (handledSlashMessage) publishRelayChannelMessage(conversation.channel, handledSlashMessage, account);
+      }
+    }
+  }
+
+  if (!handledSlashMessage) {
     const nextReply = replyTarget && replyTarget.channelId === conversation.id
       ? {
         messageId: replyTarget.messageId,

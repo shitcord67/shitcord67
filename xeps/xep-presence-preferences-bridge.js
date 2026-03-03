@@ -1337,11 +1337,6 @@ function applyRelayIncomingMessage(packet) {
   clearRelayTypingForClient(room, remoteClientId);
   const remoteMessage = packet.message;
   if (!remoteMessage || typeof remoteMessage !== "object") return null;
-  if (remoteClientId.startsWith("xmpp:") && remoteMessage.allowSelf !== true) {
-    const mine = normalizeUsername(getCurrentAccount()?.username || "");
-    const theirs = normalizeUsername(remoteMessage.authorUsername || "");
-    if (mine && theirs && mine === theirs) return null;
-  }
   const remoteMessageId = (remoteMessage.id || "").toString().trim();
   const remoteXmppRefIds = normalizeXmppRefIdsList([
     ...(Array.isArray(remoteMessage.xmppRefIds) ? remoteMessage.xmppRefIds : []),
