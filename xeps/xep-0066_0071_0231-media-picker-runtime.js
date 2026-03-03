@@ -797,22 +797,136 @@ function maybeAutoloadMediaPickerOnScroll() {
 function filteredMediaEntries() {
   const term = mediaPickerQuery.trim().toLowerCase();
   const normalizedTerm = term.replace(/^:+|:+$/g, "");
+  const normalizedSearchTerm = normalizeEmojiSearchToken(normalizedTerm);
+  const emojiQueryVariants = mediaPickerTab === "emoji"
+    ? buildEmojiSearchQueryVariants(normalizedTerm)
+    : [];
   let entries = mediaEntriesForActiveTab();
   if (mediaPickerTab === "gif") entries = applyGifScopeToEntries(entries);
   if (!term) return entries;
   return entries.filter((entry) => {
     const name = (entry.name || "").toLowerCase();
+    const normalizedName = normalizeEmojiSearchToken(name);
     if (name.includes(term) || name.includes(normalizedTerm)) return true;
+    if (normalizedSearchTerm && normalizedName.includes(normalizedSearchTerm)) return true;
     if (mediaPickerTab === "emoji") {
-      const aliases = Array.isArray(entry.aliases) ? entry.aliases.join(" ").toLowerCase() : "";
-      const keywords = Array.isArray(entry.keywords) ? entry.keywords.join(" ").toLowerCase() : "";
+      const aliasesRaw = Array.isArray(entry.aliases) ? entry.aliases.join(" ").toLowerCase() : "";
+      const keywordsRaw = Array.isArray(entry.keywords) ? entry.keywords.join(" ").toLowerCase() : "";
+      const aliases = normalizeEmojiSearchToken(aliasesRaw);
+      const keywords = normalizeEmojiSearchToken(keywordsRaw);
       const value = (entry.value || "").toString();
-      if (aliases.includes(term) || aliases.includes(normalizedTerm)) return true;
-      if (keywords.includes(term) || keywords.includes(normalizedTerm)) return true;
+      if (aliasesRaw.includes(term) || aliasesRaw.includes(normalizedTerm)) return true;
+      if (keywordsRaw.includes(term) || keywordsRaw.includes(normalizedTerm)) return true;
       if (value.includes(term) || value.includes(normalizedTerm)) return true;
+      for (const variant of emojiQueryVariants) {
+        if (!variant) continue;
+        if (aliases.includes(variant)) return true;
+        if (keywords.includes(variant)) return true;
+      }
     }
     return false;
   });
+}
+
+const EMOJI_SEARCH_SYNONYM_MAP = Object.freeze({
+  herz: ["heart", "love"],
+  liebe: ["love", "heart"],
+  kuss: ["kiss"],
+  lachen: ["laugh", "smile"],
+  laecheln: ["smile"],
+  traurig: ["sad", "cry"],
+  weinen: ["cry", "sad"],
+  wuetend: ["angry", "rage"],
+  feuer: ["fire", "flame"],
+  wasser: ["water", "wave"],
+  sonne: ["sun"],
+  mond: ["moon"],
+  stern: ["star"],
+  hund: ["dog"],
+  katze: ["cat"],
+  maus: ["mouse"],
+  vogel: ["bird"],
+  fisch: ["fish"],
+  essen: ["food", "meal"],
+  trinken: ["drink", "beverage"],
+  kaffee: ["coffee"],
+  tee: ["tea"],
+  bier: ["beer"],
+  wein: ["wine"],
+  pizza: ["pizza"],
+  burger: ["hamburger", "burger"],
+  brot: ["bread"],
+  kuchen: ["cake"],
+  geburtstag: ["birthday", "cake"],
+  party: ["party", "celebration"],
+  musik: ["music", "note"],
+  gitarre: ["guitar"],
+  klavier: ["piano"],
+  trommel: ["drum"],
+  telefon: ["phone", "telephone"],
+  handy: ["phone", "mobile"],
+  laptop: ["computer", "laptop"],
+  auto: ["car", "automobile"],
+  bus: ["bus"],
+  zug: ["train"],
+  fahrrad: ["bicycle", "bike"],
+  flugzeug: ["airplane", "plane"],
+  rakete: ["rocket"],
+  haus: ["house", "home"],
+  schule: ["school"],
+  arbeit: ["work", "office"],
+  geld: ["money", "cash"],
+  euro: ["euro"],
+  dollar: ["dollar"],
+  deutschland: ["germany", "flag"],
+  oesterreich: ["austria", "flag"],
+  osterreich: ["austria", "flag"],
+  schweiz: ["switzerland", "flag"],
+  frankreich: ["france", "flag"],
+  italien: ["italy", "flag"],
+  spanien: ["spain", "flag"],
+  japan: ["japan", "flag"],
+  korea: ["korea", "flag"],
+  china: ["china", "flag"],
+  usa: ["united states", "america", "flag"],
+  daumenhoch: ["thumbs up", "+1", "like"],
+  daumenrunter: ["thumbs down", "-1", "dislike"],
+  ok: ["okay", "ok", "yes"],
+  nein: ["no"],
+  ja: ["yes"],
+  frage: ["question"],
+  warnung: ["warning"],
+  lachenweinend: ["joy", "laugh", "tears"]
+});
+
+function normalizeEmojiSearchToken(value) {
+  const source = (value || "").toString().trim().toLowerCase();
+  if (!source) return "";
+  return source
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9+ ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildEmojiSearchQueryVariants(rawTerm = "") {
+  const normalized = normalizeEmojiSearchToken(rawTerm.replace(/^:+|:+$/g, ""));
+  if (!normalized) return [];
+  const variants = new Set([normalized]);
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  tokens.forEach((token) => {
+    variants.add(token);
+    const mapped = EMOJI_SEARCH_SYNONYM_MAP[token];
+    if (Array.isArray(mapped)) {
+      mapped.forEach((item) => {
+        const normalizedMapped = normalizeEmojiSearchToken(item);
+        if (normalizedMapped) variants.add(normalizedMapped);
+      });
+    }
+  });
+  return [...variants];
 }
 
 function rememberMediaPickerTab(tab) {

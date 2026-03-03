@@ -235,7 +235,7 @@
 - [done] Implement viewer for displaying Microsoft RTF
 - [done] Implement some other funny viewers... (example: inline HEX viewer for `.bin`)
 - [done] Implement PDF viewer independent from browser
-- Emoji picker should allow to search for all up-to-date emojis (ideally also taking other languages into account)
+- [done] Emoji picker now supports full Unicode dataset loading with richer search, including diacritic-insensitive and multilingual term expansion (e.g., German query aliases).
 - [done] Language settings now default to system locale (`Auto detect`) and onboarding includes an English language-check prompt with dropdown + `Switch` action (English preselected).
 - [done] Added status-related dropdown control in User Settings (`My Account`) with live presence apply (`online/idle/dnd/invisible`).
 - Please really think about how to improve UX
