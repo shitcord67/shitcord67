@@ -342,6 +342,10 @@ ui.messageInput.addEventListener("blur", () => {
   publishRelayTypingState(false, { force: true, chatState: "inactive" });
 });
 
+ui.messageInput.addEventListener("focus", () => {
+  publishRelayTypingState(false, { force: true, chatState: "active" });
+});
+
 window.addEventListener("keydown", (event) => {
   if (event.defaultPrevented) return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;

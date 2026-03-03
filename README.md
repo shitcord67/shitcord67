@@ -487,7 +487,7 @@ XMPP mode (experimental):
 2. Fill `JID`, `Password`, `XMPP WebSocket URL`, and `XMPP MUC service` in Advanced settings
 3. Save and connect (`Connect Relay` or `/relay connect xmpp`)
 4. Messages in active channels/DMs are mapped to MUC rooms and sent/received via XMPP groupchat
-- Includes XEP-0085 chat states (`composing`/`paused`) mapped to typing indicators in composer meta, plus explicit `active` on send and `inactive` on blur/switch transitions for better cross-client state sync.
+- Includes XEP-0085 chat states (`composing`/`paused`) mapped to typing indicators in composer meta, plus explicit `active` on send/focus/conversation switch and `inactive` on blur/switch transitions for better cross-client state sync.
 - Verified working provider example: `xmpp.jp` with endpoint `wss://api.xmpp.jp/ws` and MUC service `conference.xmpp.jp`
 - Use `XMPP Console` to diagnose failed runtime loads, auth failures, or endpoint mismatches before/after login.
 

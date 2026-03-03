@@ -2211,7 +2211,7 @@ function syncRelayRoomForActiveConversation() {
   const prefs = getPreferences();
   if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return;
   const nextRoom = relayRoomForActiveConversation();
-  if (relayLocalTypingState.active && relayLocalTypingState.room && relayLocalTypingState.room !== nextRoom) {
+  if (relayLocalTypingState.room && relayLocalTypingState.room !== nextRoom) {
     publishRelayTypingState(false, {
       force: true,
       room: relayLocalTypingState.room,
@@ -2228,11 +2228,13 @@ function syncRelayRoomForActiveConversation() {
         requestXmppDirectHistory(directPeerJid, { reason: "switch", prefetchPages: XMPP_MAM_PREFETCH_PAGES });
       }
       relayJoinedRoom = nextRoom;
+      publishRelayTypingState(false, { force: true, room: nextRoom, chatState: "active" });
       return;
     }
     const ok = joinXmppRoom(nextRoom, getCurrentAccount());
     if (!ok) return;
     relayJoinedRoom = nextRoom;
+    publishRelayTypingState(false, { force: true, room: nextRoom, chatState: "active" });
     return;
   }
   if (prefs.relayMode === "http") {
