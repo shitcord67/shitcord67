@@ -3,24 +3,30 @@
  * Keeps fallback wiring for XEP helpers and normalizer modules.
  */
 
-const XEP_APP_BOOTSTRAP = globalThis.SHITCORD67_XEP_APP_BOOTSTRAP || {};
-const XEP_0334_HINTS_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0334_HINTS_GLOBAL || globalThis.SHITCORD67_XEP_0334_HINTS || {};
-const XEP_0184_0333_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0184_0333_GLOBAL || globalThis.SHITCORD67_XEP_0184_0333_MARKERS || {};
-const XEP_0249_DIRECT_MUC_INVITE_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0249_DIRECT_MUC_INVITE_GLOBAL || globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE || {};
-const XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL || globalThis.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS || {};
-const XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL || globalThis.SHITCORD67_XEP_0359_0424_MESSAGE_REF_UTILS || {};
-const XEP_0482_CALL_INVITE_PARSE_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0482_CALL_INVITE_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0482_CALL_INVITE_PARSE || {};
-const XEP_0308_0424_0444_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0308_0424_0444_GLOBAL || globalThis.SHITCORD67_XEP_0308_0424_0444_ACTIONS || {};
-const XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE || {};
-const XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE || {};
-const XEP_0320_WEBRTC_SDP_BASICS_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0320_WEBRTC_SDP_BASICS_GLOBAL || globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS || {};
-const XEP_0203_0319_DELAY_IDLE_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0203_0319_DELAY_IDLE_GLOBAL || globalThis.SHITCORD67_XEP_0203_0319_DELAY_IDLE || {};
-const XEP_0421_0045_MUC_OCCUPANT_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0421_0045_MUC_OCCUPANT_GLOBAL || globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT || {};
-const XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL || globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH || {};
-const XEP_0156_HOST_META_PARSE_GLOBAL = XEP_APP_BOOTSTRAP.XEP_0156_HOST_META_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE || {};
-const XMPP_XML_GLOBAL = XEP_APP_BOOTSTRAP.XMPP_XML_GLOBAL || globalThis.SHITCORD67_XMPP_XML || {};
-const XMPP_ENCRYPTION_PAYLOAD_GLOBAL = XEP_APP_BOOTSTRAP.XMPP_ENCRYPTION_PAYLOAD_GLOBAL || globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD || {};
-const CALL_ROOM_URL_UTILS_GLOBAL = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
+const RUNTIME_APP_BOOTSTRAP = globalThis.SHITCORD67_XEP_APP_BOOTSTRAP || {};
+const XEP_REGISTRY = globalThis.SHITCORD67_XEP_REGISTRY || {};
+const xepModule = (name, fallback = null) => (
+  (typeof XEP_REGISTRY.get === "function" ? XEP_REGISTRY.get(name) : null)
+  || fallback
+  || {}
+);
+const XEP_0334_HINTS_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0334_HINTS_GLOBAL || globalThis.SHITCORD67_XEP_0334_HINTS || {};
+const XEP_0184_0333_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0184_0333_GLOBAL || globalThis.SHITCORD67_XEP_0184_0333_MARKERS || {};
+const XEP_0249_DIRECT_MUC_INVITE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0249_DIRECT_MUC_INVITE_GLOBAL || globalThis.SHITCORD67_XEP_0249_DIRECT_MUC_INVITE || {};
+const XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL || globalThis.SHITCORD67_XEP_0045_0402_ROSTER_BOOKMARKS || {};
+const XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL || globalThis.SHITCORD67_XEP_0359_0424_MESSAGE_REF_UTILS || {};
+const XEP_0482_CALL_INVITE_PARSE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0482_CALL_INVITE_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0482_CALL_INVITE_PARSE || {};
+const XEP_0308_0424_0444_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0308_0424_0444_GLOBAL || globalThis.SHITCORD67_XEP_0308_0424_0444_ACTIONS || {};
+const XEP_0353_JINGLE_MESSAGE_PARSE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE || {};
+const XEP_0166_0167_JINGLE_IQ_PARSE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0166_0167_JINGLE_IQ_PARSE || {};
+const XEP_0320_WEBRTC_SDP_BASICS_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0320_WEBRTC_SDP_BASICS_GLOBAL || globalThis.SHITCORD67_XEP_0320_WEBRTC_SDP_BASICS || {};
+const XEP_0203_0319_DELAY_IDLE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0203_0319_DELAY_IDLE_GLOBAL || globalThis.SHITCORD67_XEP_0203_0319_DELAY_IDLE || {};
+const XEP_0421_0045_MUC_OCCUPANT_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0421_0045_MUC_OCCUPANT_GLOBAL || globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT || {};
+const XEP_0153_PRESENCE_PHOTO_HASH_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL || globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH || {};
+const XEP_0156_HOST_META_PARSE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0156_HOST_META_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE || {};
+const XMPP_XML_BINDINGS = RUNTIME_APP_BOOTSTRAP.XMPP_XML_GLOBAL || globalThis.SHITCORD67_XMPP_XML || {};
+const XMPP_ENCRYPTION_PAYLOAD_BINDINGS = RUNTIME_APP_BOOTSTRAP.XMPP_ENCRYPTION_PAYLOAD_GLOBAL || globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD || {};
+const CALL_ROOM_URL_UTILS_BINDINGS = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
 
 const XMPP_LOGIN_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_XMPP_LOGIN_NORMALIZERS || {};
 const MEDIA_PROVIDER_NORMALIZERS_GLOBAL = globalThis.SHITCORD67_MEDIA_PROVIDER_NORMALIZERS || {};
@@ -149,11 +155,11 @@ const xmppOmemoGatherDeviceTargetsCore = XEP_0384_TARGETS_GLOBAL.xmppOmemoGather
 const xmppOmemoEncryptPlaintextContentCore = XEP_0384_MESSAGE_CRYPTO_GLOBAL.xmppOmemoEncryptPlaintextContent || (async () => null);
 const xmppOmemoDecryptContentFromKeyAndPayloadCore = XEP_0384_DECRYPT_CONTENT_GLOBAL.xmppOmemoDecryptContentFromKeyAndPayload || (async () => null);
 const xmppOmemoTryDecryptIntoMessageCore = XEP_0384_DECRYPT_FLOW_GLOBAL.xmppOmemoTryDecryptIntoMessageCore || (() => {});
-const appendXmppMessageProcessingHints = typeof XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints === "function"
-  ? XEP_0334_HINTS_GLOBAL.appendXmppMessageProcessingHints
+const appendXmppMessageProcessingHints = typeof XEP_0334_HINTS_BINDINGS.appendXmppMessageProcessingHints === "function"
+  ? XEP_0334_HINTS_BINDINGS.appendXmppMessageProcessingHints
   : ((stanza) => stanza);
-const xmppProcessingHintsFromStanza = typeof XEP_0334_HINTS_GLOBAL.xmppProcessingHintsFromStanza === "function"
-  ? XEP_0334_HINTS_GLOBAL.xmppProcessingHintsFromStanza
+const xmppProcessingHintsFromStanza = typeof XEP_0334_HINTS_BINDINGS.xmppProcessingHintsFromStanza === "function"
+  ? XEP_0334_HINTS_BINDINGS.xmppProcessingHintsFromStanza
   : (() => ({
     store: false,
     noStore: false,
@@ -162,29 +168,29 @@ const xmppProcessingHintsFromStanza = typeof XEP_0334_HINTS_GLOBAL.xmppProcessin
     noPermanentCopy: false,
     hasHints: false
   }));
-const normalizeXmppProcessingHintsViaXep = typeof XEP_0334_HINTS_GLOBAL.normalizeXmppProcessingHints === "function"
-  ? XEP_0334_HINTS_GLOBAL.normalizeXmppProcessingHints
+const normalizeXmppProcessingHintsViaXep = typeof XEP_0334_HINTS_BINDINGS.normalizeXmppProcessingHints === "function"
+  ? XEP_0334_HINTS_BINDINGS.normalizeXmppProcessingHints
   : (() => null);
-const xmppReceiptRequestNode = typeof XEP_0184_0333_GLOBAL.xmppReceiptRequestNode === "function"
-  ? XEP_0184_0333_GLOBAL.xmppReceiptRequestNode
+const xmppReceiptRequestNode = typeof XEP_0184_0333_BINDINGS.xmppReceiptRequestNode === "function"
+  ? XEP_0184_0333_BINDINGS.xmppReceiptRequestNode
   : (() => null);
-const xmppReceiptReceivedId = typeof XEP_0184_0333_GLOBAL.xmppReceiptReceivedId === "function"
-  ? XEP_0184_0333_GLOBAL.xmppReceiptReceivedId
+const xmppReceiptReceivedId = typeof XEP_0184_0333_BINDINGS.xmppReceiptReceivedId === "function"
+  ? XEP_0184_0333_BINDINGS.xmppReceiptReceivedId
   : (() => "");
-const xmppChatMarkerPayload = typeof XEP_0184_0333_GLOBAL.xmppChatMarkerPayload === "function"
-  ? XEP_0184_0333_GLOBAL.xmppChatMarkerPayload
+const xmppChatMarkerPayload = typeof XEP_0184_0333_BINDINGS.xmppChatMarkerPayload === "function"
+  ? XEP_0184_0333_BINDINGS.xmppChatMarkerPayload
   : (() => null);
-const xmppChatMarkableNode = typeof XEP_0184_0333_GLOBAL.xmppChatMarkableNode === "function"
-  ? XEP_0184_0333_GLOBAL.xmppChatMarkableNode
+const xmppChatMarkableNode = typeof XEP_0184_0333_BINDINGS.xmppChatMarkableNode === "function"
+  ? XEP_0184_0333_BINDINGS.xmppChatMarkableNode
   : (() => null);
-const parseXmppDirectMucInvite = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite === "function"
-  ? XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInvite
+const parseXmppDirectMucInvite = typeof XEP_0249_DIRECT_MUC_INVITE_BINDINGS.parseXmppDirectMucInvite === "function"
+  ? XEP_0249_DIRECT_MUC_INVITE_BINDINGS.parseXmppDirectMucInvite
   : (() => null);
-const normalizeXmppRoomJoinArg = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.normalizeXmppRoomJoinArg === "function"
-  ? ((rawArg = "") => XEP_0249_DIRECT_MUC_INVITE_GLOBAL.normalizeXmppRoomJoinArg(rawArg, { bareJidFn: xmppBareJid }))
+const normalizeXmppRoomJoinArg = typeof XEP_0249_DIRECT_MUC_INVITE_BINDINGS.normalizeXmppRoomJoinArg === "function"
+  ? ((rawArg = "") => XEP_0249_DIRECT_MUC_INVITE_BINDINGS.normalizeXmppRoomJoinArg(rawArg, { bareJidFn: xmppBareJid }))
   : ((rawArg = "") => xmppBareJid((rawArg || "").toString().trim().replace(/^xmpp:/i, "")));
-const parseXmppDirectMucInviteCommandArg = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInviteCommandArg === "function"
-  ? ((rawArg = "") => XEP_0249_DIRECT_MUC_INVITE_GLOBAL.parseXmppDirectMucInviteCommandArg(rawArg, {
+const parseXmppDirectMucInviteCommandArg = typeof XEP_0249_DIRECT_MUC_INVITE_BINDINGS.parseXmppDirectMucInviteCommandArg === "function"
+  ? ((rawArg = "") => XEP_0249_DIRECT_MUC_INVITE_BINDINGS.parseXmppDirectMucInviteCommandArg(rawArg, {
     decodeHtmlEntitiesFn: decodeHtmlEntities,
     normalizeRoomJoinArgFn: normalizeXmppRoomJoinArg
   }))
@@ -195,31 +201,31 @@ const parseXmppDirectMucInviteCommandArg = typeof XEP_0249_DIRECT_MUC_INVITE_GLO
     const password = (passwordRaw || "").toString().trim().slice(0, 120);
     return { roomJid, reason, password };
   });
-const rememberXmppDirectMucInviteSeenViaXep = typeof XEP_0249_DIRECT_MUC_INVITE_GLOBAL.rememberXmppDirectMucInviteSeen === "function"
-  ? ((key = "") => XEP_0249_DIRECT_MUC_INVITE_GLOBAL.rememberXmppDirectMucInviteSeen(key, {
+const rememberXmppDirectMucInviteSeenViaXep = typeof XEP_0249_DIRECT_MUC_INVITE_BINDINGS.rememberXmppDirectMucInviteSeen === "function"
+  ? ((key = "") => XEP_0249_DIRECT_MUC_INVITE_BINDINGS.rememberXmppDirectMucInviteSeen(key, {
     seenKeys: xmppSeenDirectMucInviteKeys,
     maxEntries: XMPP_DIRECT_MUC_INVITE_SEEN_MAX
   }))
   : (() => true);
-const parseXmppCallInviteAction = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction === "function"
-  ? XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseXmppCallInviteAction
+const parseXmppCallInviteAction = typeof XEP_0482_CALL_INVITE_PARSE_BINDINGS.parseXmppCallInviteAction === "function"
+  ? XEP_0482_CALL_INVITE_PARSE_BINDINGS.parseXmppCallInviteAction
   : (() => null);
-const normalizeCallInviteUrlViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.normalizeCallInviteUrl === "function"
-  ? ((rawUrl = "") => XEP_0482_CALL_INVITE_PARSE_GLOBAL.normalizeCallInviteUrl(rawUrl, { resolveMediaUrlFn: resolveMediaUrl }))
+const normalizeCallInviteUrlViaXep = typeof XEP_0482_CALL_INVITE_PARSE_BINDINGS.normalizeCallInviteUrl === "function"
+  ? ((rawUrl = "") => XEP_0482_CALL_INVITE_PARSE_BINDINGS.normalizeCallInviteUrl(rawUrl, { resolveMediaUrlFn: resolveMediaUrl }))
   : ((rawUrl = "") => {
     const cleaned = resolveMediaUrl((rawUrl || "").toString().trim());
     return /^https?:\/\//i.test(cleaned) ? cleaned : "";
   });
-const stripTrailingUrlPunctuationViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.stripTrailingUrlPunctuation === "function"
-  ? XEP_0482_CALL_INVITE_PARSE_GLOBAL.stripTrailingUrlPunctuation
+const stripTrailingUrlPunctuationViaXep = typeof XEP_0482_CALL_INVITE_PARSE_BINDINGS.stripTrailingUrlPunctuation === "function"
+  ? XEP_0482_CALL_INVITE_PARSE_BINDINGS.stripTrailingUrlPunctuation
   : ((value = "") => (value || "").toString().replace(/[)\].,!?]+$/g, ""));
-const looksLikeConferenceCallUrlViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.looksLikeConferenceCallUrl === "function"
-  ? ((rawUrl = "") => XEP_0482_CALL_INVITE_PARSE_GLOBAL.looksLikeConferenceCallUrl(rawUrl, {
+const looksLikeConferenceCallUrlViaXep = typeof XEP_0482_CALL_INVITE_PARSE_BINDINGS.looksLikeConferenceCallUrl === "function"
+  ? ((rawUrl = "") => XEP_0482_CALL_INVITE_PARSE_BINDINGS.looksLikeConferenceCallUrl(rawUrl, {
     normalizeCallInviteUrlFn: normalizeCallInviteUrlViaXep
   }))
   : (() => false);
-const parseCallInviteFromTextViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseCallInviteFromText === "function"
-  ? ((text = "") => XEP_0482_CALL_INVITE_PARSE_GLOBAL.parseCallInviteFromText(text, {
+const parseCallInviteFromTextViaXep = typeof XEP_0482_CALL_INVITE_PARSE_BINDINGS.parseCallInviteFromText === "function"
+  ? ((text = "") => XEP_0482_CALL_INVITE_PARSE_BINDINGS.parseCallInviteFromText(text, {
     normalizeCallInviteUrlFn: normalizeCallInviteUrlViaXep,
     stripTrailingUrlPunctuationFn: stripTrailingUrlPunctuationViaXep,
     looksLikeConferenceCallUrlFn: looksLikeConferenceCallUrlViaXep,
@@ -227,140 +233,140 @@ const parseCallInviteFromTextViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.p
     callProviderUrl: getPreferences().callProviderUrl
   }))
   : (() => null);
-const buildWebCallInviteTokenViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.buildWebCallInviteToken === "function"
-  ? ((payload = {}) => XEP_0482_CALL_INVITE_PARSE_GLOBAL.buildWebCallInviteToken({
+const buildWebCallInviteTokenViaXep = typeof XEP_0482_CALL_INVITE_PARSE_BINDINGS.buildWebCallInviteToken === "function"
+  ? ((payload = {}) => XEP_0482_CALL_INVITE_PARSE_BINDINGS.buildWebCallInviteToken({
     ...payload,
     shortHashTokenFn: shortHashToken
   }))
   : (() => "");
-const markWebCallInviteSeenViaXep = typeof XEP_0482_CALL_INVITE_PARSE_GLOBAL.markWebCallInviteSeen === "function"
-  ? ((token) => XEP_0482_CALL_INVITE_PARSE_GLOBAL.markWebCallInviteSeen(token, {
+const markWebCallInviteSeenViaXep = typeof XEP_0482_CALL_INVITE_PARSE_BINDINGS.markWebCallInviteSeen === "function"
+  ? ((token) => XEP_0482_CALL_INVITE_PARSE_BINDINGS.markWebCallInviteSeen(token, {
     seenTokens: webCallInviteSeenTokens,
     maxEntries: WEB_CALL_INVITE_SEEN_MAX
   }))
   : (() => {});
-const parseXmppRosterItemsViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.parseXmppRosterItems === "function"
-  ? XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.parseXmppRosterItems
+const parseXmppRosterItemsViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.parseXmppRosterItems === "function"
+  ? XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.parseXmppRosterItems
   : (() => []);
-const parseXmppBookmarksViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.parseXmppBookmarks === "function"
-  ? ((stanza) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.parseXmppBookmarks(stanza, {
+const parseXmppBookmarksViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.parseXmppBookmarks === "function"
+  ? ((stanza) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.parseXmppBookmarks(stanza, {
     normalizeXmppJidFn: normalizeXmppJid,
     serializePayloadFn: xmppSerializePayload
   }))
   : (() => []);
-const mergeXmppBookmarksViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.mergeXmppBookmarks === "function"
-  ? ((...lists) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.mergeXmppBookmarks(lists, { normalizeXmppJidFn: normalizeXmppJid }))
+const mergeXmppBookmarksViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.mergeXmppBookmarks === "function"
+  ? ((...lists) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.mergeXmppBookmarks(lists, { normalizeXmppJidFn: normalizeXmppJid }))
   : ((...lists) => lists.flat().filter(Boolean));
-const xmppBareJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppBareJid === "function"
-  ? ((value) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppBareJid(value, { normalizeXmppJidFn: normalizeXmppJid }))
+const xmppBareJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppBareJid === "function"
+  ? ((value) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppBareJid(value, { normalizeXmppJidFn: normalizeXmppJid }))
   : ((value = "") => normalizeXmppJid((value || "").toString().split("/")[0] || "").toLowerCase());
-const xmppRoomNodeForTokenViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppRoomNodeForToken === "function"
-  ? ((roomToken) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppRoomNodeForToken(roomToken, { sanitizeChannelNameFn: sanitizeChannelName }))
+const xmppRoomNodeForTokenViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppRoomNodeForToken === "function"
+  ? ((roomToken) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppRoomNodeForToken(roomToken, { sanitizeChannelNameFn: sanitizeChannelName }))
   : ((roomToken) => sanitizeChannelName((roomToken || "").toString().replace(/[:]/g, "-"), "lobby-general"));
-const looksLikeXmppMucJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.looksLikeXmppMucJid === "function"
-  ? ((roomJid, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.looksLikeXmppMucJid(roomJid, {
+const looksLikeXmppMucJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.looksLikeXmppMucJid === "function"
+  ? ((roomJid, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.looksLikeXmppMucJid(roomJid, {
     bareJidFn: xmppBareJid,
     resolveXmppMucServiceFn: () => resolveXmppMucService(prefs)
   }))
   : (() => false);
-const isXmppMucRoomJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.isXmppMucRoomJid === "function"
-  ? ((roomJid, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.isXmppMucRoomJid(roomJid, {
+const isXmppMucRoomJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.isXmppMucRoomJid === "function"
+  ? ((roomJid, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.isXmppMucRoomJid(roomJid, {
     bareJidFn: xmppBareJid,
     looksLikeXmppMucJidFn: (value) => looksLikeXmppMucJidViaXep(value, prefs),
     isKnownXmppRoomJidFn: (value) => isKnownXmppRoomJid(value, prefs)
   }))
   : (() => false);
-const xmppRoomJidForTokenViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppRoomJidForToken === "function"
-  ? ((roomToken, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppRoomJidForToken(roomToken, {
+const xmppRoomJidForTokenViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppRoomJidForToken === "function"
+  ? ((roomToken, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppRoomJidForToken(roomToken, {
     bareJidFn: xmppBareJid,
     resolveXmppMucServiceFn: () => resolveXmppMucService(prefs),
     roomNodeForTokenFn: (token) => xmppRoomNodeForTokenViaXep(token)
   }))
   : (() => "");
-const xmppStanzaErrorDetailsViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppStanzaErrorDetails === "function"
-  ? ((stanza) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppStanzaErrorDetails(stanza, {
+const xmppStanzaErrorDetailsViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppStanzaErrorDetails === "function"
+  ? ((stanza) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppStanzaErrorDetails(stanza, {
     xmppNodeHasXmlnsFn: xmppNodeHasXmlns,
     xmppNodeTextFn: xmppNodeText
   }))
   : (() => null);
-const xmppMucJoinErrorHintViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppMucJoinErrorHint === "function"
-  ? XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppMucJoinErrorHint
+const xmppMucJoinErrorHintViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppMucJoinErrorHint === "function"
+  ? XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppMucJoinErrorHint
   : (() => "");
-const xmppChannelDisplayNameViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDisplayName === "function"
-  ? ((channel) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDisplayName(channel, {
+const xmppChannelDisplayNameViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppChannelDisplayName === "function"
+  ? ((channel) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppChannelDisplayName(channel, {
     isXmppBackedChannelFn: isXmppBackedChannel,
     decodeHtmlEntitiesFn: decodeHtmlEntities,
     bareJidFn: xmppBareJid
   }))
   : (() => "");
-const xmppChannelDescriptionViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDescription === "function"
-  ? ((channel) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.xmppChannelDescription(channel, {
+const xmppChannelDescriptionViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppChannelDescription === "function"
+  ? ((channel) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.xmppChannelDescription(channel, {
     isXmppBackedChannelFn: isXmppBackedChannel,
     decodeHtmlEntitiesFn: decodeHtmlEntities
   }))
   : (() => "");
-const findXmppRoomChannelByJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.findXmppRoomChannelByJid === "function"
-  ? ((roomJid) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.findXmppRoomChannelByJid(roomJid, {
+const findXmppRoomChannelByJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.findXmppRoomChannelByJid === "function"
+  ? ((roomJid) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.findXmppRoomChannelByJid(roomJid, {
     bareJidFn: xmppBareJid,
     guilds: state.guilds || []
   }))
   : (() => null);
-const isKnownXmppRoomJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.isKnownXmppRoomJid === "function"
-  ? ((roomJid, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_GLOBAL.isKnownXmppRoomJid(roomJid, {
+const isKnownXmppRoomJidViaXep = typeof XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.isKnownXmppRoomJid === "function"
+  ? ((roomJid, prefs = getPreferences()) => XEP_0045_0402_ROSTER_BOOKMARKS_BINDINGS.isKnownXmppRoomJid(roomJid, {
     bareJidFn: xmppBareJid,
     looksLikeXmppMucJidFn: (value) => looksLikeXmppMucJid(value, prefs),
     xmppRoomByJid,
     findXmppRoomChannelByJidFn: (value) => findXmppRoomChannelByJid(value)
   }))
   : (() => false);
-const normalizeXmppRefIdsListViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.normalizeXmppRefIdsList === "function"
-  ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.normalizeXmppRefIdsList
+const normalizeXmppRefIdsListViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.normalizeXmppRefIdsList === "function"
+  ? XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.normalizeXmppRefIdsList
   : (() => []);
-const messageMatchesXmppReferenceViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.messageMatchesXmppReference === "function"
-  ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.messageMatchesXmppReference
+const messageMatchesXmppReferenceViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.messageMatchesXmppReference === "function"
+  ? XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.messageMatchesXmppReference
   : (() => false);
-const xmppRefIdsOverlapViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.xmppRefIdsOverlap === "function"
-  ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.xmppRefIdsOverlap
+const xmppRefIdsOverlapViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.xmppRefIdsOverlap === "function"
+  ? XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.xmppRefIdsOverlap
   : (() => false);
-const trimXmppLocalSentRefsViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.trimXmppLocalSentRefs === "function"
-  ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.trimXmppLocalSentRefs
+const trimXmppLocalSentRefsViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.trimXmppLocalSentRefs === "function"
+  ? XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.trimXmppLocalSentRefs
   : (() => {});
-const rememberXmppLocalSentRefsViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.rememberXmppLocalSentRefs === "function"
-  ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.rememberXmppLocalSentRefs
+const rememberXmppLocalSentRefsViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.rememberXmppLocalSentRefs === "function"
+  ? XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.rememberXmppLocalSentRefs
   : (() => {});
-const isXmppLocalSentRefIdViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.isXmppLocalSentRefId === "function"
-  ? XEP_0359_0424_MESSAGE_REF_UTILS_GLOBAL.isXmppLocalSentRefId
+const isXmppLocalSentRefIdViaXep = typeof XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.isXmppLocalSentRefId === "function"
+  ? XEP_0359_0424_MESSAGE_REF_UTILS_BINDINGS.isXmppLocalSentRefId
   : (() => false);
-const normalizeConferenceProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceProviderUrl === "function"
-  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceProviderUrl
+const normalizeConferenceProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeConferenceProviderUrl === "function"
+  ? CALL_ROOM_URL_UTILS_BINDINGS.normalizeConferenceProviderUrl
   : ((value) => (value || "").toString().trim());
-const normalizeConferenceRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomPrefix === "function"
-  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomPrefix
+const normalizeConferenceRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeConferenceRoomPrefix === "function"
+  ? CALL_ROOM_URL_UTILS_BINDINGS.normalizeConferenceRoomPrefix
   : ((value) => (value || "").toString().trim().toLowerCase());
-const normalizeConferenceRoomTokenViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomToken === "function"
-  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeConferenceRoomToken
+const normalizeConferenceRoomTokenViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeConferenceRoomToken === "function"
+  ? CALL_ROOM_URL_UTILS_BINDINGS.normalizeConferenceRoomToken
   : ((value) => (value || "").toString().trim().toLowerCase());
-const normalizeWhiteboardProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardProviderUrl === "function"
-  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardProviderUrl
+const normalizeWhiteboardProviderUrlViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeWhiteboardProviderUrl === "function"
+  ? CALL_ROOM_URL_UTILS_BINDINGS.normalizeWhiteboardProviderUrl
   : ((value) => (value || "").toString().trim());
-const normalizeWhiteboardRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardRoomPrefix === "function"
-  ? ((value) => CALL_ROOM_URL_UTILS_GLOBAL.normalizeWhiteboardRoomPrefix(value, {
+const normalizeWhiteboardRoomPrefixViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeWhiteboardRoomPrefix === "function"
+  ? ((value) => CALL_ROOM_URL_UTILS_BINDINGS.normalizeWhiteboardRoomPrefix(value, {
     normalizeConferenceRoomTokenFn: normalizeConferenceRoomToken
   }))
   : ((value) => (value || "").toString().trim().toLowerCase());
-const relayHealthUrlFromRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.relayHealthUrlFromRelayUrl === "function"
-  ? ((value) => CALL_ROOM_URL_UTILS_GLOBAL.relayHealthUrlFromRelayUrl(value, {
+const relayHealthUrlFromRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.relayHealthUrlFromRelayUrl === "function"
+  ? ((value) => CALL_ROOM_URL_UTILS_BINDINGS.relayHealthUrlFromRelayUrl(value, {
     normalizeRelayUrlFn: normalizeRelayUrl
   }))
   : (() => "");
-const normalizeRelayModeViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayMode === "function"
-  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayMode
+const normalizeRelayModeViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeRelayMode === "function"
+  ? CALL_ROOM_URL_UTILS_BINDINGS.normalizeRelayMode
   : ((value) => (value || "").toString().toLowerCase());
-const normalizeRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayUrl === "function"
-  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayUrl
+const normalizeRelayUrlViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeRelayUrl === "function"
+  ? CALL_ROOM_URL_UTILS_BINDINGS.normalizeRelayUrl
   : ((value) => (value || "").toString().trim());
-const normalizeRelayRoomViaModule = typeof CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayRoom === "function"
-  ? CALL_ROOM_URL_UTILS_GLOBAL.normalizeRelayRoom
+const normalizeRelayRoomViaModule = typeof CALL_ROOM_URL_UTILS_BINDINGS.normalizeRelayRoom === "function"
+  ? CALL_ROOM_URL_UTILS_BINDINGS.normalizeRelayRoom
   : ((value) => (value || "").toString().trim());
 const normalizeXmppJidViaModule = typeof XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppJid === "function"
   ? XMPP_LOGIN_NORMALIZERS_GLOBAL.normalizeXmppJid
@@ -750,53 +756,53 @@ const normalizeSlowmodeSecondsViaModule = typeof NAME_NORMALIZERS_GLOBAL.normali
     const next = Math.round(Number(value) || 0);
     return Math.max(0, Math.min(3600, next));
   });
-const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId === "function"
-  ? XEP_0308_0424_0444_GLOBAL.xmppMessageCorrectionTargetId
+const xmppMessageCorrectionTargetId = typeof XEP_0308_0424_0444_BINDINGS.xmppMessageCorrectionTargetId === "function"
+  ? XEP_0308_0424_0444_BINDINGS.xmppMessageCorrectionTargetId
   : (() => "");
-const xmppMessageRetractionTargetId = typeof XEP_0308_0424_0444_GLOBAL.xmppMessageRetractionTargetId === "function"
-  ? XEP_0308_0424_0444_GLOBAL.xmppMessageRetractionTargetId
+const xmppMessageRetractionTargetId = typeof XEP_0308_0424_0444_BINDINGS.xmppMessageRetractionTargetId === "function"
+  ? XEP_0308_0424_0444_BINDINGS.xmppMessageRetractionTargetId
   : (() => "");
-const xmppReactionPayloadFromStanza = typeof XEP_0308_0424_0444_GLOBAL.xmppReactionPayloadFromStanza === "function"
-  ? XEP_0308_0424_0444_GLOBAL.xmppReactionPayloadFromStanza
+const xmppReactionPayloadFromStanza = typeof XEP_0308_0424_0444_BINDINGS.xmppReactionPayloadFromStanza === "function"
+  ? XEP_0308_0424_0444_BINDINGS.xmppReactionPayloadFromStanza
   : (() => null);
-const parseXmppJingleMessageAction = typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.parseXmppJingleMessageAction === "function"
-  ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.parseXmppJingleMessageAction
+const parseXmppJingleMessageAction = typeof XEP_0353_JINGLE_MESSAGE_PARSE_BINDINGS.parseXmppJingleMessageAction === "function"
+  ? XEP_0353_JINGLE_MESSAGE_PARSE_BINDINGS.parseXmppJingleMessageAction
   : (() => null);
-const xmppStanzaDelayTimestamp = typeof XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppStanzaDelayTimestamp === "function"
-  ? XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppStanzaDelayTimestamp
+const xmppStanzaDelayTimestamp = typeof XEP_0203_0319_DELAY_IDLE_BINDINGS.xmppStanzaDelayTimestamp === "function"
+  ? XEP_0203_0319_DELAY_IDLE_BINDINGS.xmppStanzaDelayTimestamp
   : ((stanza, fallbackTs = "") => fallbackTs || new Date().toISOString());
-const xmppPresenceIdleSince = typeof XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppPresenceIdleSince === "function"
-  ? XEP_0203_0319_DELAY_IDLE_GLOBAL.xmppPresenceIdleSince
+const xmppPresenceIdleSince = typeof XEP_0203_0319_DELAY_IDLE_BINDINGS.xmppPresenceIdleSince === "function"
+  ? XEP_0203_0319_DELAY_IDLE_BINDINGS.xmppPresenceIdleSince
   : (() => "");
-const xmppOccupantIdFromStanza = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppOccupantIdFromStanza === "function"
-  ? XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppOccupantIdFromStanza
+const xmppOccupantIdFromStanza = typeof XEP_0421_0045_MUC_OCCUPANT_BINDINGS.xmppOccupantIdFromStanza === "function"
+  ? XEP_0421_0045_MUC_OCCUPANT_BINDINGS.xmppOccupantIdFromStanza
   : (() => "");
-const xmppMucMessageAuthorJid = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppMucMessageAuthorJid === "function"
-  ? ((stanza) => XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppMucMessageAuthorJid(stanza, { bareJidFn: xmppBareJid }))
+const xmppMucMessageAuthorJid = typeof XEP_0421_0045_MUC_OCCUPANT_BINDINGS.xmppMucMessageAuthorJid === "function"
+  ? ((stanza) => XEP_0421_0045_MUC_OCCUPANT_BINDINGS.xmppMucMessageAuthorJid(stanza, { bareJidFn: xmppBareJid }))
   : (() => "");
-const xmppRoomAliasActorIdForOccupant = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppRoomAliasActorIdForOccupant === "function"
-  ? ((roomJid, occupantId = "") => XEP_0421_0045_MUC_OCCUPANT_GLOBAL.xmppRoomAliasActorIdForOccupant(roomJid, occupantId, { bareJidFn: xmppBareJid }))
+const xmppRoomAliasActorIdForOccupant = typeof XEP_0421_0045_MUC_OCCUPANT_BINDINGS.xmppRoomAliasActorIdForOccupant === "function"
+  ? ((roomJid, occupantId = "") => XEP_0421_0045_MUC_OCCUPANT_BINDINGS.xmppRoomAliasActorIdForOccupant(roomJid, occupantId, { bareJidFn: xmppBareJid }))
   : (() => "");
-const parseXmppRoomAliasActorId = typeof XEP_0421_0045_MUC_OCCUPANT_GLOBAL.parseXmppRoomAliasActorId === "function"
-  ? ((actorUserId = "") => XEP_0421_0045_MUC_OCCUPANT_GLOBAL.parseXmppRoomAliasActorId(actorUserId, { bareJidFn: xmppBareJid }))
+const parseXmppRoomAliasActorId = typeof XEP_0421_0045_MUC_OCCUPANT_BINDINGS.parseXmppRoomAliasActorId === "function"
+  ? ((actorUserId = "") => XEP_0421_0045_MUC_OCCUPANT_BINDINGS.parseXmppRoomAliasActorId(actorUserId, { bareJidFn: xmppBareJid }))
   : (() => null);
-const parseXmppJingleIq = typeof XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL.parseXmppJingleIq === "function"
-  ? ((stanza) => XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL.parseXmppJingleIq(stanza, { bareJidFn: xmppBareJid }))
+const parseXmppJingleIq = typeof XEP_0166_0167_JINGLE_IQ_PARSE_BINDINGS.parseXmppJingleIq === "function"
+  ? ((stanza) => XEP_0166_0167_JINGLE_IQ_PARSE_BINDINGS.parseXmppJingleIq(stanza, { bareJidFn: xmppBareJid }))
   : (() => null);
-const xmppParseIceCredsFromSdp = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseIceCredsFromSdp === "function"
-  ? XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseIceCredsFromSdp
+const xmppParseIceCredsFromSdp = typeof XEP_0320_WEBRTC_SDP_BASICS_BINDINGS.xmppParseIceCredsFromSdp === "function"
+  ? XEP_0320_WEBRTC_SDP_BASICS_BINDINGS.xmppParseIceCredsFromSdp
   : (() => null);
-const xmppParseDtlsFingerprintFromSdp = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseDtlsFingerprintFromSdp === "function"
-  ? XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseDtlsFingerprintFromSdp
+const xmppParseDtlsFingerprintFromSdp = typeof XEP_0320_WEBRTC_SDP_BASICS_BINDINGS.xmppParseDtlsFingerprintFromSdp === "function"
+  ? XEP_0320_WEBRTC_SDP_BASICS_BINDINGS.xmppParseDtlsFingerprintFromSdp
   : (() => null);
-const xmppParseRtcIceCandidateForJingle = typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseRtcIceCandidateForJingle === "function"
-  ? XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppParseRtcIceCandidateForJingle
+const xmppParseRtcIceCandidateForJingle = typeof XEP_0320_WEBRTC_SDP_BASICS_BINDINGS.xmppParseRtcIceCandidateForJingle === "function"
+  ? XEP_0320_WEBRTC_SDP_BASICS_BINDINGS.xmppParseRtcIceCandidateForJingle
   : (() => null);
-const xmppPresencePhotoHash = typeof XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash === "function"
-  ? XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoHash
+const xmppPresencePhotoHash = typeof XEP_0153_PRESENCE_PHOTO_HASH_BINDINGS.xmppPresencePhotoHash === "function"
+  ? XEP_0153_PRESENCE_PHOTO_HASH_BINDINGS.xmppPresencePhotoHash
   : (() => "");
-const xmppPresencePhotoState = typeof XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoState === "function"
-  ? XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPresencePhotoState
+const xmppPresencePhotoState = typeof XEP_0153_PRESENCE_PHOTO_HASH_BINDINGS.xmppPresencePhotoState === "function"
+  ? XEP_0153_PRESENCE_PHOTO_HASH_BINDINGS.xmppPresencePhotoState
   : ((stanza) => {
     const hash = xmppPresencePhotoHash(stanza);
     return {
@@ -806,51 +812,51 @@ const xmppPresencePhotoState = typeof XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL.xmppPr
       cleared: false
     };
   });
-const extractXmppAltConnectionUrls = typeof XEP_0156_HOST_META_PARSE_GLOBAL.extractXmppAltConnectionUrls === "function"
-  ? XEP_0156_HOST_META_PARSE_GLOBAL.extractXmppAltConnectionUrls
+const extractXmppAltConnectionUrls = typeof XEP_0156_HOST_META_PARSE_BINDINGS.extractXmppAltConnectionUrls === "function"
+  ? XEP_0156_HOST_META_PARSE_BINDINGS.extractXmppAltConnectionUrls
   : (() => []);
-const parseXmppHostMetaXml = typeof XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaXml === "function"
-  ? XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaXml
+const parseXmppHostMetaXml = typeof XEP_0156_HOST_META_PARSE_BINDINGS.parseXmppHostMetaXml === "function"
+  ? XEP_0156_HOST_META_PARSE_BINDINGS.parseXmppHostMetaXml
   : (() => []);
-const parseXmppHostMetaJson = typeof XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaJson === "function"
-  ? XEP_0156_HOST_META_PARSE_GLOBAL.parseXmppHostMetaJson
+const parseXmppHostMetaJson = typeof XEP_0156_HOST_META_PARSE_BINDINGS.parseXmppHostMetaJson === "function"
+  ? XEP_0156_HOST_META_PARSE_BINDINGS.parseXmppHostMetaJson
   : ((payload) => extractXmppAltConnectionUrls(Array.isArray(payload?.links) ? payload.links : []));
-const xmppNodeXmlns = typeof XMPP_XML_GLOBAL.xmppNodeXmlns === "function"
-  ? XMPP_XML_GLOBAL.xmppNodeXmlns
+const xmppNodeXmlns = typeof XMPP_XML_BINDINGS.xmppNodeXmlns === "function"
+  ? XMPP_XML_BINDINGS.xmppNodeXmlns
   : (() => "");
-const xmppNodeLocalName = typeof XMPP_XML_GLOBAL.xmppNodeLocalName === "function"
-  ? XMPP_XML_GLOBAL.xmppNodeLocalName
+const xmppNodeLocalName = typeof XMPP_XML_BINDINGS.xmppNodeLocalName === "function"
+  ? XMPP_XML_BINDINGS.xmppNodeLocalName
   : (() => "");
-const xmppElementsByLocalName = typeof XMPP_XML_GLOBAL.xmppElementsByLocalName === "function"
-  ? XMPP_XML_GLOBAL.xmppElementsByLocalName
+const xmppElementsByLocalName = typeof XMPP_XML_BINDINGS.xmppElementsByLocalName === "function"
+  ? XMPP_XML_BINDINGS.xmppElementsByLocalName
   : (() => []);
-const xmppDirectChildByLocalName = typeof XMPP_XML_GLOBAL.xmppDirectChildByLocalName === "function"
-  ? XMPP_XML_GLOBAL.xmppDirectChildByLocalName
+const xmppDirectChildByLocalName = typeof XMPP_XML_BINDINGS.xmppDirectChildByLocalName === "function"
+  ? XMPP_XML_BINDINGS.xmppDirectChildByLocalName
   : (() => null);
-const xmppNodeHasXmlns = typeof XMPP_XML_GLOBAL.xmppNodeHasXmlns === "function"
-  ? XMPP_XML_GLOBAL.xmppNodeHasXmlns
+const xmppNodeHasXmlns = typeof XMPP_XML_BINDINGS.xmppNodeHasXmlns === "function"
+  ? XMPP_XML_BINDINGS.xmppNodeHasXmlns
   : (() => false);
-const xmppNodeHasXmlnsPrefix = typeof XMPP_XML_GLOBAL.xmppNodeHasXmlnsPrefix === "function"
-  ? XMPP_XML_GLOBAL.xmppNodeHasXmlnsPrefix
+const xmppNodeHasXmlnsPrefix = typeof XMPP_XML_BINDINGS.xmppNodeHasXmlnsPrefix === "function"
+  ? XMPP_XML_BINDINGS.xmppNodeHasXmlnsPrefix
   : (() => false);
-const xmppNodeHasAnyXmlns = typeof XMPP_XML_GLOBAL.xmppNodeHasAnyXmlns === "function"
-  ? XMPP_XML_GLOBAL.xmppNodeHasAnyXmlns
+const xmppNodeHasAnyXmlns = typeof XMPP_XML_BINDINGS.xmppNodeHasAnyXmlns === "function"
+  ? XMPP_XML_BINDINGS.xmppNodeHasAnyXmlns
   : (() => false);
-const xmppNodeText = typeof XMPP_XML_GLOBAL.xmppNodeText === "function"
-  ? XMPP_XML_GLOBAL.xmppNodeText
+const xmppNodeText = typeof XMPP_XML_BINDINGS.xmppNodeText === "function"
+  ? XMPP_XML_BINDINGS.xmppNodeText
   : ((node) => {
     if (!node) return "";
     if (typeof globalThis.Strophe?.getText === "function") return (globalThis.Strophe.getText(node) || "").toString();
     return (node.textContent || "").toString();
   });
-const xmppEncryptedPayloadInfo = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo === "function"
-  ? XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPayloadInfo
+const xmppEncryptedPayloadInfo = typeof XMPP_ENCRYPTION_PAYLOAD_BINDINGS.xmppEncryptedPayloadInfo === "function"
+  ? XMPP_ENCRYPTION_PAYLOAD_BINDINGS.xmppEncryptedPayloadInfo
   : (() => ({ encrypted: false, type: "", label: "" }));
-const xmppHasEncryptedPayload = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppHasEncryptedPayload === "function"
-  ? XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppHasEncryptedPayload
+const xmppHasEncryptedPayload = typeof XMPP_ENCRYPTION_PAYLOAD_BINDINGS.xmppHasEncryptedPayload === "function"
+  ? XMPP_ENCRYPTION_PAYLOAD_BINDINGS.xmppHasEncryptedPayload
   : ((stanza) => xmppEncryptedPayloadInfo(stanza).encrypted);
-const xmppEncryptedPlaceholderLabel = typeof XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPlaceholderLabel === "function"
-  ? XMPP_ENCRYPTION_PAYLOAD_GLOBAL.xmppEncryptedPlaceholderLabel
+const xmppEncryptedPlaceholderLabel = typeof XMPP_ENCRYPTION_PAYLOAD_BINDINGS.xmppEncryptedPlaceholderLabel === "function"
+  ? XMPP_ENCRYPTION_PAYLOAD_BINDINGS.xmppEncryptedPlaceholderLabel
   : ((info) => {
     if (!info || !info.encrypted) return "";
     const label = (info.label || "").toString().trim();

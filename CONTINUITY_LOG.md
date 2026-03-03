@@ -4204,3 +4204,299 @@ chatgpt.com/explore/plus), or try again at Mar 10th, 2026 5:48 AM.
 2026-03-03T05:53:04Z
 USER PROMPT:
 Can you also create me a build-all.sh script? And it should not ask any questions
+2026-03-03T05:55:41Z
+USER PROMPT:
+No login possible, nothing shows up on 🛠 click and devtools don't open via Ctrl+Shift+I 06:52:26 ~/shitcord67:$ ./build.sh electron && ./build.sh android
+[build-platform] Clean before build? [Y/n] 
+[build-platform] clean step enabled
+[build-platform] packaging electron app (linux/x64)
+Packaging app for platform linux x64 using electron v35.7.5
+Wrote new app to: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64
+[build-platform] linux desktop entry: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67.desktop
+[build-platform] electron output: dist/electron
+[build-platform] Clean before build? [Y/n] 
+[build-platform] clean step enabled
+
+BUILD SUCCESSFUL in 840ms
+4 actionable tasks: 4 executed
+[build-platform] syncing android project
+
+> discord-lookalike-flash@1.0.0 mobile:android:sync
+> npm run mobile:build:web && npx cap sync android && npm run mobile:android:patch-gradle
+
+
+> discord-lookalike-flash@1.0.0 mobile:build:web
+> node scripts/build-mobile-web.mjs
+
+[mobile-build] wrote .mobile-web
+✔ Copying web assets from .mobile-web to android/app/src/main/assets/public in 15.01ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 1.33ms
+✔ copy android in 21.68ms
+✔ Updating Android plugins in 995.82μs
+✔ update android in 18.59ms
+[info] Sync finished in 0.049s
+
+> discord-lookalike-flash@1.0.0 mobile:android:patch-gradle
+> node scripts/patch-capacitor-android-gradle.cjs
+
+[patch-capacitor-android-gradle] updated 1 file(s)
+[build-platform] building debug APK
+
+> Task :capacitor-android:compileDebugJavaWithJavac
+Hinweis: Einige Eingabedateien verwenden nicht geprüfte oder unsichere Vorgänge.
+Hinweis: Wiederholen Sie die Kompilierung mit -Xlint:unchecked, um Details zu erhalten.
+[Incubating] Problems report is available at: file:///home/duda/shitcord67/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 5s
+85 actionable tasks: 76 executed, 9 up-to-date
+[build-platform] android output: dist/android/app-debug.apk
+06:54:08 ~/shitcord67:$ /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67 
+[electron] packaged linux flags: sandbox=off shm=shm runtimeTmp=/home/duda/.cache/shitcord67/runtime temp=/home/duda/.cache/shitcord67/runtime
+[electron] display media request handler installed
+[electron] starting local stack (client=127.0.0.1:6769, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6769 is listening but http://127.0.0.1:6769/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6769 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6769 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6771
+[electron] starting local stack (client=127.0.0.1:6771, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] stack stderr: [run-client-stack] client server port 6771 is listening but http://127.0.0.1:6771/ is not responding.
+[run-client-stack] refusing stale reuse; stop the process on port 6771 or pick another CLIENT_PORT.
+[electron] stack exited code=1 signal=none
+[electron] startup attempt failed port=6771 error=Local stack exited early (code=1, signal=none).
+[electron] retrying local stack on fallback port 127.0.0.1:6772
+[electron] starting local stack (client=127.0.0.1:6772, gateway=127.0.0.1:6770, mode=auto)
+[electron] synced strophe runtime -> /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/vendor/strophe.umd.min.js
+[electron] optional ruffle runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@ruffle-rs/ruffle/ruffle.js
+[electron] optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/resources/app/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+[electron] [run-client-stack] started client-server (pid 253905)
+[electron] [run-client-stack] xmpp gateway port 6770 already in use, reusing existing gateway.
+[run-client-stack] client: http://127.0.0.1:6772/
+[run-client-stack] gateway: http://127.0.0.1:6770
+[run-client-stack] press Ctrl+C to stop.
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET / HTTP/1.1" 200 -
+[electron] permission handlers installed for trusted local renderer origin
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET / HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /styles.css HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /assets/libsignal_protocol.min.js HTTP/1.1" 200 -
+(electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-loader.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/call-room-url-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xmpp-login-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/media-provider-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/ui-state-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/account-profile-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xmpp-call-target-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/command-invocation-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xmpp-message-id-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/text-time-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/name-normalizers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_crypto-namespaces.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_namespace-selection.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_omemo-crypto-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_preferences.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_identity.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_sessions.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_devices.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_bundles.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_own-bundle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_targets.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_message-crypto.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_decrypt-content.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_decrypt-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0334_processing-hints.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0085-chatstates.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0184_0333-message-markers.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0184_0333-marker-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0249_direct-muc-invite.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0045_0402-roster-bookmarks.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0359_0424-message-ref-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0482_call-invite-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0308_0424_0444-message-actions.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0353_jingle-message-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0115_caps-presence.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0203_0319-delay-idle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0421_0045-muc-occupant.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0421_0045-muc-actor-cache.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0166_0167-jingle-iq-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0166_0167-jingle-send.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0320_webrtc-sdp-basics.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0066_0071_0231-oob-media.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0461_0428-message-replies.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0313_mam-loading.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0333_0359_0372_0444_0482-message-builders.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0030_0166-call-disco.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0308_0359_0424_0444-message-updates.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0199_0410_0313-presence-ping.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0048_0402-bookmarks-ops.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0048_0402-bookmarks-sync.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0045_0503-room-lifecycle.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0184_0333_0359-delivery-indexes.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0280_0352-csi-carbons.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0482_0503-spaces-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0503_spaces.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0153_presence-photo-hash.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0156_host-meta-parse.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0156_xmpp-login-discovery-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_omemo-store.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xmpp-xml-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xmpp_encryption-payload.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0384_omemo-stanza.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0454_omemo-media-sharing-utils.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-runtime-bindings.js HTTP/1.1" 200 -
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-runtime-bindings.js:860 Uncaught ReferenceError: xepModule is not defined
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-transport-interop.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-0030_0166-jingle-call-core.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-relay-connection-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:12] "GET /xeps/xep-presence-preferences-bridge.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-xmpp-dm-bridge.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0334-processing-hints-storage.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-upload-disco-attachments.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-xmpp-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-slash-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-dm-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-call-invite-web-console-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-xmpp-ui-bindings-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-xmpp-roster-bookmarks-login-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-native-call-ui-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-jingle-call-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0166_0320-webrtc-session-flow.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0384.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0454.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-bootstrap.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-xmpp-bridges.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-message-command-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-render-messages-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-member-list-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-shell-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-servers-dms-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-xmpp-state-runtime.js HTTP/1.1" 200 -
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-app-xmpp-state-runtime.js:1 Uncaught SyntaxError: Identifier 'XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL' has already been declared
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0066_0071_0231-rich-text-media-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0066_0071_0231-attachment-render-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0066_0071_0231-swf-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-0066_0071_0231-media-picker-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-state-bootstrap-runtime.js HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-core-runtime.js HTTP/1.1" 200 -
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-app-state-bootstrap-runtime.js:125 Uncaught ReferenceError: MESSAGE_CHAR_LIMIT_DEFAULT is not defined
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /app.js HTTP/1.1" 200 -
+[electron] renderer [level=3] http://127.0.0.1:6772/app.js:7 Uncaught ReferenceError: ui is not defined
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:13] "GET /xeps/xep-app-ui-events-runtime.js HTTP/1.1" 200 -
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-app-ui-events-runtime.js:6 Uncaught ReferenceError: XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL is not defined
+[253660:0303/065425.788486:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /? HTTP/1.1" 200 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /styles.css HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /assets/libsignal_protocol.min.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_message-crypto.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_decrypt-content.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_decrypt-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0334_processing-hints.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0085-chatstates.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0184_0333-message-markers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0184_0333-marker-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0359_0424-message-ref-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0249_direct-muc-invite.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0482_call-invite-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0045_0402-roster-bookmarks.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0308_0424_0444-message-actions.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0353_jingle-message-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0421_0045-muc-actor-cache.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0115_caps-presence.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0421_0045-muc-occupant.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0203_0319-delay-idle.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0166_0167-jingle-send.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0166_0167-jingle-iq-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0066_0071_0231-oob-media.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0320_webrtc-sdp-basics.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0461_0428-message-replies.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0313_mam-loading.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0333_0359_0372_0444_0482-message-builders.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0030_0166-call-disco.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0048_0402-bookmarks-ops.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0308_0359_0424_0444-message-updates.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0199_0410_0313-presence-ping.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0045_0503-room-lifecycle.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0184_0333_0359-delivery-indexes.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0048_0402-bookmarks-sync.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0280_0352-csi-carbons.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0482_0503-spaces-flow.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0503_spaces.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0153_presence-photo-hash.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0156_xmpp-login-discovery-runtime.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0156_host-meta-parse.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xmpp-xml-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_omemo-store.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xmpp_encryption-payload.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-runtime-bindings.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0454_omemo-media-sharing-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_omemo-stanza.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-relay-connection-flow.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0030_0166-jingle-call-core.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-transport-interop.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-presence-preferences-bridge.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-xmpp-dm-bridge.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0334-processing-hints-storage.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-upload-disco-attachments.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-slash-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-xmpp-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-dm-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-call-invite-web-console-runtime.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-xmpp-ui-bindings-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-native-call-ui-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-xmpp-roster-bookmarks-login-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-jingle-call-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0454.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0166_0320-webrtc-session-flow.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-message-command-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-xmpp-bridges.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-bootstrap.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-render-messages-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-member-list-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-shell-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-servers-dms-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-xmpp-state-runtime.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0066_0071_0231-rich-text-media-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0066_0071_0231-attachment-render-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0066_0071_0231-media-picker-runtime.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0066_0071_0231-swf-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /app.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-state-bootstrap-runtime.js HTTP/1.1" 304 -
+127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-core-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-app-ui-events-runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-loader.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/call-room-url-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xmpp-login-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/media-provider-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/ui-state-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/account-profile-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xmpp-call-target-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/command-invocation-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xmpp-message-id-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/text-time-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/name-normalizers.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_crypto-namespaces.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_namespace-selection.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_omemo-crypto-utils.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_runtime.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_preferences.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_identity.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_sessions.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:35] "GET /xeps/xep-0384_devices.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:36] "GET /xeps/xep-0384_bundles.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:36] "GET /xeps/xep-0384_own-bundle.js HTTP/1.1" 304 -
+[electron] stack stderr: 127.0.0.1 - - [03/Mar/2026 06:54:36] "GET /xeps/xep-0384_targets.js HTTP/1.1" 304 -
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-runtime-bindings.js:860 Uncaught ReferenceError: xepModule is not defined
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-app-xmpp-state-runtime.js:1 Uncaught SyntaxError: Identifier 'XEP_0166_0167_JINGLE_IQ_PARSE_GLOBAL' has already been declared
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-app-state-bootstrap-runtime.js:125 Uncaught ReferenceError: MESSAGE_CHAR_LIMIT_DEFAULT is not defined
+[electron] renderer [level=3] http://127.0.0.1:6772/app.js:7 Uncaught ReferenceError: ui is not defined
+[electron] renderer [level=3] http://127.0.0.1:6772/xeps/xep-app-ui-events-runtime.js:6 Uncaught ReferenceError: XEP_XMPP_UI_BINDINGS_RUNTIME_GLOBAL is not defined
+[255216:0303/065443.944444:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.88Al1j failed: No such process (3)
+[255216:0303/065443.944535:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such process (3)
