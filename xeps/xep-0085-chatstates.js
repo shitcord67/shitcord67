@@ -48,9 +48,9 @@
       if (byLocalName(node) !== name) return false;
       return xmlnsMatcher(node, chatStatesNamespace);
     });
-    const hasNode = (name) => hasDirectNode(name)
-      || [...stanza.getElementsByTagName(name)]
-        .some((node) => xmlnsMatcher(node, chatStatesNamespace));
+    // XEP-0085 chat-state elements are direct children of <message/>.
+    // Avoid descendant matching to prevent false positives from forwarded/nested payloads.
+    const hasNode = (name) => hasDirectNode(name);
     return {
       composing: hasNode("composing"),
       paused: hasNode("paused"),
