@@ -1095,7 +1095,7 @@ function scheduleRelayReconnect() {
 }
 
 function disconnectRelaySocket({ manual = true } = {}) {
-  if (relayLocalTypingState.active && relayLocalTypingState.room) {
+  if (relayLocalTypingState.room) {
     publishRelayTypingState(false, {
       force: true,
       room: relayLocalTypingState.room,
