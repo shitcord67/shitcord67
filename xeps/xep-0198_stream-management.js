@@ -307,14 +307,23 @@
     }
 
     if (name === "failed") {
+      const hAttr = stanza.getAttribute("h");
+      const hasH = hAttr !== null && hAttr !== undefined && hAttr !== "";
+      const h = hasH ? clampXmppSmCounter(hAttr) : null;
       if (smState) {
+        if (h !== null) {
+          smState.lastAckedByServer = h;
+          smState.lastAckAt = Date.now();
+        }
         smState.enabled = false;
         smState.failed = true;
         smState.resumed = false;
         smState.id = "";
       }
       if (addDebug) {
-        addDebug("error", "XMPP stream-management failed", {});
+        const payload = {};
+        if (h !== null) payload.ackedCount = h;
+        addDebug("error", "XMPP stream-management failed", payload);
       }
       return { handled: true, type: "failed" };
     }
