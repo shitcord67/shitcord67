@@ -74,7 +74,11 @@
       const key = part.slice(0, eqIndex).trim().toLowerCase();
       const value = part.slice(eqIndex + 1).trim();
       if (!key) return;
-      params.set(key, decodeURIComponent(value));
+      try {
+        params.set(key, decodeURIComponent(value));
+      } catch {
+        params.set(key, value);
+      }
     });
     return params;
   }
