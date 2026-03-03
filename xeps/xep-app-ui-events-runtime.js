@@ -286,6 +286,7 @@ ui.messageForm.addEventListener("submit", (event) => {
       recordChannelSlowmodeSend(conversation.channel, account.id);
       publishRelayChannelMessage(conversation.channel, nextMessage, account);
     }
+    void triggerHapticFeedback("light");
     replyTarget = null;
     clearComposerPendingAttachment();
     if (swfPipTabs.length > 0 && !(conversation.type === "channel" && conversation.channel.type === "forum")) {

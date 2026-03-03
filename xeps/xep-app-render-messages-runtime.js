@@ -938,7 +938,8 @@ function renderMessages() {
         reactionBtn.textContent = emoji;
         reactionBtn.title = `React with ${emoji}`;
         reactionBtn.addEventListener("click", () => {
-          toggleMessageReactionForCurrentConversation(conversation, message, emoji, currentUser);
+          const changed = toggleMessageReactionForCurrentConversation(conversation, message, emoji, currentUser);
+          if (changed) void triggerHapticFeedback("selection");
         });
         reactionQuick.appendChild(reactionBtn);
       });
@@ -953,7 +954,8 @@ function renderMessages() {
           emojiOnly: true,
           onEmojiSelect: (emoji) => {
             if (!emoji) return;
-            toggleMessageReactionForCurrentConversation(conversation, message, emoji, currentUser);
+            const changed = toggleMessageReactionForCurrentConversation(conversation, message, emoji, currentUser);
+            if (changed) void triggerHapticFeedback("selection");
           }
         });
       });
@@ -1061,7 +1063,8 @@ function renderMessages() {
       chip.disabled = !canReact;
       if (currentUser && canReact) {
         chip.addEventListener("click", () => {
-          toggleMessageReactionForCurrentConversation(conversation, message, item.emoji, currentUser);
+          const changed = toggleMessageReactionForCurrentConversation(conversation, message, item.emoji, currentUser);
+          if (changed) void triggerHapticFeedback("selection");
         });
       }
       reactions.appendChild(chip);
@@ -1316,6 +1319,7 @@ function renderMessages() {
     };
     messageRow.addEventListener("contextmenu", (event) => {
       if (shouldUseNativeContextMenu(event.target)) return;
+      if (document.body?.dataset?.mobile === "on") void triggerHapticFeedback("medium");
       openMessageContextMenuAt(event);
     });
     messageRow.addEventListener("keydown", (event) => {

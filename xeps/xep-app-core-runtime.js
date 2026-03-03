@@ -1208,6 +1208,7 @@ const ui = {
 
 const NATIVE_CREDENTIALS_FILENAME = "shitcord67-credentials.json";
 const NATIVE_CREDENTIALS_DIR = "shitcord67";
+let lastHapticFeedbackAtMs = 0;
 
 function resolveNativeFilesystem() {
   const cap = typeof window !== "undefined" ? window.Capacitor : null;
@@ -1224,6 +1225,51 @@ function isNativeAndroidPlatform() {
   const cap = typeof window !== "undefined" ? window.Capacitor : null;
   if (!cap || typeof cap.getPlatform !== "function") return false;
   return cap.getPlatform() === "android";
+}
+
+function resolveNativeHaptics() {
+  const cap = typeof window !== "undefined" ? window.Capacitor : null;
+  if (!cap) return null;
+  return cap.Plugins?.Haptics || cap.Haptics || cap.plugins?.Haptics || null;
+}
+
+async function triggerHapticFeedback(style = "light") {
+  const tone = (style || "light").toString().toLowerCase();
+  const now = Date.now();
+  const minGap = tone === "selection" ? 22 : 58;
+  if (now - lastHapticFeedbackAtMs < minGap) return false;
+  const body = document.body || null;
+  const mobileRuntime = body?.dataset?.mobile === "on" || body?.dataset?.platform === "android" || body?.dataset?.platform === "ios";
+  if (!mobileRuntime) return false;
+  lastHapticFeedbackAtMs = now;
+  const plugin = resolveNativeHaptics();
+  if (plugin) {
+    try {
+      if (tone === "selection" && typeof plugin.selectionChanged === "function") {
+        await plugin.selectionChanged();
+        return true;
+      }
+      if (typeof plugin.impact === "function") {
+        const impactStyle = tone === "heavy" ? "HEAVY" : (tone === "medium" ? "MEDIUM" : "LIGHT");
+        await plugin.impact({ style: impactStyle });
+        return true;
+      }
+      if (typeof plugin.vibrate === "function") {
+        await plugin.vibrate({ duration: tone === "heavy" ? 18 : 12 });
+        return true;
+      }
+    } catch {
+      // Fall back to browser vibration below.
+    }
+  }
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      return Boolean(navigator.vibrate(tone === "heavy" ? 18 : 12));
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 function nativeCredentialPath(filename = NATIVE_CREDENTIALS_FILENAME) {

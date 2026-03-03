@@ -1806,6 +1806,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
         bindMessageActionHoverState(replyRow, replyActions);
         replyRow.appendChild(replyActions);
         replyRow.addEventListener("contextmenu", (event) => {
+          if (document.body?.dataset?.mobile === "on") void triggerHapticFeedback("medium");
           openContextMenu(event, [
             {
               label: "Reply in Thread",
@@ -1850,6 +1851,7 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       toggleBtn.classList.add("forum-thread-toggle--disabled");
     }
     postRow.addEventListener("contextmenu", (event) => {
+      if (document.body?.dataset?.mobile === "on") void triggerHapticFeedback("medium");
       const canManageMessages = currentUser ? canCurrentUser("manageMessages") : false;
       openContextMenu(event, [
         {
