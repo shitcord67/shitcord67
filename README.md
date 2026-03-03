@@ -502,6 +502,7 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 - Native call surface now shows explicit unstable-connection notices (`pc`/`ice` state) with a one-click `Recover` action to reacquire local media and re-publish transport updates.
 - In native call surface, mic/camera selector changes now apply immediately in-session (busy-state guarded local media reacquire + live surface refresh).
 - Native call surface now includes a live session duration indicator in the call meta row for Discord-like active-call visibility.
+- Native call surface now includes a live network-quality chip (`good`/`fair`/`poor`) based on WebRTC RTT/loss telemetry for faster in-call diagnostics.
 - Not implemented yet: native XMPP voice/video/screenshare signaling in-client (Jingle/WebRTC stack is not wired).
 - Tracked next: XEP-0166/XEP-0167/XEP-0353/XEP-0320 for call/media flows and XEP-0503 (Draft) for spaces hierarchy.
 - Interop target: maximize compatibility with standards-compliant XMPP clients (including Movim-centric behaviors) rather than provider-specific lock-in.

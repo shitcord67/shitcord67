@@ -4946,6 +4946,36 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.72rem;
 }
 
+.native-call-surface__quality {
+  grid-column: 1 / 2;
+  justify-self: start;
+  border-radius: 999px;
+  border: 1px solid #58627a;
+  background: #1f2636;
+  color: #d7def3;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.12rem 0.44rem;
+}
+
+.native-call-surface__quality--good {
+  border-color: #2f7e4d;
+  background: #1a3726;
+  color: #b4ffd0;
+}
+
+.native-call-surface__quality--fair {
+  border-color: #886d2e;
+  background: #3a2f16;
+  color: #ffe6a9;
+}
+
+.native-call-surface__quality--poor {
+  border-color: #8b3c47;
+  background: #4a1f28;
+  color: #ffd3da;
+}
+
 .native-call-surface__actions {
   grid-column: 2 / 3;
   grid-row: 1 / 3;

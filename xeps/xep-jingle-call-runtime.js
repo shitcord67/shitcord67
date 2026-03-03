@@ -154,6 +154,8 @@ function forgetXmppCallSession(sessionId = "") {
   xmppCallPendingReprimeBySessionId.delete(id);
   xmppCallIceGatherInFlightBySessionId.delete(id);
   xmppCallTransportInfoNoticeBySessionId.delete(id);
+  xmppCallQualitySnapshotBySessionId.delete(id);
+  xmppCallQualityRefreshInFlight.delete(id);
   xmppStopLocalMediaStreamForSession(id);
   xmppCallRemoteStreamsBySessionId.delete(id);
   stopXmppCallSpeakingMonitor(id);

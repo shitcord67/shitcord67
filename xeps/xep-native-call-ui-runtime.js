@@ -181,6 +181,96 @@ function formatNativeCallDuration(ms = 0) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function computeXmppCallQualityLevel({ rttMs = 0, lossPercent = 0, pcState = "", iceState = "" } = {}) {
+  const pc = (pcState || "").toString().trim().toLowerCase();
+  const ice = (iceState || "").toString().trim().toLowerCase();
+  if (["failed", "disconnected", "closed"].includes(pc) || ["failed", "disconnected", "closed"].includes(ice)) {
+    return "poor";
+  }
+  const rtt = Math.max(0, Number(rttMs) || 0);
+  const loss = Math.max(0, Number(lossPercent) || 0);
+  if (rtt >= 450 || loss >= 0.12) return "poor";
+  if (rtt >= 220 || loss >= 0.05) return "fair";
+  return "good";
+}
+
+async function refreshXmppCallQualitySnapshot(sessionId = "", { force = false } = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return null;
+  const entry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  const pc = entry?.pc || null;
+  if (!pc || typeof pc.getStats !== "function") return null;
+  if (xmppCallQualityRefreshInFlight.has(sid)) return xmppCallQualitySnapshotBySessionId.get(sid) || null;
+  const now = Date.now();
+  const previous = xmppCallQualitySnapshotBySessionId.get(sid) || null;
+  if (!force && previous && now - (Number(previous.ts) || 0) < 2500) return previous;
+  xmppCallQualityRefreshInFlight.add(sid);
+  try {
+    const stats = await pc.getStats();
+    let selectedPair = null;
+    let totalPackets = 0;
+    let totalLost = 0;
+    for (const report of stats.values()) {
+      if (!report || typeof report !== "object") continue;
+      if (
+        report.type === "candidate-pair"
+        && (report.selected || report.nominated || report.state === "succeeded")
+      ) {
+        if (!selectedPair || report.selected || report.nominated) selectedPair = report;
+      }
+      if (report.type === "inbound-rtp" && !report.isRemote) {
+        const recv = Number(report.packetsReceived) || 0;
+        const lost = Math.max(0, Number(report.packetsLost) || 0);
+        totalPackets += Math.max(0, recv) + lost;
+        totalLost += lost;
+      }
+    }
+    const rttMs = Math.max(0, Number(selectedPair?.currentRoundTripTime || 0) * 1000);
+    const lossPercent = totalPackets > 0 ? (totalLost / totalPackets) : 0;
+    const pcState = (pc.connectionState || "").toString().trim().toLowerCase();
+    const iceState = (pc.iceConnectionState || "").toString().trim().toLowerCase();
+    const snapshot = {
+      ts: now,
+      rttMs,
+      lossPercent,
+      level: computeXmppCallQualityLevel({ rttMs, lossPercent, pcState, iceState })
+    };
+    xmppCallQualitySnapshotBySessionId.set(sid, snapshot);
+    return snapshot;
+  } catch {
+    return xmppCallQualitySnapshotBySessionId.get(sid) || null;
+  } finally {
+    xmppCallQualityRefreshInFlight.delete(sid);
+  }
+}
+
+function xmppCallQualityChipData(sessionId = "", {
+  pcState = "",
+  iceState = ""
+} = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return { level: "fair", text: "Quality ?" };
+  const snapshot = xmppCallQualitySnapshotBySessionId.get(sid) || null;
+  if (!snapshot) return { level: "fair", text: "Quality …" };
+  const rttText = Number.isFinite(snapshot.rttMs) && snapshot.rttMs > 0
+    ? `${Math.round(snapshot.rttMs)}ms`
+    : "";
+  const lossText = Number.isFinite(snapshot.lossPercent) && snapshot.lossPercent >= 0
+    ? `${Math.round(snapshot.lossPercent * 1000) / 10}%`
+    : "";
+  const details = [rttText, lossText ? `loss ${lossText}` : ""].filter(Boolean).join(" · ");
+  const level = computeXmppCallQualityLevel({
+    rttMs: snapshot.rttMs,
+    lossPercent: snapshot.lossPercent,
+    pcState,
+    iceState
+  });
+  return {
+    level,
+    text: details ? `Quality ${level} · ${details}` : `Quality ${level}`
+  };
+}
+
 function xmppDebugTokenFragment(value = "") {
   const raw = (value || "").toString().trim();
   if (!raw) return "";
@@ -536,6 +626,12 @@ function renderNativeXmppCallSurface(sessionId = "") {
     ...(flags.length > 0 ? flags : [])
   ].filter(Boolean);
   meta.textContent = stateBits.join(" · ");
+  void refreshXmppCallQualitySnapshot(sid, { force: false });
+  const quality = xmppCallQualityChipData(sid, { pcState: pcStateLower, iceState: iceStateLower });
+  const qualityChip = document.createElement("span");
+  qualityChip.className = `native-call-surface__quality native-call-surface__quality--${quality.level}`;
+  qualityChip.textContent = quality.text;
+  qualityChip.title = "Estimated from WebRTC connection stats (RTT and packet loss).";
   const reconnectNoticeNeeded = ["disconnected", "failed"].includes(pcStateLower)
     || ["disconnected", "failed"].includes(iceStateLower);
   const reconnectNotice = reconnectNoticeNeeded
@@ -694,6 +790,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   actions.appendChild(endBtn);
   header.appendChild(title);
   header.appendChild(meta);
+  header.appendChild(qualityChip);
   header.appendChild(actions);
   if (reconnectNotice) shell.appendChild(reconnectNotice);
   const devicesRow = document.createElement("div");
