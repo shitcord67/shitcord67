@@ -164,6 +164,23 @@
     return domain ? `conference.${domain}` : "";
   }
 
+  function xmppNodeLocalName(node = null) {
+    if (!node || typeof node !== "object") return "";
+    const local = (node.localName || "").toString().trim().toLowerCase();
+    if (local) return local;
+    const name = (node.nodeName || "").toString().trim().toLowerCase();
+    if (!name) return "";
+    const colonIndex = name.indexOf(":");
+    return colonIndex >= 0 ? name.slice(colonIndex + 1) : name;
+  }
+
+  function xmppElementsByLocalName(stanza, wanted = "") {
+    const target = (wanted || "").toString().trim().toLowerCase();
+    if (!stanza || typeof stanza.getElementsByTagName !== "function" || !target) return [];
+    return [...stanza.getElementsByTagName("*")]
+      .filter((node) => xmppNodeLocalName(node) === target);
+  }
+
   function xmppMamForwardedMessagesFromStanza(stanza, {
     mamNamespace = "urn:xmpp:mam:2",
     forwardingNamespace = "urn:xmpp:forward:0"
@@ -175,13 +192,13 @@
     const delayTs = typeof deps.xmppStanzaDelayTimestampFn === "function"
       ? deps.xmppStanzaDelayTimestampFn
       : ((_, fallback = "") => fallback || "");
-    return [...stanza.getElementsByTagName("result")]
+    return xmppElementsByLocalName(stanza, "result")
       .filter((node) => xmlnsMatcher(node, mamNamespace))
       .map((resultNode) => {
-        const forwardedNode = [...resultNode.getElementsByTagName("forwarded")]
+        const forwardedNode = xmppElementsByLocalName(resultNode, "forwarded")
           .find((node) => xmlnsMatcher(node, forwardingNamespace)) || null;
         if (!forwardedNode) return null;
-        const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
+        const messageNode = xmppElementsByLocalName(forwardedNode, "message")[0] || null;
         if (!messageNode) return null;
         return {
           message: messageNode,
@@ -204,17 +221,17 @@
       : ((_, fallback = "") => fallback || "");
     const out = [];
     const carbonNodes = [
-      ...[...stanza.getElementsByTagName("received")]
+      ...xmppElementsByLocalName(stanza, "received")
         .filter((node) => xmlnsMatcher(node, carbonsNamespace)),
-      ...[...stanza.getElementsByTagName("sent")]
+      ...xmppElementsByLocalName(stanza, "sent")
         .filter((node) => xmlnsMatcher(node, carbonsNamespace))
     ];
     carbonNodes.forEach((carbonNode) => {
-      const isSent = (carbonNode.nodeName || "").toLowerCase() === "sent";
-      const forwardedNode = [...carbonNode.getElementsByTagName("forwarded")]
+      const isSent = xmppNodeLocalName(carbonNode) === "sent";
+      const forwardedNode = xmppElementsByLocalName(carbonNode, "forwarded")
         .find((node) => xmlnsMatcher(node, forwardingNamespace)) || null;
       if (!forwardedNode) return;
-      const messageNode = forwardedNode.getElementsByTagName("message")[0] || null;
+      const messageNode = xmppElementsByLocalName(forwardedNode, "message")[0] || null;
       if (!messageNode) return;
       out.push({
         message: messageNode,

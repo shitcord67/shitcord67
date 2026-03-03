@@ -390,6 +390,7 @@ Notes:
 - XMPP room joins now request room history via MAM (`urn:xmpp:mam:2`) in incremental pages (latest first, then older pages on demand while scrolling up or via `Load older messages`).
 - XMPP room history loading now keeps a per-room MAM cursor (`RSM before`) so older pages can be fetched progressively instead of preloading everything at room-open time.
 - XMPP sessions now attempt to enable message carbons (`urn:xmpp:carbons:2`, XEP-0280) to improve multi-device/other-client DM consistency.
+- XMPP carbon/MAM forwarded stanza extraction now uses namespace/local-name tolerant parsing, improving compatibility with prefixed `result`/`forwarded`/`sent`/`received` payloads.
 - XMPP sessions now reply to `urn:xmpp:ping` IQs and send periodic keepalive pings (XEP-0199) to improve long-lived connection stability.
 - XEP-0199 incoming ping IQ auto-reply handling now lives in `xeps/xep-0199_0410_0313-presence-ping.js` via `xmppHandleIncomingPingGet`, reducing ping-response logic in `app.js`.
 - XMPP sessions now detect CSI support (`urn:xmpp:csi:0`, XEP-0352) and publish `active`/`inactive` client-state hints on focus/visibility changes.
