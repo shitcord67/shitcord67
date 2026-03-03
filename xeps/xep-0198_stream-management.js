@@ -130,6 +130,17 @@
     return forward < backward;
   }
 
+  function parseOptionalXmppSmCounterAttr(stanza = null, attrName = "h") {
+    if (!stanza || typeof stanza.getAttribute !== "function") return null;
+    const raw = stanza.getAttribute(attrName);
+    if (raw === null || raw === undefined) return null;
+    const text = String(raw).trim();
+    if (!text) return null;
+    const parsed = Number(text);
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    return clampXmppSmCounter(parsed);
+  }
+
   function sendXmppSmNode(connection = null, node = null) {
     if (!connection || !node || typeof connection.send !== "function") return false;
     connection.send(node);
@@ -263,19 +274,22 @@
     }
 
     if (name === "a") {
-      const h = clampXmppSmCounter(stanza.getAttribute("h"));
+      const h = parseOptionalXmppSmCounterAttr(stanza, "h");
       if (smState) {
-        const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
-        if (h === currentAck) {
-          smState.lastAckAt = Date.now();
-        } else if (shouldAdvanceXmppSmAckCounter(currentAck, h)) {
-          smState.lastAckedByServer = h;
-          smState.lastAckAt = Date.now();
+        if (h !== null) {
+          const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
+          if (h === currentAck) {
+            smState.lastAckAt = Date.now();
+          } else if (shouldAdvanceXmppSmAckCounter(currentAck, h)) {
+            smState.lastAckedByServer = h;
+            smState.lastAckAt = Date.now();
+          }
         }
       }
       if (addDebug) {
         addDebug("iq", "Received XMPP stream-management ack", {
-          h,
+          h: h === null ? "" : h,
+          hasCounter: h !== null,
           outboundCount: clampXmppSmCounter(smState?.outboundStanzaCount || 0)
         });
       }
@@ -301,24 +315,27 @@
     }
 
     if (name === "resumed") {
-      const h = clampXmppSmCounter(stanza.getAttribute("h"));
+      const h = parseOptionalXmppSmCounterAttr(stanza, "h");
       const previd = (stanza.getAttribute("previd") || "").toString().trim();
       if (smState) {
         smState.supported = true;
         smState.enabled = true;
         smState.failed = false;
         smState.resumed = true;
-        const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
-        if (h === currentAck) {
-          smState.lastAckAt = Date.now();
-        } else if (shouldAdvanceXmppSmAckCounter(currentAck, h)) {
-          smState.lastAckedByServer = h;
-          smState.lastAckAt = Date.now();
+        if (h !== null) {
+          const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
+          if (h === currentAck) {
+            smState.lastAckAt = Date.now();
+          } else if (shouldAdvanceXmppSmAckCounter(currentAck, h)) {
+            smState.lastAckedByServer = h;
+            smState.lastAckAt = Date.now();
+          }
         }
       }
       if (addDebug) {
         addDebug("connect", "XMPP stream management resumed", {
-          h,
+          h: h === null ? "" : h,
+          hasCounter: h !== null,
           previd
         });
       }
@@ -326,9 +343,7 @@
     }
 
     if (name === "failed") {
-      const hAttr = stanza.getAttribute("h");
-      const hasH = hAttr !== null && hAttr !== undefined && hAttr !== "";
-      const h = hasH ? clampXmppSmCounter(hAttr) : null;
+      const h = parseOptionalXmppSmCounterAttr(stanza, "h");
       if (smState) {
         if (h !== null) {
           const currentAck = clampXmppSmCounter(smState.lastAckedByServer);
