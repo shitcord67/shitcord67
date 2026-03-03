@@ -1730,6 +1730,19 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
             parsed.protocol = "https:";
             addUrlVariant(withLocalhostFallbacks, parsed.toString());
           }
+          try {
+            const current = new URL(window.location.href);
+            const currentHost = (current.hostname || "").toLowerCase();
+            if (["localhost", "127.0.0.1"].includes(currentHost)) {
+              const remapped = new URL(value);
+              remapped.protocol = current.protocol;
+              remapped.hostname = current.hostname;
+              remapped.port = current.port;
+              addUrlVariant(withLocalhostFallbacks, remapped.toString());
+            }
+          } catch {
+            // ignore current origin remap failures
+          }
         } catch {
           // ignore URL parse failures
         }
