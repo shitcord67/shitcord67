@@ -1353,11 +1353,15 @@ function renderNativeXmppCallSurface(sessionId = "") {
       const localSnapshot = xmppLocalMediaSnapshot(sid);
       let ok = false;
       let customToast = "";
-      if (kind === "video" && localSnapshot.mode === "camera" && localSnapshot.videoTracks.length > 0) {
+      if (kind === "audio" && localSnapshot.mode === "camera" && localSnapshot.audioTracks.length > 0) {
+        ok = await xmppReplaceLocalAudioTrackForSession(sid, getPreferences().callAudioInputId || "").catch(() => false);
+      } else if (kind === "video" && localSnapshot.mode === "camera" && localSnapshot.videoTracks.length > 0) {
         ok = await xmppReplaceLocalCameraTrackForSession(sid, getPreferences().callVideoInputId || "").catch(() => false);
       } else if (kind === "video" && localSnapshot.mode === "screen") {
         ok = true;
         customToast = "Camera updated. It will apply when you switch back from screen share.";
+      } else if (kind === "audio" && localSnapshot.mode === "screen") {
+        ok = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
       } else {
         ok = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
       }

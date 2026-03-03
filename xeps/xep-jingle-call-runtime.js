@@ -701,6 +701,70 @@ async function xmppReplaceLocalCameraTrackForSession(sessionId = "", deviceId = 
   }
 }
 
+async function xmppReplaceLocalAudioTrackForSession(sessionId = "", deviceId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid || !navigator.mediaDevices?.getUserMedia) return false;
+  const snapshot = xmppLocalMediaSnapshot(sid);
+  if (!snapshot.stream || snapshot.mode !== "camera") return false;
+  const entry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  const pc = entry?.pc || null;
+  if (!pc) return false;
+  const normalizedDeviceId = normalizeMediaDeviceId(deviceId);
+  const audioConstraint = normalizedDeviceId ? { deviceId: { exact: normalizedDeviceId } } : true;
+  let captureStream = null;
+  try {
+    captureStream = await navigator.mediaDevices.getUserMedia({
+      audio: audioConstraint,
+      video: false
+    });
+    const nextTrack = captureStream.getAudioTracks()[0] || null;
+    if (!(nextTrack instanceof MediaStreamTrack)) return false;
+    const localStream = snapshot.stream;
+    const currentTrack = localStream.getAudioTracks()[0] || null;
+    const sender = pc.getSenders()
+      .find((candidate) => (candidate?.track?.kind || "").toLowerCase() === "audio") || null;
+    if (sender && typeof sender.replaceTrack === "function") {
+      await sender.replaceTrack(nextTrack);
+    } else {
+      try {
+        pc.addTrack(nextTrack, localStream);
+      } catch {
+        return false;
+      }
+    }
+    if (currentTrack && currentTrack !== nextTrack) {
+      localStream.removeTrack(currentTrack);
+      try {
+        currentTrack.stop();
+      } catch {
+        // Ignore old track shutdown failures.
+      }
+    }
+    localStream.addTrack(nextTrack);
+    if (!snapshot.audioEnabled) {
+      nextTrack.enabled = false;
+      const session = xmppCallSessionById.get(sid) || null;
+      if (session) session.localMuted = true;
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (captureStream instanceof MediaStream) {
+      captureStream.getTracks().forEach((track) => {
+        if (!snapshot.stream?.getTracks().includes(track)) {
+          try {
+            track.stop();
+          } catch {
+            // Ignore temp stream cleanup failures.
+          }
+        }
+      });
+    }
+    if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
+  }
+}
+
 function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true, { suppressSessionInfo = false } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;

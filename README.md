@@ -317,6 +317,7 @@ Notes:
 - Native call surface now includes an Electron in-app screen source picker (window/monitor thumbnails) and a camera picker dialog with live preview before applying; web runtime keeps the browser-native tab/window/screen chooser flow.
 - Screen-share picker now includes explicit options for capturing system/tab audio and mixing microphone input, persisted in call preferences and applied to native capture requests.
 - In camera mode, changing camera device now performs live track replacement without full local media reacquire; while screen-sharing, camera selection is deferred until returning to camera mode.
+- In camera mode, microphone device switches now also use live audio track replacement; when screen-sharing with mixed audio, mic changes use full media reacquire to keep mix integrity.
 - The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
