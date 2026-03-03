@@ -7065,3 +7065,6 @@ Don't those need commits?
 
 ## 2026-03-03T15:56:14Z
 Move a lot more XEP code out of app.js into xeps subfolder while ideally completing the implementation of a xep or at least making it more complete. Please continue as long as you can, I expect 500 lines to leave app.js at the minimum before you stop
+
+## 2026-03-03T15:59:30Z
+Move a lot more XEP code out of app.js into xeps subfolder while ideally completing the implementation of a xep or at least making it more complete. Please continue as long as you can, I expect 500 lines to leave app.js at the minimum before you stop
