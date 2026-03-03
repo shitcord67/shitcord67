@@ -765,6 +765,35 @@ async function xmppReplaceLocalAudioTrackForSession(sessionId = "", deviceId = "
   }
 }
 
+function xmppContentModifyCatalogForSession(sessionId = "", session = null, { localRole = "initiator" } = {}) {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return [];
+  if (Array.isArray(session?.remoteContents) && session.remoteContents.length > 0) {
+    return session.remoteContents
+      .map((entry, index) => ({
+        name: (entry?.name || `${entry?.media || "audio"}${index}`).toString().trim(),
+        media: (entry?.media || "").toString().trim().toLowerCase()
+      }))
+      .filter((entry) => entry.name && (entry.media === "audio" || entry.media === "video"));
+  }
+  const localSdp = (xmppCallPeerConnectionBySessionId.get(sid)?.pc?.localDescription?.sdp || "").toString();
+  if (localSdp && typeof xmppBuildJingleContentsFromSdp === "function") {
+    const built = xmppBuildJingleContentsFromSdp(localSdp, { localRole });
+    if (Array.isArray(built) && built.length > 0) {
+      return built
+        .map((entry, index) => ({
+          name: (entry?.name || `${entry?.media || "audio"}${index}`).toString().trim(),
+          media: (entry?.media || "").toString().trim().toLowerCase()
+        }))
+        .filter((entry) => entry.name && (entry.media === "audio" || entry.media === "video"));
+    }
+  }
+  return xmppCallSessionMediaList(session).map((mediaType, index) => ({
+    name: `${mediaType}${index}`,
+    media: mediaType
+  }));
+}
+
 function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true, { suppressSessionInfo = false } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
@@ -789,9 +818,7 @@ function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true, { 
       ? "initiator"
       : "responder";
     const senders = xmppJingleSendersForLocalEnabled(enabled, localRole);
-    const contents = Array.isArray(snapshot.session.remoteContents) && snapshot.session.remoteContents.length > 0
-      ? snapshot.session.remoteContents
-      : xmppCallSessionMediaList(snapshot.session).map((mediaType, index) => ({ name: `${mediaType}${index}`, media: mediaType }));
+    const contents = xmppContentModifyCatalogForSession(sid, snapshot.session, { localRole });
     const updates = contents
       .filter((entry) => (entry.media || "").toString().trim().toLowerCase() === kind)
       .map((entry, index) => ({
@@ -895,9 +922,7 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera", { scree
       : "responder";
     const snapshot = xmppLocalMediaSnapshot(sid);
     const senders = xmppJingleSendersForLocalEnabled(snapshot.videoEnabled, localRole);
-    const contents = Array.isArray(session.remoteContents) && session.remoteContents.length > 0
-      ? session.remoteContents
-      : xmppCallSessionMediaList(session).map((mediaType, index) => ({ name: `${mediaType}${index}`, media: mediaType }));
+    const contents = xmppContentModifyCatalogForSession(sid, session, { localRole });
     const updates = contents
       .filter((entry) => (entry.media || "").toString().trim().toLowerCase() === "video")
       .map((entry, index) => ({

@@ -125,6 +125,7 @@
 - [done] Added explicit screen-share audio controls (system/tab audio + optional mic mix) with persisted preferences and runtime capture wiring.
 - [done] Added live in-session camera device track replacement (camera-mode swap without full local media teardown; screen-share mode defers camera apply).
 - [done] Added live in-session microphone device track replacement in camera mode (screen-share mode falls back to full reacquire for mixed audio path).
+- [done] Improved `content-modify` interop naming fallback to derive media content names from local SDP when remote content catalog is unavailable.
 - [done] Added explicit in-call media controls (camera/mic/screen toggles, track replacement) with Jingle `content-modify` propagation on media-state changes.
 - [done] Added a dedicated Native Call Debug dialog in the in-app media surface with per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) plus copyable structured snapshot output.
 - [priority] Stabilize call/video/screenshare/whiteboard interop and UX to Discord-level quality (SDP<->Jingle mapping, device toggles, screen audio, whiteboard XMPP path).
