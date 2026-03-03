@@ -2708,14 +2708,20 @@ window.addEventListener("beforeunload", (event) => {
 });
 document.addEventListener("visibilitychange", () => {
   if (getPreferences().relayMode !== "xmpp") return;
+  publishRelayTypingState(false, {
+    force: false,
+    chatState: document.hidden ? "inactive" : "active"
+  });
   syncXmppClientStateHint({ reason: "visibilitychange" });
 });
 window.addEventListener("focus", () => {
   if (getPreferences().relayMode !== "xmpp") return;
+  publishRelayTypingState(false, { force: false, chatState: "active" });
   syncXmppClientStateHint({ reason: "window-focus" });
 });
 window.addEventListener("blur", () => {
   if (getPreferences().relayMode !== "xmpp") return;
+  publishRelayTypingState(false, { force: false, chatState: "inactive" });
   syncXmppClientStateHint({ reason: "window-blur" });
 });
 const syncSwfRuntimeLayoutForScroll = () => {
