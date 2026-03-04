@@ -7568,3 +7568,9 @@ User prompt (verbatim summary): Reports regressions including missing YouTube vi
 [2026-03-04T08:47:43Z]
 User prompt: "Oh also I think the sed-like syntax to edit the last message doesn't work. E.g. s/old/new/"
 2026-03-04T08:52:29Z User prompt: "Oh also I think the sed-like syntax to edit the last message doesn't work. E.g. s/old/new/"
+
+[2026-03-04T09:41:30Z] Feel free to work on issues and features from TODO. I'm going to make me food and are afk for 20 minutes so you are free to autonoumously work for that time. Just never ask me anything, just continue working and polishing stuff, you can also check our xmppmessengers directory for cloned XMPP clients that have some XEPs you might want to work on and get inspiration or solutions from there. Have fun.
+
+[2026-03-04T09:51:29Z] So I noticed something: /shrug still doesn't print out ¯\_(ツ)_/¯. Fix this. Then on Android the  video player is still broken, while funnily in the preview before sending a file I can see that it is playing the video?! Also I noticed the Ruffle instances are still not instantly following on Android when I scroll in the chat, they have a delay. Any way to fix this or improve performance/delay here? Oh also could you make sure to show the user dropdown even when just ONE account is stored? And maybe don't pre-fill fields. Also please store language setting on the device and just show a flag for the selected language at the login screen so we can still switch it.
+
+[2026-03-04T10:00:02Z] 10:51:19 ~/shitcord67:$ ./build-all.sh ... Why does my DM chat hang? Also devtools are still not open-able... please really investigate how we can ship them enabled with electron binary. Also for some reason on X11 Ctrl+Shift+I is stolen from other applications?! You know that I might have multiple browsers open and Ctrl+Shift+I needs to work in all of them?

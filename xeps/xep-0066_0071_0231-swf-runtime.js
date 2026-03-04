@@ -2,6 +2,111 @@
  * SWF runtime/PiP lifecycle extracted from app.js.
  * Keeps media transport and runtime orchestration in xeps/.
  */
+const SWF_RUNTIME_FAILURE_WINDOW_MS = 90_000;
+const SWF_RUNTIME_FAILURE_COOLDOWN_MS = 180_000;
+const SWF_RUNTIME_FAILURE_PANIC_COOLDOWN_MS = 600_000;
+const SWF_RUNTIME_FAILURE_LIMIT = 3;
+const swfRuntimeFailureState = new Map();
+
+function normalizeSwfFailureUrl(url) {
+  const value = (url || "").toString().trim();
+  if (!value) return "";
+  try {
+    return resolveMediaUrl(value);
+  } catch {
+    return value;
+  }
+}
+
+function swfFailureStateKeys(runtimeKey, attachmentOrUrl = null) {
+  const keys = [];
+  if (runtimeKey) keys.push(`runtime:${runtimeKey}`);
+  const rawUrl = typeof attachmentOrUrl === "string"
+    ? attachmentOrUrl
+    : (attachmentOrUrl?.url || "");
+  const normalizedUrl = normalizeSwfFailureUrl(rawUrl);
+  if (normalizedUrl) keys.push(`url:${normalizedUrl}`);
+  return keys;
+}
+
+function readSwfFailureState(runtimeKey, attachmentOrUrl = null) {
+  const keys = swfFailureStateKeys(runtimeKey, attachmentOrUrl);
+  if (keys.length === 0) return null;
+  let active = null;
+  keys.forEach((key) => {
+    const entry = swfRuntimeFailureState.get(key);
+    if (!entry) return;
+    const failures = Array.isArray(entry.failures)
+      ? entry.failures.filter((at) => Date.now() - Number(at || 0) < SWF_RUNTIME_FAILURE_WINDOW_MS)
+      : [];
+    const normalized = {
+      failures,
+      quarantineUntil: Number(entry.quarantineUntil || 0),
+      panic: Boolean(entry.panic),
+      lastError: String(entry.lastError || "")
+    };
+    swfRuntimeFailureState.set(key, normalized);
+    if (!active || normalized.quarantineUntil > active.quarantineUntil || normalized.failures.length > active.failures.length) {
+      active = normalized;
+    }
+  });
+  return active;
+}
+
+function clearSwfFailureState(runtimeKey, attachmentOrUrl = null) {
+  const keys = swfFailureStateKeys(runtimeKey, attachmentOrUrl);
+  keys.forEach((key) => swfRuntimeFailureState.delete(key));
+}
+
+function recordSwfFailureState(runtimeKey, attachmentOrUrl = null, error = "") {
+  const now = Date.now();
+  const errText = String(error || "");
+  const panic = /panic|out of memory|too many active webgl contexts|ruffle is panicking|unreachable/i.test(errText);
+  const keys = swfFailureStateKeys(runtimeKey, attachmentOrUrl);
+  keys.forEach((key) => {
+    const previous = swfRuntimeFailureState.get(key) || { failures: [], quarantineUntil: 0, panic: false, lastError: "" };
+    const failures = Array.isArray(previous.failures)
+      ? previous.failures.filter((at) => now - Number(at || 0) < SWF_RUNTIME_FAILURE_WINDOW_MS)
+      : [];
+    failures.push(now);
+    const shouldQuarantine = panic || failures.length >= SWF_RUNTIME_FAILURE_LIMIT;
+    const cooldownMs = panic ? SWF_RUNTIME_FAILURE_PANIC_COOLDOWN_MS : SWF_RUNTIME_FAILURE_COOLDOWN_MS;
+    swfRuntimeFailureState.set(key, {
+      failures,
+      quarantineUntil: shouldQuarantine ? Math.max(Number(previous.quarantineUntil || 0), now + cooldownMs) : Number(previous.quarantineUntil || 0),
+      panic: Boolean(previous.panic || panic),
+      lastError: errText
+    });
+  });
+}
+
+function renderSwfFailureFallback(playerWrap, attachment, failureState = null) {
+  if (!(playerWrap instanceof HTMLElement)) return;
+  const mediaUrl = resolveMediaUrl(attachment?.url || "");
+  const until = Number(failureState?.quarantineUntil || 0);
+  const remainingMs = until > Date.now() ? until - Date.now() : 0;
+  const remainingText = remainingMs > 0
+    ? ` Retry in about ${Math.max(1, Math.ceil(remainingMs / 60_000))} min.`
+    : "";
+  playerWrap.innerHTML = "";
+  playerWrap.style.display = "grid";
+  playerWrap.style.placeItems = "center";
+  playerWrap.style.gap = "8px";
+  playerWrap.style.padding = "10px";
+  playerWrap.style.color = "#b8c1cc";
+  playerWrap.style.fontSize = "0.78rem";
+  const message = document.createElement("div");
+  message.textContent = `SWF playback paused after repeated runtime failures.${remainingText}`;
+  playerWrap.appendChild(message);
+  if (mediaUrl) {
+    const link = document.createElement("a");
+    link.href = mediaUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open SWF file";
+    playerWrap.appendChild(link);
+  }
+}
 
 function activateSwfPipTab(runtimeKey) {
   if (!runtimeKey) return;
@@ -1573,6 +1678,16 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
     }
   }
   const mediaUrl = resolveMediaUrl(attachment.url);
+  const initialFailureState = readSwfFailureState(runtimeKey, attachment);
+  if (initialFailureState && Number(initialFailureState.quarantineUntil || 0) > Date.now()) {
+    renderSwfFailureFallback(playerWrap, attachment, initialFailureState);
+    addDebugLog("warn", "Skipped SWF runtime attach due to recent failures", {
+      key: runtimeKey || "",
+      url: mediaUrl,
+      retries: initialFailureState.failures?.length || 0
+    });
+    return;
+  }
   const hasRuffle = Boolean(window.RufflePlayer?.newest);
   if (!hasRuffle) {
     playerWrap.style.display = "grid";
@@ -1857,6 +1972,15 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       }
       let loaded = false;
       for (const candidate of urlCandidates) {
+        const failureState = readSwfFailureState(runtimeKey, attachment);
+        if (failureState && Number(failureState.quarantineUntil || 0) > Date.now()) {
+          addDebugLog("warn", "Stopped SWF load retries due to failure quarantine", {
+            key: runtimeKey || "",
+            url: candidate,
+            retries: failureState.failures?.length || 0
+          });
+          break;
+        }
         let activeState = resolveLoadState();
         if (
           runtimeKey
@@ -1889,14 +2013,18 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           loaded = true;
           break;
         } catch (errorObjectMode) {
-          addDebugLog("warn", "Ruffle object payload load failed", { url: candidate, error: String(errorObjectMode) });
+          const objectError = String(errorObjectMode);
+          addDebugLog("warn", "Ruffle object payload load failed", { url: candidate, error: objectError });
+          recordSwfFailureState(runtimeKey, attachment, objectError);
           try {
             await Promise.resolve(player.load(candidate));
             addDebugLog("info", "Ruffle loaded SWF via string payload", { url: candidate, name: attachment.name || "" });
             loaded = true;
             break;
           } catch (errorStringMode) {
-            addDebugLog("warn", "Ruffle string payload load failed", { url: candidate, error: String(errorStringMode) });
+            const stringError = String(errorStringMode);
+            addDebugLog("warn", "Ruffle string payload load failed", { url: candidate, error: stringError });
+            recordSwfFailureState(runtimeKey, attachment, stringError);
             const dataLoaded = await tryDataLoad(candidate);
             if (dataLoaded) {
               loaded = true;
@@ -1906,6 +2034,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         }
       }
       if (!loaded) {
+        const failureState = readSwfFailureState(runtimeKey, attachment);
         const failedState = resolveLoadState();
         const corsHint = isExternalMediaUrl(mediaUrl)
           ? " External host may be blocking CORS for this app origin."
@@ -1930,8 +2059,14 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
           }
           refreshSwfRuntimeHealthUi(runtimeKey);
         }
+        recordSwfFailureState(runtimeKey, attachment, failureState?.lastError || "swf-load-failed");
+        const latestFailureState = readSwfFailureState(runtimeKey, attachment);
+        if (latestFailureState && Number(latestFailureState.quarantineUntil || 0) > Date.now()) {
+          renderSwfFailureFallback(playerWrap, attachment, latestFailureState);
+        }
         return;
       }
+      clearSwfFailureState(runtimeKey, attachment);
       if (runtimeKey) {
         const runtime = swfRuntimes.get(runtimeKey);
         if (!runtime || runtime.player !== player) return;
@@ -1968,8 +2103,10 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
       }
     };
     void loadWithFallback();
-  } catch {
-    addDebugLog("error", "Ruffle player creation failed", { url: mediaUrl, name: attachment.name || "" });
+  } catch (error) {
+    const errorText = String(error || "");
+    recordSwfFailureState(runtimeKey, attachment, errorText);
+    addDebugLog("error", "Ruffle player creation failed", { url: mediaUrl, name: attachment.name || "", error: errorText });
     playerWrap.textContent = "Ruffle failed to load this SWF.";
   }
 }

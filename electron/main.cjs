@@ -61,7 +61,7 @@ if (process.platform === "linux") {
   applyEarlyRuntimeEnv(EARLY_RUNTIME_DIR);
 }
 
-const { app, BrowserWindow, dialog, session, ipcMain, desktopCapturer, globalShortcut, Menu } = require("electron");
+const { app, BrowserWindow, dialog, session, ipcMain, desktopCapturer, Menu } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const https = require("node:https");
@@ -72,7 +72,7 @@ const PRELOAD_PATH = path.join(__dirname, "preload.cjs");
 const ELECTRON_PIPEWIRE = String(process.env.S67_ELECTRON_PIPEWIRE || "on").toLowerCase();
 const ELECTRON_OZONE_HINT = String(process.env.S67_ELECTRON_OZONE_HINT || "auto").toLowerCase();
 const ELECTRON_PLATFORM_OVERRIDE = String(process.env.S67_ELECTRON_PLATFORM_OVERRIDE || "").toLowerCase();
-const ELECTRON_REMOTE_DEBUG_PORT = String(process.env.S67_REMOTE_DEBUGGING_PORT || "9222").trim();
+const ELECTRON_REMOTE_DEBUG_PORT = String(process.env.S67_REMOTE_DEBUGGING_PORT || "").trim();
 
 function appendChromiumFeatureFlag(flag) {
   if (!flag) return;
@@ -669,33 +669,12 @@ function handleInternalS67Url(target, windowInstance) {
 }
 
 function registerDevtoolsGlobalShortcuts() {
-  if (devtoolsShortcutsRegistered) return;
-  const shortcuts = [
-    "F12",
-    "CommandOrControl+Shift+I",
-    "CommandOrControl+Shift+J",
-    "CommandOrControl+Alt+I"
-  ];
-  let registeredAny = false;
-  shortcuts.forEach((accelerator) => {
-    try {
-      const ok = globalShortcut.register(accelerator, () => {
-        toggleDevtoolsForWindow(BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs: 450 });
-      });
-      if (ok) registeredAny = true;
-    } catch (error) {
-      log("failed to register devtools shortcut", `${accelerator} ${String(error?.message || error)}`);
-    }
-  });
-  devtoolsShortcutsRegistered = registeredAny;
+  // Intentionally disabled: global shortcuts hijack key combos outside the app
+  // (e.g. Ctrl+Shift+I in browsers on X11). We keep app-local shortcuts only.
+  devtoolsShortcutsRegistered = false;
 }
 
 function unregisterDevtoolsGlobalShortcuts() {
-  try {
-    globalShortcut.unregisterAll();
-  } catch {
-    // no-op
-  }
   devtoolsShortcutsRegistered = false;
 }
 
