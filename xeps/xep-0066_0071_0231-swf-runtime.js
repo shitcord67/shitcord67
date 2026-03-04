@@ -303,8 +303,9 @@ function clampPipDockAboveComposer(dockElement) {
   const maxLeft = Math.max(margins.left, window.innerWidth - rect.width - margins.right);
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
   const maxTopByViewport = window.innerHeight - rect.height - margins.bottom;
+  const composerGap = 8;
   const maxTopByComposer = composerRect
-    ? composerRect.top - rect.height - margins.bottom
+    ? composerRect.top - rect.height - composerGap
     : maxTopByViewport;
   const maxTop = Math.max(margins.top, Math.min(maxTopByViewport, maxTopByComposer));
   const nextLeft = Math.max(margins.left, Math.min(maxLeft, rect.left));
@@ -361,7 +362,7 @@ function updateVideoPipDockLayout() {
   let left = Math.max(margins.left, window.innerWidth - width - Math.max(14, margins.right));
   let top = Math.max(margins.top, window.innerHeight - height - Math.max(208, margins.bottom));
   if (composerRect) {
-    top = Math.max(margins.top, composerRect.top - height - margins.bottom);
+    top = Math.max(margins.top, composerRect.top - height - 8);
   }
   if (ui.swfPipDock instanceof HTMLElement && !ui.swfPipDock.classList.contains("swf-pip--hidden")) {
     const swfRect = ui.swfPipDock.getBoundingClientRect();
@@ -2719,8 +2720,9 @@ function clampPipBoundsForRect(target, left, top, width, height) {
   const margins = pipViewportMargins();
   const maxLeft = Math.max(margins.left, window.innerWidth - nextWidth - margins.right);
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  const composerGap = 8;
   const maxTop = composerRect
-    ? Math.max(margins.top, composerRect.top - nextHeight - margins.bottom)
+    ? Math.max(margins.top, composerRect.top - nextHeight - composerGap)
     : Math.max(margins.top, window.innerHeight - nextHeight - margins.bottom);
   return {
     left: Math.max(margins.left, Math.min(maxLeft, left)),
@@ -2733,6 +2735,7 @@ function clampPipBoundsForRect(target, left, top, width, height) {
 const handlePipDragMove = (event) => {
   if (pipResizeState?.resizing) return;
   if (!pipDragState?.dragging) return;
+  if (pipDragState.pointerId !== null && typeof event.pointerId === "number" && event.pointerId !== pipDragState.pointerId) return;
   if (event.cancelable) event.preventDefault();
   const targetDock = pipDragState.target === "video" ? ui.videoPipDock : ui.swfPipDock;
   if (!(targetDock instanceof HTMLElement)) return;
@@ -2741,8 +2744,9 @@ const handlePipDragMove = (event) => {
   const dockRect = targetDock.getBoundingClientRect();
   const margins = pipViewportMargins();
   const composerRect = ui.messageForm?.getBoundingClientRect?.();
+  const composerGap = 8;
   const maxTop = composerRect
-    ? Math.max(margins.top, composerRect.top - dockRect.height - margins.bottom)
+    ? Math.max(margins.top, composerRect.top - dockRect.height - composerGap)
     : Math.max(margins.top, window.innerHeight - dockRect.height - margins.bottom);
   const nextLeft = Math.max(
     margins.left,
@@ -2925,16 +2929,19 @@ function bindPipInteractionListeners() {
     uiRef.swfViewerZoomInput.addEventListener("input", applySwfViewerZoom);
   }
 
-  document.addEventListener("mousemove", handlePipDragMove);
-  document.addEventListener("pointermove", handlePipDragMove);
-  document.addEventListener("mousemove", handlePipResizeMove);
-  document.addEventListener("pointermove", handlePipResizeMove);
-  document.addEventListener("mouseup", finishPipDrag);
-  document.addEventListener("pointerup", finishPipDrag);
-  document.addEventListener("pointercancel", finishPipDrag);
-  document.addEventListener("mouseup", finishPipResize);
-  document.addEventListener("pointerup", finishPipResize);
-  document.addEventListener("pointercancel", finishPipResize);
+  if (typeof window !== "undefined" && "PointerEvent" in window) {
+    document.addEventListener("pointermove", handlePipDragMove);
+    document.addEventListener("pointermove", handlePipResizeMove);
+    document.addEventListener("pointerup", finishPipDrag);
+    document.addEventListener("pointercancel", finishPipDrag);
+    document.addEventListener("pointerup", finishPipResize);
+    document.addEventListener("pointercancel", finishPipResize);
+  } else {
+    document.addEventListener("mousemove", handlePipDragMove);
+    document.addEventListener("mousemove", handlePipResizeMove);
+    document.addEventListener("mouseup", finishPipDrag);
+    document.addEventListener("mouseup", finishPipResize);
+  }
 
   pipInteractionBindingsReady = true;
   return true;

@@ -193,6 +193,29 @@ body[data-platform="android"] #app {
   padding-left: max(var(--app-safe-left), var(--android-safe-extra-left));
 }
 
+body[data-platform="android"]::before,
+body[data-platform="android"]::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 9500;
+  background: #2c2f36;
+}
+
+body[data-platform="android"]::before {
+  top: 0;
+  height: max(var(--app-safe-top), var(--android-safe-extra-top));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body[data-platform="android"]::after {
+  bottom: 0;
+  height: max(var(--app-safe-bottom), var(--android-safe-extra-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 body[data-platform="android"] .chat-topic-edit {
   padding: 0.4rem 0.6rem;
   font-size: 0.78rem;
@@ -3695,8 +3718,7 @@ body[data-mobile="on"] .reaction-picker button {
   border-radius: 6px;
   border: 1px solid #2f3239;
   overflow: hidden;
-  will-change: transform;
-  transform: translateZ(0);
+  contain: layout paint;
 }
 
 .message-swf-player--floating {
@@ -4285,6 +4307,13 @@ body[data-mobile="on"] .reaction-picker button {
   position: fixed !important;
   z-index: 9210;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+body[data-mobile="on"] .message-attachment--swf .message-swf-player {
+  content-visibility: auto;
+  contain-intrinsic-size: 420px 240px;
 }
 
 .video-pip {
