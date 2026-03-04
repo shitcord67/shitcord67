@@ -7602,3 +7602,37 @@ Please look at the questions file and from there at other files and then get to 
 
 
 [2026-03-04 14:14:29 +0100] › Can you continue working on where you left off?
+
+## 2026-03-04T15:30:41+01:00
+User prompt (full request summary with attached runtime logs):
+- After leaving a chat + SWF, destroy Ruffle instances for that chat that are not in SWF PiP after 1 minute.
+- Movim calls: invite not visible / never establishes; Dino incoming call appears but Dino reports "Call failed to establish".
+- Outgoing calls: both Movim and Dino get invites; Movim never establishes; Dino establishes with one-way media UX issues.
+- Audio output routing issue: remote Dino audio not redirected to selected sink.
+- Device pickers reset to default immediately when selecting audio/webcam.
+- Do not share webcam by default.
+- For video calls, show webcam selection before sharing.
+- Fix devtools not working in packaged Electron run.
+- User provided extensive logs showing Jingle/JMI/call-invite interop, including errors like:
+  - `mismatching creator` on content-modify.
+  - `unknown content` on transport-info for video content not negotiated.
+  - repeated CORS fetch failures against meet.jit.si URL checks.
+  - `Uncaught TypeError: Cannot set properties of undefined (setting 'callAudioOutputId')` in xep-native-call-ui-runtime.js.
+  - optional bundled runtimes missing for ruffle/dotlottie.
+- Online sidebar UX:
+  - Presence indicator should be outside/overlay avatar as uncut round circle.
+  - Research Discord blog nameplates and make nameplates fancy using SVG SMIL in online sidebar.
+- Implement some TODO items.
+- Android:
+  - Add button on login screen to request storage permission.
+  - After grant, read stored credentials from Documents folder.
+  - Investigate chat title behind notch on Android 15 (needs top padding like Discord).
+  - Investigate content drawing below virtual nav bar (missing bottom insets/padding).
+  - Investigate SWF PiP broken on Android (SWFs stay in chat instead of PiP).
+- Media support:
+  - Investigate why .wav has no audio player.
+- Desktop Linux/X11:
+  - Investigate Xdnd drag-and-drop not appearing in draft media preview.
+- UX request:
+  - Bigger media preview than circle, or click circle to expand preview before send.
+- Also asked whether Android/electron/Chromium documentation was downloaded.

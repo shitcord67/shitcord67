@@ -128,6 +128,10 @@
 - [done] Added native call participant status chips in tiles (`on hold`, `mic off`, `cam off`, `reconnecting`) for quicker call-state readability.
 - [done] Added active-speaker tile highlighting for native XMPP call surfaces (local + remote audio-level detection with cleanup on end/close).
 - [done] Added in-call source pickers: Electron display/window chooser for screenshare and camera picker with live preview before apply.
+- [done] Fixed native call device preference writes crashing (`callAudioOutputId`) by hardening mutable preference state updates in call UI controls.
+- [done] Improved cross-client Jingle interop by preserving negotiated content creator in `content-modify` and limiting `transport-info` targets to negotiated remote contents.
+- [done] Outgoing DM native call proposals now dual-send to full and bare JID targets for better multi-resource client interoperability (Movim/Dino mixes).
+- [done] Hardened webcam privacy defaults in native calls: camera tracks now start disabled and enabling camera opens picker-first flow.
 - [done] Added explicit screen-share audio controls (system/tab audio + optional mic mix) with persisted preferences and runtime capture wiring.
 - [done] Added live in-session camera device track replacement (camera-mode swap without full local media teardown; screen-share mode defers camera apply).
 - [done] Added live in-session microphone device track replacement in camera mode (screen-share mode falls back to full reacquire for mixed audio path).
@@ -367,6 +371,7 @@
 - [done] Hardened SWF async load lifecycle against detach races so PiP/parked/tab-preserved runtimes are not torn down mid-load.
 - [done] SWF runtimes now enter keep-alive mode after first PiP use and are parked/recovered instead of being destroyed on detach.
 - [done] PiP toggle now waits for lazy SWF runtime startup, so PiP works even when clicked while a SWF is still loading.
+- [done] Added deferred cleanup for parked SWF runtimes: detached non-PiP runtimes auto-destroy after 60s, while PiP/reattached runtimes cancel cleanup.
 - [done] Local media runtime probing no longer injects missing script paths; it verifies local JS module responses before loading.
 - [done] Added explicit renderer CSP meta policy for Electron hardening (no `unsafe-eval`).
 - [done] Consecutive same-author message grouping now compacts more aggressively (denser gutter, tighter head/text spacing, longer grouping window).

@@ -37,6 +37,14 @@ public class MainActivity extends BridgeActivity {
             return insets;
         });
         root.post(() -> ViewCompat.requestApplyInsets(root));
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(bridge.getWebView(), (view, insets) -> {
+                publishInsetsToWeb(insets);
+                return insets;
+            });
+            bridge.getWebView().post(() -> ViewCompat.requestApplyInsets(bridge.getWebView()));
+        }
     }
 
     @Override
@@ -45,6 +53,10 @@ public class MainActivity extends BridgeActivity {
         View root = findViewById(android.R.id.content);
         if (root != null) {
             root.post(() -> ViewCompat.requestApplyInsets(root));
+        }
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().post(() -> ViewCompat.requestApplyInsets(bridge.getWebView()));
         }
     }
 
@@ -56,11 +68,17 @@ public class MainActivity extends BridgeActivity {
         if (root != null) {
             ViewCompat.requestApplyInsets(root);
         }
+        Bridge bridge = getBridge();
+        if (bridge != null && bridge.getWebView() != null) {
+            ViewCompat.requestApplyInsets(bridge.getWebView());
+        }
     }
 
     private void publishInsetsToWeb(WindowInsetsCompat insetsCompat) {
         if (insetsCompat == null) return;
-        final int insetMask = WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout();
+        final int insetMask = WindowInsetsCompat.Type.systemBars()
+            | WindowInsetsCompat.Type.displayCutout()
+            | WindowInsetsCompat.Type.systemGestures();
         Insets visibleInsets = insetsCompat.getInsets(insetMask);
         Insets stableInsets = insetsCompat.getInsetsIgnoringVisibility(insetMask);
         int left = Math.max(visibleInsets.left, stableInsets.left);

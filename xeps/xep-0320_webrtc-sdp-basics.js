@@ -1360,13 +1360,17 @@
       seenContentNames.add(normalizedName);
       contentCatalog.push({ name: normalizedName, media: normalizedMedia });
     };
-    (Array.isArray(sessionRemoteContents) ? sessionRemoteContents : []).forEach((entry, index) => {
+    const remoteEntries = (Array.isArray(sessionRemoteContents) ? sessionRemoteContents : []);
+    remoteEntries.forEach((entry, index) => {
       const media = (entry?.media || "").toString().trim().toLowerCase();
       if (media !== "audio" && media !== "video") return;
       const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
-      pushContent(media, media);
       pushContent(name, media);
     });
+    const hasRemoteCatalog = contentCatalog.length > 0;
+    if (hasRemoteCatalog) {
+      return contentCatalog;
+    }
     (Array.isArray(localSdpContents) ? localSdpContents : []).forEach((entry, index) => {
       const media = (entry?.media || "").toString().trim().toLowerCase();
       if (media !== "audio" && media !== "video") return;

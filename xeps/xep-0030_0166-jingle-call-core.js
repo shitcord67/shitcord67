@@ -1095,18 +1095,37 @@ function xmppStartOutgoingCallProposal({
   )];
   const offeredMedia = normalizedMedia.length > 0 ? normalizedMedia : XMPP_CALL_DEFAULT_MEDIA;
   const sessionId = `jmi-${createId().slice(0, 12)}`;
-  const sentJmi = xmppSendJingleMessageAction(target, "propose", {
+  const sentJmiPrimary = xmppSendJingleMessageAction(target, "propose", {
     sessionId,
     media: offeredMedia,
     preferFull: true
   });
-  const sentCallInviteCompat = xmppSendCallInviteAction(target, "invite", {
+  const sentCallInvitePrimary = xmppSendCallInviteAction(target, "invite", {
     sessionId,
     audio: offeredMedia.includes("audio"),
     video: offeredMedia.includes("video"),
     preferFull: true,
     fallbackBody: "Incoming XMPP call invite."
   });
+  const targetIsFull = target.includes("/");
+  const sentJmiBare = targetIsFull
+    ? xmppSendJingleMessageAction(peerBare, "propose", {
+      sessionId,
+      media: offeredMedia,
+      preferFull: false
+    })
+    : false;
+  const sentCallInviteBare = targetIsFull
+    ? xmppSendCallInviteAction(peerBare, "invite", {
+      sessionId,
+      audio: offeredMedia.includes("audio"),
+      video: offeredMedia.includes("video"),
+      preferFull: false,
+      fallbackBody: "Incoming XMPP call invite."
+    })
+    : false;
+  const sentJmi = Boolean(sentJmiPrimary || sentJmiBare);
+  const sentCallInviteCompat = sentCallInvitePrimary || sentCallInviteBare || "";
   const sent = Boolean(sentJmi || sentCallInviteCompat);
   if (!sent) return false;
   const timeoutId = window.setTimeout(() => {

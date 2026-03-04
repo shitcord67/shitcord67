@@ -162,9 +162,9 @@ async function openNativeCallScreenSharePicker(sessionId = "") {
   cancelBtn.textContent = "Cancel";
   cancelBtn.addEventListener("click", () => dialog.close());
   startBtn.addEventListener("click", async () => {
-    state.preferences = getPreferences();
-    state.preferences.callScreenSystemAudio = systemAudioInput.checked ? "on" : "off";
-    state.preferences.callScreenMicMix = micMixInput.checked ? "on" : "off";
+    const prefsState = ensureMutablePreferencesState();
+    prefsState.callScreenSystemAudio = systemAudioInput.checked ? "on" : "off";
+    prefsState.callScreenMicMix = micMixInput.checked ? "on" : "off";
     saveState();
     dialog.close();
     await xmppSwitchLocalMediaMode(sid, "screen", {
@@ -238,9 +238,9 @@ async function openNativeCallScreenSharePicker(sessionId = "") {
         showToast(saved?.error || "Could not queue selected display source.", { tone: "error", duration: 2600 });
         return;
       }
-      state.preferences = getPreferences();
-      state.preferences.callScreenSystemAudio = systemAudioInput.checked ? "on" : "off";
-      state.preferences.callScreenMicMix = micMixInput.checked ? "on" : "off";
+      const prefsState = ensureMutablePreferencesState();
+      prefsState.callScreenSystemAudio = systemAudioInput.checked ? "on" : "off";
+      prefsState.callScreenMicMix = micMixInput.checked ? "on" : "off";
       saveState();
       dialog.close();
       await xmppSwitchLocalMediaMode(sid, "screen", {
@@ -279,6 +279,17 @@ function buildNativeCallDeviceSelectOptions(select, items, selectedId, fallbackL
     option.selected = true;
     select.appendChild(option);
   }
+}
+
+function ensureMutablePreferencesState() {
+  const existing = (state && typeof state === "object" && state.preferences && typeof state.preferences === "object")
+    ? state.preferences
+    : null;
+  if (existing) return existing;
+  const fallback = getPreferences();
+  const next = (fallback && typeof fallback === "object") ? { ...fallback } : {};
+  state.preferences = next;
+  return next;
 }
 
 async function openNativeCallCameraPicker(sessionId = "") {
@@ -354,12 +365,12 @@ async function openNativeCallCameraPicker(sessionId = "") {
     void startPreview();
   });
   useBtn.addEventListener("click", async () => {
-    state.preferences = getPreferences();
-    state.preferences.callVideoInputId = (select.value || "").toString().trim();
+    const prefsState = ensureMutablePreferencesState();
+    prefsState.callVideoInputId = (select.value || "").toString().trim();
     saveState();
     const localSnapshot = xmppLocalMediaSnapshot(sid);
     const ok = (localSnapshot.mode === "camera" && localSnapshot.videoTracks.length > 0)
-      ? await xmppReplaceLocalCameraTrackForSession(sid, state.preferences.callVideoInputId).catch(() => false)
+      ? await xmppReplaceLocalCameraTrackForSession(sid, prefsState.callVideoInputId).catch(() => false)
       : await xmppReacquireLocalMediaForSession(sid).catch(() => false);
     showToast(ok ? "Camera device updated." : "Failed to switch camera device.", {
       tone: ok ? "info" : "error",
@@ -1271,7 +1282,12 @@ function renderNativeXmppCallSurface(sessionId = "") {
     if (xmppLocalMediaSnapshot(sid).videoTracks.length === 0) {
       await xmppEnsureLocalMediaAttached(sid, { screenShare: localSnapshot.mode === "screen" });
     }
-    const nextEnabled = !xmppLocalMediaSnapshot(sid).videoEnabled;
+    const snapshot = xmppLocalMediaSnapshot(sid);
+    const nextEnabled = !snapshot.videoEnabled;
+    if (nextEnabled && snapshot.mode === "camera") {
+      const pickerOpened = await openNativeCallCameraPicker(sid).catch(() => false);
+      if (pickerOpened) return;
+    }
     xmppSetLocalTracksEnabled(sid, "video", nextEnabled);
   });
   const screenBtn = document.createElement("button");
@@ -1502,22 +1518,22 @@ function renderNativeXmppCallSurface(sessionId = "") {
   };
   audioSelect.addEventListener("change", () => {
     unlockNativeCallSurfaceDevicePicker(sid);
-    state.preferences = getPreferences();
-    state.preferences.callAudioInputId = audioSelect.value;
+    const prefsState = ensureMutablePreferencesState();
+    prefsState.callAudioInputId = audioSelect.value;
     saveState();
     void applyLocalInputDeviceChange({ kind: "audio", label: "Microphone" });
   });
   videoSelect.addEventListener("change", () => {
     unlockNativeCallSurfaceDevicePicker(sid);
-    state.preferences = getPreferences();
-    state.preferences.callVideoInputId = videoSelect.value;
+    const prefsState = ensureMutablePreferencesState();
+    prefsState.callVideoInputId = videoSelect.value;
     saveState();
     void applyLocalInputDeviceChange({ kind: "video", label: "Camera" });
   });
   outputSelect.addEventListener("change", () => {
     unlockNativeCallSurfaceDevicePicker(sid);
-    state.preferences = getPreferences();
-    state.preferences.callAudioOutputId = outputSelect.value;
+    const prefsState = ensureMutablePreferencesState();
+    prefsState.callAudioOutputId = outputSelect.value;
     saveState();
     const remoteVideos = shell.querySelectorAll(".native-call-surface__tile video:not([muted])");
     remoteVideos.forEach((video) => {

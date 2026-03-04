@@ -77,29 +77,16 @@
   }
 
   function ensureLoginNativeCredentialLoadButton() {
-    if (!(ui.loginSavedAccountWrap instanceof HTMLElement)) return null;
     const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
     const isAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());
-    let button = document.getElementById("loginNativeCredentialLoadBtn");
-    if (!(button instanceof HTMLButtonElement)) {
-      const actions = document.createElement("div");
-      actions.className = "settings-inline-actions";
-      button = document.createElement("button");
-      button.type = "button";
-      button.id = "loginNativeCredentialLoadBtn";
-      button.textContent = "Load Docs Credentials";
-      actions.appendChild(button);
-      const anchor = ui.loginSavedAccountSelect instanceof HTMLElement
-        ? ui.loginSavedAccountSelect
-        : ui.loginSavedAccountWrap.lastElementChild;
-      if (anchor?.parentNode === ui.loginSavedAccountWrap) {
-        anchor.insertAdjacentElement("afterend", actions);
-      } else {
-        ui.loginSavedAccountWrap.appendChild(actions);
-      }
-    }
+    let button = ui.loginStoragePermissionBtn instanceof HTMLButtonElement
+      ? ui.loginStoragePermissionBtn
+      : document.getElementById("loginNativeCredentialLoadBtn");
+    if (!(button instanceof HTMLButtonElement)) return null;
     button.hidden = !isAndroid;
     button.disabled = !isAndroid;
+    button.textContent = "Allow Docs Access";
+    button.title = "Request Documents permission and load stored credentials";
     if (button.dataset.bound !== "on") {
       button.dataset.bound = "on";
       button.addEventListener("click", async () => {
@@ -111,9 +98,11 @@
         }
         button.disabled = true;
         try {
+          let granted = true;
           if (typeof runtime.requestPermission === "function") {
             const permission = await runtime.requestPermission();
-            if (!permission?.granted) {
+            granted = Boolean(permission?.granted);
+            if (!granted) {
               showToast("Documents permission is required to load credentials.", { tone: "error", duration: 3200 });
               return;
             }
@@ -121,8 +110,8 @@
           const hydrated = typeof runtime.hydrateIntoState === "function"
             ? await runtime.hydrateIntoState({ force: true })
             : false;
-          if (!hydrated) {
-            showToast("No credentials found in Documents.", { tone: "error" });
+          if (!hydrated && granted) {
+            showToast("Documents permission granted. No stored credentials found.", { tone: "info" });
             return;
           }
           if (typeof syncLoginFieldsFromSessionPrefs === "function") syncLoginFieldsFromSessionPrefs();

@@ -4699,6 +4699,12 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.72rem;
   font-weight: 800;
   line-height: 1;
+  overflow: visible;
+}
+
+.channel-dm-avatar,
+.dm-home__avatar {
+  overflow: visible;
 }
 
 .avatar-decoration {
@@ -4752,6 +4758,25 @@ body[data-compact-members="on"] .member-item {
   position: absolute;
   right: -1px;
   bottom: -1px;
+}
+
+.member-avatar .presence-dot {
+  width: 12px;
+  height: 12px;
+  right: -3px;
+  bottom: -3px;
+  border: 2px solid var(--bg-member);
+  box-shadow: 0 0 0 1px rgba(9, 11, 17, 0.7);
+}
+
+.channel-dm-avatar .presence-dot,
+.dm-home__avatar .presence-dot {
+  width: 12px;
+  height: 12px;
+  right: -3px;
+  bottom: -3px;
+  border: 2px solid var(--bg-channel);
+  box-shadow: 0 0 0 1px rgba(9, 11, 17, 0.68);
 }
 
 .presence-online {

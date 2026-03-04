@@ -6,7 +6,9 @@ const SWF_RUNTIME_FAILURE_WINDOW_MS = 90_000;
 const SWF_RUNTIME_FAILURE_COOLDOWN_MS = 180_000;
 const SWF_RUNTIME_FAILURE_PANIC_COOLDOWN_MS = 600_000;
 const SWF_RUNTIME_FAILURE_LIMIT = 3;
+const SWF_RUNTIME_PARKED_DESTROY_DELAY_MS = 60_000;
 const swfRuntimeFailureState = new Map();
+const swfRuntimeDeferredDestroyTimers = new Map();
 
 function normalizeSwfFailureUrl(url) {
   const value = (url || "").toString().trim();
@@ -123,6 +125,34 @@ function removeSwfPipTab(runtimeKey) {
     swfPipActiveKey = swfPipTabs[swfPipTabs.length - 1] || null;
   }
   renderSwfPipDock();
+}
+
+function clearDeferredSwfRuntimeDestroy(runtimeKey) {
+  const timer = swfRuntimeDeferredDestroyTimers.get(runtimeKey);
+  if (!timer) return;
+  clearTimeout(timer);
+  swfRuntimeDeferredDestroyTimers.delete(runtimeKey);
+}
+
+function scheduleDeferredSwfRuntimeDestroy(runtimeKey, {
+  delayMs = SWF_RUNTIME_PARKED_DESTROY_DELAY_MS,
+  reason = "parked-timeout"
+} = {}) {
+  const key = (runtimeKey || "").toString().trim();
+  if (!key) return;
+  clearDeferredSwfRuntimeDestroy(key);
+  const timer = setTimeout(() => {
+    swfRuntimeDeferredDestroyTimers.delete(key);
+    const runtime = swfRuntimes.get(key);
+    if (!runtime) return;
+    if (runtime.inPip || runtime.pendingPip || runtime.pipTransitioning || swfPipTabs.includes(key)) return;
+    destroySwfRuntime(key, {
+      reason,
+      force: true,
+      removeHost: true
+    });
+  }, Math.max(5000, Number(delayMs) || SWF_RUNTIME_PARKED_DESTROY_DELAY_MS));
+  swfRuntimeDeferredDestroyTimers.set(key, timer);
 }
 
 function collectLiveSwfRuntimeKeys() {
@@ -417,6 +447,7 @@ function ensurePreservedSwfRuntimeHost(runtimeKey, runtime, reason = "preserve")
   runtime.pipHost = null;
   runtime.pipTransitioning = false;
   runtime.parked = true;
+  scheduleDeferredSwfRuntimeDestroy(runtimeKey, { reason: "preserved-detached" });
   addDebugLog("warn", "Preserved SWF runtime by parking detached host", { key: runtimeKey, reason });
   return true;
 }
@@ -430,6 +461,7 @@ function destroySwfRuntime(runtimeKey, {
   if (!runtimeKey) return false;
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime) return false;
+  clearDeferredSwfRuntimeDestroy(runtimeKey);
   setSwfRuntimeHoverState(runtimeKey, false);
   clearSwfRuntimeHoverOffTimer(runtimeKey);
   clearSwfRuntimeHoverClass(runtime);
@@ -878,6 +910,7 @@ function positionSwfAnchoredRuntimeHosts() {
 function attachExistingSwfRuntime(runtimeKey, hostElement) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player || !(hostElement instanceof HTMLElement)) return false;
+  clearDeferredSwfRuntimeDestroy(runtimeKey);
   setSwfRuntimeHoverState(runtimeKey, false);
   if (shouldUseAnchoredBodySwfRuntime(runtimeKey)) runtime.bodyHosted = true;
   if (!hostElement.classList.contains("message-swf-player")) hostElement.classList.add("message-swf-player");
@@ -934,6 +967,7 @@ function parkSwfRuntimeHost(runtimeKey) {
   runtime.pipTransitioning = false;
   runtime.parked = true;
   applySwfVisibilityPlayback(runtimeKey, false);
+  scheduleDeferredSwfRuntimeDestroy(runtimeKey, { reason: "parked-detached" });
   addDebugLog("info", "Parked SWF runtime host for later reattach", { key: runtimeKey });
   return true;
 }
@@ -941,6 +975,7 @@ function parkSwfRuntimeHost(runtimeKey) {
 function recoverDetachedSwfPipHost(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player || !(runtime.player instanceof HTMLElement)) return false;
+  clearDeferredSwfRuntimeDestroy(runtimeKey);
   let host = runtime.host instanceof HTMLElement ? runtime.host : null;
   if (!host) {
     host = document.createElement("div");
@@ -973,6 +1008,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   if (!(host instanceof HTMLElement)) return false;
   runtime.host = host;
   if (enabled) {
+    clearDeferredSwfRuntimeDestroy(runtimeKey);
     runtime.keepAlive = true;
     if (runtime.loading) {
       runtime.pendingPip = true;
@@ -1015,6 +1051,7 @@ function setSwfRuntimePip(runtimeKey, enabled) {
   runtime.pipHost = null;
   runtime.pipTransitioning = false;
   runtime.parked = false;
+  scheduleDeferredSwfRuntimeDestroy(runtimeKey, { reason: "unpinned-timeout" });
   if (runtime.anchorHost instanceof HTMLElement) runtime.anchorHost.innerHTML = "";
   bindSwfVisibilityObserver(runtimeKey);
   removeSwfPipTab(runtimeKey);

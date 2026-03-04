@@ -474,6 +474,13 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, {
     });
     return null;
   }
+  if (!wantsScreen) {
+    stream.getVideoTracks().forEach((track) => {
+      track.enabled = false;
+    });
+    const liveSession = xmppCallSessionById.get(sid) || null;
+    if (liveSession) liveSession.localVideoMuted = true;
+  }
   xmppCallLocalMediaStreamBySessionId.set(sid, stream);
   if (nextAux) {
     xmppCallLocalAuxStreamsBySessionId.set(sid, nextAux);
@@ -773,6 +780,7 @@ function xmppContentModifyCatalogForSession(sessionId = "", session = null, { lo
       .map((entry, index) => ({
         name: (entry?.name || `${entry?.media || "audio"}${index}`).toString().trim(),
         media: (entry?.media || "").toString().trim().toLowerCase(),
+        creator: (entry?.creator || "").toString().trim().toLowerCase() || "",
         payloadTypes: Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [],
         rtcpFeedback: Array.isArray(entry?.rtcpFeedback) ? entry.rtcpFeedback : [],
         transport: entry?.transport && typeof entry.transport === "object" ? entry.transport : null
@@ -787,6 +795,7 @@ function xmppContentModifyCatalogForSession(sessionId = "", session = null, { lo
         .map((entry, index) => ({
           name: (entry?.name || `${entry?.media || "audio"}${index}`).toString().trim(),
           media: (entry?.media || "").toString().trim().toLowerCase(),
+          creator: (entry?.creator || "").toString().trim().toLowerCase() || "",
           payloadTypes: Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [],
           rtcpFeedback: Array.isArray(entry?.rtcpFeedback) ? entry.rtcpFeedback : [],
           transport: entry?.transport && typeof entry.transport === "object" ? entry.transport : null
@@ -797,6 +806,7 @@ function xmppContentModifyCatalogForSession(sessionId = "", session = null, { lo
   return xmppCallSessionMediaList(session).map((mediaType, index) => ({
     name: `${mediaType}${index}`,
     media: mediaType,
+    creator: localRole,
     payloadTypes: [],
     rtcpFeedback: [],
     transport: null
@@ -835,7 +845,7 @@ function xmppSetLocalTracksEnabled(sessionId = "", kind = "", enabled = true, { 
         name: (entry.name || `${kind}${index}`).toString().trim(),
         media: kind,
         senders,
-        creator: localRole
+        creator: (entry.creator || localRole).toString().trim().toLowerCase() || localRole
       }));
     if (updates.length > 0) {
       xmppSendJingleContentModify(snapshot.session.peerJid, sid, updates);
@@ -940,7 +950,7 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera", { scree
         name: (entry.name || `video${index}`).toString().trim(),
         media: "video",
         senders,
-        creator: localRole
+        creator: (entry.creator || localRole).toString().trim().toLowerCase() || localRole
       }));
     if (updates.length > 0) {
       xmppSendJingleContentModify(session.peerJid, sid, updates);
@@ -1787,6 +1797,20 @@ function renderComposerAttachmentList() {
     row.appendChild(label);
     row.appendChild(remove);
     row.addEventListener("click", () => {
+      if (!visualUrl) return;
+      if (canPreviewVideo) {
+        openMediaLightbox({ url: visualUrl, label: entry.name || "Video", video: true });
+        return;
+      }
+      if (canPreviewImage) {
+        openMediaLightbox({ url: visualUrl, label: entry.name || "Attachment" });
+        return;
+      }
+      openExternalUrlInClient(visualUrl);
+    });
+    remove.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       composerPendingAttachments.splice(index, 1);
       syncPrimaryComposerAttachment();
       if (composerPendingAttachments.length === 0) {
