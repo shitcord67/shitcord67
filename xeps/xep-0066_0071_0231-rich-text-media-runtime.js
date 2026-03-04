@@ -57,16 +57,17 @@ function appendInlineCommandChip(target, label, invocation, { submit = false, ti
   return true;
 }
 
-const INLINE_MD_ESCAPE_SENTINEL = "S67_ESC_";
+const INLINE_MD_ESCAPE_SENTINEL = "\uE000";
+const INLINE_MD_ESCAPE_END = "\uE001";
 
 function encodeInlineMarkdownEscapes(value = "") {
   const raw = (value || "").toString();
-  return raw.replace(/\\([\\`*_~|])/g, (_match, token) => `${INLINE_MD_ESCAPE_SENTINEL}${token.charCodeAt(0)};`);
+  return raw.replace(/\\([\\`*_~|])/g, (_match, token) => `${INLINE_MD_ESCAPE_SENTINEL}${token.charCodeAt(0)}${INLINE_MD_ESCAPE_END}`);
 }
 
 function decodeInlineMarkdownEscapes(value = "") {
   const raw = (value || "").toString();
-  const pattern = new RegExp(`${INLINE_MD_ESCAPE_SENTINEL}(\\d+);`, "g");
+  const pattern = new RegExp(`${INLINE_MD_ESCAPE_SENTINEL}(\\d+)${INLINE_MD_ESCAPE_END}`, "g");
   return raw.replace(pattern, (_match, code) => String.fromCharCode(Number(code) || 0));
 }
 

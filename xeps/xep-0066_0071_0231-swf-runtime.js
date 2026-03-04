@@ -502,6 +502,7 @@ function conversationRenderSignature(conversationId, messageBucket, activeFindId
 function shouldUseAnchoredBodySwfRuntime(runtimeKey) {
   const key = (runtimeKey || "").toString();
   if (!key || key.startsWith("shelf:")) return false;
+  if (document.body?.dataset?.platform === "android" || document.body?.dataset?.mobile === "on") return false;
   return key.includes(":");
 }
 

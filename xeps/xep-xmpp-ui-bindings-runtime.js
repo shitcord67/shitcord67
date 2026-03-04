@@ -56,7 +56,74 @@
     return true;
   }
 
+  function languageFlagForToken(token = "") {
+    const normalized = normalizeLanguage(token || "auto");
+    if (normalized === "de") return "🇩🇪";
+    if (normalized === "en") return "🇺🇸";
+    const detected = detectBrowserUiLocale();
+    return detected === "de" ? "🇩🇪" : "🇺🇸";
+  }
+
+  function syncLoginLanguageButton() {
+    if (!(ui.loginLanguageBtn instanceof HTMLButtonElement)) return;
+    const prefs = getPreferences();
+    const selected = normalizeLanguage(prefs.language || "auto");
+    const resolved = resolveUiLocale(prefs);
+    const flag = languageFlagForToken(selected === "auto" ? resolved : selected);
+    ui.loginLanguageBtn.textContent = flag;
+    const selectedLabel = selected === "auto" ? `Auto (${resolved.toUpperCase()})` : selected.toUpperCase();
+    ui.loginLanguageBtn.title = `Language: ${selectedLabel}. Click to switch.`;
+    ui.loginLanguageBtn.setAttribute("aria-label", `Language ${selectedLabel}. Click to switch.`);
+  }
+
+  function renderLoginSavedAccountSelect() {
+    if (!(ui.loginSavedAccountWrap instanceof HTMLElement) || !(ui.loginSavedAccountSelect instanceof HTMLSelectElement)) return;
+    ui.loginSavedAccountSelect.innerHTML = "";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Select saved account";
+    ui.loginSavedAccountSelect.appendChild(defaultOption);
+    const accounts = Array.isArray(state.accounts)
+      ? [...state.accounts].filter(Boolean)
+      : [];
+    if (accounts.length === 0) {
+      ui.loginSavedAccountWrap.hidden = true;
+      return;
+    }
+    accounts
+      .sort((a, b) => displayNameForAccount(a, null).localeCompare(displayNameForAccount(b, null)))
+      .forEach((account) => {
+        const option = document.createElement("option");
+        option.value = account.id || "";
+        const primary = (account?.xmppJid || account?.username || "").toString().trim();
+        const display = displayNameForAccount(account, null);
+        option.textContent = primary && display && display !== primary ? `${display} (${primary})` : (display || primary || "account");
+        ui.loginSavedAccountSelect.appendChild(option);
+      });
+    ui.loginSavedAccountWrap.hidden = false;
+  }
+
+  function refreshLoginRuntimeUi() {
+    renderLoginSavedAccountSelect();
+    syncLoginLanguageButton();
+  }
+
   function bindXmppLoginUiRuntimeBindings() {
+refreshLoginRuntimeUi();
+
+ui.loginLanguageBtn?.addEventListener("click", () => {
+  state.preferences = getPreferences();
+  const current = normalizeLanguage(state.preferences.language || "auto");
+  const next = current === "auto" ? "en" : current === "en" ? "de" : "auto";
+  state.preferences.language = next;
+  saveState();
+  applyPreferencesToUI();
+  syncLoginLanguageButton();
+  if (ui.settingsScreen?.classList?.contains("settings-screen--active")) {
+    renderSettingsScreen();
+  }
+});
+
 ui.languageOnboardingKeepAutoBtn?.addEventListener("click", () => {
   markLanguageOnboardingSeen();
   ui.languageOnboardingDialog?.close();
@@ -192,6 +259,21 @@ ui.loginLocalProfileSelect?.addEventListener("change", () => {
   ui.loginUsername?.focus();
 });
 
+ui.loginSavedAccountSelect?.addEventListener("change", () => {
+  const selectedId = (ui.loginSavedAccountSelect?.value || "").toString();
+  if (!selectedId) return;
+  const account = Array.isArray(state.accounts)
+    ? state.accounts.find((entry) => entry?.id === selectedId)
+    : null;
+  if (!account) return;
+  const nextIdentity = (account.xmppJid || account.username || "").toString().trim();
+  if (ui.loginUsername) ui.loginUsername.value = nextIdentity;
+  if (ui.loginPassword) ui.loginPassword.value = "";
+  if (ui.loginXmppServer) ui.loginXmppServer.value = "";
+  resetLoginXmppProgress();
+  ui.loginUsername?.focus();
+});
+
 ui.loginXmppServer?.addEventListener("input", () => {
   resetLoginXmppProgress();
   if (!ui.loginXmppServer) return;
@@ -290,14 +372,8 @@ ui.xmppRegisterForm?.addEventListener("submit", async (event) => {
       jid,
       wsUrl: result.wsUrl || wsUrl || ""
     });
-    if (ui.loginUsername) ui.loginUsername.value = jid;
-    if (ui.loginPassword) ui.loginPassword.value = password;
-    if (ui.loginXmppServer) {
-      ui.loginXmppServer.value = result.wsUrl || wsUrl || inferXmppWsUrlFromJid(jid);
-      ui.loginXmppServer.dataset.autofill = "1";
-    }
     ui.xmppRegisterDialog?.close();
-    showToast("Account registered. Log in with the prefilled credentials.");
+    showToast("Account registered. Enter credentials on login to continue.");
   } finally {
     if (ui.registerSubmitBtn instanceof HTMLButtonElement) ui.registerSubmitBtn.disabled = false;
   }
@@ -656,7 +732,8 @@ ui.xmppConsoleCloseBtn?.addEventListener("click", () => {
   globalScope.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME = Object.freeze({
     bindXmppLoginUiRuntimeBindings,
     bindXmppSettingsUiRuntimeBindings,
-    maybeShowLanguageOnboardingPrompt
+    maybeShowLanguageOnboardingPrompt,
+    refreshLoginRuntimeUi
   });
 
   if (typeof globalScope.SHITCORD67_XEP_REGISTRY?.register === "function") {

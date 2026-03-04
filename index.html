@@ -18,9 +18,16 @@
     <div id="loginScreen" class="screen screen--active">
       <div class="login-card">
         <button id="loginXmppConsoleBtn" class="login-debug-btn" type="button" title="Open XMPP Console" aria-label="Open XMPP Console">🛠</button>
+        <button id="loginLanguageBtn" class="login-debug-btn login-language-btn" type="button" title="Switch Language" aria-label="Switch Language">🌐</button>
         <h1>Welcome back</h1>
         <p>Sign in with a username or XMPP credentials to continue to shitcord67</p>
         <form id="loginForm" autocomplete="off">
+          <div id="loginSavedAccountWrap" class="login-local-profile" hidden>
+            <label for="loginSavedAccountSelect">Saved account</label>
+            <select id="loginSavedAccountSelect">
+              <option value="">Select saved account</option>
+            </select>
+          </div>
           <div id="loginLocalProfileWrap" class="login-local-profile" hidden>
             <label for="loginLocalProfileSelect">Local XMPP profile</label>
             <select id="loginLocalProfileSelect">

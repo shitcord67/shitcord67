@@ -583,12 +583,6 @@
     if (ui.loginRememberInput) {
       ui.loginRememberInput.checked = prefs.rememberLogin === "on" && isSessionPersistenceEnabled();
     }
-    if (ui.loginUsername && !ui.loginUsername.value && prefs.xmppJid) {
-      ui.loginUsername.value = prefs.xmppJid;
-    }
-    if (ui.loginXmppServer && !ui.loginXmppServer.value && prefs.xmppWsUrl) {
-      ui.loginXmppServer.value = prefs.xmppWsUrl;
-    }
   }
 
   function openXmppRegisterDialog() {

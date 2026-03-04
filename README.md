@@ -367,6 +367,8 @@ Notes:
 - Persisted state in `localStorage` (`shitcord67-state-v1`, with migration from `flashcord-state-v2` and `flashcord-state-v1`).
 - Login/settings/chat views are now viewport-isolated (no page-level scroll between app sections).
 - Login now supports optional XMPP credentials (JID/password/WebSocket URL), JID-based server auto-detection, and a remember-login toggle.
+- Login now exposes a compact language-flag switcher in the card header (persisted preference) and a saved-account dropdown even when only one account exists.
+- Login field auto-prefill from remembered credentials is disabled by default; use saved-account/local-profile selectors explicitly when needed.
 - Added login-time XMPP provider/registration directory modal with quick server prefill actions.
 - Added in-client XMPP registration dialog on login (uses local gateway `/register` for XEP-0077 attempt).
 - DM sidebar now supports a Discord-like `Add Friend` modal that accepts username or full XMPP JID and can send an XMPP subscription request.
@@ -389,6 +391,7 @@ Notes:
 - Self/user profile popouts now surface XMPP presence metadata (linked JID and idle/last-active hints when available) and refresh relative time hints while open.
 - XMPP message edits now use Last Message Correction (`urn:xmpp:message-correct:0`, XEP-0308): incoming `replace` stanzas patch existing DM/MUC messages, and local edits publish correction stanzas when stanza references are known.
 - Sed-style inline corrections now target the latest editable text message more reliably (`s/old/new/`, with optional nth-match form `s/old/new/2`) and reject malformed sed syntax with an explicit composer error toast.
+- `/shrug` now preserves the expected `¯\_(ツ)_/¯` output under the inline markdown renderer.
 - XEP-0333/XEP-0308 stanza builder insertion for `markable` and `replace` is now centralized in `xeps/xep-0333_0359_0372_0444_0482-message-builders.js` with duplicate-node guards for reused builders.
 - XMPP DM views now use MAM (`urn:xmpp:mam:2`) paging with `with=<peer-jid>` so recent/older DM archive can be loaded on demand (including scroll-up and explicit load button).
 - DM MAM/carbon handling now keeps self-authored messages in thread history by resolving peer from `to=` when archived stanzas come from your own bare JID.
@@ -450,6 +453,8 @@ Notes:
 - Text/binary attachment previews are cached in-memory to reduce repeated network fetches and scrolling lag while browsing history.
 - Text/Markdown preview fetches now request only a leading byte range first, which makes first paint noticeably faster on larger files.
 - Body-hosted in-chat SWF runtimes now keep header/composer above overlayed content and follow message scroll positioning more reliably.
+- Android/mobile now keeps SWF runtimes inline with message content (instead of body-anchored hosts) to reduce perceived scroll-follow lag.
+- Android attachment video playback now prefers direct media URLs and sets stricter inline-play attributes for better WebView compatibility.
 - Anchored in-chat SWF overlays are clipped to the message list viewport so they do not bleed over the composer area while scrolling.
 - In-chat SWF control rails/headers are layered above anchored runtimes so controls remain usable.
 - Default initial avatars now use deterministic per-user fallback colors and centered SVG initials for clearer participant lists.

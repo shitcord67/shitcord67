@@ -792,6 +792,8 @@ const ui = {
   loginScreen: document.getElementById("loginScreen"),
   chatScreen: document.getElementById("chatScreen"),
   loginForm: document.getElementById("loginForm"),
+  loginSavedAccountWrap: document.getElementById("loginSavedAccountWrap"),
+  loginSavedAccountSelect: document.getElementById("loginSavedAccountSelect"),
   loginLocalProfileWrap: document.getElementById("loginLocalProfileWrap"),
   loginLocalProfileSelect: document.getElementById("loginLocalProfileSelect"),
   loginUsername: document.getElementById("loginUsername"),
@@ -802,6 +804,7 @@ const ui = {
   loginProvidersBtn: document.getElementById("loginProvidersBtn"),
   loginRegisterBtn: document.getElementById("loginRegisterBtn"),
   loginXmppConsoleBtn: document.getElementById("loginXmppConsoleBtn"),
+  loginLanguageBtn: document.getElementById("loginLanguageBtn"),
   loginXmppProgress: document.getElementById("loginXmppProgress"),
   loginXmppProgressStatus: document.getElementById("loginXmppProgressStatus"),
   loginXmppProgressTimer: document.getElementById("loginXmppProgressTimer"),
@@ -1468,9 +1471,6 @@ async function hydrateNativeCredentialsIntoState({ force = false } = {}) {
   if (wsUrl) state.preferences.xmppWsUrl = wsUrl;
   state.preferences.rememberLoginStorage = "on";
   state.preferences.rememberLogin = "on";
-  if (ui.loginUsername && jid) ui.loginUsername.value = jid;
-  if (ui.loginPassword && typeof saved.password === "string") ui.loginPassword.value = password;
-  if (ui.loginXmppServer && wsUrl) ui.loginXmppServer.value = wsUrl;
   queueMicrotask(() => {
     if (typeof saveState === "function") saveState();
     if (typeof renderSettingsScreen === "function") renderSettingsScreen();

@@ -201,12 +201,18 @@ function createPdfPreviewElement(sourceUrl, attachmentName = "PDF") {
 function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = null, options = {}) {
   const opts = options && typeof options === "object" ? options : {};
   const animatedLoop = Boolean(opts.animatedLoop);
-  const preferDirect = Boolean(opts.preferDirect);
+  const androidLike = document.body?.dataset?.platform === "android" || document.body?.dataset?.mobile === "on";
+  const preferDirect = Boolean(opts.preferDirect || androidLike);
   const cleanedSourceUrl = resolveMediaUrl(sourceUrl);
   const proxyCandidate = preferDirect ? "" : resolveMediaPlaybackUrl(cleanedSourceUrl, { kind: "video" });
   const candidates = [];
-  if (proxyCandidate) candidates.push(proxyCandidate);
-  if (cleanedSourceUrl && !candidates.includes(cleanedSourceUrl)) candidates.push(cleanedSourceUrl);
+  if (preferDirect) {
+    if (cleanedSourceUrl) candidates.push(cleanedSourceUrl);
+    if (proxyCandidate && !candidates.includes(proxyCandidate)) candidates.push(proxyCandidate);
+  } else {
+    if (proxyCandidate) candidates.push(proxyCandidate);
+    if (cleanedSourceUrl && !candidates.includes(cleanedSourceUrl)) candidates.push(cleanedSourceUrl);
+  }
   if (candidates.length === 0) candidates.push(cleanedSourceUrl || sourceUrl || "");
   const preferNativeControls = document.body?.dataset?.platform === "android" || document.body?.dataset?.mobile === "on";
   const video = document.createElement("video");
@@ -216,6 +222,9 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   video.dataset.forceMuted = animatedLoop ? "1" : "0";
   video.controls = Boolean(preferNativeControls);
   video.playsInline = true;
+  video.setAttribute("playsinline", "");
+  video.setAttribute("webkit-playsinline", "true");
+  video.setAttribute("x5-playsinline", "true");
   video.preload = "metadata";
   video.referrerPolicy = "no-referrer";
   let candidateIndex = 0;

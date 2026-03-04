@@ -1913,6 +1913,9 @@ function renderScreens() {
       accountRuntime.maybeLoadProtocolLoginProfiles({ loggedIn });
     }
     const uiBindings = window.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || null;
+    if (typeof uiBindings?.refreshLoginRuntimeUi === "function") {
+      uiBindings.refreshLoginRuntimeUi();
+    }
     if (typeof uiBindings?.maybeShowLanguageOnboardingPrompt === "function") {
       uiBindings.maybeShowLanguageOnboardingPrompt();
     }
