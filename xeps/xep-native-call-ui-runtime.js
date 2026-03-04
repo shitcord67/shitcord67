@@ -507,7 +507,7 @@ function isNativeCallSurfaceDevicePickerFocused(sessionId = "") {
   if (!active.classList.contains("native-call-surface__select")) return false;
   const shell = active.closest(".native-call-surface");
   if (!(shell instanceof HTMLElement)) return false;
-  return (shell.dataset.sid || "").toString().trim() === sid;
+  return (shell.dataset.sessionId || "").toString().trim() === sid;
 }
 
 function lockNativeCallSurfaceDevicePicker(sessionId = "") {
@@ -556,7 +556,11 @@ function scheduleNativeCallSurfaceTicker(sessionId = "") {
       scheduleNativeCallSurfaceTicker(sid);
       return;
     }
-    renderNativeXmppCallSurface(sid);
+    if (!updateNativeCallSurfaceTickerUi(sid)) {
+      renderNativeXmppCallSurface(sid);
+      return;
+    }
+    scheduleNativeCallSurfaceTicker(sid);
   }, 1000);
 }
 
@@ -569,6 +573,53 @@ function formatNativeCallDuration(ms = 0) {
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function updateNativeCallSurfaceTickerUi(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const shell = document.querySelector(`.native-call-surface[data-session-id="${sid}"]`);
+  if (!(shell instanceof HTMLElement)) return false;
+  const session = xmppCallSessionById.get(sid) || null;
+  const peer = xmppBareJid(session?.peerJid || "");
+  const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
+  const pcState = (pcEntry?.pc?.connectionState || "").toString().trim();
+  const iceState = (pcEntry?.pc?.iceConnectionState || "").toString().trim();
+  const createdAtMsRaw = Number(session?.createdAt);
+  const createdAtMs = Number.isFinite(createdAtMsRaw) && createdAtMsRaw > 0
+    ? createdAtMsRaw
+    : Date.parse((session?.createdAt || "").toString());
+  const durationText = Number.isFinite(createdAtMs) && createdAtMs > 0
+    ? formatNativeCallDuration(Date.now() - createdAtMs)
+    : "";
+  const flags = [
+    session?.pendingLocalRenegotiation ? "reprime" : "",
+    xmppCallSessionTaskChainBySessionId.has(sid) ? "queued" : "",
+    xmppCallPendingReprimeBySessionId.has(sid) ? "debounce" : "",
+    session?.localHold ? "hold" : "",
+    session?.remoteHold ? "peer-hold" : ""
+  ].filter(Boolean);
+  const stateBits = [
+    peer || "peer",
+    (session?.state || "starting").toString().trim(),
+    durationText ? `dur:${durationText}` : "",
+    pcState ? `pc:${pcState}` : "",
+    iceState ? `ice:${iceState}` : "",
+    ...(flags.length > 0 ? flags : [])
+  ].filter(Boolean);
+  const metaEl = shell.querySelector(".native-call-surface__meta");
+  if (metaEl instanceof HTMLElement) metaEl.textContent = stateBits.join(" · ");
+  const quality = xmppCallQualityChipData(sid, {
+    pcState: pcState.toLowerCase(),
+    iceState: iceState.toLowerCase()
+  });
+  const qualityEl = shell.querySelector(".native-call-surface__quality");
+  if (qualityEl instanceof HTMLElement) {
+    qualityEl.className = `native-call-surface__quality native-call-surface__quality--${quality.level}`;
+    qualityEl.textContent = quality.text;
+  }
+  void refreshXmppCallQualitySnapshot(sid, { force: false });
+  return true;
 }
 
 function computeXmppCallQualityLevel({ rttMs = 0, lossPercent = 0, pcState = "", iceState = "" } = {}) {
@@ -1192,6 +1243,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const title = document.createElement("strong");
   title.textContent = `Native XMPP Call ${sid.slice(0, 8)}`;
   const meta = document.createElement("span");
+  meta.className = "native-call-surface__meta";
   const state = (session?.state || "starting").toString().trim();
   const createdAtMsRaw = Number(session?.createdAt);
   const createdAtMs = Number.isFinite(createdAtMsRaw) && createdAtMsRaw > 0
@@ -1590,6 +1642,10 @@ function renderNativeXmppCallSurface(sessionId = "") {
     video.muted = true;
     video.playsInline = true;
     video.srcObject = localStream;
+    video.addEventListener("loadedmetadata", () => {
+      void video.play().catch(() => null);
+    }, { once: true });
+    void video.play().catch(() => null);
     video.classList.toggle("native-call-surface__video--hidden", localVideoHidden);
     if (localVideoHidden) {
       const placeholder = document.createElement("div");
@@ -1626,7 +1682,13 @@ function renderNativeXmppCallSurface(sessionId = "") {
     video.className = "native-call-surface__video";
     video.autoplay = true;
     video.playsInline = true;
+    video.muted = false;
+    video.volume = 1;
     video.srcObject = stream;
+    video.addEventListener("loadedmetadata", () => {
+      void video.play().catch(() => null);
+    }, { once: true });
+    void video.play().catch(() => null);
     video.classList.toggle("native-call-surface__video--hidden", remoteVideoHidden);
     if (remoteVideoHidden) {
       const placeholder = document.createElement("div");

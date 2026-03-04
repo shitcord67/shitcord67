@@ -7639,3 +7639,7 @@ User prompt (full request summary with attached runtime logs):
 
 ## 2026-03-04T15:53:16+01:00
 User prompt: Yes do all
+
+## 2026-03-04T16:38:46+01:00
+USER PROMPT:
+Okay for some reason I still can't hear the Dino user when we are calling but I can at least now select a output source but then it creates a bunch of sources on my system?!
