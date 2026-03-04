@@ -1134,7 +1134,7 @@
       }
       state.preferences.relayAutoConnect = value;
       saveState();
-      if (value === "on" && ["ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
+      if (value === "on" && ["local", "ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
         connectRelaySocket({ force: true });
       } else if (value === "off") {
         clearRelayReconnectTimer();

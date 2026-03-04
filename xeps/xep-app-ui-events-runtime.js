@@ -2498,7 +2498,7 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
     state.currentAccountId = selectedSwitchAccountId;
     rememberAccountSession(selectedSwitchAccountId);
     const prefs = getPreferences();
-    if (["ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
+    if (["local", "ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
   }
 
   ensureActiveGuildForCurrentAccount();
@@ -3379,6 +3379,6 @@ ensureScheduledDispatchTimer();
 safeRender("startup");
 loadSwfLibrary();
 ensureMediaRuntimeBootstrapped();
-if (state.currentAccountId && ["ws", "http", "xmpp"].includes(getPreferences().relayMode) && getPreferences().relayAutoConnect === "on") {
+if (state.currentAccountId && ["local", "ws", "http", "xmpp"].includes(getPreferences().relayMode) && getPreferences().relayAutoConnect === "on") {
   connectRelaySocket();
 }

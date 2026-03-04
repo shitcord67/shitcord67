@@ -535,7 +535,7 @@
       if (sub === "mode") {
         state.preferences.relayMode = normalizeRelayMode(payload);
         saveState();
-        if (["ws", "http", "xmpp"].includes(state.preferences.relayMode)) connectRelaySocket({ force: true });
+        if (["local", "ws", "http", "xmpp"].includes(state.preferences.relayMode)) connectRelaySocket({ force: true });
         else disconnectRelaySocket({ manual: true });
         showToast(`Relay mode: ${state.preferences.relayMode}`);
         return;
@@ -574,7 +574,7 @@
         }
         state.preferences.relayAutoConnect = value;
         saveState();
-        if (value === "on" && ["ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
+        if (value === "on" && ["local", "ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
           connectRelaySocket({ force: true });
         } else if (value === "off") {
           clearRelayReconnectTimer();

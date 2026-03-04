@@ -7196,3 +7196,341 @@ You can work on stuff you want for as long as you want. Please just never ask me
 [2026-03-04T05:06:37Z] I won't try it now. How about you autonomously work on issues on the TODO list and then work on the next when you are down. Do this for up to 10 and also make sure to commit
 [2026-03-04T05:10:29Z] Oh also you might actually work on as many TODO items as you like. I will be away for one hour so please use all that time.
 [2026-03-04T06:04:08Z] Yes
+
+[2026-03-04T06:14:16Z]
+# AGENTS.md instructions for /home/duda/shitcord67
+
+<INSTRUCTIONS>
+# Project Agent Instructions (Persistent)
+
+These instructions are project-local continuity notes for future LLM instances.
+
+## Delivery Mode
+- Default to execution over discussion: implement requested features directly unless blocked.
+- Minimize back-and-forth questions; ask only when a decision is truly ambiguous or high-risk.
+- Keep running with follow-up improvements after tests pass.
+
+## Continuity Logging
+- First action after receiving a new user prompt: append the full prompt text to  with a timestamp.
+- Treat  as a handoff journal for future LLM instances when context/token limits are hit.
+- Keep entries append-only; never rewrite prior prompt entries.
+
+## Git and Change Flow
+- It is explicitly allowed to add/update local  entries during implementation.
+- If  is modified, include it in the next coherent commit by default (do not leave TODO edits uncommitted).
+- It is explicitly allowed to commit incremental local changes without extra confirmation.
+- By default, after implementing and validating changes, create coherent local commits automatically unless the user explicitly asks not to commit.
+- Do not wait for a separate please
+
+[commit prompt after code changes.
+- Use small, coherent commits with clear messages.
+- Do not revert unrelated user changes.
+
+## Product Direction
+- Primary goal: Discord-like UX with strong realtime behavior.
+- Prioritize transport/realtime robustness (WebSocket, HTTP/SSE, XMPP).
+- Prefer feature completeness and UX polish over placeholder scaffolding.
+
+## XMPP Direction
+- Continue implementing practical XEPs where useful for UX parity.
+- Favor broad compatibility and cross-platform behavior.
+- Keep credentials in local ignored files when needed for testing.
+- Keep  updated when XMPP capability changes.
+
+## Content and Naming Constraints
+- Keep naming independent from external reference projects.
+- Do not add references to Plutonium, Sweden, or Humpus in product-facing copy.
+
+## Validation
+- Run syntax/tests after changes whenever feasible.
+- Perform end-to-end checks for transport-related features.
+- Record meaningful outcomes in commit messages and README when behavior changes.
+
+## XEP Docs Policy
+- XEP documents in this repo may be updated anytime, but do not fetch new external sources unless explicitly asked or granted after requesting approval.
+
+
+## Skills
+A skill is a set of local instructions to follow that is stored in a  file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.
+### Available skills
+- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/duda/.codex/skills/.system/skill-creator/SKILL.md)
+- skill-installer: Install Codex skills into /skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/duda/.codex/skills/.system/skill-installer/SKILL.md)
+### How to use skills
+- Discovery: The list above is the skills available in this session (name + description + file path). Skill bodies live on disk at the listed paths.
+- Trigger rules: If the user names a skill (with  or plain text) OR the task clearly matches a skill's description shown above, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
+- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.
+- How to use a skill (progressive disclosure):
+  1) After deciding to use a skill, open its . Read only enough to follow the workflow.
+  2) When  references relative paths (e.g., ), resolve them relative to the skill directory listed above first, and only consider other paths if needed.
+  3) If  points to extra folders such as , load only the specific files needed for the request; don't bulk-load everything.
+  4) If  exist, prefer running or patching them instead of retyping large code blocks.
+  5) If  or templates exist, reuse them instead of recreating from scratch.
+- Coordination and sequencing:
+  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.
+  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.
+- Context hygiene:
+  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.
+  - Avoid deep reference-chasing: prefer opening only files directly linked from  unless you're blocked.
+  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.
+- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.
+</INSTRUCTIONS>
+<environment_context>
+  <cwd>/home/duda/shitcord67</cwd>
+  <shell>bash</shell>
+</environment_context>
+Please continue. • Explored
+  └ Read CONTINUITY_LOG.md
+
+• The last commits included the command palette but not status updates;
+  considering task sizes and existing features, the next best step is to pick a
+  manageable improvement rather than large features like full user settings or
+  threads.
+
+  Scoping local-json adapter implementation
+
+  Planning to create a new local-json transport adapter module that integrates
+  with existing bridge logic by defining an interface and resolver but without
+  full relay flow integration yet; deciding to inspect message publishing for
+  possible minimal usage.
+
+• Explored
+  └ Search publishRelayChannelMessage|publishRelayDirectMessage in xeps
+    Read xep-upload-disco-attachments.js
+
+• I'm defining a transport adapter interface with basic methods as a minimal
+  refactor to address TODOs, without full local-json adapter implementation;
+  this balances progress with available time and aligns with local mode
+  behavior.
+
+  Designing local-json adapter with interface
+
+  I'm planning a local-json adapter using localStorage and BroadcastChannel that
+  adheres to an extended transport adapter interface, merging it carefully with
+  the existing adapter shape to avoid breaking current UI code.
+
+• Explored
+  └ Search type: message|relay packet|relay in xep-relay-connection-flow.js
+
+• I'm searching for the function handling incoming relay messages in the
+  presence-preferences bridge to understand its role in message processing.
+
+• Explored
+  └ Search applyRelayIncomingMessage|publishRelay in xep-presence-preferences-
+           bridge.js
+    Read xep-presence-preferences-bridge.js
+
+• I'm considering implementing the local-json adapter by constructing packets
+  matching the relay's structure, then feeding them to the relay message
+  handler; next, I'll inspect how relay packets are built for WebSocket by
+  searching sendRelayPacket usage.
+
+• Explored
+  └ Search sendRelayPacket\(|type: message in xep-presence-preferences-
+bridge.js
+
+⚠ Heads up, you have less than 5% of your weekly limit left. Run /status for a
+  breakdown.
+
+• Explored
+  └ Read xep-upload-disco-attachments.js
+
+• I'm deciding to extend the existing local relay mode to support a local-json
+  adapter that broadcasts across tabs by sending messages via
+  applyRelayIncomingMessage, updating publishRelayChannelMessage and related
+  functions to allow local mode to send and receive without network.
+
+  Designing local relay adapter with BroadcastChannel
+
+  I'm planning to implement the local adapter using a BroadcastChannel named for
+  inter-tab messaging and localStorage for history. I'll add a BroadcastChannel
+  listener in the presence-preferences bridge to receive packets and invoke
+  applyRelayIncomingMessage, triggering UI refreshes appropriately.
+
+• Explored
+  └ Search scheduleRelayUiRefresh|relayUiRefresh in xep-presence-preferences-
+           bridge.js
+
+• I'm outlining how to extend message publishing to support a local relay
+  mode, storing recent history in localStorage under a key and sending packets
+  via a new local relay send helper integrated into existing publish functions
+  for channels and directs.
+
+  Designing local relay channel with per-tab client ID
+
+  I'm planning a local BroadcastChannel adapter handling only chat messages,
+  using a per-tab unique client ID to distinguish tabs and avoid message
+  duplication locally. This includes storing recent chat history per room in
+  localStorage and initializing the channel at app startup to receive messages
+  across tabs.
+
+■ Error running remote compact task: You've hit your usage limit. To continue]
+
+
+[2026-03-04T06:14:16Z]
+# AGENTS.md instructions for /home/duda/shitcord67
+
+<INSTRUCTIONS>
+# Project Agent Instructions (Persistent)
+
+These instructions are project-local continuity notes for future LLM instances.
+
+## Delivery Mode
+- Default to execution over discussion: implement requested features directly unless blocked.
+- Minimize back-and-forth questions; ask only when a decision is truly ambiguous or high-risk.
+- Keep running with follow-up improvements after tests pass.
+
+## Continuity Logging
+- First action after receiving a new user prompt: append the full prompt text to `CONTINUITY_LOG.md` with a timestamp.
+- Treat `CONTINUITY_LOG.md` as a handoff journal for future LLM instances when context/token limits are hit.
+- Keep entries append-only; never rewrite prior prompt entries.
+
+## Git and Change Flow
+- It is explicitly allowed to add/update local `TODO` entries during implementation.
+- If `TODO` is modified, include it in the next coherent commit by default (do not leave TODO edits uncommitted).
+- It is explicitly allowed to commit incremental local changes without extra confirmation.
+- By default, after implementing and validating changes, create coherent local commits automatically unless the user explicitly asks not to commit.
+- Do not wait for a separate "please commit" prompt after code changes.
+- Use small, coherent commits with clear messages.
+- Do not revert unrelated user changes.
+
+## Product Direction
+- Primary goal: Discord-like UX with strong realtime behavior.
+- Prioritize transport/realtime robustness (WebSocket, HTTP/SSE, XMPP).
+- Prefer feature completeness and UX polish over placeholder scaffolding.
+
+## XMPP Direction
+- Continue implementing practical XEPs where useful for UX parity.
+- Favor broad compatibility and cross-platform behavior.
+- Keep credentials in local ignored files when needed for testing.
+- Keep `SUPPORTED_XEPS.md` updated when XMPP capability changes.
+
+## Content and Naming Constraints
+- Keep naming independent from external reference projects.
+- Do not add references to Plutonium, Sweden, or Humpus in product-facing copy.
+
+## Validation
+- Run syntax/tests after changes whenever feasible.
+- Perform end-to-end checks for transport-related features.
+- Record meaningful outcomes in commit messages and README when behavior changes.
+
+## XEP Docs Policy
+- XEP documents in this repo may be updated anytime, but do not fetch new external sources unless explicitly asked or granted after requesting approval.
+
+
+## Skills
+A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.
+### Available skills
+- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/duda/.codex/skills/.system/skill-creator/SKILL.md)
+- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/duda/.codex/skills/.system/skill-installer/SKILL.md)
+### How to use skills
+- Discovery: The list above is the skills available in this session (name + description + file path). Skill bodies live on disk at the listed paths.
+- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description shown above, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
+- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.
+- How to use a skill (progressive disclosure):
+  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.
+  2) When `SKILL.md` references relative paths (e.g., `scripts/foo.py`), resolve them relative to the skill directory listed above first, and only consider other paths if needed.
+  3) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.
+  4) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.
+  5) If `assets/` or templates exist, reuse them instead of recreating from scratch.
+- Coordination and sequencing:
+  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.
+  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.
+- Context hygiene:
+  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.
+  - Avoid deep reference-chasing: prefer opening only files directly linked from `SKILL.md` unless you're blocked.
+  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.
+- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.
+</INSTRUCTIONS>
+<environment_context>
+  <cwd>/home/duda/shitcord67</cwd>
+  <shell>bash</shell>
+</environment_context>
+Please continue. • Explored
+  └ Read CONTINUITY_LOG.md
+
+• The last commits included the command palette but not status updates;
+  considering task sizes and existing features, the next best step is to pick a
+  manageable improvement rather than large features like full user settings or
+  threads.
+
+  Scoping local-json adapter implementation
+
+  Planning to create a new local-json transport adapter module that integrates
+  with existing bridge logic by defining an interface and resolver but without
+  full relay flow integration yet; deciding to inspect message publishing for
+  possible minimal usage.
+
+• Explored
+  └ Search publishRelayChannelMessage|publishRelayDirectMessage in xeps
+    Read xep-upload-disco-attachments.js
+
+• I'm defining a transport adapter interface with basic methods as a minimal
+  refactor to address TODOs, without full local-json adapter implementation;
+  this balances progress with available time and aligns with local mode
+  behavior.
+
+  Designing local-json adapter with interface
+
+  I'm planning a local-json adapter using localStorage and BroadcastChannel that
+  adheres to an extended transport adapter interface, merging it carefully with
+  the existing adapter shape to avoid breaking current UI code.
+
+• Explored
+  └ Search type: "message"|relay packet|relay in xep-relay-connection-flow.js
+
+• I'm searching for the function handling incoming relay messages in the
+  presence-preferences bridge to understand its role in message processing.
+
+• Explored
+  └ Search applyRelayIncomingMessage|publishRelay in xep-presence-preferences-
+           bridge.js
+    Read xep-presence-preferences-bridge.js
+
+• I'm considering implementing the local-json adapter by constructing packets
+  matching the relay's structure, then feeding them to the relay message
+  handler; next, I'll inspect how relay packets are built for WebSocket by
+  searching sendRelayPacket usage.
+
+• Explored
+  └ Search sendRelayPacket\(|type: "message" in xep-presence-preferences-
+bridge.js
+
+⚠ Heads up, you have less than 5% of your weekly limit left. Run /status for a
+  breakdown.
+
+• Explored
+  └ Read xep-upload-disco-attachments.js
+
+• I'm deciding to extend the existing "local" relay mode to support a local-json
+  adapter that broadcasts across tabs by sending messages via
+  applyRelayIncomingMessage, updating publishRelayChannelMessage and related
+  functions to allow "local" mode to send and receive without network.
+
+  Designing local relay adapter with BroadcastChannel
+
+  I'm planning to implement the local adapter using a BroadcastChannel named for
+  inter-tab messaging and localStorage for history. I'll add a BroadcastChannel
+  listener in the presence-preferences bridge to receive packets and invoke
+  applyRelayIncomingMessage, triggering UI refreshes appropriately.
+
+• Explored
+  └ Search scheduleRelayUiRefresh|relayUiRefresh in xep-presence-preferences-
+           bridge.js
+
+• I'm outlining how to extend message publishing to support a "local" relay
+  mode, storing recent history in localStorage under a key and sending packets
+  via a new local relay send helper integrated into existing publish functions
+  for channels and directs.
+
+  Designing local relay channel with per-tab client ID
+
+  I'm planning a local BroadcastChannel adapter handling only chat messages,
+  using a per-tab unique client ID to distinguish tabs and avoid message
+  duplication locally. This includes storing recent chat history per room in
+  localStorage and initializing the channel at app startup to receive messages
+  across tabs.
+
+■ Error running remote compact task: You've hit your usage limit. To continue
+
+[2026-03-04T06:19:05Z]
+You are also free to work autonomously on ten other things after you are done. I will be away for an hour so can't tell you stuff, please decide everything on your own

@@ -107,7 +107,7 @@
 
   function shouldAutoConnectRelayMode(mode) {
     const token = (mode || "").toString().trim().toLowerCase();
-    return token === "ws" || token === "http" || token === "xmpp";
+    return token === "local" || token === "ws" || token === "http" || token === "xmpp";
   }
 
   function maybeLoadProtocolLoginProfiles({

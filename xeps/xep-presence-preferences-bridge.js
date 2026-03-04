@@ -422,13 +422,79 @@ function relayStatusText() {
   return `${base}${detail}`;
 }
 
+const RELAY_LOCAL_CHANNEL_NAME = "s67-local-relay-v1";
+const RELAY_LOCAL_PACKET_SCOPE = "s67-relay";
+
+function localRelaySupported() {
+  return typeof BroadcastChannel !== "undefined";
+}
+
+function ensureLocalRelayClientId() {
+  if (relayLocalClientId) return relayLocalClientId;
+  const generator = typeof createId === "function"
+    ? createId
+    : () => `${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+  relayLocalClientId = `local:${generator().slice(0, 10)}`;
+  return relayLocalClientId;
+}
+
+function handleLocalRelayEnvelope(envelope) {
+  if (!envelope || typeof envelope !== "object") return;
+  if (envelope.scope !== RELAY_LOCAL_PACKET_SCOPE) return;
+  const packet = envelope.packet && typeof envelope.packet === "object" ? envelope.packet : null;
+  if (!packet) return;
+  if ((packet.clientId || "").toString() === relayLocalClientId) return;
+  if (getPreferences().relayMode !== "local") return;
+  if (packet.type === "chat") applyRelayIncomingMessage(packet);
+  if (packet.type === "typing") applyRelayIncomingTyping(packet);
+}
+
+function ensureLocalRelayChannel() {
+  if (relayLocalChannel) return true;
+  if (!localRelaySupported()) return false;
+  try {
+    relayLocalChannel = new BroadcastChannel(RELAY_LOCAL_CHANNEL_NAME);
+    relayLocalChannel.addEventListener("message", (event) => {
+      handleLocalRelayEnvelope(event?.data || null);
+    });
+    return true;
+  } catch {
+    relayLocalChannel = null;
+    return false;
+  }
+}
+
+function closeLocalRelayChannel() {
+  if (!relayLocalChannel) return;
+  try {
+    relayLocalChannel.close();
+  } catch {
+    // Ignore local relay close failures.
+  }
+  relayLocalChannel = null;
+}
+
+function sendLocalRelayPacket(packet) {
+  if (!packet || typeof packet !== "object") return false;
+  if (!ensureLocalRelayChannel()) return false;
+  try {
+    relayLocalChannel.postMessage({
+      scope: RELAY_LOCAL_PACKET_SCOPE,
+      packet
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function getTransportAdapter(mode = getPreferences().relayMode) {
   const adapters = {
     local: {
       id: "local",
       label: "Local",
-      canRealtime: false,
-      description: "Messages stay in local browser storage."
+      canRealtime: true,
+      description: "Local storage + BroadcastChannel across tabs."
     },
     off: {
       id: "off",
@@ -760,7 +826,7 @@ function normalizeXmppChatStateName(value = "") {
 
 function publishRelayTypingState(active, { force = false, room: roomOverride = "", chatState = "" } = {}) {
   const prefs = getPreferences();
-  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
+  if (!["local", "ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
   const current = getCurrentAccount();
   if (!current) return false;
   const room = roomOverride || relayRoomForActiveConversation();
@@ -784,6 +850,22 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     authorUsername: current.username,
     authorDisplay: current.displayName || current.username
   };
+  if (prefs.relayMode === "local") {
+    const ok = sendLocalRelayPacket({
+      type: "typing",
+      room,
+      clientId: ensureLocalRelayClientId(),
+      username: current.username,
+      typing: typingPayload
+    });
+    if (ok) {
+      relayLocalTypingState.active = Boolean(active);
+      relayLocalTypingState.room = room;
+      relayLocalTypingState.chatState = chatStateNode;
+      relayLocalTypingState.lastSentAt = now;
+    }
+    return ok;
+  }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
@@ -1127,6 +1209,7 @@ function disconnectRelaySocket({ manual = true } = {}) {
     }
   }
   relaySocket = null;
+  closeLocalRelayChannel();
   teardownXmppConnection();
   xmppPendingReceiptByStanzaId.clear();
   clearRelayTypingState();

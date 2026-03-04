@@ -1094,11 +1094,28 @@ function publishXmppMessageCorrection(conversation, message, account) {
 
 function publishRelayChannelMessage(channel, message, account) {
   const prefs = getPreferences();
-  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
+  if (!["local", "ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
   if (!channel || !message || !account) return false;
   const guild = getActiveGuild();
   const room = relayRoomForActiveConversation();
   if (!room) return false;
+  if (prefs.relayMode === "local") {
+    return sendLocalRelayPacket({
+      type: "chat",
+      room,
+      clientId: ensureLocalRelayClientId(),
+      guildName: guild?.name || "",
+      channelName: channel.name || "",
+      message: {
+        id: message.id,
+        text: relayTransportPacketText(message),
+        ts: message.ts || new Date().toISOString(),
+        authorUsername: account.username,
+        authorDisplay: displayNameForAccount(account, guild?.id || null),
+        attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
+      }
+    });
+  }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
@@ -1238,10 +1255,27 @@ function publishRelayChannelMessage(channel, message, account) {
 
 function publishRelayDirectMessage(thread, message, account) {
   const prefs = getPreferences();
-  if (!["ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
+  if (!["local", "ws", "http", "xmpp"].includes(prefs.relayMode)) return false;
   if (!thread || !message || !account) return false;
   const room = relayRoomForDmThread(thread);
   if (!room) return false;
+  if (prefs.relayMode === "local") {
+    return sendLocalRelayPacket({
+      type: "chat",
+      room,
+      clientId: ensureLocalRelayClientId(),
+      guildName: "",
+      channelName: "dm",
+      message: {
+        id: message.id,
+        text: relayTransportPacketText(message),
+        ts: message.ts || new Date().toISOString(),
+        authorUsername: account.username,
+        authorDisplay: account.displayName || account.username,
+        attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
+      }
+    });
+  }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;

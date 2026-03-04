@@ -55,6 +55,19 @@ function connectRelaySocket({ force = false } = {}) {
     disconnectRelaySocket({ manual: true });
     return false;
   }
+  if (prefs.relayMode === "local") {
+    if (relaySocket || relayEventSource || xmppConnection) {
+      disconnectRelaySocket({ manual: false });
+    }
+    relayManualDisconnect = false;
+    const ok = ensureLocalRelayChannel();
+    if (!ok) {
+      setRelayStatus("error", "Local relay channel unavailable.");
+      return false;
+    }
+    setRelayStatus("connected");
+    return true;
+  }
   if (prefs.relayMode === "xmpp") {
     const jid = normalizeXmppJid(prefs.xmppJid);
     const wsUrl = resolveXmppServiceUrl(prefs);

@@ -363,9 +363,9 @@ ui.advancedForm.addEventListener("submit", (event) => {
   if (window.SHITCORD67_NATIVE_CREDENTIALS?.syncFromState) {
     void window.SHITCORD67_NATIVE_CREDENTIALS.syncFromState({ force: true });
   }
-  if (["ws", "http", "xmpp"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
+  if (["local", "ws", "http", "xmpp"].includes(state.preferences.relayMode) && state.preferences.relayAutoConnect === "on") {
     connectRelaySocket({ force: true });
-  } else if (!["ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
+  } else if (!["local", "ws", "http", "xmpp"].includes(state.preferences.relayMode)) {
     disconnectRelaySocket({ manual: true });
   }
   renderRelayStatusOutput();
