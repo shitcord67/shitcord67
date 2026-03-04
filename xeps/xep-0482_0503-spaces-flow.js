@@ -147,6 +147,24 @@
   }
 
   function xmppKnownSpacesRooms(prefs = {}, deps = {}) {
+    const listSpaceRecordsFn = typeof deps.xmppListSpaceRecordsFn === "function"
+      ? deps.xmppListSpaceRecordsFn
+      : (() => []);
+    const roomMetaByJid = new Map();
+    for (const space of listSpaceRecordsFn()) {
+      const spaceId = (space?.spaceId || "").toString().trim();
+      const parentSpaceId = (space?.parentSpaceId || "").toString().trim();
+      const spaceName = (space?.name || "").toString().replace(/\s+/g, " ").trim();
+      for (const room of Array.isArray(space?.rooms) ? space.rooms : []) {
+        const roomJid = (room?.roomJid || "").toString().trim().toLowerCase();
+        if (!roomJid) continue;
+        roomMetaByJid.set(roomJid, {
+          spaceId,
+          parentSpaceId,
+          spaceName
+        });
+      }
+    }
     const merged = new Map();
     for (const guild of deps.state?.guilds || []) {
       if (!guild || !Array.isArray(guild.channels)) continue;
@@ -160,11 +178,15 @@
           : (channel?.xmppRoomName || channel?.name || "").toString())
           .replace(/\s+/g, " ")
           .trim();
+        const meta = roomMetaByJid.get(jid) || {};
         merged.set(jid, {
           jid,
           channelId: (channel?.id || "").toString(),
           name: roomName || jid.split("@")[0] || jid,
-          autojoin: channel?.xmppSpaceAutojoin === true
+          autojoin: channel?.xmppSpaceAutojoin === true,
+          spaceId: (channel?.xmppSpaceId || meta.spaceId || "").toString().trim(),
+          parentSpaceId: (channel?.xmppSpaceParentId || meta.parentSpaceId || "").toString().trim(),
+          spaceName: (channel?.xmppSpaceName || meta.spaceName || "").toString().replace(/\s+/g, " ").trim()
         });
       }
     }
@@ -176,7 +198,10 @@
           jid: bare,
           channelId: "",
           name: bare.split("@")[0] || bare,
-          autojoin: false
+          autojoin: false,
+          spaceId: (roomMetaByJid.get(bare)?.spaceId || "").toString().trim(),
+          parentSpaceId: (roomMetaByJid.get(bare)?.parentSpaceId || "").toString().trim(),
+          spaceName: (roomMetaByJid.get(bare)?.spaceName || "").toString().replace(/\s+/g, " ").trim()
         });
       }
     }
@@ -196,13 +221,44 @@
   }
 
   function xmppSpacesSummaryLines({ limit = 12, prefs = {} } = {}, deps = {}) {
-    const rows = xmppKnownSpacesRooms(prefs, deps)
-      .slice(0, Math.max(1, Number(limit) || 12))
-      .map((entry) => {
-        const state = xmppSpacesRoomStateLabel(entry.jid, deps);
-        const suffix = entry.autojoin ? " · autojoin" : "";
-        return `- ${entry.name} (${entry.jid}) [${state}${suffix}]`;
+    const entries = xmppKnownSpacesRooms(prefs, deps)
+      .slice(0, Math.max(1, Number(limit) || 12));
+    const grouped = new Map();
+    entries.forEach((entry) => {
+      const spaceId = (entry.spaceId || "").toString().trim() || "xmpp-spaces:default";
+      const parent = (entry.parentSpaceId || "").toString().trim();
+      const name = (entry.spaceName || "").toString().replace(/\s+/g, " ").trim();
+      const label = name || spaceId.split("/").pop() || "XMPP Spaces";
+      if (!grouped.has(spaceId)) {
+        grouped.set(spaceId, {
+          id: spaceId,
+          parentSpaceId: parent,
+          label,
+          entries: []
+        });
+      }
+      grouped.get(spaceId).entries.push(entry);
+    });
+    const sortedGroups = [...grouped.values()]
+      .sort((a, b) => {
+        const ap = (a.parentSpaceId || "").localeCompare(b.parentSpaceId || "");
+        if (ap !== 0) return ap;
+        const lp = (a.label || "").localeCompare(b.label || "");
+        if (lp !== 0) return lp;
+        return (a.id || "").localeCompare(b.id || "");
       });
+    const rows = [];
+    sortedGroups.forEach((group) => {
+      const parentSuffix = group.parentSpaceId ? ` <= ${group.parentSpaceId}` : "";
+      rows.push(`* ${group.label}${parentSuffix}`);
+      group.entries
+        .sort((a, b) => (a.jid || "").localeCompare(b.jid || ""))
+        .forEach((entry) => {
+          const state = xmppSpacesRoomStateLabel(entry.jid, deps);
+          const suffix = entry.autojoin ? " · autojoin" : "";
+          rows.push(`  - ${entry.name} (${entry.jid}) [${state}${suffix}]`);
+        });
+    });
     return rows;
   }
 

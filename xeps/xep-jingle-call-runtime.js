@@ -1839,11 +1839,14 @@ async function attachFileToComposer(file) {
   const allowed = getComposerAttachAllowedTypes();
   if (!allowed.has(type)) return false;
   const url = await readFileAsDataUrl(file);
+  const fallbackMime = xmppAttachmentDefaultMimeType(type, "image", file.name || "");
+  const mime = (file.type || fallbackMime || "").toString().trim().toLowerCase();
   setComposerPendingAttachment({
     type,
     url,
     name: file.name || `${type}-${Date.now()}`,
-    sizeBytes: Number(file.size) || 0
+    sizeBytes: Number(file.size) || 0,
+    mime
   }, { append: true });
   return true;
 }
@@ -2000,6 +2003,10 @@ function normalizeAttachments(attachments) {
   if (!Array.isArray(attachments)) return [];
   const allowedTypes = new Set(["gif", "video", "sticker", "svg", "swf", "html", "pdf", "audio", "text", "odf", "rtf", "bin", "file"]);
   const allowedFormats = new Set(["image", "dotlottie", "apng"]);
+  const normalizeMime = (value = "") => {
+    const token = (value || "").toString().trim().toLowerCase();
+    return /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(token) ? token.slice(0, 120) : "";
+  };
   const seen = new Set();
   return attachments
     .filter((item) => item && typeof item.type === "string" && typeof item.url === "string")
@@ -2007,7 +2014,8 @@ function normalizeAttachments(attachments) {
       type: allowedTypes.has(item.type) ? item.type : "gif",
       url: canonicalizeAttachmentUrlForStorage(item.url, { kind: item.type }),
       name: (item.name || "").toString().slice(0, 120),
-      format: allowedFormats.has(item.format) ? item.format : "image"
+      format: allowedFormats.has(item.format) ? item.format : "image",
+      mime: normalizeMime(item.mime || "")
     }))
     .filter((item) => {
       const key = `${item.type}|${item.url}`;
@@ -2313,10 +2321,22 @@ async function deployMediaRuntimes() {
 }
 
 function resolveMediaUrl(url) {
+  const raw = (url || "").toString().trim();
+  if (!raw) return raw;
+  if (/^(file|content):\/\//i.test(raw)) {
+    try {
+      const cap = globalThis.Capacitor || null;
+      const convert = typeof cap?.convertFileSrc === "function" ? cap.convertFileSrc.bind(cap) : null;
+      if (convert) return convert(raw);
+    } catch {
+      // Fall back to raw URL.
+    }
+    return raw;
+  }
   try {
-    return new URL(url, window.location.href).href;
+    return new URL(raw, window.location.href).href;
   } catch {
-    return url;
+    return raw;
   }
 }
 

@@ -23,6 +23,8 @@
   --runtime-ime-offset: 0px;
   --android-safe-extra-top: 0px;
   --android-safe-extra-bottom: 0px;
+  --android-safe-extra-left: 0px;
+  --android-safe-extra-right: 0px;
   --app-safe-top: max(var(--safe-top), var(--runtime-safe-top));
   --app-safe-right: max(var(--safe-right), var(--runtime-safe-right));
   --app-safe-bottom: max(var(--safe-bottom), var(--runtime-safe-bottom));
@@ -180,13 +182,15 @@ body[data-platform="android"] {
   --android-touch-size: 40px;
   --android-safe-extra-top: 0px;
   --android-safe-extra-bottom: 0px;
+  --android-safe-extra-left: 0px;
+  --android-safe-extra-right: 0px;
 }
 
 body[data-platform="android"] #app {
   padding-top: max(var(--app-safe-top), var(--android-safe-extra-top));
-  padding-right: var(--app-safe-right);
+  padding-right: max(var(--app-safe-right), var(--android-safe-extra-right));
   padding-bottom: max(var(--app-safe-bottom), var(--android-safe-extra-bottom));
-  padding-left: var(--app-safe-left);
+  padding-left: max(var(--app-safe-left), var(--android-safe-extra-left));
 }
 
 body[data-platform="android"] .chat-topic-edit {
@@ -721,6 +725,16 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
 
 .channel-list {
   padding: 0;
+}
+
+.channel-space-title {
+  color: #8f96a3;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0.35rem 0 0.2rem;
+  padding: 0.2rem 0.5rem;
 }
 
 .channel-list--dm {

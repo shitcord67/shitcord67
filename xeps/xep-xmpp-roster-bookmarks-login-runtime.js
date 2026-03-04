@@ -117,6 +117,9 @@ function upsertXmppRoomChannel(roomJid, {
   roomDescription = null,
   roomToken = "",
   autojoin = null,
+  spaceId = "",
+  parentSpaceId = "",
+  spaceName = "",
   prefs = getPreferences(),
   account = getCurrentAccount(),
   persist = false
@@ -129,6 +132,9 @@ function upsertXmppRoomChannel(roomJid, {
     roomDescription,
     roomToken,
     autojoin,
+    spaceId,
+    parentSpaceId,
+    spaceName,
     prefs,
     account,
     persist
@@ -144,6 +150,9 @@ function upsertXmppRoomChannel(roomJid, {
     decodeHtmlEntitiesFn: decodeHtmlEntities,
     sanitizeChannelNameFn: sanitizeChannelName,
     ensureChannelReadStateFn: ensureChannelReadState,
+    xmppNormalizeSpaceKeyFn: typeof XEP_0503_SPACES_GLOBAL.normalizeSpaceKey === "function"
+      ? XEP_0503_SPACES_GLOBAL.normalizeSpaceKey
+      : null,
     saveStateFn: saveState
   });
 }

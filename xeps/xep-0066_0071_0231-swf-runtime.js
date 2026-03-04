@@ -1070,7 +1070,15 @@ function renderSwfPipDock() {
   // Keep live Ruffle nodes attached to avoid destroy/recreate cycles.
   positionSwfPipRuntimeHosts();
   renderSwfPipDockControls(swfPipActiveKey);
-  const activeRuntime = swfRuntimes.get(swfPipActiveKey);
+  let activeRuntime = swfRuntimes.get(swfPipActiveKey);
+  if (activeRuntime?.inPip && !(activeRuntime.pipHost instanceof HTMLElement)) {
+    recoverDetachedSwfPipHost(swfPipActiveKey);
+    activeRuntime = swfRuntimes.get(swfPipActiveKey) || activeRuntime;
+  }
+  if (activeRuntime?.inPip && activeRuntime.pipHost instanceof HTMLElement && !activeRuntime.pipHost.isConnected) {
+    recoverDetachedSwfPipHost(swfPipActiveKey);
+    activeRuntime = swfRuntimes.get(swfPipActiveKey) || activeRuntime;
+  }
   if (!activeRuntime?.pipHost) return;
   setSwfPlayback(swfPipActiveKey, true, "user");
   requestSwfRuntimeLayoutSync();

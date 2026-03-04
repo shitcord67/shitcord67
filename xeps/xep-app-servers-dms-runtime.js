@@ -674,23 +674,17 @@ function renderChannels() {
     state.activeChannelId = visibleChannels[0]?.id || null;
   }
   const channelsToRender = visibleChannels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
-  if (channelsToRender.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "channel-empty";
-    empty.textContent = filter
-      ? "No channels match your filter."
-      : hideNonXmpp
-        ? "No XMPP-backed channels found in this guild."
-        : "No accessible channels in this guild.";
-    ui.channelList.appendChild(empty);
-  }
-  channelsToRender.forEach((channel) => {
+  const renderChannelButton = (channel, { indent = 0 } = {}) => {
     const xmppBackedChannel = isXmppBackedChannel(channel);
     const xmppRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
     const xmppJoinState = xmppRoomJid ? (xmppMucJoinStateByRoomJid.get(xmppRoomJid) || null) : null;
     const button = document.createElement("button");
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
     if (showXmppWarning && !xmppBackedChannel) button.classList.add("channel-item--non-xmpp");
+    if (indent > 0) {
+      const depth = Math.min(4, Math.max(0, Number(indent) || 0));
+      button.style.paddingLeft = `${0.5 + (depth * 0.65)}rem`;
+    }
     const icon = document.createElement("span");
     icon.className = "channel-item__icon";
     icon.textContent = channelTypeSymbol(channel);
@@ -967,6 +961,161 @@ function renderChannels() {
       openContextMenu(event, menuItems);
     });
     ui.channelList.appendChild(button);
+  };
+  if (channelsToRender.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = filter
+      ? "No channels match your filter."
+      : hideNonXmpp
+        ? "No XMPP-backed channels found in this guild."
+        : "No accessible channels in this guild.";
+    ui.channelList.appendChild(empty);
+    updateDocumentTitle();
+    return;
+  }
+  const shouldGroupXmppSpaces = (server.id || "").startsWith("xmpp-spaces:")
+    && channelsToRender.some((channel) => (
+      channel?.xmppSpaceId
+      || channel?.xmppSpaceParentId
+      || channel?.xmppSpaceName
+    ));
+  if (!shouldGroupXmppSpaces) {
+    channelsToRender.forEach((channel) => renderChannelButton(channel));
+    updateDocumentTitle();
+    return;
+  }
+  const spaceMetaById = new Map();
+  const spaceRecords = typeof xmppListSpaceRecords === "function" ? xmppListSpaceRecords() : [];
+  spaceRecords.forEach((space) => {
+    const id = (space?.spaceId || "").toString().trim();
+    if (!id) return;
+    const name = (space?.name || "").toString().replace(/\s+/g, " ").trim();
+    const parentSpaceId = (space?.parentSpaceId || "").toString().trim();
+    if (!spaceMetaById.has(id)) {
+      spaceMetaById.set(id, { name, parentSpaceId });
+    } else {
+      const existing = spaceMetaById.get(id);
+      if (name && !existing.name) existing.name = name;
+      if (parentSpaceId && !existing.parentSpaceId) existing.parentSpaceId = parentSpaceId;
+    }
+  });
+  const groupMap = new Map();
+  const groupOrder = new Map();
+  const ensureGroup = (spaceId, { parentSpaceId = "", name = "" } = {}) => {
+    const id = (spaceId || "").toString().trim();
+    if (!id) return null;
+    let group = groupMap.get(id);
+    if (!group) {
+      group = {
+        id,
+        label: "",
+        name: "",
+        parentId: "",
+        channels: [],
+        order: Number.POSITIVE_INFINITY
+      };
+      groupMap.set(id, group);
+    }
+    if (name && !group.name) group.name = name;
+    if (parentSpaceId && !group.parentId) group.parentId = parentSpaceId;
+    return group;
+  };
+  channelsToRender.forEach((channel, index) => {
+    let spaceId = (channel?.xmppSpaceId || "").toString().trim();
+    let parentId = (channel?.xmppSpaceParentId || "").toString().trim();
+    const name = (channel?.xmppSpaceName || "").toString().replace(/\s+/g, " ").trim();
+    if (!spaceId) spaceId = server.id;
+    if (spaceId && !spaceId.startsWith(`${server.id}/`) && spaceId !== server.id) {
+      spaceId = `${server.id}/${spaceId}`;
+    }
+    if (parentId && !parentId.startsWith(`${server.id}/`) && parentId !== server.id) {
+      parentId = `${server.id}/${parentId}`;
+    }
+    if (parentId === spaceId) parentId = "";
+    const meta = spaceMetaById.get(spaceId) || {};
+    const group = ensureGroup(spaceId, {
+      parentSpaceId: parentId || meta.parentSpaceId || "",
+      name: name || meta.name || ""
+    });
+    if (!group) return;
+    group.channels.push(channel);
+    if (!groupOrder.has(spaceId)) groupOrder.set(spaceId, index);
+  });
+  if (!groupMap.has(server.id)) {
+    ensureGroup(server.id, { parentSpaceId: "", name: server.name || "XMPP Spaces" });
+    groupOrder.set(server.id, -1);
+  }
+  groupMap.forEach((group) => {
+    const meta = spaceMetaById.get(group.id) || {};
+    if (!group.parentId && meta.parentSpaceId) group.parentId = meta.parentSpaceId;
+    if (group.parentId === group.id) group.parentId = "";
+    if (!group.name && meta.name) group.name = meta.name;
+    group.label = group.id === server.id
+      ? (server.name || "XMPP Spaces")
+      : (group.name || group.id.split("/").pop() || group.id);
+    group.order = Number.isFinite(groupOrder.get(group.id)) ? groupOrder.get(group.id) : group.order;
+  });
+  [...groupMap.values()].forEach((group) => {
+    const parentId = (group.parentId || "").toString().trim();
+    if (!parentId) return;
+    if (parentId === group.id) return;
+    if (!groupMap.has(parentId)) {
+      const meta = spaceMetaById.get(parentId) || {};
+      const parent = ensureGroup(parentId, { parentSpaceId: meta.parentSpaceId || "", name: meta.name || "" });
+      if (parent) {
+        parent.order = Math.min(parent.order, group.order);
+        parent.label = parent.id === server.id
+          ? (server.name || "XMPP Spaces")
+          : (parent.name || parent.id.split("/").pop() || parent.id);
+      }
+    }
+  });
+  const childrenByParent = new Map();
+  const registerChild = (parentId, group) => {
+    const key = (parentId || "").toString().trim();
+    if (!childrenByParent.has(key)) childrenByParent.set(key, []);
+    childrenByParent.get(key).push(group);
+  };
+  groupMap.forEach((group) => {
+    let parentId = (group.parentId || "").toString().trim();
+    if (parentId === group.id) parentId = "";
+    if (!parentId && group.id !== server.id) parentId = server.id;
+    group.parentId = parentId;
+    registerChild(parentId, group);
+  });
+  const sortedGroups = (groups = []) => groups
+    .slice()
+    .sort((a, b) => {
+      const order = (a.order || 0) - (b.order || 0);
+      if (order !== 0) return order;
+      const label = (a.label || "").localeCompare(b.label || "");
+      if (label !== 0) return label;
+      return (a.id || "").localeCompare(b.id || "");
+    });
+  const visited = new Set();
+  const hasMultipleGroups = groupMap.size > 1;
+  const renderGroupTree = (group, depth = 0) => {
+    if (!group || visited.has(group.id)) return;
+    visited.add(group.id);
+    const children = sortedGroups(childrenByParent.get(group.id) || []);
+    const showHeading = group.id !== server.id || hasMultipleGroups || children.length > 0;
+    if (showHeading) {
+      const heading = document.createElement("div");
+      heading.className = "channel-space-title";
+      heading.textContent = group.label || "XMPP Space";
+      const indentDepth = Math.min(4, Math.max(0, Number(depth) || 0));
+      heading.style.paddingLeft = `${0.4 + (indentDepth * 0.65)}rem`;
+      ui.channelList.appendChild(heading);
+    }
+    const channelIndent = showHeading ? depth + 1 : depth;
+    group.channels.forEach((channel) => renderChannelButton(channel, { indent: channelIndent }));
+    children.forEach((child) => renderGroupTree(child, showHeading ? depth + 1 : depth));
+  };
+  const root = groupMap.get(server.id) || null;
+  if (root) renderGroupTree(root, 0);
+  sortedGroups([...groupMap.values()]).forEach((group) => {
+    if (!visited.has(group.id)) renderGroupTree(group, 0);
   });
   updateDocumentTitle();
 }

@@ -244,6 +244,9 @@
     roomDescription = null,
     roomToken = "",
     autojoin = null,
+    spaceId = "",
+    parentSpaceId = "",
+    spaceName = "",
     prefs = {},
     account = null,
     persist = false
@@ -275,6 +278,18 @@
       ? deps.sanitizeChannelNameFn(desiredDisplayName, "space")
       : desiredDisplayName;
     const desiredToken = (roomToken || `xmpp:${normalizedRoomJid}`).toString().trim() || `xmpp:${normalizedRoomJid}`;
+    const normalizeSpaceKeyFn = typeof deps.xmppNormalizeSpaceKeyFn === "function"
+      ? deps.xmppNormalizeSpaceKeyFn
+      : ((value) => (value || "").toString().trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9:/_.-]/g, "").slice(0, 160));
+    const scopedSpaceId = normalizeSpaceKeyFn(spaceId);
+    const scopedParentSpaceId = normalizeSpaceKeyFn(parentSpaceId);
+    const roomScopedSpaceId = scopedSpaceId
+      ? `${guild.id}/${scopedSpaceId}`
+      : guild.id;
+    const roomScopedParentSpaceId = scopedParentSpaceId
+      ? `${guild.id}/${scopedParentSpaceId}`
+      : guild.id;
+    const normalizedSpaceName = (spaceName || "").toString().replace(/\s+/g, " ").trim().slice(0, 120);
     let channel = guild.channels.find((entry) => (
       (typeof deps.normalizeXmppJidFn === "function" ? deps.normalizeXmppJidFn(entry?.xmppRoomJid || "").toLowerCase() : "") === normalizedRoomJid
     )) || null;
@@ -298,7 +313,10 @@
         xmppRoomDescription: normalizedRoomDescription,
         xmppRoomJid: normalizedRoomJid,
         relayRoomToken: desiredToken,
-        xmppSpaceAutojoin: autojoin === true
+        xmppSpaceAutojoin: autojoin === true,
+        xmppSpaceId: roomScopedSpaceId,
+        xmppSpaceParentId: roomScopedParentSpaceId,
+        xmppSpaceName: normalizedSpaceName || ""
       };
       guild.channels.push(channel);
       changed = true;
@@ -359,6 +377,18 @@
         channel.xmppSpaceAutojoin = autojoin;
         changed = true;
       }
+      if (channel.xmppSpaceId !== roomScopedSpaceId) {
+        channel.xmppSpaceId = roomScopedSpaceId;
+        changed = true;
+      }
+      if (channel.xmppSpaceParentId !== roomScopedParentSpaceId) {
+        channel.xmppSpaceParentId = roomScopedParentSpaceId;
+        changed = true;
+      }
+      if (normalizedSpaceName && channel.xmppSpaceName !== normalizedSpaceName) {
+        channel.xmppSpaceName = normalizedSpaceName;
+        changed = true;
+      }
     }
     if (account) {
       if (typeof deps.ensureChannelReadStateFn === "function") deps.ensureChannelReadStateFn(channel);
@@ -369,7 +399,16 @@
     }
     if (typeof deps.xmppRegisterSpaceRecordFn === "function") {
       deps.xmppRegisterSpaceRecordFn({
-        spaceId: guild.id,
+        spaceId: roomScopedSpaceId,
+        parentSpaceId: roomScopedParentSpaceId,
+        spaceName: channel.xmppSpaceName || normalizedSpaceName || guild.name || "XMPP Spaces",
+        spaceDescription: ""
+      });
+      deps.xmppRegisterSpaceRecordFn({
+        spaceId: roomScopedSpaceId,
+        parentSpaceId: roomScopedParentSpaceId,
+        spaceName: channel.xmppSpaceName || normalizedSpaceName || guild.name || "XMPP Spaces",
+        spaceDescription: "",
         roomJid: normalizedRoomJid,
         name: channel.xmppRoomName || channel.name || desiredDisplayName,
         description: channel.xmppRoomDescription || channel.topic || "",

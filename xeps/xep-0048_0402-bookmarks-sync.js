@@ -12,7 +12,11 @@
       const upserted = typeof deps.upsertXmppRoomChannelFn === "function"
         ? deps.upsertXmppRoomChannelFn(roomJid, {
           roomName: (entry?.name || "").toString(),
+          roomDescription: (entry?.spaceDescription || "").toString(),
           autojoin: entry?.autojoin === true,
+          spaceId: (entry?.spaceId || "").toString(),
+          parentSpaceId: (entry?.parentSpaceId || "").toString(),
+          spaceName: (entry?.spaceName || "").toString(),
           roomToken: `xmpp:${roomJid}`,
           prefs,
           account,
@@ -172,6 +176,9 @@
         autojoin: bookmark.autojoin ? "true" : "false"
       };
       if (bookmark.name) attrs.name = bookmark.name.slice(0, 180);
+      if (bookmark.spaceId) attrs["space-id"] = (bookmark.spaceId || "").toString().trim().slice(0, 160);
+      if (bookmark.parentSpaceId) attrs["parent-space-id"] = (bookmark.parentSpaceId || "").toString().trim().slice(0, 160);
+      if (bookmark.spaceName) attrs["space-name"] = (bookmark.spaceName || "").toString().trim().slice(0, 120);
       const conference = iq.c("conference", attrs);
       if (bookmark.nick) conference.c("nick").t(bookmark.nick.slice(0, 60)).up();
       if (bookmark.password) conference.c("password").t(bookmark.password.slice(0, 180)).up();
@@ -247,6 +254,9 @@
       };
       if (!attrs.jid) return;
       if (bookmark?.name) attrs.name = (bookmark.name || "").toString().trim().slice(0, 180);
+      if (bookmark?.spaceId) attrs["space-id"] = (bookmark.spaceId || "").toString().trim().slice(0, 160);
+      if (bookmark?.parentSpaceId) attrs["parent-space-id"] = (bookmark.parentSpaceId || "").toString().trim().slice(0, 160);
+      if (bookmark?.spaceName) attrs["space-name"] = (bookmark.spaceName || "").toString().trim().slice(0, 120);
       const conference = iq.c("conference", attrs);
       if (bookmark?.nick) conference.c("nick").t((bookmark.nick || "").toString().trim().slice(0, 60)).up();
       if (bookmark?.password) conference.c("password").t((bookmark.password || "").toString().trim().slice(0, 180)).up();

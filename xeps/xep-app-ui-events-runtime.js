@@ -352,7 +352,8 @@ ui.messageForm.addEventListener("submit", (event) => {
         type: entry.type || "pdf",
         url: entry.url,
         name: entry.name || "file",
-        format: entry.format || "image"
+        format: entry.format || "image",
+        mime: (entry.mime || "").toString().trim().toLowerCase()
       })),
       replyTo: nextReply
     };

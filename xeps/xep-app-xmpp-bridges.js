@@ -161,6 +161,7 @@ function xmppSendMujiCallInviteActionForSession(session = null, action = "accept
 function xmppKnownSpacesRooms(prefs = getPreferences()) {
   if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppKnownSpacesRooms !== "function") return [];
   return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppKnownSpacesRooms(prefs, {
+    xmppListSpaceRecordsFn: xmppListSpaceRecords,
     state,
     xmppBareJidFn: xmppBareJid,
     looksLikeXmppMucJidFn: looksLikeXmppMucJid,
@@ -181,6 +182,7 @@ function xmppSpacesRoomStateLabel(roomJid = "") {
 function xmppSpacesSummaryLines({ limit = 12, prefs = getPreferences() } = {}) {
   if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSpacesSummaryLines !== "function") return [];
   return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppSpacesSummaryLines({ limit, prefs }, {
+    xmppListSpaceRecordsFn: xmppListSpaceRecords,
     state,
     xmppBareJidFn: xmppBareJid,
     looksLikeXmppMucJidFn: looksLikeXmppMucJid,

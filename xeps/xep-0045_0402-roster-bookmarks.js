@@ -3,6 +3,7 @@
 
   const xml = globalScope.SHITCORD67_XMPP_XML || {};
   const XMPP_BOOKMARKS_NAMESPACE = "urn:xmpp:bookmarks:1";
+  const XEP_0503_SPACES = globalScope.SHITCORD67_XEP_0503_SPACES || {};
 
   function xmppBareJid(value, {
     normalizeXmppJidFn = (input) => (input || "").toString().trim().toLowerCase()
@@ -65,13 +66,25 @@
       const nickNode = node.getElementsByTagName("nick")[0] || null;
       const passwordNode = node.getElementsByTagName("password")[0] || null;
       const extensionsNode = node.getElementsByTagName("extensions")[0] || null;
+      const extensionsXml = extensionsNode ? serializePayloadFn(extensionsNode) : "";
+      const parser = typeof XEP_0503_SPACES.parseSpaceMetadataFromBookmarkExtensions === "function"
+        ? XEP_0503_SPACES.parseSpaceMetadataFromBookmarkExtensions
+        : (() => ({ spaceId: "", parentSpaceId: "", spaceName: "", spaceDescription: "" }));
+      const parsedSpaceMeta = parser(extensionsXml, { fallbackJid: jid });
+      const attrSpaceId = (node.getAttribute("space-id") || node.getAttribute("space") || "").toString().trim();
+      const attrParentSpaceId = (node.getAttribute("parent-space-id") || node.getAttribute("parent") || "").toString().trim();
+      const attrSpaceName = (node.getAttribute("space-name") || node.getAttribute("space-title") || "").toString().trim();
       list.push({
         jid,
         name: (node.getAttribute("name") || "").toString().trim(),
         autojoin: (node.getAttribute("autojoin") || "").toString().toLowerCase() === "true",
         nick: xmppNodeText(nickNode).trim(),
         password: xmppNodeText(passwordNode).trim(),
-        extensionsXml: extensionsNode ? serializePayloadFn(extensionsNode) : ""
+        extensionsXml,
+        spaceId: (attrSpaceId || parsedSpaceMeta.spaceId || "").toString().trim(),
+        parentSpaceId: (attrParentSpaceId || parsedSpaceMeta.parentSpaceId || "").toString().trim(),
+        spaceName: (attrSpaceName || parsedSpaceMeta.spaceName || "").toString().trim(),
+        spaceDescription: (parsedSpaceMeta.spaceDescription || "").toString().trim()
       });
     });
     return list;
@@ -92,17 +105,29 @@
           autojoin: false,
           nick: "",
           password: "",
-          extensionsXml: ""
+          extensionsXml: "",
+          spaceId: "",
+          parentSpaceId: "",
+          spaceName: "",
+          spaceDescription: ""
         };
         const nextName = (entry?.name || "").toString().trim();
         const nextNick = (entry?.nick || "").toString().trim();
         const nextPassword = (entry?.password || "").toString().trim();
         const nextExtensions = (entry?.extensionsXml || "").toString().trim();
+        const nextSpaceId = (entry?.spaceId || "").toString().trim();
+        const nextParentSpaceId = (entry?.parentSpaceId || "").toString().trim();
+        const nextSpaceName = (entry?.spaceName || "").toString().trim();
+        const nextSpaceDescription = (entry?.spaceDescription || "").toString().trim();
         const nextAutojoin = entry?.autojoin === true;
         if (nextName && (!existing.name || existing.name === jid.split("@")[0])) existing.name = nextName;
         if (nextNick && !existing.nick) existing.nick = nextNick;
         if (nextPassword && !existing.password) existing.password = nextPassword;
         if (nextExtensions && !existing.extensionsXml) existing.extensionsXml = nextExtensions;
+        if (nextSpaceId && !existing.spaceId) existing.spaceId = nextSpaceId;
+        if (nextParentSpaceId && !existing.parentSpaceId) existing.parentSpaceId = nextParentSpaceId;
+        if (nextSpaceName && !existing.spaceName) existing.spaceName = nextSpaceName;
+        if (nextSpaceDescription && !existing.spaceDescription) existing.spaceDescription = nextSpaceDescription;
         if (nextAutojoin) existing.autojoin = true;
         merged.set(jid, existing);
       });

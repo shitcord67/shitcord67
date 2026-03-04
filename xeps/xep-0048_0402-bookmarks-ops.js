@@ -160,13 +160,21 @@
     const nick = (entry?.nick || "").toString().trim();
     const password = (entry?.password || "").toString().trim();
     const extensionsXml = (entry?.extensionsXml || "").toString().trim();
+    const spaceId = (entry?.spaceId || "").toString().trim().slice(0, 160);
+    const parentSpaceId = (entry?.parentSpaceId || "").toString().trim().slice(0, 160);
+    const spaceName = (entry?.spaceName || "").toString().trim().slice(0, 120);
+    const spaceDescription = (entry?.spaceDescription || "").toString().trim().slice(0, 280);
     return {
       jid,
       name,
       autojoin: entry?.autojoin === true,
       nick,
       password,
-      extensionsXml
+      extensionsXml,
+      spaceId,
+      parentSpaceId,
+      spaceName,
+      spaceDescription
     };
   }
 
@@ -194,6 +202,9 @@
       autojoin: normalized.autojoin ? "true" : "false"
     };
     if (normalized.name) attrs.name = normalized.name.slice(0, 180);
+    if (normalized.spaceId) attrs["space-id"] = normalized.spaceId;
+    if (normalized.parentSpaceId) attrs["parent-space-id"] = normalized.parentSpaceId;
+    if (normalized.spaceName) attrs["space-name"] = normalized.spaceName;
     const conference = builder.c("conference", attrs);
     if (normalized.nick) conference.c("nick").t(normalized.nick.slice(0, 60)).up();
     if (normalized.password) conference.c("password").t(normalized.password.slice(0, 180)).up();

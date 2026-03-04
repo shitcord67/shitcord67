@@ -830,12 +830,16 @@ async function xmppPrepareMessageAttachmentsForUpload(message, { conversationId 
       const slot = await xmppHttpUploadRequestSlot(serviceInfo, payload);
       // eslint-disable-next-line no-await-in-loop
       await xmppHttpUploadPutFile(slot, payload);
-      const uploadedType = inferAttachmentTypeFromUrl(slot.getUrl) || entry.type || "file";
+      const inferredType = inferAttachmentTypeFromUrl(slot.getUrl) || "file";
+      const uploadedType = inferredType === "file"
+        ? ((entry?.type || "").toString().trim().toLowerCase() || "file")
+        : inferredType;
       updated.push({
         type: uploadedType,
         url: slot.getUrl,
         name: payload.fileName,
-        format: entry.format || inferAttachmentFormat(uploadedType, slot.getUrl)
+        format: entry.format || inferAttachmentFormat(uploadedType, slot.getUrl),
+        mime: (payload.contentType || entry?.mime || "").toString().trim().toLowerCase().slice(0, 120)
       });
       uploadedCount += 1;
     } catch (error) {

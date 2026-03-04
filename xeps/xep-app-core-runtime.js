@@ -348,17 +348,33 @@ function updateRuntimeSafeArea() {
   if (isAndroid) {
     const keyboardLikelyOpen = keyboardGap >= 110;
     const screenHeight = Number.isFinite(window.screen?.height) ? window.screen.height : 0;
+    const screenWidth = Number.isFinite(window.screen?.width) ? window.screen.width : 0;
+    const availHeight = Number.isFinite(window.screen?.availHeight) ? window.screen.availHeight : 0;
+    const availWidth = Number.isFinite(window.screen?.availWidth) ? window.screen.availWidth : 0;
     const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : 0;
+    const innerWidth = Number.isFinite(window.innerWidth) ? window.innerWidth : 0;
     const statusGuess = screenHeight && innerHeight ? Math.max(0, screenHeight - innerHeight) : 0;
-    const fallbackTop = hasNativeInsets ? 0 : Math.max(36, Math.round(statusGuess));
-    const fallbackBottom = hasNativeInsets ? 0 : 32;
+    const navHeightGuess = screenHeight && availHeight ? Math.max(0, screenHeight - availHeight) : 0;
+    const navWidthGuess = screenWidth && availWidth ? Math.max(0, screenWidth - availWidth) : 0;
+    const fallbackTop = hasNativeInsets ? 0 : Math.max(24, Math.round(statusGuess * 0.55));
+    const fallbackBottom = hasNativeInsets
+      ? 0
+      : Math.max(32, Math.round(navHeightGuess), Math.round(statusGuess * 0.35));
+    const fallbackSide = hasNativeInsets
+      ? 0
+      : Math.max(0, Math.round(navWidthGuess * 0.5), screenWidth > 0 && innerWidth > 0 && innerWidth < screenWidth ? 8 : 0);
     const nextTop = `${fallbackTop}px`;
     const nextBottom = `${keyboardLikelyOpen ? 0 : fallbackBottom}px`;
+    const nextSide = `${fallbackSide}px`;
     root.style.setProperty("--android-safe-extra-top", nextTop);
     root.style.setProperty("--android-safe-extra-bottom", nextBottom);
+    root.style.setProperty("--android-safe-extra-left", nextSide);
+    root.style.setProperty("--android-safe-extra-right", nextSide);
     if (body) {
       body.style.setProperty("--android-safe-extra-top", nextTop);
       body.style.setProperty("--android-safe-extra-bottom", nextBottom);
+      body.style.setProperty("--android-safe-extra-left", nextSide);
+      body.style.setProperty("--android-safe-extra-right", nextSide);
     }
   }
   const nextImeOffset = `${roundedImeOffsetPx}px`;
