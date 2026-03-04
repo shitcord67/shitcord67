@@ -38,7 +38,7 @@ function parseSedSubstitution(rawText) {
   while (index < text.length) {
     const char = text[index];
     if (char === "\\" && index + 1 < text.length) {
-      part += text[index + 1];
+      part += `\\${text[index + 1]}`;
       index += 2;
       continue;
     }
@@ -76,20 +76,24 @@ function parseSedSubstitution(rawText) {
 function decodeSedReplacement(value = "") {
   return (value || "")
     .toString()
+    .replace(/\\([1-9])/g, "$$$1")
+    .replace(/\\\//g, "/")
     .replace(/\\n/g, "\n")
     .replace(/\\t/g, "\t")
     .replace(/\\\\/g, "\\");
 }
 
-function findLastOwnMessage(conversation, account) {
+function findLastEditableMessage(conversation, account) {
   if (!conversation || !account) return null;
+  const isDm = conversation.type === "dm";
+  const canManageMessages = !isDm && canCurrentUser("manageMessages");
   const bucket = conversation.type === "dm"
     ? conversation.thread?.messages
     : conversation.channel?.messages;
   if (!Array.isArray(bucket)) return null;
   for (let i = bucket.length - 1; i >= 0; i -= 1) {
     const message = bucket[i];
-    if (!message || message.userId !== account.id) continue;
+    if (!canEditMessageEntry(message, { isDm, canManageMessages, currentUser: account })) continue;
     return message;
   }
   return null;
@@ -153,9 +157,9 @@ ui.messageForm.addEventListener("submit", (event) => {
   if (text && composerPendingAttachments.length === 0) {
     const sed = parseSedSubstitution(text);
     if (sed) {
-      const target = findLastOwnMessage(conversation, account);
+      const target = findLastEditableMessage(conversation, account);
       if (!target) {
-        showToast("No recent message to edit.", { tone: "error" });
+        showToast("No recent editable message found.", { tone: "error" });
         return;
       }
       const nextText = (target.text || "").toString().replace(sed.regex, decodeSedReplacement(sed.replacement));

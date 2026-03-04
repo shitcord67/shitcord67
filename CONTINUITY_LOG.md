@@ -7565,3 +7565,6 @@ USER PROMPT:
 Then I noticed when I interact with the privacy gateway that the media seems to not load instantly after accepting it?!
 [2026-03-04T08:47:43Z]
 User prompt (verbatim summary): Reports regressions including missing YouTube video/player preview, missing fallback avatar letters (self and DM peers), Movim call issues, Dino call invite visibility regressions, /shrug rendering wrong (shows fullwidth slash/backslash variants), devtools not working, repeated spam reloading/fetching of archuser.de/the-rock.gif causing many 404s, CORS/fetch errors for non-direct GIF pages, Chromium /tmp shared memory errors, and asks why archuser.de/the-rock.gif is not formatted as a link. Provided extensive XMPP logs showing call flows and transport-info errors: feature-not-implemented "can't process multiple content nodes", and session-terminate "User session not found".
+[2026-03-04T08:47:43Z]
+User prompt: "Oh also I think the sed-like syntax to edit the last message doesn't work. E.g. s/old/new/"
+2026-03-04T08:52:29Z User prompt: "Oh also I think the sed-like syntax to edit the last message doesn't work. E.g. s/old/new/"
