@@ -488,6 +488,17 @@ function clearNativeCallSurfaceTicker() {
   nativeCallSurfaceTickerSessionId = "";
 }
 
+function isNativeCallSurfaceDevicePickerFocused(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (!(active instanceof HTMLSelectElement)) return false;
+  if (!active.classList.contains("native-call-surface__select")) return false;
+  const shell = active.closest(".native-call-surface");
+  if (!(shell instanceof HTMLElement)) return false;
+  return (shell.dataset.sid || "").toString().trim() === sid;
+}
+
 function scheduleNativeCallSurfaceTicker(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid || xmppActiveNativeCallSessionId !== sid) {
@@ -501,6 +512,10 @@ function scheduleNativeCallSurfaceTicker(sessionId = "") {
     nativeCallSurfaceTickerId = 0;
     if (xmppActiveNativeCallSessionId !== sid) {
       clearNativeCallSurfaceTicker();
+      return;
+    }
+    if (isNativeCallSurfaceDevicePickerFocused(sid)) {
+      scheduleNativeCallSurfaceTicker(sid);
       return;
     }
     renderNativeXmppCallSurface(sid);

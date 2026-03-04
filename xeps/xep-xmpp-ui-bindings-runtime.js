@@ -56,12 +56,12 @@
     return true;
   }
 
-  function languageFlagForToken(token = "") {
+  function languageCodeForToken(token = "") {
     const normalized = normalizeLanguage(token || "auto");
-    if (normalized === "de") return "🇩🇪";
-    if (normalized === "en") return "🇺🇸";
+    if (normalized === "de") return "DE";
+    if (normalized === "en") return "EN";
     const detected = detectBrowserUiLocale();
-    return detected === "de" ? "🇩🇪" : "🇺🇸";
+    return detected === "de" ? "DE" : "EN";
   }
 
   function syncLoginLanguageButton() {
@@ -69,11 +69,71 @@
     const prefs = getPreferences();
     const selected = normalizeLanguage(prefs.language || "auto");
     const resolved = resolveUiLocale(prefs);
-    const flag = languageFlagForToken(selected === "auto" ? resolved : selected);
-    ui.loginLanguageBtn.textContent = flag;
+    const code = languageCodeForToken(selected === "auto" ? resolved : selected);
+    ui.loginLanguageBtn.textContent = code;
     const selectedLabel = selected === "auto" ? `Auto (${resolved.toUpperCase()})` : selected.toUpperCase();
     ui.loginLanguageBtn.title = `Language: ${selectedLabel}. Click to switch.`;
     ui.loginLanguageBtn.setAttribute("aria-label", `Language ${selectedLabel}. Click to switch.`);
+  }
+
+  function ensureLoginNativeCredentialLoadButton() {
+    if (!(ui.loginSavedAccountWrap instanceof HTMLElement)) return null;
+    const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+    const isAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());
+    let button = document.getElementById("loginNativeCredentialLoadBtn");
+    if (!(button instanceof HTMLButtonElement)) {
+      const actions = document.createElement("div");
+      actions.className = "settings-inline-actions";
+      button = document.createElement("button");
+      button.type = "button";
+      button.id = "loginNativeCredentialLoadBtn";
+      button.textContent = "Load Docs Credentials";
+      actions.appendChild(button);
+      const anchor = ui.loginSavedAccountSelect instanceof HTMLElement
+        ? ui.loginSavedAccountSelect
+        : ui.loginSavedAccountWrap.lastElementChild;
+      if (anchor?.parentNode === ui.loginSavedAccountWrap) {
+        anchor.insertAdjacentElement("afterend", actions);
+      } else {
+        ui.loginSavedAccountWrap.appendChild(actions);
+      }
+    }
+    button.hidden = !isAndroid;
+    button.disabled = !isAndroid;
+    if (button.dataset.bound !== "on") {
+      button.dataset.bound = "on";
+      button.addEventListener("click", async () => {
+        const runtime = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+        const android = Boolean(runtime && typeof runtime.isAndroid === "function" && runtime.isAndroid());
+        if (!android || !runtime) {
+          showToast("Documents credentials are available on Android only.", { tone: "error" });
+          return;
+        }
+        button.disabled = true;
+        try {
+          if (typeof runtime.requestPermission === "function") {
+            const permission = await runtime.requestPermission();
+            if (!permission?.granted) {
+              showToast("Documents permission is required to load credentials.", { tone: "error", duration: 3200 });
+              return;
+            }
+          }
+          const hydrated = typeof runtime.hydrateIntoState === "function"
+            ? await runtime.hydrateIntoState({ force: true })
+            : false;
+          if (!hydrated) {
+            showToast("No credentials found in Documents.", { tone: "error" });
+            return;
+          }
+          if (typeof syncLoginFieldsFromSessionPrefs === "function") syncLoginFieldsFromSessionPrefs();
+          refreshLoginRuntimeUi();
+          showToast("Loaded credentials from Documents.", { tone: "info" });
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
+    return button;
   }
 
   function renderLoginSavedAccountSelect() {
@@ -106,6 +166,7 @@
   function refreshLoginRuntimeUi() {
     renderLoginSavedAccountSelect();
     syncLoginLanguageButton();
+    ensureLoginNativeCredentialLoadButton();
   }
 
   function bindXmppLoginUiRuntimeBindings() {
@@ -604,7 +665,10 @@ ui.refreshDebugBtn.addEventListener("click", () => {
 });
 
 ui.copyDebugBtn.addEventListener("click", () => {
-  void copyText(formatDebugLogs()).then((ok) => {
+  const payload = typeof formatDebugLogs === "function"
+    ? formatDebugLogs()
+    : ((ui.debugOutput?.textContent || "").toString().trim() || "No debug logs.");
+  void copyText(payload).then((ok) => {
     showToast(ok ? "Debug logs copied." : "Clipboard blocked. Manual copy prompt opened.", { tone: ok ? "info" : "error" });
   });
 });
@@ -697,7 +761,10 @@ ui.omemoHeaderBtn?.addEventListener("contextmenu", (event) => {
 });
 
 ui.copyXmppConsoleBtn?.addEventListener("click", () => {
-  void copyText(formatXmppConsoleLogs()).then((ok) => {
+  const payload = typeof formatXmppConsoleLogs === "function"
+    ? formatXmppConsoleLogs()
+    : ((ui.xmppConsoleOutput?.textContent || "").toString().trim() || "No XMPP logs.");
+  void copyText(payload).then((ok) => {
     showToast(ok ? "XMPP logs copied." : "Clipboard blocked. Manual copy prompt opened.", { tone: ok ? "info" : "error" });
   });
 });

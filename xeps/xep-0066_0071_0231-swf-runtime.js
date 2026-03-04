@@ -1760,6 +1760,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
     }
     if (runtimeKey) {
       const existingRuntime = swfRuntimes.get(runtimeKey) || {};
+      const defaultKeepAlive = Boolean(runtimeKey && !runtimeKey.startsWith("shelf:"));
       if (existingRuntime.host instanceof HTMLElement && existingRuntime.host !== runtimeHost) {
         existingRuntime.host.remove();
       }
@@ -1786,7 +1787,7 @@ function attachRufflePlayer(playerWrap, attachment, { autoplay = "on", runtimeKe
         pipTransitioning: existingRuntime.pipTransitioning === true,
         pendingPip: existingRuntime.pendingPip === true,
         parked: existingRuntime.parked === true,
-        keepAlive: existingRuntime.keepAlive === true,
+        keepAlive: existingRuntime.keepAlive === true || defaultKeepAlive,
         loading: true,
         audioEnabled: getPreferences().swfAudio === "on",
         audioVolume: getPreferences().swfVolume,

@@ -7582,3 +7582,7 @@ User prompt: "Oh also I think the sed-like syntax to edit the last message doesn
 [2026-03-04T10:48:59Z] Loading SWF... is all I see now?! ... (long log)
 2026-03-04T12:34:53+01:00 | Does the SWF audio actually correctly change? I see the Audio Active badge changes but still one previous SWF audio is playing? Oh also could you show the badges Audio Active and Runtime stable maybe at the very right in the same line as the file name for SWF?
 2026-03-04T12:36:35+01:00 | Btw. is there no border indicator for the Audio pinning for SWF controls?
+2026-03-04T12:47:28+01:00 | Then the Copy Logs button doesn't work. Then I don't see call notification for calls from Movim ... Also why is the input/output selection so fiddely, it auto-closes pretty fast? Please prevent the auto-close and give me real Discord-like selection for input and output. Then can you try on getting OMEMO to work? When I enable it in chat then others don't even receive my messages at all, not even showing that the message is encrypted... (very long prompt with extensive XMPP logs and Electron runtime output provided in chat)
+2026-03-04T12:52:19+01:00 | can't you keep the ruffle instance alive?
+
+[2026-03-04T12:53:17+01:00] USER PROMPT: Please continue working on your earlier task before that!

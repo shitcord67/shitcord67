@@ -843,6 +843,23 @@ function renderDebugDialog() {
   ui.debugOutput.textContent = formatDebugLogs();
 }
 
+function messageEditHistory(message) {
+  return Array.isArray(message?.editHistory) ? message.editHistory : [];
+}
+
+function formatMessageEditHistory(message) {
+  const history = messageEditHistory(message);
+  if (history.length === 0) return "No edit history.";
+  return history
+    .map((entry, index) => {
+      const editor = entry?.editorName || "Unknown";
+      const when = entry?.editedAt || "";
+      const text = (entry?.previousText || "").toString();
+      return `${index + 1}. ${when} by ${editor}\n${text}`;
+    })
+    .join("\n\n");
+}
+
 function openDebugDialog() {
   renderDebugDialog();
   ui.debugDialog.showModal();

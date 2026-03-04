@@ -1671,23 +1671,57 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
   const messageKeys = {};
   let successCount = 0;
   for (const target of targets) {
-    const address = new globalThis.libsignal.SignalProtocolAddress(target.jid, Number(target.deviceId));
-    await xmppOmemoEnsureSession(target.jid, target.deviceId, ownBare);
-    const sessionCipher = new globalThis.libsignal.SessionCipher(store, address);
+    const jid = xmppBareJid(target?.jid || "");
+    const deviceId = Number(target?.deviceId || 0);
+    if (!jid || !Number.isFinite(deviceId) || deviceId <= 0) continue;
+    const address = new globalThis.libsignal.SignalProtocolAddress(jid, deviceId);
+    await xmppOmemoEnsureSession(jid, deviceId, ownBare);
+    let sessionCipher = new globalThis.libsignal.SessionCipher(store, address);
     try {
       // eslint-disable-next-line no-await-in-loop
       const payload = await sessionCipher.encrypt(contentPayload.keyAndTag);
-      messageKeys[target.deviceId] = {
+      messageKeys[String(deviceId)] = {
         payload: btoa(payload.body || ""),
         prekey: Number(payload.type) === 3
       };
       successCount += 1;
     } catch (error) {
       addXmppDebugEvent("error", "OMEMO encryption failed for device", {
-        peer: target.jid,
-        device: target.deviceId,
+        peer: jid,
+        device: String(deviceId),
         error: String(error?.message || error)
       });
+      const sessionId = `${jid}.${deviceId}`;
+      const canResetSession = typeof store.removeSession === "function";
+      if (!canResetSession) continue;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await store.removeSession(sessionId);
+      } catch {
+        // continue with forced re-prime path below
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await xmppOmemoEnsureSession(jid, deviceId, ownBare);
+      sessionCipher = new globalThis.libsignal.SessionCipher(store, address);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const retryPayload = await sessionCipher.encrypt(contentPayload.keyAndTag);
+        messageKeys[String(deviceId)] = {
+          payload: btoa(retryPayload.body || ""),
+          prekey: Number(retryPayload.type) === 3
+        };
+        successCount += 1;
+        addXmppDebugEvent("runtime", "OMEMO encryption recovered after session reset", {
+          peer: jid,
+          device: String(deviceId)
+        });
+      } catch (retryError) {
+        addXmppDebugEvent("error", "OMEMO encryption retry failed", {
+          peer: jid,
+          device: String(deviceId),
+          error: String(retryError?.message || retryError)
+        });
+      }
     }
   }
   if (successCount === 0) return null;

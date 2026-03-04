@@ -867,11 +867,16 @@ async function xmppGatherLocalIceTransportInfo({
 
 function xmppQueueTransportInfoGatherAndSend(peerJid, sessionId, { force = false } = {}) {
   const xep0320 = XEP_0320_WEBRTC_SDP_BASICS_GLOBAL;
-  const to = xmppNormalizeCallTargetJid(peerJid, { preferFull: true });
   const sid = typeof xep0320.xmppNormalizeSessionId === "function"
     ? xep0320.xmppNormalizeSessionId(sessionId)
     : (sessionId || "").toString().trim();
-  if (!to || !sid) return false;
+  if (!sid) return false;
+  const sessionForTarget = xmppCallSessionById.get(sid) || null;
+  const to = xmppNormalizeCallTargetJid(
+    sessionForTarget?.peerFullJid || sessionForTarget?.peerJid || peerJid,
+    { preferFull: true }
+  );
+  if (!to) return false;
   const shouldSkip = typeof xep0320.xmppShouldSkipTransportInfoGather === "function"
     ? xep0320.xmppShouldSkipTransportInfoGather(force, xmppCallIceGatherInFlightBySessionId.has(sid))
     : (!force && xmppCallIceGatherInFlightBySessionId.has(sid));

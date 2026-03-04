@@ -1173,11 +1173,24 @@ function publishRelayChannelMessage(channel, message, account) {
             showToast("OMEMO groupchat requires real JIDs (non-anonymous room).", { tone: "error" });
             return;
           }
+          const refreshOmemoSessions = async () => {
+            await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+            for (const recipientJid of recipientJids) {
+              // eslint-disable-next-line no-await-in-loop
+              await xmppOmemoFetchDeviceList(recipientJid);
+              // eslint-disable-next-line no-await-in-loop
+              await xmppOmemoEnsurePeerSessions(recipientJid, ownBare);
+            }
+          };
           const omemoNamespace = xmppOmemoNamespaceForSend(recipientJids);
-          const encryptedPayload = await xmppOmemoEncryptMessageForPeers(recipientJids, omemoBody, ownBare);
+          let encryptedPayload = await xmppOmemoEncryptMessageForPeers(recipientJids, omemoBody, ownBare);
           if (!encryptedPayload) {
-            showToast("OMEMO groupchat encryption failed.", { tone: "error" });
-            return;
+            await refreshOmemoSessions();
+            encryptedPayload = await xmppOmemoEncryptMessageForPeers(recipientJids, omemoBody, ownBare);
+            if (!encryptedPayload) {
+              showToast("OMEMO groupchat encryption failed.", { tone: "error" });
+              return;
+            }
           }
           appendXmppOmemoEncryptedNode(stanza, encryptedPayload, { namespace: omemoNamespace });
           appendXmppEmeNode(stanza, { namespace: omemoNamespace, name: "OMEMO" });
@@ -1334,13 +1347,22 @@ function publishRelayDirectMessage(thread, message, account) {
           }
           await xmppOmemoEnsureOwnBundle(ownBare);
           const omemoNamespace = xmppOmemoNamespaceForSend([peerBare]);
-          const encryptedPayload = await xmppOmemoEncryptMessageForPeers([peerBare], omemoBody, ownBare);
+          const refreshOmemoSessions = async () => {
+            await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+            await xmppOmemoFetchDeviceList(peerBare);
+            await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
+          };
+          let encryptedPayload = await xmppOmemoEncryptMessageForPeers([peerBare], omemoBody, ownBare);
           if (!encryptedPayload) {
-            showToast("OMEMO encryption failed. Message not sent.", { tone: "error" });
-            addXmppDebugEvent("error", "OMEMO DM encryption failed", {
-              to: peerBare || ""
-            });
-            return;
+            await refreshOmemoSessions();
+            encryptedPayload = await xmppOmemoEncryptMessageForPeers([peerBare], omemoBody, ownBare);
+            if (!encryptedPayload) {
+              showToast("OMEMO encryption failed. Message not sent.", { tone: "error" });
+              addXmppDebugEvent("error", "OMEMO DM encryption failed", {
+                to: peerBare || ""
+              });
+              return;
+            }
           }
           appendXmppOmemoEncryptedNode(stanza, encryptedPayload, { namespace: omemoNamespace });
           appendXmppEmeNode(stanza, { namespace: omemoNamespace, name: "OMEMO" });

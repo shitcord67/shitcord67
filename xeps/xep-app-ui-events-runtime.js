@@ -289,7 +289,9 @@ ui.messageForm.addEventListener("submit", (event) => {
         const afterCount = Array.isArray(conversation.thread?.messages) ? conversation.thread.messages.length : 0;
         if (afterCount > beforeCount) {
           handledSlashMessage = conversation.thread.messages[afterCount - 1] || null;
-          if (handledSlashMessage) publishRelayDirectMessage(conversation.thread, handledSlashMessage, account);
+          if (handledSlashMessage?.userId && handledSlashMessage.userId === account.id) {
+            publishRelayDirectMessage(conversation.thread, handledSlashMessage, account);
+          }
         }
       }
     }
@@ -323,7 +325,9 @@ ui.messageForm.addEventListener("submit", (event) => {
       const afterCount = Array.isArray(conversation.channel?.messages) ? conversation.channel.messages.length : 0;
       if (afterCount > beforeCount) {
         handledSlashMessage = conversation.channel.messages[afterCount - 1] || null;
-        if (handledSlashMessage) publishRelayChannelMessage(conversation.channel, handledSlashMessage, account);
+        if (handledSlashMessage?.userId && handledSlashMessage.userId === account.id) {
+          publishRelayChannelMessage(conversation.channel, handledSlashMessage, account);
+        }
       }
     }
   }

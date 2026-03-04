@@ -1364,12 +1364,14 @@
       const media = (entry?.media || "").toString().trim().toLowerCase();
       if (media !== "audio" && media !== "video") return;
       const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      pushContent(media, media);
       pushContent(name, media);
     });
     (Array.isArray(localSdpContents) ? localSdpContents : []).forEach((entry, index) => {
       const media = (entry?.media || "").toString().trim().toLowerCase();
       if (media !== "audio" && media !== "video") return;
       const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      pushContent(media, media);
       pushContent(name, media);
     });
     (Array.isArray(sessionMedia) ? sessionMedia : []).forEach((mediaType, index) => {
@@ -1448,12 +1450,15 @@
 
   function xmppBuildTransportInfoCandidateTargets(candidate = {}, contentTargets = []) {
     const targets = Array.isArray(contentTargets) ? contentTargets : [];
-    const byName = targets.filter((content) => content?.name === candidate.contentName);
-    if (byName.length > 0) return byName;
     const byMedia = candidate.media
       ? targets.filter((content) => content?.media === candidate.media)
       : [];
+    const candidateName = (candidate.contentName || "").toString().trim();
+    const candidateNameIsNumeric = /^\d+$/.test(candidateName);
+    const byName = targets.filter((content) => content?.name === candidateName);
+    if (byName.length > 0 && (!candidateNameIsNumeric || byMedia.length === 0)) return byName;
     if (byMedia.length > 0) return byMedia;
+    if (byName.length > 0) return byName;
     if (Number.isFinite(candidate.sdpMLineIndex) && candidate.sdpMLineIndex >= 0 && candidate.sdpMLineIndex < targets.length) {
       return [targets[candidate.sdpMLineIndex]];
     }
