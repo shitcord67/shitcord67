@@ -7643,3 +7643,7 @@ User prompt: Yes do all
 ## 2026-03-04T16:38:46+01:00
 USER PROMPT:
 Okay for some reason I still can't hear the Dino user when we are calling but I can at least now select a output source but then it creates a bunch of sources on my system?!
+
+## 2026-03-04T16:41:48+01:00
+USER PROMPT:
+When I click "Allow Docs access" in Android then no permission dialog pops up. And in apps settings I can't grant the apps permissions either. Is it even correctly having permissions settings defined as something that can be granted in Android config files manifest xml gradle or wherer they have to?

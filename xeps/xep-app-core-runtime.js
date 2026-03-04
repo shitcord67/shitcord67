@@ -1337,6 +1337,46 @@ function notifyNativeCredentialStorageIssue(message, {
   }
 }
 
+async function canAccessNativeDocumentsStorage(fs) {
+  const directory = resolveNativeDocumentsDirectory(fs);
+  if (!fs || !directory) return false;
+  const probePath = `${NATIVE_CREDENTIALS_DIR}/.access-probe`;
+  try {
+    if (typeof fs.mkdir === "function") {
+      await fs.mkdir({
+        path: NATIVE_CREDENTIALS_DIR,
+        directory,
+        recursive: true
+      }).catch(() => {});
+    }
+    if (typeof fs.writeFile === "function") {
+      await fs.writeFile({
+        path: probePath,
+        directory,
+        data: "ok",
+        encoding: "utf8"
+      });
+      if (typeof fs.deleteFile === "function") {
+        await fs.deleteFile({
+          path: probePath,
+          directory
+        }).catch(() => {});
+      }
+      return true;
+    }
+    if (typeof fs.readdir === "function") {
+      await fs.readdir({
+        path: NATIVE_CREDENTIALS_DIR,
+        directory
+      }).catch(() => {});
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function ensureNativeFilesystemPermissions({
   prompt = true
 } = {}) {
@@ -1348,16 +1388,20 @@ async function ensureNativeFilesystemPermissions({
     const status = await fs.checkPermissions();
     const current = (status?.publicStorage || "").toString().toLowerCase();
     if (current === "granted") return true;
+    // On newer Android versions, app-scoped Documents access can work without
+    // a grantable runtime storage permission toggle/dialog.
+    if (await canAccessNativeDocumentsStorage(fs)) return true;
     if (!prompt || typeof fs.requestPermissions !== "function") return false;
     const requested = await fs.requestPermissions();
     const next = (requested?.publicStorage || "").toString().toLowerCase();
     if (next === "granted") return true;
-    notifyNativeCredentialStorageIssue("Storage permission denied. Cannot persist credentials in Documents.", {
+    if (await canAccessNativeDocumentsStorage(fs)) return true;
+    notifyNativeCredentialStorageIssue("Cannot access Documents storage for credential persistence.", {
       duration: 4200
     });
     return false;
   } catch {
-    notifyNativeCredentialStorageIssue("Failed to request Android storage permission for credential persistence.", {
+    notifyNativeCredentialStorageIssue("Failed to verify Android Documents access for credential persistence.", {
       duration: 4200
     });
     return false;
@@ -1372,6 +1416,8 @@ async function getNativeFilesystemPermissionStatus() {
   try {
     const status = await fs.checkPermissions();
     const current = (status?.publicStorage || "").toString().trim().toLowerCase();
+    if (current === "granted") return "granted";
+    if (await canAccessNativeDocumentsStorage(fs)) return "granted";
     return current || "unknown";
   } catch {
     return "unknown";
