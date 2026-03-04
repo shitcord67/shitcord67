@@ -7581,3 +7581,4 @@ User prompt: "Oh also I think the sed-like syntax to edit the last message doesn
 
 [2026-03-04T10:48:59Z] Loading SWF... is all I see now?! ... (long log)
 2026-03-04T12:34:53+01:00 | Does the SWF audio actually correctly change? I see the Audio Active badge changes but still one previous SWF audio is playing? Oh also could you show the badges Audio Active and Runtime stable maybe at the very right in the same line as the file name for SWF?
+2026-03-04T12:36:35+01:00 | Btw. is there no border indicator for the Audio pinning for SWF controls?

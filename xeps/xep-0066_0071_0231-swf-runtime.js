@@ -1350,6 +1350,10 @@ function updateSwfAudioUi(runtimeKey) {
     runtime.audioToggleEl.setAttribute("aria-label", titleText);
     runtime.audioToggleEl.classList.toggle("is-pinned", Boolean(runtime.audioPinned));
     runtime.audioToggleEl.dataset.pinned = runtime.audioPinned ? "on" : "off";
+    const audioRail = runtime.audioToggleEl.closest(".message-swf-audio-rail");
+    if (audioRail instanceof HTMLElement) {
+      audioRail.classList.toggle("is-pinned", Boolean(runtime.audioPinned));
+    }
   }
   if (runtime.audioIndicatorEl instanceof HTMLElement) {
     const audible = runtime.playing && runtime.audioEnabled && !runtime.audioSuppressed;
