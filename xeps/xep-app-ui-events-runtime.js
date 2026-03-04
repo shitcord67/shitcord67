@@ -19,7 +19,12 @@ const DM_GENERIC_SLASH_FALLBACK_COMMANDS = new Set([
   "closepoll",
   "reopenpoll",
   "pollresults",
-  "vote"
+  "vote",
+  "help",
+  "shortcuts",
+  "xmppconsole",
+  "xmppinspect",
+  "devtools"
 ]);
 
 const SED_SUB_FLAGS = new Set(["g", "i", "m", "s", "u", "y"]);

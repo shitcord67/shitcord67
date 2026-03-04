@@ -143,6 +143,7 @@
 - [done] Slash command `/findfrom <username>` to open conversation search scoped by sender.
 - [done] Slash command `/findtoday` to open conversation search scoped to today.
 - [done] Slash command `/whois <username-or-jid>` to inspect another account identity summary.
+- [done] DM slash-command fallback parity for utility commands (`/help`, `/shortcuts`, `/xmppconsole`, `/xmppinspect`, `/devtools`) so they no longer send as plain DM text.
 - [done] Slash command `/markmentionsread` to clear guild mention channels quickly.
 - [done] Slash command `/markdmmentionsread` to clear DM threads with mention unread state.
 - [done] Slash command `/nick clear` to clear guild nickname/reset display name in DM mode.
