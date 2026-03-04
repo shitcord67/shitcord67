@@ -1386,7 +1386,6 @@ function updateSwfAudioUi(runtimeKey) {
 function applySwfAudioToRuntime(runtimeKey) {
   const runtime = swfRuntimes.get(runtimeKey);
   if (!runtime?.player) return;
-  if (!(runtime.host instanceof HTMLElement) || !runtime.host.isConnected) return;
   const prefs = getPreferences();
   const audioEnabled = typeof runtime.audioEnabled === "boolean"
     ? runtime.audioEnabled
@@ -2255,6 +2254,7 @@ function refreshSwfAudioFocus(preferredKey = null) {
     swfRuntimes.forEach((runtime, key) => {
       if (!runtimeConnected(runtime)) {
         runtime.audioSuppressed = true;
+        applySwfAudioToRuntime(key);
         updateSwfAudioUi(key);
         return;
       }
@@ -2302,6 +2302,7 @@ function refreshSwfAudioFocus(preferredKey = null) {
     swfRuntimes.forEach((runtime, key) => {
       if (!runtimeConnected(runtime)) {
         runtime.audioSuppressed = true;
+        applySwfAudioToRuntime(key);
         updateSwfAudioUi(key);
         return;
       }
@@ -2322,6 +2323,7 @@ function refreshSwfAudioFocus(preferredKey = null) {
     swfRuntimes.forEach((runtime, key) => {
       if (!runtimeConnected(runtime)) {
         runtime.audioSuppressed = true;
+        applySwfAudioToRuntime(key);
         updateSwfAudioUi(key);
         return;
       }
@@ -2346,6 +2348,7 @@ function refreshSwfAudioFocus(preferredKey = null) {
     swfRuntimes.forEach((runtime, key) => {
       if (!runtimeConnected(runtime)) {
         runtime.audioSuppressed = true;
+        applySwfAudioToRuntime(key);
         updateSwfAudioUi(key);
         return;
       }
@@ -2369,6 +2372,7 @@ function refreshSwfAudioFocus(preferredKey = null) {
   swfRuntimes.forEach((runtime, key) => {
     if (!runtimeConnected(runtime)) {
       runtime.audioSuppressed = true;
+      applySwfAudioToRuntime(key);
       updateSwfAudioUi(key);
       return;
     }

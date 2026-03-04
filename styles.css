@@ -3471,9 +3471,27 @@ body[data-mobile="on"] .reaction-picker button {
   margin-bottom: 0.28rem;
 }
 
+.message-swf-title-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.36rem;
+  min-width: 0;
+}
+
 .message-swf strong {
   display: block;
   font-size: 0.8rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.message-swf-title-badges {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
 }
 
 .message-swf-meta {

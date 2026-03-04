@@ -7580,3 +7580,4 @@ User prompt: "Oh also I think the sed-like syntax to edit the last message doesn
 [2026-03-04T10:38:24Z] 11:29:55 ~/shitcord67:$ ... Why am I spammed when most of the Ruffle players are all outside the current visible chat when I open it? How about you load them when first encountered?!
 
 [2026-03-04T10:48:59Z] Loading SWF... is all I see now?! ... (long log)
+2026-03-04T12:34:53+01:00 | Does the SWF audio actually correctly change? I see the Audio Active badge changes but still one previous SWF audio is playing? Oh also could you show the badges Audio Active and Runtime stable maybe at the very right in the same line as the file name for SWF?

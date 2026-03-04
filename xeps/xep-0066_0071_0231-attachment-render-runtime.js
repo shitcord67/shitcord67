@@ -1632,8 +1632,12 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     card.className = "message-swf";
     const header = document.createElement("div");
     header.className = "message-swf-header";
+    const titleRow = document.createElement("div");
+    titleRow.className = "message-swf-title-row";
     const title = document.createElement("strong");
     title.textContent = attachment.name || "SWF file";
+    const titleBadges = document.createElement("div");
+    titleBadges.className = "message-swf-title-badges";
     const controlRow = document.createElement("div");
     controlRow.className = "message-swf-top-controls";
     const saveIconBtn = document.createElement("button");
@@ -1709,7 +1713,11 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     pipBtn.className = "message-swf-top-btn";
     pipBtn.textContent = "📺";
     pipBtn.title = "Pin to PiP";
-    header.appendChild(title);
+    titleBadges.appendChild(audioIndicator);
+    titleBadges.appendChild(runtimeHealthBadge);
+    titleRow.appendChild(title);
+    titleRow.appendChild(titleBadges);
+    header.appendChild(titleRow);
     controlRow.appendChild(saveIconBtn);
     controlRow.appendChild(exportSavesBtn);
     controlRow.appendChild(importSavesBtn);
@@ -1721,8 +1729,6 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     controlRow.appendChild(optimalBtn);
     controlRow.appendChild(soloBtn);
     controlRow.appendChild(pipBtn);
-    controlRow.appendChild(audioIndicator);
-    controlRow.appendChild(runtimeHealthBadge);
     card.appendChild(header);
 
     const body = document.createElement("div");
