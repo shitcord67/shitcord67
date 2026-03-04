@@ -570,5 +570,17 @@ XMPP realtime media + spaces status (as of 2026-02-25):
   - macOS: `/Users/<username>/Library/Application Support/ruffle/SharedObjects/`
   - Windows: `C:\\Users\\<username>\\AppData\\Local\\Ruffle\\SharedObjects\\`
 
+## WebXDC Packaging
+
+To create a `.xdc` bundle from a folder:
+
+```bash
+node scripts/build-webxdc.mjs path/to/webxdc-app dist/my-app.xdc --init
+```
+
+Requirements:
+- `manifest.toml` and `index.html` in the source folder.
+- `zip` installed (used to build the archive).
+
 ## Next architecture step
 Add a transport adapter layer so UI logic stays independent from protocol backends (local JSON, XMPP, Matrix).

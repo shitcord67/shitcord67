@@ -13,6 +13,7 @@
     "build:web": "bash scripts/build-platform.sh web --build",
     "build:electron": "bash scripts/build-platform.sh electron --build",
     "build:android": "bash scripts/build-platform.sh android --build",
+    "build:webxdc": "node scripts/build-webxdc.mjs",
     "mobile:build:web": "node scripts/build-mobile-web.mjs",
     "mobile:android:patch-gradle": "node scripts/patch-capacitor-android-gradle.cjs",
     "mobile:cap:sync": "npm run mobile:build:web && npx cap sync",

@@ -153,7 +153,7 @@
 - [done] Presence alias command `/invisible`.
 - [done] Presence alias command `/away` (maps to idle).
 - [done] `/presence status` support in channel and DM command paths.
-- WebXDC packaging path: `.xdc` zip, `manifest.toml`, and realtime sync via `joinRealtimeChannel().send`.
+- [done] WebXDC packaging path: `.xdc` zip, `manifest.toml`, and realtime sync via `joinRealtimeChannel().send`.
 - Bundle Ruffle locally (self-hosted script) and support richer SWF controls/fallback.
 - [done] dotLottie sticker controls parity in chat (pause/play, speed, scrub, loop toggle, open URL).
 - [done] Added provider-backed GIF/sticker search adapter with local fallback (Tenor + local libraries).
@@ -173,12 +173,12 @@
 - WebXDC.
 - [done] SVG display support in chat.
 - In-line slash commands with rich media embeds.
-- GIF and sticker picker with provider consent and local fallback.
+- [done] GIF and sticker picker with provider consent and local fallback.
 - Forums: https://xmpp.org/extensions/xep-0508.html
 - XMPP Whiteboard plugin.
 - Multiple accounts logged in at the same time.
 - Remote XMPP server developer interface (for example ejabberd).
-- SVG/SWF picker for flash and SVG animations.
+- [done] SVG/SWF picker for flash and SVG animations.
 
 ## Discord parity targets (from official docs)
 - Per-server profiles and avatar variants.
@@ -186,23 +186,23 @@
 - Thread channels for focused sub-conversations.
 - Forum channels with post-style discussion.
 - Full slash-command command palette and app command support.
-- Channel type expansion (voice, stage, announcement/media-like channel support).
+- [done] Channel type expansion (voice, stage, announcement/media-like channel support).
 - Upload flow + media embeds + sticker/GIF experience.
-- Reactions on messages.
+- [done] Reactions on messages.
 - Full user settings breadth (privacy, notifications, keybinds, accessibility, voice/video).
 
 ## Others (user added to TODO, feel free to reposition)
 - Try to split the application into modules/parts/plugins. e.g. every XEP could be its own plugin or support for IRC/Discord, some UI elements, etc. 
 - [done] Started XEP-oriented split: extracted XMPP crypto namespaces into `xeps/xep-0384_crypto-namespaces.js`, OMEMO namespace selection helpers into `xeps/xep-0384_namespace-selection.js`, OMEMO runtime/store-registry helpers into `xeps/xep-0384_runtime.js`, OMEMO preference helpers into `xeps/xep-0384_preferences.js`, OMEMO identity/bootstrap helper into `xeps/xep-0384_identity.js`, OMEMO session-establishment helpers into `xeps/xep-0384_sessions.js`, OMEMO device-list fetch/publish helpers into `xeps/xep-0384_devices.js`, OMEMO bundle fetch/publish helpers into `xeps/xep-0384_bundles.js`, OMEMO own bundle bootstrap helper into `xeps/xep-0384_own-bundle.js`, OMEMO device-target gathering helper into `xeps/xep-0384_targets.js`, OMEMO message-content crypto helper into `xeps/xep-0384_message-crypto.js`, OMEMO content decrypt helper into `xeps/xep-0384_decrypt-content.js`, OMEMO decrypt-flow helper into `xeps/xep-0384_decrypt-flow.js`, OMEMO crypto buffer helpers into `xeps/xep-0384_omemo-crypto-utils.js`, OMEMO store class into `xeps/xep-0384_omemo-store.js`, OMEMO stanza helpers into `xeps/xep-0384_omemo-stanza.js`, XEP umbrella modules in `xeps/xep-0384.js` and `xeps/xep-0454.js` plus generic `xeps/xep-loader.js`, XEP-0454 AES-GCM media-sharing helpers into `xeps/xep-0454_omemo-media-sharing-utils.js` (URL parse/build + blob encrypt/decrypt + fetch/decrypt helpers), shared XML helper utilities into `xeps/xmpp-xml-utils.js`, and shared encrypted-payload detection helpers into `xeps/xmpp_encryption-payload.js` (wired via `index.html` and mobile web bundle copy).
 - Clients should build a P2P network and attachments should be stored there to make expensive server storage unnecessary
-- Group servers/guild together
+- [done] Group servers/guild together
 - Vencord-like plugins
 - Widgets like Element Matrix protocol messenger
 - More XMPP spec extensions
 - Read more on Discord blogpost about features, investigate screenshots
 - in-line chat slash commands like Telegram (featuring images poppin up fitting to context e.g. cards for a uno game run by an application bot)
 - Direct messages to users. In the lower-left of the client or by clicking on username or user list when profile pops open there is a chat input field
-- Save notes about users on profiles of other users
+- [done] Save notes about users on profiles of other users
 - OLED theme by default (with considerations for blue light filter users. Mentions in white, green or red?)
 - Add full nested context menu variants (invite/copy-id/submenus) and keyboard navigation.
 - Markdown support (preferably Discord-compatible, maybe even more like GitHub-flavoured?)
@@ -240,10 +240,10 @@
 - [done] Added status-related dropdown control in User Settings (`My Account`) with live presence apply (`online/idle/dnd/invisible`).
 - Please really think about how to improve UX
 - [done] Hardened cross-browser emoji rendering (including Gecko) with explicit emoji font stack and emoji-focused control/card styling.
-- Telegram-style polls in channels/DMs (single-choice and optional multiple-choice)
+- [done] Telegram-style polls in channels/DMs (single-choice and optional multiple-choice)
 - [done] Discord-style forum tags and per-thread tag filtering
 - [done] Telegram-style message scheduling / send later
-- Discord-style per-channel slowmode option
+- [done] Discord-style per-channel slowmode option
 - [done] Spoiler message support (`||spoiler||`) with click-to-reveal in chat
 - [done] Telegram-style quick polls (`/poll question | option1 | option2...`) with vote + close/reopen flow
 - [done] Per-conversation composer drafts (channel/DM) with restore on switch/refresh
