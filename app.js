@@ -1966,6 +1966,11 @@ function createOrSwitchAccount(usernameInput, options = {}) {
     : state.preferences.rememberLogin !== "off";
   const rememberLogin = rememberRequested ? "on" : "off";
   state.preferences.rememberLogin = rememberLogin;
+  const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+  const nativeAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());
+  if (nativeAndroid) {
+    state.preferences.rememberLoginStorage = rememberLogin === "on" ? "on" : "off";
+  }
   if (requestedRelayMode) {
     state.preferences.relayMode = requestedRelayMode;
     const shouldAutoConnectRequested = window.SHITCORD67_APP_ACCOUNT_RUNTIME?.shouldAutoConnectRelayMode;
@@ -1993,8 +1998,8 @@ function createOrSwitchAccount(usernameInput, options = {}) {
   if (typeof shouldAutoConnectRelayMode === "function" && shouldAutoConnectRelayMode(prefs.relayMode) && prefs.relayAutoConnect === "on") {
     connectRelaySocket({ force: true });
   }
-  if (window.SHITCORD67_NATIVE_CREDENTIALS?.syncFromState) {
-    void window.SHITCORD67_NATIVE_CREDENTIALS.syncFromState();
+  if (nativeCreds?.syncFromState) {
+    void nativeCreds.syncFromState({ force: nativeAndroid });
   }
   return true;
 }

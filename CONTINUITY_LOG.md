@@ -7557,3 +7557,6 @@ Then user reported additional issues and provided extensive runtime/XMPP logs, i
 [$(date -u '+%Y-%m-%dT%H:%M:%SZ')]
 USER PROMPT:
 Yeah do all of that. Oh also user avatars seem to be broken and when I use /shrug I get lol ¯S67_ESC_95;(ツ)_/¯. Then could I at least have an option to show the password while I'm typing (checkbox)
+[$(date -u '+%Y-%m-%dT%H:%M:%SZ')]
+USER PROMPT:
+Then please make Remember login save the credentials on Android. Ask for storage permissions. And then put the JSON in the Documents folder.
