@@ -3,6 +3,66 @@
  * Centralizes XEP-0066/0071/0231 media presentation helpers.
  */
 
+const swfLazyBootstrapByKey = new Map();
+
+function loadSwfRuntimeWhenEncountered(playerWrap, attachment, swfKey) {
+  if (!(playerWrap instanceof HTMLElement) || !swfKey) return;
+  if (swfRuntimes.get(swfKey)?.player instanceof HTMLElement) {
+    attachExistingSwfRuntime(swfKey, playerWrap);
+    applyPendingSwfUiBindings(swfKey);
+    return;
+  }
+  if (swfLazyBootstrapByKey.get(swfKey) === true) return;
+  swfLazyBootstrapByKey.set(swfKey, true);
+  playerWrap.textContent = "SWF ready. Scroll into view to load.";
+
+  const start = () => {
+    if (!playerWrap.isConnected) {
+      swfLazyBootstrapByKey.delete(swfKey);
+      return;
+    }
+    const runtime = swfRuntimes.get(swfKey);
+    if (runtime?.player instanceof HTMLElement) {
+      attachExistingSwfRuntime(swfKey, playerWrap);
+      applyPendingSwfUiBindings(swfKey);
+      swfLazyBootstrapByKey.delete(swfKey);
+      return;
+    }
+    attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
+    swfLazyBootstrapByKey.delete(swfKey);
+  };
+
+  const root = ui?.messageList instanceof HTMLElement ? ui.messageList : null;
+  if (typeof IntersectionObserver !== "function") {
+    start();
+    return;
+  }
+  let done = false;
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.target !== playerWrap) return;
+      if (done) return;
+      if (!entry.isIntersecting && entry.intersectionRatio <= 0) return;
+      done = true;
+      observer.disconnect();
+      start();
+    });
+  }, {
+    root,
+    threshold: 0.01,
+    rootMargin: "320px 0px 320px 0px"
+  });
+  observer.observe(playerWrap);
+  const eagerLoad = () => {
+    if (done) return;
+    done = true;
+    observer.disconnect();
+    start();
+  };
+  playerWrap.addEventListener("mouseenter", eagerLoad, { once: true });
+  playerWrap.addEventListener("focusin", eagerLoad, { once: true });
+}
+
 function clampPdfZoom(value) {
   return Math.max(0.45, Math.min(3.25, Number(value) || 1));
 }
@@ -1752,7 +1812,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       attachExistingSwfRuntime(swfKey, playerWrap);
       applyPendingSwfUiBindings(swfKey);
     } else if (swfKey) {
-      attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
+      loadSwfRuntimeWhenEncountered(playerWrap, attachment, swfKey);
     }
 
     playBtn.addEventListener("click", () => {
@@ -1761,6 +1821,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
         setSwfPlayback(swfKey, true, "user");
         grantSwfAudioClickFocus(swfKey);
       } else {
+        if (swfKey) swfLazyBootstrapByKey.delete(swfKey);
         attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
       }
     });

@@ -7576,3 +7576,5 @@ User prompt: "Oh also I think the sed-like syntax to edit the last message doesn
 [2026-03-04T10:00:02Z] 10:51:19 ~/shitcord67:$ ./build-all.sh ... Why does my DM chat hang? Also devtools are still not open-able... please really investigate how we can ship them enabled with electron binary. Also for some reason on X11 Ctrl+Shift+I is stolen from other applications?! You know that I might have multiple browsers open and Ctrl+Shift+I needs to work in all of them?
 
 [2026-03-04T10:25:53Z] Well, the instances should pause while they are outside of the chat window anyways?
+
+[2026-03-04T10:38:24Z] 11:29:55 ~/shitcord67:$ ... Why am I spammed when most of the Ruffle players are all outside the current visible chat when I open it? How about you load them when first encountered?!
