@@ -34,7 +34,11 @@
   } = {}) {
     const token = (value || "").toString().trim();
     if (!isLikelyRichTextLinkFn(token)) return "";
-    return token;
+    if (/^(https?:\/\/|mailto:|xmpp:|s67cmd:)/i.test(token)) return token;
+    if (/^(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?$/i.test(token)) {
+      return `https://${token.replace(/^\/+/, "")}`;
+    }
+    return "";
   }
 
   globalScope.SHITCORD67_COMMAND_INVOCATION_UTILS = Object.freeze({

@@ -1457,7 +1457,7 @@
     if (Number.isFinite(candidate.sdpMLineIndex) && candidate.sdpMLineIndex >= 0 && candidate.sdpMLineIndex < targets.length) {
       return [targets[candidate.sdpMLineIndex]];
     }
-    return targets;
+    return targets.length > 0 ? [targets[0]] : [];
   }
 
   function xmppBuildTransportInfoCandidatesByContentName(contentTargets = [], normalizedCandidates = []) {
@@ -1531,7 +1531,13 @@
     const normalizedCreds = transportCreds && typeof transportCreds === "object"
       ? transportCreds
       : { ufrag: "", pwd: "" };
-    targets.forEach((content) => {
+    const targetsToSend = targets.filter((content) => {
+      const contentName = (content?.name || "").toString().trim();
+      if (!contentName) return false;
+      const contentCandidates = map.get(contentName) || [];
+      return contentCandidates.length > 0;
+    });
+    (targetsToSend.length > 0 ? targetsToSend : targets.slice(0, 1)).forEach((content) => {
       const contentName = (content?.name || "").toString().trim();
       if (!contentName) return;
       const contentCandidates = map.get(contentName) || [];

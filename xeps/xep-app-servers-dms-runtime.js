@@ -475,7 +475,8 @@ function renderDmList() {
       dot.className = `presence-dot presence-${peerPresence}`;
       avatar.appendChild(dot);
     } else {
-      avatar.textContent = "?";
+      avatar.style.backgroundColor = fallbackAvatarColorForSeed("unknown-dm");
+      applyAvatarInitialGlyph(avatar, "Unknown");
     }
     button.appendChild(avatar);
     const label = document.createElement("span");
@@ -2658,4 +2659,3 @@ function renderVoiceStageSurface(channel) {
   updateJumpToBottomButton();
   renderComposerMeta();
 }
-

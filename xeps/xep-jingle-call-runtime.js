@@ -1472,6 +1472,7 @@ function isLikelyRichTextLink(value) {
     || /^mailto:[^\s]+$/i.test(token)
     || /^xmpp:[^\s]+$/i.test(token)
     || /^s67cmd:[^\s]+$/i.test(token)
+    || /^(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?$/i.test(token)
   );
 }
 
@@ -1588,16 +1589,12 @@ function applyAvatarStyle(element, account, guildId = null) {
     media.referrerPolicy = "no-referrer";
     media.addEventListener("error", () => {
       media.remove();
-      if (shouldUseStrictInitialAvatar(account, guildId)) {
-        applyAvatarInitialGlyph(element, displayNameForAccount(account, guildId) || account?.username || "?");
-      }
+      applyAvatarInitialGlyph(element, displayNameForAccount(account, guildId) || account?.username || "?");
     }, { once: true });
     element.appendChild(media);
     return;
   }
-  if (shouldUseStrictInitialAvatar(account, guildId)) {
-    applyAvatarInitialGlyph(element, displayNameForAccount(account, guildId) || account?.username || "?");
-  }
+  applyAvatarInitialGlyph(element, displayNameForAccount(account, guildId) || account?.username || "?");
 }
 
 function applyAvatarDecoration(element, account) {

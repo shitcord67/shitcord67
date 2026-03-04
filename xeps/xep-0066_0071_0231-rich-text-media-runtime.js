@@ -71,7 +71,7 @@ function decodeInlineMarkdownEscapes(value = "") {
 }
 
 function appendInlineRichText(target, text, context) {
-  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:)[^\s)]+\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:|s67cmd:)[^\s)]+\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|s67cmd:[^\s]+|\/[a-z][a-z0-9-]{1,31}\b|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s)]*)?)[^\s)]*\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:|s67cmd:|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s)]*)?)[^\s)]*\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|s67cmd:[^\s]+|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?|\/[a-z][a-z0-9-]{1,31}\b|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
   const workingText = encodeInlineMarkdownEscapes(text);
   let lastIndex = 0;
   let match = tokenPattern.exec(workingText);
@@ -445,6 +445,42 @@ function inferAttachmentTypeFromUrl(url) {
   return null;
 }
 
+function normalizeRichInlineUrlToken(value = "") {
+  const token = (value || "").toString().trim();
+  if (!token) return "";
+  if (/^(https?:\/\/|xmpp:|cid:|aesgcm:\/\/)/i.test(token)) return token;
+  if (/^(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?$/i.test(token)) {
+    return `https://${token.replace(/^\/+/, "")}`;
+  }
+  return "";
+}
+
+function youtubeEmbedUrlFromAnyUrl(rawUrl = "") {
+  const input = normalizeRichInlineUrlToken(rawUrl) || (rawUrl || "").toString().trim();
+  if (!/^https?:\/\//i.test(input)) return "";
+  let parsed;
+  try {
+    parsed = new URL(input);
+  } catch {
+    return "";
+  }
+  const host = (parsed.hostname || "").toLowerCase();
+  const path = (parsed.pathname || "").toString();
+  let videoId = "";
+  if (host === "youtu.be") {
+    videoId = path.replace(/^\/+/, "").split("/")[0] || "";
+  } else if (host.endsWith("youtube.com")) {
+    if (path === "/watch") {
+      videoId = (parsed.searchParams.get("v") || "").trim();
+    } else if (path.startsWith("/shorts/") || path.startsWith("/embed/")) {
+      videoId = path.split("/")[2] || "";
+    }
+  }
+  const cleanId = (videoId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
+  if (!cleanId || cleanId.length < 6) return "";
+  return `https://www.youtube-nocookie.com/embed/${cleanId}`;
+}
+
 function inferAttachmentTypeFromMime(mime = "") {
   const raw = (mime || "").toString().trim().toLowerCase();
   if (!raw) return null;
@@ -496,14 +532,28 @@ function inferAttachmentFormat(type, url) {
 function extractInlineAttachmentsFromText(text) {
   if (!text) return [];
   const results = [];
-  const matches = text.match(/(?:xmpp:https?:\/\/\S+|https?:\/\/\S+|xmpp:cid:\S+|cid:\S+|aesgcm:\/\/\S+|(?:\.?\/)?[a-z0-9._%+-]+\.(?:swf|svg|html?|pdf|rtf|odt|ods|odp|docx?|xlsx?|pptx?|apng|lottie|png|jpe?g|gif|webp|bmp|avif|heic|heif|mp4|webm|mov|m4v|ogv|m3u8|mp3|ogg|wav|m4a|flac|txt|md|log|json|js|ts|css|xml|yml|yaml|ini|toml|bin))/gi) || [];
+  const matches = text.match(/(?:xmpp:https?:\/\/\S+|https?:\/\/\S+|xmpp:cid:\S+|cid:\S+|aesgcm:\/\/\S+|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?)/gi) || [];
   const seen = new Set();
   matches.forEach((raw) => {
     const cleaned = raw.replace(/[),.!?]+$/, "");
+    const normalizedLink = normalizeRichInlineUrlToken(cleaned) || cleaned;
     const inlineBob = resolveInlineBobCacheEntry(cleaned);
     const normalized = inlineBob
       ? inlineBob.url
-      : cleaned.replace(/^xmpp:(https?:\/\/.+)$/i, "$1");
+      : normalizedLink.replace(/^xmpp:(https?:\/\/.+)$/i, "$1");
+    const youtubeEmbedUrl = youtubeEmbedUrlFromAnyUrl(normalized);
+    if (youtubeEmbedUrl) {
+      if (!seen.has(youtubeEmbedUrl)) {
+        seen.add(youtubeEmbedUrl);
+        results.push({
+          type: "html",
+          url: youtubeEmbedUrl,
+          name: "YouTube",
+          format: "embed"
+        });
+      }
+      return;
+    }
     if (seen.has(normalized)) return;
     const type = inferAttachmentTypeFromUrl(normalized);
     if (!type) return;

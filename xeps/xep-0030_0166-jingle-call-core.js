@@ -975,8 +975,11 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
   }
   if (action === "ringing") {
     if (session?.direction === "outgoing") {
+      const previousState = (session.state || "").toString();
       session.state = "ringing";
-      session.peerFullJid = peerFull || session.peerFullJid || "";
+      if (!session.peerFullJid || previousState === "proposed" || previousState === "ringing") {
+        session.peerFullJid = peerFull || session.peerFullJid || "";
+      }
       clearXmppCallSignalTimeout(id);
       session.timeoutId = window.setTimeout(() => {
         const entry = xmppCallSessionById.get(id);
