@@ -1340,7 +1340,12 @@ function createDotLottieControlStrip(player, { label = "Sticker", mediaUrl = "" 
 
 function renderMessageAttachment(container, attachment, { swfKey = null } = {}) {
   if (!attachment || !attachment.url) return;
-  const type = attachment.type || "gif";
+  const inferredFromMime = inferAttachmentTypeFromMime((attachment.mime || "").toString()) || "";
+  const inferredFromUrl = inferAttachmentTypeFromUrl(attachment.url || "") || "";
+  const preferredType = (attachment.type || "").toString().trim().toLowerCase();
+  const type = preferredType === "file"
+    ? (inferredFromMime || inferredFromUrl || "file")
+    : (preferredType || inferredFromMime || inferredFromUrl || "gif");
   const mediaUrl = isAesgcmUrl(attachment.url) ? attachment.url : resolveMediaUrl(attachment.url);
   const wrap = document.createElement("div");
   wrap.className = `message-attachment message-attachment--${type}`;

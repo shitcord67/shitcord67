@@ -538,3 +538,8 @@ Resources to get you up to speed:
  Pre-built libdave binaries ← newly available!, (https://github.com/discord/libdave/releases)
  DAVE protocol whitepaper, (https://daveprotocol.com/)
  End-to-End Encryption for Audio and Video (support article) (https://support.discord.com/hc/en-us/articles/25968222946071-End-to-End-Encryption-for-Audio-and-Video)
+- [done] X11/Electron drag-and-drop fallback for text/uri-list using secure preload+IPC file reader and composer attachment hydration
+- [done] Attachment renderer now upgrades generic `file` attachments using MIME/URL inference so `.wav` and other audio get inline audio players
+- [done] SWF PiP body-host anchoring now enabled for message runtimes on mobile/Android so PiP can detach correctly from message DOM
+- [done] Android insets now include tappable-element area and larger runtime safe-area fallbacks to better avoid notch/nav overlap
+- [done] Composer attachment chips now use larger media thumbnails for easier pre-send preview selection

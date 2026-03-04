@@ -129,6 +129,47 @@ const LINUX_SANDBOX_ENABLED = process.platform !== "linux"
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const STACK_SCRIPT = path.join(ROOT_DIR, "scripts", "run-client-stack.sh");
+const DND_MAX_FILE_BYTES = 24 * 1024 * 1024;
+
+function safeDecodeFileUri(fileUri = "") {
+  const raw = (fileUri || "").toString().trim();
+  if (!raw) return "";
+  try {
+    const normalized = raw.startsWith("file://") ? raw : `file://${raw}`;
+    return decodeURI(new URL(normalized).pathname || "");
+  } catch {
+    return "";
+  }
+}
+
+function mimeForPath(filePath = "") {
+  const ext = (path.extname(filePath || "").toLowerCase() || "").replace(/^\./, "");
+  const map = {
+    wav: "audio/wav",
+    mp3: "audio/mpeg",
+    ogg: "audio/ogg",
+    flac: "audio/flac",
+    m4a: "audio/mp4",
+    mp4: "video/mp4",
+    webm: "video/webm",
+    mov: "video/quicktime",
+    m4v: "video/x-m4v",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+    svg: "image/svg+xml",
+    pdf: "application/pdf",
+    txt: "text/plain",
+    json: "application/json",
+    rtf: "application/rtf",
+    swf: "application/x-shockwave-flash",
+    html: "text/html",
+    htm: "text/html"
+  };
+  return map[ext] || "application/octet-stream";
+}
 
 const CLIENT_HOST = process.env.CLIENT_HOST || "127.0.0.1";
 const CLIENT_PORT = Number(process.env.CLIENT_PORT || 6769);
@@ -926,6 +967,39 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       ok: false,
       error: "No readable .xmpp.local.json file found."
     };
+  });
+  ipcMain.removeHandler("s67-read-dropped-file-path");
+  ipcMain.handle("s67-read-dropped-file-path", async (_event, payload) => {
+    const fileUri = (payload?.fileUri || "").toString().trim();
+    const filePath = safeDecodeFileUri(fileUri);
+    if (!filePath) return { ok: false, error: "Invalid dropped file URI." };
+    try {
+      const stat = await fs.promises.stat(filePath);
+      if (!stat.isFile()) return { ok: false, error: "Dropped item is not a file." };
+      if (stat.size > DND_MAX_FILE_BYTES) {
+        return {
+          ok: false,
+          error: `Dropped file exceeds ${Math.round(DND_MAX_FILE_BYTES / (1024 * 1024))}MB limit.`
+        };
+      }
+      const buffer = await fs.promises.readFile(filePath);
+      const mime = mimeForPath(filePath);
+      const base64 = buffer.toString("base64");
+      const dataUrl = `data:${mime};base64,${base64}`;
+      return {
+        ok: true,
+        filePath,
+        name: path.basename(filePath),
+        size: stat.size,
+        mime,
+        dataUrl
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: String(error?.message || error || "Could not read dropped file path.")
+      };
+    }
   });
 
   let loadedClient = false;

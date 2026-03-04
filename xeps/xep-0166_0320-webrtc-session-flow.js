@@ -426,15 +426,6 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
       await pc.setLocalDescription(answer);
       const localCreds = xmppParseIceCredsFromSdp(pc.localDescription?.sdp || "");
       if (session && localCreds) session.localTransport = localCreds;
-      if (Array.isArray(remoteContents) && remoteContents.length > 0) {
-        const localContents = xmppBuildJingleContentsFromSdp(pc.localDescription?.sdp || "", { localRole });
-        if (localContents.length > 0 && session?.peerJid) {
-          xmppSendJingleContentModify(session.peerJid, sid, localContents.map((entry) => ({
-            ...entry,
-            creator: localRole
-          })));
-        }
-      }
     } catch (error) {
       addXmppDebugEvent("error", "Failed to generate local answer after remote offer mapping", {
         sid,

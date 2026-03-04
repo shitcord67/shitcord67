@@ -78,7 +78,8 @@ public class MainActivity extends BridgeActivity {
         if (insetsCompat == null) return;
         final int insetMask = WindowInsetsCompat.Type.systemBars()
             | WindowInsetsCompat.Type.displayCutout()
-            | WindowInsetsCompat.Type.systemGestures();
+            | WindowInsetsCompat.Type.systemGestures()
+            | WindowInsetsCompat.Type.tappableElement();
         Insets visibleInsets = insetsCompat.getInsets(insetMask);
         Insets stableInsets = insetsCompat.getInsetsIgnoringVisibility(insetMask);
         int left = Math.max(visibleInsets.left, stableInsets.left);

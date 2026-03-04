@@ -61,5 +61,15 @@ contextBridge.exposeInMainWorld("s67Electron", {
         error: String(error?.message || error || "IPC bridge unavailable")
       };
     }
+  },
+  async readDroppedFilePath(fileUri = "") {
+    try {
+      return await ipcRenderer.invoke("s67-read-dropped-file-path", { fileUri });
+    } catch (error) {
+      return {
+        ok: false,
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
   }
 });

@@ -2679,19 +2679,55 @@ document.addEventListener("click", (event) => {
 function maybeHandleComposerDrop(event) {
   if (!state.currentAccountId) return false;
   const files = event.dataTransfer?.files;
-  if (!files || files.length === 0) return false;
+  const list = files && files.length > 0 ? [...files].slice(0, 6) : [];
+  const hasUriPayload = Boolean(event.dataTransfer?.getData?.("text/uri-list"));
+  if (list.length === 0 && !hasUriPayload) return false;
   event.preventDefault();
   event.stopPropagation();
-  const list = [...files].slice(0, 6);
+  const decodeUriListPayload = (raw = "") => {
+    const text = (raw || "").toString();
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .map((line) => {
+        if (!/^file:/i.test(line)) return "";
+        try {
+          return decodeURI(line);
+        } catch {
+          return line;
+        }
+      })
+      .filter(Boolean);
+  };
   void (async () => {
     let attachedCount = 0;
-    for (const file of list) {
-      const inferred = inferAttachmentTypeFromFile(file);
-      const allowed = getComposerAttachAllowedTypes();
-      if (!allowed.has(inferred)) continue;
-      // eslint-disable-next-line no-await-in-loop
-      const attached = await attachFileToComposer(file);
-      if (attached) attachedCount += 1;
+    if (list.length > 0) {
+      for (const file of list) {
+        const inferred = inferAttachmentTypeFromFile(file);
+        const allowed = getComposerAttachAllowedTypes();
+        if (!allowed.has(inferred)) continue;
+        // eslint-disable-next-line no-await-in-loop
+        const attached = await attachFileToComposer(file);
+        if (attached) attachedCount += 1;
+      }
+    } else {
+      const uris = decodeUriListPayload(event.dataTransfer?.getData?.("text/uri-list") || "").slice(0, 6);
+      const bridge = window?.s67Electron || null;
+      for (const fileUri of uris) {
+        if (!bridge || typeof bridge.readDroppedFilePath !== "function") break;
+        // eslint-disable-next-line no-await-in-loop
+        const loaded = await bridge.readDroppedFilePath(fileUri).catch(() => ({ ok: false }));
+        if (!loaded?.ok || !loaded?.dataUrl) continue;
+        // eslint-disable-next-line no-await-in-loop
+        const attached = await attachDataUrlAttachmentToComposer({
+          dataUrl: loaded.dataUrl,
+          name: loaded.name || "",
+          mime: loaded.mime || "",
+          sizeBytes: loaded.size || 0
+        });
+        if (attached) attachedCount += 1;
+      }
     }
     if (attachedCount <= 0) return;
     ui.messageInput.focus();
@@ -2699,15 +2735,19 @@ function maybeHandleComposerDrop(event) {
   }).catch(() => {
     showToast("Failed to attach dropped file.", { tone: "error" });
   });
-  return list.length > 0;
+  return list.length > 0 || hasUriPayload;
 }
 
 document.addEventListener("dragover", (event) => {
   const files = event.dataTransfer?.files;
-  if (!files || files.length === 0) return;
-  const allowed = getComposerAttachAllowedTypes();
-  const hasSupported = [...files].some((file) => allowed.has(inferAttachmentTypeFromFile(file)));
-  if (!hasSupported) return;
+  const hasFileList = Boolean(files && files.length > 0);
+  const hasUriPayload = Boolean(event.dataTransfer?.getData?.("text/uri-list"));
+  if (!hasFileList && !hasUriPayload) return;
+  if (hasFileList) {
+    const allowed = getComposerAttachAllowedTypes();
+    const hasSupported = [...files].some((file) => allowed.has(inferAttachmentTypeFromFile(file)));
+    if (!hasSupported && !hasUriPayload) return;
+  }
   event.preventDefault();
   ui.messageForm.classList.add("message-form--drop");
 });

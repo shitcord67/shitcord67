@@ -358,10 +358,10 @@ function updateRuntimeSafeArea() {
     const navWidthGuess = screenWidth && availWidth ? Math.max(0, screenWidth - availWidth) : 0;
     const nativeTop = hasNativeInsets ? Math.max(0, Math.round(nativeInsets.top || 0)) : 0;
     const nativeBottom = hasNativeInsets ? Math.max(0, Math.round(nativeInsets.bottom || 0)) : 0;
-    const fallbackTop = Math.max(nativeTop, 38, hasNativeInsets ? 0 : Math.round(statusGuess * 0.55));
+    const fallbackTop = Math.max(nativeTop, 56, hasNativeInsets ? 0 : Math.round(statusGuess * 0.65));
     const fallbackBottom = hasNativeInsets
-      ? Math.max(20, nativeBottom)
-      : Math.max(32, Math.round(navHeightGuess), Math.round(statusGuess * 0.35));
+      ? Math.max(34, nativeBottom)
+      : Math.max(42, Math.round(navHeightGuess), Math.round(statusGuess * 0.45));
     const fallbackSide = hasNativeInsets
       ? 0
       : Math.max(0, Math.round(navWidthGuess * 0.5), screenWidth > 0 && innerWidth > 0 && innerWidth < screenWidth ? 8 : 0);

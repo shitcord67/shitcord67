@@ -1723,6 +1723,18 @@ function inferAttachmentTypeFromFile(file) {
   return "gif";
 }
 
+function inferAttachmentTypeFromNameAndMime(name = "", mime = "") {
+  const normalizedName = (name || "").toString().trim().toLowerCase();
+  const normalizedMime = (mime || "").toString().trim().toLowerCase();
+  if (normalizedName || normalizedMime) {
+    return inferAttachmentTypeFromFile({
+      name: normalizedName,
+      type: normalizedMime
+    });
+  }
+  return "gif";
+}
+
 function getComposerAttachAllowedTypes() {
   return new Set(["pdf", "text", "odf", "rtf", "bin", "gif", "video", "audio", "swf", "svg", "html"]);
 }
@@ -1871,6 +1883,30 @@ async function attachFileToComposer(file) {
     name: file.name || `${type}-${Date.now()}`,
     sizeBytes: Number(file.size) || 0,
     mime
+  }, { append: true });
+  return true;
+}
+
+async function attachDataUrlAttachmentToComposer({
+  dataUrl = "",
+  name = "",
+  mime = "",
+  sizeBytes = 0
+} = {}) {
+  const normalizedUrl = (dataUrl || "").toString().trim();
+  if (!/^data:/i.test(normalizedUrl)) return false;
+  const normalizedName = (name || "").toString().trim().slice(0, 160) || `file-${Date.now()}`;
+  const normalizedMime = (mime || "").toString().trim().toLowerCase();
+  const type = inferAttachmentTypeFromNameAndMime(normalizedName, normalizedMime);
+  const allowed = getComposerAttachAllowedTypes();
+  if (!allowed.has(type)) return false;
+  const fallbackMime = xmppAttachmentDefaultMimeType(type, "image", normalizedName);
+  setComposerPendingAttachment({
+    type,
+    url: normalizedUrl,
+    name: normalizedName,
+    sizeBytes: Number(sizeBytes) || 0,
+    mime: normalizedMime || fallbackMime || ""
   }, { append: true });
   return true;
 }

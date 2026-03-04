@@ -2404,12 +2404,19 @@ body[data-mobile="on"] .reaction-picker button {
   border-radius: 999px;
   color: #d4dae4;
   font-size: 0.68rem;
-  padding: 0.14rem 0.44rem 0.14rem 0.18rem;
+  padding: 0.14rem 0.44rem 0.14rem 0.16rem;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.composer-attachment-chip:hover,
+.composer-attachment-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: #556179;
 }
 
 .composer-attachment-chip__thumb {
-  width: 24px;
-  height: 24px;
+  width: 36px;
+  height: 36px;
   border-radius: 999px;
   background: #171b22;
   border: 1px solid #3a4354;
