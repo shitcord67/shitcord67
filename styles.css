@@ -5655,6 +5655,13 @@ body[data-compact-members="on"] .member-item {
   overflow: auto;
 }
 
+.command-palette-list {
+  display: grid;
+  gap: 0.3rem;
+  max-height: 320px;
+  overflow: auto;
+}
+
 .quick-switch-item {
   width: 100%;
   text-align: left;
@@ -5667,7 +5674,23 @@ body[data-compact-members="on"] .member-item {
   padding: 0.42rem 0.5rem;
 }
 
+.command-palette-item {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 0.12rem;
+  background: #2a2e38;
+  border: 1px solid #394051;
+  border-radius: 8px;
+  color: #d6dce8;
+  padding: 0.42rem 0.5rem;
+}
+
 .quick-switch-item strong {
+  font-size: 0.8rem;
+}
+
+.command-palette-item strong {
   font-size: 0.8rem;
 }
 
@@ -5676,8 +5699,19 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.68rem;
 }
 
+.command-palette-item small {
+  color: #9ca5b4;
+  font-size: 0.68rem;
+}
+
 .quick-switch-item.active,
 .quick-switch-item:hover {
+  background: #374059;
+  border-color: #5b6ea0;
+}
+
+.command-palette-item.active,
+.command-palette-item:hover {
   background: #374059;
   border-color: #5b6ea0;
 }

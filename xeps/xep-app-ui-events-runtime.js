@@ -1383,6 +1383,40 @@ ui.quickSwitchForm?.addEventListener("submit", (event) => {
     ui.quickSwitchDialog?.close();
   }
 });
+ui.commandPaletteCancel?.addEventListener("click", () => ui.commandPaletteDialog?.close());
+ui.commandPaletteInput?.addEventListener("input", () => {
+  commandPaletteQuery = ui.commandPaletteInput.value.slice(0, 80);
+  commandPaletteSelectionIndex = 0;
+  renderCommandPaletteList();
+});
+ui.commandPaletteInput?.addEventListener("keydown", (event) => {
+  const items = getCommandPaletteItems(commandPaletteQuery);
+  if (event.key === "ArrowDown" && items.length > 0) {
+    event.preventDefault();
+    commandPaletteSelectionIndex = (commandPaletteSelectionIndex + 1) % items.length;
+    renderCommandPaletteList();
+    return;
+  }
+  if (event.key === "ArrowUp" && items.length > 0) {
+    event.preventDefault();
+    commandPaletteSelectionIndex = (commandPaletteSelectionIndex - 1 + items.length) % items.length;
+    renderCommandPaletteList();
+    return;
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    ui.commandPaletteDialog?.close();
+  }
+});
+ui.commandPaletteForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const items = getCommandPaletteItems(commandPaletteQuery);
+  const selected = items[commandPaletteSelectionIndex] || items[0];
+  if (!selected) return;
+  if (applyCommandPaletteSelection(selected)) {
+    ui.commandPaletteDialog?.close();
+  }
+});
 ui.findCancel?.addEventListener("click", () => ui.findDialog?.close());
 ui.contextMenu?.addEventListener("contextmenu", (event) => {
   event.preventDefault();
@@ -3046,6 +3080,13 @@ document.addEventListener("keydown", (event) => {
     if (!state.currentAccountId) return;
     event.preventDefault();
     ui.newDmBtn.click();
+    return;
+  }
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "p") {
+    if (!state.currentAccountId) return;
+    if (isTypingInputTarget(event.target)) return;
+    event.preventDefault();
+    openCommandPalette();
     return;
   }
   if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {

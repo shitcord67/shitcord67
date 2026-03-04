@@ -770,6 +770,7 @@
       <div class="shortcut-list">
         <div><kbd>Alt+K</kbd> Focus channel/DM search</div>
         <div><kbd>Ctrl+K</kbd> Quick switcher (channels/DMs)</div>
+        <div><kbd>Ctrl+Shift+P</kbd> Command palette</div>
         <div><kbd>Ctrl+F</kbd> Find in current conversation</div>
         <div><kbd>Ctrl+G / Shift+Ctrl+G</kbd> Find next / previous match</div>
         <div><kbd>F3 / Shift+F3</kbd> Find next / previous match</div>
@@ -854,6 +855,19 @@
       <div class="modal-actions">
         <button type="button" id="quickSwitchCancel">Cancel</button>
         <button type="submit">Open</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="commandPaletteDialog" class="modal">
+    <form id="commandPaletteForm" class="modal-form" method="dialog">
+      <h3>Command Palette</h3>
+      <label for="commandPaletteInput">Search commands</label>
+      <input id="commandPaletteInput" type="text" maxlength="80" placeholder="Search commands" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+      <div id="commandPaletteList" class="command-palette-list"></div>
+      <div class="modal-actions">
+        <button type="button" id="commandPaletteCancel">Cancel</button>
+        <button type="submit">Insert</button>
       </div>
     </form>
   </dialog>

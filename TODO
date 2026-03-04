@@ -186,7 +186,7 @@
 - [done] Rich status and custom status flow.
 - Thread channels for focused sub-conversations.
 - [done] Forum channels with post-style discussion.
-- Full slash-command command palette and app command support.
+- [done] Full slash-command command palette and app command support.
 - [done] Channel type expansion (voice, stage, announcement/media-like channel support).
 - [done] Upload flow + media embeds + sticker/GIF experience.
 - [done] Reactions on messages.

@@ -732,6 +732,8 @@ let memberSearchTerm = "";
 let memberPresenceFilter = "all";
 let quickSwitchQuery = "";
 let quickSwitchSelectionIndex = 0;
+let commandPaletteQuery = "";
+let commandPaletteSelectionIndex = 0;
 let findQuery = "";
 let findAuthorFilter = "";
 let findAfterFilter = "";
@@ -928,6 +930,11 @@ const ui = {
   quickSwitchInput: document.getElementById("quickSwitchInput"),
   quickSwitchList: document.getElementById("quickSwitchList"),
   quickSwitchCancel: document.getElementById("quickSwitchCancel"),
+  commandPaletteDialog: document.getElementById("commandPaletteDialog"),
+  commandPaletteForm: document.getElementById("commandPaletteForm"),
+  commandPaletteInput: document.getElementById("commandPaletteInput"),
+  commandPaletteList: document.getElementById("commandPaletteList"),
+  commandPaletteCancel: document.getElementById("commandPaletteCancel"),
   settingsScreen: document.getElementById("settingsScreen"),
   settingsMobileTabs: document.getElementById("settingsMobileTabs"),
   dockAvatar: document.getElementById("dockAvatar"),

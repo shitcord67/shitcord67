@@ -1590,6 +1590,87 @@ function openQuickSwitcher() {
   });
 }
 
+function commandPaletteHaystack(command) {
+  return [
+    command.name || "",
+    command.args || "",
+    command.description || ""
+  ].join(" ").toLowerCase();
+}
+
+function getCommandPaletteItems(rawQuery = "") {
+  const query = (rawQuery || "").trim().toLowerCase().replace(/^\//, "");
+  const entries = Array.isArray(SLASH_COMMANDS) ? SLASH_COMMANDS : [];
+  const scored = entries
+    .map((entry) => {
+      if (!query) return { entry, score: 10 };
+      const name = (entry.name || "").toString().toLowerCase();
+      const haystack = commandPaletteHaystack(entry);
+      if (name.startsWith(query)) return { entry, score: 0 };
+      if (haystack.startsWith(query)) return { entry, score: 1 };
+      if (haystack.includes(query)) return { entry, score: 4 };
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.score - b.score || a.entry.name.localeCompare(b.entry.name))
+    .slice(0, 60)
+    .map((entry) => entry.entry);
+  return scored;
+}
+
+function applyCommandPaletteSelection(entry) {
+  if (!entry || !ui.messageInput) return false;
+  const commandText = `/${entry.name}${entry.args ? " " : " "}`;
+  ui.messageInput.value = commandText;
+  setComposerDraft(composerDraftConversationId, ui.messageInput.value);
+  ui.messageInput.focus();
+  ui.messageInput.setSelectionRange(ui.messageInput.value.length, ui.messageInput.value.length);
+  refreshComposerMeta(true);
+  return true;
+}
+
+function renderCommandPaletteList() {
+  if (!ui.commandPaletteList) return;
+  const items = getCommandPaletteItems(commandPaletteQuery);
+  commandPaletteSelectionIndex = Math.max(0, Math.min(commandPaletteSelectionIndex, Math.max(0, items.length - 1)));
+  ui.commandPaletteList.innerHTML = "";
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "channel-empty";
+    empty.textContent = "No commands found.";
+    ui.commandPaletteList.appendChild(empty);
+    return;
+  }
+  items.forEach((entry, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = `command-palette-item ${index === commandPaletteSelectionIndex ? "active" : ""}`;
+    const title = document.createElement("strong");
+    title.textContent = `/${entry.name}${entry.args ? ` ${entry.args}` : ""}`;
+    const meta = document.createElement("small");
+    meta.textContent = entry.description || "";
+    row.appendChild(title);
+    row.appendChild(meta);
+    row.addEventListener("click", (event) => {
+      if (event.button !== 0) return;
+      if (applyCommandPaletteSelection(entry)) ui.commandPaletteDialog?.close();
+    });
+    ui.commandPaletteList.appendChild(row);
+  });
+}
+
+function openCommandPalette({ seed = "" } = {}) {
+  commandPaletteQuery = (seed || "").toString().slice(0, 80);
+  commandPaletteSelectionIndex = 0;
+  if (ui.commandPaletteInput) ui.commandPaletteInput.value = commandPaletteQuery;
+  renderCommandPaletteList();
+  ui.commandPaletteDialog?.showModal();
+  requestAnimationFrame(() => {
+    ui.commandPaletteInput?.focus();
+    ui.commandPaletteInput?.select();
+  });
+}
+
 function findLastEditableMessageInActiveConversation() {
   const conversation = getActiveConversation();
   const currentUser = getCurrentAccount();
@@ -1773,6 +1854,21 @@ function renderSlashSuggestions() {
   }
   if (typeof globalScope.findLastEditableMessageInActiveConversation !== "function") {
     globalScope.findLastEditableMessageInActiveConversation = findLastEditableMessageInActiveConversation;
+  }
+  if (typeof globalScope.openQuickSwitcher !== "function") {
+    globalScope.openQuickSwitcher = openQuickSwitcher;
+  }
+  if (typeof globalScope.openCommandPalette !== "function") {
+    globalScope.openCommandPalette = openCommandPalette;
+  }
+  if (typeof globalScope.renderCommandPaletteList !== "function") {
+    globalScope.renderCommandPaletteList = renderCommandPaletteList;
+  }
+  if (typeof globalScope.getCommandPaletteItems !== "function") {
+    globalScope.getCommandPaletteItems = getCommandPaletteItems;
+  }
+  if (typeof globalScope.applyCommandPaletteSelection !== "function") {
+    globalScope.applyCommandPaletteSelection = applyCommandPaletteSelection;
   }
   if (typeof globalScope.bindMessageActionHoverState !== "function") {
     globalScope.bindMessageActionHoverState = bindMessageActionHoverState;
