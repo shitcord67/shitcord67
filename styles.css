@@ -4750,6 +4750,12 @@ body[data-compact-members="on"] .member-item {
   overflow: hidden;
 }
 
+.member-avatar,
+.channel-dm-avatar,
+.dm-home__avatar {
+  overflow: visible;
+}
+
 .presence-dot {
   width: 10px;
   height: 10px;
