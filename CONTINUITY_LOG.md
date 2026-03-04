@@ -7586,3 +7586,17 @@ User prompt: "Oh also I think the sed-like syntax to edit the last message doesn
 2026-03-04T12:52:19+01:00 | can't you keep the ruffle instance alive?
 
 [2026-03-04T12:53:17+01:00] USER PROMPT: Please continue working on your earlier task before that!
+[2026-03-04T] USER PROMPT: And when you are down with everything then fix the video playback on Android. Cause for some reason when I select a mp4 from the file system then I can see it before sending in shitcord67 and it is playing. But in chat itself it just shows a broken file icon. Also the Android app still does not add any padding for users with notch and virtual navigation buttons. Please really investigate Android documentation. You may also write a script to download all Android documentation for future offline usage... Also same for Chromium and electron documentation cause I want to figure out why I just can't get the chrome/electron developer tools to show up in my application.  Oh also could it be that you have embedded the Ruffle within the messages now and thus the SWF PiP doesn't show the Ruffle instance anymore Can you try to fix this?
+[2026-03-04T] USER PROMPT: When you are done with this later then: Btw. I plan to make shitcord67 to look as close 1:1 UI wise as possible (ofc excluding shitcord67-unique features). Maybe it would help if we could keep a mapping of HTML elements so we know the names in Discord (and later maybe Fluxer or other messengers that look a bit like Discord) and the saner named equivalents in shitcord67? Note that down for future LLMs btw.
+
+[2026-03-04T13:02:39+01:00] USER PROMPT
+When you are done with this later then: Btw. I plan to make shitcord67 to look as close 1:1 UI wise as possible (ofc excluding shitcord67-unique features). Maybe it would help if we could keep a mapping of HTML elements so we know the names in Discord (and later maybe Fluxer or other messengers that look a bit like Discord) and the saner named equivalents in shitcord67? Note that down for future LLMs btw.
+
+[2026-03-04T13:02:42+01:00] USER PROMPT
+And note down that the LLM is always free to improve a XEP or implement a new one when it makes sense.
+
+[2026-03-04T13:03:52+01:00] USER PROMPT
+Can you work on that?
+2026-03-04T12:37:58Z
+Please look at the questions file and from there at other files and then get to work.
+
