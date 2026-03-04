@@ -46,15 +46,27 @@
     return (node.namespaceURI || "").toString().trim().toLowerCase();
   }
 
+  function xmppNodeHasAncestorNamespace(node, namespaces = [], prefix = "") {
+    const list = Array.isArray(namespaces) ? namespaces : [namespaces];
+    let current = node?.parentNode || null;
+    while (current && current.nodeType === 1) {
+      if (xmppNodeHasAnyXmlns(current, list) || xmppNodeHasXmlnsPrefix(current, prefix)) return true;
+      current = current.parentNode || null;
+    }
+    return false;
+  }
+
   function parseXmppJingleMessageAction(stanza) {
     if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-    const actions = ["propose", "proceed", "accept", "retract", "reject", "ringing"];
+    const actions = ["propose", "proceed", "accept", "retract", "reject", "ringing", "finish"];
     for (const action of actions) {
-      const node = xmppElementsByLocalName(stanza, action)
-        .find((entry) => (
-          xmppNodeHasAnyXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES)
-          || xmppNodeHasXmlnsPrefix(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX)
-        )) || null;
+      const candidates = xmppElementsByLocalName(stanza, action);
+      const node = candidates.find((entry) => (
+        xmppNodeHasAnyXmlns(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES)
+        || xmppNodeHasXmlnsPrefix(entry, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX)
+      )) || candidates.find((entry) => (
+        xmppNodeHasAncestorNamespace(entry, XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES, XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX)
+      )) || null;
       if (!node) continue;
       const id = (node.getAttribute("id") || stanza.getAttribute("id") || "").toString().trim();
       const media = action === "propose"
@@ -80,7 +92,7 @@
   }
 
   function xmppJingleMessageAllowedActions() {
-    return ["propose", "proceed", "accept", "retract", "reject", "ringing"];
+    return ["propose", "proceed", "accept", "retract", "reject", "ringing", "finish"];
   }
 
   function xmppNormalizeJingleMessageAction(action = "") {

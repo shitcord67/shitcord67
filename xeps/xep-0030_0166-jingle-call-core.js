@@ -902,7 +902,8 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
   const peer = xmppBareJid(peerFull);
   if (peerFull) xmppRememberPeerFullJid(peerFull);
   const replyTarget = xmppNormalizeCallTargetJid(peerFull || peer, { preferFull: true }) || peer;
-  const action = (actionPayload?.action || "").toString();
+  const rawAction = (actionPayload?.action || "").toString();
+  const action = rawAction === "finish" ? "retract" : rawAction;
   let id = (actionPayload?.id || "").toString().trim();
   if (!id && action === "propose") {
     id = `jmi-${createId().slice(0, 12)}`;
