@@ -7560,3 +7560,6 @@ Yeah do all of that. Oh also user avatars seem to be broken and when I use /shru
 [$(date -u '+%Y-%m-%dT%H:%M:%SZ')]
 USER PROMPT:
 Then please make Remember login save the credentials on Android. Ask for storage permissions. And then put the JSON in the Documents folder.
+[$(date -u '+%Y-%m-%dT%H:%M:%SZ')]
+USER PROMPT:
+Then I noticed when I interact with the privacy gateway that the media seems to not load instantly after accepting it?!

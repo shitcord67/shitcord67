@@ -1408,6 +1408,26 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const controls = document.createElement("div");
     controls.className = "settings-inline-actions message-media-gate__controls";
     controls.hidden = false;
+    const revealAcceptedMediaNow = () => {
+      if (!(wrap instanceof HTMLElement) || !wrap.isConnected) {
+        renderMessages();
+        return;
+      }
+      const host = wrap.parentElement;
+      if (!(host instanceof HTMLElement)) {
+        renderMessages();
+        return;
+      }
+      const staged = document.createElement("div");
+      renderMessageAttachment(staged, attachment, { swfKey });
+      const replacement = staged.firstElementChild;
+      if (!(replacement instanceof HTMLElement)) {
+        renderMessages();
+        return;
+      }
+      wrap.replaceWith(replacement);
+      requestSwfRuntimeLayoutSync();
+    };
     const onceBtn = document.createElement("button");
     onceBtn.type = "button";
     onceBtn.className = "message-media-gate__option";
@@ -1417,7 +1437,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       event.stopPropagation();
       allowMediaAttachmentOnce(attachment, swfKey);
       showToast("Allowed once for this URL.");
-      renderMessages();
+      revealAcceptedMediaNow();
     });
     const trustBtn = document.createElement("button");
     trustBtn.type = "button";
@@ -1440,7 +1460,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       } else {
         showToast(`Already trusted: ${trustRule || host}`);
       }
-      renderMessages();
+      revealAcceptedMediaNow();
     });
     const trustSubdomainBtn = document.createElement("button");
     trustSubdomainBtn.type = "button";
@@ -1462,7 +1482,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       } else {
         showToast(`Host already trusted: ${host}`);
       }
-      renderMessages();
+      revealAcceptedMediaNow();
     });
     const customRuleBtn = document.createElement("button");
     customRuleBtn.type = "button";
@@ -1489,7 +1509,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       }
       saveState();
       showToast(`Added trust rule: ${nextRule}`);
-      renderMessages();
+      revealAcceptedMediaNow();
     });
     const copyUrlBtn = document.createElement("button");
     copyUrlBtn.type = "button";
