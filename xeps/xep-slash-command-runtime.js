@@ -28,7 +28,7 @@ function handleSlashCommandRuntime(rawText, channel, account) {
       id: createId(),
       userId: account.id,
       authorName: "",
-      text: `${suffix}¯\\_(ツ)_/¯`,
+      text: `${suffix}¯＼_(ツ)_/¯`,
       ts: new Date().toISOString(),
       reactions: [],
       attachments: []

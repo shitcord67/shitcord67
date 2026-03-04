@@ -3,6 +3,10 @@
  * Functions here intentionally bind to app globals at call time.
  */
 
+const messageLinkEmbedMetaCache = new Map();
+const messageLinkEmbedMetaInFlight = new Map();
+const MESSAGE_LINK_EMBED_META_TTL_MS = 30 * 60 * 1000;
+
 function shouldSkipUrlForMessageEmbed(url = "", attachments = []) {
   const normalized = (url || "").toString().trim();
   if (!normalized) return true;
@@ -34,6 +38,166 @@ function summarizeEmbedUrl(url = "") {
   }
 }
 
+function extractYouTubeVideoId(url = "") {
+  const href = (url || "").toString().trim();
+  if (!href) return "";
+  try {
+    const parsed = new URL(href);
+    const host = (parsed.hostname || "").toLowerCase();
+    if (host === "youtu.be") {
+      return (parsed.pathname || "").split("/").filter(Boolean)[0] || "";
+    }
+    if (host.endsWith("youtube.com")) {
+      if (parsed.pathname === "/watch") return (parsed.searchParams.get("v") || "").trim();
+      if (parsed.pathname.startsWith("/shorts/") || parsed.pathname.startsWith("/embed/")) {
+        return (parsed.pathname.split("/").filter(Boolean)[1] || "").trim();
+      }
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function parseLinkMetaFromHtml(html = "") {
+  const output = { title: "", description: "", image: "" };
+  const raw = (html || "").toString();
+  if (!raw) return output;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(raw, "text/html");
+    const title =
+      doc.querySelector('meta[property="og:title"]')?.getAttribute("content")
+      || doc.querySelector('meta[name="twitter:title"]')?.getAttribute("content")
+      || doc.querySelector("title")?.textContent
+      || "";
+    const description =
+      doc.querySelector('meta[property="og:description"]')?.getAttribute("content")
+      || doc.querySelector('meta[name="twitter:description"]')?.getAttribute("content")
+      || doc.querySelector('meta[name="description"]')?.getAttribute("content")
+      || "";
+    const image =
+      doc.querySelector('meta[property="og:image"]')?.getAttribute("content")
+      || doc.querySelector('meta[name="twitter:image"]')?.getAttribute("content")
+      || "";
+    output.title = (title || "").toString().trim();
+    output.description = (description || "").toString().trim();
+    output.image = (image || "").toString().trim();
+    return output;
+  } catch {
+    return output;
+  }
+}
+
+async function fetchLinkEmbedMeta(url = "") {
+  const normalized = (url || "").toString().trim();
+  if (!normalized) return null;
+  const cached = messageLinkEmbedMetaCache.get(normalized);
+  if (cached && Number(cached.expiresAt) > Date.now()) return cached.value;
+  if (messageLinkEmbedMetaInFlight.has(normalized)) {
+    return messageLinkEmbedMetaInFlight.get(normalized);
+  }
+  const inFlight = (async () => {
+    const youtubeId = extractYouTubeVideoId(normalized);
+    if (youtubeId) {
+      const fallback = {
+        title: "YouTube video",
+        description: "",
+        image: `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${youtubeId}`,
+        source: "youtube"
+      };
+      try {
+        const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(normalized)}&format=json`;
+        const response = await fetch(endpoint, { cache: "no-store" });
+        if (!response.ok) throw new Error(`oembed:${response.status}`);
+        const payload = await response.json();
+        const next = {
+          ...fallback,
+          title: (payload?.title || fallback.title).toString().trim(),
+          description: (payload?.author_name || "").toString().trim(),
+          image: (payload?.thumbnail_url || fallback.image).toString().trim()
+        };
+        messageLinkEmbedMetaCache.set(normalized, {
+          value: next,
+          expiresAt: Date.now() + MESSAGE_LINK_EMBED_META_TTL_MS
+        });
+        return next;
+      } catch {
+        messageLinkEmbedMetaCache.set(normalized, {
+          value: fallback,
+          expiresAt: Date.now() + MESSAGE_LINK_EMBED_META_TTL_MS
+        });
+        return fallback;
+      }
+    }
+    try {
+      const response = await fetch(normalized, { cache: "force-cache" });
+      if (!response.ok) throw new Error(`meta:${response.status}`);
+      const contentType = (response.headers.get("content-type") || "").toLowerCase();
+      if (!contentType.includes("text/html")) throw new Error("meta:not-html");
+      const html = await response.text();
+      const parsed = parseLinkMetaFromHtml(html);
+      if (!parsed.title && !parsed.description && !parsed.image) throw new Error("meta:empty");
+      const next = {
+        title: parsed.title,
+        description: parsed.description,
+        image: parsed.image,
+        embedUrl: "",
+        source: "html-meta"
+      };
+      messageLinkEmbedMetaCache.set(normalized, {
+        value: next,
+        expiresAt: Date.now() + MESSAGE_LINK_EMBED_META_TTL_MS
+      });
+      return next;
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    messageLinkEmbedMetaInFlight.delete(normalized);
+  });
+  messageLinkEmbedMetaInFlight.set(normalized, inFlight);
+  return inFlight;
+}
+
+async function hydrateMessageLinkEmbed(card, url, ui = {}) {
+  if (!(card instanceof HTMLElement)) return;
+  const meta = await fetchLinkEmbedMeta(url);
+  if (!meta) return;
+  if (!(card.isConnected || card.dataset.hydrateDetached === "1")) return;
+  if (ui.host instanceof HTMLElement && meta.source === "youtube") {
+    ui.host.textContent = "youtube";
+  }
+  if (ui.path instanceof HTMLElement && meta.title) {
+    ui.path.textContent = meta.title;
+  }
+  if (ui.desc instanceof HTMLElement && meta.description) {
+    ui.desc.hidden = false;
+    ui.desc.textContent = meta.description.length > 220 ? `${meta.description.slice(0, 217)}...` : meta.description;
+  }
+  if (ui.thumb instanceof HTMLImageElement && meta.image) {
+    ui.thumb.hidden = false;
+    ui.thumb.src = meta.image;
+  }
+  if (meta.source === "youtube" && meta.embedUrl && !card.querySelector(".message-link-embed__youtube")) {
+    const frame = document.createElement("iframe");
+    frame.className = "message-link-embed__youtube";
+    frame.loading = "lazy";
+    frame.referrerPolicy = "no-referrer";
+    frame.src = meta.embedUrl;
+    frame.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share";
+    frame.allowFullscreen = true;
+    card.classList.add("message-link-embed--youtube");
+    if (ui.thumb instanceof HTMLElement) {
+      ui.thumb.hidden = true;
+      card.insertBefore(frame, ui.thumb.nextSibling);
+    } else {
+      card.appendChild(frame);
+    }
+  }
+}
+
 function appendMessageLinkEmbeds(messageRow, textNode, { attachments = [], limit = 3 } = {}) {
   if (!(messageRow instanceof HTMLElement) || !(textNode instanceof HTMLElement)) return;
   const links = [...textNode.querySelectorAll("a[href]")];
@@ -56,20 +220,36 @@ function appendMessageLinkEmbeds(messageRow, textNode, { attachments = [], limit
   wraps.className = "message-link-embeds";
   selected.forEach((url) => {
     const summary = summarizeEmbedUrl(url);
-    const card = document.createElement("a");
+    const card = document.createElement("div");
     card.className = "message-link-embed";
-    card.href = url;
-    card.target = "_blank";
-    card.rel = "noreferrer noopener";
     const host = document.createElement("strong");
     host.textContent = summary.host || "External Link";
     const path = document.createElement("span");
     path.textContent = summary.path || summary.label || url;
+    const desc = document.createElement("small");
+    desc.className = "message-link-embed__desc";
+    desc.hidden = true;
+    const thumb = document.createElement("img");
+    thumb.className = "message-link-embed__thumb";
+    thumb.hidden = true;
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.referrerPolicy = "no-referrer";
     const footer = document.createElement("small");
     footer.textContent = url;
+    const open = document.createElement("a");
+    open.className = "message-link-embed__open";
+    open.href = url;
+    open.target = "_blank";
+    open.rel = "noreferrer noopener";
+    open.textContent = "Open";
     card.appendChild(host);
     card.appendChild(path);
+    card.appendChild(desc);
+    card.appendChild(thumb);
     card.appendChild(footer);
+    card.appendChild(open);
+    void hydrateMessageLinkEmbed(card, url, { host, path, desc, thumb });
     wraps.appendChild(card);
   });
   messageRow.appendChild(wraps);

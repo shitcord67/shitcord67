@@ -796,6 +796,7 @@ const ui = {
   loginLocalProfileSelect: document.getElementById("loginLocalProfileSelect"),
   loginUsername: document.getElementById("loginUsername"),
   loginPassword: document.getElementById("loginPassword"),
+  loginShowPasswordInput: document.getElementById("loginShowPasswordInput"),
   loginXmppServer: document.getElementById("loginXmppServer"),
   loginRememberInput: document.getElementById("loginRememberInput"),
   loginProvidersBtn: document.getElementById("loginProvidersBtn"),

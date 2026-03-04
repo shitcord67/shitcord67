@@ -534,7 +534,7 @@ function setSwfRuntimeHoverState(runtimeKey, hovered) {
     attachment.classList.remove("message-attachment--swf-runtime-hover");
     requestSwfRuntimeLayoutSync();
   };
-  swfRuntimeHoverOffTimerByKey.set(runtimeKey, setTimeout(clearHover, 220));
+  swfRuntimeHoverOffTimerByKey.set(runtimeKey, setTimeout(clearHover, 16));
 }
 
 function clearSwfRuntimeHoverOffTimer(runtimeKey) {

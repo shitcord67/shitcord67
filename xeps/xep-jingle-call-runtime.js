@@ -1532,6 +1532,11 @@ function extractUrlFromBackgroundImageValue(value) {
 
 function avatarUrlHintFromElement(element) {
   if (!(element instanceof HTMLElement)) return "";
+  const mediaNode = element.querySelector(".avatar-media");
+  if (mediaNode instanceof HTMLImageElement) {
+    const src = (mediaNode.currentSrc || mediaNode.src || "").toString().trim();
+    if (src) return src;
+  }
   const inlineValue = extractUrlFromBackgroundImageValue(element.style.backgroundImage || "");
   if (inlineValue) return inlineValue;
   try {
@@ -1564,6 +1569,8 @@ function applyAvatarStyle(element, account, guildId = null) {
   if (!(element instanceof HTMLElement)) return;
   const avatar = resolveAccountAvatar(account, guildId);
   element.textContent = "";
+  const staleMedia = element.querySelector(".avatar-media");
+  if (staleMedia instanceof HTMLElement) staleMedia.remove();
   delete element.dataset.initial;
   element.removeAttribute("aria-label");
   element.style.backgroundImage = "";
@@ -1572,9 +1579,20 @@ function applyAvatarStyle(element, account, guildId = null) {
     ? fallbackAvatarColorForAccount(account, guildId, resolvedColor)
     : resolvedColor;
   if (isRenderableAvatarUrl(avatar.url || "")) {
-    element.style.backgroundImage = `url(${avatar.url})`;
-    element.style.backgroundSize = "cover";
-    element.style.backgroundPosition = "center";
+    const media = document.createElement("img");
+    media.className = "avatar-media";
+    media.src = avatar.url;
+    media.alt = "";
+    media.loading = "lazy";
+    media.decoding = "async";
+    media.referrerPolicy = "no-referrer";
+    media.addEventListener("error", () => {
+      media.remove();
+      if (shouldUseStrictInitialAvatar(account, guildId)) {
+        applyAvatarInitialGlyph(element, displayNameForAccount(account, guildId) || account?.username || "?");
+      }
+    }, { once: true });
+    element.appendChild(media);
     return;
   }
   if (shouldUseStrictInitialAvatar(account, guildId)) {

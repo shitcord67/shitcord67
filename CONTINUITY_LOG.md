@@ -7554,3 +7554,6 @@ Then user reported additional issues and provided extensive runtime/XMPP logs, i
   `feature-not-implemented: can't process multiple content nodes` on transport-info.
 - Multiple snippets showing `service-unavailable` / `User session not found` / `User session terminated` and unsuccessful call teardown behavior.
 - User asks for this to be written down clearly for later testing.
+[$(date -u '+%Y-%m-%dT%H:%M:%SZ')]
+USER PROMPT:
+Yeah do all of that. Oh also user avatars seem to be broken and when I use /shrug I get lol ¯S67_ESC_95;(ツ)_/¯. Then could I at least have an option to show the password while I'm typing (checkbox)

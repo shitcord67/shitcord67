@@ -1876,6 +1876,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
   display: grid;
   gap: 0.08rem;
   padding: 0.44rem 0.56rem;
+  position: relative;
   border-radius: 8px;
   border-left: 3px solid #5865f2;
   border-top: 1px solid #2f3340;
@@ -1910,6 +1911,39 @@ body[data-hide-channel-panel="on"] .chat-panel {
   font-size: 0.66rem;
   color: #9aa1ad;
   overflow-wrap: anywhere;
+}
+
+.message-link-embed__desc {
+  color: #b8c0ce;
+}
+
+.message-link-embed__thumb {
+  width: min(320px, 100%);
+  border-radius: 6px;
+  border: 1px solid #2f3340;
+  max-height: 180px;
+  object-fit: cover;
+}
+
+.message-link-embed__youtube {
+  width: min(520px, 100%);
+  aspect-ratio: 16 / 9;
+  border: 1px solid #2f3340;
+  border-radius: 6px;
+  background: #000;
+}
+
+.message-link-embed__open {
+  position: absolute;
+  right: 0.44rem;
+  top: 0.36rem;
+  font-size: 0.66rem;
+  color: #b7c8ff;
+  text-decoration: none;
+}
+
+.message-link-embed__open:hover {
+  text-decoration: underline;
 }
 
 .message-edited {
@@ -4627,6 +4661,7 @@ body[data-compact-members="on"] .member-item {
   position: absolute;
   right: -6px;
   top: -7px;
+  z-index: 2;
   min-width: 18px;
   height: 18px;
   border-radius: 999px;
@@ -4637,6 +4672,32 @@ body[data-compact-members="on"] .member-item {
   font-size: 0.7rem;
   line-height: 1;
   pointer-events: none;
+}
+
+.avatar-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.message-avatar,
+.member-avatar,
+.channel-dm-avatar,
+.dock-avatar,
+.profile-preview__avatar,
+.profile-extended__friend-avatar,
+.dm-home__avatar,
+.call-tile__avatar,
+.message-seen-avatar,
+.profile-identity-preview__avatar,
+.profile-avatar-upload__preview {
+  position: relative;
+  overflow: hidden;
 }
 
 .presence-dot {

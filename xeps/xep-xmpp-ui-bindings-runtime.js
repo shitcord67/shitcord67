@@ -204,6 +204,11 @@ ui.loginPassword?.addEventListener("input", () => {
   resetLoginXmppProgress();
 });
 
+ui.loginShowPasswordInput?.addEventListener("change", () => {
+  if (!ui.loginPassword) return;
+  ui.loginPassword.type = ui.loginShowPasswordInput.checked ? "text" : "password";
+});
+
 ui.loginProvidersBtn?.addEventListener("click", () => {
   renderXmppProviderList();
   ui.xmppProviderDialog?.showModal();
