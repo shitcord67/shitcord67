@@ -7540,3 +7540,17 @@ Yeah
 
 [2026-03-04T07:35:10Z]
 Yeah
+[2026-03-04T08:25:35Z]
+USER PROMPT:
+Okay I have no idea about this, can you write this down in a more explained file so I can test it later?
+Then user reported additional issues and provided extensive runtime/XMPP logs, including:
+- Link unfurl request: use HTML meta properties for page previews; YouTube should show richer preview/embed when possible.
+- Broken GIF rendering for `archuser.de/the-rock.gif`.
+- SWF rendering request: hide URL for SWF messages.
+- SWF UI lag: when SWF controls are open and scrolling/moving away, the Ruffle area should move instantly.
+- Calling issues: invites visible but call establishment/media often fails with Movim and Dino.
+- Incoming call from Movim not properly received.
+- Dino interop details including repeated Jingle errors and one key error:
+  `feature-not-implemented: can't process multiple content nodes` on transport-info.
+- Multiple snippets showing `service-unavailable` / `User session not found` / `User session terminated` and unsuccessful call teardown behavior.
+- User asks for this to be written down clearly for later testing.

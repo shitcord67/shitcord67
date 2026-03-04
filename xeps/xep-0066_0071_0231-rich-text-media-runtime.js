@@ -306,6 +306,7 @@ function stripInlineAttachmentUrlsFromText(text, attachments = []) {
   const raw = (text || "").toString();
   if (!raw) return "";
   if (!Array.isArray(attachments) || attachments.length === 0) return raw;
+  const hasSwfAttachment = attachments.some((entry) => (entry?.type || "").toString().trim().toLowerCase() === "swf");
   const normalizeInlineCidToken = (value = "") => {
     const token = (value || "").toString().trim();
     if (!token) return "";
@@ -350,7 +351,8 @@ function stripInlineAttachmentUrlsFromText(text, attachments = []) {
     const cleanedRaw = (token || "").toString().replace(/[),.!?]+$/, "");
     const cleaned = normalizeComparableUrl(cleanedRaw);
     const normalizedToken = normalizeComparableUrl(token);
-    if (!cleaned || (!attachmentUrls.has(cleaned) && !attachmentUrls.has(normalizedToken) && !attachmentUrls.has(cleanedRaw))) return token;
+    const tokenIsSwf = inferAttachmentTypeFromUrl(cleanedRaw) === "swf";
+    if (!cleaned || (!attachmentUrls.has(cleaned) && !attachmentUrls.has(normalizedToken) && !attachmentUrls.has(cleanedRaw) && !(hasSwfAttachment && tokenIsSwf))) return token;
     const suffix = token.slice(cleanedRaw.length);
     return /^[),.!?]+$/.test(suffix) ? suffix : "";
   });

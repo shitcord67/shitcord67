@@ -1399,7 +1399,35 @@
     catalog.forEach((entry) => {
       if (!ordered.includes(entry)) ordered.push(entry);
     });
-    return ordered.length > 0 ? ordered : catalog;
+    const ranked = ordered.length > 0 ? ordered : catalog;
+    const selectedByMedia = new Map();
+    ranked.forEach((entry) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      const name = (entry?.name || "").toString().trim();
+      if ((media !== "audio" && media !== "video") || !name) return;
+      const existing = selectedByMedia.get(media);
+      if (!existing) {
+        selectedByMedia.set(media, entry);
+        return;
+      }
+      const existingName = (existing.name || "").toString().trim().toLowerCase();
+      const nextName = name.toLowerCase();
+      const existingExact = existingName === media;
+      const nextExact = nextName === media;
+      if (!existingExact && nextExact) {
+        selectedByMedia.set(media, entry);
+        return;
+      }
+      const existingNumeric = /^\d+$/.test(existingName);
+      const nextNumeric = /^\d+$/.test(nextName);
+      if (existingNumeric && !nextNumeric) {
+        selectedByMedia.set(media, entry);
+      }
+    });
+    const selected = [];
+    if (selectedByMedia.has("audio")) selected.push(selectedByMedia.get("audio"));
+    if (selectedByMedia.has("video")) selected.push(selectedByMedia.get("video"));
+    return selected.filter(Boolean);
   }
 
   function xmppNormalizeTransportInfoCandidate(candidate = null) {

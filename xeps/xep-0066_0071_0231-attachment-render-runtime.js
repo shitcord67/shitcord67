@@ -217,6 +217,7 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   video.controls = Boolean(preferNativeControls);
   video.playsInline = true;
   video.preload = "metadata";
+  video.referrerPolicy = "no-referrer";
   let candidateIndex = 0;
   let noteEl = null;
   const applyCandidate = () => {
@@ -1895,6 +1896,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       const img = document.createElement("img");
       img.src = mediaUrl;
       img.loading = "eager";
+      img.referrerPolicy = "no-referrer";
       img.alt = attachment.name || "GIF";
       img.addEventListener("click", () => {
         openMediaLightbox({ url: mediaUrl, label: attachment.name || "GIF" });
@@ -1948,6 +1950,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const img = document.createElement("img");
     img.src = mediaUrl;
     img.loading = "eager";
+    img.referrerPolicy = "no-referrer";
     img.alt = attachment.name || "SVG";
     img.addEventListener("click", () => {
       openMediaLightbox({ url: mediaUrl, label: attachment.name || "SVG" });
