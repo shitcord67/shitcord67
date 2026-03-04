@@ -24,6 +24,32 @@ const DM_GENERIC_SLASH_FALLBACK_COMMANDS = new Set([
 
 const SED_SUB_FLAGS = new Set(["g", "i", "m", "s", "u", "y"]);
 
+function countUnescapedOccurrences(text = "", needle = "/") {
+  if (!needle) return 0;
+  let count = 0;
+  let escaped = false;
+  for (const char of (text || "").toString()) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === needle) count += 1;
+  }
+  return count;
+}
+
+function looksLikeSedSubstitution(rawText) {
+  const text = (rawText || "").toString();
+  if (!text.startsWith("s") || text.length < 3) return false;
+  const delimiter = text[1];
+  if (!delimiter || /\s/.test(delimiter)) return false;
+  return countUnescapedOccurrences(text.slice(2), delimiter) >= 2;
+}
+
 function parseSedSubstitution(rawText) {
   const text = (rawText || "").toString();
   if (!text.startsWith("s") || text.length < 3) return null;
@@ -59,18 +85,26 @@ function parseSedSubstitution(rawText) {
     index += 1;
   }
   if (!foundPattern || !foundReplacement || !pattern) return null;
-  const flagsRaw = text.slice(index);
+  const flagsRaw = text.slice(index).trim();
+  const occurrenceMatch = flagsRaw.match(/^\d+/);
+  const occurrence = occurrenceMatch ? Math.max(1, Number(occurrenceMatch[0]) || 1) : null;
+  const flagsSection = occurrenceMatch ? flagsRaw.slice(occurrenceMatch[0].length) : flagsRaw;
   let flags = "";
-  flagsRaw.split("").forEach((flag) => {
-    if (SED_SUB_FLAGS.has(flag) && !flags.includes(flag)) flags += flag;
-  });
+  for (const flag of flagsSection.split("")) {
+    if (!SED_SUB_FLAGS.has(flag)) return null;
+    if (!flags.includes(flag)) flags += flag;
+  }
   let regex = null;
   try {
     regex = new RegExp(pattern, flags);
   } catch {
     return null;
   }
-  return { regex, replacement };
+  return {
+    regex,
+    replacement,
+    occurrence
+  };
 }
 
 function decodeSedReplacement(value = "") {
@@ -84,6 +118,10 @@ function decodeSedReplacement(value = "") {
 }
 
 function findLastEditableMessage(conversation, account) {
+  return findLastEditableTextMessage(conversation, account) || findLastEditableMessageAny(conversation, account);
+}
+
+function findLastEditableMessageAny(conversation, account) {
   if (!conversation || !account) return null;
   const isDm = conversation.type === "dm";
   const canManageMessages = !isDm && canCurrentUser("manageMessages");
@@ -97,6 +135,38 @@ function findLastEditableMessage(conversation, account) {
     return message;
   }
   return null;
+}
+
+function findLastEditableTextMessage(conversation, account) {
+  if (!conversation || !account) return null;
+  const isDm = conversation.type === "dm";
+  const canManageMessages = !isDm && canCurrentUser("manageMessages");
+  const bucket = conversation.type === "dm"
+    ? conversation.thread?.messages
+    : conversation.channel?.messages;
+  if (!Array.isArray(bucket)) return null;
+  for (let i = bucket.length - 1; i >= 0; i -= 1) {
+    const message = bucket[i];
+    if (!canEditMessageEntry(message, { isDm, canManageMessages, currentUser: account })) continue;
+    const text = (message?.text || "").toString();
+    if (!text) continue;
+    return message;
+  }
+  return null;
+}
+
+function applySedSubstitution(text = "", sed = null) {
+  if (!sed || !(sed.regex instanceof RegExp)) return (text || "").toString();
+  const base = (text || "").toString();
+  const replacement = decodeSedReplacement(sed.replacement);
+  if (Number.isInteger(sed.occurrence) && sed.occurrence > 0 && !sed.regex.global) {
+    let hit = 0;
+    return base.replace(sed.regex, (...args) => {
+      hit += 1;
+      return hit === sed.occurrence ? replacement : args[0];
+    });
+  }
+  return base.replace(sed.regex, replacement);
 }
 
 function commitMessageEdit(scopedConversation, scopedMessage, editor, nextText) {
@@ -155,14 +225,23 @@ ui.messageForm.addEventListener("submit", (event) => {
   const account = getCurrentAccount();
   if (!conversation || !account || (!text && composerPendingAttachments.length === 0)) return;
   if (text && composerPendingAttachments.length === 0) {
-    const sed = parseSedSubstitution(text);
-    if (sed) {
-      const target = findLastEditableMessage(conversation, account);
+    if (looksLikeSedSubstitution(text)) {
+      const sed = parseSedSubstitution(text);
+      if (!sed) {
+        showToast("Invalid sed syntax. Use s/old/new/ or s/old/new/2.", { tone: "error" });
+        return;
+      }
+      const target = findLastEditableTextMessage(conversation, account) || findLastEditableMessage(conversation, account);
       if (!target) {
         showToast("No recent editable message found.", { tone: "error" });
         return;
       }
-      const nextText = (target.text || "").toString().replace(sed.regex, decodeSedReplacement(sed.replacement));
+      const currentText = (target.text || "").toString();
+      if (!currentText) {
+        showToast("Latest editable message has no text to substitute.", { tone: "error" });
+        return;
+      }
+      const nextText = applySedSubstitution(currentText, sed);
       if (nextText === (target.text || "").toString()) {
         showToast("No match found for substitution.", { tone: "error" });
         return;

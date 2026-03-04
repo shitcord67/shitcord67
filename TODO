@@ -21,6 +21,7 @@
 - [done] Added bookmarks sync fallback chain: XEP-0402 pubsub (`urn:xmpp:bookmarks:1`) then legacy private XML (`storage:bookmarks`).
 - [done] Added XMPP keepalive ping support (XEP-0199): answer incoming ping IQ and send periodic session pings.
 - [done] Added XMPP last-message-correction sync (XEP-0308): apply incoming `replace` stanzas and publish correction stanzas for local edits when reference IDs are available.
+- [done] Hardened sed-style inline correction (`s/old/new/`) to prefer latest editable text messages, reject malformed sed syntax early, and support explicit nth-match substitutions (`s/old/new/2`).
 - [done] Added `Add Friend` DM modal (username/JID) and direct XMPP one-to-one DM stanza send/receive path.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - Local profile customization: bio, avatar color, banner color or URL.
