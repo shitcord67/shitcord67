@@ -3,8 +3,6 @@
  * Centralizes XEP-0066/0071/0231 media presentation helpers.
  */
 
-const swfLazyBootstrapByKey = new Map();
-
 function loadSwfRuntimeWhenEncountered(playerWrap, attachment, swfKey) {
   if (!(playerWrap instanceof HTMLElement) || !swfKey) return;
   if (swfRuntimes.get(swfKey)?.player instanceof HTMLElement) {
@@ -12,55 +10,74 @@ function loadSwfRuntimeWhenEncountered(playerWrap, attachment, swfKey) {
     applyPendingSwfUiBindings(swfKey);
     return;
   }
-  if (swfLazyBootstrapByKey.get(swfKey) === true) return;
-  swfLazyBootstrapByKey.set(swfKey, true);
+  if (playerWrap.dataset.swfLazyBoot === "on") return;
+  playerWrap.dataset.swfLazyBoot = "on";
   playerWrap.textContent = "SWF ready. Scroll into view to load.";
+  let started = false;
+  let observer = null;
+  let fallbackTimer = 0;
+  const stop = () => {
+    if (observer) observer.disconnect();
+    observer = null;
+    if (fallbackTimer) window.clearTimeout(fallbackTimer);
+    fallbackTimer = 0;
+  };
 
   const start = () => {
-    if (!playerWrap.isConnected) {
-      swfLazyBootstrapByKey.delete(swfKey);
-      return;
-    }
+    if (started) return;
+    started = true;
+    stop();
+    if (!playerWrap.isConnected) return;
     const runtime = swfRuntimes.get(swfKey);
     if (runtime?.player instanceof HTMLElement) {
       attachExistingSwfRuntime(swfKey, playerWrap);
       applyPendingSwfUiBindings(swfKey);
-      swfLazyBootstrapByKey.delete(swfKey);
       return;
     }
     attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
-    swfLazyBootstrapByKey.delete(swfKey);
   };
 
-  const root = ui?.messageList instanceof HTMLElement ? ui.messageList : null;
+  const nearViewportNow = () => {
+    if (!playerWrap.isConnected) return false;
+    const rect = playerWrap.getBoundingClientRect();
+    if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return false;
+    const viewport = typeof activeMessageViewportRect === "function"
+      ? activeMessageViewportRect()
+      : null;
+    const top = viewport ? viewport.top : 0;
+    const bottom = viewport ? viewport.bottom : window.innerHeight;
+    return rect.bottom >= (top - 320) && rect.top <= (bottom + 320);
+  };
+  if (nearViewportNow()) {
+    start();
+    return;
+  }
+
   if (typeof IntersectionObserver !== "function") {
     start();
     return;
   }
-  let done = false;
-  const observer = new IntersectionObserver((entries) => {
+  observer = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.target !== playerWrap) return;
-      if (done) return;
       if (!entry.isIntersecting && entry.intersectionRatio <= 0) return;
-      done = true;
-      observer.disconnect();
       start();
     });
   }, {
-    root,
+    root: null,
     threshold: 0.01,
     rootMargin: "320px 0px 320px 0px"
   });
   observer.observe(playerWrap);
   const eagerLoad = () => {
-    if (done) return;
-    done = true;
-    observer.disconnect();
     start();
   };
   playerWrap.addEventListener("mouseenter", eagerLoad, { once: true });
   playerWrap.addEventListener("focusin", eagerLoad, { once: true });
+  fallbackTimer = window.setTimeout(() => {
+    if (started) return;
+    if (nearViewportNow()) start();
+  }, 1000);
 }
 
 function clampPdfZoom(value) {
@@ -1821,7 +1838,7 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
         setSwfPlayback(swfKey, true, "user");
         grantSwfAudioClickFocus(swfKey);
       } else {
-        if (swfKey) swfLazyBootstrapByKey.delete(swfKey);
+        if (playerWrap instanceof HTMLElement) playerWrap.dataset.swfLazyBoot = "off";
         attachRufflePlayer(playerWrap, attachment, { autoplay: swfAutoplayFromPreferences(), runtimeKey: swfKey });
       }
     });

@@ -8,6 +8,13 @@
     const dmCommand = rawCommand.toLowerCase();
     const dmArg = rawRest.join(" ").trim();
 
+    if (dmCommand === "devtools") {
+      if (!requestDevtoolsToggle()) {
+        showToast("DevTools toggle is only available in the Electron app.", { tone: "error" });
+      }
+      return true;
+    }
+
     const execute = () => {
     if ([
       "serverinfo",
@@ -482,12 +489,6 @@
         ui.dmSearchInput?.select?.();
       } else {
         ui.messageInput.focus();
-      }
-      return;
-    }
-    if (dmCommand === "devtools") {
-      if (!requestDevtoolsToggle()) {
-        showToast("DevTools toggle is only available in the Electron app.", { tone: "error" });
       }
       return;
     }

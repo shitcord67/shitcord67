@@ -272,15 +272,20 @@ ui.messageForm.addEventListener("submit", (event) => {
     }
   }
   let handledSlashMessage = null;
+  let handledSlashCommand = false;
   if (conversation.type === "dm" && text.startsWith("/")) {
     const handledDmSlash = typeof XEP_DM_COMMAND_RUNTIME_GLOBAL.handleDmSlashCommandRuntime === "function"
       ? XEP_DM_COMMAND_RUNTIME_GLOBAL.handleDmSlashCommandRuntime({ text, conversation, account })
       : false;
-    if (handledDmSlash !== false) return;
+    if (handledDmSlash !== false) {
+      handledSlashCommand = true;
+      return;
+    }
     const dmSlashName = (text.slice(1).split(/\s+/, 1)[0] || "").toLowerCase();
     if (DM_GENERIC_SLASH_FALLBACK_COMMANDS.has(dmSlashName)) {
       const beforeCount = Array.isArray(conversation.thread?.messages) ? conversation.thread.messages.length : 0;
       if (handleSlashCommand(text, { id: conversation.id, messages: conversation.thread.messages }, account)) {
+        handledSlashCommand = true;
         const afterCount = Array.isArray(conversation.thread?.messages) ? conversation.thread.messages.length : 0;
         if (afterCount > beforeCount) {
           handledSlashMessage = conversation.thread.messages[afterCount - 1] || null;
@@ -310,10 +315,11 @@ ui.messageForm.addEventListener("submit", (event) => {
   }
 
   if (conversation.type === "channel" && text) ensureCurrentUserInActiveServer();
-  if (!handledSlashMessage && conversation.type === "channel" && text) {
+  if (!handledSlashCommand && conversation.type === "channel" && text) {
     const beforeCount = Array.isArray(conversation.channel?.messages) ? conversation.channel.messages.length : 0;
     const handledChannelSlash = handleSlashCommand(text, conversation.channel, account);
     if (handledChannelSlash) {
+      handledSlashCommand = true;
       const afterCount = Array.isArray(conversation.channel?.messages) ? conversation.channel.messages.length : 0;
       if (afterCount > beforeCount) {
         handledSlashMessage = conversation.channel.messages[afterCount - 1] || null;
@@ -322,7 +328,7 @@ ui.messageForm.addEventListener("submit", (event) => {
     }
   }
 
-  if (!handledSlashMessage) {
+  if (!handledSlashCommand) {
     const nextReply = replyTarget && replyTarget.channelId === conversation.id
       ? {
         messageId: replyTarget.messageId,
