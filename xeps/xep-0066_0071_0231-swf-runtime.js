@@ -692,6 +692,7 @@ function requestSwfRuntimeLayoutSync() {
     swfAnchorLayoutRaf = 0;
     positionSwfAnchoredRuntimeHosts();
     positionSwfPipRuntimeHosts();
+    syncSwfRuntimeVisibilityPlayback();
   });
 }
 
@@ -1623,6 +1624,15 @@ function applySwfVisibilityPlayback(runtimeKey, isVisible) {
   if (!runtime.playing) return;
   const paused = setSwfPlayback(runtimeKey, false, "system");
   if (paused) runtime.autoPausedByVisibility = true;
+}
+
+function syncSwfRuntimeVisibilityPlayback() {
+  swfRuntimes.forEach((runtime, runtimeKey) => {
+    if (!runtime?.player) return;
+    if (currentViewerRuntimeKey === runtimeKey) return;
+    if (runtime.host instanceof HTMLElement && document.fullscreenElement && runtime.host === document.fullscreenElement) return;
+    applySwfVisibilityPlayback(runtimeKey, runtimeIsVisible(runtime));
+  });
 }
 
 function bindSwfVisibilityObserver(runtimeKey) {
