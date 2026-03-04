@@ -562,6 +562,17 @@
         showToast(`Relay room synced: ${relayRoomForActiveConversation()}`);
         return;
       }
+      if (sub === "local") {
+        const diag = typeof localRelayDiagnostics === "function" ? localRelayDiagnostics() : null;
+        if (!diag) {
+          showToast("Local relay diagnostics unavailable.", { tone: "error" });
+          return;
+        }
+        const supported = diag.supported ? "yes" : "no";
+        const open = diag.channelOpen ? "open" : "closed";
+        showToast(`Local relay: supported ${supported}, channel ${open}, mode ${diag.mode}, status ${diag.status}, client ${diag.clientId}`);
+        return;
+      }
       if (sub === "autoconnect") {
         const value = payload.toLowerCase();
         if (!value || value === "status") {

@@ -488,6 +488,18 @@ function sendLocalRelayPacket(packet) {
   }
 }
 
+function localRelayDiagnostics() {
+  const prefs = getPreferences();
+  return {
+    supported: localRelaySupported(),
+    clientId: ensureLocalRelayClientId(),
+    channelName: RELAY_LOCAL_CHANNEL_NAME,
+    channelOpen: Boolean(relayLocalChannel),
+    mode: prefs.relayMode,
+    status: relayStatus
+  };
+}
+
 function getTransportAdapter(mode = getPreferences().relayMode) {
   const adapters = {
     local: {

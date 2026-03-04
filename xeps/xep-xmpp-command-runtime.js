@@ -1122,6 +1122,17 @@
       addSystemMessage(channel, `Relay room synced: ${relayRoomForActiveConversation()}`);
       return true;
     }
+    if (sub === "local") {
+      const diag = typeof localRelayDiagnostics === "function" ? localRelayDiagnostics() : null;
+      if (!diag) {
+        addSystemMessage(channel, "Local relay diagnostics unavailable.");
+        return true;
+      }
+      const supported = diag.supported ? "yes" : "no";
+      const open = diag.channelOpen ? "open" : "closed";
+      addSystemMessage(channel, `Local relay: supported ${supported}, channel ${open}, mode ${diag.mode}, status ${diag.status}, client ${diag.clientId}`);
+      return true;
+    }
     if (sub === "autoconnect") {
       const value = payload.toLowerCase();
       if (!value || value === "status") {
