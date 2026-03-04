@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PACKAGED_LINUX_SANDBOX_MODE = String(process.env.S67_PACKAGED_LINUX_SANDBOX || "off").toLowerCase();
-const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "tmp").toLowerCase();
+const PACKAGED_LINUX_SHM_MODE = String(process.env.S67_PACKAGED_LINUX_SHM_MODE || "auto").toLowerCase();
 const LINUX_SANDBOX_MODE = String(process.env.S67_LINUX_SANDBOX || "off").toLowerCase();
 const PACKAGED_LINUX_RUNTIME_DIR = String(process.env.S67_PACKAGED_LINUX_RUNTIME_DIR || "").trim();
 
@@ -218,7 +218,7 @@ if (process.platform === "linux") {
       app.commandLine.appendSwitch("disable-setuid-sandbox");
       app.commandLine.appendSwitch("disable-gpu-sandbox");
     }
-    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "tmp").toLowerCase();
+    const devShmMode = String(process.env.S67_LINUX_SHM_MODE || "auto").toLowerCase();
     const shmDecision = resolveShmMode(devShmMode);
     if (shmDecision.mode === "tmp") {
       // Some restricted Linux/dev environments do not expose writable /dev/shm (e.g. sandboxes/containers).
@@ -622,8 +622,7 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
         // ignore setPath errors and continue with env-based fallback
       }
     } else {
-      notifyDevtoolsUnavailable(windowInstance, `Chromium DevTools disabled: temp dir is not writable (${runtimeTempDir}).`);
-      return false;
+      log("devtools temp dir not writable; attempting toggle anyway", runtimeTempDir);
     }
   }
   try {
@@ -697,6 +696,11 @@ function installApplicationMenu() {
         {
           label: "Force Open DevTools",
           accelerator: process.platform === "darwin" ? "Cmd+Shift+Alt+I" : "Ctrl+Shift+Alt+I",
+          click: () => toggleDevtoolsForWindow(BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs: 0 })
+        },
+        {
+          label: "Toggle DevTools (Ctrl+Shift+J)",
+          accelerator: process.platform === "darwin" ? "Cmd+Shift+J" : "Ctrl+Shift+J",
           click: () => toggleDevtoolsForWindow(BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs: 0 })
         },
         { type: "separator" },
@@ -777,10 +781,13 @@ function attachDeveloperShortcuts(windowInstance) {
   });
   windowInstance.webContents.on("before-input-event", (event, input) => {
     const key = (input?.key || "").toUpperCase();
+    const code = (input?.code || "").toUpperCase();
     const wantsF12 = key === "F12";
     const wantsCtrlShiftI = key === "I" && input.control && input.shift;
+    const wantsCtrlShiftJ = key === "J" && input.control && input.shift;
     const wantsCmdAltI = key === "I" && input.meta && input.alt;
-    if (!wantsF12 && !wantsCtrlShiftI && !wantsCmdAltI) return;
+    const wantsCodeF12 = code === "F12";
+    if (!wantsF12 && !wantsCodeF12 && !wantsCtrlShiftI && !wantsCtrlShiftJ && !wantsCmdAltI) return;
     event.preventDefault();
     toggleDevtoolsForWindow(windowInstance, { dedupeMs: 900 });
   });
