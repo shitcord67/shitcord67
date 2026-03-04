@@ -7651,3 +7651,13 @@ When I click "Allow Docs access" in Android then no permission dialog pops up. A
 ## 2026-03-04T16:46:01+01:00
 USER PROMPT:
 Then I noticed the SWF PiP dragging in Android is a bit sluggish. Also why can't I drag the PiP a bit lower, basically until above the message input field, similar to how it is on Desktop? Then is there a way to improve the scrolling performance in chat for Ruffle? Cause the Ruffle instances lag a bit behind on Android when I scroll. Then can you look ad the top and bottom padding before any app content? I copied some Android docs to the docs folder so maybe there is something that can help you or look up the iternet. I use Android 15 and I have a notch and virtual navigation bar (navbar) and thus some elements are hidden by those and thus we would need to draw gray borders above and below to shift the interactive interface within the area I can react at!
+
+## 2026-03-04T16:48:40+01:00
+USER PROMPT:
+Also I noticed that chat is sometimes not visible until I send a message to the chat. Can you please fix this cause I expect chat to load when I open chat. I don't want to have to send a message first until it loads...
+[$(date -Iseconds)] USER PROMPT:
+Also I noticed that chat is sometimes not visible until I send a message to the chat. Can you please fix this cause I expect chat to load when I open chat. I don't want to have to send a message first until it loads...
+
+## 2026-03-04T16:50:11+01:00
+USER PROMPT:
+Also I noticed that chat is sometimes not visible until I send a message to the chat. Can you please fix this cause I expect chat to load when I open chat. I don't want to have to send a message first until it loads...

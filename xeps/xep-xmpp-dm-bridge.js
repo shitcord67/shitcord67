@@ -568,6 +568,8 @@ function sendDirectMessageToAccount(targetAccount, text) {
   });
   state.viewMode = "dm";
   state.activeDmId = thread.id;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "chat";
   saveState();
   render();
   return true;

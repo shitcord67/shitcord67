@@ -2222,6 +2222,8 @@ function renderDmHome() {
         card.addEventListener("click", () => {
           state.viewMode = "dm";
           state.activeDmId = thread.id;
+          state.preferences = getPreferences();
+          state.preferences.mobilePane = "chat";
           saveState();
           render();
         });

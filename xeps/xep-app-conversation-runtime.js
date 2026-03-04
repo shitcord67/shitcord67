@@ -742,6 +742,8 @@ function navigateGuildChannelByOffset(delta) {
   state.viewMode = "guild";
   state.activeDmId = null;
   state.activeChannelId = next.id;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "chat";
   saveState();
   render();
   return true;
@@ -782,6 +784,8 @@ function jumpToUnreadGuildChannel(direction = 1) {
   state.viewMode = "guild";
   state.activeDmId = null;
   state.activeChannelId = nextId;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "chat";
   saveState();
   render();
   return true;
@@ -811,6 +815,8 @@ function jumpToMentionGuildChannel(direction = 1) {
   state.viewMode = "guild";
   state.activeDmId = null;
   state.activeChannelId = nextId;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "chat";
   saveState();
   render();
   return true;
@@ -833,6 +839,8 @@ function cycleActiveDmThread(direction = 1) {
   if (threads.length === 1 && state.viewMode === "dm" && state.activeDmId === nextId) return false;
   state.viewMode = "dm";
   state.activeDmId = nextId;
+  state.preferences = getPreferences();
+  state.preferences.mobilePane = "chat";
   saveState();
   render();
   return true;

@@ -1524,6 +1524,8 @@ function activateQuickSwitchItem(item) {
   if (item.type === "dm" && item.threadId) {
     state.viewMode = "dm";
     state.activeDmId = item.threadId;
+    state.preferences = getPreferences();
+    state.preferences.mobilePane = "chat";
     saveState();
     render();
     return true;
@@ -1540,6 +1542,8 @@ function activateQuickSwitchItem(item) {
     state.activeGuildId = guild.id;
     state.activeChannelId = item.channelId;
     state.activeDmId = null;
+    state.preferences = getPreferences();
+    state.preferences.mobilePane = "chat";
     rememberGuildChannelSelection(guild.id, item.channelId);
     saveState();
     render();
