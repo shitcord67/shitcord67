@@ -358,12 +358,35 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
     }
     await applyRemoteDescription();
   } catch (error) {
+    const errorMessage = String(error?.message || error);
+    const shouldRetryWithLocalOffer = normalizedRemoteType === "answer" && !pc.localDescription;
+    if (shouldRetryWithLocalOffer) {
+      try {
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+        await pc.setLocalDescription(offer);
+        await applyRemoteDescription();
+        addXmppDebugEvent("runtime", "Recovered remote answer by priming local offer", {
+          sid,
+          peer: xmppBareJid(peerJid || ""),
+          remoteType: normalizedRemoteType,
+          signalingState: pc.signalingState || ""
+        });
+        return true;
+      } catch (retryError) {
+        addXmppDebugEvent("error", "Retrying remote answer after local offer failed", {
+          sid,
+          peer: xmppBareJid(peerJid || ""),
+          remoteType: normalizedRemoteType,
+          error: String(retryError?.message || retryError)
+        });
+      }
+    }
     addXmppDebugEvent("error", "Failed to set remote description from jingle mapping", {
       sid,
       peer: xmppBareJid(peerJid || ""),
       remoteType: normalizedRemoteType,
       signalingState: pc.signalingState || "",
-      error: String(error?.message || error)
+      error: errorMessage
     });
     try {
       xmppCloseSessionPeerConnection(sid);
@@ -373,6 +396,14 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
         createLocalOffer: normalizedRemoteType === "answer"
       });
       if (!retryEntry?.pc) return false;
+      if (normalizedRemoteType === "answer" && !retryEntry.pc.localDescription) {
+        try {
+          const offer = await retryEntry.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+          await retryEntry.pc.setLocalDescription(offer);
+        } catch {
+          // Retry without a local offer if offer creation fails.
+        }
+      }
       await retryEntry.pc.setRemoteDescription(remoteDescriptionInit);
       entry = retryEntry;
       pc = retryEntry.pc;

@@ -1452,6 +1452,53 @@ function connectRelaySocket({ force = false } = {}) {
             });
             return true;
           }
+          if (jingle.action === "content-add") {
+            const incomingContents = Array.isArray(jingle.contents) ? jingle.contents : [];
+            if (incomingContents.length > 0) {
+              const current = Array.isArray(session.remoteContents) ? session.remoteContents : [];
+              const byKey = new Map(current.map((entry) => [`${entry.name || ""}|${entry.media || ""}`, entry]));
+              incomingContents.forEach((entry) => {
+                const key = `${entry.name || ""}|${entry.media || ""}`;
+                byKey.set(key, {
+                  ...(byKey.get(key) || {}),
+                  ...entry,
+                  payloadTypes: entry.payloadTypes?.length ? entry.payloadTypes : (byKey.get(key)?.payloadTypes || [])
+                });
+              });
+              session.remoteContents = [...byKey.values()];
+              session.media = session.remoteContents
+                .map((entry) => (entry.media || "").toString().trim().toLowerCase())
+                .filter((item) => item === "audio" || item === "video");
+              const audioContent = session.remoteContents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "audio");
+              const videoContent = session.remoteContents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "video");
+              if (audioContent) {
+                session.remoteMuted = !xmppRemoteSendEnabledForSenders(audioContent.senders || "both", session.localJingleRole || "responder");
+              }
+              if (videoContent) {
+                session.remoteVideoMuted = !xmppRemoteSendEnabledForSenders(videoContent.senders || "both", session.localJingleRole || "responder");
+              }
+            }
+            session.state = "content-added";
+            xmppRequestSessionReprime(jingle.sid, {
+              peerJid: xmppResolveSessionPeerJid(session, fromBare),
+              media: session.media,
+              remoteContents: Array.isArray(session.remoteContents) ? session.remoteContents : [],
+              remoteTransport: session.remoteTransport || null,
+              remoteType: "offer",
+              localRole: session.localJingleRole || "responder",
+              reason: "content-add"
+            });
+            showToast("XMPP media content added.");
+            if (addSystemDmMessageByPeerJid(fromBare, `XMPP content-add (${jingle.sid.slice(0, 8)}).`)) {
+              refreshDmUiForPeerJid(fromBare);
+            }
+            addXmppDebugEvent("iq", "Received XMPP jingle content-add", {
+              from: fromBare,
+              sid: jingle.sid,
+              contentCount: Array.isArray(jingle.contents) ? jingle.contents.length : 0
+            });
+            return true;
+          }
           if (jingle.action === "content-remove") {
             const removeTargets = Array.isArray(jingle.contents) ? jingle.contents : [];
             const current = Array.isArray(session.remoteContents) ? session.remoteContents : [];

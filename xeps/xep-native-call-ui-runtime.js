@@ -499,6 +499,33 @@ function isNativeCallSurfaceDevicePickerFocused(sessionId = "") {
   return (shell.dataset.sid || "").toString().trim() === sid;
 }
 
+function lockNativeCallSurfaceDevicePicker(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  nativeCallDevicePickerLocked = true;
+  nativeCallDevicePickerSessionId = sid;
+  nativeCallDevicePickerLockedAt = Date.now();
+}
+
+function unlockNativeCallSurfaceDevicePicker(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid || nativeCallDevicePickerSessionId !== sid) return;
+  nativeCallDevicePickerLocked = false;
+  nativeCallDevicePickerSessionId = "";
+  nativeCallDevicePickerLockedAt = 0;
+}
+
+function isNativeCallSurfaceDevicePickerLocked(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid || !nativeCallDevicePickerLocked) return false;
+  if (nativeCallDevicePickerSessionId !== sid) return false;
+  if (nativeCallDevicePickerLockedAt && Date.now() - nativeCallDevicePickerLockedAt > 30000) {
+    unlockNativeCallSurfaceDevicePicker(sid);
+    return false;
+  }
+  return true;
+}
+
 function scheduleNativeCallSurfaceTicker(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid || xmppActiveNativeCallSessionId !== sid) {
@@ -514,7 +541,7 @@ function scheduleNativeCallSurfaceTicker(sessionId = "") {
       clearNativeCallSurfaceTicker();
       return;
     }
-    if (isNativeCallSurfaceDevicePickerFocused(sid)) {
+    if (isNativeCallSurfaceDevicePickerFocused(sid) || isNativeCallSurfaceDevicePickerLocked(sid)) {
       scheduleNativeCallSurfaceTicker(sid);
       return;
     }
@@ -1427,6 +1454,13 @@ function renderNativeXmppCallSurface(sessionId = "") {
   videoSelect.className = "native-call-surface__select";
   const outputSelect = document.createElement("select");
   outputSelect.className = "native-call-surface__select";
+  const lockPicker = () => lockNativeCallSurfaceDevicePicker(sid);
+  const unlockPicker = () => unlockNativeCallSurfaceDevicePicker(sid);
+  [audioSelect, videoSelect, outputSelect].forEach((select) => {
+    select.addEventListener("mousedown", lockPicker);
+    select.addEventListener("focus", lockPicker);
+    select.addEventListener("blur", unlockPicker);
+  });
   buildNativeCallDeviceSelectOptions(audioSelect, mediaDeviceSnapshot.audio || [], prefs.callAudioInputId, "Default Mic");
   buildNativeCallDeviceSelectOptions(videoSelect, mediaDeviceSnapshot.video || [], prefs.callVideoInputId, "Default Camera");
   buildNativeCallDeviceSelectOptions(outputSelect, mediaDeviceSnapshot.output || [], prefs.callAudioOutputId, "Default Speaker");
@@ -1467,18 +1501,21 @@ function renderNativeXmppCallSurface(sessionId = "") {
     }
   };
   audioSelect.addEventListener("change", () => {
+    unlockNativeCallSurfaceDevicePicker(sid);
     state.preferences = getPreferences();
     state.preferences.callAudioInputId = audioSelect.value;
     saveState();
     void applyLocalInputDeviceChange({ kind: "audio", label: "Microphone" });
   });
   videoSelect.addEventListener("change", () => {
+    unlockNativeCallSurfaceDevicePicker(sid);
     state.preferences = getPreferences();
     state.preferences.callVideoInputId = videoSelect.value;
     saveState();
     void applyLocalInputDeviceChange({ kind: "video", label: "Camera" });
   });
   outputSelect.addEventListener("change", () => {
+    unlockNativeCallSurfaceDevicePicker(sid);
     state.preferences = getPreferences();
     state.preferences.callAudioOutputId = outputSelect.value;
     saveState();
