@@ -1398,14 +1398,10 @@
         .map((entry) => (entry || "").toString().trim().toLowerCase())
         .filter((entry) => entry === "audio" || entry === "video")
     );
-    const ordered = [];
-    catalog.forEach((entry) => {
-      if (preferred.has(entry.media)) ordered.push(entry);
-    });
-    catalog.forEach((entry) => {
-      if (!ordered.includes(entry)) ordered.push(entry);
-    });
-    const ranked = ordered.length > 0 ? ordered : catalog;
+    const preferredCatalog = preferred.size > 0
+      ? catalog.filter((entry) => preferred.has((entry?.media || "").toString().trim().toLowerCase()))
+      : [];
+    const ranked = preferredCatalog.length > 0 ? preferredCatalog : catalog;
     const selectedByMedia = new Map();
     ranked.forEach((entry) => {
       const media = (entry?.media || "").toString().trim().toLowerCase();

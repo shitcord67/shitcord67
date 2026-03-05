@@ -880,7 +880,10 @@
       : false;
     if (entry?.pc && !entry.pc.localDescription) {
       try {
-        const offer = await entry.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+        const offer = await entry.pc.createOffer({
+          offerToReceiveAudio: medias.includes("audio") || medias.length === 0,
+          offerToReceiveVideo: medias.includes("video")
+        });
         await entry.pc.setLocalDescription(offer);
       } catch (error) {
         if (typeof addXmppDebugEventFn === "function") {

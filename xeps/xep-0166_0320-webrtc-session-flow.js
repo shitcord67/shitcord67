@@ -18,6 +18,20 @@ function xmppEnsureRemoteCandidateTracking(entry = null) {
   if (!(entry.pendingRemoteCandidateKeys instanceof Set)) entry.pendingRemoteCandidateKeys = new Set();
 }
 
+function xmppBuildOfferReceiveOptions(media = [], session = null) {
+  const normalized = [...new Set(
+    (Array.isArray(media) ? media : xmppCallSessionMediaList(session))
+      .map((item) => (item || "").toString().trim().toLowerCase())
+      .filter((item) => item === "audio" || item === "video")
+  )];
+  const includeAudio = normalized.includes("audio") || normalized.length === 0;
+  const includeVideo = normalized.includes("video");
+  return {
+    offerToReceiveAudio: includeAudio,
+    offerToReceiveVideo: includeVideo
+  };
+}
+
 function xmppBuildMinimalJingleSdp({
   media = ["audio", "video"],
   contents = [],
@@ -305,7 +319,7 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
     : (normalizedRemoteType === "answer" && !pc.localDescription);
   if (needsLocalOfferBeforeAnswer) {
     try {
-      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      const offer = await pc.createOffer(xmppBuildOfferReceiveOptions(media, session));
       await pc.setLocalDescription(offer);
     } catch {
       // Continue and let remote set attempt fail naturally.
@@ -362,7 +376,7 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
     const shouldRetryWithLocalOffer = normalizedRemoteType === "answer" && !pc.localDescription;
     if (shouldRetryWithLocalOffer) {
       try {
-        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+        const offer = await pc.createOffer(xmppBuildOfferReceiveOptions(media, session));
         await pc.setLocalDescription(offer);
         await applyRemoteDescription();
         addXmppDebugEvent("runtime", "Recovered remote answer by priming local offer", {
@@ -398,7 +412,7 @@ async function xmppPrimePeerConnectionFromJingle(sessionId, {
       if (!retryEntry?.pc) return false;
       if (normalizedRemoteType === "answer" && !retryEntry.pc.localDescription) {
         try {
-          const offer = await retryEntry.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+          const offer = await retryEntry.pc.createOffer(xmppBuildOfferReceiveOptions(media, session));
           await retryEntry.pc.setLocalDescription(offer);
         } catch {
           // Retry without a local offer if offer creation fails.
@@ -658,8 +672,9 @@ function xmppEnsureSessionPeerConnection(sessionId, {
   };
   xmppCallPeerConnectionBySessionId.set(sid, entry);
   if (createLocalOffer) {
+    const offerOptions = xmppBuildOfferReceiveOptions(wantedMedia, session);
     Promise.resolve()
-      .then(() => pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true }))
+      .then(() => pc.createOffer(offerOptions))
       .then((offer) => pc.setLocalDescription(offer))
       .then(() => {
         addXmppDebugEvent("runtime", "Prepared local WebRTC offer for XMPP session", {
