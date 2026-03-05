@@ -71,5 +71,24 @@ contextBridge.exposeInMainWorld("s67Electron", {
         error: String(error?.message || error || "IPC bridge unavailable")
       };
     }
+  },
+  emitLogEvent(payload = {}) {
+    try {
+      ipcRenderer.send("s67-log-event", payload && typeof payload === "object" ? payload : {});
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  async getRuntimeLogDir() {
+    try {
+      return await ipcRenderer.invoke("s67-get-runtime-log-dir");
+    } catch (error) {
+      return {
+        ok: false,
+        dir: "",
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
   }
 });

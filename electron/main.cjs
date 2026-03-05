@@ -130,6 +130,8 @@ const LINUX_SANDBOX_ENABLED = process.platform !== "linux"
 const ROOT_DIR = path.resolve(__dirname, "..");
 const STACK_SCRIPT = path.join(ROOT_DIR, "scripts", "run-client-stack.sh");
 const DND_MAX_FILE_BYTES = 24 * 1024 * 1024;
+const RUNTIME_LOG_DIR_OVERRIDE = String(process.env.S67_RUNTIME_LOG_DIR || "").trim();
+const RUNTIME_LOG_MAX_TEXT_CHARS = Math.max(1024, Number(process.env.S67_RUNTIME_LOG_MAX_TEXT_CHARS || 24000));
 
 function safeDecodeFileUri(fileUri = "") {
   const raw = (fileUri || "").toString().trim();
@@ -308,15 +310,218 @@ let activeClientPort = CLIENT_PORT;
 let activeGatewayPort = GATEWAY_PORT;
 let lastStackExitCode = null;
 let lastStackExitSignal = null;
+let runtimeLogDirCache = "";
+let runtimeLogDirAnnounced = false;
+
+function pad2(value) {
+  return String(Number(value) || 0).padStart(2, "0");
+}
+
+function truncateLogText(value = "", maxChars = RUNTIME_LOG_MAX_TEXT_CHARS) {
+  const text = String(value || "");
+  const limit = Math.max(256, Number(maxChars) || RUNTIME_LOG_MAX_TEXT_CHARS);
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit)} ... [truncated ${text.length - limit} chars]`;
+}
+
+function safeLogDataText(data) {
+  if (data == null) return "";
+  if (typeof data === "string") return truncateLogText(data);
+  try {
+    return truncateLogText(JSON.stringify(data));
+  } catch {
+    return truncateLogText(String(data));
+  }
+}
+
+function safeWriteLogLine(filePath = "", line = "") {
+  if (!filePath) return;
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.appendFile(filePath, `${line}\n`, () => {});
+  } catch {
+    // Ignore log write failures so runtime behavior is never blocked by filesystem issues.
+  }
+}
+
+function normalizeLogSegment(value = "", fallback = "unknown") {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96);
+  return normalized || fallback;
+}
+
+function extractLikelySessionIdFromData(data, depth = 0) {
+  if (!data || depth > 3) return "";
+  if (typeof data === "string") {
+    const match = data.match(/\b(?:jmi-[a-z0-9-]{4,}|byk-[A-Za-z0-9_-]{4,}|[a-z0-9_-]{6,})\b/);
+    return (match?.[0] || "").trim();
+  }
+  if (Array.isArray(data)) {
+    for (const entry of data) {
+      const nested = extractLikelySessionIdFromData(entry, depth + 1);
+      if (nested) return nested;
+    }
+    return "";
+  }
+  if (typeof data !== "object") return "";
+  const directKeys = ["sid", "sessionId", "session_id", "jingleSid", "callSessionId"];
+  for (const key of directKeys) {
+    const candidate = String(data?.[key] || "").trim();
+    if (candidate) return candidate;
+  }
+  const idCandidate = String(data?.id || "").trim();
+  if (/^(jmi-|byk-)/i.test(idCandidate)) return idCandidate;
+  for (const value of Object.values(data)) {
+    const nested = extractLikelySessionIdFromData(value, depth + 1);
+    if (nested) return nested;
+  }
+  return "";
+}
+
+function resolveRuntimeLogDir() {
+  if (runtimeLogDirCache) return runtimeLogDirCache;
+  const candidates = [
+    RUNTIME_LOG_DIR_OVERRIDE,
+    (!app.isPackaged ? path.join(ROOT_DIR, "logs", "runtime") : ""),
+    (() => {
+      try {
+        return path.join(app.getPath("userData"), "logs", "runtime");
+      } catch {
+        return "";
+      }
+    })(),
+    (() => {
+      const fallback = resolveWritableRuntimeDir();
+      return fallback ? path.join(fallback, "logs") : "";
+    })()
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      fs.mkdirSync(candidate, { recursive: true });
+      fs.accessSync(candidate, fs.constants.W_OK | fs.constants.X_OK);
+      runtimeLogDirCache = candidate;
+      return candidate;
+    } catch {
+      // Try next candidate.
+    }
+  }
+  return "";
+}
+
+function buildDateParts(tsIso = "") {
+  const date = tsIso ? new Date(tsIso) : new Date();
+  const year = String(date.getFullYear());
+  const month = pad2(date.getMonth() + 1);
+  const day = pad2(date.getDate());
+  const hour = pad2(date.getHours());
+  const minute = pad2(date.getMinutes());
+  return {
+    date,
+    tsIso: date.toISOString(),
+    ymd: `${year}-${month}-${day}`,
+    hour,
+    minute,
+    minuteKey: `${year}-${month}-${day}_${hour}-${minute}`
+  };
+}
+
+function persistRuntimeLogRecord({
+  ts = "",
+  source = "main",
+  category = "runtime",
+  message = "",
+  data = null,
+  sessionId = ""
+} = {}) {
+  const root = resolveRuntimeLogDir();
+  if (!root) return;
+  if (!runtimeLogDirAnnounced) {
+    runtimeLogDirAnnounced = true;
+    // eslint-disable-next-line no-console
+    console.log(`[electron] runtime logs dir: ${root}`);
+  }
+  const parts = buildDateParts(ts);
+  const normalizedSource = normalizeLogSegment(source, "main");
+  const normalizedCategory = normalizeLogSegment(category, "runtime");
+  const normalizedSessionId = normalizeLogSegment(sessionId, "");
+  const safeMessage = truncateLogText(message || "");
+  const dataText = safeLogDataText(data);
+  const textLine = `${parts.tsIso} [${normalizedSource}] [${normalizedCategory}] ${safeMessage}${dataText ? ` ${dataText}` : ""}`;
+  const ndjsonLine = JSON.stringify({
+    ts: parts.tsIso,
+    source: normalizedSource,
+    category: normalizedCategory,
+    message: safeMessage,
+    data: dataText,
+    sessionId: normalizedSessionId || ""
+  });
+
+  safeWriteLogLine(
+    path.join(root, "minute", parts.ymd, parts.hour, `${parts.minute}.log`),
+    textLine
+  );
+  safeWriteLogLine(
+    path.join(root, "sources", normalizedSource, `${parts.ymd}.ndjson`),
+    ndjsonLine
+  );
+  safeWriteLogLine(
+    path.join(root, "categories", normalizedCategory, `${parts.ymd}.ndjson`),
+    ndjsonLine
+  );
+  if (normalizedSessionId) {
+    safeWriteLogLine(
+      path.join(root, "calls", normalizedSessionId, `${parts.minuteKey}.ndjson`),
+      ndjsonLine
+    );
+    safeWriteLogLine(
+      path.join(root, "calls", normalizedSessionId, "latest.log"),
+      textLine
+    );
+  }
+}
 
 function clientUrl(port = activeClientPort) {
   return `http://${CLIENT_HOST}:${port}/`;
 }
 
-function log(message, extra = "") {
+function log(message, extra = "", {
+  source = "main",
+  category = "runtime",
+  data = null,
+  sessionId = ""
+} = {}) {
   const suffix = extra ? ` ${extra}` : "";
+  const text = `[electron] ${message}${suffix}`;
   // eslint-disable-next-line no-console
-  console.log(`[electron] ${message}${suffix}`);
+  console.log(text);
+  persistRuntimeLogRecord({
+    source,
+    category,
+    message: `${message}${suffix}`,
+    data,
+    sessionId
+  });
+}
+
+function ingestRendererLogEvent(payload = {}) {
+  const event = payload && typeof payload === "object" ? payload : {};
+  const source = normalizeLogSegment(event.source || "renderer-event", "renderer-event");
+  const category = normalizeLogSegment(event.category || "renderer", "renderer");
+  const message = truncateLogText(event.message || "");
+  const sessionFromPayload = String(event.sessionId || "").trim();
+  const sessionFromData = extractLikelySessionIdFromData(event.data);
+  persistRuntimeLogRecord({
+    ts: (event.ts || "").toString(),
+    source,
+    category,
+    message,
+    data: event.data,
+    sessionId: sessionFromPayload || sessionFromData
+  });
 }
 
 function wait(ms) {
@@ -422,12 +627,12 @@ function startStackScript({
 
   stackProcess.stdout.on("data", (chunk) => {
     const text = chunk.toString().trim();
-    if (text) log(text);
+    if (text) log(text, "", { source: "stack-stdout", category: "stack" });
   });
 
   stackProcess.stderr.on("data", (chunk) => {
     const text = chunk.toString().trim();
-    if (text) log("stack stderr:", text);
+    if (text) log("stack stderr:", text, { source: "stack-stderr", category: "stack" });
   });
 
   stackProcess.on("exit", (code, signal) => {
@@ -873,7 +1078,10 @@ async function createMainWindow({ startupWarning = "" } = {}) {
     const source = String(sourceId || "");
     const isImportant = Number(level) >= 2 || /uncaught|error|exception/i.test(text);
     if (!isImportant) return;
-    log("renderer", `[level=${level}] ${source}:${line} ${text}`.trim());
+    log("renderer", `[level=${level}] ${source}:${line} ${text}`.trim(), {
+      source: "renderer-console",
+      category: "renderer"
+    });
   });
   browser.webContents.on("render-process-gone", (_event, details) => {
     log("renderer process gone", JSON.stringify(details || {}));
@@ -906,6 +1114,18 @@ async function createMainWindow({ startupWarning = "" } = {}) {
   ipcMain.on("s67-toggle-devtools", (event) => {
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
     toggleDevtoolsForWindow(senderWindow || mainWindow, { dedupeMs: 900 });
+  });
+  ipcMain.removeAllListeners("s67-log-event");
+  ipcMain.on("s67-log-event", (_event, payload) => {
+    ingestRendererLogEvent(payload);
+  });
+  ipcMain.removeHandler("s67-get-runtime-log-dir");
+  ipcMain.handle("s67-get-runtime-log-dir", async () => {
+    const dir = resolveRuntimeLogDir();
+    return {
+      ok: Boolean(dir),
+      dir: dir || ""
+    };
   });
   ipcMain.removeHandler("s67-list-display-capture-sources");
   ipcMain.handle("s67-list-display-capture-sources", async () => {

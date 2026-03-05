@@ -473,6 +473,12 @@ Notes:
 - Candidate probing now also includes common `/ws` + trailing-slash variants and `:5281` defaults, and gateway auth/register attempts can follow HTTP redirect hops before opening the WebSocket.
 - Bookmarks sync now tries modern pubsub bookmarks (`urn:xmpp:bookmarks:1`, XEP-0402) before legacy private XML storage (`storage:bookmarks`).
 - Added a dedicated `XMPP Console` (Advanced settings) with runtime load tracing, endpoint/auth attempt timeline, raw XML RX/TX, stanza/iq logs, filter/search, pause, and copy.
+- Electron builds now also mirror runtime diagnostics to filesystem logs with minute-based rotation and session grouping:
+  - default (dev): `logs/runtime/`
+  - override: set `S67_RUNTIME_LOG_DIR=/absolute/path`
+  - minute buckets: `minute/YYYY-MM-DD/HH/mm.log`
+  - per-call buckets: `calls/<session-id>/YYYY-MM-DD_HH-mm.ndjson` (+ `latest.log`)
+  - category/source streams: `categories/<category>/YYYY-MM-DD.ndjson`, `sources/<source>/YYYY-MM-DD.ndjson`
 
 ## Files
 - `index.html`: app shell and dialogs.
