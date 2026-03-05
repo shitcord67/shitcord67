@@ -6,7 +6,7 @@ Sources:
 - Discord Blog: Introducing Nameplates  
   https://discord.com/blog/introducing-nameplates
 - Discord support FAQ entry: Nameplates FAQ  
-  https://support.discord.com/hc/en-us/articles/360028038352-Server-Subscriptions-for-Members-FAQ
+  https://support.discord.com/hc/en-us/articles/30408457944215-Nameplates-FAQ
 
 Takeaways used for UI polish:
 - Nameplates are visual profile cosmetics layered around/behind identity text.
