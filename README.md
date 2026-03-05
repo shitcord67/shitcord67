@@ -480,6 +480,7 @@ Notes:
   - per-call buckets: `calls/<session-id>/YYYY-MM-DD_HH-mm.ndjson` (+ `latest.log`)
   - per-call rolling summary: `calls/<session-id>/session-summary.json` (event totals, source/category counts, latest message metadata)
   - category/source streams: `categories/<category>/YYYY-MM-DD.ndjson`, `sources/<source>/YYYY-MM-DD.ndjson`
+- Added runtime log slash commands in chat/DM: `/logs` (summary), `/logs dir`, and `/logs calls [session-prefix] [limit]` (`/logdir` alias).
 
 ## Files
 - `index.html`: app shell and dialogs.

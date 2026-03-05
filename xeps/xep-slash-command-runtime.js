@@ -1,6 +1,60 @@
 (function initXepSlashCommandRuntime(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_XEP_SLASH_COMMAND_RUNTIME) return;
 
+async function requestRuntimeLogIndexViaBridge({
+  limit = 10,
+  prefix = ""
+} = {}) {
+  const bridge = globalScope?.s67Electron;
+  if (!bridge || typeof bridge.getRuntimeLogIndex !== "function") {
+    return {
+      ok: false,
+      dir: "",
+      sessions: [],
+      error: "Runtime log inspection is only available in the Electron app."
+    };
+  }
+  try {
+    const response = await bridge.getRuntimeLogIndex({
+      limit: Math.min(40, Math.max(1, Number(limit) || 10)),
+      prefix: (prefix || "").toString().trim()
+    });
+    if (!response || typeof response !== "object") {
+      return {
+        ok: false,
+        dir: "",
+        sessions: [],
+        error: "Runtime log index response was invalid."
+      };
+    }
+    return {
+      ok: Boolean(response.ok),
+      dir: (response.dir || "").toString(),
+      sessions: Array.isArray(response.sessions) ? response.sessions : [],
+      error: (response.error || "").toString()
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      dir: "",
+      sessions: [],
+      error: String(error?.message || error || "Failed to read runtime log index.")
+    };
+  }
+}
+
+function formatRuntimeLogSessionSummaryLine(entry, index = 0) {
+  const sessionId = (entry?.sessionId || "").toString().trim() || "unknown-session";
+  const events = Math.max(0, Number(entry?.events) || 0);
+  const seenAt = (entry?.lastSeenTs || "").toString().trim();
+  const source = (entry?.lastSource || "unknown").toString().trim();
+  const category = (entry?.lastCategory || "unknown").toString().trim();
+  const message = (entry?.lastMessage || "").toString().replace(/\s+/g, " ").trim();
+  const shortSessionId = sessionId.length > 24 ? `${sessionId.slice(0, 24)}...` : sessionId;
+  const detail = seenAt ? `${seenAt} · ${source}/${category}` : `${source}/${category}`;
+  return `${index + 1}. ${shortSessionId} · ${events} event${events === 1 ? "" : "s"} · ${detail}${message ? `\n   ${message.slice(0, 120)}` : ""}`;
+}
+
 function handleSlashCommandRuntime(rawText, channel, account) {
   if (!rawText.startsWith("/")) return false;
   const [commandRaw, ...rest] = rawText.slice(1).split(" ");
@@ -1313,6 +1367,53 @@ function handleSlashCommandRuntime(rawText, channel, account) {
     if (!requestDevtoolsToggle()) {
       addSystemMessage(channel, "DevTools toggle is only available in the Electron app.");
     }
+    return true;
+  }
+
+  if (command === "logs" || command === "logdir") {
+    const raw = (arg || "").trim();
+    const tokens = raw ? raw.split(/\s+/).filter(Boolean) : [];
+    const subcommand = command === "logdir" ? "dir" : ((tokens[0] || "summary").toLowerCase());
+    if (subcommand === "help") {
+      addSystemMessage(channel, "Usage: /logs [summary|dir|calls [session-prefix] [limit]]");
+      return true;
+    }
+    const callsMode = subcommand === "calls" || subcommand === "call";
+    const prefix = callsMode ? (tokens[1] || "") : "";
+    const limitToken = callsMode ? (tokens[2] || "") : "";
+    const limit = Number.isFinite(Number(limitToken)) ? Math.max(1, Math.min(20, Number(limitToken))) : 6;
+    void requestRuntimeLogIndexViaBridge({ limit, prefix }).then((result) => {
+      if (!result.ok) {
+        addSystemMessage(channel, `Runtime logs unavailable: ${result.error || "No Electron log bridge."}`);
+        return;
+      }
+      const dir = result.dir || "(unknown)";
+      if (subcommand === "dir") {
+        addSystemMessage(channel, `Runtime log directory: ${dir}`);
+        return;
+      }
+      if (callsMode) {
+        const sessions = result.sessions || [];
+        if (sessions.length <= 0) {
+          addSystemMessage(channel, `No call-session summaries found${prefix ? ` for prefix "${prefix}"` : ""}.\nDir: ${dir}`);
+          return;
+        }
+        const rows = sessions.map((entry, index) => formatRuntimeLogSessionSummaryLine(entry, index));
+        addSystemMessage(
+          channel,
+          `Runtime call sessions (${sessions.length}${prefix ? `, prefix "${prefix}"` : ""}):\n${rows.join("\n")}\nDir: ${dir}`
+        );
+        return;
+      }
+      const sessions = result.sessions || [];
+      const rows = sessions.slice(0, 5).map((entry, index) => formatRuntimeLogSessionSummaryLine(entry, index));
+      addSystemMessage(
+        channel,
+        rows.length > 0
+          ? `Runtime logs: ${dir}\nRecent call sessions:\n${rows.join("\n")}`
+          : `Runtime logs: ${dir}\nNo call-session summaries yet.`
+      );
+    });
     return true;
   }
 

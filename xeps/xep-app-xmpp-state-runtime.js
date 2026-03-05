@@ -300,6 +300,8 @@ const SLASH_COMMANDS = [
   { name: "help", args: "", description: "List available commands." },
   { name: "shortcuts", args: "", description: "Open keyboard shortcuts dialog." },
   { name: "devtools", args: "", description: "Toggle Electron DevTools." },
+  { name: "logs", args: "[summary|dir|calls [session-prefix] [limit]]", description: "Inspect Electron runtime log directory and recent call-session summaries." },
+  { name: "logdir", args: "", description: "Alias for /logs dir." },
   { name: "xmppconsole", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Open XMPP inspector/log console (supports DM/room scoping)." },
   { name: "xmppinspect", args: "[all|here|dm [jid]|room [jid]|clear]", description: "Alias for /xmppconsole." },
   { name: "omemo", args: "[on|off|status|devices|refresh]", description: "Control OMEMO encryption for the active XMPP DM." },

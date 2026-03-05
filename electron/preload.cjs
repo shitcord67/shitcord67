@@ -90,5 +90,17 @@ contextBridge.exposeInMainWorld("s67Electron", {
         error: String(error?.message || error || "IPC bridge unavailable")
       };
     }
+  },
+  async getRuntimeLogIndex({ limit = 10, prefix = "" } = {}) {
+    try {
+      return await ipcRenderer.invoke("s67-get-runtime-log-index", { limit, prefix });
+    } catch (error) {
+      return {
+        ok: false,
+        dir: "",
+        sessions: [],
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
   }
 });

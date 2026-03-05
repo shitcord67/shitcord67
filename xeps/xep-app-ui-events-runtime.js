@@ -24,7 +24,9 @@ const DM_GENERIC_SLASH_FALLBACK_COMMANDS = new Set([
   "shortcuts",
   "xmppconsole",
   "xmppinspect",
-  "devtools"
+  "devtools",
+  "logs",
+  "logdir"
 ]);
 
 const SED_SUB_FLAGS = new Set(["g", "i", "m", "s", "u", "y"]);

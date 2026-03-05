@@ -486,6 +486,69 @@ function updateCallSessionSummary(root, sessionId, {
   safeWriteJson(summaryPath, summary);
 }
 
+function listRuntimeCallSessionSummaries({
+  limit = 10,
+  prefix = ""
+} = {}) {
+  const root = resolveRuntimeLogDir();
+  if (!root) {
+    return {
+      ok: false,
+      dir: "",
+      sessions: [],
+      error: "Runtime log directory is unavailable."
+    };
+  }
+  const callsDir = path.join(root, "calls");
+  const normalizedPrefix = normalizeLogSegment(prefix, "");
+  const maxRows = Math.min(60, Math.max(1, Number(limit) || 10));
+  try {
+    if (!fs.existsSync(callsDir)) {
+      return {
+        ok: true,
+        dir: root,
+        sessions: []
+      };
+    }
+    const dirs = fs.readdirSync(callsDir, { withFileTypes: true })
+      .filter((entry) => entry?.isDirectory?.())
+      .map((entry) => (entry.name || "").toString().trim())
+      .filter(Boolean)
+      .filter((sessionId) => !normalizedPrefix || sessionId.startsWith(normalizedPrefix));
+    const rows = dirs.map((sessionId) => {
+      const summaryPath = path.join(callsDir, sessionId, "session-summary.json");
+      const summary = safeReadJson(summaryPath) || {};
+      return {
+        sessionId,
+        events: Math.max(0, Number(summary.events) || 0),
+        firstSeenTs: String(summary.firstSeenTs || ""),
+        lastSeenTs: String(summary.lastSeenTs || ""),
+        lastSource: String(summary.lastSource || ""),
+        lastCategory: String(summary.lastCategory || ""),
+        lastMessage: truncateLogText(String(summary.lastMessage || ""), 180)
+      };
+    });
+    rows.sort((a, b) => {
+      const left = Date.parse(a.lastSeenTs || 0);
+      const right = Date.parse(b.lastSeenTs || 0);
+      if (Number.isFinite(left) && Number.isFinite(right) && right !== left) return right - left;
+      return b.events - a.events;
+    });
+    return {
+      ok: true,
+      dir: root,
+      sessions: rows.slice(0, maxRows)
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      dir: root,
+      sessions: [],
+      error: String(error?.message || error || "Failed to read runtime call summaries.")
+    };
+  }
+}
+
 function persistRuntimeLogRecord({
   ts = "",
   source = "main",
@@ -1192,6 +1255,13 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       ok: Boolean(dir),
       dir: dir || ""
     };
+  });
+  ipcMain.removeHandler("s67-get-runtime-log-index");
+  ipcMain.handle("s67-get-runtime-log-index", async (_event, payload = {}) => {
+    return listRuntimeCallSessionSummaries({
+      limit: Number(payload?.limit) || 10,
+      prefix: (payload?.prefix || "").toString()
+    });
   });
   ipcMain.removeHandler("s67-list-display-capture-sources");
   ipcMain.handle("s67-list-display-capture-sources", async () => {
