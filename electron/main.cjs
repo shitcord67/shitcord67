@@ -429,6 +429,63 @@ function buildDateParts(tsIso = "") {
   };
 }
 
+function safeWriteJson(filePath = "", value = null) {
+  if (!filePath) return;
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf8");
+  } catch {
+    // Ignore metadata write failures; logs should never block runtime behavior.
+  }
+}
+
+function safeReadJson(filePath = "") {
+  if (!filePath) return null;
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, "utf8");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function updateCallSessionSummary(root, sessionId, {
+  parts,
+  source,
+  category,
+  message
+} = {}) {
+  if (!root || !sessionId || !parts) return;
+  const summaryPath = path.join(root, "calls", sessionId, "session-summary.json");
+  const current = safeReadJson(summaryPath) || {};
+  const previousSources = current.sources && typeof current.sources === "object" ? current.sources : {};
+  const previousCategories = current.categories && typeof current.categories === "object" ? current.categories : {};
+  const sourceKey = normalizeLogSegment(source, "unknown");
+  const categoryKey = normalizeLogSegment(category, "unknown");
+  const summary = {
+    sessionId,
+    firstSeenTs: current.firstSeenTs || parts.tsIso,
+    lastSeenTs: parts.tsIso,
+    lastMinuteKey: parts.minuteKey,
+    events: Math.max(0, Number(current.events) || 0) + 1,
+    lastSource: sourceKey,
+    lastCategory: categoryKey,
+    lastMessage: truncateLogText(message || "", 900),
+    sources: {
+      ...previousSources,
+      [sourceKey]: Math.max(0, Number(previousSources[sourceKey]) || 0) + 1
+    },
+    categories: {
+      ...previousCategories,
+      [categoryKey]: Math.max(0, Number(previousCategories[categoryKey]) || 0) + 1
+    }
+  };
+  safeWriteJson(summaryPath, summary);
+}
+
 function persistRuntimeLogRecord({
   ts = "",
   source = "main",
@@ -447,7 +504,10 @@ function persistRuntimeLogRecord({
   const parts = buildDateParts(ts);
   const normalizedSource = normalizeLogSegment(source, "main");
   const normalizedCategory = normalizeLogSegment(category, "runtime");
-  const normalizedSessionId = normalizeLogSegment(sessionId, "");
+  const normalizedSessionId = normalizeLogSegment(
+    sessionId || extractLikelySessionIdFromData(data) || extractLikelySessionIdFromData(message),
+    ""
+  );
   const safeMessage = truncateLogText(message || "");
   const dataText = safeLogDataText(data);
   const textLine = `${parts.tsIso} [${normalizedSource}] [${normalizedCategory}] ${safeMessage}${dataText ? ` ${dataText}` : ""}`;
@@ -481,6 +541,12 @@ function persistRuntimeLogRecord({
       path.join(root, "calls", normalizedSessionId, "latest.log"),
       textLine
     );
+    updateCallSessionSummary(root, normalizedSessionId, {
+      parts,
+      source: normalizedSource,
+      category: normalizedCategory,
+      message: safeMessage
+    });
   }
 }
 

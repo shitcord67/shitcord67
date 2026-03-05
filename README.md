@@ -478,6 +478,7 @@ Notes:
   - override: set `S67_RUNTIME_LOG_DIR=/absolute/path`
   - minute buckets: `minute/YYYY-MM-DD/HH/mm.log`
   - per-call buckets: `calls/<session-id>/YYYY-MM-DD_HH-mm.ndjson` (+ `latest.log`)
+  - per-call rolling summary: `calls/<session-id>/session-summary.json` (event totals, source/category counts, latest message metadata)
   - category/source streams: `categories/<category>/YYYY-MM-DD.ndjson`, `sources/<source>/YYYY-MM-DD.ndjson`
 
 ## Files
