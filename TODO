@@ -164,7 +164,7 @@
 - [done] Presence alias command `/away` (maps to idle).
 - [done] `/presence status` support in channel and DM command paths.
 - [done] WebXDC packaging path: `.xdc` zip and `manifest.toml` build flow.
-- WebXDC realtime sync via `joinRealtimeChannel().send`.
+- [done] WebXDC realtime sync via `joinRealtimeChannel().send`.
 - Bundle Ruffle locally (self-hosted script) and support richer SWF controls/fallback.
 - [done] dotLottie sticker controls parity in chat (pause/play, speed, scrub, loop toggle, open URL).
 - [done] Added provider-backed GIF/sticker search adapter with local fallback (Tenor + local libraries).

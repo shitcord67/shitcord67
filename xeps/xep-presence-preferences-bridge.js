@@ -425,8 +425,13 @@ function relayStatusText() {
 const RELAY_LOCAL_CHANNEL_NAME = "s67-local-relay-v1";
 const RELAY_LOCAL_PACKET_SCOPE = "s67-relay";
 
+function webxdcRealtimeSupported() {
+  const runtime = globalThis.webxdc;
+  return Boolean(runtime && typeof runtime.joinRealtimeChannel === "function");
+}
+
 function localRelaySupported() {
-  return typeof BroadcastChannel !== "undefined";
+  return typeof BroadcastChannel !== "undefined" || webxdcRealtimeSupported();
 }
 
 function ensureLocalRelayClientId() {
@@ -450,18 +455,22 @@ function handleLocalRelayEnvelope(envelope) {
 }
 
 function ensureLocalRelayChannel() {
-  if (relayLocalChannel) return true;
-  if (!localRelaySupported()) return false;
-  try {
-    relayLocalChannel = new BroadcastChannel(RELAY_LOCAL_CHANNEL_NAME);
-    relayLocalChannel.addEventListener("message", (event) => {
-      handleLocalRelayEnvelope(event?.data || null);
-    });
-    return true;
-  } catch {
-    relayLocalChannel = null;
-    return false;
+  let opened = false;
+  if (!relayLocalChannel && typeof BroadcastChannel !== "undefined") {
+    try {
+      relayLocalChannel = new BroadcastChannel(RELAY_LOCAL_CHANNEL_NAME);
+      relayLocalChannel.addEventListener("message", (event) => {
+        handleLocalRelayEnvelope(event?.data || null);
+      });
+      opened = true;
+    } catch {
+      relayLocalChannel = null;
+    }
+  } else if (relayLocalChannel) {
+    opened = true;
   }
+  if (ensureWebxdcRelayChannel()) opened = true;
+  return opened;
 }
 
 function closeLocalRelayChannel() {
@@ -472,32 +481,148 @@ function closeLocalRelayChannel() {
     // Ignore local relay close failures.
   }
   relayLocalChannel = null;
+  closeWebxdcRelayChannel();
 }
 
 function sendLocalRelayPacket(packet) {
   if (!packet || typeof packet !== "object") return false;
   if (!ensureLocalRelayChannel()) return false;
-  try {
-    relayLocalChannel.postMessage({
-      scope: RELAY_LOCAL_PACKET_SCOPE,
-      packet
-    });
-    return true;
-  } catch {
-    return false;
+  const envelope = {
+    scope: RELAY_LOCAL_PACKET_SCOPE,
+    packet
+  };
+  let delivered = false;
+  if (relayLocalChannel) {
+    try {
+      relayLocalChannel.postMessage(envelope);
+      delivered = true;
+    } catch {
+      // Ignore BroadcastChannel post errors.
+    }
   }
+  if (sendWebxdcRelayPacket(envelope)) {
+    delivered = true;
+  }
+  return delivered;
 }
 
 function localRelayDiagnostics() {
   const prefs = getPreferences();
   return {
     supported: localRelaySupported(),
+    broadcastChannelSupported: typeof BroadcastChannel !== "undefined",
+    webxdcRealtimeSupported: webxdcRealtimeSupported(),
     clientId: ensureLocalRelayClientId(),
     channelName: RELAY_LOCAL_CHANNEL_NAME,
     channelOpen: Boolean(relayLocalChannel),
+    webxdcChannelOpen: Boolean(relayWebxdcChannel),
     mode: prefs.relayMode,
     status: relayStatus
   };
+}
+
+function parseWebxdcRelayEnvelope(rawPayload) {
+  if (!rawPayload) return null;
+  if (typeof rawPayload === "string") {
+    try {
+      return JSON.parse(rawPayload);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof rawPayload === "object") return rawPayload;
+  return null;
+}
+
+function handleWebxdcRelayIncoming(rawPayload) {
+  const envelope = parseWebxdcRelayEnvelope(rawPayload);
+  if (!envelope || typeof envelope !== "object") return;
+  handleLocalRelayEnvelope(envelope);
+}
+
+function bindWebxdcRelayChannel(channel) {
+  if (!channel || typeof channel !== "object") return false;
+  relayWebxdcChannel = channel;
+  relayWebxdcJoinInFlight = null;
+  if (typeof channel.setListener === "function") {
+    try {
+      channel.setListener((payload) => {
+        handleWebxdcRelayIncoming(payload);
+      });
+    } catch {
+      // Ignore listener registration failures.
+    }
+  } else if (typeof channel.addEventListener === "function") {
+    try {
+      channel.addEventListener("message", (event) => {
+        const payload = event && typeof event === "object" && "data" in event ? event.data : event;
+        handleWebxdcRelayIncoming(payload);
+      });
+    } catch {
+      // Ignore event listener registration failures.
+    }
+  } else if (typeof channel.onmessage === "function") {
+    const previous = channel.onmessage.bind(channel);
+    channel.onmessage = (payload) => {
+      previous(payload);
+      handleWebxdcRelayIncoming(payload);
+    };
+  } else {
+    channel.onmessage = (payload) => {
+      handleWebxdcRelayIncoming(payload);
+    };
+  }
+  return true;
+}
+
+function ensureWebxdcRelayChannel() {
+  if (relayWebxdcChannel) return true;
+  if (!webxdcRealtimeSupported()) return false;
+  if (relayWebxdcJoinInFlight) return false;
+  try {
+    const maybeChannel = globalThis.webxdc.joinRealtimeChannel();
+    if (maybeChannel && typeof maybeChannel.then === "function") {
+      relayWebxdcJoinInFlight = maybeChannel
+        .then((channel) => {
+          bindWebxdcRelayChannel(channel);
+        })
+        .catch(() => {
+          relayWebxdcChannel = null;
+        })
+        .finally(() => {
+          relayWebxdcJoinInFlight = null;
+        });
+      return true;
+    }
+    return bindWebxdcRelayChannel(maybeChannel);
+  } catch {
+    relayWebxdcChannel = null;
+    relayWebxdcJoinInFlight = null;
+    return false;
+  }
+}
+
+function closeWebxdcRelayChannel() {
+  if (!relayWebxdcChannel) return;
+  try {
+    if (typeof relayWebxdcChannel.close === "function") relayWebxdcChannel.close();
+  } catch {
+    // Ignore webxdc channel close failures.
+  }
+  relayWebxdcChannel = null;
+  relayWebxdcJoinInFlight = null;
+}
+
+function sendWebxdcRelayPacket(envelope) {
+  if (!envelope || typeof envelope !== "object") return false;
+  if (!ensureWebxdcRelayChannel()) return false;
+  if (!relayWebxdcChannel || typeof relayWebxdcChannel.send !== "function") return false;
+  try {
+    relayWebxdcChannel.send(envelope);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function getTransportAdapter(mode = getPreferences().relayMode) {

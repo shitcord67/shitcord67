@@ -596,5 +596,8 @@ Requirements:
 - `manifest.toml` and `index.html` in the source folder.
 - `zip` installed (used to build the archive).
 
+Runtime notes:
+- In WebXDC runtimes exposing `webxdc.joinRealtimeChannel()`, `relayMode: local` now forwards chat and typing packets through `joinRealtimeChannel().send(...)` for realtime multi-instance sync (while still using `BroadcastChannel` when available).
+
 ## Next architecture step
 Add a transport adapter layer so UI logic stays independent from protocol backends (local JSON, XMPP, Matrix).
