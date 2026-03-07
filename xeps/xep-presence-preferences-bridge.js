@@ -430,6 +430,12 @@ function webxdcRealtimeSupported() {
   return Boolean(runtime && typeof runtime.joinRealtimeChannel === "function");
 }
 
+function setWebxdcRelayError(error, { fallback = "webxdc relay error" } = {}) {
+  const text = (error && (error.message || error.toString())) || fallback;
+  relayWebxdcLastError = String(text || fallback).slice(0, 220);
+  relayWebxdcLastErrorAt = Date.now();
+}
+
 function localRelaySupported() {
   return typeof BroadcastChannel !== "undefined" || webxdcRealtimeSupported();
 }
@@ -516,9 +522,25 @@ function localRelayDiagnostics() {
     channelName: RELAY_LOCAL_CHANNEL_NAME,
     channelOpen: Boolean(relayLocalChannel),
     webxdcChannelOpen: Boolean(relayWebxdcChannel),
+    webxdcJoinPending: Boolean(relayWebxdcJoinInFlight),
+    webxdcJoinAttempts: Math.max(0, Number(relayWebxdcJoinAttempts) || 0),
+    webxdcJoinFailures: Math.max(0, Number(relayWebxdcJoinFailures) || 0),
+    webxdcPacketsSent: Math.max(0, Number(relayWebxdcPacketsSent) || 0),
+    webxdcPacketsReceived: Math.max(0, Number(relayWebxdcPacketsReceived) || 0),
+    webxdcLastError: (relayWebxdcLastError || "").toString(),
+    webxdcLastErrorAt: relayWebxdcLastErrorAt ? new Date(relayWebxdcLastErrorAt).toISOString() : "",
     mode: prefs.relayMode,
     status: relayStatus
   };
+}
+
+function resetLocalRelayDiagnostics() {
+  relayWebxdcJoinAttempts = 0;
+  relayWebxdcJoinFailures = 0;
+  relayWebxdcPacketsSent = 0;
+  relayWebxdcPacketsReceived = 0;
+  relayWebxdcLastError = "";
+  relayWebxdcLastErrorAt = 0;
 }
 
 function parseWebxdcRelayEnvelope(rawPayload) {
@@ -537,6 +559,7 @@ function parseWebxdcRelayEnvelope(rawPayload) {
 function handleWebxdcRelayIncoming(rawPayload) {
   const envelope = parseWebxdcRelayEnvelope(rawPayload);
   if (!envelope || typeof envelope !== "object") return;
+  relayWebxdcPacketsReceived = Math.max(0, Number(relayWebxdcPacketsReceived) || 0) + 1;
   handleLocalRelayEnvelope(envelope);
 }
 
@@ -549,8 +572,8 @@ function bindWebxdcRelayChannel(channel) {
       channel.setListener((payload) => {
         handleWebxdcRelayIncoming(payload);
       });
-    } catch {
-      // Ignore listener registration failures.
+    } catch (error) {
+      setWebxdcRelayError(error, { fallback: "webxdc listener registration failed" });
     }
   } else if (typeof channel.addEventListener === "function") {
     try {
@@ -558,8 +581,8 @@ function bindWebxdcRelayChannel(channel) {
         const payload = event && typeof event === "object" && "data" in event ? event.data : event;
         handleWebxdcRelayIncoming(payload);
       });
-    } catch {
-      // Ignore event listener registration failures.
+    } catch (error) {
+      setWebxdcRelayError(error, { fallback: "webxdc listener registration failed" });
     }
   } else if (typeof channel.onmessage === "function") {
     const previous = channel.onmessage.bind(channel);
@@ -579,6 +602,7 @@ function ensureWebxdcRelayChannel() {
   if (relayWebxdcChannel) return true;
   if (!webxdcRealtimeSupported()) return false;
   if (relayWebxdcJoinInFlight) return false;
+  relayWebxdcJoinAttempts = Math.max(0, Number(relayWebxdcJoinAttempts) || 0) + 1;
   try {
     const maybeChannel = globalThis.webxdc.joinRealtimeChannel();
     if (maybeChannel && typeof maybeChannel.then === "function") {
@@ -586,7 +610,9 @@ function ensureWebxdcRelayChannel() {
         .then((channel) => {
           bindWebxdcRelayChannel(channel);
         })
-        .catch(() => {
+        .catch((error) => {
+          relayWebxdcJoinFailures = Math.max(0, Number(relayWebxdcJoinFailures) || 0) + 1;
+          setWebxdcRelayError(error, { fallback: "webxdc joinRealtimeChannel() rejected" });
           relayWebxdcChannel = null;
         })
         .finally(() => {
@@ -594,8 +620,16 @@ function ensureWebxdcRelayChannel() {
         });
       return true;
     }
-    return bindWebxdcRelayChannel(maybeChannel);
-  } catch {
+    const bound = bindWebxdcRelayChannel(maybeChannel);
+    if (!bound) {
+      relayWebxdcJoinFailures = Math.max(0, Number(relayWebxdcJoinFailures) || 0) + 1;
+      setWebxdcRelayError("invalid channel object", { fallback: "webxdc joinRealtimeChannel() returned invalid channel" });
+      return false;
+    }
+    return true;
+  } catch (error) {
+    relayWebxdcJoinFailures = Math.max(0, Number(relayWebxdcJoinFailures) || 0) + 1;
+    setWebxdcRelayError(error, { fallback: "webxdc joinRealtimeChannel() failed" });
     relayWebxdcChannel = null;
     relayWebxdcJoinInFlight = null;
     return false;
@@ -619,8 +653,10 @@ function sendWebxdcRelayPacket(envelope) {
   if (!relayWebxdcChannel || typeof relayWebxdcChannel.send !== "function") return false;
   try {
     relayWebxdcChannel.send(envelope);
+    relayWebxdcPacketsSent = Math.max(0, Number(relayWebxdcPacketsSent) || 0) + 1;
     return true;
-  } catch {
+  } catch (error) {
+    setWebxdcRelayError(error, { fallback: "webxdc send failed" });
     return false;
   }
 }

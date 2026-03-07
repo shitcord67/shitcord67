@@ -574,6 +574,26 @@
         showToast(`Local relay: supported ${supported}, channel ${open}, mode ${diag.mode}, status ${diag.status}, client ${diag.clientId}`);
         return;
       }
+      if (sub === "diag") {
+        const shouldReset = payload.toLowerCase() === "reset";
+        if (shouldReset && typeof resetLocalRelayDiagnostics === "function") {
+          resetLocalRelayDiagnostics();
+        }
+        const diag = typeof localRelayDiagnostics === "function" ? localRelayDiagnostics() : null;
+        if (!diag) {
+          showToast("Relay diagnostics unavailable.", { tone: "error" });
+          return;
+        }
+        const webxdcState = diag.webxdcRealtimeSupported
+          ? (diag.webxdcChannelOpen ? "open" : (diag.webxdcJoinPending ? "pending" : "closed"))
+          : "unsupported";
+        const errorText = (diag.webxdcLastError || "").trim() ? ` · err:${diag.webxdcLastError}` : "";
+        showToast(
+          `Relay diag: local ${diag.supported ? "yes" : "no"} · chan:${diag.channelOpen ? "open" : "closed"} · webxdc:${webxdcState} · joins:${diag.webxdcJoinAttempts}/${diag.webxdcJoinFailures}fail · tx:${diag.webxdcPacketsSent} rx:${diag.webxdcPacketsReceived}${errorText}`,
+          { tone: "info", duration: 4200 }
+        );
+        return;
+      }
       if (sub === "autoconnect") {
         const value = payload.toLowerCase();
         if (!value || value === "status") {
@@ -636,7 +656,7 @@
         return;
       }
       showToast(
-        "Usage: /relay [status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url|room|roomsync|autoconnect <on|off|status>|ping]",
+        "Usage: /relay [status|connect|disconnect|reconnect|mode <local|http|ws|xmpp|off>|url|room|roomsync|local|diag [reset]|autoconnect <on|off|status>|ping]",
         { tone: "error" }
       );
       return;

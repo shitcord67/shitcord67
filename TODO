@@ -145,6 +145,7 @@
 - [done] Slash command `/relay autoconnect <on|off|status>` to manage transport auto-connect behavior.
 - [done] Slash command `/relay roomsync` to force room token sync to the active conversation.
 - [done] Slash command `/relay ping` for quick relay/XMPP transport health probing.
+- [done] Slash command `/relay diag [reset]` for local/WebXDC relay diagnostics and counter reset.
 - [done] Slash command `/copyroom` to copy active relay room token.
 - [done] Slash command `/findlinks` to open conversation search with `has:link`.
 - [done] Slash command `/findfrom <username>` to open conversation search scoped by sender.

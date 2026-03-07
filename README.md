@@ -328,7 +328,7 @@ Notes:
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
-- Added relay command controls: `/relay status|connect|disconnect|mode|url|room`.
+- Added relay command controls: `/relay status|connect|disconnect|reconnect|mode|url|room|roomsync|local|diag [reset]|autoconnect|ping`.
 - Added Discord-like live typing indicators across relay transports (`ws`, `http/sse`, `xmpp`).
 - Chat header now shows live transport status badge (adapter + connection state), Discord-style.
 - Member panel adapts in voice/stage channels to show connected participants with live status badges.
