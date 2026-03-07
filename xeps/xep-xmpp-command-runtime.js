@@ -1053,6 +1053,17 @@
     if (sub === "status") {
       const prefs = getPreferences();
       const adapter = getTransportAdapter(prefs.relayMode);
+      const localDiag = prefs.relayMode === "local" && typeof localRelayDiagnostics === "function"
+        ? localRelayDiagnostics()
+        : null;
+      const localWebxdc = localDiag
+        ? (() => {
+          const state = localDiag.webxdcRealtimeSupported
+            ? (localDiag.webxdcChannelOpen ? "open" : (localDiag.webxdcJoinPending ? "pending" : "closed"))
+            : "unsupported";
+          return `Local/WebXDC: ${state}, joins ${localDiag.webxdcJoinAttempts}/${localDiag.webxdcJoinFailures}fail, tx ${localDiag.webxdcPacketsSent}, rx ${localDiag.webxdcPacketsReceived}`;
+        })()
+        : "";
       addSystemMessage(channel, [
         `Mode: ${prefs.relayMode}`,
         `Adapter: ${adapter.label}`,
@@ -1060,7 +1071,8 @@
         `URL: ${prefs.relayMode === "xmpp" ? (resolveXmppServiceUrl(prefs) || "(unset)") : prefs.relayUrl}`,
         prefs.relayMode === "xmpp" ? `MUC: ${resolveXmppMucService(prefs) || "(unset)"}` : "",
         `Auto-connect: ${prefs.relayAutoConnect}`,
-        `Room: ${prefs.relayRoom || relayRoomForActiveConversation()}`
+        `Room: ${prefs.relayRoom || relayRoomForActiveConversation()}`,
+        localWebxdc
       ].join(" · "));
       return true;
     }

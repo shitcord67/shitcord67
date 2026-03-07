@@ -508,8 +508,19 @@
         const relayUrl = state.preferences.relayMode === "xmpp"
           ? (resolveXmppServiceUrl(state.preferences) || "(unset)")
           : state.preferences.relayUrl;
+        const localDiag = state.preferences.relayMode === "local" && typeof localRelayDiagnostics === "function"
+          ? localRelayDiagnostics()
+          : null;
+        const localWebxdc = localDiag
+          ? (() => {
+            const webxdcState = localDiag.webxdcRealtimeSupported
+              ? (localDiag.webxdcChannelOpen ? "open" : (localDiag.webxdcJoinPending ? "pending" : "closed"))
+              : "unsupported";
+            return ` · webxdc:${webxdcState} joins:${localDiag.webxdcJoinAttempts}/${localDiag.webxdcJoinFailures}fail tx:${localDiag.webxdcPacketsSent} rx:${localDiag.webxdcPacketsReceived}`;
+          })()
+          : "";
         showToast(
-          `Relay: ${relayStatusText()} · ${state.preferences.relayMode}/${adapter.label} · ${relayUrl} · auto:${state.preferences.relayAutoConnect}`
+          `Relay: ${relayStatusText()} · ${state.preferences.relayMode}/${adapter.label} · ${relayUrl} · auto:${state.preferences.relayAutoConnect}${localWebxdc}`
         );
         return;
       }
