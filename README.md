@@ -106,7 +106,8 @@ Notes:
 - Login by username (creates/switches local accounts).
 - XMPP login now shows a friendly progress card with current step + elapsed timer during server/auth checks.
 - Bottom-left account dock with avatar, display name, status, and settings gear.
-- Full-screen user settings page (Discord-style categories: My Account, Profiles, Appearance, Advanced).
+- Full-screen user settings page (Discord-style categories: My Account, Profiles, Notifications, Appearance, Privacy & Safety, Voice & Video, Advanced).
+- Privacy & Safety settings now expose the external-media gate mode, allow/deny rule editor, Tenor credential management, and Android credential-storage controls.
 - Appearance settings now include chat-input and accessibility controls: Enter-to-send mode, quick-switcher hotkey choice (`Ctrl/Cmd+K` or `Alt+K`), reduced motion, and UI intensity.
 - Appearance settings now include an accent color override (`auto` or `#hex`) applied at runtime.
 - Create guilds and channels.
@@ -328,8 +329,9 @@ Notes:
 - Compact native-call message tiles now also include whiteboard quick actions (`WB`, `Post WB`) for faster in-conversation collaboration flow.
 - The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
-- Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
+- Added Voice & Video settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
 - Added Voice & Video device defaults in settings (microphone/camera/speaker) with a refresh action and persisted preference IDs.
+- Added Voice & Video defaults for screen sharing so system/tab audio and microphone mix can be preconfigured before starting capture.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
 - Added relay command controls: `/relay status|connect|disconnect|reconnect|mode|url|room|roomsync|local|diag [reset]|autoconnect|ping`.
 - Added Discord-like live typing indicators across relay transports (`ws`, `http/sse`, `xmpp`).

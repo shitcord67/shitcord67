@@ -6715,6 +6715,7 @@ body[data-compact-members="on"] .member-item {
   background: #2b2d31;
   border-right: 1px solid #1f2023;
   padding: 1.25rem 0.7rem;
+  overflow-y: auto;
 }
 
 .settings-nav__title {
@@ -6897,6 +6898,13 @@ body[data-compact-members="on"] .member-item {
 
 .settings-card h3 {
   margin-top: 0;
+}
+
+.settings-note {
+  margin: 0.45rem 0 0.2rem;
+  color: #b7c1d7;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .settings-inline-actions {

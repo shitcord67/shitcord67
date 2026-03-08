@@ -305,6 +305,8 @@
         <button class="settings-nav__item" data-settings-tab="profiles">Profiles</button>
         <button class="settings-nav__item" data-settings-tab="notifications">Notifications</button>
         <button class="settings-nav__item" data-settings-tab="appearance">Appearance</button>
+        <button class="settings-nav__item" data-settings-tab="privacy">Privacy &amp; Safety</button>
+        <button class="settings-nav__item" data-settings-tab="voice-video">Voice &amp; Video</button>
         <button class="settings-nav__item" data-settings-tab="advanced">Advanced</button>
       </aside>
       <main class="settings-content">
@@ -406,6 +408,110 @@
           </form>
         </section>
 
+        <section class="settings-panel" data-settings-panel="privacy">
+          <form id="privacyForm" class="settings-card">
+            <h3>Privacy &amp; Safety</h3>
+            <label for="mediaPrivacyModeInput">External media loading</label>
+            <select id="mediaPrivacyModeInput">
+              <option value="safe">Use privacy gate by default</option>
+              <option value="off">Load external media directly</option>
+            </select>
+            <p class="settings-note">Controls whether remote media in chat and the picker stays behind the two-click privacy gate.</p>
+            <label for="rememberLoginStorageInput">Persist login on device storage</label>
+            <select id="rememberLoginStorageInput">
+              <option value="off">Off</option>
+              <option value="on">On (Android)</option>
+            </select>
+            <p class="settings-note">Stores XMPP credentials in Documents to survive reinstall.</p>
+            <p id="credentialStoragePermissionNote" class="settings-note"></p>
+            <button type="button" id="credentialStoragePermissionBtn">Request Storage Permission</button>
+            <h3>Media Privacy Rules</h3>
+            <p>Manage allow/deny domain rules for external media shown in picker and chat.</p>
+            <div class="settings-inline-actions settings-inline-actions--media-rules">
+              <input id="mediaRuleInput" type="text" maxlength="160" placeholder="domain, *.domain, or /regex/" autocomplete="off" autocapitalize="off" spellcheck="false" />
+              <select id="mediaRuleKindInput">
+                <option value="allow">Allow</option>
+                <option value="deny">Deny</option>
+              </select>
+              <button id="addMediaRuleBtn" type="button">Add Rule</button>
+            </div>
+            <div class="settings-media-rule-grid">
+              <div class="settings-media-rule-column">
+                <strong>Allowed Rules</strong>
+                <div id="mediaAllowRulesList" class="settings-media-rule-list"></div>
+              </div>
+              <div class="settings-media-rule-column">
+                <strong>Denied Rules</strong>
+                <div id="mediaDenyRulesList" class="settings-media-rule-list"></div>
+              </div>
+            </div>
+            <h3>GIF Provider (Tenor)</h3>
+            <p>Use your own Tenor API key if demo credentials stop loading GIFs.</p>
+            <label for="tenorApiKeyInput">Tenor API key</label>
+            <input id="tenorApiKeyInput" type="password" maxlength="180" placeholder="Paste your Tenor API key" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="tenorClientKeyInput">Tenor client key (optional)</label>
+            <input id="tenorClientKeyInput" type="text" maxlength="120" placeholder="Example: myapp_web" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <p id="tenorCredentialsStatus">Using built-in demo Tenor credentials.</p>
+            <div class="settings-inline-actions">
+              <button id="toggleTenorApiKeyBtn" type="button" aria-pressed="false">Show API Key</button>
+              <button id="testTenorCredentialsBtn" type="button">Test Tenor</button>
+              <button id="clearTenorCredentialsBtn" type="button">Clear Tenor Keys</button>
+            </div>
+            <button type="submit">Save Privacy</button>
+          </form>
+        </section>
+
+        <section class="settings-panel" data-settings-panel="voice-video">
+          <form id="voiceVideoForm" class="settings-card">
+            <h3>Voice &amp; Video</h3>
+            <label for="callProviderInput">Call provider URL</label>
+            <input id="callProviderInput" type="text" maxlength="200" placeholder="https://meet.jit.si" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="callRoomPrefixInput">Call room prefix</label>
+            <input id="callRoomPrefixInput" type="text" maxlength="40" placeholder="shitcord67" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="callAutoPostInput">Auto-post call invite link</label>
+            <select id="callAutoPostInput">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+            <label for="callAudioInputSelect">Default microphone</label>
+            <select id="callAudioInputSelect">
+              <option value="">Default microphone</option>
+            </select>
+            <label for="callVideoInputSelect">Default camera</label>
+            <select id="callVideoInputSelect">
+              <option value="">Default camera</option>
+            </select>
+            <label for="callAudioOutputSelect">Default speaker</label>
+            <select id="callAudioOutputSelect">
+              <option value="">Default speaker</option>
+            </select>
+            <label for="callScreenSystemAudioInput">Screen share includes system/tab audio</label>
+            <select id="callScreenSystemAudioInput">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+            <label for="callScreenMicMixInput">Screen share mixes microphone</label>
+            <select id="callScreenMicMixInput">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+            <div class="settings-inline-actions">
+              <button id="refreshCallDevicesBtn" type="button">Refresh Devices</button>
+            </div>
+            <h3>Shared Whiteboard</h3>
+            <label for="whiteboardProviderInput">Whiteboard provider URL</label>
+            <input id="whiteboardProviderInput" type="text" maxlength="200" placeholder="https://wbo.ophir.dev/boards" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="whiteboardRoomPrefixInput">Whiteboard room prefix</label>
+            <input id="whiteboardRoomPrefixInput" type="text" maxlength="40" placeholder="shitcord67-wb" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <label for="whiteboardAutoPostInput">Auto-post whiteboard link</label>
+            <select id="whiteboardAutoPostInput">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+            <button type="submit">Save Voice &amp; Video</button>
+          </form>
+        </section>
+
         <section class="settings-panel" data-settings-panel="advanced">
           <form id="advancedForm" class="settings-card">
             <h3>Advanced</h3>
@@ -419,14 +525,6 @@
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
-            <label for="rememberLoginStorageInput">Persist login on device storage</label>
-            <select id="rememberLoginStorageInput">
-              <option value="off">Off</option>
-              <option value="on">On (Android)</option>
-            </select>
-            <p class="settings-note">Stores XMPP credentials in Documents to survive reinstall.</p>
-            <p id="credentialStoragePermissionNote" class="settings-note"></p>
-            <button type="button" id="credentialStoragePermissionBtn">Request Storage Permission</button>
             <label for="platformOverrideInput">Platform override</label>
             <select id="platformOverrideInput">
               <option value="auto">Auto detect</option>
@@ -469,38 +567,6 @@
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
-            <h3>Media Privacy Rules</h3>
-            <p>Manage allow/deny domain rules for external media shown in picker and chat.</p>
-            <div class="settings-inline-actions settings-inline-actions--media-rules">
-              <input id="mediaRuleInput" type="text" maxlength="160" placeholder="domain, *.domain, or /regex/" autocomplete="off" autocapitalize="off" spellcheck="false" />
-              <select id="mediaRuleKindInput">
-                <option value="allow">Allow</option>
-                <option value="deny">Deny</option>
-              </select>
-              <button id="addMediaRuleBtn" type="button">Add Rule</button>
-            </div>
-            <div class="settings-media-rule-grid">
-              <div class="settings-media-rule-column">
-                <strong>Allowed Rules</strong>
-                <div id="mediaAllowRulesList" class="settings-media-rule-list"></div>
-              </div>
-              <div class="settings-media-rule-column">
-                <strong>Denied Rules</strong>
-                <div id="mediaDenyRulesList" class="settings-media-rule-list"></div>
-              </div>
-            </div>
-            <h3>GIF Provider (Tenor)</h3>
-            <p>Use your own Tenor API key if demo credentials stop loading GIFs.</p>
-            <label for="tenorApiKeyInput">Tenor API key</label>
-            <input id="tenorApiKeyInput" type="password" maxlength="180" placeholder="Paste your Tenor API key" autocomplete="off" autocapitalize="off" spellcheck="false" />
-            <label for="tenorClientKeyInput">Tenor client key (optional)</label>
-            <input id="tenorClientKeyInput" type="text" maxlength="120" placeholder="Example: myapp_web" autocomplete="off" autocapitalize="off" spellcheck="false" />
-            <p id="tenorCredentialsStatus">Using built-in demo Tenor credentials.</p>
-            <div class="settings-inline-actions">
-              <button id="toggleTenorApiKeyBtn" type="button" aria-pressed="false">Show API Key</button>
-              <button id="testTenorCredentialsBtn" type="button">Test Tenor</button>
-              <button id="clearTenorCredentialsBtn" type="button">Clear Tenor Keys</button>
-            </div>
             <h3>Live Relay (Experimental)</h3>
             <label for="relayModeInput">Transport mode</label>
             <select id="relayModeInput">
@@ -537,41 +603,6 @@
             <select id="xmppHideNonXmppInput">
               <option value="on">Hide by default</option>
               <option value="off">Show with red warning border</option>
-            </select>
-            <h3>Realtime Calls (AV + Screen Share)</h3>
-            <label for="callProviderInput">Call provider URL</label>
-            <input id="callProviderInput" type="text" maxlength="200" placeholder="https://meet.jit.si" autocomplete="off" autocapitalize="off" spellcheck="false" />
-            <label for="callRoomPrefixInput">Call room prefix</label>
-            <input id="callRoomPrefixInput" type="text" maxlength="40" placeholder="shitcord67" autocomplete="off" autocapitalize="off" spellcheck="false" />
-            <label for="callAutoPostInput">Auto-post call invite link</label>
-            <select id="callAutoPostInput">
-              <option value="on">On</option>
-              <option value="off">Off</option>
-            </select>
-            <label for="callAudioInputSelect">Default microphone</label>
-            <select id="callAudioInputSelect">
-              <option value="">Default microphone</option>
-            </select>
-            <label for="callVideoInputSelect">Default camera</label>
-            <select id="callVideoInputSelect">
-              <option value="">Default camera</option>
-            </select>
-            <label for="callAudioOutputSelect">Default speaker</label>
-            <select id="callAudioOutputSelect">
-              <option value="">Default speaker</option>
-            </select>
-            <div class="settings-inline-actions">
-              <button id="refreshCallDevicesBtn" type="button">Refresh Devices</button>
-            </div>
-            <h3>Shared Whiteboard</h3>
-            <label for="whiteboardProviderInput">Whiteboard provider URL</label>
-            <input id="whiteboardProviderInput" type="text" maxlength="200" placeholder="https://wbo.ophir.dev/boards" autocomplete="off" autocapitalize="off" spellcheck="false" />
-            <label for="whiteboardRoomPrefixInput">Whiteboard room prefix</label>
-            <input id="whiteboardRoomPrefixInput" type="text" maxlength="40" placeholder="shitcord67-wb" autocomplete="off" autocapitalize="off" spellcheck="false" />
-            <label for="whiteboardAutoPostInput">Auto-post whiteboard link</label>
-            <select id="whiteboardAutoPostInput">
-              <option value="on">On</option>
-              <option value="off">Off</option>
             </select>
             <div class="settings-inline-actions">
               <button id="exportDataBtn" type="button">Export App JSON</button>

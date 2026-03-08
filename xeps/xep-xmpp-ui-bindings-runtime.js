@@ -500,6 +500,22 @@ ui.appearanceForm.addEventListener("submit", (event) => {
   render();
 });
 
+ui.privacyForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.preferences = getPreferences();
+  state.preferences.mediaPrivacyMode = normalizeMediaPrivacyMode(ui.mediaPrivacyModeInput?.value || "safe");
+  state.preferences.rememberLoginStorage = normalizeToggle(ui.rememberLoginStorageInput?.value || "off");
+  if (!saveTenorCredentialSettings({ refreshGifPicker: true })) {
+    showToast("Could not save Tenor credentials.", { tone: "error" });
+  }
+  saveState();
+  if (window.SHITCORD67_NATIVE_CREDENTIALS?.syncFromState) {
+    void window.SHITCORD67_NATIVE_CREDENTIALS.syncFromState({ force: true });
+  }
+  render();
+  if (mediaPickerOpen) renderMediaPicker();
+});
+
 ui.uiAccentColorInput?.addEventListener("input", () => {
   const raw = (ui.uiAccentColorInput?.value || "").toString().trim().toLowerCase();
   if (ui.uiAccentColorPicker && /^#[0-9a-f]{3,8}$/i.test(raw)) {
@@ -512,12 +528,29 @@ ui.uiAccentColorPicker?.addEventListener("input", () => {
   ui.uiAccentColorInput.value = ui.uiAccentColorPicker.value;
 });
 
+ui.voiceVideoForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.preferences = getPreferences();
+  state.preferences.callProviderUrl = normalizeConferenceProviderUrl(ui.callProviderInput?.value || "");
+  state.preferences.callRoomPrefix = normalizeConferenceRoomPrefix(ui.callRoomPrefixInput?.value || "");
+  state.preferences.callAutoPost = normalizeToggle(ui.callAutoPostInput?.value || "on");
+  state.preferences.callAudioInputId = normalizeMediaDeviceId(ui.callAudioInputSelect?.value || "");
+  state.preferences.callVideoInputId = normalizeMediaDeviceId(ui.callVideoInputSelect?.value || "");
+  state.preferences.callAudioOutputId = normalizeMediaDeviceId(ui.callAudioOutputSelect?.value || "");
+  state.preferences.callScreenSystemAudio = normalizeToggle(ui.callScreenSystemAudioInput?.value || "on");
+  state.preferences.callScreenMicMix = normalizeToggle(ui.callScreenMicMixInput?.value || "on");
+  state.preferences.whiteboardProviderUrl = normalizeWhiteboardProviderUrl(ui.whiteboardProviderInput?.value || "");
+  state.preferences.whiteboardRoomPrefix = normalizeWhiteboardRoomPrefix(ui.whiteboardRoomPrefixInput?.value || "");
+  state.preferences.whiteboardAutoPost = normalizeToggle(ui.whiteboardAutoPostInput?.value || "on");
+  saveState();
+  render();
+});
+
 ui.advancedForm.addEventListener("submit", (event) => {
   event.preventDefault();
   state.preferences = getPreferences();
   state.preferences.developerMode = normalizeToggle(ui.developerModeInput.value);
   state.preferences.debugOverlay = normalizeToggle(ui.debugOverlayInput.value);
-  state.preferences.rememberLoginStorage = normalizeToggle(ui.rememberLoginStorageInput?.value || "off");
   state.preferences.swfAudioPolicy = normalizeSwfAudioPolicy(ui.swfAudioPolicyInput.value);
   state.preferences.swfAudioScope = normalizeSwfAudioScope(ui.swfAudioScopeInput.value);
   state.preferences.swfAutoplay = normalizeSwfAutoplay(ui.swfAutoplayInput.value);
@@ -534,19 +567,7 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.xmppWsUrl = normalizeXmppWsUrl(ui.xmppWsUrlInput?.value || "");
   state.preferences.xmppMucService = normalizeXmppMucService(ui.xmppMucServiceInput?.value || "");
   state.preferences.xmppHideNonXmpp = normalizeToggle(ui.xmppHideNonXmppInput?.value || "on");
-  state.preferences.callProviderUrl = normalizeConferenceProviderUrl(ui.callProviderInput?.value || "");
-  state.preferences.callRoomPrefix = normalizeConferenceRoomPrefix(ui.callRoomPrefixInput?.value || "");
-  state.preferences.callAutoPost = normalizeToggle(ui.callAutoPostInput?.value || "on");
-  state.preferences.callAudioInputId = normalizeMediaDeviceId(ui.callAudioInputSelect?.value || "");
-  state.preferences.callVideoInputId = normalizeMediaDeviceId(ui.callVideoInputSelect?.value || "");
-  state.preferences.callAudioOutputId = normalizeMediaDeviceId(ui.callAudioOutputSelect?.value || "");
   state.preferences.platformOverride = normalizePlatformOverride(ui.platformOverrideInput?.value || "auto");
-  state.preferences.whiteboardProviderUrl = normalizeWhiteboardProviderUrl(ui.whiteboardProviderInput?.value || "");
-  state.preferences.whiteboardRoomPrefix = normalizeWhiteboardRoomPrefix(ui.whiteboardRoomPrefixInput?.value || "");
-  state.preferences.whiteboardAutoPost = normalizeToggle(ui.whiteboardAutoPostInput?.value || "on");
-  if (!saveTenorCredentialSettings({ refreshGifPicker: true })) {
-    showToast("Could not save Tenor credentials.", { tone: "error" });
-  }
   saveState();
   if (window.SHITCORD67_NATIVE_CREDENTIALS?.syncFromState) {
     void window.SHITCORD67_NATIVE_CREDENTIALS.syncFromState({ force: true });

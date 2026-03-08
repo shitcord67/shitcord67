@@ -253,6 +253,7 @@
 - [done] Added Appearance settings for chat input/keybind/accessibility parity: `Enter-to-send` mode, quick-switcher hotkey (`Ctrl/Cmd+K` or `Alt+K`), reduced-motion toggle, and UI intensity slider.
 - [done] Added Appearance accent-color override (`auto` or hex) with live theme application for stronger UI personalization.
 - [done] Added Voice & Video device defaults in settings (`Default microphone/camera/speaker`) with live refresh and persisted call-device preferences.
+- [done] Split settings into dedicated `Privacy & Safety` and `Voice & Video` tabs, including media-gate mode and screen-share audio/mic defaults.
 - Please really think about how to improve UX
 - [done] Hardened cross-browser emoji rendering (including Gecko) with explicit emoji font stack and emoji-focused control/card styling.
 - [done] Telegram-style polls in channels/DMs (single-choice and optional multiple-choice)

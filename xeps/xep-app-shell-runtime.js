@@ -175,6 +175,8 @@ function setSettingsTab(tabId) {
     profiles: tUi("settings.tab.profiles", "Profiles"),
     notifications: tUi("settings.tab.notifications", "Notifications"),
     appearance: tUi("settings.tab.appearance", "Appearance"),
+    privacy: tUi("settings.tab.privacy", "Privacy & Safety"),
+    "voice-video": tUi("settings.tab.voice-video", "Voice & Video"),
     advanced: tUi("settings.tab.advanced", "Advanced")
   };
   ui.settingsTitle.textContent = tabTitles[tabId] || tUi("settings.nav.title", "User Settings");
@@ -401,6 +403,9 @@ function renderSettingsScreen() {
     const on = ui.rememberLoginStorageInput.querySelector('option[value="on"]');
     if (on) on.textContent = tUi("settings.advanced.credentialStorage.on", "On (Android)");
   }
+  if (ui.mediaPrivacyModeInput) {
+    ui.mediaPrivacyModeInput.value = prefs.mediaPrivacyMode === "off" ? "off" : "safe";
+  }
   void updateCredentialStoragePermissionUi();
   ui.compactModeInput.value = prefs.compactMembers;
   ui.developerModeInput.value = prefs.developerMode;
@@ -427,6 +432,8 @@ function renderSettingsScreen() {
   if (ui.callAudioInputSelect) ui.callAudioInputSelect.value = prefs.callAudioInputId || "";
   if (ui.callVideoInputSelect) ui.callVideoInputSelect.value = prefs.callVideoInputId || "";
   if (ui.callAudioOutputSelect) ui.callAudioOutputSelect.value = prefs.callAudioOutputId || "";
+  if (ui.callScreenSystemAudioInput) ui.callScreenSystemAudioInput.value = prefs.callScreenSystemAudio === "off" ? "off" : "on";
+  if (ui.callScreenMicMixInput) ui.callScreenMicMixInput.value = prefs.callScreenMicMix === "off" ? "off" : "on";
   if (ui.platformOverrideInput) ui.platformOverrideInput.value = prefs.platformOverride || "auto";
   renderPlatformDetectedNote();
   if (ui.whiteboardProviderInput) ui.whiteboardProviderInput.value = prefs.whiteboardProviderUrl;
