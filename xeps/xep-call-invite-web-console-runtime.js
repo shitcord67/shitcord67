@@ -1017,7 +1017,7 @@ function addXmppDebugEvent(category, message, data = null) {
   };
   xmppDebugEvents.push(entry);
   if (xmppDebugEvents.length > XMPP_DEBUG_EVENT_LIMIT) xmppDebugEvents.shift();
-  const electronBridge = globalScope?.s67Electron || null;
+  const electronBridge = globalThis?.s67Electron || null;
   if (electronBridge && typeof electronBridge.emitLogEvent === "function") {
     try {
       const sid = (data && typeof data === "object")
