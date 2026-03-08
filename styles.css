@@ -6468,6 +6468,22 @@ body[data-compact-members="on"] .member-item {
   color: #aeb7c7;
 }
 
+.cosmetics-toolbar--filters {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cosmetics-toolbar--filters input,
+.cosmetics-toolbar--filters select {
+  width: 100%;
+  background: #12151c;
+  border: 1px solid #454a54;
+  border-radius: 7px;
+  color: #eef2f8;
+  padding: 0.35rem 0.45rem;
+}
+
 .cosmetics-featured {
   border: 1px solid #424860;
   background: linear-gradient(135deg, #202738, #1f262f);

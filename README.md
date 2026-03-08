@@ -328,6 +328,7 @@ Notes:
 - The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.
 - Added shared whiteboard command: `/whiteboard [open|copy|link] [room]`.
 - Added Advanced settings for calls + whiteboard providers, room prefixes, and auto-post invite toggles.
+- Added Voice & Video device defaults in settings (microphone/camera/speaker) with a refresh action and persisted preference IDs.
 - Experimental transport adapter modes are available via Advanced settings (`local`, `HTTP relay (SSE)`, `WebSocket relay`, `XMPP`, `off`).
 - Added relay command controls: `/relay status|connect|disconnect|reconnect|mode|url|room|roomsync|local|diag [reset]|autoconnect|ping`.
 - Added Discord-like live typing indicators across relay transports (`ws`, `http/sse`, `xmpp`).

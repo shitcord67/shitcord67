@@ -418,6 +418,9 @@ function renderSettingsScreen() {
   if (ui.callProviderInput) ui.callProviderInput.value = prefs.callProviderUrl;
   if (ui.callRoomPrefixInput) ui.callRoomPrefixInput.value = prefs.callRoomPrefix;
   if (ui.callAutoPostInput) ui.callAutoPostInput.value = prefs.callAutoPost;
+  if (ui.callAudioInputSelect) ui.callAudioInputSelect.value = prefs.callAudioInputId || "";
+  if (ui.callVideoInputSelect) ui.callVideoInputSelect.value = prefs.callVideoInputId || "";
+  if (ui.callAudioOutputSelect) ui.callAudioOutputSelect.value = prefs.callAudioOutputId || "";
   if (ui.platformOverrideInput) ui.platformOverrideInput.value = prefs.platformOverride || "auto";
   renderPlatformDetectedNote();
   if (ui.whiteboardProviderInput) ui.whiteboardProviderInput.value = prefs.whiteboardProviderUrl;
@@ -439,6 +442,10 @@ function renderSettingsScreen() {
 
 function openSettingsScreen() {
   renderSettingsScreen();
+  const uiBindings = window.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME || null;
+  if (typeof uiBindings?.refreshSettingsMediaDeviceOptions === "function") {
+    void uiBindings.refreshSettingsMediaDeviceOptions({ force: false });
+  }
   setSettingsTab("my-account");
   ui.settingsScreen.classList.add("settings-screen--active");
 }

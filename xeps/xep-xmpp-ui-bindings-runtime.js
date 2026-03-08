@@ -435,7 +435,43 @@ requestAnimationFrame(() => {
 
   }
 
+  function populateSettingsMediaDeviceSelect(select, devices = [], selectedId = "", fallbackLabel = "Default") {
+    if (!(select instanceof HTMLSelectElement)) return;
+    const previous = (selectedId || "").toString();
+    select.innerHTML = "";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = fallbackLabel;
+    select.appendChild(defaultOption);
+    (Array.isArray(devices) ? devices : []).forEach((device) => {
+      const option = document.createElement("option");
+      option.value = (device?.id || "").toString();
+      option.textContent = formatMediaDeviceLabel(device, fallbackLabel);
+      select.appendChild(option);
+    });
+    select.value = previous;
+    if (select.value !== previous) select.value = "";
+  }
+
+  async function refreshSettingsMediaDeviceOptions({ force = false, toastOnError = false } = {}) {
+    const hasAnySelect = ui.callAudioInputSelect || ui.callVideoInputSelect || ui.callAudioOutputSelect;
+    if (!hasAnySelect) return false;
+    const snapshot = await refreshMediaDeviceSnapshot({ force }).catch(() => null);
+    if (!snapshot) {
+      if (toastOnError) showToast("Could not refresh media devices.", { tone: "error" });
+      return false;
+    }
+    const prefs = getPreferences();
+    populateSettingsMediaDeviceSelect(ui.callAudioInputSelect, snapshot.audio || [], prefs.callAudioInputId || "", "Default microphone");
+    populateSettingsMediaDeviceSelect(ui.callVideoInputSelect, snapshot.video || [], prefs.callVideoInputId || "", "Default camera");
+    const outputFallback = canSetAudioOutputDevice() ? "Default speaker" : "Default speaker (not switchable)";
+    populateSettingsMediaDeviceSelect(ui.callAudioOutputSelect, snapshot.output || [], prefs.callAudioOutputId || "", outputFallback);
+    if (ui.callAudioOutputSelect) ui.callAudioOutputSelect.disabled = !canSetAudioOutputDevice();
+    return true;
+  }
+
   function bindXmppSettingsUiRuntimeBindings() {
+refreshSettingsMediaDeviceOptions({ force: false }).catch(() => {});
 ui.guildNotifForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const guild = getActiveGuild();
@@ -487,6 +523,9 @@ ui.advancedForm.addEventListener("submit", (event) => {
   state.preferences.callProviderUrl = normalizeConferenceProviderUrl(ui.callProviderInput?.value || "");
   state.preferences.callRoomPrefix = normalizeConferenceRoomPrefix(ui.callRoomPrefixInput?.value || "");
   state.preferences.callAutoPost = normalizeToggle(ui.callAutoPostInput?.value || "on");
+  state.preferences.callAudioInputId = normalizeMediaDeviceId(ui.callAudioInputSelect?.value || "");
+  state.preferences.callVideoInputId = normalizeMediaDeviceId(ui.callVideoInputSelect?.value || "");
+  state.preferences.callAudioOutputId = normalizeMediaDeviceId(ui.callAudioOutputSelect?.value || "");
   state.preferences.platformOverride = normalizePlatformOverride(ui.platformOverrideInput?.value || "auto");
   state.preferences.whiteboardProviderUrl = normalizeWhiteboardProviderUrl(ui.whiteboardProviderInput?.value || "");
   state.preferences.whiteboardRoomPrefix = normalizeWhiteboardRoomPrefix(ui.whiteboardRoomPrefixInput?.value || "");
@@ -506,6 +545,30 @@ ui.advancedForm.addEventListener("submit", (event) => {
   renderRelayStatusOutput();
   refreshSwfAudioFocus();
   render();
+});
+
+ui.callAudioInputSelect?.addEventListener("change", () => {
+  const prefs = ensureMutablePreferencesState();
+  prefs.callAudioInputId = normalizeMediaDeviceId(ui.callAudioInputSelect?.value || "");
+  saveState();
+});
+
+ui.callVideoInputSelect?.addEventListener("change", () => {
+  const prefs = ensureMutablePreferencesState();
+  prefs.callVideoInputId = normalizeMediaDeviceId(ui.callVideoInputSelect?.value || "");
+  saveState();
+});
+
+ui.callAudioOutputSelect?.addEventListener("change", () => {
+  const prefs = ensureMutablePreferencesState();
+  prefs.callAudioOutputId = normalizeMediaDeviceId(ui.callAudioOutputSelect?.value || "");
+  saveState();
+});
+
+ui.refreshCallDevicesBtn?.addEventListener("click", () => {
+  void refreshSettingsMediaDeviceOptions({ force: true, toastOnError: true }).then((ok) => {
+    if (ok) showToast("Refreshed media devices.");
+  });
 });
 
 ui.credentialStoragePermissionBtn?.addEventListener("click", async () => {
@@ -792,6 +855,7 @@ ui.xmppConsoleCloseBtn?.addEventListener("click", () => {
   globalScope.SHITCORD67_XEP_XMPP_UI_BINDINGS_RUNTIME = Object.freeze({
     bindXmppLoginUiRuntimeBindings,
     bindXmppSettingsUiRuntimeBindings,
+    refreshSettingsMediaDeviceOptions,
     maybeShowLanguageOnboardingPrompt,
     refreshLoginRuntimeUi
   });

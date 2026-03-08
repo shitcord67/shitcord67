@@ -545,6 +545,21 @@
               <option value="on">On</option>
               <option value="off">Off</option>
             </select>
+            <label for="callAudioInputSelect">Default microphone</label>
+            <select id="callAudioInputSelect">
+              <option value="">Default microphone</option>
+            </select>
+            <label for="callVideoInputSelect">Default camera</label>
+            <select id="callVideoInputSelect">
+              <option value="">Default camera</option>
+            </select>
+            <label for="callAudioOutputSelect">Default speaker</label>
+            <select id="callAudioOutputSelect">
+              <option value="">Default speaker</option>
+            </select>
+            <div class="settings-inline-actions">
+              <button id="refreshCallDevicesBtn" type="button">Refresh Devices</button>
+            </div>
             <h3>Shared Whiteboard</h3>
             <label for="whiteboardProviderInput">Whiteboard provider URL</label>
             <input id="whiteboardProviderInput" type="text" maxlength="200" placeholder="https://wbo.ophir.dev/boards" autocomplete="off" autocapitalize="off" spellcheck="false" />

@@ -251,6 +251,7 @@
 - [done] Language settings now default to system locale (`Auto detect`) and onboarding includes an English language-check prompt with dropdown + `Switch` action (English preselected).
 - [done] Added status-related dropdown control in User Settings (`My Account`) with live presence apply (`online/idle/dnd/invisible`).
 - [done] Added Appearance settings for chat input/keybind/accessibility parity: `Enter-to-send` mode, quick-switcher hotkey (`Ctrl/Cmd+K` or `Alt+K`), reduced-motion toggle, and UI intensity slider.
+- [done] Added Voice & Video device defaults in settings (`Default microphone/camera/speaker`) with live refresh and persisted call-device preferences.
 - Please really think about how to improve UX
 - [done] Hardened cross-browser emoji rendering (including Gecko) with explicit emoji font stack and emoji-focused control/card styling.
 - [done] Telegram-style polls in channels/DMs (single-choice and optional multiple-choice)
