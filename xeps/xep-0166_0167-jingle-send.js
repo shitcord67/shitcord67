@@ -57,6 +57,61 @@
     }).filter(Boolean);
   }
 
+  function xmppNormalizeStoredJingleContents(contents = [], {
+    defaultCreator = "initiator",
+    defaultSenders = "both"
+  } = {}) {
+    const fallbackCreator = (defaultCreator || "initiator").toString().trim().toLowerCase() || "initiator";
+    const fallbackSenders = (defaultSenders || "both").toString().trim().toLowerCase() || "both";
+    return (Array.isArray(contents) ? contents : []).map((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return null;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      const creator = (entry?.creator || fallbackCreator).toString().trim().toLowerCase() || fallbackCreator;
+      const senders = (entry?.senders || fallbackSenders).toString().trim().toLowerCase() || fallbackSenders;
+      const payloadTypes = Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [];
+      const rtcpFeedback = Array.isArray(entry?.rtcpFeedback) ? entry.rtcpFeedback : [];
+      const extmaps = Array.isArray(entry?.extmaps) ? entry.extmaps : [];
+      const sources = Array.isArray(entry?.sources) ? entry.sources : [];
+      const sourceGroups = Array.isArray(entry?.sourceGroups) ? entry.sourceGroups : [];
+      const transport = entry?.transport && typeof entry.transport === "object"
+        ? {
+          ufrag: (entry.transport.ufrag || "").toString().trim(),
+          pwd: (entry.transport.pwd || "").toString().trim(),
+          hash: (entry.transport.hash || "").toString().trim().toLowerCase(),
+          fingerprint: (entry.transport.fingerprint || entry.transport.value || "").toString().trim(),
+          setup: (entry.transport.setup || "").toString().trim().toLowerCase()
+        }
+        : null;
+      return {
+        name,
+        media,
+        creator,
+        senders,
+        payloadTypes,
+        rtcpFeedback,
+        extmaps,
+        sources,
+        sourceGroups,
+        transport
+      };
+    }).filter(Boolean);
+  }
+
+  function xmppErrorStanzaContainsNoSuchContent(errorStanza, serializePayloadFn = null) {
+    if (!errorStanza) return false;
+    let text = "";
+    try {
+      text = typeof serializePayloadFn === "function"
+        ? String(serializePayloadFn(errorStanza) || "")
+        : String(errorStanza || "");
+    } catch {
+      text = String(errorStanza || "");
+    }
+    if (!text) return false;
+    return /no\s+such\s+content/i.test(text);
+  }
+
   function xmppBuildJingleContentModifyIq({
     to = "",
     sid = "",
@@ -540,11 +595,14 @@
     const serializePayloadFn = deps.serializePayloadFn;
     const callIqSessionNotFoundErrorFn = deps.callIqSessionNotFoundErrorFn;
     const resolveRetryCallTargetForSessionFn = deps.resolveRetryCallTargetForSessionFn;
+    const callSessionById = deps.callSessionById;
     const to = typeof normalizeCallTargetJidFn === "function"
       ? normalizeCallTargetJidFn(peerJid, { preferFull: true })
       : (peerJid || "").toString().trim();
     const sid = (sessionId || "").toString().trim();
     if (!to || !sid || !connection || relayStatus !== "connected" || typeof iqFactory !== "function") return false;
+    const sessionEntry = callSessionById?.get?.(sid) || null;
+    if (sessionEntry?.contentModifyUnsupported) return false;
     const normalizedContents = xmppNormalizeJingleContentModifyContents(contents);
     if (normalizedContents.length === 0) return false;
     const iq = xmppBuildJingleContentModifyIq({
@@ -565,6 +623,9 @@
         }
       },
       (errorStanza) => {
+        const serializedError = typeof trimXmppRawFn === "function"
+          ? trimXmppRawFn(serializePayloadFn?.(errorStanza))
+          : String(errorStanza || "");
         if (retryOnRetarget && typeof callIqSessionNotFoundErrorFn === "function" && callIqSessionNotFoundErrorFn(errorStanza)) {
           const retryTo = typeof resolveRetryCallTargetForSessionFn === "function"
             ? resolveRetryCallTargetForSessionFn(sid, to)
@@ -583,11 +644,23 @@
             if (retried) return;
           }
         }
+        if (xmppErrorStanzaContainsNoSuchContent(errorStanza, serializePayloadFn)) {
+          if (sessionEntry && sessionEntry.id === sid) {
+            sessionEntry.contentModifyUnsupported = true;
+          }
+          if (typeof addXmppDebugEventFn === "function") {
+            addXmppDebugEventFn("call", "Peer does not support current content-modify mapping; disabling further content-modify for session", {
+              to,
+              sid
+            });
+          }
+          return;
+        }
         if (typeof addXmppDebugEventFn === "function") {
           addXmppDebugEventFn("error", "XMPP jingle content-modify failed", {
             to,
             sid,
-            error: typeof trimXmppRawFn === "function" ? trimXmppRawFn(serializePayloadFn?.(errorStanza)) : String(errorStanza || "")
+            error: serializedError
           });
         }
       },
@@ -926,6 +999,7 @@
     if (sessionEntry) {
       sessionEntry.media = medias;
     }
+    const sentContents = [];
     if (useMinimalRtp && typeof addXmppDebugEventFn === "function") {
       addXmppDebugEventFn("call", "Using minimal RTP description for session-initiate", {
         sid,
@@ -937,12 +1011,22 @@
       const contentNames = [];
       contents.forEach((content, index) => {
         const contentName = (content.name || `${content.media}${index}`).toString().trim() || `${content.media}${index}`;
+        const contentMedia = (content.media || "").toString().trim().toLowerCase();
+        const contentSenders = (content.senders || "both").toString().trim().toLowerCase() || "both";
+        const contentCreator = "initiator";
+        sentContents.push({
+          ...content,
+          name: contentName,
+          media: contentMedia,
+          creator: contentCreator,
+          senders: contentSenders
+        });
         contentNames.push(contentName);
         xmppBuildJingleRtpContent(iq, {
-          media: content.media,
+          media: contentMedia,
           name: contentName,
-          creator: "initiator",
-          senders: content.senders,
+          creator: contentCreator,
+          senders: contentSenders,
           transport: content.transport || localTransport,
           dtls: content.transport
             ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
@@ -959,6 +1043,13 @@
       const contentNames = [];
       medias.forEach((mediaType) => {
         const contentName = mediaType.toString();
+        sentContents.push({
+          name: contentName,
+          media: mediaType,
+          creator: "initiator",
+          senders: "both",
+          transport: localTransport
+        });
         contentNames.push(contentName);
         xmppBuildJingleRtpContent(iq, {
           media: mediaType,
@@ -969,6 +1060,13 @@
         }, deps);
       });
       xmppBuildJingleBundleGroup(iq, contentNames, deps);
+    }
+    if (sessionEntry) {
+      sessionEntry.localContents = xmppNormalizeStoredJingleContents(sentContents, {
+        defaultCreator: "initiator",
+        defaultSenders: "both"
+      });
+      sessionEntry.contentModifyUnsupported = false;
     }
     connection.sendIQ(
       iq,
@@ -1131,6 +1229,7 @@
     if (sessionEntry) {
       sessionEntry.media = medias;
     }
+    const sentContents = [];
     if (useMinimalRtp && typeof addXmppDebugEventFn === "function") {
       addXmppDebugEventFn("call", "Using minimal RTP description for session-accept", {
         sid,
@@ -1142,12 +1241,22 @@
       const contentNames = [];
       contents.forEach((content, index) => {
         const contentName = (content.name || `${content.media}${index}`).toString().trim() || `${content.media}${index}`;
+        const contentMedia = (content.media || "").toString().trim().toLowerCase();
+        const contentSenders = (content.senders || "both").toString().trim().toLowerCase() || "both";
+        const contentCreator = "responder";
+        sentContents.push({
+          ...content,
+          name: contentName,
+          media: contentMedia,
+          creator: contentCreator,
+          senders: contentSenders
+        });
         contentNames.push(contentName);
         xmppBuildJingleRtpContent(iq, {
-          media: content.media,
+          media: contentMedia,
           name: contentName,
-          creator: "responder",
-          senders: content.senders,
+          creator: contentCreator,
+          senders: contentSenders,
           transport: content.transport || localTransport,
           dtls: content.transport
             ? { hash: content.transport.hash, value: content.transport.fingerprint, setup: content.transport.setup }
@@ -1164,6 +1273,13 @@
       const contentNames = [];
       medias.forEach((mediaType) => {
         const contentName = mediaType.toString();
+        sentContents.push({
+          name: contentName,
+          media: mediaType,
+          creator: "responder",
+          senders: "both",
+          transport: localTransport
+        });
         contentNames.push(contentName);
         xmppBuildJingleRtpContent(iq, {
           media: mediaType,
@@ -1174,6 +1290,13 @@
         }, deps);
       });
       xmppBuildJingleBundleGroup(iq, contentNames, deps);
+    }
+    if (sessionEntry) {
+      sessionEntry.localContents = xmppNormalizeStoredJingleContents(sentContents, {
+        defaultCreator: "responder",
+        defaultSenders: "both"
+      });
+      sessionEntry.contentModifyUnsupported = false;
     }
     connection.sendIQ(
       iq,

@@ -710,7 +710,8 @@ function xmppSendJingleContentModify(peerJid, sessionId, contents = [], {
     trimXmppRawFn: trimXmppRaw,
     serializePayloadFn: xmppSerializePayload,
     callIqSessionNotFoundErrorFn: xmppCallIqSessionNotFoundError,
-    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession
+    resolveRetryCallTargetForSessionFn: xmppResolveRetryCallTargetForSession,
+    callSessionById: xmppCallSessionById
   });
 }
 
@@ -1060,6 +1061,19 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
     return true;
   }
   if (action === "reject" || action === "retract") {
+    if (session?.direction === "outgoing") {
+      const selectedPeerFull = (session.peerFullJid || "").toString().trim();
+      const incomingPeerFull = (peerFull || "").toString().trim();
+      if (selectedPeerFull && incomingPeerFull && selectedPeerFull !== incomingPeerFull) {
+        addXmppDebugEvent("call", "Ignored XMPP jingle stop action from non-selected resource", {
+          id,
+          action,
+          selectedPeerFull,
+          from: incomingPeerFull
+        });
+        return true;
+      }
+    }
     if (session) session.peerFullJid = peerFull || session.peerFullJid || "";
     stopWebCallRingtone(id);
     closeMediaLightbox();

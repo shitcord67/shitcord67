@@ -775,6 +775,19 @@ async function xmppReplaceLocalAudioTrackForSession(sessionId = "", deviceId = "
 function xmppContentModifyCatalogForSession(sessionId = "", session = null, { localRole = "initiator" } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return [];
+  if (Array.isArray(session?.localContents) && session.localContents.length > 0) {
+    return session.localContents
+      .map((entry, index) => ({
+        name: (entry?.name || `${entry?.media || "audio"}${index}`).toString().trim(),
+        media: (entry?.media || "").toString().trim().toLowerCase(),
+        creator: (entry?.creator || "").toString().trim().toLowerCase() || "",
+        senders: (entry?.senders || "both").toString().trim().toLowerCase() || "both",
+        payloadTypes: Array.isArray(entry?.payloadTypes) ? entry.payloadTypes : [],
+        rtcpFeedback: Array.isArray(entry?.rtcpFeedback) ? entry.rtcpFeedback : [],
+        transport: entry?.transport && typeof entry.transport === "object" ? entry.transport : null
+      }))
+      .filter((entry) => entry.name && (entry.media === "audio" || entry.media === "video"));
+  }
   if (Array.isArray(session?.remoteContents) && session.remoteContents.length > 0) {
     return session.remoteContents
       .map((entry, index) => ({
@@ -803,8 +816,8 @@ function xmppContentModifyCatalogForSession(sessionId = "", session = null, { lo
         .filter((entry) => entry.name && (entry.media === "audio" || entry.media === "video"));
     }
   }
-  return xmppCallSessionMediaList(session).map((mediaType, index) => ({
-    name: `${mediaType}${index}`,
+  return xmppCallSessionMediaList(session).map((mediaType) => ({
+    name: `${mediaType}`,
     media: mediaType,
     creator: localRole,
     payloadTypes: [],

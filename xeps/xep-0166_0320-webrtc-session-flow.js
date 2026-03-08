@@ -32,6 +32,57 @@ function xmppBuildOfferReceiveOptions(media = [], session = null) {
   };
 }
 
+const XMPP_DEFAULT_ICE_SERVER_URLS = Object.freeze([
+  "stun:stun.l.google.com:19302",
+  "stun:stun1.l.google.com:19302",
+  "stun:stun.cloudflare.com:3478"
+]);
+
+function xmppNormalizeRtcIceServers(rawIceServers = null) {
+  const rawList = Array.isArray(rawIceServers)
+    ? rawIceServers
+    : (typeof rawIceServers === "string"
+      ? rawIceServers.split(",").map((entry) => ({ urls: entry }))
+      : []);
+  return rawList.map((entry) => {
+    if (!entry || typeof entry !== "object") return null;
+    const rawUrls = Array.isArray(entry.urls)
+      ? entry.urls
+      : [entry.urls];
+    const urls = rawUrls
+      .map((value) => (value || "").toString().trim())
+      .filter((value) => /^stuns?:/i.test(value) || /^turns?:/i.test(value));
+    if (urls.length === 0) return null;
+    const normalized = { urls };
+    const username = (entry.username || "").toString().trim();
+    const credential = (entry.credential || "").toString();
+    if (username) normalized.username = username;
+    if (credential) normalized.credential = credential;
+    return normalized;
+  }).filter(Boolean);
+}
+
+function xmppBuildRtcPeerConnectionConfig() {
+  const globalIce = xmppNormalizeRtcIceServers(
+    globalThis.SHITCORD67_XMPP_ICE_SERVERS || globalThis.SHITCORD67_ICE_SERVERS || null
+  );
+  const iceServers = globalIce.length > 0
+    ? globalIce
+    : [{ urls: [...XMPP_DEFAULT_ICE_SERVER_URLS] }];
+  return {
+    iceServers,
+    iceCandidatePoolSize: 2
+  };
+}
+
+function xmppCreatePeerConnection() {
+  try {
+    return new globalThis.RTCPeerConnection(xmppBuildRtcPeerConnectionConfig());
+  } catch {
+    return new globalThis.RTCPeerConnection();
+  }
+}
+
 function xmppBuildMinimalJingleSdp({
   media = ["audio", "video"],
   contents = [],
@@ -484,7 +535,7 @@ function xmppEnsureSessionPeerConnection(sessionId, {
   const existing = xmppCallPeerConnectionBySessionId.get(sid) || null;
   if (existing?.pc) return existing;
   const session = xmppCallSessionById.get(sid) || null;
-  const pc = new globalThis.RTCPeerConnection();
+  const pc = xmppCreatePeerConnection();
   const resolvedPeerJid = xmppBareJid(peerJid || session?.peerJid || "");
   const entry = typeof xep0320.xmppBuildSessionPeerConnectionEntry === "function"
     ? xep0320.xmppBuildSessionPeerConnectionEntry({
@@ -851,7 +902,7 @@ async function xmppGatherLocalIceTransportInfo({
   const cap = typeof xep0320.xmppNormalizeIceGatherCandidateCap === "function"
     ? xep0320.xmppNormalizeIceGatherCandidateCap(maxCandidates, XMPP_CALL_ICE_MAX_CANDIDATES)
     : Math.max(1, Number(maxCandidates) || XMPP_CALL_ICE_MAX_CANDIDATES);
-  const pc = new globalThis.RTCPeerConnection();
+  const pc = xmppCreatePeerConnection();
   const candidates = [];
   const seen = new Set();
   return new Promise((resolve) => {

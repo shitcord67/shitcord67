@@ -8039,3 +8039,28 @@ optional dotlottie runtime source missing: /home/duda/shitcord67/dist/electron/s
 [electron] renderer [level=3] http://127.0.0.1:6771/xeps/xep-call-invite-web-console-runtime.js:1020 Uncaught (in promise) ReferenceError: globalScope is not defined
 
  Can't login but why?
+[2026-03-08T23:28:26Z] USER PROMPT
+Hm, I noticed that calling is still widely broken, can't get a call connection with a Movim user and only a connection with a Dino user when I call but I can't really seem to be able to join their invite. Also while I'm in a call with the Dino user neither of use can hear each other. I know shitcord67 was a bit better here in tha past and it worked in one direction at least... {
+  "relayMode": "xmpp",
+  "relayStatus": "connected",
+  "xmppConnected": true,
+  "xmppRuntimeReady": true,
+  "xmppRuntimeLastError": "",
+  "filter": "all",
+  "search": "kazue@xmpp.jp",
+  "paused": true,
+  "eventsTotal": 600,
+  "eventsShown": 223,
+  "activeCallSessions": []
+}
+
+[large runtime/call logs omitted here in terminal copy; included in chat turn]
+
+Also can you really investigate on why I can't open devtools at all? [3063059:0309/002519.602308:ERROR:atom_cache.cc(231)] Add chromium/x-internal-source-rfh-token to kAtomsToCache
+[3111400:0309/002712.233867:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.NCTL4W failed: No such file or directory (2)
+[3111400:0309/002712.233961:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such file or directory (2)
+[3111400:0309/002712.233988:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[3111769:0309/002718.275270:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.ax1UY9 failed: No such file or directory (2)
+[3111769:0309/002718.275356:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such file or directory (2)
+[3111769:0309/002718.275376:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+
