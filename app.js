@@ -1447,9 +1447,36 @@ function renderCosmeticsDialog() {
   ui.cosmeticsTabs.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.cosmeticsTab === cosmeticsTab);
   });
+  if (ui.cosmeticsSearchInput && ui.cosmeticsSearchInput.value !== cosmeticsSearchQuery) {
+    ui.cosmeticsSearchInput.value = cosmeticsSearchQuery;
+  }
+  if (ui.cosmeticsSortInput) {
+    const allowed = ["featured", "price-asc", "price-desc", "owned-first", "name-asc"];
+    if (!allowed.includes(cosmeticsSortMode)) cosmeticsSortMode = "featured";
+    ui.cosmeticsSortInput.value = cosmeticsSortMode;
+  }
   if (!ui.cosmeticsGrid) return;
   ui.cosmeticsGrid.innerHTML = "";
-  const items = COSMETIC_CATALOG.filter((item) => item.type === cosmeticsTab);
+  const query = (cosmeticsSearchQuery || "").toString().trim().toLowerCase();
+  const items = COSMETIC_CATALOG
+    .filter((item) => item.type === cosmeticsTab)
+    .filter((item) => {
+      if (!query) return true;
+      const haystack = `${item.name || ""} ${item.note || ""} ${item.type || ""}`.toLowerCase();
+      return haystack.includes(query);
+    })
+    .sort((a, b) => {
+      if (cosmeticsSortMode === "price-asc") return a.cost - b.cost;
+      if (cosmeticsSortMode === "price-desc") return b.cost - a.cost;
+      if (cosmeticsSortMode === "name-asc") return (a.name || "").localeCompare(b.name || "");
+      if (cosmeticsSortMode === "owned-first") {
+        const ownedA = accountOwnsCosmetic(account, a) ? 0 : 1;
+        const ownedB = accountOwnsCosmetic(account, b) ? 0 : 1;
+        if (ownedA !== ownedB) return ownedA - ownedB;
+        return (a.name || "").localeCompare(b.name || "");
+      }
+      return 0;
+    });
   items.forEach((item) => {
     const card = document.createElement("article");
     card.className = "cosmetic-card";
@@ -1603,9 +1630,11 @@ function applyPreferencesToUI() {
   const narrowMobile = isMobileNarrowLayout();
   document.documentElement.lang = locale;
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
+  document.body.style.setProperty("--ui-intensity", `${Math.min(120, Math.max(80, Number(prefs.uiIntensity) || 100))}%`);
   document.body.dataset.locale = locale;
   document.body.dataset.theme = prefs.theme;
   document.body.dataset.compactMembers = prefs.compactMembers;
+  document.body.dataset.reducedMotion = prefs.reducedMotion;
   document.body.dataset.developerMode = prefs.developerMode;
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   document.body.dataset.hideChannelPanel = prefs.hideChannelPanel;

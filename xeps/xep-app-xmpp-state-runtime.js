@@ -606,3 +606,5 @@ let loginXmppProgressStartedAt = 0;
 let loginXmppProgressTimerId = null;
 let xmppCapsHash = "";
 let xmppCapsPromise = null;
+let cosmeticsSearchQuery = "";
+let cosmeticsSortMode = "featured";

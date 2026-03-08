@@ -107,6 +107,7 @@ Notes:
 - XMPP login now shows a friendly progress card with current step + elapsed timer during server/auth checks.
 - Bottom-left account dock with avatar, display name, status, and settings gear.
 - Full-screen user settings page (Discord-style categories: My Account, Profiles, Appearance, Advanced).
+- Appearance settings now include chat-input and accessibility controls: Enter-to-send mode, quick-switcher hotkey choice (`Ctrl/Cmd+K` or `Alt+K`), reduced motion, and UI intensity.
 - Create guilds and channels.
 - Guild creation now supports template presets (friends/gaming/community/study/blank) with optional starter channels.
 - Guild settings dialog supports rename, description, accent color, and admin-gated delete flow.
@@ -339,6 +340,7 @@ Notes:
 - Cosmetics system: collectible avatar decorations, nameplates, and profile effects with a shard wallet, activity-based earning, inventory, and equip flow.
 - Cosmetics shop dialog with category tabs (`Decorations`, `Nameplates`, `Profile Effects`) and purchase/equip controls.
 - Cosmetics shop now includes rotating seasonal featured bundles with live countdown timers and discounted bundle pricing.
+- Cosmetics shop now includes live search and sort controls (featured, price, owned-first, name).
 - Guild tag is now copyable from user/member context menus and visible in more name surfaces.
 - Profile editor now includes a live identity preview card and one-click "Clear Identity Extras".
 - Guild-tag chips now open a small guild profile pop-up (tag owner, guild name, member/channel counts, owner, accent, description).

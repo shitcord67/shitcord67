@@ -1002,6 +1002,8 @@ ui.messageInput.addEventListener("keydown", (event) => {
     && !event.shiftKey
     && !event.altKey
   ) {
+    const prefs = getPreferences();
+    if (prefs.enterToSend !== "ctrl-enter") return;
     event.preventDefault();
     ui.messageForm.requestSubmit();
     return;
@@ -1014,6 +1016,8 @@ ui.messageInput.addEventListener("keydown", (event) => {
     && !event.altKey
     && !popupVisible
   ) {
+    const prefs = getPreferences();
+    if (prefs.enterToSend !== "enter") return;
     event.preventDefault();
     ui.messageForm.requestSubmit();
     return;
@@ -2444,6 +2448,18 @@ ui.cosmeticsTabs.forEach((tab) => {
   });
 });
 
+ui.cosmeticsSearchInput?.addEventListener("input", () => {
+  cosmeticsSearchQuery = (ui.cosmeticsSearchInput?.value || "").toString().slice(0, 60);
+  renderCosmeticsDialog();
+});
+
+ui.cosmeticsSortInput?.addEventListener("change", () => {
+  const allowed = ["featured", "price-asc", "price-desc", "owned-first", "name-asc"];
+  const next = (ui.cosmeticsSortInput?.value || "featured").toString();
+  cosmeticsSortMode = allowed.includes(next) ? next : "featured";
+  renderCosmeticsDialog();
+});
+
 ui.cosmeticsCloseBtn?.addEventListener("click", () => ui.cosmeticsDialog?.close());
 ui.cosmeticsDialog?.addEventListener("close", () => {
   clearCosmeticsFeaturedRefreshTimer();
@@ -3232,6 +3248,7 @@ document.addEventListener("keydown", (event) => {
   }
   if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "k") {
     if (!state.currentAccountId) return;
+    if (getPreferences().quickSwitcherHotkey !== "ctrl-k") return;
     event.preventDefault();
     openQuickSwitcher();
     return;
@@ -3422,6 +3439,12 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "k") {
     if (isTypingInputTarget(event.target)) return;
+    if (getPreferences().quickSwitcherHotkey === "alt-k") {
+      if (!state.currentAccountId) return;
+      event.preventDefault();
+      openQuickSwitcher();
+      return;
+    }
     event.preventDefault();
     const dmMode = getViewMode() === "dm";
     const focusTarget = dmMode ? ui.dmSearchInput : ui.channelFilterInput;

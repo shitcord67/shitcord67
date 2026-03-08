@@ -376,6 +376,18 @@ function renderSettingsScreen() {
     const on = ui.compactModeInput.querySelector('option[value="on"]');
     if (on) on.textContent = tUi("settings.compact.on", "On");
   }
+  if (ui.enterToSendInput) {
+    ui.enterToSendInput.value = prefs.enterToSend === "ctrl-enter" ? "ctrl-enter" : "enter";
+  }
+  if (ui.quickSwitcherHotkeyInput) {
+    ui.quickSwitcherHotkeyInput.value = prefs.quickSwitcherHotkey === "alt-k" ? "alt-k" : "ctrl-k";
+  }
+  if (ui.reducedMotionInput) {
+    ui.reducedMotionInput.value = prefs.reducedMotion === "on" ? "on" : "off";
+  }
+  if (ui.uiIntensityInput) {
+    ui.uiIntensityInput.value = String(Math.min(120, Math.max(80, Number(prefs.uiIntensity) || 100)));
+  }
   if (ui.rememberLoginStorageInput) {
     ui.rememberLoginStorageInput.value = prefs.rememberLoginStorage || "off";
     const off = ui.rememberLoginStorageInput.querySelector('option[value="off"]');
@@ -472,6 +484,7 @@ function hardenInputAutocompleteNoise() {
     ui.findAuthorInput,
     ui.pinsSearchInput,
     ui.quickSwitchInput,
+    ui.cosmeticsSearchInput,
     ui.messageInput
   ].filter(Boolean);
   targets.forEach((field) => {

@@ -454,6 +454,10 @@ ui.appearanceForm.addEventListener("submit", (event) => {
   state.preferences.theme = normalizeTheme(ui.themeInput.value);
   state.preferences.language = normalizeLanguage(ui.languageInput?.value || "auto");
   state.preferences.compactMembers = normalizeToggle(ui.compactModeInput.value);
+  state.preferences.enterToSend = (ui.enterToSendInput?.value || "enter") === "ctrl-enter" ? "ctrl-enter" : "enter";
+  state.preferences.quickSwitcherHotkey = (ui.quickSwitcherHotkeyInput?.value || "ctrl-k") === "alt-k" ? "alt-k" : "ctrl-k";
+  state.preferences.reducedMotion = normalizeToggle(ui.reducedMotionInput?.value || "off");
+  state.preferences.uiIntensity = Math.min(120, Math.max(80, Number(ui.uiIntensityInput?.value) || 100));
   saveState();
   render();
 });

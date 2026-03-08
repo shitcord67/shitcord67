@@ -250,6 +250,7 @@
 - [done] Emoji picker now supports full Unicode dataset loading with richer search, including diacritic-insensitive and multilingual term expansion (e.g., German query aliases).
 - [done] Language settings now default to system locale (`Auto detect`) and onboarding includes an English language-check prompt with dropdown + `Switch` action (English preselected).
 - [done] Added status-related dropdown control in User Settings (`My Account`) with live presence apply (`online/idle/dnd/invisible`).
+- [done] Added Appearance settings for chat input/keybind/accessibility parity: `Enter-to-send` mode, quick-switcher hotkey (`Ctrl/Cmd+K` or `Alt+K`), reduced-motion toggle, and UI intensity slider.
 - Please really think about how to improve UX
 - [done] Hardened cross-browser emoji rendering (including Gecko) with explicit emoji font stack and emoji-focused control/card styling.
 - [done] Telegram-style polls in channels/DMs (single-choice and optional multiple-choice)
@@ -388,6 +389,7 @@
 - [done] Added `Show Quest Summary` action in message/member context menus
 - [done] Added `Alt+Y` shortcut to open profile editor
 - [done] Added cosmetics shop + inventory system (collectible decor/nameplates/effects, shard wallet from activity milestones, buy/equip flow).
+- [done] Cosmetics shop now supports live search and sort modes (`featured`, `price`, `owned first`, `name`) for faster catalog browsing.
 - [done] Make in-line chat commands clickable in the pop-up. Also e.g. when bots display rich media visual things like playing cards, then those can also be defined as individually click able even when displayed in the same line
 - Create a bot which provides a shedding-type card game that users can start in chat and play together (each user gets displayed their own deck by leveraging advanced in-line commands
 - Learn a lot about Discord from resources like:

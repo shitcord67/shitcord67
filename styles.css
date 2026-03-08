@@ -125,6 +125,16 @@ body {
   color: var(--text-main);
   min-height: 100vh;
   font-size: var(--ui-scale, 100%);
+  filter: saturate(var(--ui-intensity, 100%));
+}
+
+body[data-reduced-motion="on"] *,
+body[data-reduced-motion="on"] *::before,
+body[data-reduced-motion="on"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 *::-webkit-scrollbar {
