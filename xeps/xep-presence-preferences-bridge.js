@@ -325,6 +325,9 @@ function getPreferences() {
   return {
     uiScale: Number.isFinite(Number(current.uiScale)) ? Math.min(115, Math.max(90, Number(current.uiScale))) : defaults.uiScale,
     theme: normalizeTheme(current.theme),
+    uiAccentColor: /^#[0-9a-f]{3,8}$/i.test((current.uiAccentColor || "").toString().trim())
+      ? (current.uiAccentColor || "").toString().trim()
+      : "",
     language: normalizeLanguage(current.language),
     languageOnboardingSeen: normalizeToggle(current.languageOnboardingSeen ?? "off"),
     dmHomeTab: normalizeDmHomeTab(current.dmHomeTab),

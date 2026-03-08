@@ -488,6 +488,8 @@ ui.appearanceForm.addEventListener("submit", (event) => {
   state.preferences = getPreferences();
   state.preferences.uiScale = Math.min(115, Math.max(90, Number(ui.uiScaleInput.value) || 100));
   state.preferences.theme = normalizeTheme(ui.themeInput.value);
+  const rawAccent = (ui.uiAccentColorInput?.value || "").toString().trim().toLowerCase();
+  state.preferences.uiAccentColor = /^#[0-9a-f]{3,8}$/i.test(rawAccent) ? rawAccent : "";
   state.preferences.language = normalizeLanguage(ui.languageInput?.value || "auto");
   state.preferences.compactMembers = normalizeToggle(ui.compactModeInput.value);
   state.preferences.enterToSend = (ui.enterToSendInput?.value || "enter") === "ctrl-enter" ? "ctrl-enter" : "enter";
@@ -496,6 +498,18 @@ ui.appearanceForm.addEventListener("submit", (event) => {
   state.preferences.uiIntensity = Math.min(120, Math.max(80, Number(ui.uiIntensityInput?.value) || 100));
   saveState();
   render();
+});
+
+ui.uiAccentColorInput?.addEventListener("input", () => {
+  const raw = (ui.uiAccentColorInput?.value || "").toString().trim().toLowerCase();
+  if (ui.uiAccentColorPicker && /^#[0-9a-f]{3,8}$/i.test(raw)) {
+    ui.uiAccentColorPicker.value = normalizeColorForPicker(raw, "#5865f2");
+  }
+});
+
+ui.uiAccentColorPicker?.addEventListener("input", () => {
+  if (!(ui.uiAccentColorInput instanceof HTMLInputElement)) return;
+  ui.uiAccentColorInput.value = ui.uiAccentColorPicker.value;
 });
 
 ui.advancedForm.addEventListener("submit", (event) => {

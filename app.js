@@ -1635,6 +1635,11 @@ function applyPreferencesToUI() {
   document.body.dataset.theme = prefs.theme;
   document.body.dataset.compactMembers = prefs.compactMembers;
   document.body.dataset.reducedMotion = prefs.reducedMotion;
+  if (/^#[0-9a-f]{3,8}$/i.test((prefs.uiAccentColor || "").toString())) {
+    document.body.style.setProperty("--accent", (prefs.uiAccentColor || "").toString());
+  } else {
+    document.body.style.removeProperty("--accent");
+  }
   document.body.dataset.developerMode = prefs.developerMode;
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   document.body.dataset.hideChannelPanel = prefs.hideChannelPanel;

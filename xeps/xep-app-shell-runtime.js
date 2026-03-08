@@ -365,6 +365,12 @@ function renderSettingsScreen() {
     const highContrast = ui.themeInput.querySelector('option[value="high-contrast"]');
     if (highContrast) highContrast.textContent = tUi("settings.theme.highContrast", "High Contrast");
   }
+  if (ui.uiAccentColorInput) {
+    ui.uiAccentColorInput.value = prefs.uiAccentColor || "auto";
+  }
+  if (ui.uiAccentColorPicker) {
+    ui.uiAccentColorPicker.value = normalizeColorForPicker(prefs.uiAccentColor || "#5865f2", "#5865f2");
+  }
   if (ui.languageInput) {
     ui.languageInput.value = prefs.language;
     const autoOption = ui.languageInput.querySelector('option[value="auto"]');

@@ -108,6 +108,7 @@ Notes:
 - Bottom-left account dock with avatar, display name, status, and settings gear.
 - Full-screen user settings page (Discord-style categories: My Account, Profiles, Appearance, Advanced).
 - Appearance settings now include chat-input and accessibility controls: Enter-to-send mode, quick-switcher hotkey choice (`Ctrl/Cmd+K` or `Alt+K`), reduced motion, and UI intensity.
+- Appearance settings now include an accent color override (`auto` or `#hex`) applied at runtime.
 - Create guilds and channels.
 - Guild creation now supports template presets (friends/gaming/community/study/blank) with optional starter channels.
 - Guild settings dialog supports rename, description, accent color, and admin-gated delete flow.

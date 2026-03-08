@@ -1102,6 +1102,8 @@ const ui = {
   appearanceForm: document.getElementById("appearanceForm"),
   uiScaleInput: document.getElementById("uiScaleInput"),
   themeInput: document.getElementById("themeInput"),
+  uiAccentColorInput: document.getElementById("uiAccentColorInput"),
+  uiAccentColorPicker: document.getElementById("uiAccentColorPicker"),
   languageInput: document.getElementById("languageInput"),
   compactModeInput: document.getElementById("compactModeInput"),
   enterToSendInput: document.getElementById("enterToSendInput"),

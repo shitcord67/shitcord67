@@ -107,6 +107,7 @@ function buildInitialState() {
     preferences: {
       uiScale: 100,
       theme: "discord",
+      uiAccentColor: "",
       language: "auto",
       languageOnboardingSeen: "off",
       dmHomeTab: "friends",
