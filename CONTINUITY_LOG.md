@@ -8066,3 +8066,8 @@ Also can you really investigate on why I can't open devtools at all? [3063059:03
 
 [2026-03-09T08:07:21Z] Can you please autonomously improve and implement some things, ideally making the experience more Discord-like or more complete in general
 [2026-03-09T11:57:04Z] Feel free to improve and implement some more stuff.
+[2026-03-09T12:57:16Z] [2257962:0309/135043.455975:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.lU3pNw failed: No such file or directory (2)
+[2257962:0309/135043.456064:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such file or directory (2)
+[2258528:0309/135050.178924:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.wZqsTf failed: No such file or directory (2)
+[2258528:0309/135050.179002:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such file or directory (2)
+Why do develoepr tools not work, even when accessing via Alt → View?
