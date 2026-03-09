@@ -8190,3 +8190,5 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
   work? Also I noticed that I can't make calls with Dino that isn't in Flatpak in all? Why is that the case? Can you investigate Dino code to make calls really work correctly?
   And you might as well also fix OMEMO while during that cause it has OMEMO encryption. Also some resources: https://soatok.blog/2024/08/04/against-xmppomemo/ https://
   download.igniterealtime.org/smack/dailybuilds/documentation/extensions/omemo.html https://github.com/mierenhoop/picomemo https://shibe-bit.github.io/Guides/OmemoClient
+
+[2026-03-10T00:10:00.294177+01:00] > Yeah it you think if that all makes sense. Also if you are really done with heavily investigating dino then please investigate movim and fix calling with that.

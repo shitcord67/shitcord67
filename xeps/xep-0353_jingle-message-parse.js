@@ -2,7 +2,11 @@
   if (!globalScope || globalScope.SHITCORD67_XEP_0353_JINGLE_MESSAGE_PARSE) return;
 
   const xml = globalScope.SHITCORD67_XMPP_XML || {};
-  const XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES = ["urn:xmpp:jingle-message:0", "urn:xmpp:jingle-message:1"];
+  const XMPP_JINGLE_MESSAGE_INIT_COMPAT_NAMESPACES = [
+    "urn:xmpp:jingle-message:0",
+    "urn:xmpp:jingle-message:1",
+    "urn:xmpp:jingle:jingle-message:0"
+  ];
   const XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_PREFIX = "urn:xmpp:jingle-message";
   const XMPP_JINGLE_RTP_NAMESPACE = "urn:xmpp:jingle:apps:rtp:1";
   const XMPP_JINGLE_AUDIO_NAMESPACE = "urn:xmpp:jingle:apps:rtp:audio";
