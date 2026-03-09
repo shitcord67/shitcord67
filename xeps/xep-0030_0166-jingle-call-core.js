@@ -919,6 +919,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
   if (action === "propose") {
     const existingIncomingId = latestXmppCallSessionIdForPeer(peer, "incoming");
     if (existingIncomingId && existingIncomingId !== id) forgetXmppCallSession(existingIncomingId);
+    const dinoCompat = Boolean(peerFull && /\/dino[./-]/i.test(peerFull));
     xmppCallSessionById.set(id, {
       id,
       peerJid: peer,
@@ -929,6 +930,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       inviteSignal: "jmi",
       callInviteId: "",
       callInviteHasJingleSid: true,
+      sendAcceptCompat: dinoCompat,
       state: "proposed",
       createdAt: Date.now(),
       media: Array.isArray(actionPayload.media) ? actionPayload.media : []

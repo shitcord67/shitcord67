@@ -2685,8 +2685,10 @@ document.addEventListener("click", (event) => {
 document.addEventListener("click", (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
+  if (target.closest("button, [role=\"button\"], [data-no-external-open=\"1\"]")) return;
   const anchor = target.closest("a[href]");
   if (!(anchor instanceof HTMLAnchorElement)) return;
+  if (anchor.closest("[data-no-external-open=\"1\"]")) return;
   if (anchor.hasAttribute("download")) return;
   const href = (anchor.getAttribute("href") || "").trim();
   if (!/^https?:\/\//i.test(href)) return;

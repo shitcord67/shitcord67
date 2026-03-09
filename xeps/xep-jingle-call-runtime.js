@@ -2323,9 +2323,17 @@ async function deployMediaRuntimes() {
       if (!exists) continue;
       // eslint-disable-next-line no-await-in-loop
       await loadScriptTag(candidate);
-      shouldRerender = true;
-      addDebugLog("info", "Loaded local Ruffle runtime", { src: candidate });
-      break;
+      if (window.RufflePlayer?.newest) {
+        delete window.__S67_RUFFLE_STUB;
+        shouldRerender = true;
+        addDebugLog("info", "Loaded local Ruffle runtime", { src: candidate });
+        break;
+      }
+      if (window.__S67_RUFFLE_STUB) {
+        addDebugLog("warn", "Local Ruffle runtime stub loaded; real runtime still missing", { src: candidate });
+      } else {
+        addDebugLog("warn", "Local Ruffle runtime missing after load", { src: candidate });
+      }
     } catch (error) {
       addDebugLog("warn", "Local Ruffle runtime candidate failed", { src: candidate, error: String(error) });
     }
@@ -2362,9 +2370,17 @@ async function deployMediaRuntimes() {
       if (!exists) continue;
       // eslint-disable-next-line no-await-in-loop
       await loadScriptTag(candidate, "module");
-      shouldRerender = true;
-      addDebugLog("info", "Loaded local dotLottie runtime", { src: candidate });
-      break;
+      if (typeof customElements !== "undefined" && customElements.get("dotlottie-player")) {
+        delete window.__S67_DOTLOTTIE_STUB;
+        shouldRerender = true;
+        addDebugLog("info", "Loaded local dotLottie runtime", { src: candidate });
+        break;
+      }
+      if (window.__S67_DOTLOTTIE_STUB) {
+        addDebugLog("warn", "Local dotLottie runtime stub loaded; real runtime still missing", { src: candidate });
+      } else {
+        addDebugLog("warn", "Local dotLottie runtime missing after load", { src: candidate });
+      }
     } catch (error) {
       addDebugLog("warn", "Local dotLottie runtime candidate failed", { src: candidate, error: String(error) });
     }

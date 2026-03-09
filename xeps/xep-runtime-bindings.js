@@ -112,6 +112,9 @@ const XmppOmemoStore = XEP_0384_OMEMO_STORE_GLOBAL.XmppOmemoStore || null;
 const xmppOmemoRuntimeAvailable = XEP_0384_RUNTIME_GLOBAL.xmppOmemoRuntimeAvailable || function xmppOmemoRuntimeAvailableFallback() {
   return Boolean(globalThis.libsignal && globalThis.libsignal.KeyHelper && globalThis.crypto?.subtle);
 };
+const ensureXmppOmemoRuntime = XEP_0384_RUNTIME_GLOBAL.ensureLibsignalLoaded || function ensureXmppOmemoRuntimeFallback() {
+  return Promise.resolve(false);
+};
 const createXmppOmemoStoreRegistry = XEP_0384_RUNTIME_GLOBAL.createXmppOmemoStoreRegistry || function createXmppOmemoStoreRegistryFallback() {
   const storesByBareJid = new Map();
   return Object.freeze({

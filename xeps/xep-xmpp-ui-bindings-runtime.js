@@ -778,14 +778,18 @@ ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
   renderXmppConsoleDialog();
 });
 
-ui.omemoHeaderBtn?.addEventListener("click", () => {
+ui.omemoHeaderBtn?.addEventListener("click", async () => {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
-  const state = resolveOmemoHeaderState(conversation, account);
+  let state = resolveOmemoHeaderState(conversation, account);
   if (!state.visible) return;
   if (!state.runtimeReady) {
-    showToast("OMEMO runtime is not available in this build.", { tone: "error" });
-    return;
+    const loaded = await ensureXmppOmemoRuntime();
+    state = resolveOmemoHeaderState(conversation, account);
+    if (!loaded || !state.runtimeReady) {
+      showToast("OMEMO runtime is not available in this build.", { tone: "error" });
+      return;
+    }
   }
   if (!state.peerBare) return;
   const nextEnabled = !state.enabled;

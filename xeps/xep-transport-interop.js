@@ -1528,6 +1528,7 @@ function xmppPreferredOmemoNamespaceForPeer(peerJid = "") {
 }
 
 async function xmppOmemoEnsureLocalIdentity(ownBare) {
+  await ensureXmppOmemoRuntime();
   return xmppOmemoEnsureLocalIdentityCore(ownBare, {
     runtimeAvailableFn: xmppOmemoRuntimeAvailable,
     storeForAccountFn: xmppOmemoStoreForAccount
@@ -1588,6 +1589,7 @@ function xmppOmemoNamespaceForSend(targetJids = []) {
 }
 
 async function xmppOmemoEnsureOwnBundle(ownBare, { force = false } = {}) {
+  await ensureXmppOmemoRuntime();
   return xmppOmemoEnsureOwnBundleCore(ownBare, {
     force,
     ensureLocalIdentityFn: xmppOmemoEnsureLocalIdentity,
@@ -1619,6 +1621,7 @@ async function xmppOmemoFetchBundle(jid, deviceId, { connection = xmppConnection
 }
 
 async function xmppOmemoEnsureSession(peerBare, deviceId, ownBare) {
+  await ensureXmppOmemoRuntime();
   return xmppOmemoEnsureSessionCore(peerBare, deviceId, ownBare, {
     runtimeAvailableFn: xmppOmemoRuntimeAvailable,
     storeForAccountFn: xmppOmemoStoreForAccount,
@@ -1650,6 +1653,7 @@ async function xmppOmemoGatherDeviceTargets(peers = [], ownBare = "") {
 }
 
 async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
+  await ensureXmppOmemoRuntime();
   if (!xmppOmemoRuntimeAvailable()) return null;
   const store = await xmppOmemoEnsureLocalIdentity(ownBare);
   if (!store) return null;
@@ -1734,6 +1738,7 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
 }
 
 async function xmppOmemoDecryptPayload(peerBare, payload, ownBare) {
+  await ensureXmppOmemoRuntime();
   if (!xmppOmemoRuntimeAvailable()) return null;
   if (!payload || !payload.keys) return null;
   const store = await xmppOmemoEnsureLocalIdentity(ownBare);

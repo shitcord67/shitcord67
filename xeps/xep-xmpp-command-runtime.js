@@ -1,7 +1,7 @@
 (function initXepXmppCommandRuntime(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_XEP_XMPP_COMMAND_RUNTIME) return;
 
-  function handleXmppCommandRuntime({ command = "", arg = "", channel = null, account = null } = {}) {
+  async function handleXmppCommandRuntime({ command = "", arg = "", channel = null, account = null } = {}) {
   if (command === "call" || command === "callscreen" || command === "callweb") {
     const raw = (arg || "").trim();
     const parts = raw ? raw.split(/\s+/) : [];
@@ -222,8 +222,11 @@
       return true;
     }
     if (!xmppOmemoRuntimeAvailable()) {
-      addSystemMessage(channel, "OMEMO runtime is not available in this build.");
-      return true;
+      const loaded = await ensureXmppOmemoRuntime();
+      if (!loaded || !xmppOmemoRuntimeAvailable()) {
+        addSystemMessage(channel, "OMEMO runtime is not available in this build.");
+        return true;
+      }
     }
     const sub = (arg || "status").trim().toLowerCase();
     const ownBare = xmppBareJid(getPreferences().xmppJid || "");

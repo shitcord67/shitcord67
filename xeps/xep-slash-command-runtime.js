@@ -1358,6 +1358,10 @@ function handleSlashCommandRuntime(rawText, channel, account) {
       channel,
       account
     });
+    if (handledXmppRuntime && typeof handledXmppRuntime.then === "function") {
+      handledXmppRuntime.then(() => {});
+      return true;
+    }
     if (handledXmppRuntime) return true;
   }
 
