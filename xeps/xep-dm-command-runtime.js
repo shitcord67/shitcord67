@@ -878,6 +878,22 @@
       openFindDialogWithQuery(`after:${yyyy}-${mm}-${dd}`);
       return;
     }
+    if (dmCommand === "findmedia") {
+      openFindDialogWithQuery("has:media");
+      return;
+    }
+    if (dmCommand === "findreactions") {
+      openFindDialogWithQuery("has:reaction");
+      return;
+    }
+    if (dmCommand === "findpolls") {
+      openFindDialogWithQuery("has:poll");
+      return;
+    }
+    if (dmCommand === "findpinned") {
+      openFindDialogWithQuery("has:pin");
+      return;
+    }
     if (dmCommand === "findnext") {
       if (!findQuery.trim()) {
         openFindDialog();

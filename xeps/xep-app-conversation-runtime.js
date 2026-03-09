@@ -72,18 +72,47 @@ function buildFindSpec(query = findQuery) {
     author: (findAuthorFilter || "").trim().replace(/^@/, "").toLowerCase(),
     afterMs: parseFindDateInput(findAfterFilter, false),
     beforeMs: parseFindDateInput(findBeforeFilter, true),
-    hasLink: Boolean(findHasLinkOnly)
+    hasLink: Boolean(findHasLinkOnly),
+    hasMedia: Boolean(findHasMediaOnly),
+    hasAttachment: Boolean(findHasAttachmentOnly),
+    hasReaction: Boolean(findHasReactionOnly),
+    hasPoll: Boolean(findHasPollOnly),
+    hasReply: Boolean(findHasReplyOnly),
+    hasPin: Boolean(findHasPinOnly),
+    hasCode: Boolean(findHasCodeOnly)
   };
 }
 
 function extractFindInlineFilters(rawQuery) {
   const source = (rawQuery || "").toString().trim();
-  if (!source) return { query: "", author: "", after: "", before: "", hasLink: false };
+  if (!source) {
+    return {
+      query: "",
+      author: "",
+      after: "",
+      before: "",
+      hasLink: false,
+      hasMedia: false,
+      hasAttachment: false,
+      hasReaction: false,
+      hasPoll: false,
+      hasReply: false,
+      hasPin: false,
+      hasCode: false
+    };
+  }
   const authorParts = [];
   const keepParts = [];
   let after = "";
   let before = "";
   let hasLink = false;
+  let hasMedia = false;
+  let hasAttachment = false;
+  let hasReaction = false;
+  let hasPoll = false;
+  let hasReply = false;
+  let hasPin = false;
+  let hasCode = false;
   source.split(/\s+/).forEach((part) => {
     const token = part.trim();
     if (!token) return;
@@ -106,6 +135,34 @@ function extractFindInlineFilters(rawQuery) {
       hasLink = true;
       return;
     }
+    if (/^has:media$/i.test(token)) {
+      hasMedia = true;
+      return;
+    }
+    if (/^has:attachments?$/i.test(token)) {
+      hasAttachment = true;
+      return;
+    }
+    if (/^has:reactions?$/i.test(token)) {
+      hasReaction = true;
+      return;
+    }
+    if (/^has:polls?$/i.test(token)) {
+      hasPoll = true;
+      return;
+    }
+    if (/^has:repl(y|ies)$/i.test(token)) {
+      hasReply = true;
+      return;
+    }
+    if (/^has:pin(ned)?s?$/i.test(token)) {
+      hasPin = true;
+      return;
+    }
+    if (/^has:code$/i.test(token)) {
+      hasCode = true;
+      return;
+    }
     keepParts.push(token);
   });
   return {
@@ -113,13 +170,33 @@ function extractFindInlineFilters(rawQuery) {
     author: authorParts.join(" ").slice(0, 32),
     after,
     before,
-    hasLink
+    hasLink,
+    hasMedia,
+    hasAttachment,
+    hasReaction,
+    hasPoll,
+    hasReply,
+    hasPin,
+    hasCode
   };
 }
 
 function hasActiveFindSpec(spec) {
   if (!spec) return false;
-  return Boolean(spec.term || spec.author || spec.afterMs || spec.beforeMs || spec.hasLink);
+  return Boolean(
+    spec.term
+    || spec.author
+    || spec.afterMs
+    || spec.beforeMs
+    || spec.hasLink
+    || spec.hasMedia
+    || spec.hasAttachment
+    || spec.hasReaction
+    || spec.hasPoll
+    || spec.hasReply
+    || spec.hasPin
+    || spec.hasCode
+  );
 }
 
 function activeConversationFindBucket(conversation) {
@@ -141,6 +218,13 @@ function findMatchCacheKey(conversation, spec, bucket, channelType) {
     Number(spec?.afterMs || 0),
     Number(spec?.beforeMs || 0),
     spec?.hasLink ? "1" : "0",
+    spec?.hasMedia ? "1" : "0",
+    spec?.hasAttachment ? "1" : "0",
+    spec?.hasReaction ? "1" : "0",
+    spec?.hasPoll ? "1" : "0",
+    spec?.hasReply ? "1" : "0",
+    spec?.hasPin ? "1" : "0",
+    spec?.hasCode ? "1" : "0",
     list.length,
     first?.id || "",
     first?.editedAt || first?.ts || "",
@@ -177,6 +261,39 @@ function messageHasLink(message, channelType = "text") {
   return attachments.some((attachment) => /^https?:\/\//i.test((attachment?.url || "").toString()));
 }
 
+function messageHasAttachments(message) {
+  if (!message) return false;
+  const attachments = normalizeAttachments(message.attachments);
+  return attachments.length > 0;
+}
+
+function messageHasReactions(message) {
+  if (!message) return false;
+  if (typeof normalizeReactions !== "function") return Array.isArray(message.reactions) && message.reactions.length > 0;
+  return normalizeReactions(message.reactions).some((reaction) => (reaction?.userIds || []).length > 0);
+}
+
+function messageHasPoll(message) {
+  if (!message) return false;
+  if (typeof normalizePoll === "function") return Boolean(normalizePoll(message.poll));
+  return Boolean(message.poll);
+}
+
+function messageHasReply(message) {
+  if (!message) return false;
+  return Boolean(message.replyTo && (message.replyTo.messageId || message.replyTo.stanzaId));
+}
+
+function messageHasPin(message) {
+  return Boolean(message?.pinned);
+}
+
+function messageHasCode(message, channelType = "text") {
+  if (!message) return false;
+  const text = searchableMessageText(message, channelType);
+  return /```|`[^`]+`/.test(text);
+}
+
 function messageMatchesFindSpec(message, spec, channelType = "text") {
   if (!message || !spec) return false;
   const haystack = searchableMessageText(message, channelType).toLowerCase();
@@ -188,6 +305,13 @@ function messageMatchesFindSpec(message, spec, channelType = "text") {
     if (!authorName.includes(spec.author) && !authorUsername.includes(spec.author)) return false;
   }
   if (spec.hasLink && !messageHasLink(message, channelType)) return false;
+  if (spec.hasMedia && !messageHasAttachments(message)) return false;
+  if (spec.hasAttachment && !messageHasAttachments(message)) return false;
+  if (spec.hasReaction && !messageHasReactions(message)) return false;
+  if (spec.hasPoll && !messageHasPoll(message)) return false;
+  if (spec.hasReply && !messageHasReply(message)) return false;
+  if (spec.hasPin && !messageHasPin(message)) return false;
+  if (spec.hasCode && !messageHasCode(message, channelType)) return false;
   const tsMs = toTimestampMs(message.ts);
   if (spec.afterMs && tsMs < spec.afterMs) return false;
   if (spec.beforeMs && tsMs > spec.beforeMs) return false;
@@ -207,6 +331,13 @@ function formatFindSpecSummary(spec) {
   if (spec.afterMs) parts.push(`after ${new Date(spec.afterMs).toLocaleDateString()}`);
   if (spec.beforeMs) parts.push(`before ${new Date(spec.beforeMs).toLocaleDateString()}`);
   if (spec.hasLink) parts.push("has link");
+  if (spec.hasMedia) parts.push("has media");
+  if (spec.hasAttachment) parts.push("has attachment");
+  if (spec.hasReaction) parts.push("has reaction");
+  if (spec.hasPoll) parts.push("has poll");
+  if (spec.hasReply) parts.push("has reply");
+  if (spec.hasPin) parts.push("pinned");
+  if (spec.hasCode) parts.push("has code");
   return parts.join(" · ");
 }
 
@@ -303,6 +434,13 @@ function openFindDialog() {
   findAfterFilter = "";
   findBeforeFilter = "";
   findHasLinkOnly = false;
+  findHasMediaOnly = false;
+  findHasAttachmentOnly = false;
+  findHasReactionOnly = false;
+  findHasPollOnly = false;
+  findHasReplyOnly = false;
+  findHasPinOnly = false;
+  findHasCodeOnly = false;
   findSelectionIndex = 0;
   if (ui.findInput) ui.findInput.value = "";
   if (ui.findAuthorInput) ui.findAuthorInput.value = "";
@@ -326,6 +464,13 @@ function openFindDialogWithQuery(query) {
   findAfterFilter = inline.after || "";
   findBeforeFilter = inline.before || "";
   findHasLinkOnly = Boolean(inline.hasLink);
+  findHasMediaOnly = Boolean(inline.hasMedia);
+  findHasAttachmentOnly = Boolean(inline.hasAttachment);
+  findHasReactionOnly = Boolean(inline.hasReaction);
+  findHasPollOnly = Boolean(inline.hasPoll);
+  findHasReplyOnly = Boolean(inline.hasReply);
+  findHasPinOnly = Boolean(inline.hasPin);
+  findHasCodeOnly = Boolean(inline.hasCode);
   findSelectionIndex = 0;
   if (ui.findInput) ui.findInput.value = safeQuery;
   if (ui.findAuthorInput) ui.findAuthorInput.value = findAuthorFilter;

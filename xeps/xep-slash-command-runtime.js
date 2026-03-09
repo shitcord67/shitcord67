@@ -738,6 +738,26 @@ function handleSlashCommandRuntime(rawText, channel, account) {
     return true;
   }
 
+  if (command === "findmedia") {
+    openFindDialogWithQuery("has:media");
+    return true;
+  }
+
+  if (command === "findreactions") {
+    openFindDialogWithQuery("has:reaction");
+    return true;
+  }
+
+  if (command === "findpolls") {
+    openFindDialogWithQuery("has:poll");
+    return true;
+  }
+
+  if (command === "findpinned") {
+    openFindDialogWithQuery("has:pin");
+    return true;
+  }
+
   if (command === "findnext") {
     if (!findQuery.trim()) {
       openFindDialog();

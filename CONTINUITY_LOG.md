@@ -8194,3 +8194,5 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 [2026-03-10T00:10:00.294177+01:00] > Yeah it you think if that all makes sense. Also if you are really done with heavily investigating dino then please investigate movim and fix calling with that.
 
 [2026-03-10T00:16:55.778276+01:00] Can you fix that on Android storage permissions are not asked for?
+
+[2026-03-10T00:26:52.722575+01:00] Not necessarily. But how about you implement ten more things you feel like implementing, maybe from TODO or polishing ot making stuff more like Discord or more XEPs
