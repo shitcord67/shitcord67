@@ -8084,3 +8084,6 @@ Why do develoepr tools not work, even when accessing via Alt → View?
 [433021:0309/222721.941983:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such file or directory (2)
 [2026-03-09T21:32:22Z] Well but toggling developer tools works in the /home/duda/shitcord67/simple-samples/ so why not in shitcord67? Why does it work in simple-example like the acitvity-monitor and shitcord67 just spills out: [452632:0309/223128.978747:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.vP46Df failed: No such file or directory (2)
 [452632:0309/223128.978836:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such file or directory (2)
+[2026-03-09T21:47:50Z] I noticed when it broke. git diff 57ef2a57c77cfd46ccbf3a1dfd965c9ac22f335c f9de24194670f1fa191682e77138895f5139549c
+[$ts] Well couldn't you basically change it back so no flag or environment variable is needed for the devtools?
+[2026-03-09T21:49:32Z] Well couldn't you basically change it back so no flag or environment variable is needed for the devtools?

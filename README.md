@@ -100,7 +100,7 @@ Notes:
 
 ## Desktop Env Overrides
 1. Optional env overrides:
-   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`, `S67_LINUX_SANDBOX` (`off` default in non-packaged Linux; set `on` to keep Chromium sandbox enabled), `S67_LINUX_SHM_MODE` (`auto` default, `shm` to force `/dev/shm`, `tmp` to force `/tmp`), `S67_PACKAGED_LINUX_SANDBOX` (`on` to force sandbox in packaged Linux builds; default is `off`), `S67_PACKAGED_LINUX_SHM_MODE` (`auto` default, `shm` to force `/dev/shm`, `tmp` to force `/tmp`; forced modes fall back if unavailable), `S67_PACKAGED_LINUX_RUNTIME_DIR` (optional writable directory for packaged Linux temp/shared runtime files), `S67_ELECTRON_PIPEWIRE` (`on` default, `off` disables WebRTC PipeWire capturer), `S67_ELECTRON_OZONE_HINT` (`auto` default, `x11`/`wayland` to force Ozone backend)
+   - `CLIENT_HOST`, `CLIENT_PORT`, `GATEWAY_HOST`, `GATEWAY_PORT`, `ELECTRON_GATEWAY_MODE`, `ELECTRON_START_TIMEOUT_MS`, `ELECTRON_DYNAMIC_PORT_ATTEMPTS`, `S67_PACKAGED_LINUX_SANDBOX` (`on` to force sandbox in packaged Linux builds; default is `off`), `S67_PACKAGED_LINUX_SHM_MODE` (`auto` default, `shm` to force `/dev/shm`, `tmp` to force `/tmp`; forced modes fall back if unavailable), `S67_PACKAGED_LINUX_RUNTIME_DIR` (optional writable directory for packaged Linux temp/shared runtime files), `S67_ELECTRON_PIPEWIRE` (`on` default, `off` disables WebRTC PipeWire capturer), `S67_ELECTRON_OZONE_HINT` (`auto` default, `x11`/`wayland` to force Ozone backend)
 
 ## Implemented
 - Login by username (creates/switches local accounts).
@@ -583,7 +583,7 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 ## Debugging
 - Open browser DevTools and inspect `localStorage` key `shitcord67-state-v1`.
 - Clear/reset state by deleting `shitcord67-state-v1` (or old `flashcord-state-v2` / `flashcord-state-v1`) and refreshing.
-- Linux/Electron DevTools require at least one writable shared-memory path (`/dev/shm` or `/tmp` depending on `S67_LINUX_SHM_MODE`). If both are unavailable in your namespace/container, DevTools toggle is blocked with an explicit runtime warning.
+- Linux/Electron DevTools require at least one writable shared-memory path (`/dev/shm` or `/tmp`). If both are unavailable in your namespace/container, DevTools toggle is blocked with an explicit runtime warning.
 
 ## Ruffle Save Notes
 - In browser mode, SWF save data is stored by the browser in site storage/local storage (not as normal files on disk).
