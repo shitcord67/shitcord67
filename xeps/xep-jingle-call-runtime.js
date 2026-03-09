@@ -158,6 +158,9 @@ function forgetXmppCallSession(sessionId = "") {
   xmppCallQualityRefreshInFlight.delete(id);
   xmppStopLocalMediaStreamForSession(id);
   xmppCallRemoteStreamsBySessionId.delete(id);
+  if (typeof clearXmppNativeCallRemoteAudioSinks === "function") {
+    clearXmppNativeCallRemoteAudioSinks(id);
+  }
   stopXmppCallSpeakingMonitor(id);
   stopXmppNativeCallTileSpeakingMonitor(id);
   xmppCloseSessionPeerConnection(id);

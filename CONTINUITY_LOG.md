@@ -8088,3 +8088,13 @@ Why do develoepr tools not work, even when accessing via Alt → View?
 [$ts] Well couldn't you basically change it back so no flag or environment variable is needed for the devtools?
 [2026-03-09T21:49:32Z] Well couldn't you basically change it back so no flag or environment variable is needed for the devtools?
 [2026-03-09T22:12:45Z] Yes
+[$ts] Invalid asm.js: Expected shift of word size
+libsignal_protocol.min.js:136 pre-main prep time: 1 ms
+:40989/swf/index.json:1 Failed to load resource: the server responded with a status of 404 (File not found)
+:40989/vendor/ruffle/ruffle.js:1 Failed to load resource: the server responded with a status of 404 (File not found)
+:40989/swf/swf-index.json:1 Failed to load resource: the server responded with a status of 404 (File not found)
+:40989/vendor/dotlot…lottie-player.mjs:1 Failed to load resource: the server responded with a status of 404 (File not found)
+strophe.umd.min.js:1 WebSocket connection to 'wss://xmpp.pimux.de/xmpp-websocket' failed: Data frame received after close
+libsignal_protocol.min.js:35588 Uncaught (in promise) TypeError: Cannot read properties of null (reading 'version')
+    at SessionRecord.deserialize (libsignal_protocol.min.js:35588:18)
+    at SessionBuilder.<anonymous> (libsignal_protocol.min.js:35833:45) When shitcord67 calls and Dino joins then it looks like Dino user can hear shitcord67 user but the other way around I only get a speaking indicator but shitcord67 does not seem to actually open a audio sink or something to redirect the received sound to the user? ... When Dino users calls and shitcord67 user accepts then the Dino user cannot be seen in the call. When End is pressed Dino user sees "Fehlgeschlagener Anruf"

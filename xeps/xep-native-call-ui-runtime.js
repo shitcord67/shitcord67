@@ -499,6 +499,115 @@ function clearNativeCallSurfaceTicker() {
   nativeCallSurfaceTickerSessionId = "";
 }
 
+function xmppNativeCallRemoteAudioSinkStore() {
+  if (!(window.__xmppNativeCallRemoteAudioSinkStore instanceof Map)) {
+    window.__xmppNativeCallRemoteAudioSinkStore = new Map();
+  }
+  return window.__xmppNativeCallRemoteAudioSinkStore;
+}
+
+function ensureXmppNativeCallRemoteAudioSinkEntry(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return null;
+  const store = xmppNativeCallRemoteAudioSinkStore();
+  let entry = store.get(sid) || null;
+  if (entry && entry.container instanceof HTMLElement && entry.elements instanceof Map) return entry;
+  const container = document.createElement("div");
+  container.className = "native-call-surface__remote-audio-sinks";
+  container.hidden = true;
+  container.setAttribute("aria-hidden", "true");
+  container.dataset.sessionId = sid;
+  document.body.appendChild(container);
+  entry = { container, elements: new Map() };
+  store.set(sid, entry);
+  return entry;
+}
+
+function updateXmppNativeCallRemoteAudioOutputDevice(sessionId = "", deviceId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const store = xmppNativeCallRemoteAudioSinkStore();
+  const entry = store.get(sid) || null;
+  if (!(entry?.elements instanceof Map)) return;
+  entry.elements.forEach((audio) => {
+    if (audio instanceof HTMLAudioElement) {
+      void applyAudioOutputDeviceToElement(audio, deviceId);
+    }
+  });
+}
+
+function clearXmppNativeCallRemoteAudioSinks(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const store = xmppNativeCallRemoteAudioSinkStore();
+  const entry = store.get(sid) || null;
+  if (!entry) return;
+  if (entry.elements instanceof Map) {
+    entry.elements.forEach((audio) => {
+      if (!(audio instanceof HTMLAudioElement)) return;
+      try {
+        audio.pause();
+      } catch {
+        // Ignore sink pause failures during cleanup.
+      }
+      audio.srcObject = null;
+      audio.remove();
+    });
+    entry.elements.clear();
+  }
+  if (entry.container instanceof HTMLElement) entry.container.remove();
+  store.delete(sid);
+}
+
+function syncXmppNativeCallRemoteAudioSinks(sessionId = "", streams = [], outputDeviceId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return;
+  const entry = ensureXmppNativeCallRemoteAudioSinkEntry(sid);
+  if (!entry) return;
+  const desired = new Map();
+  (Array.isArray(streams) ? streams : []).forEach((stream, index) => {
+    if (!(stream instanceof MediaStream)) return;
+    const track = stream.getAudioTracks()[0] || null;
+    if (!(track instanceof MediaStreamTrack)) return;
+    const streamKey = (stream.id || track.id || `${index + 1}`).toString().trim();
+    if (!streamKey) return;
+    desired.set(streamKey, stream);
+  });
+  entry.elements.forEach((audio, key) => {
+    if (desired.has(key)) return;
+    if (audio instanceof HTMLAudioElement) {
+      try {
+        audio.pause();
+      } catch {
+        // Ignore sink pause failures during stream churn.
+      }
+      audio.srcObject = null;
+      audio.remove();
+    }
+    entry.elements.delete(key);
+  });
+  desired.forEach((stream, key) => {
+    let audio = entry.elements.get(key) || null;
+    if (!(audio instanceof HTMLAudioElement)) {
+      audio = document.createElement("audio");
+      audio.autoplay = true;
+      audio.playsInline = true;
+      audio.preload = "auto";
+      audio.muted = false;
+      audio.volume = 1;
+      audio.dataset.sessionId = sid;
+      audio.dataset.streamKey = key;
+      entry.container.appendChild(audio);
+      entry.elements.set(key, audio);
+    }
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
+    }
+    void applyAudioOutputDeviceToElement(audio, outputDeviceId);
+    void audio.play().catch(() => null);
+  });
+}
+
 function isNativeCallSurfaceDevicePickerFocused(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return false;
@@ -1591,6 +1700,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     remoteVideos.forEach((video) => {
       void applyAudioOutputDeviceToElement(video, outputSelect.value);
     });
+    updateXmppNativeCallRemoteAudioOutputDevice(sid, outputSelect.value);
     if (!canSetAudioOutputDevice()) {
       showToast("Audio output switching is not supported in this runtime.", { tone: "error" });
       return;
@@ -1667,6 +1777,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     grid.appendChild(localTile);
   }
   const remoteStreams = xmppRemoteStreamListForSession(sid);
+  syncXmppNativeCallRemoteAudioSinks(sid, remoteStreams, prefs.callAudioOutputId || "");
   remoteStreams.forEach((stream, index) => {
     const tile = document.createElement("div");
     tile.className = "native-call-surface__tile";
