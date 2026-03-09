@@ -1081,6 +1081,20 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   font-weight: 800;
 }
 
+.channel-badge--autojoin {
+  margin-left: 0;
+  background: rgba(88, 145, 255, 0.18);
+  color: #9ec1ff;
+  min-width: 2.2rem;
+  height: 1.05rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .channel-empty {
   color: #9ca3ae;
   font-size: 0.8rem;
@@ -1697,6 +1711,15 @@ body[data-hide-channel-panel="on"] .chat-panel {
   gap: 0.42rem;
 }
 
+.forum-thread-meta {
+  font-size: 0.7rem;
+  color: #a8b1c2;
+  margin: 0 0 0.35rem;
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
 .forum-thread-toggle {
   background: transparent;
   color: #aeb5c2;
@@ -1769,6 +1792,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
 }
 
 .forum-tag-pill {
+  cursor: pointer;
   background: rgba(88, 101, 242, 0.22);
   color: #dce5ff;
   border-radius: 999px;
@@ -1776,6 +1800,10 @@ body[data-hide-channel-panel="on"] .chat-panel {
   font-size: 0.64rem;
   font-weight: 700;
   border: 1px solid var(--tag-color, #5865f2);
+}
+
+.forum-tag-pill.active {
+  background: rgba(88, 101, 242, 0.45);
 }
 
 .message--forum-root {

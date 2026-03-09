@@ -8196,3 +8196,7 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 [2026-03-10T00:16:55.778276+01:00] Can you fix that on Android storage permissions are not asked for?
 
 [2026-03-10T00:26:52.722575+01:00] Not necessarily. But how about you implement ten more things you feel like implementing, maybe from TODO or polishing ot making stuff more like Discord or more XEPs
+
+[2026-03-10T00:33:18.583946+01:00] Great. Then can you improve spaces and forums?
+
+[2026-03-09T23:36:08Z] Great. Then can you improve spaces and forums?

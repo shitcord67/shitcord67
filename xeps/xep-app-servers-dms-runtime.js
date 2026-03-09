@@ -859,6 +859,13 @@ function renderChannels() {
     label.className = "channel-item__name";
     label.textContent = channel.name;
     button.appendChild(label);
+    if (xmppBackedChannel && channel.xmppSpaceAutojoin) {
+      const autojoinBadge = document.createElement("span");
+      autojoinBadge.className = "channel-badge channel-badge--autojoin";
+      autojoinBadge.textContent = "autojoin";
+      autojoinBadge.title = "Will auto-join this XMPP room";
+      button.appendChild(autojoinBadge);
+    }
     const hasDraft = hasDraftForConversation(channel.id);
     const unreadStats = applyGuildNotificationModeToStats(
       getChannelUnreadStats(channel, currentAccount),
@@ -933,6 +940,9 @@ function renderChannels() {
     });
     button.addEventListener("contextmenu", (event) => {
       const canManageChannels = canCurrentUser("manageChannels");
+      const xmppRoomBare = xmppRoomJid || "";
+      const xmppJoined = Boolean(xmppRoomBare && xmppRoomByJid?.has?.(xmppRoomBare));
+      const showXmppRoomActions = Boolean(xmppBackedChannel && xmppRoomBare);
       const menuItems = [
         {
           label: "Open Channel",
@@ -949,6 +959,48 @@ function renderChannels() {
             renderChannels();
           }
         },
+        ...(showXmppRoomActions
+          ? [
+            {
+              label: xmppJoined ? "Leave XMPP Room" : "Join XMPP Room",
+              disabled: !getCurrentAccount(),
+              action: () => {
+                const current = getCurrentAccount();
+                if (!current || !xmppRoomBare) return;
+                const ok = xmppJoined
+                  ? leaveXmppRoom(xmppRoomBare, current)
+                  : joinXmppRoom(xmppRoomBare, current);
+                if (!ok) {
+                  showToast(xmppJoined ? "Failed to leave room." : "Failed to join room.", { tone: "error" });
+                  return;
+                }
+                renderChannels();
+              }
+            },
+            {
+              label: channel.xmppSpaceAutojoin ? "Disable Autojoin" : "Enable Autojoin",
+              action: () => {
+                if (!xmppRoomBare) return;
+                const next = !channel.xmppSpaceAutojoin;
+                channel.xmppSpaceAutojoin = next;
+                saveState();
+                renderChannels();
+                const current = getCurrentAccount();
+                if (!current || typeof xmppPublishBookmark !== "function") return;
+                const nick = typeof sanitizeChannelName === "function"
+                  ? sanitizeChannelName(current.username || "user", "user")
+                  : (current.username || "user");
+                const channelName = channel.xmppRoomName || channel.name || xmppRoomBare.split("@")[0] || xmppRoomBare;
+                void xmppPublishBookmark({
+                  jid: xmppRoomBare,
+                  name: channelName,
+                  autojoin: next,
+                  nick
+                });
+              }
+            }
+          ]
+          : []),
         ...(channel.type === "voice" || channel.type === "stage"
           ? [
             {
@@ -1015,7 +1067,8 @@ function renderChannels() {
             { label: "Channel Name", action: () => copyText(`#${channel.name}`) },
             { label: "Channel Topic", action: () => copyText(channel.topic || "") },
             { label: "Channel ID", action: () => copyText(channel.id) },
-            { label: "Channel Link", action: () => copyText(buildChannelPermalink(server.id, channel.id)) }
+            { label: "Channel Link", action: () => copyText(buildChannelPermalink(server.id, channel.id)) },
+            ...(showXmppRoomActions ? [{ label: "XMPP Room JID", action: () => copyText(xmppRoomBare) }] : [])
           ]
         },
         {
@@ -1864,14 +1917,29 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
   });
 
   const threadSortMode = getForumThreadSortMode(channel?.id);
+  const unreadOnly = isForumThreadUnreadOnly(channel?.id);
   let threadModels = topLevel.map((post) => {
     const replies = (repliesByThread.get(post.id) || []).slice().sort((a, b) => toTimestampMs(a.ts) - toTimestampMs(b.ts));
+    const latestTs = replies[replies.length - 1]?.ts || post.ts || new Date().toISOString();
     const latestTsMs = replies.reduce((maxTs, replyMessage) => Math.max(maxTs, toTimestampMs(replyMessage.ts)), toTimestampMs(post.ts));
     const postTagIds = normalizeThreadTagIds(post.forumTagIds, forumTags);
-    return { post, replies, latestTsMs, postTagIds };
+    const threadReadMs = toTimestampMs(getForumThreadReadTimestamp(channel?.id, post.id));
+    const effectiveReadMs = Math.max(channelLastReadMs, threadReadMs);
+    const unreadReplies = replies.reduce((count, replyMessage) => {
+      if (toTimestampMs(replyMessage.ts) <= effectiveReadMs) return count;
+      if (replyMessage.userId && replyMessage.userId === currentAccount?.id) return count;
+      return count + 1;
+    }, 0);
+    const postUnread = toTimestampMs(post.ts) > effectiveReadMs
+      && (!currentAccount?.id || post.userId !== currentAccount.id);
+    const unreadCount = unreadReplies + (postUnread ? 1 : 0);
+    return { post, replies, latestTsMs, latestTs, postTagIds, unreadCount, unreadReplies };
   });
   if (activeTagFilter.length > 0) {
     threadModels = threadModels.filter((entry) => activeTagFilter.some((tagId) => entry.postTagIds.includes(tagId)));
+  }
+  if (unreadOnly) {
+    threadModels = threadModels.filter((entry) => entry.unreadCount > 0);
   }
   threadModels.sort((a, b) => {
     if (threadSortMode === "created") return toTimestampMs(b.post.ts) - toTimestampMs(a.post.ts);
@@ -1893,6 +1961,17 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       renderMessages();
     });
     toolbar.appendChild(sortBtn);
+
+    const unreadBtn = document.createElement("button");
+    unreadBtn.type = "button";
+    unreadBtn.className = "forum-thread-toolbar__btn";
+    unreadBtn.textContent = unreadOnly ? "Unread only: On" : "Unread only: Off";
+    unreadBtn.addEventListener("click", () => {
+      setForumThreadUnreadOnly(channel?.id, !unreadOnly);
+      saveState();
+      renderMessages();
+    });
+    toolbar.appendChild(unreadBtn);
 
     const collapseAllBtn = document.createElement("button");
     collapseAllBtn.type = "button";
@@ -1975,11 +2054,13 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     empty.className = "channel-empty";
     empty.textContent = activeTagFilter.length > 0
       ? "No threads match selected tags."
+      : unreadOnly
+        ? "No unread threads right now."
       : "No forum posts yet. Start with a post title on the first line.";
     ui.messageList.appendChild(empty);
   }
 
-  threadModels.forEach(({ post, replies, postTagIds }) => {
+  threadModels.forEach(({ post, replies, postTagIds, latestTs, unreadCount, unreadReplies }) => {
     const postRow = document.createElement("article");
     postRow.className = "message message--forum message--forum-root";
     if (messageMatchesFindQuery(post, findQuery, "forum")) {
@@ -2045,15 +2126,36 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       postTagIds.forEach((tagId) => {
         const tag = forumTags.find((entry) => entry.id === tagId);
         if (!tag) return;
-        const chip = document.createElement("span");
-        chip.className = "forum-tag-pill";
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = `forum-tag-pill ${activeTagFilter.includes(tag.id) ? "active" : ""}`;
         chip.textContent = tag.name;
         chip.style.setProperty("--tag-color", tag.color || "#5865f2");
+        chip.title = `Filter by ${tag.name}`;
+        chip.addEventListener("click", (event) => {
+          event.stopPropagation();
+          toggleForumThreadTagFilter(channel?.id, tag.id);
+          saveState();
+          renderMessages();
+        });
         tagInline.appendChild(chip);
       });
       forumTitle.appendChild(tagInline);
     }
     postRow.appendChild(forumTitle);
+
+    const meta = document.createElement("div");
+    meta.className = "forum-thread-meta";
+    const replyLabel = replies.length === 0
+      ? "No replies yet"
+      : replies.length === 1
+        ? "1 reply"
+        : `${replies.length} replies`;
+    const relative = formatRelativeTimeAgoShort(latestTs);
+    const lastActivity = latestTs ? `Last activity ${relative || formatTime(latestTs)}` : "";
+    meta.textContent = [replyLabel, lastActivity].filter(Boolean).join(" • ");
+    if (latestTs) meta.title = `Last activity ${formatFullTimestamp(latestTs)}`;
+    postRow.appendChild(meta);
 
     if (postBodyText.trim()) {
       const text = document.createElement("div");
@@ -2119,18 +2221,13 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     bindMessageActionHoverState(postRow, postActions);
     postRow.appendChild(postActions);
 
-    const threadReadMs = toTimestampMs(getForumThreadReadTimestamp(channel?.id, post.id));
-    const effectiveReadMs = Math.max(channelLastReadMs, threadReadMs);
-    const unreadReplies = replies.reduce((count, replyMessage) => {
-      if (toTimestampMs(replyMessage.ts) <= effectiveReadMs) return count;
-      if (replyMessage.userId && replyMessage.userId === currentAccount?.id) return count;
-      return count + 1;
-    }, 0);
-    if (unreadReplies > 0) {
+    if (unreadCount > 0) {
       const unreadBadge = document.createElement("span");
       unreadBadge.className = "forum-thread-unread";
-      unreadBadge.textContent = unreadReplies > 99 ? "99+" : `${unreadReplies}`;
-      unreadBadge.title = `${unreadReplies} unread replies`;
+      unreadBadge.textContent = unreadCount > 99 ? "99+" : `${unreadCount}`;
+      unreadBadge.title = unreadReplies > 0
+        ? `${unreadCount} unread ${unreadCount === 1 ? "message" : "messages"}`
+        : "Unread thread post";
       forumTitle.appendChild(unreadBadge);
     }
     if (replies.length > 0) {

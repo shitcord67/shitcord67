@@ -632,6 +632,9 @@ const normalizeForumThreadSortMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.
 const normalizeForumThreadTagFilterMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadTagFilterMap === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadTagFilterMap
   : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeForumThreadUnreadOnlyMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadUnreadOnlyMap === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeForumThreadUnreadOnlyMap
+  : ((value) => (value && typeof value === "object" ? value : {}));
 const normalizeLastChannelByGuildMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeLastChannelByGuildMap === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeLastChannelByGuildMap
   : ((value) => (value && typeof value === "object" ? value : {}));

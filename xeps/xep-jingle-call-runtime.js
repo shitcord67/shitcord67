@@ -1180,6 +1180,28 @@ function toggleForumThreadTagFilter(channelId, tagId) {
   setForumThreadTagFilter(channelId, next);
 }
 
+function isForumThreadUnreadOnly(channelId) {
+  if (!channelId) return false;
+  const prefs = getPreferences();
+  return Boolean(prefs.forumThreadUnreadOnly?.[channelId]);
+}
+
+function setForumThreadUnreadOnly(channelId, enabled) {
+  if (!channelId) return;
+  state.preferences = getPreferences();
+  const current = state.preferences.forumThreadUnreadOnly || {};
+  if (!enabled) {
+    const next = { ...current };
+    delete next[channelId];
+    state.preferences.forumThreadUnreadOnly = next;
+    return;
+  }
+  state.preferences.forumThreadUnreadOnly = {
+    ...current,
+    [channelId]: true
+  };
+}
+
 function forumTagsForChannel(channel) {
   return normalizeForumTags(channel?.forumTags || []);
 }

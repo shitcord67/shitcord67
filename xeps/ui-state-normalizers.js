@@ -125,6 +125,15 @@
     }, {});
   }
 
+  function normalizeForumThreadUnreadOnlyMap(value) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [channelId, enabled]) => {
+      if (!channelId || !enabled) return acc;
+      acc[channelId] = true;
+      return acc;
+    }, {});
+  }
+
   function normalizeLastChannelByGuildMap(value) {
     if (!value || typeof value !== "object") return {};
     return Object.entries(value).reduce((acc, [guildId, channelId]) => {
@@ -303,6 +312,7 @@
     normalizeForumThreadReadStateMap,
     normalizeForumThreadSortMap,
     normalizeForumThreadTagFilterMap,
+    normalizeForumThreadUnreadOnlyMap,
     normalizeLastChannelByGuildMap,
     normalizeMediaDeviceId,
     normalizePlatformOverride,

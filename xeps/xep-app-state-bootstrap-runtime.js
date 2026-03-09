@@ -138,6 +138,7 @@ function buildInitialState() {
       forumThreadReadState: {},
       forumThreadSort: {},
       forumThreadTagFilter: {},
+      forumThreadUnreadOnly: {},
       collapsedChannelCategories: {},
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],

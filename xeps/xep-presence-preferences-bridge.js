@@ -198,6 +198,10 @@ function normalizeForumThreadTagFilterMap(value) {
   return normalizeForumThreadTagFilterMapViaModule(value);
 }
 
+function normalizeForumThreadUnreadOnlyMap(value) {
+  return normalizeForumThreadUnreadOnlyMapViaModule(value);
+}
+
 function normalizeLastChannelByGuildMap(value) {
   return normalizeLastChannelByGuildMapViaModule(value);
 }
@@ -355,6 +359,7 @@ function getPreferences() {
     forumThreadReadState: normalizeForumThreadReadStateMap(current.forumThreadReadState),
     forumThreadSort: normalizeForumThreadSortMap(current.forumThreadSort),
     forumThreadTagFilter: normalizeForumThreadTagFilterMap(current.forumThreadTagFilter),
+    forumThreadUnreadOnly: normalizeForumThreadUnreadOnlyMap(current.forumThreadUnreadOnly),
     mediaPrivacyMode: normalizeMediaPrivacyMode(current.mediaPrivacyMode),
     mediaTrustRules: normalizeMediaTrustRules(current.mediaTrustRules),
     mediaDenyRules: normalizeMediaDenyRules(current.mediaDenyRules),
