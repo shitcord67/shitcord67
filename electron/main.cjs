@@ -1028,22 +1028,22 @@ function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow
     if (windowInstance.webContents.isDevToolsOpened()) {
       windowInstance.webContents.closeDevTools();
     } else {
-      // Prefer detached DevTools first on Linux/runtime-constrained builds, then docked fallbacks.
+      // Prefer docked DevTools first to minimize extra-process pressure in constrained Linux runtimes.
       try {
-        windowInstance.webContents.openDevTools({ mode: "detach", activate: true });
-      } catch {
         windowInstance.webContents.openDevTools({ mode: "right", activate: true });
+      } catch {
+        windowInstance.webContents.openDevTools({ mode: "bottom", activate: true });
       }
       if (!windowInstance.webContents.isDevToolsOpened()) {
         try {
-          windowInstance.webContents.openDevTools({ mode: "undocked", activate: true });
+          windowInstance.webContents.openDevTools({ mode: "detach", activate: true });
         } catch {
           // ignore; handled below if still unavailable
         }
       }
       if (!windowInstance.webContents.isDevToolsOpened()) {
         try {
-          windowInstance.webContents.openDevTools({ mode: "bottom", activate: true });
+          windowInstance.webContents.openDevTools({ mode: "undocked", activate: true });
         } catch {
           // ignore; handled below if still unavailable
         }
