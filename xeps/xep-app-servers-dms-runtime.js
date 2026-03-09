@@ -309,6 +309,18 @@ function createChannelCategoryInGuild(guild, nameInput = "New Category") {
   return next;
 }
 
+function moveCategoryByOffset(guild, categoryId, delta) {
+  if (!guild || !categoryId || !Number.isFinite(delta) || delta === 0) return false;
+  const categories = ensureGuildChannelCategories(guild);
+  const from = categories.findIndex((entry) => entry.id === categoryId);
+  if (from < 0) return false;
+  const to = Math.max(0, Math.min(categories.length - 1, from + (delta > 0 ? 1 : -1)));
+  if (to === from) return false;
+  const [entry] = categories.splice(from, 1);
+  categories.splice(to, 0, entry);
+  return true;
+}
+
 function categoryCollapsePreferenceKey(guildId, categoryId) {
   return `${guildId || ""}:${categoryId || ""}`;
 }
@@ -346,12 +358,47 @@ function refreshCreateChannelCategoryOptions(preferredCategoryId = "") {
     option.textContent = entry.name;
     ui.channelCategoryInput.appendChild(option);
   });
+  const createOption = document.createElement("option");
+  createOption.value = "__create_category__";
+  createOption.textContent = "＋ Create category…";
+  ui.channelCategoryInput.appendChild(createOption);
   ui.channelCategoryInput.value = selected;
+}
+
+function bindCreateChannelCategoryPickerRuntime() {
+  if (!(ui.channelCategoryInput instanceof HTMLSelectElement)) return;
+  if (ui.channelCategoryInput.dataset.categoryPickerBound === "on") return;
+  ui.channelCategoryInput.dataset.categoryPickerBound = "on";
+  ui.channelCategoryInput.addEventListener("change", async () => {
+    if (ui.channelCategoryInput.value !== "__create_category__") return;
+    const guild = getActiveGuild();
+    if (!guild) {
+      ui.channelCategoryInput.value = "";
+      return;
+    }
+    const raw = await showInAppPromptDialog({
+      title: "Create category",
+      message: "Category name",
+      defaultValue: "Text Channels"
+    });
+    if (typeof raw !== "string") {
+      refreshCreateChannelCategoryOptions("");
+      return;
+    }
+    const created = createChannelCategoryInGuild(guild, raw);
+    if (!created) {
+      refreshCreateChannelCategoryOptions("");
+      return;
+    }
+    saveState();
+    refreshCreateChannelCategoryOptions(created.id);
+  });
 }
 
 function openCreateChannelDialog({ name = "", type = "text", categoryId = "" } = {}) {
   const guild = getActiveGuild();
   if (!guild || !(ui.createChannelDialog instanceof HTMLDialogElement)) return;
+  bindCreateChannelCategoryPickerRuntime();
   ui.channelNameInput.value = (name || "").toString();
   const allowedTypes = new Set(["text", "announcement", "forum", "media", "voice", "stage"]);
   ui.channelTypeInput.value = allowedTypes.has(type) ? type : "text";
@@ -1162,6 +1209,8 @@ function renderChannels() {
       });
       header.addEventListener("contextmenu", (event) => {
         const canManageChannels = canCurrentUser("manageChannels");
+        const orderedCategories = ensureGuildChannelCategories(server);
+        const indexInOrder = orderedCategories.findIndex((category) => category.id === entry.id);
         openContextMenu(event, [
           {
             label: "Create Channel",
@@ -1189,6 +1238,24 @@ function renderChannels() {
               });
               if (typeof raw !== "string") return;
               entry.name = sanitizeChannelCategoryName(raw, entry.name);
+              saveState();
+              renderChannels();
+            }
+          },
+          {
+            label: "Move Up",
+            disabled: !canManageChannels || indexInOrder <= 0,
+            action: () => {
+              if (!moveCategoryByOffset(server, entry.id, -1)) return;
+              saveState();
+              renderChannels();
+            }
+          },
+          {
+            label: "Move Down",
+            disabled: !canManageChannels || indexInOrder < 0 || indexInOrder >= (orderedCategories.length - 1),
+            action: () => {
+              if (!moveCategoryByOffset(server, entry.id, 1)) return;
               saveState();
               renderChannels();
             }

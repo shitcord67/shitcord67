@@ -197,6 +197,7 @@ Notes:
 - Guild channels with unread messages show a sticky unread banner with quick `Mark read` and `Jump` actions.
 - Chat header includes `Next Unread` with live unread-channel count and quick jump behavior.
 - Channel categories with collapse state, category-level context actions, and per-channel move-to-category support.
+- Category management improvements: modal `Create category…`, category reorder actions, plus `/categories` and `/movecategory`.
 - Added floating `Jump to present` button when scrolled up, including count of messages below viewport.
 - Message list rendering now preserves scroll position while history is still arriving, reducing flicker and forced auto-scroll.
 - Relay/XMPP history UI updates are batched to avoid repeated full rerenders during room sync.

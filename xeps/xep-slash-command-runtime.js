@@ -538,6 +538,30 @@ function handleSlashCommandRuntime(rawText, channel, account) {
     return true;
   }
 
+  if (command === "categories") {
+    const guild = getActiveGuild();
+    if (!guild) {
+      addSystemMessage(channel, "No active guild.");
+      return true;
+    }
+    const visibleChannels = (guild.channels || []).filter((entry) => canAccountViewChannel(guild, entry, account.id));
+    const categories = ensureGuildChannelCategories(guild);
+    if (categories.length === 0) {
+      const uncategorizedCount = visibleChannels.filter((entry) => !normalizeChannelCategoryIdForGuild(guild, entry.categoryId)).length;
+      addSystemMessage(channel, `No channel categories yet.${uncategorizedCount > 0 ? ` ${uncategorizedCount} visible channel(s) are uncategorized.` : ""}`);
+      return true;
+    }
+    const rows = categories.map((entry, index) => {
+      const collapsed = isGuildCategoryCollapsed(guild.id, entry.id);
+      const count = visibleChannels.filter((chan) => normalizeChannelCategoryIdForGuild(guild, chan.categoryId) === entry.id).length;
+      return `${index + 1}. ${collapsed ? "▸" : "▾"} ${entry.name} · ${count} channel${count === 1 ? "" : "s"} · id:${entry.id.slice(0, 8)}`;
+    });
+    const uncategorizedCount = visibleChannels.filter((entry) => !normalizeChannelCategoryIdForGuild(guild, entry.categoryId)).length;
+    if (uncategorizedCount > 0) rows.push(`• Uncategorized: ${uncategorizedCount}`);
+    addSystemMessage(channel, `Categories (${categories.length}):\n${rows.join("\n")}`);
+    return true;
+  }
+
   if (command === "channeltypes") {
     const guild = getActiveGuild();
     if (!guild) {
@@ -903,6 +927,55 @@ function handleSlashCommandRuntime(rawText, channel, account) {
     saveState();
     renderChannels();
     addSystemMessage(channel, `Created category: ${created.name}`);
+    return true;
+  }
+
+  if (command === "movecategory") {
+    if (!canCurrentUser("manageChannels")) {
+      notifyPermissionDenied("Manage Channels");
+      return true;
+    }
+    const guild = getActiveGuild();
+    if (!guild) return true;
+    const pieces = (arg || "").split(/\s+/).filter(Boolean);
+    if (pieces.length < 2) {
+      addSystemMessage(channel, "Usage: /movecategory <name|id> <up|down|top|bottom>");
+      return true;
+    }
+    const direction = (pieces[pieces.length - 1] || "").toLowerCase();
+    if (!["up", "down", "top", "bottom"].includes(direction)) {
+      addSystemMessage(channel, "Usage: /movecategory <name|id> <up|down|top|bottom>");
+      return true;
+    }
+    const token = pieces.slice(0, -1).join(" ").trim().toLowerCase();
+    const categories = ensureGuildChannelCategories(guild);
+    if (categories.length === 0) {
+      addSystemMessage(channel, "This guild has no categories.");
+      return true;
+    }
+    const target = categories.find((entry) => entry.id.toLowerCase() === token)
+      || categories.find((entry) => entry.id.toLowerCase().startsWith(token))
+      || categories.find((entry) => entry.name.toLowerCase() === token)
+      || categories.find((entry) => entry.name.toLowerCase().startsWith(token));
+    if (!target) {
+      addSystemMessage(channel, "Category not found.");
+      return true;
+    }
+    let moved = false;
+    if (direction === "up") moved = moveCategoryByOffset(guild, target.id, -1);
+    else if (direction === "down") moved = moveCategoryByOffset(guild, target.id, 1);
+    else if (direction === "top") {
+      while (moveCategoryByOffset(guild, target.id, -1)) moved = true;
+    } else if (direction === "bottom") {
+      while (moveCategoryByOffset(guild, target.id, 1)) moved = true;
+    }
+    if (!moved) {
+      addSystemMessage(channel, "Category already at requested position.");
+      return true;
+    }
+    saveState();
+    renderChannels();
+    addSystemMessage(channel, `Moved category ${target.name} ${direction}.`);
     return true;
   }
 
