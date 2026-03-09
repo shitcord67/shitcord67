@@ -583,6 +583,7 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 ## Debugging
 - Open browser DevTools and inspect `localStorage` key `shitcord67-state-v1`.
 - Clear/reset state by deleting `shitcord67-state-v1` (or old `flashcord-state-v2` / `flashcord-state-v1`) and refreshing.
+- Linux/Electron DevTools require at least one writable shared-memory path (`/dev/shm` or `/tmp` depending on `S67_LINUX_SHM_MODE`). If both are unavailable in your namespace/container, DevTools toggle is blocked with an explicit runtime warning.
 
 ## Ruffle Save Notes
 - In browser mode, SWF save data is stored by the browser in site storage/local storage (not as normal files on disk).

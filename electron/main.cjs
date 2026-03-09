@@ -980,11 +980,34 @@ function notifyDevtoolsUnavailable(windowInstance, reason = "") {
   }
 }
 
+function devtoolsShmAvailabilityReason() {
+  if (process.platform !== "linux") return "";
+  const tmpOk = canAccessDir("/tmp");
+  const shmOk = canAccessDir("/dev/shm");
+  const usesTmpShmFallback = app.commandLine.hasSwitch("disable-dev-shm-usage");
+  if (!tmpOk && !shmOk) {
+    return "DevTools unavailable: neither /tmp nor /dev/shm is writable/accessible in this runtime environment.";
+  }
+  if (usesTmpShmFallback && !tmpOk) {
+    return "DevTools unavailable: Chromium is configured to use /tmp for shared memory, but /tmp is not writable/accessible.";
+  }
+  if (!usesTmpShmFallback && !shmOk) {
+    return "DevTools unavailable: Chromium is configured to use /dev/shm for shared memory, but /dev/shm is not writable/accessible.";
+  }
+  return "";
+}
+
 function toggleDevtoolsForWindow(windowInstance = BrowserWindow.getFocusedWindow() || mainWindow, { dedupeMs = 900 } = {}) {
   const now = Date.now();
   if (dedupeMs > 0 && now - lastDevtoolsToggleAt < dedupeMs) return true;
   if (!windowInstance || windowInstance.isDestroyed?.()) return false;
   if (!windowInstance.webContents || windowInstance.webContents.isDestroyed?.()) return false;
+  const shmReason = devtoolsShmAvailabilityReason();
+  if (shmReason) {
+    log("devtools shared-memory preflight failed", shmReason);
+    notifyDevtoolsUnavailable(windowInstance, shmReason);
+    return false;
+  }
   let runtimeTempDir = app.getPath("temp") || process.env.TMPDIR || process.env.TMP || process.env.TEMP || "/tmp";
   if (process.platform === "linux" && !canAccessDir(runtimeTempDir)) {
     const fallbackDir = resolveWritableRuntimeDir();

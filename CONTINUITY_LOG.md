@@ -8071,3 +8071,14 @@ Also can you really investigate on why I can't open devtools at all? [3063059:03
 [2258528:0309/135050.178924:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.wZqsTf failed: No such file or directory (2)
 [2258528:0309/135050.179002:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such file or directory (2)
 Why do develoepr tools not work, even when accessing via Alt → View?
+[2026-03-09T21:24:02Z] [414818:0309/222323.348682:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.RXRd3Q failed: No such file or directory (2)
+[414818:0309/222323.348786:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such file or directory (2)
+[414818:0309/222323.348811:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try sudo
+[chmod] 1777
+[/dev/shm to fix.
+[415224:0309/222329.076907:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.zasbRP failed: No such file or directory (2)
+[415224:0309/222329.077008:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such file or directory (2)
+[415224:0309/222329.077040:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try sudo] chmod
+[1777] /dev/shm to fix.
+[2026-03-09T21:27:58Z] [433021:0309/222721.941886:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /tmp/.org.chromium.Chromium.xvvm1c failed: No such file or directory (2)
+[433021:0309/222721.941983:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /tmp: No such file or directory (2)
