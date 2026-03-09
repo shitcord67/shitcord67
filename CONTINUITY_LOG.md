@@ -8192,3 +8192,5 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
   download.igniterealtime.org/smack/dailybuilds/documentation/extensions/omemo.html https://github.com/mierenhoop/picomemo https://shibe-bit.github.io/Guides/OmemoClient
 
 [2026-03-10T00:10:00.294177+01:00] > Yeah it you think if that all makes sense. Also if you are really done with heavily investigating dino then please investigate movim and fix calling with that.
+
+[2026-03-10T00:16:55.778276+01:00] Can you fix that on Android storage permissions are not asked for?

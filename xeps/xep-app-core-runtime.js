@@ -1406,10 +1406,13 @@ async function ensureNativeFilesystemPermissions({
     const status = await fs.checkPermissions();
     const current = (status?.publicStorage || "").toString().toLowerCase();
     if (current === "granted") return true;
-    // On newer Android versions, app-scoped Documents access can work without
-    // a grantable runtime storage permission toggle/dialog.
-    if (await canAccessNativeDocumentsStorage(fs)) return true;
-    if (!prompt || typeof fs.requestPermissions !== "function") return false;
+    if (!prompt) {
+      // On newer Android versions, app-scoped Documents access can work without
+      // a grantable runtime storage permission toggle/dialog.
+      if (await canAccessNativeDocumentsStorage(fs)) return true;
+      return false;
+    }
+    if (typeof fs.requestPermissions !== "function") return false;
     const requested = await fs.requestPermissions();
     const next = (requested?.publicStorage || "").toString().toLowerCase();
     if (next === "granted") return true;
