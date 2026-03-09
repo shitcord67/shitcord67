@@ -327,6 +327,9 @@ Notes:
 - Jingle `content-modify` updates now derive content-name fallbacks from active local SDP when remote content catalogs are missing, improving strict-peer compatibility.
 - Outbound Jingle `session-initiate`/`session-accept` now run SDP transport compatibility checks (ICE creds + DTLS fingerprints per media) with explicit diagnostics/warnings when fields are missing.
 - Outbound `content-modify` updates can now include richer SDP-derived media detail (payload/feedback/transport when available) instead of media-only stubs, improving strict-client interop.
+- Outgoing DM native-call proposals now avoid duplicate bare-JID sends when a full-resource target succeeds, reducing multi-resource `reject/proceed` races with Dino/Movim mixes.
+- Audio-only Dino-targeted native calls now prefer full SDP-derived RTP descriptions over sparse minimal fallback payloads.
+- Native `session-accept` now aborts early when no local outgoing media track is attached, preventing half-open “accepted but silent” call states.
 - Native XMPP call surface now includes in-call whiteboard actions (`Whiteboard`, `Post WB`) that resolve/post against the call session’s bound DM/channel conversation context.
 - Compact native-call message tiles now also include whiteboard quick actions (`WB`, `Post WB`) for faster in-conversation collaboration flow.
 - The in-surface `Debug` dialog now provides per-session force actions (`Force Re-prime`, `Force Transport`, `Force Terminate`) and copyable structured session snapshots for interop troubleshooting.

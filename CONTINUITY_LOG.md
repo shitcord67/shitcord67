@@ -8087,3 +8087,4 @@ Why do develoepr tools not work, even when accessing via Alt → View?
 [2026-03-09T21:47:50Z] I noticed when it broke. git diff 57ef2a57c77cfd46ccbf3a1dfd965c9ac22f335c f9de24194670f1fa191682e77138895f5139549c
 [$ts] Well couldn't you basically change it back so no flag or environment variable is needed for the devtools?
 [2026-03-09T21:49:32Z] Well couldn't you basically change it back so no flag or environment variable is needed for the devtools?
+[2026-03-09T22:12:45Z] Yes

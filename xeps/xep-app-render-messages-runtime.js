@@ -92,6 +92,15 @@ function parseLinkMetaFromHtml(html = "") {
 async function fetchLinkEmbedMeta(url = "") {
   const normalized = (url || "").toString().trim();
   if (!normalized) return null;
+  try {
+    const parsed = new URL(normalized);
+    const host = (parsed.hostname || "").toLowerCase();
+    // Conference-room pages commonly block cross-origin metadata fetches (CORS), which
+    // creates noisy console errors without improving the message card.
+    if (host === "meet.jit.si" || host.endsWith(".meet.jit.si")) return null;
+  } catch {
+    // Keep existing fallback behavior for non-URL strings.
+  }
   const cached = messageLinkEmbedMetaCache.get(normalized);
   if (cached && Number(cached.expiresAt) > Date.now()) return cached.value;
   if (messageLinkEmbedMetaInFlight.has(normalized)) {

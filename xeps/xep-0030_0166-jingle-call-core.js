@@ -1122,14 +1122,14 @@ function xmppStartOutgoingCallProposal({
     fallbackBody: "Incoming XMPP call invite."
   });
   const targetIsFull = target.includes("/");
-  const sentJmiBare = targetIsFull
+  const sentJmiBare = targetIsFull && !sentJmiPrimary
     ? xmppSendJingleMessageAction(peerBare, "propose", {
       sessionId,
       media: offeredMedia,
       preferFull: false
     })
     : false;
-  const sentCallInviteBare = targetIsFull
+  const sentCallInviteBare = targetIsFull && !sentCallInvitePrimary
     ? xmppSendCallInviteAction(peerBare, "invite", {
       sessionId,
       audio: offeredMedia.includes("audio"),

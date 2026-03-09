@@ -1201,6 +1201,39 @@
         attached
       });
     }
+    const senderKinds = new Set(
+      Array.isArray(entry?.pc?.getSenders?.())
+        ? entry.pc.getSenders()
+          .map((sender) => (sender?.track?.kind || "").toString().trim().toLowerCase())
+          .filter((kind) => kind === "audio" || kind === "video")
+        : []
+    );
+    const effectiveMedias = medias.filter((kind) => senderKinds.has(kind));
+    if (effectiveMedias.length === 0) {
+      if (typeof addXmppDebugEventFn === "function") {
+        addXmppDebugEventFn("error", "Refusing session-accept without local outgoing media tracks", {
+          sid,
+          to,
+          requestedMedia: medias,
+          attached
+        });
+      }
+      if (typeof notifyUserFn === "function") {
+        notifyUserFn("Cannot accept native XMPP call: local media capture is unavailable.", {
+          tone: "error",
+          duration: 3200
+        });
+      }
+      if (typeof onError === "function") onError(new Error("local_media_unavailable"));
+      return false;
+    }
+    if (effectiveMedias.length !== medias.length && typeof addXmppDebugEventFn === "function") {
+      addXmppDebugEventFn("call", "Session-accept media reduced to available local tracks", {
+        sid,
+        requestedMedia: medias,
+        effectiveMedia: effectiveMedias
+      });
+    }
     const localSdp = entry?.pc?.localDescription?.sdp || "";
     const localTransport = (typeof parseIceCredsFromSdpFn === "function" ? parseIceCredsFromSdpFn(localSdp) : null)
       || (sessionEntry?.localTransport && typeof sessionEntry.localTransport === "object"
@@ -1213,7 +1246,7 @@
         : null);
     xmppValidateLocalSdpForJingle(localSdp, {
       sid,
-      medias,
+      medias: effectiveMedias,
       localRole: "responder",
       buildJingleContentsFromSdpFn
     }, {
@@ -1227,14 +1260,14 @@
       ? alignLocalJingleContentsToRemoteSessionFn(rawContents, sessionEntry?.remoteContents || [])
       : rawContents;
     if (sessionEntry) {
-      sessionEntry.media = medias;
+      sessionEntry.media = effectiveMedias;
     }
     const sentContents = [];
     if (useMinimalRtp && typeof addXmppDebugEventFn === "function") {
       addXmppDebugEventFn("call", "Using minimal RTP description for session-accept", {
         sid,
         to,
-        media: medias
+        media: effectiveMedias
       });
     }
     if (contents.length > 0) {
@@ -1271,7 +1304,7 @@
       xmppBuildJingleBundleGroup(iq, contentNames, deps);
     } else {
       const contentNames = [];
-      medias.forEach((mediaType) => {
+      effectiveMedias.forEach((mediaType) => {
         const contentName = mediaType.toString();
         sentContents.push({
           name: contentName,
@@ -1302,7 +1335,7 @@
       iq,
       () => {
         if (typeof addXmppDebugEventFn === "function") {
-          addXmppDebugEventFn("iq", "Sent XMPP jingle session-accept", { to, sid, media: medias.join(",") });
+          addXmppDebugEventFn("iq", "Sent XMPP jingle session-accept", { to, sid, media: effectiveMedias.join(",") });
         }
         if (typeof onSuccess === "function") onSuccess();
       },
@@ -1320,7 +1353,7 @@
               });
             }
             void xmppSendJingleSessionAccept(retryTo, sid, {
-              media: medias,
+              media: effectiveMedias,
               screenShare: Boolean(screenShare),
               onSuccess,
               onError,

@@ -132,7 +132,9 @@
 - [done] Added in-call source pickers: Electron display/window chooser for screenshare and camera picker with live preview before apply.
 - [done] Fixed native call device preference writes crashing (`callAudioOutputId`) by hardening mutable preference state updates in call UI controls.
 - [done] Improved cross-client Jingle interop by preserving negotiated content creator in `content-modify` and limiting `transport-info` targets to negotiated remote contents.
-- [done] Outgoing DM native call proposals now dual-send to full and bare JID targets for better multi-resource client interoperability (Movim/Dino mixes).
+- [done] Outgoing DM native call proposals now prefer full-resource targets and only fall back to bare JID when the full-target send fails, reducing multi-resource reject/proceed races.
+- [done] Audio-only Dino-targeted calls now avoid sparse minimal-RTP Jingle fallback and keep richer SDP-derived RTP descriptions.
+- [done] Incoming native call accept now refuses to send `session-accept` when no local outgoing media track is attached (prevents silent half-open sessions).
 - [done] Hardened webcam privacy defaults in native calls: camera tracks now start disabled and enabling camera opens picker-first flow.
 - [done] Added explicit screen-share audio controls (system/tab audio + optional mic mix) with persisted preferences and runtime capture wiring.
 - [done] Added live in-session camera device track replacement (camera-mode swap without full local media teardown; screen-share mode defers camera apply).

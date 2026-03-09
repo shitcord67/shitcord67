@@ -269,6 +269,8 @@
   }
 
   function xmppShouldUseMinimalRtpForPeer(peerJid = "", media = ["audio", "video"], deps = {}) {
+    const targetToken = (peerJid || "").toString().trim().toLowerCase();
+    const dinoResource = targetToken.includes("/dino.");
     const normalizedMedia = [...new Set(
       (Array.isArray(media) ? media : ["audio", "video"])
         .map((item) => (item || "").toString().trim().toLowerCase())
@@ -286,7 +288,12 @@
     const mediaMismatch = normalizedMedia.some((item) => (
       (item === "audio" && !supportsAudio) || (item === "video" && !supportsVideo)
     ));
-    return mediaMismatch || !hasRtpFb || !hasHdrExt || !hasSsma;
+    if (mediaMismatch) return true;
+    // For audio-only calls (especially Dino full-JID targets), full RTP payload descriptions
+    // interoperate better than sparse fallback payloads.
+    if (!normalizedMedia.includes("video")) return false;
+    if (dinoResource && normalizedMedia.length === 1 && normalizedMedia[0] === "audio") return false;
+    return !hasRtpFb || !hasHdrExt || !hasSsma;
   }
 
   async function xmppAssessConversationCallInterop(conversation = null, { force = false } = {}, deps = {}) {
