@@ -156,9 +156,22 @@ function renderServers() {
                 action: () => {
                   state.activeGuildId = server.id;
                   state.activeChannelId = getFirstOpenableChannelIdForGuild(server);
-                  ui.channelNameInput.value = "";
-                  ui.channelTypeInput.value = "text";
-                  ui.createChannelDialog.showModal();
+                  openCreateChannelDialog();
+                }
+              },
+              {
+                label: "Create Category",
+                action: async () => {
+                  const raw = await showInAppPromptDialog({
+                    title: "Create category",
+                    message: "Category name",
+                    defaultValue: "Text Channels"
+                  });
+                  if (typeof raw !== "string") return;
+                  const next = createChannelCategoryInGuild(server, raw);
+                  if (!next) return;
+                  saveState();
+                  renderChannels();
                 }
               }
             ]
@@ -252,6 +265,99 @@ function renderServers() {
   state.guilds
     .filter((guild) => !folderGuildIds.has(guild.id) && isGuildVisible(guild))
     .forEach((guild) => renderGuildButton(guild));
+}
+
+function sanitizeChannelCategoryName(nameInput, fallback = "New Category") {
+  const cleaned = (nameInput || "").toString().replace(/\s+/g, " ").trim().slice(0, 32);
+  return cleaned || fallback;
+}
+
+function ensureGuildChannelCategories(guild) {
+  if (!guild || typeof guild !== "object") return [];
+  const source = Array.isArray(guild.channelCategories) ? guild.channelCategories : [];
+  const seen = new Set();
+  const normalized = [];
+  source.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const id = (entry.id || "").toString().trim() || createId();
+    if (seen.has(id)) return;
+    seen.add(id);
+    normalized.push({
+      id,
+      name: sanitizeChannelCategoryName(entry.name || "Category")
+    });
+  });
+  guild.channelCategories = normalized;
+  return guild.channelCategories;
+}
+
+function normalizeChannelCategoryIdForGuild(guild, categoryId) {
+  const token = (categoryId || "").toString().trim();
+  if (!token || !guild) return "";
+  const categories = ensureGuildChannelCategories(guild);
+  return categories.some((entry) => entry.id === token) ? token : "";
+}
+
+function createChannelCategoryInGuild(guild, nameInput = "New Category") {
+  if (!guild) return null;
+  const categories = ensureGuildChannelCategories(guild);
+  const next = {
+    id: createId(),
+    name: sanitizeChannelCategoryName(nameInput)
+  };
+  categories.push(next);
+  return next;
+}
+
+function categoryCollapsePreferenceKey(guildId, categoryId) {
+  return `${guildId || ""}:${categoryId || ""}`;
+}
+
+function isGuildCategoryCollapsed(guildId, categoryId) {
+  if (!guildId || !categoryId) return false;
+  const prefs = getPreferences();
+  return prefs.collapsedChannelCategories?.[categoryCollapsePreferenceKey(guildId, categoryId)] === "on";
+}
+
+function setGuildCategoryCollapsed(guildId, categoryId, collapsed) {
+  if (!guildId || !categoryId) return;
+  state.preferences = getPreferences();
+  if (!state.preferences.collapsedChannelCategories || typeof state.preferences.collapsedChannelCategories !== "object") {
+    state.preferences.collapsedChannelCategories = {};
+  }
+  const key = categoryCollapsePreferenceKey(guildId, categoryId);
+  if (collapsed) state.preferences.collapsedChannelCategories[key] = "on";
+  else delete state.preferences.collapsedChannelCategories[key];
+}
+
+function refreshCreateChannelCategoryOptions(preferredCategoryId = "") {
+  if (!(ui.channelCategoryInput instanceof HTMLSelectElement)) return;
+  const guild = getActiveGuild();
+  const categories = ensureGuildChannelCategories(guild);
+  const selected = normalizeChannelCategoryIdForGuild(guild, preferredCategoryId || ui.channelCategoryInput.value || "");
+  ui.channelCategoryInput.innerHTML = "";
+  const root = document.createElement("option");
+  root.value = "";
+  root.textContent = "No category";
+  ui.channelCategoryInput.appendChild(root);
+  categories.forEach((entry) => {
+    const option = document.createElement("option");
+    option.value = entry.id;
+    option.textContent = entry.name;
+    ui.channelCategoryInput.appendChild(option);
+  });
+  ui.channelCategoryInput.value = selected;
+}
+
+function openCreateChannelDialog({ name = "", type = "text", categoryId = "" } = {}) {
+  const guild = getActiveGuild();
+  if (!guild || !(ui.createChannelDialog instanceof HTMLDialogElement)) return;
+  ui.channelNameInput.value = (name || "").toString();
+  const allowedTypes = new Set(["text", "announcement", "forum", "media", "voice", "stage"]);
+  ui.channelTypeInput.value = allowedTypes.has(type) ? type : "text";
+  refreshCreateChannelCategoryOptions(categoryId);
+  ui.createChannelDialog.showModal();
+  queueMicrotask(() => ui.channelNameInput?.focus?.());
 }
 
 function currentDmHomeTab() {
@@ -667,13 +773,26 @@ function renderChannels() {
     ui.createChannelBtn.title = canManage ? "Create channel" : "Manage Channels permission required";
   }
   if (!currentAccount) return;
+  const channelCategories = ensureGuildChannelCategories(server);
+  const categoryLabelMatches = new Set(
+    channelCategories
+      .filter((entry) => !filter || entry.name.toLowerCase().includes(filter))
+      .map((entry) => entry.id)
+  );
   const visibleChannels = server.channels
     .filter((channel) => canAccountViewChannel(server, channel, currentAccount.id))
     .filter((channel) => !hideNonXmpp || isXmppBackedChannel(channel));
+  visibleChannels.forEach((channel) => {
+    channel.categoryId = normalizeChannelCategoryIdForGuild(server, channel.categoryId);
+  });
   if (!visibleChannels.some((entry) => entry.id === state.activeChannelId)) {
     state.activeChannelId = visibleChannels[0]?.id || null;
   }
-  const channelsToRender = visibleChannels.filter((channel) => !filter || channel.name.toLowerCase().includes(filter));
+  const channelsToRender = visibleChannels.filter((channel) => (
+    !filter
+      || channel.name.toLowerCase().includes(filter)
+      || (channel.categoryId && categoryLabelMatches.has(channel.categoryId))
+  ));
   const renderChannelButton = (channel, { indent = 0 } = {}) => {
     const xmppBackedChannel = isXmppBackedChannel(channel);
     const xmppRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
@@ -867,6 +986,43 @@ function renderChannels() {
       if (canManageChannels) {
         menuItems.push(
           {
+            label: "Move To Category",
+            submenu: [
+              {
+                label: "No Category",
+                action: () => {
+                  channel.categoryId = "";
+                  saveState();
+                  renderChannels();
+                }
+              },
+              ...channelCategories.map((entry) => ({
+                label: entry.name,
+                action: () => {
+                  channel.categoryId = entry.id;
+                  saveState();
+                  renderChannels();
+                }
+              })),
+              {
+                label: "Create Category…",
+                action: async () => {
+                  const raw = await showInAppPromptDialog({
+                    title: "Create category",
+                    message: "Category name",
+                    defaultValue: "Text Channels"
+                  });
+                  if (typeof raw !== "string") return;
+                  const next = createChannelCategoryInGuild(server, raw);
+                  if (!next) return;
+                  channel.categoryId = next.id;
+                  saveState();
+                  renderChannels();
+                }
+              }
+            ]
+          },
+          {
             label: "Slowmode",
             submenu: [
               { label: "Off", action: () => { channel.slowmodeSec = 0; ensureChannelSlowmodeState(channel); saveState(); renderMessages(); } },
@@ -981,7 +1137,89 @@ function renderChannels() {
       || channel?.xmppSpaceName
     ));
   if (!shouldGroupXmppSpaces) {
-    channelsToRender.forEach((channel) => renderChannelButton(channel));
+    const byCategory = new Map(channelCategories.map((entry) => [entry.id, []]));
+    const uncategorized = [];
+    channelsToRender.forEach((channel) => {
+      const categoryId = normalizeChannelCategoryIdForGuild(server, channel.categoryId);
+      if (categoryId && byCategory.has(categoryId)) byCategory.get(categoryId).push(channel);
+      else uncategorized.push(channel);
+    });
+    uncategorized.forEach((channel) => renderChannelButton(channel));
+    channelCategories.forEach((entry) => {
+      const grouped = byCategory.get(entry.id) || [];
+      const matchesByLabel = categoryLabelMatches.has(entry.id);
+      if (grouped.length === 0 && !matchesByLabel) return;
+      const collapsed = isGuildCategoryCollapsed(server.id, entry.id);
+      const header = document.createElement("button");
+      header.type = "button";
+      header.className = "channel-category-header";
+      header.textContent = `${collapsed ? "▸" : "▾"} ${entry.name}`;
+      header.title = `${entry.name} category`;
+      header.addEventListener("click", () => {
+        setGuildCategoryCollapsed(server.id, entry.id, !collapsed);
+        saveState();
+        renderChannels();
+      });
+      header.addEventListener("contextmenu", (event) => {
+        const canManageChannels = canCurrentUser("manageChannels");
+        openContextMenu(event, [
+          {
+            label: "Create Channel",
+            disabled: !canManageChannels,
+            action: () => {
+              openCreateChannelDialog({ categoryId: entry.id });
+            }
+          },
+          {
+            label: collapsed ? "Expand Category" : "Collapse Category",
+            action: () => {
+              setGuildCategoryCollapsed(server.id, entry.id, !collapsed);
+              saveState();
+              renderChannels();
+            }
+          },
+          {
+            label: "Rename Category",
+            disabled: !canManageChannels,
+            action: async () => {
+              const raw = await showInAppPromptDialog({
+                title: "Rename category",
+                message: "Category name",
+                defaultValue: entry.name
+              });
+              if (typeof raw !== "string") return;
+              entry.name = sanitizeChannelCategoryName(raw, entry.name);
+              saveState();
+              renderChannels();
+            }
+          },
+          {
+            label: "Delete Category",
+            danger: true,
+            disabled: !canManageChannels,
+            action: async () => {
+              const confirmed = await showInAppConfirmDialog({
+                title: "Delete category",
+                message: `Move channels out of ${entry.name} and delete it?`,
+                confirmLabel: "Delete",
+                danger: true
+              });
+              if (!confirmed) return;
+              server.channelCategories = ensureGuildChannelCategories(server).filter((category) => category.id !== entry.id);
+              server.channels.forEach((channel) => {
+                if (channel.categoryId === entry.id) channel.categoryId = "";
+              });
+              setGuildCategoryCollapsed(server.id, entry.id, false);
+              saveState();
+              renderChannels();
+            }
+          }
+        ]);
+      });
+      ui.channelList.appendChild(header);
+      if (collapsed) return;
+      grouped.forEach((channel) => renderChannelButton(channel, { indent: 1 }));
+    });
     updateDocumentTitle();
     return;
   }

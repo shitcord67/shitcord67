@@ -868,10 +868,12 @@ function handleSlashCommandRuntime(rawText, channel, account) {
     const allowedTypes = new Set(["text", "announcement", "forum", "media", "voice", "stage"]);
     const type = allowedTypes.has(maybeType) ? maybeType : "text";
     const namePart = allowedTypes.has(maybeType) ? parts.slice(0, -1).join("-") : parts.join("-");
+    const categoryId = normalizeChannelCategoryIdForGuild(guild, channel?.categoryId || "");
     const next = {
       id: createId(),
       name: sanitizeChannelName(namePart, "new-channel"),
       type,
+      categoryId,
       topic: "",
       forumTags: [],
       permissionOverrides: {},
@@ -885,6 +887,22 @@ function handleSlashCommandRuntime(rawText, channel, account) {
     state.activeChannelId = next.id;
     saveState();
     render();
+    return true;
+  }
+
+  if (command === "newcategory") {
+    if (!canCurrentUser("manageChannels")) {
+      notifyPermissionDenied("Manage Channels");
+      return true;
+    }
+    const guild = getActiveGuild();
+    if (!guild) return true;
+    const name = sanitizeChannelCategoryName(arg || "New Category");
+    const created = createChannelCategoryInGuild(guild, name);
+    if (!created) return true;
+    saveState();
+    renderChannels();
+    addSystemMessage(channel, `Created category: ${created.name}`);
     return true;
   }
 

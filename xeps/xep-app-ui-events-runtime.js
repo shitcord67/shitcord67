@@ -1213,6 +1213,7 @@ ui.createServerForm.addEventListener("submit", (event) => {
     customDocs: [],
     customSwfs: [],
     customHtmls: [],
+    channelCategories: [],
     roles: [everyoneRole, adminRole],
     memberRoles,
     channels
@@ -1231,9 +1232,7 @@ ui.createChannelBtn.addEventListener("click", () => {
     notifyPermissionDenied("Manage Channels");
     return;
   }
-  ui.channelNameInput.value = "";
-  ui.channelTypeInput.value = "text";
-  ui.createChannelDialog.showModal();
+  openCreateChannelDialog();
 });
 
 ui.newDmBtn.addEventListener("click", () => {
@@ -1284,11 +1283,13 @@ ui.createChannelForm.addEventListener("submit", (event) => {
   const server = getActiveServer();
   if (!server) return;
   const nextType = ["text", "announcement", "forum", "media", "voice", "stage"].includes(ui.channelTypeInput.value) ? ui.channelTypeInput.value : "text";
+  const categoryId = normalizeChannelCategoryIdForGuild(server, ui.channelCategoryInput?.value || "");
 
   const channel = {
     id: createId(),
     name: sanitizeChannelName(ui.channelNameInput.value, "new-channel"),
     type: nextType,
+    categoryId,
     topic: "",
     forumTags: nextType === "forum" ? [] : [],
     permissionOverrides: {},
@@ -3228,9 +3229,7 @@ document.addEventListener("keydown", (event) => {
       return;
     }
     event.preventDefault();
-    ui.channelNameInput.value = "";
-    ui.channelTypeInput.value = "text";
-    ui.createChannelDialog.showModal();
+    openCreateChannelDialog();
     return;
   }
   if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {

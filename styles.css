@@ -770,6 +770,27 @@ body[data-hide-channel-panel="off"][data-hide-member-panel="on"] #chatScreen.scr
   padding: 0.2rem 0.5rem;
 }
 
+.channel-category-header {
+  width: 100%;
+  display: block;
+  text-align: left;
+  margin: 0.42rem 0 0.18rem;
+  padding: 0.16rem 0.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9199a7;
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.channel-category-header:hover {
+  background: rgba(78, 83, 91, 0.28);
+  color: #aeb6c4;
+}
+
 .channel-list--dm {
   margin-bottom: 0.35rem;
 }

@@ -52,6 +52,7 @@
 - Guild-scoped status override (separate from global status).
 - Custom status emoji + timed expiry presets (30m/1h/4h/today).
 - Channel type variants (text/announcement/forum/media) with distinct labels.
+- [done] Channel categories with collapse state, category context actions, and move-to-category channel controls.
 - DM search/quick switch via sidebar filter and Enter-to-open.
 - Nested context-menu submenus for grouped actions.
 - DM-only sidebar mode toggled via top `S67` button.

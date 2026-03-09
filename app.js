@@ -644,6 +644,7 @@ function duplicateChannelInGuild(guild, channel) {
     id: createId(),
     name: sanitizeChannelName(`${channel.name || "channel"}-copy`, "channel-copy"),
     type: channel.type || "text",
+    categoryId: (channel.categoryId || "").toString().trim(),
     topic: (channel.topic || "").toString(),
     forumTags,
     permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, getServerRoles(guild).map((role) => role.id)),

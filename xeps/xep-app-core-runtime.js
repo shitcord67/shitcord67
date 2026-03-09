@@ -1024,6 +1024,7 @@ const ui = {
   createChannelForm: document.getElementById("createChannelForm"),
   channelNameInput: document.getElementById("channelNameInput"),
   channelTypeInput: document.getElementById("channelTypeInput"),
+  channelCategoryInput: document.getElementById("channelCategoryInput"),
   channelCancel: document.getElementById("channelCancel"),
   topicDialog: document.getElementById("topicDialog"),
   topicForm: document.getElementById("topicForm"),

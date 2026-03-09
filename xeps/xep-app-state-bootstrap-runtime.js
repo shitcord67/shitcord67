@@ -13,6 +13,7 @@ function buildStarterChannels(template, accountId) {
     id: createId(),
     name,
     type,
+    categoryId: "",
     topic,
     forumTags: type === "forum" ? defaultForumTags.map((entry) => ({ ...entry })) : [],
     permissionOverrides: {},
@@ -59,6 +60,7 @@ function buildInitialState() {
         customTexts: [],
         customDocs: [],
         customSwfs: [],
+        channelCategories: [],
         roles: [everyoneRole],
         memberRoles: {},
         channels: [
@@ -66,6 +68,7 @@ function buildInitialState() {
             id: channelId,
             name: "general",
             type: "text",
+            categoryId: "",
             topic: "General discussion",
             forumTags: [],
             permissionOverrides: {},
@@ -135,6 +138,7 @@ function buildInitialState() {
       forumThreadReadState: {},
       forumThreadSort: {},
       forumThreadTagFilter: {},
+      collapsedChannelCategories: {},
       mediaPrivacyMode: "safe",
       mediaTrustRules: [],
       mediaDenyRules: [],
@@ -226,6 +230,28 @@ function normalizeCosmeticPurchases(raw) {
   return normalizeCosmeticPurchasesViaModule(raw);
 }
 
+function sanitizeStoredChannelCategoryName(nameInput, fallback = "Category") {
+  const cleaned = (nameInput || "").toString().replace(/\s+/g, " ").trim().slice(0, 32);
+  return cleaned || fallback;
+}
+
+function normalizeChannelCategories(raw) {
+  const source = Array.isArray(raw) ? raw : [];
+  const seen = new Set();
+  const normalized = [];
+  source.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const id = (entry.id || "").toString().trim() || createId();
+    if (seen.has(id)) return;
+    seen.add(id);
+    normalized.push({
+      id,
+      name: sanitizeStoredChannelCategoryName(entry.name || "Category")
+    });
+  });
+  return normalized;
+}
+
 function cosmeticById(id) {
   const token = (id || "").toString().trim();
   if (!token) return null;
@@ -294,6 +320,9 @@ function migrateState(raw) {
     if (!raw.preferences || typeof raw.preferences !== "object") {
       raw.preferences = buildInitialState().preferences;
     }
+    if (!raw.preferences.collapsedChannelCategories || typeof raw.preferences.collapsedChannelCategories !== "object") {
+      raw.preferences.collapsedChannelCategories = {};
+    }
     raw.accounts = raw.accounts.map((account) => ({
       ...account,
       guildProfiles: account && typeof account.guildProfiles === "object" ? { ...account.guildProfiles } : {},
@@ -348,6 +377,8 @@ function migrateState(raw) {
       const memberRoles = typeof guild.memberRoles === "object" && guild.memberRoles
         ? { ...guild.memberRoles }
         : {};
+      const channelCategories = normalizeChannelCategories(guild.channelCategories);
+      const channelCategoryIds = new Set(channelCategories.map((entry) => entry.id));
       (Array.isArray(guild.memberIds) ? guild.memberIds : []).forEach((memberId) => {
         if (!Array.isArray(memberRoles[memberId])) memberRoles[memberId] = [];
         if (!memberRoles[memberId].includes(everyoneId)) memberRoles[memberId].push(everyoneId);
@@ -365,6 +396,7 @@ function migrateState(raw) {
         customDocs: Array.isArray(guild.customDocs) ? guild.customDocs : [],
         customSwfs: Array.isArray(guild.customSwfs) ? guild.customSwfs : [],
         customHtmls: Array.isArray(guild.customHtmls) ? guild.customHtmls : [],
+        channelCategories,
         memberIds: Array.isArray(guild.memberIds) ? guild.memberIds : [],
         roles,
         memberRoles,
@@ -375,6 +407,9 @@ function migrateState(raw) {
               return {
                 ...channel,
                 type,
+                categoryId: channelCategoryIds.has((channel.categoryId || "").toString().trim())
+                  ? (channel.categoryId || "").toString().trim()
+                  : "",
                 topic: typeof channel.topic === "string" ? channel.topic : "",
                 forumTags,
                 permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, roles.map((role) => role.id)),
@@ -465,6 +500,8 @@ function migrateState(raw) {
       if (account) memberIds.push(account.id);
       const memberRoles = {};
       if (account) memberRoles[account.id] = [everyoneRole.id];
+      const channelCategories = normalizeChannelCategories(guild.channelCategories);
+      const channelCategoryIds = new Set(channelCategories.map((entry) => entry.id));
       const channels = Array.isArray(guild.channels) && guild.channels.length > 0
         ? guild.channels.map((channel) => {
             const messages = Array.isArray(channel.messages)
@@ -486,6 +523,9 @@ function migrateState(raw) {
               id: channel.id || createId(),
               name: channel.name || "general",
               type,
+              categoryId: channelCategoryIds.has((channel.categoryId || "").toString().trim())
+                ? (channel.categoryId || "").toString().trim()
+                : "",
               topic: "",
               forumTags,
               permissionOverrides: normalizeChannelPermissionOverrides(channel.permissionOverrides, [everyoneRole.id]),
@@ -524,6 +564,7 @@ function migrateState(raw) {
         customDocs: [],
         customSwfs: [],
         customHtmls: [],
+        channelCategories,
         memberIds,
         roles: [everyoneRole],
         memberRoles,
