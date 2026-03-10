@@ -2500,6 +2500,15 @@ body[data-mobile="on"] .reaction-picker button {
   transition: padding-bottom 120ms ease-out;
 }
 
+body[data-platform="android"] .composer-stack {
+  --composer-base-bottom: 1.25rem;
+  padding-bottom: calc(
+    var(--composer-base-bottom)
+    + max(calc(var(--android-safe-extra-bottom) * 0.7), var(--runtime-ime-offset))
+    + 6px
+  );
+}
+
 .composer-stack--collapsed #messageForm,
 .composer-stack--collapsed #composerReplyBar,
 .composer-stack--collapsed #composerAttachmentBar,
