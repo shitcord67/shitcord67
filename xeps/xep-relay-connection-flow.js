@@ -2089,8 +2089,12 @@ function connectRelaySocket({ force = false } = {}) {
           ensureXmppCsiSignalBindings();
           enableXmppCarbons(xmppConnection);
           const ownBare = xmppBareJid(getPreferences().xmppJid || "");
-          if (ownBare && xmppOmemoRuntimeAvailable()) {
-            void xmppOmemoEnsureOwnBundle(ownBare, { force: false });
+          if (ownBare) {
+            void ensureXmppOmemoRuntime().then(() => {
+              if (xmppOmemoRuntimeAvailable()) {
+                void xmppOmemoEnsureOwnBundle(ownBare, { force: false });
+              }
+            });
           }
           startXmppPingLoop(xmppConnection);
           const initialRoom = relayRoomForActiveConversation();

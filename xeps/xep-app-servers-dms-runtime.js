@@ -967,13 +967,22 @@ function renderChannels() {
               action: () => {
                 const current = getCurrentAccount();
                 if (!current || !xmppRoomBare) return;
-                const ok = xmppJoined
-                  ? leaveXmppRoom(xmppRoomBare, current)
-                  : joinXmppRoom(xmppRoomBare, current);
-                if (!ok) {
-                  showToast(xmppJoined ? "Failed to leave room." : "Failed to join room.", { tone: "error" });
+                if (xmppJoined) {
+                  const result = handleLeaveXmppCommand(xmppRoomBare, current);
+                  if (!result?.ok) {
+                    showToast("Failed to leave room.", { tone: "error" });
+                    return;
+                  }
+                  renderServers();
+                  renderChannels();
                   return;
                 }
+                const result = handleJoinXmppCommand(xmppRoomBare, current, { focus: false });
+                if (!result?.ok) {
+                  showToast("Failed to join room.", { tone: "error" });
+                  return;
+                }
+                renderServers();
                 renderChannels();
               }
             },

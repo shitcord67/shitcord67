@@ -1792,24 +1792,33 @@ function xmppOmemoTryDecryptIntoMessage({
   ownBare,
   onUpdated
 }) {
-  xmppOmemoTryDecryptIntoMessageCore({
-    stanza,
-    message,
-    peerBare,
-    ownBare,
-    onUpdated,
-    runtimeAvailableFn: xmppOmemoRuntimeAvailable,
-    parseEncryptedPayloadFn: xmppOmemoParseEncryptedPayload,
-    decryptPayloadFn: xmppOmemoDecryptPayload,
-    extractAesgcmUrlsFn: extractAesgcmUrls,
-    stripAesgcmUrlsFn: stripAesgcmUrls,
-    normalizeAttachmentsFn: normalizeAttachments,
-    saveStateFn: saveState,
-    debugEventFn: addXmppDebugEvent,
-    inFlightByMessageId: xmppOmemoDecryptInFlightByMessageId,
-    resolveMessageIdFn: ({ stanza: inputStanza, message: inputMessage, peerBare: inputPeer }) => {
-      return `${inputPeer}|${inputMessage.id || xmppStanzaStableId(inputStanza) || createId().slice(0, 8)}`;
-    }
+  const runDecrypt = () => {
+    xmppOmemoTryDecryptIntoMessageCore({
+      stanza,
+      message,
+      peerBare,
+      ownBare,
+      onUpdated,
+      runtimeAvailableFn: xmppOmemoRuntimeAvailable,
+      parseEncryptedPayloadFn: xmppOmemoParseEncryptedPayload,
+      decryptPayloadFn: xmppOmemoDecryptPayload,
+      extractAesgcmUrlsFn: extractAesgcmUrls,
+      stripAesgcmUrlsFn: stripAesgcmUrls,
+      normalizeAttachmentsFn: normalizeAttachments,
+      saveStateFn: saveState,
+      debugEventFn: addXmppDebugEvent,
+      inFlightByMessageId: xmppOmemoDecryptInFlightByMessageId,
+      resolveMessageIdFn: ({ stanza: inputStanza, message: inputMessage, peerBare: inputPeer }) => {
+        return `${inputPeer}|${inputMessage.id || xmppStanzaStableId(inputStanza) || createId().slice(0, 8)}`;
+      }
+    });
+  };
+  if (xmppOmemoRuntimeAvailable()) {
+    runDecrypt();
+    return;
+  }
+  void ensureXmppOmemoRuntime().then(() => {
+    runDecrypt();
   });
 }
 
