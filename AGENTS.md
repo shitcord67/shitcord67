@@ -60,3 +60,4 @@ These instructions are project-local continuity notes for future LLM instances.
 - When adding dependencies, always look up and prefer the latest version.
 - If the latest version violates project requirements (minSdk, size, licensing, etc.), use the newest version that satisfies them.
 - Where possible, replace dependency functionality step-by-step with in-house code to remove the dependency over time.
+- Track any dependency that violates requirements in a running list so replacement work is visible and prioritized.
