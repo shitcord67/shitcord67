@@ -1436,6 +1436,10 @@ async function ensureNativeFilesystemPermissions({
         const after = await fs.getDocumentsDirectoryStatus().catch(() => null);
         if (!after?.available) return false;
       }
+      const directory = resolveNativeDocumentsDirectory(fs);
+      if (status?.available && directory === "DOCUMENTS") {
+        return true;
+      }
     } catch {
       if (!prompt || promptedDocumentsAccess) return false;
       promptedDocumentsAccess = true;
@@ -1460,9 +1464,13 @@ async function ensureNativeFilesystemPermissions({
       return false;
     }
     if (typeof fs.requestPermissions !== "function") return false;
-    const requested = await fs.requestPermissions();
-    const next = (requested?.publicStorage || "").toString().toLowerCase();
-    if (next === "granted") return true;
+    try {
+      const requested = await fs.requestPermissions();
+      const next = (requested?.publicStorage || "").toString().toLowerCase();
+      if (next === "granted") return true;
+    } catch {
+      // Ignore request errors and fall back to Documents probe below.
+    }
     if (await canAccessNativeDocumentsStorage(fs)) return true;
     notifyNativeCredentialStorageIssue("Cannot access Documents storage for credential persistence.", {
       duration: 4200
