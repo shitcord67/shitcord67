@@ -2247,8 +2247,29 @@ body[data-hide-channel-panel="on"] .chat-panel {
   top: 0;
   z-index: 2;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  padding: 0.15rem 0 0.2rem;
+  backdrop-filter: blur(2px);
+}
+
+.dm-thread-tools__info {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #c7ceda;
+}
+
+.dm-thread-tools--has-unread .dm-thread-tools__info {
+  color: #ff8f92;
+}
+
+.dm-thread-tools__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  padding: 0.12rem 0 0.2rem;
 }
 
 .dm-thread-tools button {

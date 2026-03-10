@@ -54,13 +54,13 @@
 - Channel type variants (text/announcement/forum/media) with distinct labels.
 - [done] Channel categories with collapse state, category context actions, and move-to-category channel controls.
 - [done] Category management follow-up: reorder actions, modal quick-create category flow, and slash commands (`/categories`, `/movecategory`).
-- DM search/quick switch via sidebar filter and Enter-to-open.
-- Nested context-menu submenus for grouped actions.
+- [done] DM search/quick switch via sidebar filter and Enter-to-open.
+- [done] Nested context-menu submenus for grouped actions.
 - DM-only sidebar mode toggled via top `S67` button.
 - Top DM switcher uses emoji-style icon and shows DM unread/mention badge.
-- Quick DM input in user popout (send without leaving profile card).
+- [done] Quick DM input in user popout (send without leaving profile card).
 - Role color applied to member list, message usernames, and profile names.
-- DM unread divider + jump-to-newest control in DM threads.
+- [done] DM unread divider + jump-to-newest control in DM threads.
 - Forum channel messages render as post-style cards.
 - Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
