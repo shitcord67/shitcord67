@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.text.TextUtils;
 import android.util.Base64;
 
 import androidx.activity.result.ActivityResult;
@@ -22,7 +23,6 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
-import com.getcapacitor.util.StringUtil;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -351,7 +351,7 @@ public class LegacyFilesystemPlugin extends Plugin {
     private Uri getDocumentsTreeUri() {
         String raw = getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(PREFS_DOCUMENTS_TREE, null);
-        if (StringUtil.isNullOrEmpty(raw)) {
+        if (TextUtils.isEmpty(raw)) {
             return null;
         }
         return Uri.parse(raw);
@@ -370,7 +370,7 @@ public class LegacyFilesystemPlugin extends Plugin {
             return parts;
         }
         for (String chunk : path.split("/")) {
-            if (!StringUtil.isNullOrEmpty(chunk)) {
+            if (!TextUtils.isEmpty(chunk)) {
                 parts.add(chunk);
             }
         }

@@ -362,11 +362,14 @@ function updateRuntimeSafeArea() {
     const fallbackBottom = hasNativeInsets
       ? Math.max(34, nativeBottom)
       : Math.max(42, Math.round(navHeightGuess), Math.round(statusGuess * 0.45));
+    const trim = hasNativeInsets ? 4 : 6;
+    const trimmedTop = Math.max(0, fallbackTop - trim);
+    const trimmedBottom = Math.max(0, fallbackBottom - trim);
     const fallbackSide = hasNativeInsets
       ? 0
       : Math.max(0, Math.round(navWidthGuess * 0.5), screenWidth > 0 && innerWidth > 0 && innerWidth < screenWidth ? 8 : 0);
-    const nextTop = `${fallbackTop}px`;
-    const nextBottom = `${keyboardLikelyOpen ? 0 : fallbackBottom}px`;
+    const nextTop = `${trimmedTop}px`;
+    const nextBottom = `${keyboardLikelyOpen ? 0 : trimmedBottom}px`;
     const nextSide = `${fallbackSide}px`;
     root.style.setProperty("--android-safe-extra-top", nextTop);
     root.style.setProperty("--android-safe-extra-bottom", nextBottom);

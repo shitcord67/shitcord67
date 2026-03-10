@@ -25,4 +25,6 @@ repositories {
 dependencies {
     implementation project(':capacitor-android')
     implementation "androidx.documentfile:documentfile:1.1.0"
+    implementation "androidx.core:core:$androidxCoreVersion"
+    implementation "androidx.activity:activity:$androidxActivityVersion"
 }
