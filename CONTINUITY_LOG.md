@@ -8662,3 +8662,16 @@ Yeah also I noticed when I call from shitcord67 and the Dino user accepts then c
 [2026-03-10 16:06:28] Yeah play it safe and show it in the lower 1/4 of the screen maybe, somewhere cool. Also one feature Discord has on Android: noticing when a keyboard is opened and then changing the layout so that the input field is always above the keyboard, always visible.
 
 [2026-03-10 16:07:46] Btw. the send button is to the right of the input field for Discord.
+
+[2026-03-10 16:30:26] 16:16:59 ~/shitcord67:$ adb logcat -s DroidVendorsSuckFS
+--------- beginning of main
+03-10 16:28:46.421 26451 26512 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:28:47.125 26451 26512 D DroidVendorsSuckFS: Read Documents ok: path=shitcord67/shitcord67-credentials.json bytes=155
+03-10 16:28:51.059 26451 26512 D DroidVendorsSuckFS: Debug logging set to true
+03-10 16:29:08.345 26451 26512 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:29:08.348 26451 26512 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:29:08.351 26451 26512 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:29:08.361 26451 26512 D DroidVendorsSuckFS: Documents status available=true
+But why is it not showing the dropdown for the users so they do not type their stored credentials ever again to login ? Is it actually reading the credentials JSON content?
+
+[2026-03-10 16:32:04] Yes look if the file exists, load and read it and then show the dropdown ffs. You may need to refresh for that once

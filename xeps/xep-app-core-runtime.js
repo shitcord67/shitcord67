@@ -1621,6 +1621,32 @@ async function hydrateNativeCredentialsIntoState({ force = false } = {}) {
   if (!force && prefs.rememberLoginStorage !== "on" && saved.rememberLoginStorage !== true) {
     return false;
   }
+  if (jid && Array.isArray(state.accounts)) {
+    let account = null;
+    if (typeof ensureAccountByXmppJid === "function") {
+      account = ensureAccountByXmppJid(jid);
+    } else if (typeof xmppBareJid === "function") {
+      const bare = xmppBareJid(jid);
+      account = state.accounts.find((entry) => xmppBareJid(entry?.xmppJid || "") === bare) || null;
+    } else {
+      const normalized = normalizeXmppJid(jid).toLowerCase();
+      account = state.accounts.find((entry) => normalizeXmppJid(entry?.xmppJid || "").toLowerCase() === normalized) || null;
+    }
+    if (!account && typeof createAccount === "function") {
+      const localPart = jid.split("@")[0] || "user";
+      const username = typeof normalizeUsername === "function"
+        ? normalizeUsername(localPart)
+        : localPart.replace(/[^a-z0-9._-]/gi, "_").slice(0, 24);
+      account = createAccount(username, localPart || username);
+      account.xmppJid = normalizeXmppJid(jid);
+      state.accounts.push(account);
+    } else if (account) {
+      account.xmppJid = normalizeXmppJid(jid);
+    }
+    if (account && !state.currentAccountId) {
+      state.currentAccountId = account.id;
+    }
+  }
   state.preferences = prefs;
   if (jid) state.preferences.xmppJid = jid;
   if (typeof saved.password === "string") state.preferences.xmppPassword = password;
