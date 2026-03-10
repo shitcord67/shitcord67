@@ -137,6 +137,77 @@
     return button;
   }
 
+  function ensureLoginDocsControls() {
+    const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+    const isAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());
+
+    if (ui.loginStorageDocsChangeBtn instanceof HTMLButtonElement) {
+      ui.loginStorageDocsChangeBtn.hidden = !isAndroid;
+      ui.loginStorageDocsChangeBtn.disabled = !isAndroid;
+      if (ui.loginStorageDocsChangeBtn.dataset.bound !== "on") {
+        ui.loginStorageDocsChangeBtn.dataset.bound = "on";
+        ui.loginStorageDocsChangeBtn.addEventListener("click", async () => {
+          const runtime = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+          const android = Boolean(runtime && typeof runtime.isAndroid === "function" && runtime.isAndroid());
+          if (!android || !runtime || typeof runtime.requestPermission !== "function") {
+            showToast("Documents access is unavailable in this runtime.", { tone: "error" });
+            return;
+          }
+          ui.loginStorageDocsChangeBtn.disabled = true;
+          try {
+            if (typeof runtime.clearDocumentsAccess === "function") {
+              await runtime.clearDocumentsAccess();
+            }
+            const result = await runtime.requestPermission();
+            let granted = Boolean(result?.granted);
+            if (!granted && typeof runtime.permissionStatus === "function") {
+              const status = await runtime.permissionStatus();
+              granted = (status || "").toString().trim().toLowerCase() === "granted";
+            }
+            if (granted) {
+              showToast("Documents folder updated.", { tone: "info" });
+            } else {
+              showToast("Documents access not granted.", { tone: "error" });
+            }
+          } finally {
+            ui.loginStorageDocsChangeBtn.disabled = false;
+          }
+        });
+      }
+    }
+
+    if (ui.loginStorageDebugBtn instanceof HTMLButtonElement) {
+      ui.loginStorageDebugBtn.hidden = !isAndroid;
+      ui.loginStorageDebugBtn.disabled = !isAndroid;
+      if (!ui.loginStorageDebugBtn.dataset.enabled) {
+        ui.loginStorageDebugBtn.dataset.enabled = "off";
+        ui.loginStorageDebugBtn.textContent = "Enable Docs Debug Logs";
+      }
+      if (ui.loginStorageDebugBtn.dataset.bound !== "on") {
+        ui.loginStorageDebugBtn.dataset.bound = "on";
+        ui.loginStorageDebugBtn.addEventListener("click", async () => {
+          const runtime = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+          const android = Boolean(runtime && typeof runtime.isAndroid === "function" && runtime.isAndroid());
+          if (!android || !runtime || typeof runtime.setDebug !== "function") {
+            showToast("Docs debug logging is unavailable in this runtime.", { tone: "error" });
+            return;
+          }
+          ui.loginStorageDebugBtn.disabled = true;
+          try {
+            const isEnabled = ui.loginStorageDebugBtn.dataset.enabled === "on";
+            const next = !isEnabled;
+            await runtime.setDebug(next);
+            ui.loginStorageDebugBtn.dataset.enabled = next ? "on" : "off";
+            ui.loginStorageDebugBtn.textContent = next ? "Disable Docs Debug Logs" : "Enable Docs Debug Logs";
+            showToast(`Docs debug logs ${next ? "enabled" : "disabled"}.`, { tone: "info" });
+          } finally {
+            ui.loginStorageDebugBtn.disabled = false;
+          }
+        });
+      }
+    }
+  }
+
   function renderLoginSavedAccountSelect() {
     if (!(ui.loginSavedAccountWrap instanceof HTMLElement) || !(ui.loginSavedAccountSelect instanceof HTMLSelectElement)) return;
     ui.loginSavedAccountSelect.innerHTML = "";
@@ -168,6 +239,7 @@
     renderLoginSavedAccountSelect();
     syncLoginLanguageButton();
     ensureLoginNativeCredentialLoadButton();
+    ensureLoginDocsControls();
   }
 
   function bindXmppLoginUiRuntimeBindings() {

@@ -8631,3 +8631,5 @@ Then I noticed when a Dino user calls me and I click green Accept button that th
 
 [2026-03-10T11:01:35.250578Z]
 Yeah also I noticed when I call from shitcord67 and the Dino user accepts then calling and all audio stuff works! Btw the xmpp leaving still doesn't seem to work?
+
+[2026-03-10 15:52:03] And how do I enable Docs Debug Logs? I certainly can't from the 🛠 menu at the login screen. Can it be added or can I install a specific apk?

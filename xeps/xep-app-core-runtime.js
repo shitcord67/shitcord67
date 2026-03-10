@@ -832,6 +832,8 @@ const ui = {
   loginProvidersBtn: document.getElementById("loginProvidersBtn"),
   loginRegisterBtn: document.getElementById("loginRegisterBtn"),
   loginStoragePermissionBtn: document.getElementById("loginStoragePermissionBtn"),
+  loginStorageDocsChangeBtn: document.getElementById("loginStorageDocsChangeBtn"),
+  loginStorageDebugBtn: document.getElementById("loginStorageDebugBtn"),
   loginXmppConsoleBtn: document.getElementById("loginXmppConsoleBtn"),
   loginLanguageBtn: document.getElementById("loginLanguageBtn"),
   loginXmppProgress: document.getElementById("loginXmppProgress"),
