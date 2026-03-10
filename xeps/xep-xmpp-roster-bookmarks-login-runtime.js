@@ -194,11 +194,24 @@ function applyXmppRoomTopicFromSubject(roomJid, subject = "") {
   };
 }
 
+function isXmppRoomIgnored(roomJid, account = getCurrentAccount(), prefs = getPreferences()) {
+  const bareRoom = xmppBareJid(roomJid || "");
+  if (!bareRoom) return false;
+  const accountBare = xmppBareJid(account?.xmppJid || prefs?.xmppJid || "");
+  if (!accountBare) return false;
+  const map = prefs?.xmppIgnoredRoomsByAccount && typeof prefs.xmppIgnoredRoomsByAccount === "object"
+    ? prefs.xmppIgnoredRoomsByAccount
+    : {};
+  const list = Array.isArray(map[accountBare]) ? map[accountBare] : [];
+  return list.includes(bareRoom);
+}
+
 function upsertXmppSpaceChannels(bookmarks, prefs = getPreferences(), account = getCurrentAccount()) {
   if (typeof XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.upsertXmppSpaceChannels !== "function") return;
   XEP_0048_0402_BOOKMARKS_SYNC_GLOBAL.upsertXmppSpaceChannels(bookmarks, prefs, account, {
     normalizeXmppJidFn: normalizeXmppJid,
     looksLikeXmppMucJidFn: looksLikeXmppMucJid,
+    isXmppRoomIgnoredFn: isXmppRoomIgnored,
     upsertXmppRoomChannelFn: upsertXmppRoomChannel,
     saveStateFn: saveState
   });

@@ -101,6 +101,26 @@ function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focu
       message: "Usage: /joinxmpp <room@conference.example.org>"
     };
   }
+  const setXmppRoomIgnored = (roomJid, targetAccount = account, { ignored = true } = {}) => {
+    const bareRoom = xmppBareJid(roomJid || "");
+    const accountBare = xmppBareJid(targetAccount?.xmppJid || getPreferences().xmppJid || "");
+    if (!bareRoom || !accountBare) return false;
+    state.preferences = getPreferences();
+    const prefs = state.preferences;
+    if (!prefs.xmppIgnoredRoomsByAccount || typeof prefs.xmppIgnoredRoomsByAccount !== "object") {
+      prefs.xmppIgnoredRoomsByAccount = {};
+    }
+    const list = Array.isArray(prefs.xmppIgnoredRoomsByAccount[accountBare])
+      ? prefs.xmppIgnoredRoomsByAccount[accountBare]
+      : [];
+    const next = new Set(list.map((jid) => xmppBareJid(jid || "")).filter(Boolean));
+    if (ignored) next.add(bareRoom);
+    else next.delete(bareRoom);
+    if (next.size > 0) prefs.xmppIgnoredRoomsByAccount[accountBare] = [...next];
+    else delete prefs.xmppIgnoredRoomsByAccount[accountBare];
+    saveState();
+    return true;
+  };
   return XEP_0482_0503_SPACES_FLOW_GLOBAL.handleJoinXmppCommand(rawRoomArg, account, { focus }, {
     normalizeXmppRoomJoinArgFn: normalizeXmppRoomJoinArg,
     xmppRoomByJid,
@@ -112,6 +132,7 @@ function handleJoinXmppCommand(rawRoomArg, account = getCurrentAccount(), { focu
     relayStatus,
     sanitizeChannelNameFn: sanitizeChannelName,
     xmppPublishBookmarkFn: xmppPublishBookmark,
+    setXmppRoomIgnoredFn: setXmppRoomIgnored,
     saveStateFn: saveState,
     renderFn: render,
     renderChannelsFn: renderChannels
@@ -126,13 +147,34 @@ function handleLeaveXmppCommand(rawRoomArg, account = getCurrentAccount()) {
       message: "Usage: /leavexmpp [room@conference.example.org]"
     };
   }
+  const setXmppRoomIgnored = (roomJid, targetAccount = account, { ignored = true } = {}) => {
+    const bareRoom = xmppBareJid(roomJid || "");
+    const accountBare = xmppBareJid(targetAccount?.xmppJid || getPreferences().xmppJid || "");
+    if (!bareRoom || !accountBare) return false;
+    state.preferences = getPreferences();
+    const prefs = state.preferences;
+    if (!prefs.xmppIgnoredRoomsByAccount || typeof prefs.xmppIgnoredRoomsByAccount !== "object") {
+      prefs.xmppIgnoredRoomsByAccount = {};
+    }
+    const list = Array.isArray(prefs.xmppIgnoredRoomsByAccount[accountBare])
+      ? prefs.xmppIgnoredRoomsByAccount[accountBare]
+      : [];
+    const next = new Set(list.map((jid) => xmppBareJid(jid || "")).filter(Boolean));
+    if (ignored) next.add(bareRoom);
+    else next.delete(bareRoom);
+    if (next.size > 0) prefs.xmppIgnoredRoomsByAccount[accountBare] = [...next];
+    else delete prefs.xmppIgnoredRoomsByAccount[accountBare];
+    saveState();
+    return true;
+  };
   return XEP_0482_0503_SPACES_FLOW_GLOBAL.handleLeaveXmppCommand(rawRoomArg, account, {
     normalizeXmppRoomJoinArgFn: normalizeXmppRoomJoinArg,
     xmppBareJidFn: xmppBareJid,
     getActiveChannelFn: getActiveChannel,
     removeXmppRoomChannelByJidFn: removeXmppRoomChannelByJid,
     getPreferencesFn: getPreferences,
-    xmppRetractBookmarkFn: xmppRetractBookmark
+    xmppRetractBookmarkFn: xmppRetractBookmark,
+    setXmppRoomIgnoredFn: setXmppRoomIgnored
   });
 }
 

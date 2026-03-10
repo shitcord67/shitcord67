@@ -250,10 +250,16 @@ if (process.platform === "linux") {
       // ignore setPath errors and continue with env-based fallback
     }
   }
+  const shmOk = canAccessDir("/dev/shm");
+  const tmpOk = canAccessDir("/tmp");
+  if (!shmOk && tmpOk && !app.commandLine.hasSwitch("disable-dev-shm-usage")) {
+    // Ensure Chromium uses /tmp when /dev/shm is missing (common in constrained runtimes).
+    app.commandLine.appendSwitch("disable-dev-shm-usage");
+  }
   if (!IS_PACKAGED_LINUX) {
     // eslint-disable-next-line no-console
     console.log(
-      `[electron] linux flags: sandbox=on shm=default temp=${app.getPath("temp") || process.env.TMPDIR || "unresolved"}`
+      `[electron] linux flags: sandbox=on shm=${app.commandLine.hasSwitch("disable-dev-shm-usage") ? "tmp" : "default"} temp=${app.getPath("temp") || process.env.TMPDIR || "unresolved"}`
     );
   }
   if (ELECTRON_PIPEWIRE !== "off") {

@@ -173,6 +173,7 @@ function buildInitialState() {
       xmppMucService: "",
       xmppHideNonXmpp: "on",
       xmppOmemoEnabledByJid: {},
+      xmppIgnoredRoomsByAccount: {},
       callProviderUrl: "https://meet.jit.si",
       callRoomPrefix: "shitcord67",
       callAutoPost: "on",

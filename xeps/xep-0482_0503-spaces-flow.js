@@ -13,6 +13,9 @@
         message: "Usage: /joinxmpp <room@conference.example.org>"
       };
     }
+    if (typeof deps.setXmppRoomIgnoredFn === "function") {
+      deps.setXmppRoomIgnoredFn(roomJid, account, { ignored: false });
+    }
     const roomToken = `xmpp:${roomJid}`;
     deps.xmppRoomByJid?.set?.(roomJid, roomToken);
     const mapped = typeof deps.upsertXmppRoomChannelFn === "function"
@@ -93,6 +96,9 @@
         roomJid: "",
         message: "Usage: /leavexmpp [room@conference.example.org]"
       };
+    }
+    if (typeof deps.setXmppRoomIgnoredFn === "function") {
+      deps.setXmppRoomIgnoredFn(roomJid, account, { ignored: true });
     }
     const removed = typeof deps.removeXmppRoomChannelByJidFn === "function"
       ? deps.removeXmppRoomChannelByJidFn(roomJid, {

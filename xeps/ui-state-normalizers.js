@@ -213,6 +213,20 @@
     }, {});
   }
 
+  function normalizeXmppIgnoredRoomsByAccount(value, {
+    bareJidFn = (jid) => (jid || "").toString().trim().toLowerCase()
+  } = {}) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [accountJid, rooms]) => {
+      const accountBare = bareJidFn(accountJid || "");
+      if (!accountBare) return acc;
+      const list = Array.isArray(rooms) ? rooms : [];
+      const normalized = [...new Set(list.map((jid) => bareJidFn(jid || "")).filter(Boolean))];
+      if (normalized.length > 0) acc[accountBare] = normalized;
+      return acc;
+    }, {});
+  }
+
   function xmppShowValueForPresence(presence, {
     normalizePresenceFn = normalizePresence
   } = {}) {
@@ -341,6 +355,7 @@
     detectBrowserUiLocale,
     resolveUiLocale,
     normalizeXmppOmemoEnabledByJid,
+    normalizeXmppIgnoredRoomsByAccount,
     xmppShowValueForPresence,
     normalizeVoiceState,
     normalizeChannelPermissionValue,

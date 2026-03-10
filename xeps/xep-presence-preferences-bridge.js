@@ -218,6 +218,10 @@ function normalizeXmppOmemoEnabledByJid(value) {
   return normalizeXmppOmemoEnabledByJidViaModule(value);
 }
 
+function normalizeXmppIgnoredRoomsByAccount(value) {
+  return normalizeXmppIgnoredRoomsByAccountViaModule(value);
+}
+
 function normalizeMediaPrivacyMode(value) {
   return normalizeMediaPrivacyModeViaModule(value);
 }
@@ -397,6 +401,7 @@ function getPreferences() {
     xmppMucService: normalizeXmppMucService(current.xmppMucService),
     xmppHideNonXmpp: normalizeToggle(current.xmppHideNonXmpp ?? "on"),
     xmppOmemoEnabledByJid: normalizeXmppOmemoEnabledByJid(current.xmppOmemoEnabledByJid),
+    xmppIgnoredRoomsByAccount: normalizeXmppIgnoredRoomsByAccount(current.xmppIgnoredRoomsByAccount),
     callProviderUrl: normalizeConferenceProviderUrl(current.callProviderUrl),
     callRoomPrefix: normalizeConferenceRoomPrefix(current.callRoomPrefix),
     callAutoPost: normalizeToggle(current.callAutoPost ?? "on"),

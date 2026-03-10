@@ -9,6 +9,7 @@
       const roomJid = normalizeXmppJidFn(entry?.jid || "").toLowerCase();
       if (!roomJid) return;
       if (typeof deps.looksLikeXmppMucJidFn === "function" && !deps.looksLikeXmppMucJidFn(roomJid, prefs)) return;
+      if (typeof deps.isXmppRoomIgnoredFn === "function" && deps.isXmppRoomIgnoredFn(roomJid, account, prefs)) return;
       const upserted = typeof deps.upsertXmppRoomChannelFn === "function"
         ? deps.upsertXmppRoomChannelFn(roomJid, {
           roomName: (entry?.name || "").toString(),

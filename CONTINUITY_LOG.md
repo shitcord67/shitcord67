@@ -8202,3 +8202,10 @@ A skill is a set of local instructions to follow that is stored in a `SKILL.md` 
 [2026-03-09T23:36:08Z] Great. Then can you improve spaces and forums?
 
 [2026-03-10T07:40:49Z] Yeah maybe
+2026-03-10T09:24:52+01:00	[1710600:0310/092350.262548:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.f79oRx failed: No such file or directory (2)
+[1710600:0310/092350.262694:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such file or directory (2)
+[1710600:0310/092350.262724:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+Why is this an issue for /home/duda/shitcord67/dist/electron/shitcord67-linux-x64/shitcord67 while not for npm run electron?
+
+2026-03-10T09:28:46+01:00	Well can you make the devtools in the build electron also work. Maybe commit 04a4c932fe6375ca91c49982dcb8aa8564620e3a helps a bit? Then the next thing: is it actually possible to permanantly leave a xmpp chat via shitcord67? Cause e.g. one of my accs is in xmpp-spaces-ich ( xmpp-spaces-ich@conference.pimux.de) and there I get "XMPP room join failed", same for linuxphones@muc.xmpp.pingu.at.
+
