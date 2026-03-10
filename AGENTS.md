@@ -49,6 +49,7 @@ These instructions are project-local continuity notes for future LLM instances.
 - Prefer self-written or minimal-dependency Android libraries that support the lowest feasible API levels.
 - Default to API level 22 when necessary, but do not raise the project-wide minSdk above 22 unless explicitly approved.
 - Split functionality into separate libraries/modules when that enables lower minSdk for apps that only need a subset.
+- When feasible, isolate newer-API Android code into separate files/modules (optionally encoding minSdk in filenames) to keep legacy builds slim.
 - Keep compatibility with the latest Android target SDK (currently API 36 / Android 16) while preserving minSdk 22.
 - Add replacement libraries to the repo incrementally and reassess which foreign dependencies can be removed after each step.
 
