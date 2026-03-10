@@ -81,7 +81,12 @@ public class LegacyFilesystemPlugin extends Plugin {
             requestRead = false;
             requestWrite = false;
             for (int i = 0; i < permissions.length(); i += 1) {
-                String value = permissions.getString(i);
+                String value;
+                try {
+                    value = permissions.getString(i);
+                } catch (Exception ex) {
+                    continue;
+                }
                 if ("read".equals(value)) {
                     requestRead = true;
                 }
