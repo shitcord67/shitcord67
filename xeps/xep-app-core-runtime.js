@@ -1433,6 +1433,13 @@ async function ensureNativeFilesystemPermissions({
     const requested = await fs.requestPermissions();
     const next = (requested?.publicStorage || "").toString().toLowerCase();
     if (next === "granted") return true;
+    if (typeof fs.selectDocumentsDirectory === "function") {
+      try {
+        await fs.selectDocumentsDirectory();
+      } catch {
+        // Ignore selection errors and fall through to probe.
+      }
+    }
     if (await canAccessNativeDocumentsStorage(fs)) return true;
     notifyNativeCredentialStorageIssue("Cannot access Documents storage for credential persistence.", {
       duration: 4200

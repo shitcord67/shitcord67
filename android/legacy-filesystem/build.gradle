@@ -24,4 +24,5 @@ repositories {
 
 dependencies {
     implementation project(':capacitor-android')
+    implementation "androidx.documentfile:documentfile:1.0.1"
 }
