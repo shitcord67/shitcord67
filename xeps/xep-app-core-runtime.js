@@ -1488,6 +1488,15 @@ async function getNativeFilesystemPermissionStatus() {
   const fs = resolveNativeFilesystem();
   if (!fs) return "unavailable";
   if (!isNativeAndroidPlatform()) return "unavailable";
+  if (typeof fs.getDocumentsDirectoryStatus === "function") {
+    try {
+      const status = await fs.getDocumentsDirectoryStatus();
+      if (status?.available) return "granted";
+      return "prompt";
+    } catch {
+      return "prompt";
+    }
+  }
   if (typeof fs.checkPermissions !== "function") return "unknown";
   try {
     const status = await fs.checkPermissions();
