@@ -8658,3 +8658,5 @@ Yeah also I noticed when I call from shitcord67 and the Dino user accepts then c
  Great but then why doesn't it show the drop-down similar to electron shitcord67 on my Linux desktop? Where I can select accounts. Oh also I noticed that the pop-up appears below my navigation bar so I think you need to add some more padding at the bottom.
 
 [2026-03-10 16:04:13] Oh actually after logging the padding is enough, just on the login screen the pop-ups apear way to low; outside of the area I can see aka. below my virtual navigation bar.
+
+[2026-03-10 16:06:28] Yeah play it safe and show it in the lower 1/4 of the screen maybe, somewhere cool. Also one feature Discord has on Android: noticing when a keyboard is opened and then changing the layout so that the input field is always above the keyboard, always visible.

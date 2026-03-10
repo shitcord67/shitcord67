@@ -6990,7 +6990,7 @@ body[data-compact-members="on"] .member-item {
 .toast-host {
   position: fixed;
   left: 50%;
-  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(18px + var(--app-safe-bottom));
   transform: translate(-50%, 10px);
   background: #181a1f;
   border: 1px solid #343844;
@@ -7003,6 +7003,10 @@ body[data-compact-members="on"] .member-item {
   pointer-events: none;
   transition: opacity 120ms ease, transform 120ms ease;
   z-index: 95;
+}
+
+body[data-mobile="on"] .toast-host {
+  bottom: calc(25vh + var(--app-safe-bottom));
 }
 
 .toast-host.is-visible {
