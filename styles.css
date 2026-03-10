@@ -6990,7 +6990,7 @@ body[data-compact-members="on"] .member-item {
 .toast-host {
   position: fixed;
   left: 50%;
-  bottom: 18px;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   transform: translate(-50%, 10px);
   background: #181a1f;
   border: 1px solid #343844;

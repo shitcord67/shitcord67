@@ -8635,3 +8635,26 @@ Yeah also I noticed when I call from shitcord67 and the Dino user accepts then c
 [2026-03-10 15:52:03] And how do I enable Docs Debug Logs? I certainly can't from the 🛠 menu at the login screen. Can it be added or can I install a specific apk?
 
 [2026-03-10 15:56:52] Oh I thought it would be in the 🛠 menu instead
+
+[2026-03-10 16:02:44] 15:57:16 ~/shitcord67:$ adb logcat -s DroidVendorsSuckFS
+--------- beginning of main
+03-10 16:00:45.644 18467 18564 D DroidVendorsSuckFS: Debug logging set to true
+03-10 16:01:00.089 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:00.095 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:00.097 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:00.099 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:00.277 18467 18564 D DroidVendorsSuckFS: Read Documents ok: path=shitcord67/shitcord67-credentials.json bytes=155
+03-10 16:01:04.818 18467 18564 D DroidVendorsSuckFS: Documents tree access cleared
+03-10 16:01:04.823 18467 18564 D DroidVendorsSuckFS: Documents status available=false
+03-10 16:01:08.946 18467 18467 D DroidVendorsSuckFS: Documents tree selected: content://com.android.externalstorage.documents/tree/primary%3ADocuments%2Fshitcord67
+03-10 16:01:08.974 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:09.629 18467 18564 D DroidVendorsSuckFS: Write Documents ok: path=shitcord67/.access-probe bytes=2
+03-10 16:01:09.826 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:15.825 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:15.833 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:15.835 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:15.838 18467 18564 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:01:16.002 18467 18564 D DroidVendorsSuckFS: Read Documents ok: path=shitcord67/shitcord67-credentials.json bytes=155
+ Great but then why doesn't it show the drop-down similar to electron shitcord67 on my Linux desktop? Where I can select accounts. Oh also I noticed that the pop-up appears below my navigation bar so I think you need to add some more padding at the bottom.
+
+[2026-03-10 16:04:13] Oh actually after logging the padding is enough, just on the login screen the pop-ups apear way to low; outside of the area I can see aka. below my virtual navigation bar.
