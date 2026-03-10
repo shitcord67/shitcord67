@@ -240,6 +240,8 @@ const mobileLayoutMediaQuery = typeof window !== "undefined" && typeof window.ma
 let runtimeSafeAreaRaf = 0;
 let runtimeImeOffsetPx = 0;
 let runtimeKeyboardAdjustRaf = 0;
+let runtimeViewportBaseHeight = 0;
+let runtimeViewportBaseWidth = 0;
 let mobileSwipeNavState = null;
 
 function normalizeNativeAndroidInsets(rawInsets) {
@@ -340,7 +342,18 @@ function updateRuntimeSafeArea() {
   }
   const viewportHeight = viewport && Number.isFinite(viewport.height) ? viewport.height : window.innerHeight;
   const viewportOffsetTop = viewport && Number.isFinite(viewport.offsetTop) ? viewport.offsetTop : 0;
-  const keyboardGap = Math.max(0, (Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight) - (viewportHeight + viewportOffsetTop));
+  const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight;
+  const innerWidth = Number.isFinite(window.innerWidth) ? window.innerWidth : (viewport && Number.isFinite(viewport.width) ? viewport.width : 0);
+  let keyboardGap = Math.max(0, innerHeight - (viewportHeight + viewportOffsetTop));
+  if (!viewport && isMobileRuntime && innerHeight > 0) {
+    const widthChanged = runtimeViewportBaseWidth > 0 && innerWidth > 0 && Math.abs(runtimeViewportBaseWidth - innerWidth) >= 24;
+    if (!runtimeViewportBaseHeight || widthChanged || Math.abs(runtimeViewportBaseHeight - innerHeight) < 64) {
+      runtimeViewportBaseHeight = innerHeight;
+      runtimeViewportBaseWidth = innerWidth;
+    }
+    const fallbackGap = Math.max(0, runtimeViewportBaseHeight - innerHeight);
+    keyboardGap = Math.max(keyboardGap, fallbackGap);
+  }
   const imeOffset = isMobileRuntime && keyboardGap >= 64 ? keyboardGap : 0;
   const roundedImeOffsetPx = Math.round(imeOffset);
   const imeOffsetChanged = Math.abs(runtimeImeOffsetPx - roundedImeOffsetPx) >= 6;
@@ -417,6 +430,8 @@ if (typeof window !== "undefined") {
   window.addEventListener("resize", scheduleRuntimeSafeAreaUpdate, { passive: true });
   window.addEventListener("orientationchange", scheduleRuntimeSafeAreaUpdate, { passive: true });
   window.addEventListener("shitcord67:android-insets", scheduleRuntimeSafeAreaUpdate, { passive: true });
+  window.addEventListener("focusin", scheduleRuntimeSafeAreaUpdate, { passive: true });
+  window.addEventListener("focusout", scheduleRuntimeSafeAreaUpdate, { passive: true });
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", scheduleRuntimeSafeAreaUpdate, { passive: true });
     window.visualViewport.addEventListener("scroll", scheduleRuntimeSafeAreaUpdate, { passive: true });
