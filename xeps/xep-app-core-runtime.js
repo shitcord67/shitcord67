@@ -1233,6 +1233,8 @@ const ui = {
   refreshXmppConsoleBtn: document.getElementById("refreshXmppConsoleBtn"),
   pauseXmppConsoleBtn: document.getElementById("pauseXmppConsoleBtn"),
   clearXmppConsoleBtn: document.getElementById("clearXmppConsoleBtn"),
+  xmppConsoleDocsChangeBtn: document.getElementById("xmppConsoleDocsChangeBtn"),
+  xmppConsoleDocsDebugBtn: document.getElementById("xmppConsoleDocsDebugBtn"),
   xmppConsoleCloseBtn: document.getElementById("xmppConsoleCloseBtn"),
   cosmeticsDialog: document.getElementById("cosmeticsDialog"),
   cosmeticsForm: document.getElementById("cosmeticsForm"),

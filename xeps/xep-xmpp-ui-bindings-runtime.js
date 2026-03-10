@@ -1012,6 +1012,54 @@ ui.clearXmppConsoleBtn?.addEventListener("click", () => {
   renderXmppConsoleDialog();
 });
 
+ui.xmppConsoleDocsChangeBtn?.addEventListener("click", async () => {
+  const runtime = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+  const android = Boolean(runtime && typeof runtime.isAndroid === "function" && runtime.isAndroid());
+  if (!android || !runtime || typeof runtime.requestPermission !== "function") {
+    showToast("Documents access is unavailable in this runtime.", { tone: "error" });
+    return;
+  }
+  ui.xmppConsoleDocsChangeBtn.disabled = true;
+  try {
+    if (typeof runtime.clearDocumentsAccess === "function") {
+      await runtime.clearDocumentsAccess();
+    }
+    const result = await runtime.requestPermission();
+    let granted = Boolean(result?.granted);
+    if (!granted && typeof runtime.permissionStatus === "function") {
+      const status = await runtime.permissionStatus();
+      granted = (status || "").toString().trim().toLowerCase() === "granted";
+    }
+    if (granted) {
+      showToast("Documents folder updated.", { tone: "info" });
+    } else {
+      showToast("Documents access not granted.", { tone: "error" });
+    }
+  } finally {
+    ui.xmppConsoleDocsChangeBtn.disabled = false;
+  }
+});
+
+ui.xmppConsoleDocsDebugBtn?.addEventListener("click", async () => {
+  const runtime = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+  const android = Boolean(runtime && typeof runtime.isAndroid === "function" && runtime.isAndroid());
+  if (!android || !runtime || typeof runtime.setDebug !== "function") {
+    showToast("Docs debug logging is unavailable in this runtime.", { tone: "error" });
+    return;
+  }
+  ui.xmppConsoleDocsDebugBtn.disabled = true;
+  try {
+    const isEnabled = ui.xmppConsoleDocsDebugBtn.dataset.enabled === "on";
+    const next = !isEnabled;
+    await runtime.setDebug(next);
+    ui.xmppConsoleDocsDebugBtn.dataset.enabled = next ? "on" : "off";
+    ui.xmppConsoleDocsDebugBtn.textContent = next ? "Disable Docs Debug Logs" : "Enable Docs Debug Logs";
+    showToast(`Docs debug logs ${next ? "enabled" : "disabled"}.`, { tone: "info" });
+  } finally {
+    ui.xmppConsoleDocsDebugBtn.disabled = false;
+  }
+});
+
 ui.pauseXmppConsoleBtn?.addEventListener("click", () => {
   xmppDebugPaused = !xmppDebugPaused;
   renderXmppConsoleDialog();

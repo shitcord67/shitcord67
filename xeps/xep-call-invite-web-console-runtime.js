@@ -1095,6 +1095,20 @@ function formatXmppConsoleLogs() {
 
 function renderXmppConsoleDialog() {
   if (!ui.xmppConsoleOutput) return;
+  const nativeCreds = typeof window !== "undefined" ? (window.SHITCORD67_NATIVE_CREDENTIALS || null) : null;
+  const isAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());
+  if (ui.xmppConsoleDocsChangeBtn) {
+    ui.xmppConsoleDocsChangeBtn.hidden = !isAndroid;
+    ui.xmppConsoleDocsChangeBtn.disabled = !isAndroid;
+  }
+  if (ui.xmppConsoleDocsDebugBtn) {
+    ui.xmppConsoleDocsDebugBtn.hidden = !isAndroid;
+    ui.xmppConsoleDocsDebugBtn.disabled = !isAndroid;
+    if (!ui.xmppConsoleDocsDebugBtn.dataset.enabled) {
+      ui.xmppConsoleDocsDebugBtn.dataset.enabled = "off";
+      ui.xmppConsoleDocsDebugBtn.textContent = "Enable Docs Debug Logs";
+    }
+  }
   if (ui.xmppConsoleFilterInput) ui.xmppConsoleFilterInput.value = xmppDebugFilter;
   if (ui.xmppConsoleSearchInput && ui.xmppConsoleSearchInput.value !== xmppDebugSearch) ui.xmppConsoleSearchInput.value = xmppDebugSearch;
   if (ui.pauseXmppConsoleBtn) ui.pauseXmppConsoleBtn.textContent = xmppDebugPaused ? "Resume" : "Pause";
