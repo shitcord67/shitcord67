@@ -18,6 +18,7 @@ import java.util.Locale;
 
 public class MainActivity extends BridgeActivity {
     private Insets lastInsets = Insets.NONE;
+    private int lastImeBottom = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,18 +90,22 @@ public class MainActivity extends BridgeActivity {
         int right = Math.max(visibleInsets.right, stableInsets.right);
         int bottom = Math.max(visibleInsets.bottom, stableInsets.bottom);
         Insets mergedInsets = Insets.of(left, top, right, bottom);
-        if (mergedInsets.equals(lastInsets)) return;
+        Insets imeInsets = insetsCompat.getInsets(WindowInsetsCompat.Type.ime());
+        int imeBottom = Math.max(0, imeInsets.bottom);
+        if (mergedInsets.equals(lastInsets) && imeBottom == lastImeBottom) return;
         lastInsets = mergedInsets;
+        lastImeBottom = imeBottom;
 
         Bridge bridge = getBridge();
         if (bridge == null || bridge.getWebView() == null) return;
         String script = String.format(
             Locale.US,
-            "(function(){window.__shitcord67AndroidInsets={top:%d,right:%d,bottom:%d,left:%d};window.dispatchEvent(new Event('shitcord67:android-insets'));})();",
+            "(function(){window.__shitcord67AndroidInsets={top:%d,right:%d,bottom:%d,left:%d,imeBottom:%d};window.dispatchEvent(new Event('shitcord67:android-insets'));})();",
             mergedInsets.top,
             mergedInsets.right,
             mergedInsets.bottom,
-            mergedInsets.left
+            mergedInsets.left,
+            imeBottom
         );
         bridge.getWebView().post(() -> bridge.getWebView().evaluateJavascript(script, null));
     }

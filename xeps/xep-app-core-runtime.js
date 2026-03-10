@@ -253,6 +253,8 @@ function normalizeNativeAndroidInsets(rawInsets) {
   const right = Number(rawInsets.right);
   const bottom = Number(rawInsets.bottom);
   const left = Number(rawInsets.left);
+  const imeBottomRaw = rawInsets.imeBottom;
+  const imeBottom = typeof imeBottomRaw === "number" ? imeBottomRaw : Number(imeBottomRaw);
   if (![top, right, bottom, left].every((value) => Number.isFinite(value) && value >= 0)) {
     return null;
   }
@@ -260,7 +262,8 @@ function normalizeNativeAndroidInsets(rawInsets) {
     top: Math.round(top),
     right: Math.round(right),
     bottom: Math.round(bottom),
-    left: Math.round(left)
+    left: Math.round(left),
+    imeBottom: Number.isFinite(imeBottom) && imeBottom >= 0 ? Math.round(imeBottom) : 0
   };
 }
 
@@ -354,12 +357,14 @@ function updateRuntimeSafeArea() {
     const fallbackGap = Math.max(0, runtimeViewportBaseHeight - innerHeight);
     keyboardGap = Math.max(keyboardGap, fallbackGap);
   }
-  const imeOffset = isMobileRuntime && keyboardGap >= 64 ? keyboardGap : 0;
+  const nativeImeOffset = isAndroid && nativeInsets ? Math.max(0, Number(nativeInsets.imeBottom) || 0) : 0;
+  const mergedKeyboardGap = Math.max(keyboardGap, nativeImeOffset);
+  const imeOffset = isMobileRuntime && mergedKeyboardGap >= 64 ? mergedKeyboardGap : 0;
   const roundedImeOffsetPx = Math.round(imeOffset);
   const imeOffsetChanged = Math.abs(runtimeImeOffsetPx - roundedImeOffsetPx) >= 6;
   runtimeImeOffsetPx = roundedImeOffsetPx;
   if (isAndroid) {
-    const keyboardLikelyOpen = keyboardGap >= 110;
+    const keyboardLikelyOpen = mergedKeyboardGap >= 110;
     const screenHeight = Number.isFinite(window.screen?.height) ? window.screen.height : 0;
     const screenWidth = Number.isFinite(window.screen?.width) ? window.screen.width : 0;
     const availHeight = Number.isFinite(window.screen?.availHeight) ? window.screen.availHeight : 0;

@@ -175,6 +175,7 @@ select {
   place-items: center;
   background: radial-gradient(circle at 20% 20%, #1c2f55, #0e1014 55%);
   padding: 1rem;
+  overflow: auto;
 }
 
 #app {
@@ -202,6 +203,11 @@ body[data-platform="android"] #app {
   padding-right: max(var(--app-safe-right), var(--android-safe-extra-right));
   padding-bottom: max(var(--app-safe-bottom), var(--android-safe-extra-bottom));
   padding-left: max(var(--app-safe-left), var(--android-safe-extra-left));
+}
+
+body[data-mobile="on"][data-keyboard-open="on"] #loginScreen.screen--active {
+  place-items: start center;
+  padding-bottom: calc(1rem + var(--runtime-ime-offset));
 }
 
 body[data-platform="android"]::before,

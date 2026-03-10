@@ -8752,3 +8752,7 @@ But why is it not showing the dropdown for the users so they do not type their s
     16
 [2026-03-10T16:07:35Z] Great. I noticed however one thing for the Android app of shitcord67. only Username or XMPP JID field gets filled out when credentials JSON is loaded. Why not "Password (optional)" and "XMPP WebStocket server (optional)" when they are stored in the JSON as well as password and wsUrl?
 [2026-03-10T16:37:46Z] Also one other thing rearding the Android app: Apparently the virtual keyboard could hide the input area. Please make sure to dynamically move it above the virtual keyboard when that appears cause this is what Discord does as well!
+
+[2026-03-10 18:18:38Z] Please continue working
+
+[2026-03-10 18:19:16Z] YOu skipped: [2026-03-10T16:37:46Z] Also one other thing rearding the Android app: Apparently the virtual keyboard could hide the input area. Please make sure to dynamically move it above the virtual keyboard when that appears cause this is what Discord does as well!
