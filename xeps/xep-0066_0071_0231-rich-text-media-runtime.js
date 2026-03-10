@@ -434,7 +434,7 @@ function inferAttachmentTypeFromUrl(url) {
   if (has(/\.pdf(\?|$|&|#)/i)) return "pdf";
   if (has(/\.rtf(\?|$|&|#)/i)) return "rtf";
   if (has(/\.(odt|ods|odp|doc|docx|xls|xlsx|ppt|pptx)(\?|$|&|#)/i)) return "odf";
-  if (has(/\.(mp3|ogg|wav|m4a|flac)(\?|$|&|#)/i)) return "audio";
+  if (has(/\.(mp3|ogg|oga|opus|wav|m4a|aac|flac|weba|mka|aif|aiff|caf|amr|3gp|3gpp)(\?|$|&|#)/i)) return "audio";
   if (has(/\.(txt|md|log|json|js|ts|css|html|xml|yml|yaml|ini|toml)(\?|$|&|#)/i)) return "text";
   if (has(/\.bin(\?|$|&|#)/i)) return "bin";
   if (has(/\.apng(\?|$|&|#)/i)) return "sticker";
@@ -522,6 +522,25 @@ function inferVideoMimeType(value) {
   if (/\.wmv(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?wmv(?:[&#]|$)/i.test(raw)) return "video/x-ms-wmv";
   if (/\.(mpeg|mpg)(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?mpe?g(?:[&#]|$)/i.test(raw)) return "video/mpeg";
   if (/\.(m2ts|ts)(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?(m2ts|ts)(?:[&#]|$)/i.test(raw)) return "video/mp2t";
+  return "";
+}
+
+function inferAudioMimeType(value) {
+  const raw = (value || "").toString().toLowerCase();
+  if (/\.mp3(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?mp3(?:[&#]|$)/i.test(raw)) return "audio/mpeg";
+  if (/\.opus(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?opus(?:[&#]|$)/i.test(raw)) return "audio/opus";
+  if (/\.ogg(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?ogg(?:[&#]|$)/i.test(raw)) return "audio/ogg";
+  if (/\.oga(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?oga(?:[&#]|$)/i.test(raw)) return "audio/ogg";
+  if (/\.wav(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?wav(?:[&#]|$)/i.test(raw)) return "audio/wav";
+  if (/\.m4a(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?m4a(?:[&#]|$)/i.test(raw)) return "audio/mp4";
+  if (/\.aac(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?aac(?:[&#]|$)/i.test(raw)) return "audio/aac";
+  if (/\.flac(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?flac(?:[&#]|$)/i.test(raw)) return "audio/flac";
+  if (/\.weba(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?weba(?:[&#]|$)/i.test(raw)) return "audio/webm";
+  if (/\.mka(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?mka(?:[&#]|$)/i.test(raw)) return "audio/x-matroska";
+  if (/\.(aif|aiff)(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?aiff?(?:[&#]|$)/i.test(raw)) return "audio/aiff";
+  if (/\.caf(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?caf(?:[&#]|$)/i.test(raw)) return "audio/x-caf";
+  if (/\.amr(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?amr(?:[&#]|$)/i.test(raw)) return "audio/amr";
+  if (/\.(3gp|3gpp)(\?|$|&|#)/i.test(raw) || /[?&](?:format|fm|ext)=?3gpp?(?:[&#]|$)/i.test(raw)) return "audio/3gpp";
   return "";
 }
 

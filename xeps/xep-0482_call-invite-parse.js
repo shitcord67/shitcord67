@@ -4,6 +4,7 @@
   const xml = globalScope.SHITCORD67_XMPP_XML || {};
   const XMPP_CALL_INVITES_NAMESPACE = "urn:xmpp:call-invites:0";
   const XMPP_CALL_INVITES_NAMESPACE_PREFIX = "urn:xmpp:call-invites";
+  const XMPP_CALL_MESSAGE_NAMESPACE = "urn:xmpp:call-message:1";
   const XMPP_JINGLE_NAMESPACE = "urn:xmpp:jingle:1";
 
   function xmppNodeXmlns(node) {
@@ -39,24 +40,36 @@
 
   function parseXmppCallInviteAction(stanza) {
     if (!stanza || typeof stanza.getElementsByTagName !== "function") return null;
-    const actions = ["invite", "accept", "reject", "retract", "left"];
+    const actions = ["invite", "accept", "reject", "retract", "left", "propose", "finish"];
     const hasCallInviteNamespace = (node) => {
       if (!node) return false;
-      if (xmppNodeHasXmlns(node, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(node, XMPP_CALL_INVITES_NAMESPACE_PREFIX)) return true;
+      if (
+        xmppNodeHasXmlns(node, XMPP_CALL_INVITES_NAMESPACE)
+        || xmppNodeHasXmlnsPrefix(node, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
+        || xmppNodeHasXmlns(node, XMPP_CALL_MESSAGE_NAMESPACE)
+      ) {
+        return true;
+      }
       const parent = node.parentNode && node.parentNode.nodeType === 1 ? node.parentNode : null;
       if (!parent) return false;
-      return xmppNodeHasXmlns(parent, XMPP_CALL_INVITES_NAMESPACE) || xmppNodeHasXmlnsPrefix(parent, XMPP_CALL_INVITES_NAMESPACE_PREFIX);
+      return (
+        xmppNodeHasXmlns(parent, XMPP_CALL_INVITES_NAMESPACE)
+        || xmppNodeHasXmlnsPrefix(parent, XMPP_CALL_INVITES_NAMESPACE_PREFIX)
+        || xmppNodeHasXmlns(parent, XMPP_CALL_MESSAGE_NAMESPACE)
+      );
     };
     for (const action of actions) {
       const node = xmppElementsByLocalName(stanza, action)
         .find((entry) => hasCallInviteNamespace(entry)) || null;
       if (!node) continue;
+      const normalizedAction = action === "propose" ? "invite" : (action === "finish" ? "left" : action);
       const rawId = (node.getAttribute("id") || "").toString().trim();
       const audio = node.getAttribute("audio");
       const video = node.getAttribute("video");
       const jingleCandidates = xmppElementsByLocalName(node, "jingle");
       const jingleNode = jingleCandidates
         .find((entry) => xmppNodeHasXmlns(entry, XMPP_JINGLE_NAMESPACE))
+        || jingleCandidates.find((entry) => xmppNodeHasXmlns(entry, XMPP_CALL_MESSAGE_NAMESPACE))
         || jingleCandidates.find((entry) => hasCallInviteNamespace(entry))
         || jingleCandidates.find((entry) => !xmppNodeXmlns(entry))
         || null;
@@ -77,7 +90,7 @@
         )) || null;
       const mujiRoom = (mujiNode?.getAttribute("room") || "").toString().trim();
       return {
-        action,
+        action: normalizedAction,
         id: rawId,
         audio: audio === "false" ? false : true,
         video: video === "false" ? false : true,

@@ -2157,16 +2157,47 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     const audio = document.createElement("audio");
     audio.controls = true;
     audio.preload = "none";
-    audio.src = mediaUrl;
     audio.className = "message-audio";
+    const explicitMime = (attachment.mime || "").toString().trim().toLowerCase();
+    const inferredMime = typeof inferAudioMimeType === "function"
+      ? (inferAudioMimeType(mediaUrl) || inferAudioMimeType(attachment.name || ""))
+      : "";
+    const audioMime = explicitMime.startsWith("audio/") ? explicitMime : inferredMime;
+    if (audioMime) {
+      const source = document.createElement("source");
+      source.src = mediaUrl;
+      source.type = audioMime;
+      audio.appendChild(source);
+    } else {
+      audio.src = mediaUrl;
+    }
     applyMediaElementAudioPreferences(audio, getPreferences());
-    wrap.appendChild(audio);
+    let supported = true;
+    if (audioMime && typeof audio.canPlayType === "function") {
+      supported = Boolean(audio.canPlayType(audioMime));
+    }
+    if (supported) {
+      wrap.appendChild(audio);
+    } else {
+      const note = document.createElement("div");
+      note.className = "message-embed-note";
+      note.textContent = "This audio format is not supported here. Open it in an external app.";
+      wrap.appendChild(note);
+      if (typeof openExternalUrlInClient === "function") {
+        const externalBtn = document.createElement("button");
+        externalBtn.type = "button";
+        externalBtn.className = "message-swf-link";
+        externalBtn.textContent = "Open in external app";
+        externalBtn.addEventListener("click", () => openExternalUrlInClient(mediaUrl));
+        wrap.appendChild(externalBtn);
+      }
+    }
     const openBtn = document.createElement("a");
     openBtn.className = "message-swf-link";
     openBtn.href = mediaUrl;
     openBtn.target = "_blank";
     openBtn.rel = "noopener noreferrer";
-    openBtn.textContent = "Open audio file";
+    openBtn.textContent = "Open audio file in new tab";
     wrap.appendChild(openBtn);
     container.appendChild(wrap);
     return;

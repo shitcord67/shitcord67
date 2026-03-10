@@ -155,6 +155,17 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
     builder.c("external", { uri: url }).up();
   }
   builder.up();
+  if (XMPP_CALL_MESSAGE_NAMESPACE) {
+    const legacyTag = tag === "invite" ? "propose" : (tag === "left" ? "finish" : tag);
+    const legacyAttrs = { xmlns: XMPP_CALL_MESSAGE_NAMESPACE, video: video ? "true" : "false", multi: "false" };
+    if (legacyTag === "propose") legacyAttrs.id = stanzaId;
+    else legacyAttrs.id = trimmedInviteId;
+    const legacyBuilder = stanza.c(legacyTag, legacyAttrs);
+    if ((legacyTag === "propose" || legacyTag === "accept") && trimmedSessionId) {
+      legacyBuilder.c("jingle", { xmlns: XMPP_CALL_MESSAGE_NAMESPACE, sid: trimmedSessionId }).up();
+    }
+    legacyBuilder.up();
+  }
   if (trimmedFallbackBody) {
     stanza.c("body").t(trimmedFallbackBody.slice(0, 220)).up();
   }
