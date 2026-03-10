@@ -43,3 +43,11 @@ These instructions are project-local continuity notes for future LLM instances.
 
 ## XEP Docs Policy
 - XEP documents in this repo may be updated anytime, but do not fetch new external sources unless explicitly asked or granted after requesting approval.
+
+## Android Legacy Strategy
+- Use git worktrees for exploratory replacement of downgraded Android libraries to keep mainline clean.
+- Prefer self-written or minimal-dependency Android libraries that support the lowest feasible API levels.
+- Default to API level 22 when necessary, but do not raise the project-wide minSdk above 22 unless explicitly approved.
+- Split functionality into separate libraries/modules when that enables lower minSdk for apps that only need a subset.
+- Keep compatibility with the latest Android target SDK (currently API 36 / Android 16) while preserving minSdk 22.
+- Add replacement libraries to the repo incrementally and reassess which foreign dependencies can be removed after each step.
