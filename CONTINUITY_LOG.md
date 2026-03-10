@@ -8691,3 +8691,62 @@ But why is it not showing the dropdown for the users so they do not type their s
 03-10 16:36:35.952 28198 28275 D DroidVendorsSuckFS: Documents status available=true
 03-10 16:36:35.988 28198 28275 D DroidVendorsSuckFS: Documents info: available=true uri=content://com.android.externalstorage.documents/tree/primary%3ADocuments%2Fshitcord67
  Great works now. Next: remove "Change Docs Folder" and then place "Allow Docs Access" at the position where the Saves account drop-down appears; removing the button invisible after that drop-down appeared. Also the "Enable Debug Logs" option should only be in the 🛠 menu, not directly on the login screen. Oh and do you actually also put in the password and the websocket server from the JSON? Cause in a test that was not.
+[2026-03-10T16:00:02Z] Continue: 
+› Btw. can you rename com.shitcord67.droidvendorssuck to most.vendors.suck?
+
+
+• Explored
+  └ Search com\.shitcord67\.droidvendorssuck in droidvendorssuck-filesystem
+
+• I'm planning to rename the source folder to most/vendors/suck, update the build.gradle namespace and Proguard rules accordingly, and relocate the plugin class with proper package changes.
+  I'll use patching and move commands, ensuring to update all references, especially those matching the current package prefix in the app.
+
+• Explored
+  └ Search droidvendorssuck in android
+    Read AndroidManifest.xml
+
+• I'm planning to update the namespace, package statement, file path, Proguard rules, and all references to the plugin, starting by searching uses of the plugin's class name, including in
+  android/app plugin registration.
+
+• Explored
+  └ Search DroidVendorsSuckPlugin|droidvendorssuck in android
+
+• Planning to update MainActivity import, rename its directory using mkdir and mv commands, avoid exec_command for apply_patch, and update build.gradle and proguard files accordingly. Also
+  cleaning up unnecessary build intermediates without deleting critical files.
+
+• Ran mkdir -p android/droidvendorssuck-filesystem/src/main/java/most/vendors/suck
+  └ (no output)
+
+• Ran mv android/droidvendorssuck-filesystem/src/main/java/com/shitcord67/droidvendorssuck/DroidVendorsSuckPlugin.java android/droidvendorssuck-filesystem/src/main/java/most/vendors/suck/
+  │ DroidVendorsSuckPlugin.java
+  └ (no output)
+
+• Ran rmdir android/droidvendorssuck-filesystem/src/main/java/com/shitcord67/droidvendorssuck 2>/dev/null || true
+  └ (no output)
+
+• Ran rmdir android/droidvendorssuck-filesystem/src/main/java/com/shitcord67 2>/dev/null || true
+  └ (no output)
+
+• Ran rmdir android/droidvendorssuck-filesystem/src/main/java/com 2>/dev/null || true
+  └ (no output)
+
+• Edited android/droidvendorssuck-filesystem/build.gradle (+1 -1)
+    3  android {
+    4 -    namespace "com.shitcord67.droidvendorssuck"
+    4 +    namespace "most.vendors.suck"
+    5      compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34
+
+• Edited android/droidvendorssuck-filesystem/proguard-rules.pro (+1 -1)
+    1 --keep class com.shitcord67.droidvendorssuck.** { *; }
+    1 +-keep class most.vendors.suck.** { *; }
+
+• Edited android/droidvendorssuck-filesystem/src/main/java/most/vendors/suck/DroidVendorsSuckPlugin.java (+1 -1)
+    1 -package com.shitcord67.droidvendorssuck;
+    1 +package most.vendors.suck;
+    2
+
+• Edited android/app/src/main/java/com/shitcord67/client/MainActivity.java (+1 -1)
+    14  import com.getcapacitor.BridgeActivity;
+    15 -import com.shitcord67.droidvendorssuck.DroidVendorsSuckPlugin;
+    15 +import most.vendors.suck.DroidVendorsSuckPlugin;
+    16

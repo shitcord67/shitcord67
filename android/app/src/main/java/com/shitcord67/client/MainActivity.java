@@ -12,7 +12,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
-import com.shitcord67.droidvendorssuck.DroidVendorsSuckPlugin;
+import most.vendors.suck.DroidVendorsSuckPlugin;
 
 import java.util.Locale;
 
