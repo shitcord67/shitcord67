@@ -52,6 +52,7 @@ These instructions are project-local continuity notes for future LLM instances.
 - When feasible, isolate newer-API Android code into separate files/modules (optionally encoding minSdk in filenames) to keep legacy builds slim.
 - Keep compatibility with the latest Android target SDK (currently API 36 / Android 16) while preserving minSdk 22.
 - Add replacement libraries to the repo incrementally and reassess which foreign dependencies can be removed after each step.
+- Prefer moving reusable DroidVendorsSuck* libraries into a separate repository instead of worktrees when they should serve multiple projects; avoid keeping project-specific commits in that shared repo.
 
 ## Long-Term Platform Direction
 - Long-term goal is native apps; Electron remains a supported delivery target for now.
