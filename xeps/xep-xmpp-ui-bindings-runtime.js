@@ -103,8 +103,14 @@
             const permission = await runtime.requestPermission();
             granted = Boolean(permission?.granted);
             if (!granted) {
-              showToast("Documents permission is required to load credentials.", { tone: "error", duration: 3200 });
-              return;
+              if (typeof runtime.permissionStatus === "function") {
+                const status = await runtime.permissionStatus();
+                granted = (status || "").toString().trim().toLowerCase() === "granted";
+              }
+              if (!granted) {
+                showToast("Documents permission is required to load credentials.", { tone: "error", duration: 3200 });
+                return;
+              }
             }
           }
           const hydrated = typeof runtime.hydrateIntoState === "function"
@@ -615,12 +621,64 @@ ui.credentialStoragePermissionBtn?.addEventListener("click", async () => {
   ui.credentialStoragePermissionBtn.disabled = true;
   const result = await nativeCreds.requestPermission();
   ui.credentialStoragePermissionBtn.disabled = false;
-  if (result?.granted) {
+  let granted = Boolean(result?.granted);
+  if (!granted && typeof nativeCreds.permissionStatus === "function") {
+    const status = await nativeCreds.permissionStatus();
+    granted = (status || "").toString().trim().toLowerCase() === "granted";
+  }
+  if (granted) {
     showToast("Storage permission granted.");
   } else {
     showToast("Storage permission not granted.", { tone: "error" });
   }
   renderSettingsScreen();
+});
+
+ui.credentialStorageDocsChangeBtn?.addEventListener("click", async () => {
+  const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+  if (!nativeCreds || typeof nativeCreds.requestPermission !== "function") {
+    showToast("Documents access is unavailable in this runtime.", { tone: "error" });
+    return;
+  }
+  ui.credentialStorageDocsChangeBtn.disabled = true;
+  try {
+    if (typeof nativeCreds.clearDocumentsAccess === "function") {
+      await nativeCreds.clearDocumentsAccess();
+    }
+    const result = await nativeCreds.requestPermission();
+    let granted = Boolean(result?.granted);
+    if (!granted && typeof nativeCreds.permissionStatus === "function") {
+      const status = await nativeCreds.permissionStatus();
+      granted = (status || "").toString().trim().toLowerCase() === "granted";
+    }
+    if (granted) {
+      showToast("Documents folder updated.");
+    } else {
+      showToast("Documents access not granted.", { tone: "error" });
+    }
+  } finally {
+    ui.credentialStorageDocsChangeBtn.disabled = false;
+    renderSettingsScreen();
+  }
+});
+
+ui.credentialStorageDebugBtn?.addEventListener("click", async () => {
+  const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+  if (!nativeCreds || typeof nativeCreds.setDebug !== "function") {
+    showToast("Docs debug logging is unavailable in this runtime.", { tone: "error" });
+    return;
+  }
+  ui.credentialStorageDebugBtn.disabled = true;
+  try {
+    const isEnabled = ui.credentialStorageDebugBtn.dataset.enabled === "on";
+    const next = !isEnabled;
+    await nativeCreds.setDebug(next);
+    ui.credentialStorageDebugBtn.dataset.enabled = next ? "on" : "off";
+    ui.credentialStorageDebugBtn.textContent = next ? "Disable Docs Debug Logs" : "Enable Docs Debug Logs";
+    showToast(`Docs debug logs ${next ? "enabled" : "disabled"}.`, { tone: "info" });
+  } finally {
+    ui.credentialStorageDebugBtn.disabled = false;
+  }
 });
 
 ui.addMediaRuleBtn?.addEventListener("click", () => {

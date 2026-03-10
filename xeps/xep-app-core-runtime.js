@@ -1130,6 +1130,8 @@ const ui = {
   rememberLoginStorageInput: document.getElementById("rememberLoginStorageInput"),
   credentialStoragePermissionNote: document.getElementById("credentialStoragePermissionNote"),
   credentialStoragePermissionBtn: document.getElementById("credentialStoragePermissionBtn"),
+  credentialStorageDocsChangeBtn: document.getElementById("credentialStorageDocsChangeBtn"),
+  credentialStorageDebugBtn: document.getElementById("credentialStorageDebugBtn"),
   platformOverrideInput: document.getElementById("platformOverrideInput"),
   platformDetectedNote: document.getElementById("platformDetectedNote"),
   runtimeDiagnosticsNote: document.getElementById("runtimeDiagnosticsNote"),
@@ -1662,6 +1664,23 @@ if (typeof window !== "undefined") {
     isAndroid: isNativeAndroidPlatform,
     permissionStatus: getNativeFilesystemPermissionStatus,
     requestPermission: requestNativeFilesystemPermission,
+    getDocumentsInfo: async () => {
+      const fs = resolveNativeFilesystem();
+      if (!fs || typeof fs.getDocumentsDirectoryInfo !== "function") return null;
+      return fs.getDocumentsDirectoryInfo();
+    },
+    clearDocumentsAccess: async () => {
+      const fs = resolveNativeFilesystem();
+      if (!fs || typeof fs.clearDocumentsDirectoryAccess !== "function") return false;
+      await fs.clearDocumentsDirectoryAccess();
+      return true;
+    },
+    setDebug: async (enabled = false) => {
+      const fs = resolveNativeFilesystem();
+      if (!fs || typeof fs.setDebug !== "function") return false;
+      await fs.setDebug({ enabled: Boolean(enabled) });
+      return true;
+    },
     read: readNativeCredentials,
     write: writeNativeCredentials,
     clear: clearNativeCredentials,

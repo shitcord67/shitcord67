@@ -284,18 +284,46 @@ async function updateCredentialStoragePermissionUi() {
     ui.credentialStoragePermissionNote.textContent = "Storage permission is Android-only.";
     ui.credentialStoragePermissionBtn.hidden = true;
     ui.credentialStoragePermissionBtn.disabled = true;
+    if (ui.credentialStorageDocsChangeBtn) {
+      ui.credentialStorageDocsChangeBtn.hidden = true;
+      ui.credentialStorageDocsChangeBtn.disabled = true;
+    }
+    if (ui.credentialStorageDebugBtn) {
+      ui.credentialStorageDebugBtn.hidden = true;
+      ui.credentialStorageDebugBtn.disabled = true;
+    }
     return;
   }
   ui.credentialStoragePermissionBtn.hidden = false;
   ui.credentialStoragePermissionBtn.disabled = false;
+  if (ui.credentialStorageDocsChangeBtn) {
+    ui.credentialStorageDocsChangeBtn.hidden = false;
+    ui.credentialStorageDocsChangeBtn.disabled = false;
+  }
+  if (ui.credentialStorageDebugBtn) {
+    ui.credentialStorageDebugBtn.hidden = false;
+    ui.credentialStorageDebugBtn.disabled = false;
+  }
   if (!nativeCreds || typeof nativeCreds.permissionStatus !== "function") {
     ui.credentialStoragePermissionNote.textContent = "Storage permission status unavailable.";
     return;
   }
   const status = await nativeCreds.permissionStatus();
+  let docsLabel = "";
+  if (nativeCreds.getDocumentsInfo) {
+    try {
+      const info = await nativeCreds.getDocumentsInfo();
+      if (info?.available) {
+        const name = (info?.name || "Documents").toString();
+        docsLabel = ` (Folder: ${name})`;
+      }
+    } catch {
+      // ignore
+    }
+  }
   const normalized = (status || "").toString().trim().toLowerCase();
   if (normalized === "granted") {
-    ui.credentialStoragePermissionNote.textContent = "Storage permission: granted.";
+    ui.credentialStoragePermissionNote.textContent = `Storage permission: granted.${docsLabel}`;
     return;
   }
   if (normalized === "denied") {

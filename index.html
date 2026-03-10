@@ -424,7 +424,11 @@
             </select>
             <p class="settings-note">Stores XMPP credentials in Documents to survive reinstall.</p>
             <p id="credentialStoragePermissionNote" class="settings-note"></p>
-            <button type="button" id="credentialStoragePermissionBtn">Request Storage Permission</button>
+            <div class="settings-inline-actions">
+              <button type="button" id="credentialStoragePermissionBtn">Request Storage Permission</button>
+              <button type="button" id="credentialStorageDocsChangeBtn">Change Docs Folder</button>
+              <button type="button" id="credentialStorageDebugBtn">Enable Docs Debug Logs</button>
+            </div>
             <h3>Media Privacy Rules</h3>
             <p>Manage allow/deny domain rules for external media shown in picker and chat.</p>
             <div class="settings-inline-actions settings-inline-actions--media-rules">

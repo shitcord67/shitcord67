@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 
 import androidx.activity.result.ActivityResult;
 import androidx.core.content.ContextCompat;
@@ -46,6 +47,8 @@ public class DroidVendorsSuckPlugin extends Plugin {
     static final String PERMISSION_WRITE = "write";
     private static final String PREFS_NAME = "legacy_filesystem";
     private static final String PREFS_DOCUMENTS_TREE = "documents_tree_uri";
+    private static final String PREFS_DEBUG = "debug_enabled";
+    private static final String LOG_TAG = "DroidVendorsSuckFS";
 
     @PluginMethod
     public void getPermissions(PluginCall call) {
@@ -148,6 +151,7 @@ public class DroidVendorsSuckPlugin extends Plugin {
             return;
         }
         Uri uri = data.getData();
+        logDebug("Documents tree selected: " + uri);
         try {
             final int takeFlags = data.getFlags()
                 & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -166,6 +170,51 @@ public class DroidVendorsSuckPlugin extends Plugin {
         boolean available = getDocumentsTreeUri() != null;
         JSObject result = new JSObject();
         result.put("available", available);
+        logDebug("Documents status available=" + available);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void getDocumentsDirectoryInfo(PluginCall call) {
+        Uri treeUri = getDocumentsTreeUri();
+        JSObject result = new JSObject();
+        if (treeUri == null) {
+            result.put("available", false);
+            logDebug("Documents info requested: no tree uri");
+            call.resolve(result);
+            return;
+        }
+        DocumentFile root = DocumentFile.fromTreeUri(getContext(), treeUri);
+        result.put("available", root != null);
+        result.put("uri", treeUri.toString());
+        if (root != null) {
+            result.put("name", root.getName());
+            result.put("isDirectory", root.isDirectory());
+        }
+        logDebug("Documents info: available=" + (root != null) + " uri=" + treeUri);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void clearDocumentsDirectoryAccess(PluginCall call) {
+        getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(PREFS_DOCUMENTS_TREE)
+            .apply();
+        logDebug("Documents tree access cleared");
+        call.resolve(new JSObject());
+    }
+
+    @PluginMethod
+    public void setDebug(PluginCall call) {
+        boolean enabled = call.getBoolean("enabled", false);
+        getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(PREFS_DEBUG, enabled)
+            .apply();
+        logDebug("Debug logging set to " + enabled);
+        JSObject result = new JSObject();
+        result.put("enabled", enabled);
         call.resolve(result);
     }
 
@@ -369,6 +418,16 @@ public class DroidVendorsSuckPlugin extends Plugin {
             .apply();
     }
 
+    private boolean isDebugEnabled() {
+        return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(PREFS_DEBUG, false);
+    }
+
+    private void logDebug(String message) {
+        if (!isDebugEnabled()) return;
+        Log.d(LOG_TAG, message);
+    }
+
     private List<String> splitPath(String path) {
         List<String> parts = new ArrayList<>();
         if (path == null) {
@@ -431,6 +490,7 @@ public class DroidVendorsSuckPlugin extends Plugin {
     private void writeDocumentsFile(PluginCall call, String path, String data, String encoding) {
         Uri treeUri = getDocumentsTreeUri();
         if (treeUri == null) {
+            logDebug("Write Documents failed: no tree uri for path=" + path);
             call.reject("Documents directory access not granted");
             return;
         }
@@ -443,6 +503,7 @@ public class DroidVendorsSuckPlugin extends Plugin {
         DocumentFile parent = parts.isEmpty() ? DocumentFile.fromTreeUri(getContext(), treeUri)
             : ensureDocumentsDir(joinParts(parts));
         if (parent == null) {
+            logDebug("Write Documents failed: parent missing for path=" + path);
             call.reject("Failed to resolve Documents directory");
             return;
         }
@@ -451,6 +512,7 @@ public class DroidVendorsSuckPlugin extends Plugin {
             target = parent.createFile("application/json", filename);
         }
         if (target == null) {
+            logDebug("Write Documents failed: target create failed for path=" + path);
             call.reject("Failed to create file in Documents");
             return;
         }
@@ -466,8 +528,10 @@ public class DroidVendorsSuckPlugin extends Plugin {
             output.close();
             JSObject result = new JSObject();
             result.put("uri", target.getUri().toString());
+            logDebug("Write Documents ok: path=" + path + " bytes=" + payload.length);
             call.resolve(result);
         } catch (IOException ex) {
+            logDebug("Write Documents failed: path=" + path + " err=" + ex.getMessage());
             call.reject("Failed to write Documents file", ex);
         }
     }
@@ -475,26 +539,24 @@ public class DroidVendorsSuckPlugin extends Plugin {
     private void readDocumentsFile(PluginCall call, String path, String encoding) {
         DocumentFile target = resolveDocumentsFile(path);
         if (target == null || !target.exists()) {
+            logDebug("Read Documents failed: not found path=" + path);
             call.reject("File not found");
             return;
         }
         try {
             InputStream input = getContext().getContentResolver().openInputStream(target.getUri());
             if (input == null) {
+                logDebug("Read Documents failed: openInputStream null path=" + path);
                 call.reject("Failed to open file");
                 return;
             }
-            byte[] buffer = new byte[(int) target.length()];
-            int read = input.read(buffer);
-            input.close();
-            if (read < 0) {
-                call.reject("Failed to read file");
-                return;
-            }
+            byte[] buffer = readAllBytes(input);
             JSObject result = new JSObject();
             result.put("data", fromBytes(buffer, encoding));
+            logDebug("Read Documents ok: path=" + path + " bytes=" + buffer.length);
             call.resolve(result);
         } catch (IOException ex) {
+            logDebug("Read Documents failed: path=" + path + " err=" + ex.getMessage());
             call.reject("Failed to read Documents file", ex);
         }
     }
