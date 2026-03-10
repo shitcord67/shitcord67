@@ -1,1 +1,0 @@
--keep class com.shitcord67.legacy.** { *; }

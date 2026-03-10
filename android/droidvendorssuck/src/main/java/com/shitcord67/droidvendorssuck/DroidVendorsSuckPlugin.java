@@ -1,4 +1,4 @@
-package com.shitcord67.legacy;
+package com.shitcord67.droidvendorssuck;
 
 import android.Manifest;
 import android.app.Activity;
@@ -37,11 +37,11 @@ import java.util.List;
 @CapacitorPlugin(
     name = "LegacyFilesystem",
     permissions = {
-        @Permission(strings = { Manifest.permission.READ_EXTERNAL_STORAGE }, alias = LegacyFilesystemPlugin.PERMISSION_READ),
-        @Permission(strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }, alias = LegacyFilesystemPlugin.PERMISSION_WRITE)
+        @Permission(strings = { Manifest.permission.READ_EXTERNAL_STORAGE }, alias = DroidVendorsSuckPlugin.PERMISSION_READ),
+        @Permission(strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }, alias = DroidVendorsSuckPlugin.PERMISSION_WRITE)
     }
 )
-public class LegacyFilesystemPlugin extends Plugin {
+public class DroidVendorsSuckPlugin extends Plugin {
     static final String PERMISSION_READ = "read";
     static final String PERMISSION_WRITE = "write";
     private static final String PREFS_NAME = "legacy_filesystem";

@@ -1,7 +1,7 @@
 include ':app'
 include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
-include ':legacy-filesystem'
-project(':legacy-filesystem').projectDir = new File('./legacy-filesystem/')
+include ':droidvendorssuck'
+project(':droidvendorssuck').projectDir = new File('./droidvendorssuck/')
 
 apply from: 'capacitor.settings.gradle'
