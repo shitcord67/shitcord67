@@ -7361,6 +7361,20 @@ body[data-debug-overlay="on"] .chat-panel {
     font-size: 0.66rem;
   }
 
+  #openFindBtn {
+    font-size: 0;
+    width: var(--android-touch-size);
+    min-width: var(--android-touch-size);
+    height: var(--android-touch-size);
+    padding: 0;
+  }
+
+  #openFindBtn::before {
+    content: "🔍";
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
   .composer-stack {
     --composer-base-bottom: 0.72rem;
     padding: 0.24rem 0.55rem var(--composer-base-bottom);
