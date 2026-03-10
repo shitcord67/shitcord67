@@ -1653,6 +1653,9 @@ async function hydrateNativeCredentialsIntoState({ force = false } = {}) {
   state.preferences.rememberLoginStorage = "on";
   state.preferences.rememberLogin = "on";
   queueMicrotask(() => {
+    if (typeof syncLoginFieldsFromSessionPrefs === "function") {
+      syncLoginFieldsFromSessionPrefs();
+    }
     if (typeof saveState === "function") saveState();
     if (typeof renderSettingsScreen === "function") renderSettingsScreen();
   });

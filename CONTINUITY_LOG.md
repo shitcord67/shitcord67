@@ -8750,3 +8750,4 @@ But why is it not showing the dropdown for the users so they do not type their s
     15 -import com.shitcord67.droidvendorssuck.DroidVendorsSuckPlugin;
     15 +import most.vendors.suck.DroidVendorsSuckPlugin;
     16
+[2026-03-10T16:07:35Z] Great. I noticed however one thing for the Android app of shitcord67. only Username or XMPP JID field gets filled out when credentials JSON is loaded. Why not "Password (optional)" and "XMPP WebStocket server (optional)" when they are stored in the JSON as well as password and wsUrl?
