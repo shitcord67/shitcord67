@@ -8675,3 +8675,19 @@ Yeah also I noticed when I call from shitcord67 and the Dino user accepts then c
 But why is it not showing the dropdown for the users so they do not type their stored credentials ever again to login ? Is it actually reading the credentials JSON content?
 
 [2026-03-10 16:32:04] Yes look if the file exists, load and read it and then show the dropdown ffs. You may need to refresh for that once
+
+[2026-03-10 16:40:04] 16:36:00 ~/shitcord67:$ adb logcat -s DroidVendorsSuckFS
+--------- beginning of main
+03-10 16:36:12.603 28198 28275 D DroidVendorsSuckFS: Documents status available=false
+03-10 16:36:26.373 28198 28275 D DroidVendorsSuckFS: Debug logging set to true
+03-10 16:36:30.302 28198 28275 D DroidVendorsSuckFS: Documents status available=false
+03-10 16:36:30.311 28198 28275 D DroidVendorsSuckFS: Documents status available=false
+03-10 16:36:34.591 28198 28198 D DroidVendorsSuckFS: Documents tree selected: content://com.android.externalstorage.documents/tree/primary%3ADocuments%2Fshitcord67
+03-10 16:36:34.627 28198 28275 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:36:35.409 28198 28275 D DroidVendorsSuckFS: Write Documents ok: path=shitcord67/.access-probe bytes=2
+03-10 16:36:35.612 28198 28275 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:36:35.618 28198 28275 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:36:35.921 28198 28275 D DroidVendorsSuckFS: Read Documents ok: path=shitcord67/shitcord67-credentials.json bytes=155
+03-10 16:36:35.952 28198 28275 D DroidVendorsSuckFS: Documents status available=true
+03-10 16:36:35.988 28198 28275 D DroidVendorsSuckFS: Documents info: available=true uri=content://com.android.externalstorage.documents/tree/primary%3ADocuments%2Fshitcord67
+ Great works now. Next: remove "Change Docs Folder" and then place "Allow Docs Access" at the position where the Saves account drop-down appears; removing the button invisible after that drop-down appeared. Also the "Enable Debug Logs" option should only be in the 🛠 menu, not directly on the login screen. Oh and do you actually also put in the password and the websocket server from the JSON? Cause in a test that was not.

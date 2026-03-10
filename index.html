@@ -23,10 +23,11 @@
         <p>Sign in with a username or XMPP credentials to continue to shitcord67</p>
         <form id="loginForm" autocomplete="off">
           <div id="loginSavedAccountWrap" class="login-local-profile" hidden>
-            <label for="loginSavedAccountSelect">Saved account</label>
+            <label id="loginSavedAccountLabel" for="loginSavedAccountSelect">Saved account</label>
             <select id="loginSavedAccountSelect">
               <option value="">Select saved account</option>
             </select>
+            <button id="loginStoragePermissionBtn" type="button" hidden>Allow Docs Access</button>
           </div>
           <div id="loginLocalProfileWrap" class="login-local-profile" hidden>
             <label for="loginLocalProfileSelect">Local XMPP profile</label>
@@ -51,9 +52,6 @@
           <div class="settings-inline-actions">
             <button id="loginProvidersBtn" type="button">Provider Directory</button>
             <button id="loginRegisterBtn" type="button">Register XMPP Account</button>
-            <button id="loginStoragePermissionBtn" type="button" hidden>Allow Docs Access</button>
-            <button id="loginStorageDocsChangeBtn" type="button" hidden>Change Docs Folder</button>
-            <button id="loginStorageDebugBtn" type="button" hidden>Enable Docs Debug Logs</button>
           </div>
           <div id="loginXmppProgress" class="login-xmpp-progress" hidden aria-live="polite">
             <div class="login-xmpp-progress__row">

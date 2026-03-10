@@ -583,6 +583,21 @@
     if (ui.loginRememberInput) {
       ui.loginRememberInput.checked = prefs.rememberLogin === "on" && isSessionPersistenceEnabled();
     }
+    if (prefs.rememberLoginStorage === "on") {
+      if (ui.loginUsername && !ui.loginUsername.value.trim() && prefs.xmppJid) {
+        ui.loginUsername.value = normalizeXmppJid(prefs.xmppJid);
+      }
+      if (ui.loginPassword && !ui.loginPassword.value && typeof prefs.xmppPassword === "string") {
+        ui.loginPassword.value = normalizeXmppPassword(prefs.xmppPassword);
+      }
+      if (ui.loginXmppServer && !ui.loginXmppServer.value.trim()) {
+        const ws = normalizeXmppWsUrl(prefs.xmppWsUrl || "");
+        if (ws) {
+          ui.loginXmppServer.value = ws;
+          ui.loginXmppServer.dataset.autofill = "0";
+        }
+      }
+    }
   }
 
   function openXmppRegisterDialog() {
