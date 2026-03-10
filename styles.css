@@ -7376,7 +7376,7 @@ body[data-debug-overlay="on"] .chat-panel {
 
   .message-form {
     margin: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     border-radius: 14px;
     padding: 0.36rem;
     gap: 0.28rem;
@@ -7384,14 +7384,22 @@ body[data-debug-overlay="on"] .chat-panel {
 
   .message-form textarea {
     order: 2;
-    flex: 1 1 100%;
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
     min-height: 42px;
   }
 
   .message-form button[type="submit"] {
     order: 3;
     margin-left: auto;
+  }
+
+  .message-form__media-btn {
+    order: 1;
+  }
+
+  .message-form__tab-btn {
+    order: 1;
   }
 
   .channel-panel__close {
