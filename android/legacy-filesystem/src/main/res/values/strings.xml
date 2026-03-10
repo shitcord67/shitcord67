@@ -1,0 +1,3 @@
+<resources>
+    <string name="legacy_filesystem_permission_rationale">Storage access is needed to read and write files.</string>
+</resources>

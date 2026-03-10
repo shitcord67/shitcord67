@@ -1275,10 +1275,21 @@ const ui = {
 const NATIVE_CREDENTIALS_FILENAME = "shitcord67-credentials.json";
 const NATIVE_CREDENTIALS_DIR = "shitcord67";
 let lastHapticFeedbackAtMs = 0;
+let promptedDocumentsAccess = false;
 
 function resolveNativeFilesystem() {
   const cap = typeof window !== "undefined" ? window.Capacitor : null;
   if (!cap) return null;
+  const legacy = cap.Plugins?.LegacyFilesystem || cap.LegacyFilesystem || cap.plugins?.LegacyFilesystem;
+  if (legacy) {
+    return {
+      ...legacy,
+      Directory: {
+        Documents: "DOCUMENTS",
+        DOCUMENTS: "DOCUMENTS"
+      }
+    };
+  }
   return cap.Plugins?.Filesystem || cap.Filesystem || cap.plugins?.Filesystem || null;
 }
 
@@ -1408,6 +1419,32 @@ async function ensureNativeFilesystemPermissions({
   const fs = resolveNativeFilesystem();
   if (!fs) return false;
   if (!isNativeAndroidPlatform()) return true;
+  if (typeof fs.getDocumentsDirectoryStatus === "function") {
+    try {
+      const status = await fs.getDocumentsDirectoryStatus();
+      if (!status?.available) {
+        if (!prompt || promptedDocumentsAccess) {
+          return false;
+        }
+        promptedDocumentsAccess = true;
+        if (typeof fs.selectDocumentsDirectory === "function") {
+          await fs.selectDocumentsDirectory();
+        }
+        const after = await fs.getDocumentsDirectoryStatus().catch(() => null);
+        if (!after?.available) return false;
+      }
+    } catch {
+      if (!prompt || promptedDocumentsAccess) return false;
+      promptedDocumentsAccess = true;
+      if (typeof fs.selectDocumentsDirectory === "function") {
+        try {
+          await fs.selectDocumentsDirectory();
+        } catch {
+          return false;
+        }
+      }
+    }
+  }
   if (typeof fs.checkPermissions !== "function") return true;
   try {
     const status = await fs.checkPermissions();

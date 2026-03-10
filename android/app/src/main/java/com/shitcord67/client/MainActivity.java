@@ -12,6 +12,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
+import com.shitcord67.legacy.LegacyFilesystemPlugin;
 
 import java.util.Locale;
 
@@ -20,6 +21,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(LegacyFilesystemPlugin.class);
         super.onCreate(savedInstanceState);
 
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
