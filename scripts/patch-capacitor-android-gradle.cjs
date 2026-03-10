@@ -8,6 +8,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const TARGETS = [
   path.join(ROOT_DIR, 'android', 'capacitor-cordova-android-plugins', 'build.gradle'),
   path.join(ROOT_DIR, 'android', 'app', 'capacitor.build.gradle'),
+  path.join(ROOT_DIR, 'node_modules', '@capacitor', 'android', 'capacitor', 'build.gradle'),
 ];
 
 function removeFlatDirBlock(lines) {
