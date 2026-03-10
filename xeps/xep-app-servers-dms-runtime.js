@@ -1453,18 +1453,84 @@ function renderChannels() {
     });
   const visited = new Set();
   const hasMultipleGroups = groupMap.size > 1;
+  const groupChannelCountCache = new Map();
+  const countGroupChannels = (group) => {
+    if (!group) return 0;
+    if (groupChannelCountCache.has(group.id)) return groupChannelCountCache.get(group.id);
+    const children = childrenByParent.get(group.id) || [];
+    const childCount = children.reduce((sum, child) => sum + countGroupChannels(child), 0);
+    const total = (group.channels?.length || 0) + childCount;
+    groupChannelCountCache.set(group.id, total);
+    return total;
+  };
+  const roomsSummary = (() => {
+    const xmppRooms = channelsToRender.filter((channel) => isXmppBackedChannel(channel));
+    const joined = xmppRooms.filter((channel) => {
+      const bare = xmppBareJid(channel?.xmppRoomJid || "");
+      return Boolean(bare && xmppRoomByJid?.has?.(bare));
+    });
+    const autojoin = xmppRooms.filter((channel) => channel?.xmppSpaceAutojoin).length;
+    const occupantTotal = xmppRooms.reduce((sum, channel) => {
+      const bare = xmppBareJid(channel?.xmppRoomJid || "");
+      if (!bare) return sum;
+      const occupants = xmppOccupantsByRoomJid?.get?.(bare);
+      if (!occupants || typeof occupants.size !== "number") return sum;
+      return sum + occupants.size;
+    }, 0);
+    const groupCount = [...groupMap.values()].filter((group) => group.id !== server.id).length;
+    return {
+      roomsTotal: xmppRooms.length,
+      roomsJoined: joined.length,
+      roomsAutojoin: autojoin,
+      occupants: occupantTotal,
+      groups: groupCount
+    };
+  })();
+  if (roomsSummary.roomsTotal > 0) {
+    const summary = document.createElement("div");
+    summary.className = "space-summary";
+    const title = document.createElement("div");
+    title.className = "space-summary__title";
+    title.textContent = "Spaces overview";
+    summary.appendChild(title);
+    const row = document.createElement("div");
+    row.className = "space-summary__row";
+    const makeStat = (label, value) => {
+      const stat = document.createElement("div");
+      stat.className = "space-summary__stat";
+      stat.innerHTML = `<strong>${value}</strong><span>${label}</span>`;
+      return stat;
+    };
+    row.appendChild(makeStat("Groups", roomsSummary.groups || 1));
+    row.appendChild(makeStat("Rooms", roomsSummary.roomsTotal));
+    row.appendChild(makeStat("Joined", roomsSummary.roomsJoined));
+    row.appendChild(makeStat("Autojoin", roomsSummary.roomsAutojoin));
+    row.appendChild(makeStat("Occupants", roomsSummary.occupants));
+    summary.appendChild(row);
+    ui.channelList.appendChild(summary);
+  }
   const renderGroupTree = (group, depth = 0) => {
     if (!group || visited.has(group.id)) return;
     visited.add(group.id);
     const children = sortedGroups(childrenByParent.get(group.id) || []);
     const showHeading = group.id !== server.id || hasMultipleGroups || children.length > 0;
     if (showHeading) {
-      const heading = document.createElement("div");
-      heading.className = "channel-space-title";
-      heading.textContent = group.label || "XMPP Space";
+      const heading = document.createElement("button");
+      heading.type = "button";
+      heading.className = "channel-space-title channel-space-title--button";
+      const collapsed = isSpaceGroupCollapsed(group.id);
+      const channelCount = countGroupChannels(group);
+      heading.textContent = `${collapsed ? "▸" : "▾"} ${group.label || "XMPP Space"}${channelCount ? ` (${channelCount})` : ""}`;
+      heading.title = `${group.label || "XMPP Space"}${channelCount ? ` • ${channelCount} rooms` : ""}`;
       const indentDepth = Math.min(4, Math.max(0, Number(depth) || 0));
       heading.style.paddingLeft = `${0.4 + (indentDepth * 0.65)}rem`;
+      heading.addEventListener("click", () => {
+        setSpaceGroupCollapsed(group.id, !collapsed);
+        saveState();
+        renderChannels();
+      });
       ui.channelList.appendChild(heading);
+      if (collapsed) return;
     }
     const channelIndent = showHeading ? depth + 1 : depth;
     group.channels.forEach((channel) => renderChannelButton(channel, { indent: channelIndent }));
@@ -1918,11 +1984,17 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
 
   const threadSortMode = getForumThreadSortMode(channel?.id);
   const unreadOnly = isForumThreadUnreadOnly(channel?.id);
+  const myOnly = isForumThreadMyOnly(channel?.id);
   let threadModels = topLevel.map((post) => {
     const replies = (repliesByThread.get(post.id) || []).slice().sort((a, b) => toTimestampMs(a.ts) - toTimestampMs(b.ts));
     const latestTs = replies[replies.length - 1]?.ts || post.ts || new Date().toISOString();
     const latestTsMs = replies.reduce((maxTs, replyMessage) => Math.max(maxTs, toTimestampMs(replyMessage.ts)), toTimestampMs(post.ts));
     const postTagIds = normalizeThreadTagIds(post.forumTagIds, forumTags);
+    const mine = Boolean(
+      currentAccount?.id
+      && ((post.userId || "") === currentAccount.id
+        || replies.some((entry) => (entry.userId || "") === currentAccount.id))
+    );
     const threadReadMs = toTimestampMs(getForumThreadReadTimestamp(channel?.id, post.id));
     const effectiveReadMs = Math.max(channelLastReadMs, threadReadMs);
     const unreadReplies = replies.reduce((count, replyMessage) => {
@@ -1933,13 +2005,26 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     const postUnread = toTimestampMs(post.ts) > effectiveReadMs
       && (!currentAccount?.id || post.userId !== currentAccount.id);
     const unreadCount = unreadReplies + (postUnread ? 1 : 0);
-    return { post, replies, latestTsMs, latestTs, postTagIds, unreadCount, unreadReplies };
+    return {
+      post,
+      replies,
+      latestTsMs,
+      latestTs,
+      postTagIds,
+      unreadCount,
+      unreadReplies,
+      mine,
+      pinned: Boolean(post.pinned)
+    };
   });
   if (activeTagFilter.length > 0) {
     threadModels = threadModels.filter((entry) => activeTagFilter.some((tagId) => entry.postTagIds.includes(tagId)));
   }
   if (unreadOnly) {
     threadModels = threadModels.filter((entry) => entry.unreadCount > 0);
+  }
+  if (myOnly) {
+    threadModels = threadModels.filter((entry) => entry.mine);
   }
   threadModels.sort((a, b) => {
     if (threadSortMode === "created") return toTimestampMs(b.post.ts) - toTimestampMs(a.post.ts);
@@ -1972,6 +2057,17 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       renderMessages();
     });
     toolbar.appendChild(unreadBtn);
+
+    const myThreadsBtn = document.createElement("button");
+    myThreadsBtn.type = "button";
+    myThreadsBtn.className = "forum-thread-toolbar__btn";
+    myThreadsBtn.textContent = myOnly ? "My threads: On" : "My threads: Off";
+    myThreadsBtn.addEventListener("click", () => {
+      setForumThreadMyOnly(channel?.id, !myOnly);
+      saveState();
+      renderMessages();
+    });
+    toolbar.appendChild(myThreadsBtn);
 
     const collapseAllBtn = document.createElement("button");
     collapseAllBtn.type = "button";
@@ -2056,11 +2152,20 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
       ? "No threads match selected tags."
       : unreadOnly
         ? "No unread threads right now."
-      : "No forum posts yet. Start with a post title on the first line.";
+      : myOnly
+        ? "No threads from you yet."
+        : "No forum posts yet. Start with a post title on the first line.";
     ui.messageList.appendChild(empty);
   }
 
-  threadModels.forEach(({ post, replies, postTagIds, latestTs, unreadCount, unreadReplies }) => {
+  const renderThreadModel = ({
+    post,
+    replies,
+    postTagIds,
+    latestTs,
+    unreadCount,
+    unreadReplies
+  }) => {
     const postRow = document.createElement("article");
     postRow.className = "message message--forum message--forum-root";
     if (messageMatchesFindQuery(post, findQuery, "forum")) {
@@ -2499,7 +2604,18 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
     });
 
     ui.messageList.appendChild(postRow);
-  });
+  };
+
+  const pinnedThreads = threadModels.filter((entry) => entry.pinned);
+  const otherThreads = threadModels.filter((entry) => !entry.pinned);
+  if (pinnedThreads.length > 0) {
+    const pinnedHeader = document.createElement("div");
+    pinnedHeader.className = "forum-thread-section";
+    pinnedHeader.textContent = `Pinned threads (${pinnedThreads.length})`;
+    ui.messageList.appendChild(pinnedHeader);
+    pinnedThreads.forEach((entry) => renderThreadModel(entry));
+  }
+  otherThreads.forEach((entry) => renderThreadModel(entry));
 
   ui.messageList.scrollTop = ui.messageList.scrollHeight;
 }

@@ -134,6 +134,24 @@
     }, {});
   }
 
+  function normalizeForumThreadMyOnlyMap(value) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [channelId, enabled]) => {
+      if (!channelId || !enabled) return acc;
+      acc[channelId] = true;
+      return acc;
+    }, {});
+  }
+
+  function normalizeSpaceGroupCollapsedMap(value) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [spaceId, collapsed]) => {
+      if (!spaceId || !collapsed) return acc;
+      acc[spaceId] = true;
+      return acc;
+    }, {});
+  }
+
   function normalizeLastChannelByGuildMap(value) {
     if (!value || typeof value !== "object") return {};
     return Object.entries(value).reduce((acc, [guildId, channelId]) => {
@@ -313,6 +331,8 @@
     normalizeForumThreadSortMap,
     normalizeForumThreadTagFilterMap,
     normalizeForumThreadUnreadOnlyMap,
+    normalizeForumThreadMyOnlyMap,
+    normalizeSpaceGroupCollapsedMap,
     normalizeLastChannelByGuildMap,
     normalizeMediaDeviceId,
     normalizePlatformOverride,

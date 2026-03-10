@@ -1202,6 +1202,50 @@ function setForumThreadUnreadOnly(channelId, enabled) {
   };
 }
 
+function isForumThreadMyOnly(channelId) {
+  if (!channelId) return false;
+  const prefs = getPreferences();
+  return Boolean(prefs.forumThreadMyOnly?.[channelId]);
+}
+
+function setForumThreadMyOnly(channelId, enabled) {
+  if (!channelId) return;
+  state.preferences = getPreferences();
+  const current = state.preferences.forumThreadMyOnly || {};
+  if (!enabled) {
+    const next = { ...current };
+    delete next[channelId];
+    state.preferences.forumThreadMyOnly = next;
+    return;
+  }
+  state.preferences.forumThreadMyOnly = {
+    ...current,
+    [channelId]: true
+  };
+}
+
+function isSpaceGroupCollapsed(spaceId) {
+  if (!spaceId) return false;
+  const prefs = getPreferences();
+  return Boolean(prefs.spaceGroupCollapsed?.[spaceId]);
+}
+
+function setSpaceGroupCollapsed(spaceId, collapsed) {
+  if (!spaceId) return;
+  state.preferences = getPreferences();
+  const current = state.preferences.spaceGroupCollapsed || {};
+  if (!collapsed) {
+    const next = { ...current };
+    delete next[spaceId];
+    state.preferences.spaceGroupCollapsed = next;
+    return;
+  }
+  state.preferences.spaceGroupCollapsed = {
+    ...current,
+    [spaceId]: true
+  };
+}
+
 function forumTagsForChannel(channel) {
   return normalizeForumTags(channel?.forumTags || []);
 }
