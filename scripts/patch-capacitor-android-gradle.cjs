@@ -7,6 +7,7 @@ const path = require('path');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const TARGETS = [
   path.join(ROOT_DIR, 'android', 'capacitor-cordova-android-plugins', 'build.gradle'),
+  path.join(ROOT_DIR, 'android', 'app', 'capacitor.build.gradle'),
 ];
 
 function removeFlatDirBlock(lines) {
@@ -166,6 +167,19 @@ function ensureAarIncludes(lines) {
   );
 }
 
+function forceJavaCompatibility(lines, version = '17') {
+  const target = `JavaVersion.VERSION_${version}`;
+  return lines.map((line) => {
+    if (/sourceCompatibility\s+JavaVersion\.VERSION_\d+/.test(line)) {
+      return line.replace(/JavaVersion\.VERSION_\d+/, target);
+    }
+    if (/targetCompatibility\s+JavaVersion\.VERSION_\d+/.test(line)) {
+      return line.replace(/JavaVersion\.VERSION_\d+/, target);
+    }
+    return line;
+  });
+}
+
 function patchFile(filePath) {
   if (!fs.existsSync(filePath)) {
     return false;
@@ -176,6 +190,7 @@ function patchFile(filePath) {
   lines = stripBuildscriptImplementationFileTree(lines);
   lines = ensureAarIncludes(lines);
   lines = ensureFileTreeDeps(lines);
+  lines = forceJavaCompatibility(lines, '17');
   const updated = lines.join('\n');
   if (updated === original) {
     return false;
