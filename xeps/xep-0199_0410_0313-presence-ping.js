@@ -126,6 +126,13 @@
   function scheduleXmppMucSelfPing(roomJid = "", { immediate = false, reason = "" } = {}, deps = {}) {
     const bare = typeof deps.bareJidFn === "function" ? deps.bareJidFn(roomJid) : "";
     if (!bare) return false;
+    const prefs = typeof deps.getPreferencesFn === "function" ? deps.getPreferencesFn() : null;
+    const account = typeof deps.getCurrentAccountFn === "function" ? deps.getCurrentAccountFn() : null;
+    if (typeof deps.isXmppRoomIgnoredFn === "function" && deps.isXmppRoomIgnoredFn(bare, account, prefs)) {
+      if (typeof deps.clearXmppMucSelfPingFn === "function") deps.clearXmppMucSelfPingFn(bare);
+      else clearXmppMucSelfPing(bare, deps);
+      return false;
+    }
     const xmppConnection = typeof deps.getXmppConnectionFn === "function" ? deps.getXmppConnectionFn() : null;
     const relayStatus = typeof deps.getRelayStatusFn === "function" ? deps.getRelayStatusFn() : "";
     if (!xmppConnection || relayStatus !== "connected") {
@@ -160,6 +167,13 @@
     const bare = typeof deps.bareJidFn === "function" ? deps.bareJidFn(roomJid) : "";
     const xmppConnection = typeof deps.getXmppConnectionFn === "function" ? deps.getXmppConnectionFn() : null;
     const relayStatus = typeof deps.getRelayStatusFn === "function" ? deps.getRelayStatusFn() : "";
+    const prefs = typeof deps.getPreferencesFn === "function" ? deps.getPreferencesFn() : null;
+    const account = typeof deps.getCurrentAccountFn === "function" ? deps.getCurrentAccountFn() : null;
+    if (typeof deps.isXmppRoomIgnoredFn === "function" && deps.isXmppRoomIgnoredFn(bare, account, prefs)) {
+      if (typeof deps.clearXmppMucSelfPingFn === "function") deps.clearXmppMucSelfPingFn(bare);
+      else clearXmppMucSelfPing(bare, deps);
+      return false;
+    }
     if (!bare || !xmppConnection || relayStatus !== "connected" || typeof deps.$iq !== "function") return false;
     const joinState = deps.mucJoinStateByRoomJid?.get?.(bare) || {};
     if (joinState.pending) {

@@ -8625,3 +8625,9 @@ Oh and some logs I gathered [2026-03-10T10:23:53.197Z] [message] Incoming stanza
   "reason": "auto",
   "permanent": false
 }
+
+[2026-03-10T10:49:13.957940Z]
+Then I noticed when a Dino user calls me and I click green Accept button that their client crashes. { ... logs ... }
+
+[2026-03-10T11:01:35.250578Z]
+Yeah also I noticed when I call from shitcord67 and the Dino user accepts then calling and all audio stuff works! Btw the xmpp leaving still doesn't seem to work?
