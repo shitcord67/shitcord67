@@ -55,3 +55,8 @@ These instructions are project-local continuity notes for future LLM instances.
 ## Long-Term Platform Direction
 - Long-term goal is native apps; Electron remains a supported delivery target for now.
 - Prefer C (or C-ABI compatible) code where feasible for shared core logic.
+
+## Dependency Policy
+- When adding dependencies, always look up and prefer the latest version.
+- If the latest version violates project requirements (minSdk, size, licensing, etc.), use the newest version that satisfies them.
+- Where possible, replace dependency functionality step-by-step with in-house code to remove the dependency over time.
