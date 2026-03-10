@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-sdk tools:overrideLibrary="io.ionic.libs.ionfilesystemlib" />
+    <uses-sdk tools:overrideLibrary="io.ionic.libs.ionfilesystemlib,org.apache.cordova" />
 
     <application
         android:allowBackup="true"
