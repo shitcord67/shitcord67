@@ -100,6 +100,12 @@
         try {
           let granted = true;
           if (typeof runtime.requestPermission === "function") {
+            if (typeof runtime.permissionStatus === "function") {
+              const current = await runtime.permissionStatus();
+              if ((current || "").toString().trim().toLowerCase() === "granted") {
+                showToast("Documents access already granted. Use Change Docs Folder in Settings to reselect.", { tone: "info", duration: 3600 });
+              }
+            }
             const permission = await runtime.requestPermission();
             granted = Boolean(permission?.granted);
             if (!granted) {
@@ -619,6 +625,12 @@ ui.credentialStoragePermissionBtn?.addEventListener("click", async () => {
     return;
   }
   ui.credentialStoragePermissionBtn.disabled = true;
+  const status = typeof nativeCreds.permissionStatus === "function"
+    ? await nativeCreds.permissionStatus()
+    : "";
+  if ((status || "").toString().trim().toLowerCase() === "granted") {
+    showToast("Documents access already granted. Use Change Docs Folder to reselect.", { tone: "info", duration: 3600 });
+  }
   const result = await nativeCreds.requestPermission();
   ui.credentialStoragePermissionBtn.disabled = false;
   let granted = Boolean(result?.granted);
