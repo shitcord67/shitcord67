@@ -1279,6 +1279,16 @@ let lastHapticFeedbackAtMs = 0;
 function resolveNativeFilesystem() {
   const cap = typeof window !== "undefined" ? window.Capacitor : null;
   if (!cap) return null;
+  const legacy = cap.Plugins?.LegacyFilesystem || cap.LegacyFilesystem || cap.plugins?.LegacyFilesystem;
+  if (legacy) {
+    return {
+      ...legacy,
+      Directory: {
+        Documents: "DOCUMENTS",
+        DOCUMENTS: "DOCUMENTS"
+      }
+    };
+  }
   return cap.Plugins?.Filesystem || cap.Filesystem || cap.plugins?.Filesystem || null;
 }
 
