@@ -61,3 +61,6 @@ These instructions are project-local continuity notes for future LLM instances.
 - If the latest version violates project requirements (minSdk, size, licensing, etc.), use the newest version that satisfies them.
 - Where possible, replace dependency functionality step-by-step with in-house code to remove the dependency over time.
 - Track any dependency that violates requirements in a running list so replacement work is visible and prioritized.
+
+## Build Autonomy
+- When replacing libraries, it is allowed to run `build.sh android` autonomously to validate changes.
