@@ -9,3 +9,4 @@ android/.gradle/
 android/.gradle-local/
 android/local.properties
 android/.idea/
+.submodules/
