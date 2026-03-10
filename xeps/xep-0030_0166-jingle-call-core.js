@@ -154,10 +154,12 @@ function xmppJingleCandidateToRtcInit(candidate = {}, index = 0, { session = nul
       ? mediaIndex
       : (Number.isFinite(fallbackIndex) && fallbackIndex >= 0 ? fallbackIndex : 0));
   const resolvedContent = remoteContents[resolvedIndex] || null;
-  const hasMatchedNamedContent = contentIndex >= 0;
-  const sdpMid = hasMatchedNamedContent
-    ? contentName
-    : ((resolvedContent?.name || "").toString().trim() || contentName || String(resolvedIndex));
+  const candidateMid = (candidate.sdpMid || "").toString().trim();
+  const resolvedName = (resolvedContent?.name || "").toString().trim();
+  const numericMid = /^\d+$/.test(candidateMid)
+    ? candidateMid
+    : (/^\d+$/.test(resolvedName) ? resolvedName : "");
+  const sdpMid = numericMid || String(resolvedIndex);
   return {
     candidate: `candidate:${foundation} ${component} ${protocol} ${priority} ${ip} ${port} typ ${type}`,
     sdpMid,

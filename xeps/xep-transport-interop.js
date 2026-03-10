@@ -1659,6 +1659,16 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
   if (!store) return null;
   const senderDeviceId = await store.getLocalRegistrationId();
   if (!senderDeviceId) return null;
+  const encodeMessageKeyPayload = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return btoa(value);
+    if (ArrayBuffer.isView(value)) {
+      const view = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+      return arrayBufferToBase64(view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength));
+    }
+    if (value instanceof ArrayBuffer) return arrayBufferToBase64(value);
+    return "";
+  };
   let targets = [];
   try {
     targets = await xmppOmemoGatherDeviceTargets([...peers, ownBare], ownBare);
@@ -1684,8 +1694,10 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
     try {
       // eslint-disable-next-line no-await-in-loop
       const payload = await sessionCipher.encrypt(contentPayload.keyAndTag);
+      const payloadBase64 = encodeMessageKeyPayload(payload?.body);
+      if (!payloadBase64) throw new Error("Missing OMEMO key payload");
       messageKeys[String(deviceId)] = {
-        payload: btoa(payload.body || ""),
+        payload: payloadBase64,
         prekey: Number(payload.type) === 3
       };
       successCount += 1;
@@ -1710,8 +1722,10 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
       try {
         // eslint-disable-next-line no-await-in-loop
         const retryPayload = await sessionCipher.encrypt(contentPayload.keyAndTag);
+        const payloadBase64 = encodeMessageKeyPayload(retryPayload?.body);
+        if (!payloadBase64) throw new Error("Missing OMEMO key payload");
         messageKeys[String(deviceId)] = {
-          payload: btoa(retryPayload.body || ""),
+          payload: payloadBase64,
           prekey: Number(retryPayload.type) === 3
         };
         successCount += 1;
