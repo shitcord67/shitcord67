@@ -1543,7 +1543,12 @@ function activeConversationReferenceText() {
     return peer ? dmSecondaryLabelForAccount(peer) : "@dm";
   }
   const channel = conversation.channel;
-  return channel ? `#${channel.name}` : "";
+  if (!channel) return "";
+  const roomJid = (channel.xmppRoomJid || "").toString().trim();
+  if (roomJid) return typeof xmppBareJid === "function" ? xmppBareJid(roomJid) : roomJid;
+  const relayRoom = (channel.relayRoomToken || "").toString().trim();
+  if (/^xmpp:/i.test(relayRoom)) return relayRoom.replace(/^xmpp:/i, "");
+  return `#${channel.name}`;
 }
 
 function resizeComposerInput() {

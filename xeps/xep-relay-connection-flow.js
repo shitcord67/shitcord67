@@ -2135,8 +2135,17 @@ function connectRelaySocket({ force = false } = {}) {
             let targetRoom = initialRoom || "";
             const hasExplicitXmppRoom = /^xmpp:/i.test(targetRoom);
             if (!hasExplicitXmppRoom) {
-              const preferredBookmark = bookmarkItems.find((entry) => entry?.autojoin && normalizeXmppJid(entry?.jid || ""))
-                || bookmarkItems.find((entry) => normalizeXmppJid(entry?.jid || "")) || null;
+              const preferredBookmark = bookmarkItems.find((entry) => {
+                const jid = normalizeXmppJid(entry?.jid || "");
+                if (!jid) return false;
+                if (typeof isXmppRoomIgnored === "function" && isXmppRoomIgnored(jid, current, getPreferences())) return false;
+                return Boolean(entry?.autojoin);
+              }) || bookmarkItems.find((entry) => {
+                const jid = normalizeXmppJid(entry?.jid || "");
+                if (!jid) return false;
+                if (typeof isXmppRoomIgnored === "function" && isXmppRoomIgnored(jid, current, getPreferences())) return false;
+                return true;
+              }) || null;
               if (preferredBookmark?.jid) {
                 const bookmarkJid = normalizeXmppJid(preferredBookmark.jid).toLowerCase();
                 if (bookmarkJid) targetRoom = `xmpp:${bookmarkJid}`;
@@ -2345,6 +2354,7 @@ function maybeLoadOlderXmppHistoryForActiveConversation({ trigger = "scroll", fo
   if (conversation.type === "channel" && conversation.channel?.xmppRoomJid) {
     const roomJid = xmppBareJid(conversation.channel.xmppRoomJid);
     if (!roomJid) return false;
+    if (typeof isXmppRoomIgnored === "function" && isXmppRoomIgnored(roomJid, getCurrentAccount(), prefs)) return false;
     const mamState = ensureXmppMamState(roomJid);
     if (!mamState) return false;
     recoverStaleXmppMamLoading(mamState, { scope: "muc", roomJid, reason: `${trigger}-active-conversation` });

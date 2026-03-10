@@ -1213,6 +1213,7 @@ function joinXmppRoom(roomToken, account = getCurrentAccount()) {
     xmppRoomJidForTokenFn: xmppRoomJidForToken,
     xmppMucJoinStateByRoomJid,
     xmppRoomByJid,
+    isXmppRoomIgnoredFn: typeof isXmppRoomIgnored === "function" ? isXmppRoomIgnored : null,
     sanitizeChannelNameFn: sanitizeChannelName,
     ensureXmppMamStateFn: ensureXmppMamState,
     requestXmppRoomHistoryFn: requestXmppRoomHistory,

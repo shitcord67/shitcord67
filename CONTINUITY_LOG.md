@@ -8263,3 +8263,365 @@ Also when I enable OMEMO, why do other clients do not receive my messages? And f
   "peerConnection": null
 }
  "Fehlgeschlagener Anruf" in Dino. Then when I call from shitcord67 and Dino accepts then the account on Dino does join the call but I have issues with audio transfer/hearing: { ... logs ... }
+
+[2026-03-10T10:16:09.747097Z]
+11:15:43 ~/shitcord67:$ npm install
+
+> discord-lookalike-flash@1.0.0 postinstall
+> node scripts/sync-strophe-runtime.mjs
+
+synced strophe runtime -> /home/duda/shitcord67/vendor/strophe.umd.min.js
+optional ruffle runtime source missing: /home/duda/shitcord67/node_modules/@ruffle-rs/ruffle/ruffle.js
+optional dotlottie runtime source missing: /home/duda/shitcord67/node_modules/@dotlottie/player-component/dist/dotlottie-player.mjs
+
+up to date, audited 233 packages in 860ms
+
+40 packages are looking for funding
+  run `npm fund` for details
+
+1 high severity vulnerability
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+[2026-03-10T10:26:24.497576Z]
+Does leaving a room really work? [2026-03-10T10:23:53.197Z] [message] Incoming stanza
+<message xmlns="jabber:client" to="derberg@pimux.de/5MKHvKkXuVDa" from="linuxphones@muc.xmpp.pingu.at" type="error"><error type="cancel"><remote-server-not-found xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/><text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas">Server-to-server connection failed: connection timeout</text></error><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cd746-471b-7bff-9bdf-b7af8745536a"/></message>
+
+[2026-03-10T10:23:53.197Z] [raw] RX
+<presence to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client' from='linuxphones@muc.xmpp.pingu.at/derberg' type='error'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: connection timeout</text></error><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-10T10:23:53Z'/></presence>
+
+[2026-03-10T10:23:53.197Z] [presence] MUC join failed
+{
+  "roomJid": "linuxphones@muc.xmpp.pingu.at",
+  "nick": "derberg",
+  "condition": "remote-server-not-found",
+  "text": "Server-to-server connection failed: connection timeout",
+  "errorType": "cancel",
+  "by": "",
+  "hint": ""
+}
+
+[2026-03-10T10:23:53.204Z] [raw] RX
+<presence to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client' from='linuxphones@muc.xmpp.pingu.at/derberg' type='error'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: connection timeout</text></error><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-10T10:23:53Z'/></presence>
+
+[2026-03-10T10:23:53.205Z] [presence] MUC join failed
+{
+  "roomJid": "linuxphones@muc.xmpp.pingu.at",
+  "nick": "derberg",
+  "condition": "remote-server-not-found",
+  "text": "Server-to-server connection failed: connection timeout",
+  "errorType": "cancel",
+  "by": "",
+  "hint": ""
+}
+
+[2026-03-10T10:23:53.208Z] [raw] RX
+<message to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client' from='linuxphones@muc.xmpp.pingu.at' type='error'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: connection timeout</text></error><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cd746-471e-7a27-a4ce-2c49b1102549'/></message>
+
+[2026-03-10T10:23:53.208Z] [message] Incoming stanza
+<message xmlns="jabber:client" to="derberg@pimux.de/5MKHvKkXuVDa" from="linuxphones@muc.xmpp.pingu.at" type="error"><error type="cancel"><remote-server-not-found xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/><text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas">Server-to-server connection failed: connection timeout</text></error><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cd746-471e-7a27-a4ce-2c49b1102549"/></message>
+
+[2026-03-10T10:23:53.208Z] [raw] RX
+<r xmlns='urn:xmpp:sm:3'/>
+
+[2026-03-10T10:23:53.208Z] [stanza] send()
+<a xmlns="urn:xmpp:sm:3" h="451"/>
+
+[2026-03-10T10:23:53.208Z] [raw] TX
+<a h="451" xmlns="urn:xmpp:sm:3"/>
+
+[2026-03-10T10:23:53.208Z] [iq] Answered XMPP stream-management ack request
+{
+  "h": 451
+}
+
+[2026-03-10T10:23:53.214Z] [raw] RX
+<iq from='lobby@conference.pimux.de' id='c0f96a6b-b9b9-44ba-91c1-acf842f2dc63:sendIQ' type='error' to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: unable to resolve service</text></error></iq>
+
+[2026-03-10T10:23:53.227Z] [iq] Requesting MUC history
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "max": 180,
+  "before": "(latest)",
+  "page": 1,
+  "reason": "auto"
+}
+
+[2026-03-10T10:23:53.227Z] [iq] sendIQ()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client"><query xmlns="urn:xmpp:mam:2" queryid="mam-4a34cda3-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.227Z] [stanza] send()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client" id="f731dadb-a6ec-4e5e-9b91-0db6f036d15e:sendIQ"><query xmlns="urn:xmpp:mam:2" queryid="mam-4a34cda3-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.227Z] [raw] TX
+<iq id="f731dadb-a6ec-4e5e-9b91-0db6f036d15e:sendIQ" to="lobby@conference.pimux.de" type="set" xmlns="jabber:client"><query queryid="mam-4a34cda3-1" xmlns="urn:xmpp:mam:2"><x type="submit" xmlns="jabber:x:data"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.259Z] [iq] MUC history query unavailable
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "queryId": "mam-f15a2a41-1",
+  "page": 1,
+  "reason": "auto",
+  "permanent": false
+}
+
+[2026-03-10T10:23:53.269Z] [raw] RX
+<r xmlns='urn:xmpp:sm:3'/>
+
+[2026-03-10T10:23:53.269Z] [stanza] send()
+<a xmlns="urn:xmpp:sm:3" h="451"/>
+
+[2026-03-10T10:23:53.269Z] [raw] TX
+<a h="451" xmlns="urn:xmpp:sm:3"/>
+
+[2026-03-10T10:23:53.269Z] [iq] Answered XMPP stream-management ack request
+{
+  "h": 451
+}
+
+[2026-03-10T10:23:53.269Z] [raw] RX
+<iq from='lobby@conference.pimux.de' id='f731dadb-a6ec-4e5e-9b91-0db6f036d15e:sendIQ' type='error' to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: unable to resolve service</text></error></iq>
+
+[2026-03-10T10:23:53.283Z] [iq] Requesting MUC history
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "max": 180,
+  "before": "(latest)",
+  "page": 1,
+  "reason": "auto"
+}
+
+[2026-03-10T10:23:53.283Z] [iq] sendIQ()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client"><query xmlns="urn:xmpp:mam:2" queryid="mam-8d8b2bcd-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.283Z] [stanza] send()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client" id="cfbd8750-c562-49fe-ada3-4e3188f35e77:sendIQ"><query xmlns="urn:xmpp:mam:2" queryid="mam-8d8b2bcd-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.283Z] [raw] TX
+<iq id="cfbd8750-c562-49fe-ada3-4e3188f35e77:sendIQ" to="lobby@conference.pimux.de" type="set" xmlns="jabber:client"><query queryid="mam-8d8b2bcd-1" xmlns="urn:xmpp:mam:2"><x type="submit" xmlns="jabber:x:data"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.314Z] [iq] MUC history query unavailable
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "queryId": "mam-4a34cda3-1",
+  "page": 1,
+  "reason": "auto",
+  "permanent": false
+}
+
+[2026-03-10T10:23:53.324Z] [raw] RX
+<r xmlns='urn:xmpp:sm:3'/>
+
+[2026-03-10T10:23:53.324Z] [stanza] send()
+<a xmlns="urn:xmpp:sm:3" h="451"/>
+
+[2026-03-10T10:23:53.324Z] [raw] TX
+<a h="451" xmlns="urn:xmpp:sm:3"/>
+
+[2026-03-10T10:23:53.324Z] [iq] Answered XMPP stream-management ack request
+{
+  "h": 451
+}
+
+[2026-03-10T10:23:53.324Z] [raw] RX
+<iq from='lobby@conference.pimux.de' id='cfbd8750-c562-49fe-ada3-4e3188f35e77:sendIQ' type='error' to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: unable to resolve service</text></error></iq>
+
+[2026-03-10T10:23:53.345Z] [iq] Requesting MUC history
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "max": 180,
+  "before": "(latest)",
+  "page": 1,
+  "reason": "auto"
+}
+
+[2026-03-10T10:23:53.345Z] [iq] sendIQ()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client"><query xmlns="urn:xmpp:mam:2" queryid="mam-5aaa6264-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.345Z] [stanza] send()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client" id="2416e3a9-125d-48d3-82c1-612a7db2b851:sendIQ"><query xmlns="urn:xmpp:mam:2" queryid="mam-5aaa6264-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.345Z] [raw] TX
+<iq id="2416e3a9-125d-48d3-82c1-612a7db2b851:sendIQ" to="lobby@conference.pimux.de" type="set" xmlns="jabber:client"><query queryid="mam-5aaa6264-1" xmlns="urn:xmpp:mam:2"><x type="submit" xmlns="jabber:x:data"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.378Z] [iq] MUC history query unavailable
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "queryId": "mam-8d8b2bcd-1",
+  "page": 1,
+  "reason": "auto",
+  "permanent": false
+} Also why doesn't it copy full room address to clipboard when I click on room title?
+
+[2026-03-10T10:27:41.239689Z]
+Oh and some logs I gathered [2026-03-10T10:23:53.197Z] [message] Incoming stanza
+<message xmlns="jabber:client" to="derberg@pimux.de/5MKHvKkXuVDa" from="linuxphones@muc.xmpp.pingu.at" type="error"><error type="cancel"><remote-server-not-found xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/><text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas">Server-to-server connection failed: connection timeout</text></error><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cd746-471b-7bff-9bdf-b7af8745536a"/></message>
+
+[2026-03-10T10:23:53.197Z] [raw] RX
+<presence to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client' from='linuxphones@muc.xmpp.pingu.at/derberg' type='error'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: connection timeout</text></error><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-10T10:23:53Z'/></presence>
+
+[2026-03-10T10:23:53.197Z] [presence] MUC join failed
+{
+  "roomJid": "linuxphones@muc.xmpp.pingu.at",
+  "nick": "derberg",
+  "condition": "remote-server-not-found",
+  "text": "Server-to-server connection failed: connection timeout",
+  "errorType": "cancel",
+  "by": "",
+  "hint": ""
+}
+
+[2026-03-10T10:23:53.204Z] [raw] RX
+<presence to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client' from='linuxphones@muc.xmpp.pingu.at/derberg' type='error'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: connection timeout</text></error><delay from='derberg@pimux.de' xmlns='urn:xmpp:delay' stamp='2026-03-10T10:23:53Z'/></presence>
+
+[2026-03-10T10:23:53.205Z] [presence] MUC join failed
+{
+  "roomJid": "linuxphones@muc.xmpp.pingu.at",
+  "nick": "derberg",
+  "condition": "remote-server-not-found",
+  "text": "Server-to-server connection failed: connection timeout",
+  "errorType": "cancel",
+  "by": "",
+  "hint": ""
+}
+
+[2026-03-10T10:23:53.208Z] [raw] RX
+<message to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client' from='linuxphones@muc.xmpp.pingu.at' type='error'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: connection timeout</text></error><stanza-id xmlns='urn:xmpp:sid:0' by='derberg@pimux.de' id='019cd746-471e-7a27-a4ce-2c49b1102549'/></message>
+
+[2026-03-10T10:23:53.208Z] [message] Incoming stanza
+<message xmlns="jabber:client" to="derberg@pimux.de/5MKHvKkXuVDa" from="linuxphones@muc.xmpp.pingu.at" type="error"><error type="cancel"><remote-server-not-found xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/><text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas">Server-to-server connection failed: connection timeout</text></error><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019cd746-471e-7a27-a4ce-2c49b1102549"/></message>
+
+[2026-03-10T10:23:53.208Z] [raw] RX
+<r xmlns='urn:xmpp:sm:3'/>
+
+[2026-03-10T10:23:53.208Z] [stanza] send()
+<a xmlns="urn:xmpp:sm:3" h="451"/>
+
+[2026-03-10T10:23:53.208Z] [raw] TX
+<a h="451" xmlns="urn:xmpp:sm:3"/>
+
+[2026-03-10T10:23:53.208Z] [iq] Answered XMPP stream-management ack request
+{
+  "h": 451
+}
+
+[2026-03-10T10:23:53.214Z] [raw] RX
+<iq from='lobby@conference.pimux.de' id='c0f96a6b-b9b9-44ba-91c1-acf842f2dc63:sendIQ' type='error' to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: unable to resolve service</text></error></iq>
+
+[2026-03-10T10:23:53.227Z] [iq] Requesting MUC history
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "max": 180,
+  "before": "(latest)",
+  "page": 1,
+  "reason": "auto"
+}
+
+[2026-03-10T10:23:53.227Z] [iq] sendIQ()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client"><query xmlns="urn:xmpp:mam:2" queryid="mam-4a34cda3-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.227Z] [stanza] send()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client" id="f731dadb-a6ec-4e5e-9b91-0db6f036d15e:sendIQ"><query xmlns="urn:xmpp:mam:2" queryid="mam-4a34cda3-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.227Z] [raw] TX
+<iq id="f731dadb-a6ec-4e5e-9b91-0db6f036d15e:sendIQ" to="lobby@conference.pimux.de" type="set" xmlns="jabber:client"><query queryid="mam-4a34cda3-1" xmlns="urn:xmpp:mam:2"><x type="submit" xmlns="jabber:x:data"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.259Z] [iq] MUC history query unavailable
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "queryId": "mam-f15a2a41-1",
+  "page": 1,
+  "reason": "auto",
+  "permanent": false
+}
+
+[2026-03-10T10:23:53.269Z] [raw] RX
+<r xmlns='urn:xmpp:sm:3'/>
+
+[2026-03-10T10:23:53.269Z] [stanza] send()
+<a xmlns="urn:xmpp:sm:3" h="451"/>
+
+[2026-03-10T10:23:53.269Z] [raw] TX
+<a h="451" xmlns="urn:xmpp:sm:3"/>
+
+[2026-03-10T10:23:53.269Z] [iq] Answered XMPP stream-management ack request
+{
+  "h": 451
+}
+
+[2026-03-10T10:23:53.269Z] [raw] RX
+<iq from='lobby@conference.pimux.de' id='f731dadb-a6ec-4e5e-9b91-0db6f036d15e:sendIQ' type='error' to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: unable to resolve service</text></error></iq>
+
+[2026-03-10T10:23:53.283Z] [iq] Requesting MUC history
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "max": 180,
+  "before": "(latest)",
+  "page": 1,
+  "reason": "auto"
+}
+
+[2026-03-10T10:23:53.283Z] [iq] sendIQ()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client"><query xmlns="urn:xmpp:mam:2" queryid="mam-8d8b2bcd-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.283Z] [stanza] send()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client" id="cfbd8750-c562-49fe-ada3-4e3188f35e77:sendIQ"><query xmlns="urn:xmpp:mam:2" queryid="mam-8d8b2bcd-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.283Z] [raw] TX
+<iq id="cfbd8750-c562-49fe-ada3-4e3188f35e77:sendIQ" to="lobby@conference.pimux.de" type="set" xmlns="jabber:client"><query queryid="mam-8d8b2bcd-1" xmlns="urn:xmpp:mam:2"><x type="submit" xmlns="jabber:x:data"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.314Z] [iq] MUC history query unavailable
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "queryId": "mam-4a34cda3-1",
+  "page": 1,
+  "reason": "auto",
+  "permanent": false
+}
+
+[2026-03-10T10:23:53.324Z] [raw] RX
+<r xmlns='urn:xmpp:sm:3'/>
+
+[2026-03-10T10:23:53.324Z] [stanza] send()
+<a xmlns="urn:xmpp:sm:3" h="451"/>
+
+[2026-03-10T10:23:53.324Z] [raw] TX
+<a h="451" xmlns="urn:xmpp:sm:3"/>
+
+[2026-03-10T10:23:53.324Z] [iq] Answered XMPP stream-management ack request
+{
+  "h": 451
+}
+
+[2026-03-10T10:23:53.324Z] [raw] RX
+<iq from='lobby@conference.pimux.de' id='cfbd8750-c562-49fe-ada3-4e3188f35e77:sendIQ' type='error' to='derberg@pimux.de/5MKHvKkXuVDa' xmlns='jabber:client'><error type='cancel'><remote-server-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'>Server-to-server connection failed: unable to resolve service</text></error></iq>
+
+[2026-03-10T10:23:53.345Z] [iq] Requesting MUC history
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "max": 180,
+  "before": "(latest)",
+  "page": 1,
+  "reason": "auto"
+}
+
+[2026-03-10T10:23:53.345Z] [iq] sendIQ()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client"><query xmlns="urn:xmpp:mam:2" queryid="mam-5aaa6264-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.345Z] [stanza] send()
+<iq type="set" to="lobby@conference.pimux.de" xmlns="jabber:client" id="2416e3a9-125d-48d3-82c1-612a7db2b851:sendIQ"><query xmlns="urn:xmpp:mam:2" queryid="mam-5aaa6264-1"><x xmlns="jabber:x:data" type="submit"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.345Z] [raw] TX
+<iq id="2416e3a9-125d-48d3-82c1-612a7db2b851:sendIQ" to="lobby@conference.pimux.de" type="set" xmlns="jabber:client"><query queryid="mam-5aaa6264-1" xmlns="urn:xmpp:mam:2"><x type="submit" xmlns="jabber:x:data"><field var="FORM_TYPE"><value>urn:xmpp:mam:2</value></field></x><set xmlns="http://jabber.org/protocol/rsm"><max>180</max><before/></set></query></iq>
+
+[2026-03-10T10:23:53.378Z] [iq] MUC history query unavailable
+{
+  "roomJid": "lobby@conference.pimux.de",
+  "queryId": "mam-8d8b2bcd-1",
+  "page": 1,
+  "reason": "auto",
+  "permanent": false
+}

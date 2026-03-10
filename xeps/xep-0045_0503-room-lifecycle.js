@@ -38,6 +38,14 @@
     const prefs = typeof deps.getPreferencesFn === "function" ? deps.getPreferencesFn() : {};
     const roomJid = typeof deps.xmppRoomJidForTokenFn === "function" ? deps.xmppRoomJidForTokenFn(roomToken, prefs) : "";
     if (!roomJid) return false;
+    if (typeof deps.isXmppRoomIgnoredFn === "function" && deps.isXmppRoomIgnoredFn(roomJid, account, prefs)) {
+      deps.xmppRoomByJid?.delete?.(roomJid);
+      if (typeof deps.clearXmppMucSelfPingFn === "function") deps.clearXmppMucSelfPingFn(roomJid);
+      if (typeof deps.addXmppDebugEventFn === "function") {
+        deps.addXmppDebugEventFn("presence", "Skipped join for ignored MUC room", { roomToken, roomJid });
+      }
+      return false;
+    }
     const existingJoin = deps.xmppMucJoinStateByRoomJid?.get?.(roomJid) || {};
     const shouldForceRejoin = Boolean(
       existingJoin.pending
