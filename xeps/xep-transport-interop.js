@@ -897,7 +897,8 @@ function applyXmppDmReactionUpdate(peerJid, targetRefId, payload = {}) {
     messageMatchesXmppReferenceFn: messageMatchesXmppReference,
     applyXmppReactionsForActorFn: applyXmppReactionsForActor,
     normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
-    rememberXmppDmMessageFn: rememberXmppDmMessage
+    rememberXmppDmMessageFn: rememberXmppDmMessage,
+    getAccountByXmppJidFn: getAccountByXmppJid
   });
 }
 
@@ -915,7 +916,8 @@ function applyXmppRoomReactionUpdate(roomJid, targetRefId, payload = {}) {
     canonicalXmppRoomReactionActorIdFn: canonicalXmppRoomReactionActorId,
     applyXmppReactionsForActorFn: applyXmppReactionsForActor,
     normalizeXmppRefIdsListFn: normalizeXmppRefIdsList,
-    rememberXmppRoomMessageFn: rememberXmppRoomMessage
+    rememberXmppRoomMessageFn: rememberXmppRoomMessage,
+    getAccountByXmppJidFn: getAccountByXmppJid
   });
 }
 
