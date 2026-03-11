@@ -1513,6 +1513,7 @@ function setActiveChannelDescription(text) {
   const nextText = (text || "").toString().trim();
   if (!ui.activeChannelDescription) return;
   ui.activeChannelDescription.textContent = nextText;
+  ui.activeChannelDescription.title = nextText;
   ui.activeChannelDescription.classList.toggle("chat-channel-description--empty", !nextText);
 }
 
