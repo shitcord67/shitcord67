@@ -63,7 +63,7 @@
 - [done] DM unread divider + jump-to-newest control in DM threads.
 - [done] Forum channel messages render as post-style cards.
 - [done] Local SWF catalog generated in `swf-index.json`.
-- Guild custom emoji + sticker/media imports from URL or local files.
+- [done] Guild custom emoji + sticker/media imports from URL or local files.
 - [done] Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
 - [done] Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
 - Add per-message debug inspector pane with decoded attachment/network info.
