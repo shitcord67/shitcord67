@@ -97,18 +97,85 @@ function buildMessageInspectorSnapshot({
   dmThread = null,
   attachments = []
 } = {}) {
+  const normalizeCidToken = (value = "") => {
+    const token = (value || "").toString().trim();
+    if (!token) return "";
+    const stripped = token.replace(/^xmpp:/i, "").replace(/^cid:/i, "");
+    let decoded = stripped;
+    try {
+      decoded = decodeURIComponent(stripped);
+    } catch {
+      decoded = stripped;
+    }
+    return decoded
+      .split("?")[0]
+      .split("#")[0]
+      .replace(/^<+|>+$/g, "")
+      .trim();
+  };
+  const describeUrlInfo = (rawValue = "", resolvedValue = "") => {
+    const raw = (rawValue || "").toString().trim();
+    const resolved = (resolvedValue || "").toString().trim();
+    const primary = resolved || raw;
+    const schemeMatch = primary.match(/^([a-z0-9+.-]+):/i);
+    const scheme = (schemeMatch?.[1] || "").toString().toLowerCase();
+    const isAesgcm = typeof isAesgcmUrl === "function" ? isAesgcmUrl(raw) : /^aesgcm:\/\//i.test(raw);
+    const isXmpp = /^xmpp:/i.test(raw);
+    const isCid = /^(xmpp:)?cid:/i.test(raw);
+    const isData = /^data:/i.test(raw);
+    const isBlob = /^blob:/i.test(raw);
+    const isFile = /^(file|content):\/\//i.test(raw);
+    let parsed = null;
+    if (/^https?:/i.test(resolved)) {
+      try {
+        parsed = new URL(resolved);
+      } catch {
+        parsed = null;
+      }
+    }
+    const isExternal = typeof isExternalMediaUrl === "function"
+      ? isExternalMediaUrl(resolved || raw)
+      : /^https?:\/\//i.test(resolved || raw);
+    return {
+      raw,
+      resolved,
+      scheme,
+      host: parsed?.hostname || "",
+      port: parsed?.port || "",
+      path: parsed?.pathname || "",
+      query: parsed?.search || "",
+      hash: parsed?.hash || "",
+      isExternal,
+      isLocalhost: parsed ? ["localhost", "127.0.0.1"].includes(parsed.hostname) : false,
+      isAesgcm,
+      isXmpp,
+      isCid,
+      cid: isCid ? normalizeCidToken(raw) : "",
+      isData,
+      isBlob,
+      isFile
+    };
+  };
   const author = message?.userId ? getAccountById(message.userId) : null;
   const guild = !isDm ? getActiveGuild() : null;
   const resolvedAttachments = (Array.isArray(attachments) ? attachments : []).map((attachment) => {
     const rawUrl = (attachment?.url || "").toString();
     const resolvedUrl = resolveMediaUrl(rawUrl);
+    const playbackUrl = typeof resolveMediaPlaybackUrl === "function"
+      ? resolveMediaPlaybackUrl(rawUrl, { kind: attachment?.type || "" }) || resolvedUrl
+      : resolvedUrl;
+    const proxyUrl = typeof mediaProxyUrl === "function" ? mediaProxyUrl(rawUrl) : "";
     return {
       name: (attachment?.name || "").toString(),
       type: (attachment?.type || "").toString(),
       format: (attachment?.format || "").toString(),
+      mime: (attachment?.mime || "").toString(),
       url: rawUrl,
       resolvedUrl,
-      external: /^https?:\/\//i.test(resolvedUrl)
+      playbackUrl,
+      proxyUrl,
+      external: /^https?:\/\//i.test(resolvedUrl),
+      urlInfo: describeUrlInfo(rawUrl, resolvedUrl)
     };
   });
   return {
@@ -138,13 +205,29 @@ function buildMessageInspectorSnapshot({
     message: {
       id: message?.id || "",
       text: (message?.text || "").toString(),
+      textLength: ((message?.text || "").toString() || "").length,
       timestamp: message?.ts || "",
       timestampLocal: formatFullTimestamp(message?.ts || ""),
       editedAt: message?.editedAt || "",
+      editedAtLocal: message?.editedAt ? formatFullTimestamp(message.editedAt) : "",
       pinned: Boolean(message?.pinned),
       replyTo: message?.replyTo || null,
       poll: normalizePoll(message?.poll),
       reactions: normalizeReactions(message?.reactions)
+    },
+    debug: {
+      xmppEncrypted: Boolean(message?.xmppEncrypted),
+      xmppEncryptedLabel: (message?.xmppEncryptedLabel || "").toString(),
+      xmppProcessingHints: message?.xmppProcessingHints || null,
+      xmppDeliveryState: (message?.xmppDeliveryState || "").toString(),
+      xmppDeliveryAt: message?.xmppDeliveryAt || "",
+      xmppDeliveryAtLocal: message?.xmppDeliveryAt ? formatFullTimestamp(message.xmppDeliveryAt) : "",
+      xmppReadAt: message?.xmppReadAt || "",
+      xmppReadAtLocal: message?.xmppReadAt ? formatFullTimestamp(message.xmppReadAt) : "",
+      editedByUserId: message?.editedByUserId || "",
+      editedByName: message?.editedByName || "",
+      editedByStaff: Boolean(message?.editedByStaff),
+      collaborative: Boolean(message?.collaborative)
     },
     attachments: resolvedAttachments
   };
