@@ -893,6 +893,7 @@ const ui = {
   memberSearchInput: document.getElementById("memberSearchInput"),
   memberPresenceFilterButtons: [...document.querySelectorAll(".member-filter-btn")],
   activeServerName: document.getElementById("activeServerName"),
+  activeServerDescription: document.getElementById("activeServerDescription"),
   openGuildSettingsBtn: document.getElementById("openGuildSettingsBtn"),
   closeChannelPanelBtn: document.getElementById("closeChannelPanelBtn"),
   activeChannelName: document.getElementById("activeChannelName"),

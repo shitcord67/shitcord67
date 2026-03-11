@@ -772,6 +772,12 @@ function renderChannels() {
   const prefs = getPreferences();
   const hideNonXmpp = prefs.relayMode === "xmpp" && prefs.xmppHideNonXmpp === "on";
   const showXmppWarning = prefs.relayMode === "xmpp" && !hideNonXmpp;
+  const setServerDescription = (text) => {
+    if (!ui.activeServerDescription) return;
+    const next = (text || "").toString().trim();
+    ui.activeServerDescription.textContent = next;
+    ui.activeServerDescription.classList.toggle("channel-panel__description--empty", !next);
+  };
   ui.dmSection.classList.toggle("panel-section--hidden", !dmMode);
   ui.guildSection.classList.toggle("panel-section--hidden", dmMode);
   if (ui.dmHomeNav) ui.dmHomeNav.hidden = !dmMode;
@@ -786,10 +792,12 @@ function renderChannels() {
   ui.channelList.innerHTML = "";
   if (dmMode) {
     ui.activeServerName.textContent = "Direct Messages";
+    setServerDescription("");
     return;
   }
   if (!server) {
     ui.activeServerName.textContent = "No guild";
+    setServerDescription("");
     return;
   }
   const currentAccount = getCurrentAccount();
@@ -800,6 +808,7 @@ function renderChannels() {
       return;
     }
     ui.activeServerName.textContent = "No accessible guild";
+    setServerDescription("");
     return;
   }
   if (ui.toggleGuildSectionBtn) {
@@ -819,6 +828,7 @@ function renderChannels() {
   }
   ui.activeServerName.textContent = server.name;
   ui.activeServerName.title = [server.name, (server.description || "").trim()].filter(Boolean).join(" • ");
+  setServerDescription(server.description || "");
   if (ui.openGuildSettingsBtn) {
     const current = getCurrentAccount();
     const canManage = Boolean(current && hasServerPermission(server, current.id, "manageChannels"));

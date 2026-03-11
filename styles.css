@@ -761,6 +761,28 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   font-weight: 800;
 }
 
+.channel-panel__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.channel-panel__description {
+  color: #9aa5b8;
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 18rem;
+}
+
+.channel-panel__description--empty {
+  display: none;
+}
+
 .channel-panel__actions {
   display: inline-flex;
   align-items: center;
