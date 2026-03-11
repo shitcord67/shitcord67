@@ -39,7 +39,7 @@
 - Right-click context menus for guilds/channels/messages/users.
 - Keyboard navigation for context menus (arrow/enter/esc).
 - [done] Unread + mention badges for channels and guild rail with mark-as-read actions.
-- Channel list filter/search input.
+- [done] Channel list filter/search input.
 - Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
 - HTML media tab + HTML embed rendering in chat attachments.
 - [done] DM sidebar with 1:1 direct-message threads.
