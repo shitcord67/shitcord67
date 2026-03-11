@@ -888,6 +888,41 @@ function postCallInviteToConversation(conversation, account, url, { screenShare 
   return true;
 }
 
+function postWebCallInviteForConversation({
+  conversation = null,
+  conversationId = "",
+  conversationType = "",
+  screenShare = false,
+  roomOverride = "",
+  forcePost = true,
+  showToastInfo = true,
+  allowActiveFallback = true
+} = {}) {
+  const account = getCurrentAccount();
+  const resolved = conversation
+    || resolveConversationById(conversationId, conversationType)
+    || (allowActiveFallback ? getActiveConversation() : null);
+  if (!resolved) {
+    if (showToastInfo) showToast("No conversation available for call invite.", { tone: "error" });
+    return "";
+  }
+  const url = conversationCallUrl(resolved, { roomOverride, screenShare });
+  if (!url) {
+    if (showToastInfo) showToast("Could not resolve call room URL.", { tone: "error" });
+    return "";
+  }
+  if (forcePost && account) {
+    const posted = postCallInviteToConversation(resolved, account, url, { screenShare });
+    if (posted) {
+      saveState();
+      refreshConversationUi(resolved);
+    } else if (showToastInfo) {
+      showToast("Could not post call invite in this conversation.", { tone: "error" });
+    }
+  }
+  return url;
+}
+
 function openConferenceLightbox(url, { title = "Realtime call" } = {}) {
   if (!url) return;
   const overlay = ensureMediaLightbox();
