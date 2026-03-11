@@ -234,8 +234,17 @@ function buildMessageInspectorSnapshot({
 }
 
 function openMessageInspectorDialog(snapshot) {
+  if (typeof openMessageInspectDialog === "function" && openMessageInspectDialog !== openMessageInspectorDialog) {
+    try {
+      openMessageInspectDialog(snapshot);
+      return;
+    } catch {
+      // Fall back to local dialog rendering.
+    }
+  }
   if (!ui.messageInspectDialog || !ui.messageInspectOutput) return;
-  ui.messageInspectOutput.textContent = JSON.stringify(snapshot, null, 2);
+  ui.messageInspectOutput.textContent = JSON.stringify(snapshot || {}, null, 2);
+  ui.messageInspectOutput.scrollTop = 0;
   if (!ui.messageInspectDialog.open) ui.messageInspectDialog.showModal();
 }
 

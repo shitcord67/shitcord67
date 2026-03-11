@@ -866,6 +866,17 @@ function openDebugDialog() {
   ui.debugDialog.showModal();
 }
 
+function renderMessageInspectDialog(snapshot) {
+  if (!ui.messageInspectOutput) return;
+  ui.messageInspectOutput.textContent = JSON.stringify(snapshot || {}, null, 2);
+  ui.messageInspectOutput.scrollTop = 0;
+}
+
+function openMessageInspectDialog(snapshot) {
+  renderMessageInspectDialog(snapshot);
+  ui.messageInspectDialog?.showModal();
+}
+
 function serializeMessageAsJson(message) {
   return JSON.stringify({
     id: message.id,
