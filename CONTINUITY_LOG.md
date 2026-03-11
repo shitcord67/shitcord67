@@ -8968,3 +8968,4 @@ But why is it not showing the dropdown for the users so they do not type their s
     69 +- [done] Add per-message debug inspector pane with decoded attachment/network info.
     70  - Add true detachable SWF mini-player (PiP-like floating window) independent of channel view.
 [2026-03-11T11:05:19Z] Continue working. And when done with a commit continue working. Repeat.
+[2026-03-11T12:47:13Z] Continue working. And when done with a commit continue working. Repeat.

@@ -867,8 +867,16 @@ function renderChannels() {
     const xmppBackedChannel = isXmppBackedChannel(channel);
     const xmppRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
     const xmppJoinState = xmppRoomJid ? (xmppMucJoinStateByRoomJid.get(xmppRoomJid) || null) : null;
+    const channelDescription = xmppBackedChannel
+      ? (xmppChannelDescription(channel) || channel.topic || "")
+      : (channel.topic || "");
     const button = document.createElement("button");
     button.className = `channel-item ${channel.id === state.activeChannelId ? "active" : ""}`;
+    const appendTitle = (text) => {
+      const value = (text || "").toString().trim();
+      if (!value) return;
+      button.title = `${button.title ? `${button.title} • ` : ""}${value}`;
+    };
     if (showXmppWarning && !xmppBackedChannel) button.classList.add("channel-item--non-xmpp");
     if (indent > 0) {
       const depth = Math.min(4, Math.max(0, Number(indent) || 0));
@@ -878,10 +886,20 @@ function renderChannels() {
     icon.className = "channel-item__icon";
     icon.textContent = channelTypeSymbol(channel);
     button.appendChild(icon);
+    const meta = document.createElement("div");
+    meta.className = "channel-item__meta";
     const label = document.createElement("span");
     label.className = "channel-item__name";
     label.textContent = channel.name;
-    button.appendChild(label);
+    meta.appendChild(label);
+    if (channelDescription) {
+      const desc = document.createElement("span");
+      desc.className = "channel-item__description";
+      desc.textContent = channelDescription;
+      meta.appendChild(desc);
+      appendTitle(channelDescription);
+    }
+    button.appendChild(meta);
     if (xmppBackedChannel && channel.xmppSpaceAutojoin) {
       const autojoinBadge = document.createElement("span");
       autojoinBadge.className = "channel-badge channel-badge--autojoin";
@@ -930,24 +948,24 @@ function renderChannels() {
       button.classList.add("channel-item--draft");
     }
     if (hasDraft) {
-      button.title = `${button.title ? `${button.title} • ` : ""}Has unsent draft`;
+      appendTitle("Has unsent draft");
     }
     if (showXmppWarning && !xmppBackedChannel) {
-      button.title = `${button.title ? `${button.title} • ` : ""}Not mapped from XMPP`;
+      appendTitle("Not mapped from XMPP");
     }
     if (xmppJoinState?.pending) {
       const syncingBadge = document.createElement("span");
       syncingBadge.className = "channel-badge channel-badge--dot";
       syncingBadge.title = "Joining XMPP room…";
       button.appendChild(syncingBadge);
-      button.title = `${button.title ? `${button.title} • ` : ""}Joining room…`;
+      appendTitle("Joining room…");
     } else if (xmppJoinState?.lastErrorCondition) {
       const errorBadge = document.createElement("span");
       errorBadge.className = "channel-badge channel-badge--mention";
       errorBadge.textContent = "!";
       errorBadge.title = `XMPP join failed: ${xmppJoinState.lastErrorCondition}${xmppJoinState.lastErrorText ? ` — ${xmppJoinState.lastErrorText}` : ""}`;
       button.appendChild(errorBadge);
-      button.title = `${button.title ? `${button.title} • ` : ""}Join failed: ${xmppJoinState.lastErrorCondition}`;
+      appendTitle(`Join failed: ${xmppJoinState.lastErrorCondition}`);
     }
     button.addEventListener("click", () => {
       state.viewMode = "guild";

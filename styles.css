@@ -1047,6 +1047,17 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   text-overflow: ellipsis;
 }
 
+.channel-item__description {
+  color: #8f98a6;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .dm-delivery-pill {
   flex: 0 0 auto;
   display: inline-flex;
