@@ -749,6 +749,9 @@ function connectRelaySocket({ force = false } = {}) {
               }
             });
             if (encryptedInfo.type === "omemo" || encryptedInfo.type === "omemo2") {
+              if (typeof xmppOmemoParseEncryptedPayload === "function") {
+                inserted.xmppOmemoPayload = xmppOmemoParseEncryptedPayload(stanza);
+              }
               const tryDecrypt = () => xmppOmemoTryDecryptIntoMessage({
                 stanza,
                 message: inserted,
@@ -1206,6 +1209,9 @@ function connectRelaySocket({ force = false } = {}) {
           if ((encryptedInfo.type === "omemo" || encryptedInfo.type === "omemo2") && authorJid) {
             const ownBare = xmppBareJid(getPreferences().xmppJid || "");
             const peerBare = xmppBareJid(authorJid);
+            if (typeof xmppOmemoParseEncryptedPayload === "function") {
+              inserted.xmppOmemoPayload = xmppOmemoParseEncryptedPayload(stanza);
+            }
             const tryDecrypt = () => xmppOmemoTryDecryptIntoMessage({
               stanza,
               message: inserted,

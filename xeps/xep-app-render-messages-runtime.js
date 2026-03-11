@@ -1294,6 +1294,26 @@ function renderMessages() {
       encryptedBadge.textContent = failed ? "OMEMO Failed" : label;
       if (failed) {
         encryptedBadge.title = "OMEMO encrypted message could not be decrypted yet.";
+        encryptedBadge.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const peerBare = xmppBareJid(message.authorJid || "");
+          const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+          if (!peerBare || !ownBare || typeof xmppOmemoTryDecryptIntoMessage !== "function") return;
+          void ensureXmppOmemoRuntime().then((loaded) => {
+            if (!loaded || !xmppOmemoRuntimeAvailable()) return;
+            xmppOmemoTryDecryptIntoMessage({
+              stanza: null,
+              message,
+              peerBare,
+              ownBare,
+              onUpdated: () => {
+                renderDmList();
+                renderMessages();
+              }
+            });
+          });
+        });
       } else {
         encryptedBadge.title = label !== "Encrypted"
           ? `Encrypted XMPP message (${label})`

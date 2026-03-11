@@ -2228,6 +2228,7 @@ body[data-hide-channel-panel="on"] .chat-panel {
 .message-encrypted--error {
   color: #ffb4b4;
   border-color: rgba(255, 180, 180, 0.55);
+  cursor: pointer;
 }
 
 .message-delivery--delivered {

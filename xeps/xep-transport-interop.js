@@ -1796,6 +1796,7 @@ function xmppOmemoTryDecryptIntoMessage({
   onUpdated
 }) {
   const runDecrypt = () => {
+    const payloadOverride = message?.xmppOmemoPayload || null;
     xmppOmemoTryDecryptIntoMessageCore({
       stanza,
       message,
@@ -1803,7 +1804,7 @@ function xmppOmemoTryDecryptIntoMessage({
       ownBare,
       onUpdated,
       runtimeAvailableFn: xmppOmemoRuntimeAvailable,
-      parseEncryptedPayloadFn: xmppOmemoParseEncryptedPayload,
+      parseEncryptedPayloadFn: (inputStanza) => payloadOverride || xmppOmemoParseEncryptedPayload(inputStanza),
       decryptPayloadFn: xmppOmemoDecryptPayload,
       extractAesgcmUrlsFn: extractAesgcmUrls,
       stripAesgcmUrlsFn: stripAesgcmUrls,
