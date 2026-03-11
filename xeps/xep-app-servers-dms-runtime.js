@@ -728,6 +728,19 @@ function renderDmList() {
           }
         },
         {
+          label: "Mark DM Unread",
+          disabled: !(thread.messages?.length > 0),
+          action: () => {
+            const lastMessageId = thread.messages?.[thread.messages.length - 1]?.id || "";
+            if (!lastMessageId) return;
+            if (!markConversationUnreadFromMessage({ type: "dm", thread }, lastMessageId, currentAccount.id)) return;
+            saveState();
+            renderServers();
+            renderDmList();
+            renderChannels();
+          }
+        },
+        {
           label: "Copy",
           submenu: [
             { label: "Peer Address", action: () => copyText(peer ? dmSecondaryLabelForAccount(peer) : "") },
@@ -944,6 +957,7 @@ function renderChannels() {
       const xmppJoined = Boolean(xmppRoomBare && xmppRoomByJid?.has?.(xmppRoomBare));
       const showXmppRoomActions = Boolean(xmppBackedChannel && xmppRoomBare);
       const unreadStats = getChannelUnreadStats(channel, currentAccount);
+      const lastMessageId = channel.messages?.[channel.messages.length - 1]?.id || "";
       const menuItems = [
         {
           label: "Open Channel",
@@ -966,6 +980,18 @@ function renderChannels() {
           action: () => {
             if (!currentAccount) return;
             if (!markChannelRead(channel, currentAccount.id)) return;
+            saveState();
+            renderServers();
+            renderChannels();
+            renderMessages();
+          }
+        },
+        {
+          label: "Mark Unread",
+          disabled: !lastMessageId,
+          action: () => {
+            if (!currentAccount || !lastMessageId) return;
+            if (!markConversationUnreadFromMessage({ type: "channel", channel }, lastMessageId, currentAccount.id)) return;
             saveState();
             renderServers();
             renderChannels();
