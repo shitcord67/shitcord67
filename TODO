@@ -42,9 +42,9 @@
 - Channel list filter/search input.
 - Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
 - HTML media tab + HTML embed rendering in chat attachments.
-- DM sidebar with 1:1 direct-message threads.
-- User profile notes (private notes per account/user pair).
-- Guild folder grouping in server rail.
+- [done] DM sidebar with 1:1 direct-message threads.
+- [done] User profile notes (private notes per account/user pair).
+- [done] Guild folder grouping in server rail.
 - OLED theme mode with Appearance toggle.
 - Per-guild nicknames via profile editor and `/nick`.
 - Per-guild avatar variants via profile editor.
