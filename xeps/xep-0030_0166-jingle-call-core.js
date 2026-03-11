@@ -100,6 +100,45 @@ function xmppSendDiscoInfoResultForIncomingGet(stanza) {
   });
 }
 
+function xmppPeerLikelyWebCallOnly(peerJid = "") {
+  const raw = (peerJid || "").toString().trim().toLowerCase();
+  if (!raw || !raw.includes("/")) return false;
+  const resource = raw.split("/").slice(1).join("/");
+  if (!resource) return false;
+  return resource.includes("movim");
+}
+
+function xmppPostWebCallInviteFallback({
+  conversationId = "",
+  conversationType = "",
+  screenShare = false,
+  roomOverride = "",
+  reason = "",
+  reasonTone = "info",
+  allowUiFallback = true
+} = {}) {
+  if (reason) {
+    showToast(reason, { tone: reasonTone, duration: 2800 });
+  }
+  if (typeof globalThis.postWebCallInviteForConversation === "function") {
+    const url = globalThis.postWebCallInviteForConversation({
+      conversationId,
+      conversationType,
+      screenShare,
+      roomOverride,
+      forcePost: true,
+      showToastInfo: false,
+      allowActiveFallback: true
+    });
+    if (url) return true;
+  }
+  if (allowUiFallback && typeof globalThis.launchConversationCall === "function") {
+    launchConversationCall({ screenShare, roomOverride, autoPost: true, allowNative: false });
+    return true;
+  }
+  return false;
+}
+
 function xmppBuildJingleTransportCreds() {
   if (typeof XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleTransportCreds === "function") {
     return XEP_0320_WEBRTC_SDP_BASICS_GLOBAL.xmppBuildJingleTransportCreds({
@@ -991,11 +1030,12 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       session.timeoutId = window.setTimeout(() => {
         const entry = xmppCallSessionById.get(id);
         if (!entry || (entry.state !== "ringing" && entry.state !== "proceeded")) return;
-        showToast("XMPP ringing timed out. Opening Web Call fallback.", { tone: "error", duration: 2800 });
-        launchConversationCall({
-          screenShare: Boolean(session?.screenShare || screenShareFallback),
-          autoPost: true,
-          allowNative: false
+        xmppPostWebCallInviteFallback({
+          conversationId: entry.conversationId || "",
+          conversationType: entry.conversationType || "dm",
+          screenShare: Boolean(entry.screenShare || screenShareFallback),
+          reason: "XMPP ringing timed out. Posting Web Call invite.",
+          reasonTone: "error"
         });
         forgetXmppCallSession(id);
       }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
@@ -1044,18 +1084,22 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
             }
           },
           onError: () => {
-            launchConversationCall({
+            xmppPostWebCallInviteFallback({
+              conversationId: session?.conversationId || "",
+              conversationType: session?.conversationType || "dm",
               screenShare: Boolean(session?.screenShare || screenShareFallback),
-              autoPost: true,
-              allowNative: false
+              reason: "XMPP session-initiate failed. Posting Web Call invite.",
+              reasonTone: "error"
             });
           }
         });
         if (!initiated) {
-          launchConversationCall({
+          xmppPostWebCallInviteFallback({
+            conversationId: session?.conversationId || "",
+            conversationType: session?.conversationType || "dm",
             screenShare: Boolean(session?.screenShare || screenShareFallback),
-            autoPost: true,
-            allowNative: false
+            reason: "XMPP session-initiate did not send. Posting Web Call invite.",
+            reasonTone: "error"
           });
         }
       })();
@@ -1214,6 +1258,21 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
   const peerTargetJid = xmppNormalizeCallTargetJid(peerJid, { preferFull: true }) || peerJid;
   const requestedMedia = screenShare ? ["audio", "video"] : XMPP_CALL_DEFAULT_MEDIA;
   const negotiatedMedia = xmppNegotiatedCallMediaForPeer(peerTargetJid || peerJid, requestedMedia);
+  if (xmppPeerLikelyWebCallOnly(peerTargetJid || peerJid)) {
+    if (allowWebFallback) {
+      xmppPostWebCallInviteFallback({
+        conversationId: conversation.id || "",
+        conversationType: conversation.type || "",
+        screenShare: Boolean(screenShare),
+        reason: "Movim web client detected. Posting Web Call invite instead of native call.",
+        reasonTone: "info",
+        allowUiFallback: false
+      });
+    } else {
+      showToast("Movim web client detected. Native XMPP call skipped.", { tone: "info", duration: 2800 });
+    }
+    return false;
+  }
   const hasFeatureEvidence = interop.details.some((entry) => Array.isArray(entry?.featureList) && entry.featureList.length > 0);
   const hasDiscoErrors = interop.details.some((entry) => Boolean(entry?.error));
   const allowOptimistic = conversation.type === "dm" && peerJid && (!hasFeatureEvidence || hasDiscoErrors);
@@ -1232,7 +1291,13 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
         duration: 3200
       });
       if (allowWebFallback) {
-        launchConversationCall({ screenShare, autoPost: true, allowNative: false });
+        xmppPostWebCallInviteFallback({
+          conversationId: conversation.id || "",
+          conversationType: conversation.type || "",
+          screenShare: Boolean(screenShare),
+          reason: "",
+          allowUiFallback: false
+        });
       }
       return false;
     }
@@ -1252,16 +1317,28 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
       interopTarget: interop.chosenTarget || xmppBareJid(peerJid),
       room: conversationCallRoomName(conversation, ""),
       onNoResponse: () => {
-        showToast("No XMPP call response. Opening Web Call fallback.", { tone: "error", duration: 2800 });
+        showToast("No XMPP call response. Posting Web Call invite.", { tone: "error", duration: 2800 });
         if (allowWebFallback) {
-          launchConversationCall({ screenShare, autoPost: true, allowNative: false });
+          xmppPostWebCallInviteFallback({
+            conversationId: conversation.id || "",
+            conversationType: conversation.type || "",
+            screenShare: Boolean(screenShare),
+            reason: "",
+            allowUiFallback: false
+          });
         }
       }
     });
     if (!started) {
       showToast("Failed to send XMPP call proposal. Falling back to Web Call.", { tone: "error" });
       if (allowWebFallback) {
-        launchConversationCall({ screenShare, autoPost: true, allowNative: false });
+        xmppPostWebCallInviteFallback({
+          conversationId: conversation.id || "",
+          conversationType: conversation.type || "",
+          screenShare: Boolean(screenShare),
+          reason: "",
+          allowUiFallback: false
+        });
       }
       return false;
     }
@@ -1288,7 +1365,13 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
   }
   showToast("Native XMPP signaling is not fully wired in-client yet. Opening Web Call fallback.", { tone: "error", duration: 2800 });
   if (allowWebFallback) {
-    launchConversationCall({ screenShare, autoPost: true, allowNative: false });
+    xmppPostWebCallInviteFallback({
+      conversationId: conversation.id || "",
+      conversationType: conversation.type || "",
+      screenShare: Boolean(screenShare),
+      reason: "",
+      allowUiFallback: false
+    });
   }
   return false;
 }
