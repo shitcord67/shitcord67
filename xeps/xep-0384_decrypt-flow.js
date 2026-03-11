@@ -68,6 +68,7 @@
         message.xmppEncryptedLabel = "OMEMO";
         message.xmppOmemoDecrypted = true;
         message.xmppOmemoDecryptFailed = false;
+        message.xmppOmemoPayload = null;
         if (typeof saveStateFn === "function") saveStateFn();
         if (typeof onUpdated === "function") onUpdated();
       } catch (error) {
