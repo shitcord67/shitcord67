@@ -33,7 +33,7 @@
 - Message editing/deleting.
 - Reply threading and basic message reactions.
 - Per-guild member list with presence groups.
-- Channel topic + channel settings.
+- [done] Channel topic + channel settings.
 - Slash commands (`/me`, `/shrug`, `/clear`, `/topic`, `/nick`, `/status`, `/markread`) with live popup.
 - Import/export JSON snapshot for backup/testing.
 - Right-click context menus for guilds/channels/messages/users.
