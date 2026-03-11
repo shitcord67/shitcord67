@@ -911,13 +911,18 @@ function postWebCallInviteForConversation({
     if (showToastInfo) showToast("Could not resolve call room URL.", { tone: "error" });
     return "";
   }
-  if (forcePost && account) {
+  if (forcePost) {
+    if (!account) {
+      if (showToastInfo) showToast("No account available to post call invite.", { tone: "error" });
+      return "";
+    }
     const posted = postCallInviteToConversation(resolved, account, url, { screenShare });
     if (posted) {
       saveState();
       refreshConversationUi(resolved);
     } else if (showToastInfo) {
       showToast("Could not post call invite in this conversation.", { tone: "error" });
+      return "";
     }
   }
   return url;
