@@ -117,6 +117,14 @@ function xmppPostWebCallInviteFallback({
   reasonTone = "info",
   allowUiFallback = true
 } = {}) {
+  addXmppDebugEvent("call", "Web call fallback requested", {
+    conversationId: (conversationId || "").toString(),
+    conversationType: (conversationType || "").toString(),
+    screenShare: Boolean(screenShare),
+    roomOverride: (roomOverride || "").toString(),
+    reason: (reason || "").toString(),
+    allowUiFallback: Boolean(allowUiFallback)
+  });
   if (reason) {
     showToast(reason, { tone: reasonTone, duration: 2800 });
   }
@@ -130,7 +138,15 @@ function xmppPostWebCallInviteFallback({
       showToastInfo: false,
       allowActiveFallback: true
     });
-    if (url) return true;
+    if (url) {
+      addXmppDebugEvent("call", "Web call invite posted", {
+        conversationId: (conversationId || "").toString(),
+        conversationType: (conversationType || "").toString(),
+        screenShare: Boolean(screenShare),
+        roomOverride: (roomOverride || "").toString()
+      });
+      return true;
+    }
   }
   if (allowUiFallback && typeof globalThis.launchConversationCall === "function") {
     launchConversationCall({ screenShare, roomOverride, autoPost: true, allowNative: false });
