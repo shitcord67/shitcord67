@@ -86,6 +86,27 @@ function showXmppScreenShareWarning(message = "") {
   showToast(text, { tone: "info", duration: 3600 });
 }
 
+function bindNativeCallActionButton(button, handler) {
+  if (!(button instanceof HTMLElement) || typeof handler !== "function") return;
+  let lastTouchAt = 0;
+  const run = (event, fromTouch = false) => {
+    if (fromTouch) {
+      lastTouchAt = Date.now();
+      event?.preventDefault?.();
+    } else if (lastTouchAt && Date.now() - lastTouchAt < 750) {
+      event?.preventDefault?.();
+      return;
+    }
+    const result = handler(event);
+    if (result && typeof result.then === "function") void result;
+  };
+  button.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "touch") return;
+    run(event, true);
+  });
+  button.addEventListener("click", (event) => run(event, false));
+}
+
 function closeNativeCallPickerDialogByClass(className = "") {
   const selector = (className || "").toString().trim();
   if (!selector) return;
@@ -1256,7 +1277,7 @@ function renderNativeXmppCallDebugDialog(sessionId = "") {
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.textContent = "Close";
-  closeBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(closeBtn, () => {
     nativeCallDebugDialogSessionId = "";
     if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   });
@@ -1267,7 +1288,7 @@ function renderNativeXmppCallDebugDialog(sessionId = "") {
   const reprimeBtn = document.createElement("button");
   reprimeBtn.type = "button";
   reprimeBtn.textContent = "Force Re-prime";
-  reprimeBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(reprimeBtn, () => {
     const ok = xmppForceNativeCallSessionReprime(sid);
     showToast(ok ? "Queued manual re-prime." : "Could not queue re-prime.", { tone: ok ? "info" : "error", duration: 2400 });
     if (ok && xmppActiveNativeCallSessionId === sid) {
@@ -1277,7 +1298,7 @@ function renderNativeXmppCallDebugDialog(sessionId = "") {
   const transportBtn = document.createElement("button");
   transportBtn.type = "button";
   transportBtn.textContent = "Force Transport";
-  transportBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(transportBtn, () => {
     const ok = xmppForceNativeCallSessionTransportRefresh(sid);
     showToast(ok ? "Queued transport-info refresh." : "Could not queue transport refresh.", { tone: ok ? "info" : "error", duration: 2400 });
     if (ok && xmppActiveNativeCallSessionId === sid) {
@@ -1287,7 +1308,7 @@ function renderNativeXmppCallDebugDialog(sessionId = "") {
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.textContent = "Copy Snapshot";
-  copyBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(copyBtn, () => {
     const latest = xmppNativeCallDebugSnapshot(sid);
     if (!latest) {
       showToast("Debug snapshot unavailable.", { tone: "error", duration: 2200 });
@@ -1300,14 +1321,14 @@ function renderNativeXmppCallDebugDialog(sessionId = "") {
   const refreshBtn = document.createElement("button");
   refreshBtn.type = "button";
   refreshBtn.textContent = "Refresh";
-  refreshBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(refreshBtn, () => {
     if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   });
   const terminateBtn = document.createElement("button");
   terminateBtn.type = "button";
   terminateBtn.className = "is-danger";
   terminateBtn.textContent = "Force Terminate";
-  terminateBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(terminateBtn, () => {
     const ok = xmppForceNativeCallSessionTerminate(sid);
     showToast(ok ? "Native call force-terminated." : "Could not terminate native call.", { tone: ok ? "info" : "error", duration: 2600 });
   });
@@ -1401,7 +1422,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     const recoverBtn = document.createElement("button");
     recoverBtn.type = "button";
     recoverBtn.textContent = "Recover";
-    recoverBtn.addEventListener("click", async () => {
+    bindNativeCallActionButton(recoverBtn, async () => {
       recoverBtn.disabled = true;
       const refreshed = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
       const peerJid = xmppBareJid(session?.peerJid || "");
@@ -1425,7 +1446,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   micBtn.title = localSnapshot.audioEnabled ? "Mute microphone" : "Unmute microphone";
   micBtn.disabled = localSnapshot.audioTracks.length === 0;
   if (localSnapshot.audioEnabled) micBtn.classList.add("is-active");
-  micBtn.addEventListener("click", async () => {
+  bindNativeCallActionButton(micBtn, async () => {
     if (localSnapshot.audioTracks.length === 0) {
       await xmppEnsureLocalMediaAttached(sid, { screenShare: localSnapshot.mode === "screen" });
     }
@@ -1439,7 +1460,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   camBtn.title = localSnapshot.videoEnabled ? "Disable camera" : "Enable camera";
   camBtn.disabled = localSnapshot.videoTracks.length === 0 && localSnapshot.mode !== "camera";
   if (localSnapshot.videoEnabled) camBtn.classList.add("is-active");
-  camBtn.addEventListener("click", async () => {
+  bindNativeCallActionButton(camBtn, async () => {
     if (xmppLocalMediaSnapshot(sid).videoTracks.length === 0) {
       await xmppEnsureLocalMediaAttached(sid, { screenShare: localSnapshot.mode === "screen" });
     }
@@ -1463,7 +1484,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     screenBtn.disabled = true;
     screenBtn.title = screenCapability.reason || "Screen sharing unavailable";
   }
-  screenBtn.addEventListener("click", async () => {
+  bindNativeCallActionButton(screenBtn, async () => {
     if (!screenShareCapabilitySnapshot().ok && !screenActive) {
       const cap = screenShareCapabilitySnapshot();
       showToast(cap.reason || "Screen sharing unavailable.", { tone: "error" });
@@ -1480,7 +1501,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   whiteboardBtn.className = "native-call-surface__toggle";
   whiteboardBtn.textContent = "Whiteboard";
   whiteboardBtn.title = "Open shared whiteboard for this call conversation";
-  whiteboardBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(whiteboardBtn, () => {
     const url = nativeCallWhiteboardUrlForSession(sid);
     if (!url) {
       showToast("Could not resolve whiteboard room URL.", { tone: "error" });
@@ -1493,7 +1514,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   whiteboardPostBtn.className = "native-call-surface__toggle";
   whiteboardPostBtn.textContent = "Post WB";
   whiteboardPostBtn.title = "Post whiteboard invite to this call conversation";
-  whiteboardPostBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(whiteboardPostBtn, () => {
     const url = nativeCallWhiteboardUrlForSession(sid);
     if (!url) {
       showToast("Could not resolve whiteboard room URL.", { tone: "error" });
@@ -1514,7 +1535,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     ? "Stop local audio test clip"
     : "Play local rickroll.ogg to test output audio";
   if (audioTestActive) audioTestBtn.classList.add("is-active");
-  audioTestBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(audioTestBtn, () => {
     if (isNativeCallAudioTestActive(sid)) {
       stopNativeCallAudioTest();
       if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
@@ -1529,7 +1550,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   holdBtn.textContent = localHoldActive ? "Resume" : "Hold";
   holdBtn.title = localHoldActive ? "Resume call media and notify peer" : "Temporarily hold local call media";
   if (localHoldActive) holdBtn.classList.add("is-active");
-  holdBtn.addEventListener("click", async () => {
+  bindNativeCallActionButton(holdBtn, async () => {
     holdBtn.disabled = true;
     const liveSession = xmppCallSessionById.get(sid) || null;
     const nextHold = !Boolean(liveSession?.localHold);
@@ -1543,19 +1564,19 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.textContent = "Copy SID";
-  copyBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(copyBtn, () => {
     void copyText(sid).then((ok) => showToast(ok ? "Session ID copied." : "Failed to copy session ID.", { tone: ok ? "info" : "error" }));
   });
   const refreshBtn = document.createElement("button");
   refreshBtn.type = "button";
   refreshBtn.textContent = "Refresh";
-  refreshBtn.addEventListener("click", () => renderNativeXmppCallSurface(sid));
+  bindNativeCallActionButton(refreshBtn, () => renderNativeXmppCallSurface(sid));
   const reconnectBtn = document.createElement("button");
   reconnectBtn.type = "button";
   reconnectBtn.className = "native-call-surface__toggle";
   reconnectBtn.textContent = "Reconnect";
   reconnectBtn.title = "Queue media re-prime and transport refresh without ending the call";
-  reconnectBtn.addEventListener("click", async () => {
+  bindNativeCallActionButton(reconnectBtn, async () => {
     reconnectBtn.disabled = true;
     const refreshed = await xmppReacquireLocalMediaForSession(sid).catch(() => false);
     const reprimeQueued = xmppForceNativeCallSessionReprime(sid);
@@ -1574,7 +1595,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   debugBtn.textContent = debugOpen ? "Debug On" : "Debug";
   debugBtn.title = debugOpen ? "Hide native call debug dialog" : "Open native call debug dialog";
   if (debugOpen) debugBtn.classList.add("is-active");
-  debugBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(debugBtn, () => {
     nativeCallDebugDialogSessionId = nativeCallDebugDialogSessionId === sid ? "" : sid;
     renderNativeXmppCallSurface(sid);
   });
@@ -1582,7 +1603,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   endBtn.type = "button";
   endBtn.textContent = "End";
   endBtn.className = "native-call-surface__end";
-  endBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(endBtn, () => {
     const targetPeer = xmppBareJid(session?.peerJid || "");
     if (targetPeer) {
       xmppSendJingleSessionTerminate(targetPeer, sid, {
@@ -1601,7 +1622,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const canRejoin = ["peer-left", "terminated"].includes((session?.state || "").toString().trim().toLowerCase());
   rejoinBtn.disabled = !canRejoin;
   rejoinBtn.title = canRejoin ? "Start a fresh call proposal to this peer" : "Rejoin is available after the peer leaves";
-  rejoinBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(rejoinBtn, () => {
     void xmppRejoinNativeCallSession(sid);
   });
   actions.appendChild(micBtn);
@@ -1720,7 +1741,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   camPreviewBtn.className = "native-call-surface__device-preview";
   camPreviewBtn.textContent = "Preview";
   camPreviewBtn.title = "Open camera picker with live preview";
-  camPreviewBtn.addEventListener("click", () => {
+  bindNativeCallActionButton(camPreviewBtn, () => {
     void openNativeCallCameraPicker(sid);
   });
   videoWrap.appendChild(camPreviewBtn);

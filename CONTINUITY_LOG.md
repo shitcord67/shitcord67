@@ -8969,3 +8969,56 @@ But why is it not showing the dropdown for the users so they do not type their s
     70  - Add true detachable SWF mini-player (PiP-like floating window) independent of channel view.
 [2026-03-11T11:05:19Z] Continue working. And when done with a commit continue working. Repeat.
 [2026-03-11T12:47:13Z] Continue working. And when done with a commit continue working. Repeat.
+[2026-03-11T17:52:32Z] 'User prompt in session log'
+[2026-03-11T16:08:16Z] Continue: › I noticed call between shitcord67 on Android an on Linux does not work well right now, especially
+  Android user can't press some buttons like to end the call: {
+    "relayMode": "xmpp",
+    "relayStatus": "connected",
+    "xmppConnected": true,
+    "xmppRuntimeReady": true,
+    "xmppRuntimeLastError": "",
+    "filter": "all",
+    "search": "kazue@xmpp.jp",
+    "paused": false,
+    "eventsTotal": 600,
+    "eventsShown": 343,
+    "activeCallSessions": []
+  }
+
+  [2026-03-11T14:52:28.072Z] [error] XMPP jingle transport-info failed
+  {
+    "to": "kazue@xmpp.jp/16343002854286577389612956356",
+    "sid": "jmi-f926d101-2f7",
+    "candidateCount": 1,
+    "error": ""
+  }
+
+  [2026-03-11T14:52:28.172Z] [error] XMPP jingle transport-info failed
+  {
+    "to": "kazue@xmpp.jp/16343002854286577389612956356",
+    "sid": "jmi-f926d101-2f7",
+    "candidateCount": 1,
+    "error": ""
+  }
+
+  [2026-03-11T14:52:28.472Z] [error] XMPP jingle session-info failed
+  {
+    "to": "kazue@xmpp.jp/16343002854286577389612956356",
+    "sid": "jmi-f926d101-2f7",
+    "info": "ringing",
+    "error": ""
+  }
+
+  [2026-03-11T14:52:32.876Z] [raw] RX
+  <iq from='kazue@xmpp.jp/16343002854286577389612956356' id='9855400f-9953-4e5a-b382-
+  92dee303e7b5:sendIQ' type='set' to='derberg@pimux.de/Lkq5CiN2EClE' xmlns='jabber:client'
+  xml:lang='en'><jingle xmlns='urn:xmpp:jingle:1' initiator='kazue@xmpp.jp' sid='jmi-f926d101-2f7'
+  action='session-initiate'><content name='audio' senders='both' creator='initiator'><description
+  media='audio' xmlns='urn:xmpp:jingle:apps:rtp:1'><payload-type name='opus' id='111' channels='2'
+  clockrate='48000'/><rtcp-mux xmlns='urn:xmpp:jingle:apps:rtp:rtcp-mux:0'/></description><transport
+  xmlns='urn:xmpp:jingle:transports:ice-udp:1' ufrag='lSsW' pwd='1Yk9dklC8IYCZcrI6fRXrwnd'><fingerprint
+  xmlns='urn:xmpp:jingle:apps:dtls:0' setup='actpass' hash='sha-
+  256'>E3:E9:91:AD:89:34:13:57:4B:0E:A3:CF:52:CD:F7:64:70:D3:1A:E2:D4:72:79:A4:46:C9:FE:4C:3E:D0:4C:51</
+  fingerprint></transport></content></jingle></iq>
+
+  ... (full prompt truncated in log; see chat history)
