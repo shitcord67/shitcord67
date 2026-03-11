@@ -962,12 +962,13 @@ function renderChannels() {
       button.appendChild(syncingBadge);
       appendTitle("Joining room…");
     } else if (xmppJoinState?.lastErrorCondition) {
+      const errorSummary = `Join failed: ${xmppJoinState.lastErrorCondition}${xmppJoinState.lastErrorText ? ` — ${xmppJoinState.lastErrorText}` : ""}`;
       const errorBadge = document.createElement("span");
       errorBadge.className = "channel-badge channel-badge--mention";
       errorBadge.textContent = "!";
       errorBadge.title = `XMPP join failed: ${xmppJoinState.lastErrorCondition}${xmppJoinState.lastErrorText ? ` — ${xmppJoinState.lastErrorText}` : ""}`;
       button.appendChild(errorBadge);
-      appendTitle(`Join failed: ${xmppJoinState.lastErrorCondition}`);
+      appendTitle(errorSummary);
     }
     button.addEventListener("click", () => {
       state.viewMode = "guild";
