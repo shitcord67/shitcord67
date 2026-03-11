@@ -1028,6 +1028,10 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   white-space: nowrap;
 }
 
+.channel-item.active .channel-item__description {
+  color: #cfd6e2;
+}
+
 .channel-item__meta {
   min-width: 0;
   display: grid;
