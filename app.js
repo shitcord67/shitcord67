@@ -1645,6 +1645,7 @@ function applyPreferencesToUI() {
   document.body.dataset.debugOverlay = prefs.debugOverlay;
   document.body.dataset.hideChannelPanel = prefs.hideChannelPanel;
   document.body.dataset.hideMemberPanel = prefs.hideMemberPanel;
+  document.body.dataset.dmOnlySidebar = prefs.dmOnlySidebar;
   document.body.dataset.mobilePane = narrowMobile ? prefs.mobilePane : "chat";
   document.body.dataset.collapseDmSection = prefs.collapseDmSection;
   document.body.dataset.collapseGuildSection = prefs.collapseGuildSection;
@@ -1681,6 +1682,14 @@ function applyPreferencesToUI() {
     const collapsed = prefs.collapseGuildSection === "on";
     ui.toggleGuildSectionBtn.title = collapsed ? "Expand Channels" : "Collapse Channels";
     ui.toggleGuildSectionBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  }
+  if (ui.serverBrand) {
+    const dmOnly = prefs.dmOnlySidebar === "on";
+    ui.serverBrand.classList.toggle("server-brand--dm-only", dmOnly);
+    const baseTitle = "Direct Messages";
+    const title = dmOnly ? `${baseTitle} (DM-only sidebar on)` : baseTitle;
+    ui.serverBrand.title = title;
+    ui.serverBrand.setAttribute("aria-label", title);
   }
   if (ui.toggleDmSectionChevron) ui.toggleDmSectionChevron.textContent = prefs.collapseDmSection === "on" ? "▸" : "▾";
   if (ui.toggleGuildSectionChevron) ui.toggleGuildSectionChevron.textContent = prefs.collapseGuildSection === "on" ? "▸" : "▾";

@@ -56,8 +56,8 @@
 - [done] Category management follow-up: reorder actions, modal quick-create category flow, and slash commands (`/categories`, `/movecategory`).
 - [done] DM search/quick switch via sidebar filter and Enter-to-open.
 - [done] Nested context-menu submenus for grouped actions.
-- DM-only sidebar mode toggled via top `S67` button.
-- Top DM switcher uses emoji-style icon and shows DM unread/mention badge.
+- [done] DM-only sidebar mode toggled via top `S67` button.
+- [done] Top DM switcher uses emoji-style icon and shows DM unread/mention badge.
 - [done] Quick DM input in user popout (send without leaving profile card).
 - Role color applied to member list, message usernames, and profile names.
 - [done] DM unread divider + jump-to-newest control in DM threads.

@@ -155,6 +155,7 @@ function buildInitialState() {
       mobilePane: "chat",
       collapseDmSection: "off",
       collapseGuildSection: "off",
+      dmOnlySidebar: "off",
       lastChannelByGuild: {},
       swfPipPosition: null,
       videoPipPosition: null,

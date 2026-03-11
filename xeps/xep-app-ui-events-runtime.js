@@ -1127,6 +1127,15 @@ ui.createServerBtn.addEventListener("click", () => {
 });
 
 ui.serverBrand.addEventListener("click", () => {
+  if (getViewMode() === "dm") {
+    state.preferences = getPreferences();
+    state.preferences.dmOnlySidebar = state.preferences.dmOnlySidebar === "on" ? "off" : "on";
+    saveState();
+    applyPreferencesToUI();
+    renderServers();
+    renderChannels();
+    return;
+  }
   setDmHomeTab("friends");
 });
 
@@ -1134,11 +1143,24 @@ ui.serverBrand.addEventListener("contextmenu", (event) => {
   event.preventDefault();
   const current = getCurrentAccount();
   const dmStats = getTotalDmUnreadStats(current);
+  const prefs = getPreferences();
+  const dmOnly = prefs.dmOnlySidebar === "on";
   openContextMenu(event, [
     {
       label: "Open DM Home",
       action: () => {
         setDmHomeTab("friends");
+      }
+    },
+    {
+      label: dmOnly ? "Disable DM-only Sidebar" : "Enable DM-only Sidebar",
+      action: () => {
+        state.preferences = getPreferences();
+        state.preferences.dmOnlySidebar = dmOnly ? "off" : "on";
+        saveState();
+        applyPreferencesToUI();
+        renderServers();
+        renderChannels();
       }
     },
     {
