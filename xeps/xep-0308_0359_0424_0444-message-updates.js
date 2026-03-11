@@ -402,14 +402,22 @@
     const applyXmppReactionsForActorFn = deps.applyXmppReactionsForActorFn;
     const bareJidFn = deps.bareJidFn;
     const canonicalXmppRoomReactionActorIdFn = deps.canonicalXmppRoomReactionActorIdFn;
+    const getAccountByXmppJidFn = deps.getAccountByXmppJidFn;
+    const mapToAccountId = (actorId) => {
+      const raw = (actorId || "").toString().trim();
+      if (!raw) return "";
+      const account = typeof getAccountByXmppJidFn === "function" ? getAccountByXmppJidFn(raw) : null;
+      return account?.id || raw;
+    };
     for (const thread of dmThreads) {
       if (!thread || !Array.isArray(thread.messages)) continue;
       const target = thread.messages.find((entry) => (
         typeof messageMatchesXmppReferenceFn === "function" ? messageMatchesXmppReferenceFn(entry, key) : false
       )) || null;
       if (!target) continue;
+      const actorId = mapToAccountId(payload.actorUserId);
       const applied = typeof applyXmppReactionsForActorFn === "function"
-        ? applyXmppReactionsForActorFn(target, payload.actorUserId, payload.emojis, { processingHints: payload.processingHints })
+        ? applyXmppReactionsForActorFn(target, actorId, payload.emojis, { processingHints: payload.processingHints })
         : { handled: false, changed: false };
       return { handled: true, changed: Boolean(applied.changed), scope: "dm", thread, channel: null };
     }
@@ -422,12 +430,16 @@
         )) || null;
         if (!target) continue;
         const roomJid = typeof bareJidFn === "function" ? bareJidFn(channel.xmppRoomJid || "") : "";
-        const canonicalActorId = roomJid && typeof canonicalXmppRoomReactionActorIdFn === "function"
-          ? canonicalXmppRoomReactionActorIdFn(roomJid, payload.actorUserId || "")
-          : (payload.actorUserId || "").toString().trim();
-        const aliasActorId = roomJid && typeof canonicalXmppRoomReactionActorIdFn === "function"
-          ? canonicalXmppRoomReactionActorIdFn(roomJid, payload.aliasActorId || "")
-          : (payload.aliasActorId || "").toString().trim();
+        const canonicalActorId = mapToAccountId(
+          roomJid && typeof canonicalXmppRoomReactionActorIdFn === "function"
+            ? canonicalXmppRoomReactionActorIdFn(roomJid, payload.actorUserId || "")
+            : (payload.actorUserId || "").toString().trim()
+        );
+        const aliasActorId = mapToAccountId(
+          roomJid && typeof canonicalXmppRoomReactionActorIdFn === "function"
+            ? canonicalXmppRoomReactionActorIdFn(roomJid, payload.aliasActorId || "")
+            : (payload.aliasActorId || "").toString().trim()
+        );
         let aliasChanged = false;
         if (aliasActorId && aliasActorId !== canonicalActorId && typeof applyXmppReactionsForActorFn === "function") {
           aliasChanged = applyXmppReactionsForActorFn(target, aliasActorId, [], {

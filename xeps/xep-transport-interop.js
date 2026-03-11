@@ -981,7 +981,8 @@ function applyXmppReactionFallback(targetRefId, payload = {}) {
     messageMatchesXmppReferenceFn: messageMatchesXmppReference,
     applyXmppReactionsForActorFn: applyXmppReactionsForActor,
     bareJidFn: xmppBareJid,
-    canonicalXmppRoomReactionActorIdFn: canonicalXmppRoomReactionActorId
+    canonicalXmppRoomReactionActorIdFn: canonicalXmppRoomReactionActorId,
+    getAccountByXmppJidFn: getAccountByXmppJid
   });
 }
 
