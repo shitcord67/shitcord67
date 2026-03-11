@@ -68,7 +68,7 @@
 - Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
 - Add per-message debug inspector pane with decoded attachment/network info.
 - Add true detachable SWF mini-player (PiP-like floating window) independent of channel view.
-- Local persistence via browser storage for easy debugging and rapid iteration.
+- [done] Local persistence via browser storage for easy debugging and rapid iteration.
 
 ## Near-term
 - [done] Added cross-platform conference fallback for AV/screenshare (`/call`, `/callscreen`, header buttons, voice/stage launch controls) with configurable provider URL + room prefix.
