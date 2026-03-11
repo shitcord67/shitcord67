@@ -2169,10 +2169,18 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
   }
 
   if (type === "audio") {
+    const formatAudioTime = (seconds) => {
+      if (!Number.isFinite(seconds) || seconds <= 0) return "0:00";
+      const total = Math.floor(seconds);
+      const mins = Math.floor(total / 60);
+      const secs = total % 60;
+      return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
     const audio = document.createElement("audio");
-    audio.controls = true;
+    audio.controls = false;
     audio.preload = "none";
     audio.className = "message-audio";
+    audio.setAttribute("aria-label", "Audio preview");
     const explicitMime = (attachment.mime || "").toString().trim().toLowerCase();
     const inferredMime = typeof inferAudioMimeType === "function"
       ? (inferAudioMimeType(mediaUrl) || inferAudioMimeType(attachment.name || ""))
@@ -2191,7 +2199,100 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
     if (audioMime && typeof audio.canPlayType === "function") {
       supportHint = audio.canPlayType(audioMime) || "";
     }
-    wrap.appendChild(audio);
+    const controls = document.createElement("div");
+    controls.className = "message-audio-controls";
+
+    const playBtn = document.createElement("button");
+    playBtn.type = "button";
+    playBtn.className = "message-audio-btn";
+    playBtn.textContent = "Play";
+    playBtn.setAttribute("aria-label", "Play audio");
+
+    const timeLabel = document.createElement("span");
+    timeLabel.className = "message-audio-time";
+    timeLabel.textContent = "0:00 / 0:00";
+
+    const progress = document.createElement("input");
+    progress.type = "range";
+    progress.className = "message-audio-progress";
+    progress.min = "0";
+    progress.max = "1000";
+    progress.value = "0";
+    progress.step = "1";
+    progress.setAttribute("aria-label", "Seek audio");
+
+    const speedSelect = document.createElement("select");
+    speedSelect.className = "message-audio-speed";
+    speedSelect.setAttribute("aria-label", "Playback speed");
+    ["0.5", "1", "1.5", "2"].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = `${value}x`;
+      if (value === "1") option.selected = true;
+      speedSelect.appendChild(option);
+    });
+
+    const updateTimeLabel = () => {
+      const current = formatAudioTime(audio.currentTime || 0);
+      const duration = formatAudioTime(audio.duration || 0);
+      timeLabel.textContent = `${current} / ${duration}`;
+    };
+    const updateProgress = () => {
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+        progress.value = "0";
+        return;
+      }
+      const ratio = Math.max(0, Math.min(1, (audio.currentTime || 0) / audio.duration));
+      progress.value = String(Math.round(ratio * 1000));
+    };
+    const updatePlayState = () => {
+      const isPlaying = !audio.paused && !audio.ended;
+      playBtn.textContent = isPlaying ? "Pause" : "Play";
+      playBtn.setAttribute("aria-label", isPlaying ? "Pause audio" : "Play audio");
+    };
+
+    playBtn.addEventListener("click", () => {
+      if (audio.paused || audio.ended) {
+        void audio.play();
+      } else {
+        audio.pause();
+      }
+    });
+    progress.addEventListener("input", () => {
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      const ratio = Number(progress.value) / 1000;
+      audio.currentTime = Math.max(0, Math.min(audio.duration, audio.duration * ratio));
+    });
+    speedSelect.addEventListener("change", () => {
+      const speed = Number(speedSelect.value) || 1;
+      audio.playbackRate = speed;
+    });
+    audio.addEventListener("loadedmetadata", () => {
+      updateTimeLabel();
+      updateProgress();
+    });
+    audio.addEventListener("timeupdate", () => {
+      updateTimeLabel();
+      updateProgress();
+    });
+    audio.addEventListener("ended", () => {
+      updatePlayState();
+      updateTimeLabel();
+      updateProgress();
+    });
+    audio.addEventListener("play", updatePlayState);
+    audio.addEventListener("pause", updatePlayState);
+
+    controls.appendChild(playBtn);
+    controls.appendChild(timeLabel);
+    controls.appendChild(progress);
+    controls.appendChild(speedSelect);
+
+    const audioWrap = document.createElement("div");
+    audioWrap.className = "message-audio-preview";
+    audioWrap.appendChild(audio);
+    audioWrap.appendChild(controls);
+    wrap.appendChild(audioWrap);
     if (supportHint === "" && audioMime) {
       const note = document.createElement("div");
       note.className = "message-embed-note";

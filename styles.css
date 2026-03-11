@@ -4398,9 +4398,64 @@ body[data-platform="android"] .composer-stack {
 }
 
 .message-audio {
-  width: min(440px, 100%);
-  display: block;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.message-audio-preview {
+  width: min(520px, 100%);
   max-width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid #353944;
+  background: #151823;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.message-audio-controls {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.message-audio-btn {
+  border: 1px solid #3b3f48;
+  background: #1d2230;
+  color: #e7ebf7;
+  padding: 0.25rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.message-audio-btn:hover {
+  border-color: #4a5161;
+  background: #23293a;
+}
+
+.message-audio-time {
+  font-size: 0.75rem;
+  color: #a7b0c3;
+  white-space: nowrap;
+}
+
+.message-audio-progress {
+  width: 100%;
+  accent-color: #6b7cff;
+}
+
+.message-audio-speed {
+  border: 1px solid #3b3f48;
+  background: #0f1118;
+  color: #e7ebf7;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  font-size: 0.72rem;
 }
 
 .message-text-file {
