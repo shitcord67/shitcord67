@@ -849,6 +849,19 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   color: #cfd7e5;
 }
 
+.channel-space-description {
+  color: #9aa5b8;
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: -0.1rem 0 0.3rem;
+  padding: 0 0.4rem;
+  max-width: 88%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .channel-category-header {
   width: 100%;
   display: block;

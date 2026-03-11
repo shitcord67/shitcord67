@@ -1398,17 +1398,19 @@ function renderChannels() {
     if (!id) return;
     const name = (space?.name || "").toString().replace(/\s+/g, " ").trim();
     const parentSpaceId = (space?.parentSpaceId || "").toString().trim();
+    const description = (space?.description || space?.spaceDescription || "").toString().replace(/\s+/g, " ").trim();
     if (!spaceMetaById.has(id)) {
-      spaceMetaById.set(id, { name, parentSpaceId });
+      spaceMetaById.set(id, { name, parentSpaceId, description });
     } else {
       const existing = spaceMetaById.get(id);
       if (name && !existing.name) existing.name = name;
       if (parentSpaceId && !existing.parentSpaceId) existing.parentSpaceId = parentSpaceId;
+      if (description && !existing.description) existing.description = description;
     }
   });
   const groupMap = new Map();
   const groupOrder = new Map();
-  const ensureGroup = (spaceId, { parentSpaceId = "", name = "" } = {}) => {
+  const ensureGroup = (spaceId, { parentSpaceId = "", name = "", description = "" } = {}) => {
     const id = (spaceId || "").toString().trim();
     if (!id) return null;
     let group = groupMap.get(id);
@@ -1417,6 +1419,7 @@ function renderChannels() {
         id,
         label: "",
         name: "",
+        description: "",
         parentId: "",
         channels: [],
         order: Number.POSITIVE_INFINITY
@@ -1424,6 +1427,7 @@ function renderChannels() {
       groupMap.set(id, group);
     }
     if (name && !group.name) group.name = name;
+    if (description && !group.description) group.description = description;
     if (parentSpaceId && !group.parentId) group.parentId = parentSpaceId;
     return group;
   };
@@ -1442,7 +1446,8 @@ function renderChannels() {
     const meta = spaceMetaById.get(spaceId) || {};
     const group = ensureGroup(spaceId, {
       parentSpaceId: parentId || meta.parentSpaceId || "",
-      name: name || meta.name || ""
+      name: name || meta.name || "",
+      description: meta.description || ""
     });
     if (!group) return;
     group.channels.push(channel);
@@ -1457,6 +1462,7 @@ function renderChannels() {
     if (!group.parentId && meta.parentSpaceId) group.parentId = meta.parentSpaceId;
     if (group.parentId === group.id) group.parentId = "";
     if (!group.name && meta.name) group.name = meta.name;
+    if (!group.description && meta.description) group.description = meta.description;
     group.label = group.id === server.id
       ? (server.name || "XMPP Spaces")
       : (group.name || group.id.split("/").pop() || group.id);
@@ -1578,6 +1584,14 @@ function renderChannels() {
         renderChannels();
       });
       ui.channelList.appendChild(heading);
+      if (group.description) {
+        const desc = document.createElement("div");
+        desc.className = "channel-space-description";
+        desc.textContent = group.description;
+        desc.title = group.description;
+        desc.style.paddingLeft = `${0.6 + (indentDepth * 0.65)}rem`;
+        ui.channelList.appendChild(desc);
+      }
       if (collapsed) return;
     }
     const channelIndent = showHeading ? depth + 1 : depth;

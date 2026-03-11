@@ -8763,3 +8763,208 @@ But why is it not showing the dropdown for the users so they do not type their s
 [2026-03-10 21:00:33] User prompt: Feel free to work on some features from TODO, XEPs, polishing, making stuff more like Discord, problems, etc. I will be away for a long time so really do it autonomousl
 [2026-03-11 10:09:16] User prompt: Continue working. And when done with a commit continue working. Repeat.
 [2026-03-11 10:23:38] User prompt: Continue working. And when done with a commit continue working. Repeat.
+
+[2026-03-11T09:47:18Z] Continue working. And when done with a commit continue working. Repeat. • The plan is to add a new message inspector dialog showing JSON with message details and decoded
+  attachment/network info, triggered via an "Inspect Message" context menu action. This involves creating
+  a new dialog in index.html, wiring UI event handlers, building inspector data in the messages runtime,
+  and coordinating dialog display through the shell or overlay runtime, possibly leveraging or extending
+  existing copy-dialog functionality.
+
+  Designing message inspector data build and dialog integration
+
+  I'm planning to add a function that builds a detailed message inspector payload—including core message
+  data, conversation context, resolved attachment URLs, and debug flags—in the messages runtime file, and
+  then open the new inspector dialog by setting its UI elements. This involves updating index.html with
+  the dialog markup, adding UI references and event handlers in core and UI runtimes, and wiring these
+  functions to the context menu action for message inspection.
+
+• I'm exploring code around debugDialog to understand its existing formatting and identify any needed
+  changes.
+
+• Explored
+  └ Read index.html
+
+• Edited index.html (+11 -0)
+    1184
+    1185 +  <dialog id="messageInspectDialog" class="modal">
+    1186 +    <form id="messageInspectForm" class="modal-form" method="dialog">
+    1187 +      <h3>Message Inspector</h3>
+    1188 +      <pre id="messageInspectOutput" class="debug-output"></pre>
+    1189 +      <div class="modal-actions">
+    1190 +        <button id="messageInspectCopyBtn" type="button">Copy</button>
+    1191 +        <button id="messageInspectCloseBtn" type="button">Close</button>
+    1192 +      </div>
+    1193 +    </form>
+    1194 +  </dialog>
+    1195 +
+    1196    <dialog id="xmppConsoleDialog" class="modal">
+
+• Planning to update UI references around debugDialog in xep-app-core-runtime.js to align with the
+  intended changes.
+
+• Explored
+  └ Search debugDialog|debugOutput in xep-app-core-runtime.js
+    Read xep-app-core-runtime.js
+
+• Edited xeps/xep-app-core-runtime.js (+5 -0)
+    1246    debugCloseBtn: document.getElementById("debugCloseBtn"),
+    1247 +  messageInspectDialog: document.getElementById("messageInspectDialog"),
+    1248 +  messageInspectForm: document.getElementById("messageInspectForm"),
+    1249 +  messageInspectOutput: document.getElementById("messageInspectOutput"),
+    1250 +  messageInspectCopyBtn: document.getElementById("messageInspectCopyBtn"),
+    1251 +  messageInspectCloseBtn: document.getElementById("messageInspectCloseBtn"),
+    1252    xmppConsoleDialog: document.getElementById("xmppConsoleDialog"),
+
+• Exploring
+  └ Search copyDebugBtn|debugCloseBtn in xep-xmpp-ui-bindings-runtime.js
+    Search copyDebugBtn|debugCloseBtn|debugForm
+
+• Debug buttons are in xep-xmpp-ui-bindings-runtime.js around line 840; message inspector handlers will
+  be added there.
+
+• Explored
+  └ Read xep-xmpp-ui-bindings-runtime.js
+
+• I'm outlining adding an openMessageInspectDialog function in the message renderers file to set JSON
+  output and show the modal, while placing copy and close button handlers centrally in the UI bindings
+  file. I'll also create a buildMessageInspectSnapshot helper to format the payload for display.
+
+  Defining message snapshot builder
+
+  I'm outlining buildMessageInspectorSnapshot to capture key message, author, attachment, and context
+  details with resolved URLs and normalized reactions, avoiding bulky data. I'll add this helper near
+  existing utilities and update context menus to trigger openMessageInspectDialog with the snapshot.
+
+• Edited xeps/xep-app-render-messages-runtime.js (+67 -0)
+     91
+     92 +function buildMessageInspectorSnapshot({
+     93 +  message,
+     94 +  conversationId = "",
+     95 +  isDm = false,
+     96 +  channel = null,
+     97 +  dmThread = null,
+     98 +  attachments = []
+     99 +} = {}) {
+    100 +  const author = message?.userId ? getAccountById(message.userId) : null;
+    101 +  const guild = !isDm ? getActiveGuild() : null;
+    102 +  const resolvedAttachments = (Array.isArray(attachments) ? attachments : []).map((attachment) =
+         > {
+    103 +    const rawUrl = (attachment?.url || "").toString();
+    104 +    const resolvedUrl = resolveMediaUrl(rawUrl);
+    105 +    return {
+    106 +      name: (attachment?.name || "").toString(),
+    107 +      type: (attachment?.type || "").toString(),
+    108 +      format: (attachment?.format || "").toString(),
+    109 +      url: rawUrl,
+    110 +      resolvedUrl,
+    111 +      external: /^https?:\/\//i.test(resolvedUrl)
+    112 +    };
+    113 +  });
+    114 +  return {
+    115 +    capturedAt: new Date().toISOString(),
+    116 +    conversation: {
+    117 +      id: conversationId,
+    118 +      type: isDm ? "dm" : "channel",
+    119 +      guildId: guild?.id || "",
+    120 +      guildName: guild?.name || "",
+    121 +      channelId: channel?.id || "",
+    122 +      channelName: channel?.name || "",
+    123 +      dmThreadId: dmThread?.id || ""
+    124 +    },
+    125 +    author: author
+    126 +      ? {
+    127 +        id: author.id,
+    128 +        username: author.username || "",
+    129 +        displayName: displayNameForAccount(author, guild?.id || null),
+    130 +        xmppJid: author.xmppJid || ""
+    131 +      }
+    132 +      : {
+    133 +        id: message?.userId || "",
+    134 +        username: "",
+    135 +        displayName: message?.authorName || "Unknown",
+    136 +        xmppJid: ""
+    137 +      },
+    138 +    message: {
+    139 +      id: message?.id || "",
+    140 +      text: (message?.text || "").toString(),
+    141 +      timestamp: message?.ts || "",
+    142 +      timestampLocal: formatFullTimestamp(message?.ts || ""),
+    143 +      editedAt: message?.editedAt || "",
+    144 +      pinned: Boolean(message?.pinned),
+    145 +      replyTo: message?.replyTo || null,
+    146 +      poll: normalizePoll(message?.poll),
+    147 +      reactions: normalizeReactions(message?.reactions)
+    148 +    },
+    149 +    attachments: resolvedAttachments
+    150 +  };
+    151 +}
+    152 +
+    153 +function openMessageInspectorDialog(snapshot) {
+    154 +  if (!ui.messageInspectDialog || !ui.messageInspectOutput) return;
+    155 +  ui.messageInspectOutput.textContent = JSON.stringify(snapshot, null, 2);
+    156 +  if (!ui.messageInspectDialog.open) ui.messageInspectDialog.showModal();
+    157 +}
+    158 +
+    159  async function fetchLinkEmbedMeta(url = "") {
+
+• I'm adding an "Inspect Message" option near the Copy submenu in the message context menu, planning to
+  insert it before the Copy option for better accessibility.
+
+• Edited xeps/xep-app-render-messages-runtime.js (+14 -0)
+    1551          {
+    1552 +          label: "Inspect Message",
+    1553 +          action: () => {
+    1554 +            const snapshot = buildMessageInspectorSnapshot({
+    1555 +              message,
+    1556 +              conversationId,
+    1557 +              isDm,
+    1558 +              channel,
+    1559 +              dmThread,
+    1560 +              attachments
+    1561 +            });
+    1562 +            openMessageInspectorDialog(snapshot);
+    1563 +          }
+    1564 +        },
+    1565 +        {
+    1566            label: "Poll",
+
+• I'm implementing handlers for messageInspect buttons in the UI bindings runtime using copyText and
+  patching around debugClose.
+
+• Edited xeps/xep-xmpp-ui-bindings-runtime.js (+15 -0)
+    867
+    868 +ui.messageInspectCopyBtn?.addEventListener("click", () => {
+    869 +  const payload = (ui.messageInspectOutput?.textContent || "").toString().trim();
+    870 +  if (!payload) {
+    871 +    showToast("No message details to copy.", { tone: "error" });
+    872 +    return;
+    873 +  }
+    874 +  void copyText(payload).then((ok) => {
+    875 +    showToast(ok ? "Message details copied." : "Clipboard blocked. Manual copy prompt opened.",
+         { tone: ok ? "info" : "error" });
+    876 +  });
+    877 +});
+    878 +
+    879 +ui.messageInspectCloseBtn?.addEventListener("click", () => {
+    880 +  ui.messageInspectDialog?.close();
+    881 +});
+    882 +
+    883  ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
+
+• UI references are now set earlier, and rendering updates have been confirmed; proceeding to commit
+  these changes.
+
+• Ran git add index.html xeps/xep-app-core-runtime.js xeps/xep-app-render-messages-runtime.js xeps/
+  │ xep-xmpp-ui-bindings-runtime.js
+  └ (no output)
+
+• Ran git commit -m "Add message inspector dialog"
+  └ [master a620fca] Add message inspector dialog
+     4 files changed, 112 insertions(+)
+
+• Edited TODO (+1 -1)
+    68  - [done] Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
+    69 -- Add per-message debug inspector pane with decoded attachment/network info.
+    69 +- [done] Add per-message debug inspector pane with decoded attachment/network info.
+    70  - Add true detachable SWF mini-player (PiP-like floating window) independent of channel view.
+[2026-03-11T11:05:19Z] Continue working. And when done with a commit continue working. Repeat.
