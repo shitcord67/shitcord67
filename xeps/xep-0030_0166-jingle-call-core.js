@@ -152,6 +152,9 @@ function xmppPostWebCallInviteFallback({
     launchConversationCall({ screenShare, roomOverride, autoPost: true, allowNative: false });
     return true;
   }
+  if (!reason) {
+    showToast("Could not post Web Call invite.", { tone: "error", duration: 2600 });
+  }
   return false;
 }
 
