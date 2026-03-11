@@ -761,6 +761,13 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   font-weight: 800;
 }
 
+#activeServerName {
+  max-width: 18rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .channel-panel__meta {
   display: flex;
   flex-direction: column;
