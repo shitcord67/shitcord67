@@ -1289,11 +1289,16 @@ function renderMessages() {
     if (message.xmppEncrypted) {
       const label = (message.xmppEncryptedLabel || "").toString().trim() || "Encrypted";
       encryptedBadge = document.createElement("span");
-      encryptedBadge.className = "message-encrypted";
-      encryptedBadge.textContent = label;
-      encryptedBadge.title = label !== "Encrypted"
-        ? `Encrypted XMPP message (${label})`
-        : "Encrypted XMPP message";
+      const failed = Boolean(message.xmppOmemoDecryptFailed);
+      encryptedBadge.className = `message-encrypted${failed ? " message-encrypted--error" : ""}`;
+      encryptedBadge.textContent = failed ? "OMEMO Failed" : label;
+      if (failed) {
+        encryptedBadge.title = "OMEMO encrypted message could not be decrypted yet.";
+      } else {
+        encryptedBadge.title = label !== "Encrypted"
+          ? `Encrypted XMPP message (${label})`
+          : "Encrypted XMPP message";
+      }
     }
     let processingHintBadge = null;
     const processingHints = message.xmppProcessingHints && typeof message.xmppProcessingHints === "object"

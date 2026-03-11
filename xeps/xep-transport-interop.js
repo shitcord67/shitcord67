@@ -1810,6 +1810,47 @@ function xmppOmemoTryDecryptIntoMessage({
       normalizeAttachmentsFn: normalizeAttachments,
       saveStateFn: saveState,
       debugEventFn: addXmppDebugEvent,
+      onErrorFn: ({ error }) => {
+        message.xmppOmemoDecryptFailed = true;
+        message.xmppOmemoDecryptError = (error || "").toString();
+        if (typeof onUpdated === "function") onUpdated();
+        if (message.xmppOmemoRetryAttempted) return;
+        message.xmppOmemoRetryAttempted = true;
+        const retry = async () => {
+          if (!peerBare || !ownBare) return;
+          if (!xmppOmemoRuntimeAvailable()) {
+            const loaded = await ensureXmppOmemoRuntime();
+            if (!loaded || !xmppOmemoRuntimeAvailable()) return;
+          }
+          await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+          await xmppOmemoFetchDeviceList(peerBare);
+          await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
+          window.setTimeout(() => {
+            if (xmppOmemoDecryptInFlightByMessageId.has(`${peerBare}|${message.id || xmppStanzaStableId(stanza) || ""}`)) return;
+            xmppOmemoTryDecryptIntoMessageCore({
+              stanza,
+              message,
+              peerBare,
+              ownBare,
+              onUpdated,
+              runtimeAvailableFn: xmppOmemoRuntimeAvailable,
+              parseEncryptedPayloadFn: xmppOmemoParseEncryptedPayload,
+              decryptPayloadFn: xmppOmemoDecryptPayload,
+              extractAesgcmUrlsFn: extractAesgcmUrls,
+              stripAesgcmUrlsFn: stripAesgcmUrls,
+              normalizeAttachmentsFn: normalizeAttachments,
+              saveStateFn: saveState,
+              debugEventFn: addXmppDebugEvent,
+              onErrorFn: null,
+              inFlightByMessageId: xmppOmemoDecryptInFlightByMessageId,
+              resolveMessageIdFn: ({ stanza: inputStanza, message: inputMessage, peerBare: inputPeer }) => {
+                return `${inputPeer}|${inputMessage.id || xmppStanzaStableId(inputStanza) || createId().slice(0, 8)}`;
+              }
+            });
+          }, 10);
+        };
+        void retry();
+      },
       inFlightByMessageId: xmppOmemoDecryptInFlightByMessageId,
       resolveMessageIdFn: ({ stanza: inputStanza, message: inputMessage, peerBare: inputPeer }) => {
         return `${inputPeer}|${inputMessage.id || xmppStanzaStableId(inputStanza) || createId().slice(0, 8)}`;

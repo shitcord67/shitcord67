@@ -15,6 +15,7 @@
     normalizeAttachmentsFn,
     saveStateFn,
     debugEventFn,
+    onErrorFn,
     inFlightByMessageId,
     resolveMessageIdFn
   }) {
@@ -34,7 +35,19 @@
     const task = (async () => {
       try {
         const plaintext = await decryptPayloadFn(peerBare, omemoPayload, ownBare);
-        if (!plaintext) return;
+        if (!plaintext) {
+          if (typeof onErrorFn === "function") {
+            onErrorFn({
+              messageId,
+              peerBare,
+              ownBare,
+              stanza,
+              message,
+              error: "empty-plaintext"
+            });
+          }
+          return;
+        }
         const aesgcmUrls = typeof extractAesgcmUrlsFn === "function" ? extractAesgcmUrlsFn(plaintext) : [];
         const cleanText = typeof stripAesgcmUrlsFn === "function" ? stripAesgcmUrlsFn(plaintext) : plaintext;
         if (aesgcmUrls.length > 0 && typeof normalizeAttachmentsFn === "function") {
@@ -54,12 +67,23 @@
         message.xmppEncryptedType = omemoPayload.encryptedType || "omemo";
         message.xmppEncryptedLabel = "OMEMO";
         message.xmppOmemoDecrypted = true;
+        message.xmppOmemoDecryptFailed = false;
         if (typeof saveStateFn === "function") saveStateFn();
         if (typeof onUpdated === "function") onUpdated();
       } catch (error) {
         if (typeof debugEventFn === "function") {
           debugEventFn("error", "OMEMO decrypt failed", {
             peer: peerBare,
+            error: String(error?.message || error)
+          });
+        }
+        if (typeof onErrorFn === "function") {
+          onErrorFn({
+            messageId,
+            peerBare,
+            ownBare,
+            stanza,
+            message,
             error: String(error?.message || error)
           });
         }
