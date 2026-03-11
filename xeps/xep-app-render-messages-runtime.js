@@ -1548,6 +1548,7 @@ function renderMessages() {
       chip.title = shownNames.length > 0
         ? `Reacted by: ${shownNames.join(", ")}${reactorNames.length > shownNames.length ? ", …" : ""}`
         : `React with ${item.emoji}`;
+      chip.setAttribute("aria-label", chip.title);
       chip.disabled = !canReact;
       if (currentUser && canReact) {
         chip.addEventListener("click", () => {
