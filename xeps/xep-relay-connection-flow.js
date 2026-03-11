@@ -749,7 +749,7 @@ function connectRelaySocket({ force = false } = {}) {
               }
             });
             if (encryptedInfo.type === "omemo" || encryptedInfo.type === "omemo2") {
-              xmppOmemoTryDecryptIntoMessage({
+              const tryDecrypt = () => xmppOmemoTryDecryptIntoMessage({
                 stanza,
                 message: inserted,
                 peerBare,
@@ -763,6 +763,13 @@ function connectRelaySocket({ force = false } = {}) {
                   renderMessages();
                 }
               });
+              if (xmppOmemoRuntimeAvailable()) {
+                tryDecrypt();
+              } else {
+                void ensureXmppOmemoRuntime().then((loaded) => {
+                  if (loaded && xmppOmemoRuntimeAvailable()) tryDecrypt();
+                });
+              }
             }
           }
           if (!ownAuthor) applyXmppPhotoStateForJid(peerBare, stanza);
@@ -1198,10 +1205,11 @@ function connectRelaySocket({ force = false } = {}) {
           });
           if ((encryptedInfo.type === "omemo" || encryptedInfo.type === "omemo2") && authorJid) {
             const ownBare = xmppBareJid(getPreferences().xmppJid || "");
-            xmppOmemoTryDecryptIntoMessage({
+            const peerBare = xmppBareJid(authorJid);
+            const tryDecrypt = () => xmppOmemoTryDecryptIntoMessage({
               stanza,
               message: inserted,
-              peerBare: xmppBareJid(authorJid),
+              peerBare,
               ownBare,
               onUpdated: () => {
                 renderChannels();
@@ -1213,6 +1221,13 @@ function connectRelaySocket({ force = false } = {}) {
                 }
               }
             });
+            if (xmppOmemoRuntimeAvailable()) {
+              tryDecrypt();
+            } else {
+              void ensureXmppOmemoRuntime().then((loaded) => {
+                if (loaded && xmppOmemoRuntimeAvailable()) tryDecrypt();
+              });
+            }
           }
         }
         if (authorJid) applyXmppPhotoStateForJid(authorJid, stanza);

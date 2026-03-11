@@ -1147,6 +1147,13 @@ function publishRelayChannelMessage(channel, message, account) {
       if (!xmppConnection || relayStatus !== "connected") return;
       const roomBare = xmppBareJid(roomJid);
       const omemoEnabled = roomBare ? xmppOmemoEnabledForPeer(roomBare, prefs) : false;
+      if (omemoEnabled) {
+        const loaded = await ensureXmppOmemoRuntime();
+        if (!loaded || !xmppOmemoRuntimeAvailable()) {
+          showToast("OMEMO runtime is not available here. Message not sent.", { tone: "error" });
+          return;
+        }
+      }
       let omemoAttachmentUrls = [];
       if (omemoEnabled && roomBare) {
         const omemoAttachments = await xmppOmemoEncryptAndUploadAttachments(message, { conversationId: channel.id || "" });
@@ -1322,6 +1329,13 @@ function publishRelayDirectMessage(thread, message, account) {
         const peerBare = xmppBareJid(peerJid);
         const omemoEnabled = peerBare ? xmppOmemoEnabledForPeer(peerBare, prefs) : false;
         const hasAttachments = normalizeAttachments(message.attachments).length > 0;
+        if (omemoEnabled) {
+          const loaded = await ensureXmppOmemoRuntime();
+          if (!loaded || !xmppOmemoRuntimeAvailable()) {
+            showToast("OMEMO runtime is not available here. Message not sent.", { tone: "error" });
+            return;
+          }
+        }
         let omemoAttachmentUrls = [];
         if (omemoEnabled && hasAttachments) {
           const omemoAttachments = await xmppOmemoEncryptAndUploadAttachments(message, { conversationId: thread.id || "" });
