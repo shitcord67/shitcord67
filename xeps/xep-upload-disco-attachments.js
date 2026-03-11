@@ -612,9 +612,23 @@ function xmppSafeUploadFileName(name = "", type = "", mime = "") {
     : cleanedBase;
 }
 
+function xmppIsLocalHttpUrl(url = "") {
+  const raw = (url || "").toString().trim();
+  if (!raw) return false;
+  try {
+    const parsed = new URL(raw, window.location.href);
+    if (!/^https?:$/.test(parsed.protocol)) return false;
+    const host = (parsed.hostname || "").toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
 async function xmppAttachmentPayloadFromEntry(entry) {
   const sourceUrl = resolveMediaUrl((entry?.url || "").toString().trim());
-  if (!sourceUrl || /^https?:\/\//i.test(sourceUrl)) return null;
+  if (!sourceUrl) return null;
+  if (/^https?:\/\//i.test(sourceUrl) && !xmppIsLocalHttpUrl(sourceUrl)) return null;
   const response = await fetch(sourceUrl, { cache: "no-store" });
   if (!response.ok) throw new Error(`Attachment fetch failed (${response.status})`);
   const blob = await response.blob();
