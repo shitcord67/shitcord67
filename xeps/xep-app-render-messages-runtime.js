@@ -1544,7 +1544,7 @@ function renderMessages() {
       const reactorNames = [...new Set(item.userIds
         .map((actorId) => reactionDisplayNameForActorId(actorId, { conversation, guildId }))
         .filter(Boolean))];
-      const shownNames = reactorNames.slice(0, 8);
+      const shownNames = reactorNames.slice(0, 12);
       chip.title = shownNames.length > 0
         ? `Reacted by: ${shownNames.join(", ")}${reactorNames.length > shownNames.length ? ", …" : ""}`
         : `React with ${item.emoji}`;
