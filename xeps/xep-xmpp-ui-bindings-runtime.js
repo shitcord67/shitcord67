@@ -524,6 +524,7 @@ ui.appearanceForm.addEventListener("submit", (event) => {
   state.preferences.uiAccentColor = /^#[0-9a-f]{3,8}$/i.test(rawAccent) ? rawAccent : "";
   state.preferences.language = normalizeLanguage(ui.languageInput?.value || "auto");
   state.preferences.compactMembers = normalizeToggle(ui.compactModeInput.value);
+  state.preferences.dmOnlySidebar = normalizeToggle(ui.dmOnlySidebarInput?.value || "off");
   state.preferences.enterToSend = (ui.enterToSendInput?.value || "enter") === "ctrl-enter" ? "ctrl-enter" : "enter";
   state.preferences.quickSwitcherHotkey = (ui.quickSwitcherHotkeyInput?.value || "ctrl-k") === "alt-k" ? "alt-k" : "ctrl-k";
   state.preferences.reducedMotion = normalizeToggle(ui.reducedMotionInput?.value || "off");

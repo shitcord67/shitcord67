@@ -1140,6 +1140,7 @@ const ui = {
   uiAccentColorPicker: document.getElementById("uiAccentColorPicker"),
   languageInput: document.getElementById("languageInput"),
   compactModeInput: document.getElementById("compactModeInput"),
+  dmOnlySidebarInput: document.getElementById("dmOnlySidebarInput"),
   enterToSendInput: document.getElementById("enterToSendInput"),
   quickSwitcherHotkeyInput: document.getElementById("quickSwitcherHotkeyInput"),
   reducedMotionInput: document.getElementById("reducedMotionInput"),

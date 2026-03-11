@@ -384,6 +384,8 @@ function renderSettingsScreen() {
     if (languageLabel) languageLabel.textContent = tUi("settings.appearance.language", "Language");
     const compactLabel = appearancePanel.querySelector('label[for="compactModeInput"]');
     if (compactLabel) compactLabel.textContent = tUi("settings.appearance.compactMembers", "Compact member list");
+    const dmOnlyLabel = appearancePanel.querySelector('label[for="dmOnlySidebarInput"]');
+    if (dmOnlyLabel) dmOnlyLabel.textContent = tUi("settings.appearance.dmOnlySidebar", "DM-only server rail");
     const submitBtn = appearancePanel.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.textContent = tUi("settings.appearance.save", "Save Appearance");
   }
@@ -412,6 +414,12 @@ function renderSettingsScreen() {
     const on = ui.compactModeInput.querySelector('option[value="on"]');
     if (on) on.textContent = tUi("settings.compact.on", "On");
   }
+  if (ui.dmOnlySidebarInput) {
+    const off = ui.dmOnlySidebarInput.querySelector('option[value="off"]');
+    if (off) off.textContent = tUi("settings.dmOnlySidebar.off", "Off");
+    const on = ui.dmOnlySidebarInput.querySelector('option[value="on"]');
+    if (on) on.textContent = tUi("settings.dmOnlySidebar.on", "On");
+  }
   if (ui.enterToSendInput) {
     ui.enterToSendInput.value = prefs.enterToSend === "ctrl-enter" ? "ctrl-enter" : "enter";
   }
@@ -436,6 +444,7 @@ function renderSettingsScreen() {
   }
   void updateCredentialStoragePermissionUi();
   ui.compactModeInput.value = prefs.compactMembers;
+  if (ui.dmOnlySidebarInput) ui.dmOnlySidebarInput.value = prefs.dmOnlySidebar || "off";
   ui.developerModeInput.value = prefs.developerMode;
   ui.debugOverlayInput.value = prefs.debugOverlay;
   ui.swfAudioPolicyInput.value = prefs.swfAudioPolicy;
