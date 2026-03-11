@@ -1024,6 +1024,10 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   color: #d9dde5;
 }
 
+.channel-item--unread .channel-item__description {
+  color: #cfd6e2;
+}
+
 .channel-item--draft .channel-item__name {
   color: #d9a648;
 }
