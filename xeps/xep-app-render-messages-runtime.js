@@ -1287,6 +1287,23 @@ function renderMessages() {
     });
     let encryptedBadge = null;
     if (message.xmppEncrypted) {
+      if (message.xmppOmemoPayload && !message.xmppOmemoDecrypted && !message.xmppOmemoDecryptFailed && !message.xmppOmemoAutoAttempted) {
+        const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+        const peerBare = xmppBareJid(message.authorJid || "");
+        if (ownBare && peerBare && typeof xmppOmemoTryDecryptIntoMessage === "function" && xmppOmemoRuntimeAvailable()) {
+          message.xmppOmemoAutoAttempted = true;
+          xmppOmemoTryDecryptIntoMessage({
+            stanza: null,
+            message,
+            peerBare,
+            ownBare,
+            onUpdated: () => {
+              renderDmList();
+              renderMessages();
+            }
+          });
+        }
+      }
       const label = (message.xmppEncryptedLabel || "").toString().trim() || "Encrypted";
       encryptedBadge = document.createElement("span");
       const failed = Boolean(message.xmppOmemoDecryptFailed);
