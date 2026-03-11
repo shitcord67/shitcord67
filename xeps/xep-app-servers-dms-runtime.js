@@ -52,9 +52,10 @@ function renderServers() {
       button.style.background = server.id === state.activeGuildId ? accent : "";
     }
     const guildStats = getGuildUnreadStats(server, currentAccount);
+    const baseTitle = [server.name, (server.description || "").trim()].filter(Boolean).join(" • ");
     button.title = guildStats.unread > 0
-      ? `${server.name} (${guildStats.unread} unread${guildStats.mentions ? `, ${guildStats.mentions} mentions` : ""})`
-      : [server.name, (server.description || "").trim()].filter(Boolean).join(" • ");
+      ? `${baseTitle || server.name} (${guildStats.unread} unread${guildStats.mentions ? `, ${guildStats.mentions} mentions` : ""})`
+      : baseTitle;
     if (showXmppWarning && !xmppBackedGuild) {
       button.title = [button.title, "Not mapped from XMPP"].filter(Boolean).join(" • ");
     }
