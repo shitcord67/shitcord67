@@ -2534,6 +2534,24 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
               }
             },
             {
+              label: "Inspect Message",
+              action: () => {
+                if (typeof buildMessageInspectorSnapshot !== "function") {
+                  showToast("Message inspector unavailable.", { tone: "error" });
+                  return;
+                }
+                const snapshot = buildMessageInspectorSnapshot({
+                  message: replyMessage,
+                  conversationId,
+                  isDm: false,
+                  channel,
+                  dmThread: null,
+                  attachments: replyAttachments
+                });
+                openMessageInspectorDialog(snapshot);
+              }
+            },
+            {
               label: "Copy Reply ID",
               action: () => copyText(replyMessage.id || "")
             }
@@ -2639,6 +2657,24 @@ function renderForumThreads(conversationId, channel, messages, currentAccount) {
           label: "Copy Poll Results",
           disabled: !normalizePoll(post.poll),
           action: () => copyText(formatPollResultsText(post))
+        },
+        {
+          label: "Inspect Message",
+          action: () => {
+            if (typeof buildMessageInspectorSnapshot !== "function") {
+              showToast("Message inspector unavailable.", { tone: "error" });
+              return;
+            }
+            const snapshot = buildMessageInspectorSnapshot({
+              message: post,
+              conversationId,
+              isDm: false,
+              channel,
+              dmThread: null,
+              attachments: postAttachments
+            });
+            openMessageInspectorDialog(snapshot);
+          }
         },
         {
           label: "Copy",
