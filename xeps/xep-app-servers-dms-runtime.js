@@ -776,6 +776,7 @@ function renderChannels() {
     if (!ui.activeServerDescription) return;
     const next = (text || "").toString().trim();
     ui.activeServerDescription.textContent = next;
+    ui.activeServerDescription.title = next;
     ui.activeServerDescription.classList.toggle("channel-panel__description--empty", !next);
   };
   ui.dmSection.classList.toggle("panel-section--hidden", !dmMode);
@@ -896,6 +897,7 @@ function renderChannels() {
       const desc = document.createElement("span");
       desc.className = "channel-item__description";
       desc.textContent = channelDescription;
+      desc.title = channelDescription;
       meta.appendChild(desc);
       appendTitle(channelDescription);
     }
