@@ -25,8 +25,8 @@
 - [done] Fixed `/shrug` rendering to preserve the expected `¯\_(ツ)_/¯` output with inline markdown parsing enabled.
 - [done] Added `Add Friend` DM modal (username/JID) and direct XMPP one-to-one DM stanza send/receive path.
 - Discord-like multi-pane layout (server rail, channel list, chat, profile card).
-- Local profile customization: bio, avatar color, banner color or URL.
-- Profile image upload with validation and preview.
+- [done] Local profile customization: bio, avatar color, banner color or URL.
+- [done] Profile image upload with validation and preview.
 - Create servers (guilds).
 - Create text channels.
 - Send messages as logged-in user.
