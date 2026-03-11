@@ -2294,7 +2294,7 @@ ui.settingsSwitchAccount.addEventListener("click", () => {
   selectedSwitchAccountId = state.currentAccountId;
   renderAccountSwitchList();
   ui.newAccountInput.value = "";
-  ui.accountSwitchDialog.showModal();
+  showModalDialog(ui.accountSwitchDialog);
 });
 
 ui.settingsLogout.addEventListener("click", () => {
@@ -2396,7 +2396,7 @@ ui.selfSwitchAccount.addEventListener("click", () => {
   selectedSwitchAccountId = state.currentAccountId;
   renderAccountSwitchList();
   ui.newAccountInput.value = "";
-  ui.accountSwitchDialog.showModal();
+  showModalDialog(ui.accountSwitchDialog);
 });
 
 ui.selfLogout.addEventListener("click", () => {

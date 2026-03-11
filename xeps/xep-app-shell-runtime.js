@@ -517,6 +517,20 @@ function wireDialogBackdropClose(dialog) {
   });
 }
 
+function showModalDialog(dialog) {
+  if (!(dialog instanceof HTMLDialogElement)) return false;
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+    return true;
+  }
+  try {
+    if (!dialog.open) dialog.setAttribute("open", "");
+  } catch {
+    return false;
+  }
+  return true;
+}
+
 function isTypingInputTarget(target) {
   if (!(target instanceof HTMLElement)) return false;
   if (target.closest("input, textarea, [contenteditable='true']")) return true;
