@@ -46,11 +46,11 @@
 - [done] User profile notes (private notes per account/user pair).
 - [done] Guild folder grouping in server rail.
 - [done] OLED theme mode with Appearance toggle.
-- Per-guild nicknames via profile editor and `/nick`.
-- Per-guild avatar variants via profile editor.
-- Per-guild banner variants via profile editor.
-- Guild-scoped status override (separate from global status).
-- Custom status emoji + timed expiry presets (30m/1h/4h/today).
+- [done] Per-guild nicknames via profile editor and `/nick`.
+- [done] Per-guild avatar variants via profile editor.
+- [done] Per-guild banner variants via profile editor.
+- [done] Guild-scoped status override (separate from global status).
+- [done] Custom status emoji + timed expiry presets (30m/1h/4h/today).
 - Channel type variants (text/announcement/forum/media) with distinct labels.
 - [done] Channel categories with collapse state, category context actions, and move-to-category channel controls.
 - [done] Category management follow-up: reorder actions, modal quick-create category flow, and slash commands (`/categories`, `/movecategory`).
