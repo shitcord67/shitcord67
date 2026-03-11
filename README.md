@@ -532,6 +532,7 @@ XMPP realtime media + spaces status (as of 2026-02-25):
 - Implemented now (coexistence): dedicated `Web Call` and `XMPP Call` actions, so fallback conferencing and native-XMPP attempt flow can live side-by-side.
 - `XMPP Call` now probes target capabilities before start and auto-falls back to `Web Call` when required Jingle feature buckets are missing.
 - `XMPP Call` now sends DM-native call proposals (`propose`) when compatibility checks pass, waits for peer `proceed`, and falls back to `Web Call` on timeout.
+- Native XMPP call fallbacks now post Web Call invites against the bound conversation (without opening the call UI), with early Movim web-client detection skipping native signaling.
 - In DM native-signaling path, peer `proceed` now triggers `session-initiate` scaffolding; incoming `session-initiate/session-accept/session-terminate` are handled and reflected in DM system events.
 - Active native XMPP call sessions now listen for browser media-device changes and automatically refresh local call tracks/device snapshot to reduce mic/cam hot-swap disruption.
 - Native call surface now shows explicit unstable-connection notices (`pc`/`ice` state) with a one-click `Recover` action to reacquire local media and re-publish transport updates.
