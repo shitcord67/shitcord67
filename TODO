@@ -38,7 +38,7 @@
 - Import/export JSON snapshot for backup/testing.
 - Right-click context menus for guilds/channels/messages/users.
 - Keyboard navigation for context menus (arrow/enter/esc).
-- Unread + mention badges for channels and guild rail with mark-as-read actions.
+- [done] Unread + mention badges for channels and guild rail with mark-as-read actions.
 - Channel list filter/search input.
 - Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
 - HTML media tab + HTML embed rendering in chat attachments.

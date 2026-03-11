@@ -943,6 +943,7 @@ function renderChannels() {
       const xmppRoomBare = xmppRoomJid || "";
       const xmppJoined = Boolean(xmppRoomBare && xmppRoomByJid?.has?.(xmppRoomBare));
       const showXmppRoomActions = Boolean(xmppBackedChannel && xmppRoomBare);
+      const unreadStats = getChannelUnreadStats(channel, currentAccount);
       const menuItems = [
         {
           label: "Open Channel",
@@ -957,6 +958,18 @@ function renderChannels() {
             applyPreferencesToUI();
             renderMessages();
             renderChannels();
+          }
+        },
+        {
+          label: "Mark Read",
+          disabled: unreadStats.unread === 0,
+          action: () => {
+            if (!currentAccount) return;
+            if (!markChannelRead(channel, currentAccount.id)) return;
+            saveState();
+            renderServers();
+            renderChannels();
+            renderMessages();
           }
         },
         ...(showXmppRoomActions
