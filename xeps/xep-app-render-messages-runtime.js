@@ -1462,6 +1462,22 @@ function renderMessages() {
           }
         },
         {
+          label: "Mark Unread Here",
+          disabled: !currentUser,
+          action: () => {
+            if (!currentUser) return;
+            const convo = isDm
+              ? { type: "dm", thread: dmThread }
+              : { type: "channel", channel };
+            if (!markConversationUnreadFromMessage(convo, message.id, currentUser.id)) return;
+            saveState();
+            renderServers();
+            renderDmList();
+            renderChannels();
+            renderMessages();
+          }
+        },
+        {
           label: "Quote in Composer",
           action: () => quoteMessageInComposer(message)
         },
