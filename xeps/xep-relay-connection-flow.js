@@ -1813,6 +1813,25 @@ function connectRelaySocket({ force = false } = {}) {
               return true;
             }
             if (["probe", "error"].includes(type)) return true;
+            const fullFrom = (from || "").toString().trim();
+            if (roomJid) {
+              const pool = xmppAvailableFullJidsByBare.get(roomJid) || new Set();
+              if (type === "unavailable") {
+                if (fullFrom) pool.delete(fullFrom);
+              } else if (fullFrom) {
+                pool.add(fullFrom);
+              }
+              if (pool.size > 0) xmppAvailableFullJidsByBare.set(roomJid, pool);
+              else xmppAvailableFullJidsByBare.delete(roomJid);
+              if (type === "unavailable" && pool.size > 0) {
+                addXmppDebugEvent("presence", "Ignored unavailable presence; other resources still online", {
+                  jid: roomJid,
+                  full: fullFrom,
+                  remaining: pool.size
+                });
+                return true;
+              }
+            }
             const nickNode = [...stanza.getElementsByTagName("nick")]
               .find((node) => xmppNodeHasXmlns(node, "http://jabber.org/protocol/nick")) || null;
             const account = ensureAccountByXmppJid(
