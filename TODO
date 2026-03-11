@@ -40,8 +40,8 @@
 - [done] Keyboard navigation for context menus (arrow/enter/esc).
 - [done] Unread + mention badges for channels and guild rail with mark-as-read actions.
 - [done] Channel list filter/search input.
-- Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
-- HTML media tab + HTML embed rendering in chat attachments.
+- [done] Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
+- [done] HTML media tab + HTML embed rendering in chat attachments.
 - [done] DM sidebar with 1:1 direct-message threads.
 - [done] User profile notes (private notes per account/user pair).
 - [done] Guild folder grouping in server rail.
@@ -61,11 +61,11 @@
 - [done] Quick DM input in user popout (send without leaving profile card).
 - [done] Role color applied to member list, message usernames, and profile names.
 - [done] DM unread divider + jump-to-newest control in DM threads.
-- Forum channel messages render as post-style cards.
-- Local SWF catalog generated in `swf-index.json`.
+- [done] Forum channel messages render as post-style cards.
+- [done] Local SWF catalog generated in `swf-index.json`.
 - Guild custom emoji + sticker/media imports from URL or local files.
-- Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
-- Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
+- [done] Basic markdown-style message formatting (bold/italic/code/strike/quotes/links).
+- [done] Auto-runtime bootstrap for Ruffle and dotLottie in app startup.
 - Add per-message debug inspector pane with decoded attachment/network info.
 - Add true detachable SWF mini-player (PiP-like floating window) independent of channel view.
 - [done] Local persistence via browser storage for easy debugging and rapid iteration.
