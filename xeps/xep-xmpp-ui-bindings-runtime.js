@@ -865,6 +865,21 @@ ui.debugCloseBtn.addEventListener("click", () => {
   ui.debugDialog.close();
 });
 
+ui.messageInspectCopyBtn?.addEventListener("click", () => {
+  const payload = (ui.messageInspectOutput?.textContent || "").toString().trim();
+  if (!payload) {
+    showToast("No message details to copy.", { tone: "error" });
+    return;
+  }
+  void copyText(payload).then((ok) => {
+    showToast(ok ? "Message details copied." : "Clipboard blocked. Manual copy prompt opened.", { tone: ok ? "info" : "error" });
+  });
+});
+
+ui.messageInspectCloseBtn?.addEventListener("click", () => {
+  ui.messageInspectDialog?.close();
+});
+
 ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
   renderXmppConsoleDialog();
 });

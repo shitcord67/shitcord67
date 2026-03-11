@@ -89,6 +89,73 @@ function parseLinkMetaFromHtml(html = "") {
   }
 }
 
+function buildMessageInspectorSnapshot({
+  message,
+  conversationId = "",
+  isDm = false,
+  channel = null,
+  dmThread = null,
+  attachments = []
+} = {}) {
+  const author = message?.userId ? getAccountById(message.userId) : null;
+  const guild = !isDm ? getActiveGuild() : null;
+  const resolvedAttachments = (Array.isArray(attachments) ? attachments : []).map((attachment) => {
+    const rawUrl = (attachment?.url || "").toString();
+    const resolvedUrl = resolveMediaUrl(rawUrl);
+    return {
+      name: (attachment?.name || "").toString(),
+      type: (attachment?.type || "").toString(),
+      format: (attachment?.format || "").toString(),
+      url: rawUrl,
+      resolvedUrl,
+      external: /^https?:\/\//i.test(resolvedUrl)
+    };
+  });
+  return {
+    capturedAt: new Date().toISOString(),
+    conversation: {
+      id: conversationId,
+      type: isDm ? "dm" : "channel",
+      guildId: guild?.id || "",
+      guildName: guild?.name || "",
+      channelId: channel?.id || "",
+      channelName: channel?.name || "",
+      dmThreadId: dmThread?.id || ""
+    },
+    author: author
+      ? {
+        id: author.id,
+        username: author.username || "",
+        displayName: displayNameForAccount(author, guild?.id || null),
+        xmppJid: author.xmppJid || ""
+      }
+      : {
+        id: message?.userId || "",
+        username: "",
+        displayName: message?.authorName || "Unknown",
+        xmppJid: ""
+      },
+    message: {
+      id: message?.id || "",
+      text: (message?.text || "").toString(),
+      timestamp: message?.ts || "",
+      timestampLocal: formatFullTimestamp(message?.ts || ""),
+      editedAt: message?.editedAt || "",
+      pinned: Boolean(message?.pinned),
+      replyTo: message?.replyTo || null,
+      poll: normalizePoll(message?.poll),
+      reactions: normalizeReactions(message?.reactions)
+    },
+    attachments: resolvedAttachments
+  };
+}
+
+function openMessageInspectorDialog(snapshot) {
+  if (!ui.messageInspectDialog || !ui.messageInspectOutput) return;
+  ui.messageInspectOutput.textContent = JSON.stringify(snapshot, null, 2);
+  if (!ui.messageInspectDialog.open) ui.messageInspectDialog.showModal();
+}
+
 async function fetchLinkEmbedMeta(url = "") {
   const normalized = (url || "").toString().trim();
   if (!normalized) return null;
@@ -1480,6 +1547,20 @@ function renderMessages() {
         {
           label: "Quote in Composer",
           action: () => quoteMessageInComposer(message)
+        },
+        {
+          label: "Inspect Message",
+          action: () => {
+            const snapshot = buildMessageInspectorSnapshot({
+              message,
+              conversationId,
+              isDm,
+              channel,
+              dmThread,
+              attachments
+            });
+            openMessageInspectorDialog(snapshot);
+          }
         },
         {
           label: "Poll",
