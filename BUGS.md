@@ -7,6 +7,5 @@ This file only tracks currently open issues.
 - Note: often upstream site behavior, not app-side failure.
 2. Android native XMPP call controls: some buttons (e.g., end call) are unresponsive in the call surface.
 3. Android login flow: switching accounts bypasses login screen and drops directly into the app shell.
-4. Audio player for `wav`/`mp3` attachments does not play.
-5. Movim call interop: Jingle call flows fail / session not found errors.
-6. Presence interop: Movim/Gajim contacts show "invisible" despite being online (Android-to-Android looks correct).
+4. Movim call interop: Jingle call flows fail / session not found errors.
+5. Presence interop: Movim/Gajim contacts show "invisible" despite being online (Android-to-Android looks correct).

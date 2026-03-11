@@ -2187,16 +2187,15 @@ function renderMessageAttachment(container, attachment, { swfKey = null } = {}) 
       audio.src = mediaUrl;
     }
     applyMediaElementAudioPreferences(audio, getPreferences());
-    let supported = true;
+    let supportHint = "";
     if (audioMime && typeof audio.canPlayType === "function") {
-      supported = Boolean(audio.canPlayType(audioMime));
+      supportHint = audio.canPlayType(audioMime) || "";
     }
-    if (supported) {
-      wrap.appendChild(audio);
-    } else {
+    wrap.appendChild(audio);
+    if (supportHint === "" && audioMime) {
       const note = document.createElement("div");
       note.className = "message-embed-note";
-      note.textContent = "This audio format is not supported here. Open it in an external app.";
+      note.textContent = "This audio format might not be supported here. If it fails to play, open it externally.";
       wrap.appendChild(note);
       if (typeof openExternalUrlInClient === "function") {
         const externalBtn = document.createElement("button");
