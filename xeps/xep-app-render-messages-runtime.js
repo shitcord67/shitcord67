@@ -158,6 +158,8 @@ function buildMessageInspectorSnapshot({
   };
   const author = message?.userId ? getAccountById(message.userId) : null;
   const guild = !isDm ? getActiveGuild() : null;
+  const normalizedPoll = normalizePoll(message?.poll);
+  const normalizedReactions = normalizeReactions(message?.reactions);
   const resolvedAttachments = (Array.isArray(attachments) ? attachments : []).map((attachment) => {
     const rawUrl = (attachment?.url || "").toString();
     const resolvedUrl = resolveMediaUrl(rawUrl);
@@ -187,6 +189,8 @@ function buildMessageInspectorSnapshot({
       guildName: guild?.name || "",
       channelId: channel?.id || "",
       channelName: channel?.name || "",
+      channelType: channel?.type || "",
+      dmParticipantIds: Array.isArray(dmThread?.participantIds) ? dmThread.participantIds.filter(Boolean) : [],
       dmThreadId: dmThread?.id || ""
     },
     author: author
@@ -212,8 +216,11 @@ function buildMessageInspectorSnapshot({
       editedAtLocal: message?.editedAt ? formatFullTimestamp(message.editedAt) : "",
       pinned: Boolean(message?.pinned),
       replyTo: message?.replyTo || null,
-      poll: normalizePoll(message?.poll),
-      reactions: normalizeReactions(message?.reactions)
+      hasPoll: Boolean(normalizedPoll),
+      poll: normalizedPoll,
+      reactions: normalizedReactions,
+      hasAttachments: resolvedAttachments.length > 0,
+      attachmentCount: resolvedAttachments.length
     },
     debug: {
       xmppEncrypted: Boolean(message?.xmppEncrypted),
