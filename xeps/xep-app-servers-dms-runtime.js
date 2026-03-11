@@ -894,6 +894,7 @@ function renderChannels() {
     label.textContent = channel.name;
     meta.appendChild(label);
     if (channelDescription) {
+      button.classList.add("channel-item--with-description");
       const desc = document.createElement("span");
       desc.className = "channel-item__description";
       desc.textContent = channelDescription;

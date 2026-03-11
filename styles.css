@@ -979,6 +979,14 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   background: rgba(79, 84, 92, 0.32);
 }
 
+.channel-item--with-description {
+  align-items: flex-start;
+}
+
+.channel-item--with-description .channel-item__icon {
+  margin-top: 0.1rem;
+}
+
 .channel-item.channel-item--dm {
   color: #d7dce5;
 }
