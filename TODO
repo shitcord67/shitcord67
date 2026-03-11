@@ -24,7 +24,7 @@
 - [done] Hardened sed-style inline correction (`s/old/new/`) to prefer latest editable text messages, reject malformed sed syntax early, and support explicit nth-match substitutions (`s/old/new/2`).
 - [done] Fixed `/shrug` rendering to preserve the expected `¯\_(ツ)_/¯` output with inline markdown parsing enabled.
 - [done] Added `Add Friend` DM modal (username/JID) and direct XMPP one-to-one DM stanza send/receive path.
-- Discord-like multi-pane layout (server rail, channel list, chat, profile card).
+- [done] Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - [done] Local profile customization: bio, avatar color, banner color or URL.
 - [done] Profile image upload with validation and preview.
 - Create servers (guilds).
@@ -35,9 +35,9 @@
 - Per-guild member list with presence groups.
 - [done] Channel topic + channel settings.
 - Slash commands (`/me`, `/shrug`, `/clear`, `/topic`, `/nick`, `/status`, `/markread`) with live popup.
-- Import/export JSON snapshot for backup/testing.
-- Right-click context menus for guilds/channels/messages/users.
-- Keyboard navigation for context menus (arrow/enter/esc).
+- [done] Import/export JSON snapshot for backup/testing.
+- [done] Right-click context menus for guilds/channels/messages/users.
+- [done] Keyboard navigation for context menus (arrow/enter/esc).
 - [done] Unread + mention badges for channels and guild rail with mark-as-read actions.
 - [done] Channel list filter/search input.
 - Discord-like media picker (GIF/sticker/emoji/SWF/SVG tabs) with search and click-to-send.
