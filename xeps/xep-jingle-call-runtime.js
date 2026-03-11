@@ -2091,6 +2091,8 @@ function normalizeReactions(reactions) {
 function canonicalReactionActorIdForConversation(actorUserId, conversation = null) {
   const actorId = (actorUserId || "").toString().trim();
   if (!actorId) return "";
+  const account = typeof getAccountByXmppJid === "function" ? getAccountByXmppJid(actorId) : null;
+  if (account?.id) return account.id;
   if (!conversation || conversation.type !== "channel" || !conversation.channel) return actorId;
   const roomJid = xmppBareJid(conversation.channel.xmppRoomJid || "");
   if (!roomJid) return actorId;
