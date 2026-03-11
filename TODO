@@ -27,12 +27,12 @@
 - [done] Discord-like multi-pane layout (server rail, channel list, chat, profile card).
 - [done] Local profile customization: bio, avatar color, banner color or URL.
 - [done] Profile image upload with validation and preview.
-- Create servers (guilds).
-- Create text channels.
-- Send messages as logged-in user.
-- Message editing/deleting.
-- Reply threading and basic message reactions.
-- Per-guild member list with presence groups.
+- [done] Create servers (guilds).
+- [done] Create text channels.
+- [done] Send messages as logged-in user.
+- [done] Message editing/deleting.
+- [done] Reply threading and basic message reactions.
+- [done] Per-guild member list with presence groups.
 - [done] Channel topic + channel settings.
 - Slash commands (`/me`, `/shrug`, `/clear`, `/topic`, `/nick`, `/status`, `/markread`) with live popup.
 - [done] Import/export JSON snapshot for backup/testing.
@@ -51,7 +51,7 @@
 - [done] Per-guild banner variants via profile editor.
 - [done] Guild-scoped status override (separate from global status).
 - [done] Custom status emoji + timed expiry presets (30m/1h/4h/today).
-- Channel type variants (text/announcement/forum/media) with distinct labels.
+- [done] Channel type variants (text/announcement/forum/media) with distinct labels.
 - [done] Channel categories with collapse state, category context actions, and move-to-category channel controls.
 - [done] Category management follow-up: reorder actions, modal quick-create category flow, and slash commands (`/categories`, `/movecategory`).
 - [done] DM search/quick switch via sidebar filter and Enter-to-open.
