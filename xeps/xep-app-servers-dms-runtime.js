@@ -859,11 +859,16 @@ function renderChannels() {
   if (!visibleChannels.some((entry) => entry.id === state.activeChannelId)) {
     state.activeChannelId = visibleChannels[0]?.id || null;
   }
-  const channelsToRender = visibleChannels.filter((channel) => (
-    !filter
-      || channel.name.toLowerCase().includes(filter)
-      || (channel.categoryId && categoryLabelMatches.has(channel.categoryId))
-  ));
+  const channelMatchesFilter = (channel) => {
+    if (!filter) return true;
+    const nameMatch = (channel?.name || "").toLowerCase().includes(filter);
+    const topicMatch = (channel?.topic || "").toLowerCase().includes(filter);
+    const xmppDescMatch = typeof xmppChannelDescription === "function"
+      && xmppChannelDescription(channel).toLowerCase().includes(filter);
+    const categoryMatch = channel?.categoryId && categoryLabelMatches.has(channel.categoryId);
+    return nameMatch || topicMatch || xmppDescMatch || categoryMatch;
+  };
+  const channelsToRender = visibleChannels.filter((channel) => channelMatchesFilter(channel));
   const renderChannelButton = (channel, { indent = 0 } = {}) => {
     const xmppBackedChannel = isXmppBackedChannel(channel);
     const xmppRoomJid = xmppBareJid(channel?.xmppRoomJid || "");
