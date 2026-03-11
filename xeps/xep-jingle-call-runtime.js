@@ -1861,8 +1861,17 @@ function renderComposerAttachmentList() {
       video.preload = "metadata";
       video.loop = true;
       video.setAttribute("aria-hidden", "true");
-      video.addEventListener("loadeddata", () => {
-        void video.play().catch(() => {});
+      video.addEventListener("loadedmetadata", () => {
+        if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+        const target = Math.min(0.1, Math.max(0.02, video.duration * 0.02));
+        try {
+          video.currentTime = target;
+        } catch {
+          // Ignore seek failures (mobile runtimes may block programmatic seeks).
+        }
+      }, { once: true });
+      video.addEventListener("seeked", () => {
+        if (!video.paused) video.pause();
       }, { once: true });
       thumb.appendChild(video);
     } else if (canPreviewImage && visualUrl) {

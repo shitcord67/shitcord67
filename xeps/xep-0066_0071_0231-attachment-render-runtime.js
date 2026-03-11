@@ -304,6 +304,21 @@ function createVideoPreviewElement(sourceUrl, attachmentName = "Video", wrap = n
   video.setAttribute("x5-playsinline", "true");
   video.preload = "metadata";
   video.referrerPolicy = "no-referrer";
+  if (!animatedLoop) {
+    const primePosterFrame = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+      const target = Math.min(0.1, Math.max(0.02, video.duration * 0.02));
+      try {
+        video.currentTime = target;
+      } catch {
+        // Ignore seek failures (some mobile runtimes block programmatic seeks).
+      }
+    };
+    video.addEventListener("loadedmetadata", primePosterFrame, { once: true });
+    video.addEventListener("seeked", () => {
+      if (!video.paused) video.pause();
+    }, { once: true });
+  }
   let candidateIndex = 0;
   let noteEl = null;
   const applyCandidate = () => {
