@@ -348,9 +348,10 @@ function updateRuntimeSafeArea() {
   const innerHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : viewportHeight;
   const innerWidth = Number.isFinite(window.innerWidth) ? window.innerWidth : (viewport && Number.isFinite(viewport.width) ? viewport.width : 0);
   let keyboardGap = Math.max(0, innerHeight - (viewportHeight + viewportOffsetTop));
-  if (!viewport && isMobileRuntime && innerHeight > 0) {
+  if (isMobileRuntime && innerHeight > 0) {
     const widthChanged = runtimeViewportBaseWidth > 0 && innerWidth > 0 && Math.abs(runtimeViewportBaseWidth - innerWidth) >= 24;
-    if (!runtimeViewportBaseHeight || widthChanged || Math.abs(runtimeViewportBaseHeight - innerHeight) < 64) {
+    const keyboardLikelyClosed = runtimeImeOffsetPx < 40;
+    if (!runtimeViewportBaseHeight || widthChanged || (keyboardLikelyClosed && Math.abs(runtimeViewportBaseHeight - innerHeight) < 64)) {
       runtimeViewportBaseHeight = innerHeight;
       runtimeViewportBaseWidth = innerWidth;
     }

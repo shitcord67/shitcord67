@@ -10,6 +10,5 @@ This file only tracks currently open issues.
 4. Android video thumbnails for video attachments are broken/missing.
 5. Android cannot play videos sent from Linux clients; Android-to-Linux video sends show "[1 local attachment not shareable over relay]".
 6. Audio player for `wav`/`mp3` attachments does not play.
-7. Android virtual keyboard can overlap and hide the message input area.
-8. Movim call interop: Jingle call flows fail / session not found errors.
-9. Presence interop: Movim/Gajim contacts show "invisible" despite being online (Android-to-Android looks correct).
+7. Movim call interop: Jingle call flows fail / session not found errors.
+8. Presence interop: Movim/Gajim contacts show "invisible" despite being online (Android-to-Android looks correct).
