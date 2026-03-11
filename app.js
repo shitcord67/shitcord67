@@ -1687,7 +1687,9 @@ function applyPreferencesToUI() {
     const dmOnly = prefs.dmOnlySidebar === "on";
     ui.serverBrand.classList.toggle("server-brand--dm-only", dmOnly);
     const baseTitle = "Direct Messages";
-    const title = dmOnly ? `${baseTitle} (DM-only sidebar on)` : baseTitle;
+    const title = dmOnly
+      ? `${baseTitle} (DM-only sidebar on · Shift+Click to toggle)`
+      : `${baseTitle} (Shift+Click for DM-only sidebar)`;
     ui.serverBrand.title = title;
     ui.serverBrand.setAttribute("aria-label", title);
   }

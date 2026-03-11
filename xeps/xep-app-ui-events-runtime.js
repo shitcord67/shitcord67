@@ -1126,8 +1126,8 @@ ui.createServerBtn.addEventListener("click", () => {
   ui.createServerDialog.showModal();
 });
 
-ui.serverBrand.addEventListener("click", () => {
-  if (getViewMode() === "dm") {
+ui.serverBrand.addEventListener("click", (event) => {
+  if (event.shiftKey) {
     state.preferences = getPreferences();
     state.preferences.dmOnlySidebar = state.preferences.dmOnlySidebar === "on" ? "off" : "on";
     saveState();
