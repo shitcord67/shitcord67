@@ -221,7 +221,7 @@
 - [done] Save notes about users on profiles of other users
 - OLED theme by default (with considerations for blue light filter users. Mentions in white, green or red?)
 - [done] Add full nested context menu variants (invite/copy-id/submenus) and keyboard navigation.
-- Markdown support (preferably Discord-compatible, maybe even more like GitHub-flavoured?)
+- [done] Markdown support (Discord-style inline formatting with underline/spoiler, fenced code blocks with language labels, quotes, lists).
 - [done] Added Discord-style basic link embeds in chat: detected message URLs now render compact metadata cards (host/path/full link) beneath message text.
 - Discord RPC
 - [done] Implement PDF viewer in chat

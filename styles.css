@@ -2079,6 +2079,13 @@ body[data-hide-channel-panel="on"] .chat-panel {
   font-size: 0.86em;
 }
 
+.message-text u {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: #9aa6ff;
+}
+
 .message-spoiler {
   display: inline-block;
   background: #2e3340;
@@ -2098,8 +2105,10 @@ body[data-hide-channel-panel="on"] .chat-panel {
 .message-quote {
   display: block;
   border-left: 3px solid #4e5562;
-  padding-left: 0.55rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
   color: #c3cad5;
+  background: rgba(38, 42, 52, 0.5);
 }
 
 .message-heading {
@@ -4477,6 +4486,27 @@ body[data-platform="android"] .composer-stack {
   font-size: 0.78rem;
   line-height: 1.4;
   font-family: "Fira Code", "Consolas", monospace;
+}
+
+.message-codeblock {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.1rem 0;
+}
+
+.message-codeblock__lang {
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid #3b3f48;
+  background: #151822;
+  color: #aab4c6;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .swf-pip {

@@ -72,7 +72,7 @@ function decodeInlineMarkdownEscapes(value = "") {
 }
 
 function appendInlineRichText(target, text, context) {
-  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s)]*)?)[^\s)]*\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:|s67cmd:|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s)]*)?)[^\s)]*\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|s67cmd:[^\s]+|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?|\/[a-z][a-z0-9-]{1,31}\b|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
+  const tokenPattern = /(\|\|[^|\n]+\|\||\*\*\*[^*\n]+\*\*\*|___[^_\n]+___|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_|~~[^~\n]+~~|`[^`\n]+`|!\[[^\]]{0,80}\]\((?:https?:\/\/|mailto:|xmpp:|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s)]*)?)[^\s)]*\)|\[[^\]]{1,80}\]\((?:https?:\/\/|mailto:|xmpp:|s67cmd:|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s)]*)?)[^\s)]*\)|https?:\/\/[^\s]+|mailto:[^\s]+|xmpp:[^\s]+|s67cmd:[^\s]+|(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?|\/[a-z][a-z0-9-]{1,31}\b|@[a-z0-9._-]+|:[a-z0-9_-]{1,32}:)/gi;
   const workingText = encodeInlineMarkdownEscapes(text);
   let lastIndex = 0;
   let match = tokenPattern.exec(workingText);
@@ -92,6 +92,26 @@ function appendInlineRichText(target, text, context) {
         spoiler.classList.toggle("is-revealed");
       });
       target.appendChild(spoiler);
+    } else if (token.startsWith("***") && token.endsWith("***")) {
+      const strong = document.createElement("strong");
+      const em = document.createElement("em");
+      em.textContent = decodeInlineMarkdownEscapes(token.slice(3, -3));
+      strong.appendChild(em);
+      target.appendChild(strong);
+    } else if (token.startsWith("___") && token.endsWith("___")) {
+      const prev = workingText[match.index - 1] || "";
+      const next = workingText[match.index + token.length] || "";
+      if (/[a-z0-9]/i.test(prev) || /[a-z0-9]/i.test(next)) {
+        target.appendChild(document.createTextNode(decodeInlineMarkdownEscapes(token)));
+        lastIndex = tokenPattern.lastIndex;
+        match = tokenPattern.exec(workingText);
+        continue;
+      }
+      const underline = document.createElement("u");
+      const em = document.createElement("em");
+      em.textContent = decodeInlineMarkdownEscapes(token.slice(3, -3));
+      underline.appendChild(em);
+      target.appendChild(underline);
     } else if (token.startsWith("**") && token.endsWith("**")) {
       const strong = document.createElement("strong");
       strong.textContent = decodeInlineMarkdownEscapes(token.slice(2, -2));
@@ -105,9 +125,9 @@ function appendInlineRichText(target, text, context) {
         match = tokenPattern.exec(workingText);
         continue;
       }
-      const strong = document.createElement("strong");
-      strong.textContent = decodeInlineMarkdownEscapes(token.slice(2, -2));
-      target.appendChild(strong);
+      const underline = document.createElement("u");
+      underline.textContent = decodeInlineMarkdownEscapes(token.slice(2, -2));
+      target.appendChild(underline);
     } else if (token.startsWith("*") && token.endsWith("*")) {
       const prev = workingText[match.index - 1] || "";
       const next = workingText[match.index + token.length] || "";
@@ -224,6 +244,7 @@ function renderMessageText(container, rawText) {
   let inFence = false;
   let fenceBuffer = [];
   let listEl = null;
+  let fenceLang = "";
   const flushList = () => {
     if (!listEl) return;
     container.appendChild(listEl);
@@ -234,9 +255,21 @@ function renderMessageText(container, rawText) {
     const pre = document.createElement("pre");
     pre.className = "message-text-file";
     pre.textContent = fenceBuffer.join("\n");
-    container.appendChild(pre);
+    if (fenceLang) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "message-codeblock";
+      const label = document.createElement("div");
+      label.className = "message-codeblock__lang";
+      label.textContent = fenceLang;
+      wrapper.appendChild(label);
+      wrapper.appendChild(pre);
+      container.appendChild(wrapper);
+    } else {
+      container.appendChild(pre);
+    }
     inFence = false;
     fenceBuffer = [];
+    fenceLang = "";
   };
   lines.forEach((line, index) => {
     const trimmed = line.trim();
@@ -247,6 +280,7 @@ function renderMessageText(container, rawText) {
       } else {
         inFence = true;
         fenceBuffer = [];
+        fenceLang = trimmed.slice(3).trim().slice(0, 32);
       }
       if (index < lines.length - 1) container.appendChild(document.createElement("br"));
       return;
