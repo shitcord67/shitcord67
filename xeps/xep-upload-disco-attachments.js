@@ -1117,23 +1117,6 @@ function publishRelayChannelMessage(channel, message, account) {
   const guild = getActiveGuild();
   const room = relayRoomForActiveConversation();
   if (!room) return false;
-  if (prefs.relayMode === "local") {
-    return sendLocalRelayPacket({
-      type: "chat",
-      room,
-      clientId: ensureLocalRelayClientId(),
-      guildName: guild?.name || "",
-      channelName: channel.name || "",
-      message: {
-        id: message.id,
-        text: relayTransportPacketText(message),
-        ts: message.ts || new Date().toISOString(),
-        authorUsername: account.username,
-        authorDisplay: displayNameForAccount(account, guild?.id || null),
-        attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
-      }
-    });
-  }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
@@ -1262,39 +1245,10 @@ function publishRelayChannelMessage(channel, message, account) {
     });
     return true;
   }
-  if (prefs.relayMode === "http") {
-    const endpoint = new URL(normalizeRelayUrl(prefs.relayUrl).replace(/^ws:/i, "http:").replace(/^wss:/i, "https:"));
-    endpoint.pathname = "/chat";
-    const payload = {
-      type: "chat",
-      room,
-      clientId: relayClientId(),
-      guildName: guild?.name || "",
-      channelName: channel.name || "",
-      message: {
-        id: message.id,
-        text: relayTransportPacketText(message),
-        ts: message.ts || new Date().toISOString(),
-        authorUsername: account.username,
-        authorDisplay: displayNameForAccount(account, guild?.id || null),
-        attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
-      }
-    };
-    fetch(endpoint.toString(), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    }).catch(() => {
-      setRelayStatus("error", "HTTP relay post failed");
-    });
-    return true;
-  }
-  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
-  if (relayJoinedRoom !== room) joinRelayRoom(room);
-  return sendRelayPacket({
+  return sendRelayTransportPacket({
     type: "chat",
     room,
-    clientId: relayClientId(),
+    clientId: relayTransportClientId(prefs.relayMode),
     guildName: guild?.name || "",
     channelName: channel.name || "",
     message: {
@@ -1305,7 +1259,7 @@ function publishRelayChannelMessage(channel, message, account) {
       authorDisplay: displayNameForAccount(account, guild?.id || null),
       attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
     }
-  });
+  }, { mode: prefs.relayMode, room });
 }
 
 function publishRelayDirectMessage(thread, message, account) {
@@ -1314,23 +1268,6 @@ function publishRelayDirectMessage(thread, message, account) {
   if (!thread || !message || !account) return false;
   const room = relayRoomForDmThread(thread);
   if (!room) return false;
-  if (prefs.relayMode === "local") {
-    return sendLocalRelayPacket({
-      type: "chat",
-      room,
-      clientId: ensureLocalRelayClientId(),
-      guildName: "",
-      channelName: "dm",
-      message: {
-        id: message.id,
-        text: relayTransportPacketText(message),
-        ts: message.ts || new Date().toISOString(),
-        authorUsername: account.username,
-        authorDisplay: account.displayName || account.username,
-        attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
-      }
-    });
-  }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
@@ -1494,38 +1431,10 @@ function publishRelayDirectMessage(thread, message, account) {
     });
     return true;
   }
-  if (prefs.relayMode === "http") {
-    const endpoint = new URL(normalizeRelayUrl(prefs.relayUrl).replace(/^ws:/i, "http:").replace(/^wss:/i, "https:"));
-    endpoint.pathname = "/chat";
-    fetch(endpoint.toString(), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        type: "chat",
-        room,
-        clientId: relayClientId(),
-        guildName: "",
-        channelName: "dm",
-        message: {
-          id: message.id,
-          text: relayTransportPacketText(message),
-          ts: message.ts || new Date().toISOString(),
-          authorUsername: account.username,
-          authorDisplay: account.displayName || account.username,
-          attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
-        }
-      })
-    }).catch(() => {
-      setRelayStatus("error", "HTTP relay post failed");
-    });
-    return true;
-  }
-  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
-  if (relayJoinedRoom !== room) joinRelayRoom(room);
-  return sendRelayPacket({
+  return sendRelayTransportPacket({
     type: "chat",
     room,
-    clientId: relayClientId(),
+    clientId: relayTransportClientId(prefs.relayMode),
     guildName: "",
     channelName: "dm",
     message: {
@@ -1536,5 +1445,5 @@ function publishRelayDirectMessage(thread, message, account) {
       authorDisplay: account.displayName || account.username,
       attachments: relayTransportAttachments(message.attachments, { limit: 4, urlMax: 640 })
     }
-  });
+  }, { mode: prefs.relayMode, room });
 }

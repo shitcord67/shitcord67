@@ -178,7 +178,7 @@
 - [done] Fixed anchored in-chat SWF layering/scroll sync issues (header/composer now above; no top-stuck clamp).
 
 ## Protocol/transport path
-- Define transport adapter interface (`send`, `subscribe`, `fetchHistory`, `presence`).
+- [done] Define transport adapter interface (`send`, `subscribe`, `fetchHistory`, `presence`).
 - Build `local-json` adapter first (file-backed or websocket-backed).
 - Add XMPP adapter skeleton (MUC rooms mapped to guild/channel abstraction).
 - Add Matrix adapter skeleton (space/room mapping).

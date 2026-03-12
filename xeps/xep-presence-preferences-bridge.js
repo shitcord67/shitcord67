@@ -688,37 +688,91 @@ function sendWebxdcRelayPacket(envelope) {
   }
 }
 
+function relayHttpEndpoint(pathname = "/chat") {
+  const prefs = getPreferences();
+  const endpoint = new URL(normalizeRelayUrl(prefs.relayUrl).replace(/^ws:/i, "http:").replace(/^wss:/i, "https:"));
+  endpoint.pathname = pathname;
+  return endpoint;
+}
+
+function sendHttpRelayPacket(packet) {
+  if (!packet || typeof packet !== "object") return false;
+  try {
+    const endpoint = relayHttpEndpoint("/chat");
+    fetch(endpoint.toString(), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(packet)
+    }).catch(() => {
+      setRelayStatus("error", "HTTP relay post failed");
+    });
+    return true;
+  } catch {
+    setRelayStatus("error", "HTTP relay post failed");
+    return false;
+  }
+}
+
 function getTransportAdapter(mode = getPreferences().relayMode) {
   const adapters = {
     local: {
       id: "local",
       label: "Local",
       canRealtime: true,
-      description: "Local storage + BroadcastChannel across tabs."
+      description: "Local storage + BroadcastChannel across tabs.",
+      send: (packet) => sendLocalRelayPacket(packet),
+      subscribe: () => true,
+      fetchHistory: () => false,
+      presence: () => false
     },
     off: {
       id: "off",
       label: "Off",
       canRealtime: false,
-      description: "Transport disabled."
+      description: "Transport disabled.",
+      send: () => false,
+      subscribe: () => false,
+      fetchHistory: () => false,
+      presence: () => false
     },
     http: {
       id: "http",
       label: "HTTP Relay",
       canRealtime: true,
-      description: "SSE + POST relay transport."
+      description: "SSE + POST relay transport.",
+      send: (packet) => sendHttpRelayPacket(packet),
+      subscribe: (room = "") => {
+        relayJoinedRoom = (room || "").toString();
+        connectRelaySocket({ force: true });
+        return true;
+      },
+      fetchHistory: () => false,
+      presence: () => false
     },
     ws: {
       id: "ws",
       label: "WebSocket Relay",
       canRealtime: true,
-      description: "Bidirectional WebSocket relay transport."
+      description: "Bidirectional WebSocket relay transport.",
+      send: (packet, { room = "" } = {}) => {
+        if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
+        const targetRoom = (room || packet?.room || "").toString();
+        if (targetRoom && relayJoinedRoom !== targetRoom) joinRelayRoom(targetRoom);
+        return sendRelayPacket(packet);
+      },
+      subscribe: (room = "") => joinRelayRoom(room),
+      fetchHistory: () => false,
+      presence: () => false
     },
     xmpp: {
       id: "xmpp",
       label: "XMPP",
       canRealtime: true,
-      description: "XMPP over WebSocket with MUC room mapping."
+      description: "XMPP over WebSocket with MUC room mapping.",
+      send: () => false,
+      subscribe: () => false,
+      fetchHistory: () => false,
+      presence: () => false
     }
   };
   return adapters[mode] || adapters.local;
@@ -751,6 +805,16 @@ function relayClientId() {
   state.preferences = getPreferences();
   if (!state.preferences.relayClientId) state.preferences.relayClientId = createId();
   return state.preferences.relayClientId;
+}
+
+function relayTransportClientId(mode = getPreferences().relayMode) {
+  return mode === "local" ? ensureLocalRelayClientId() : relayClientId();
+}
+
+function sendRelayTransportPacket(packet, { mode = getPreferences().relayMode, room = "" } = {}) {
+  const adapter = getTransportAdapter(mode);
+  if (!adapter || typeof adapter.send !== "function") return false;
+  return adapter.send(packet, { room });
 }
 
 function relayRoomForDmParticipantAccounts(accounts = []) {
@@ -1050,22 +1114,6 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     authorUsername: current.username,
     authorDisplay: current.displayName || current.username
   };
-  if (prefs.relayMode === "local") {
-    const ok = sendLocalRelayPacket({
-      type: "typing",
-      room,
-      clientId: ensureLocalRelayClientId(),
-      username: current.username,
-      typing: typingPayload
-    });
-    if (ok) {
-      relayLocalTypingState.active = Boolean(active);
-      relayLocalTypingState.room = room;
-      relayLocalTypingState.chatState = chatStateNode;
-      relayLocalTypingState.lastSentAt = now;
-    }
-    return ok;
-  }
   if (prefs.relayMode === "xmpp") {
     if (!xmppConnection) return false;
     if (relayStatus !== "connected") return false;
@@ -1098,37 +1146,13 @@ function publishRelayTypingState(active, { force = false, room: roomOverride = "
     relayLocalTypingState.lastSentAt = now;
     return true;
   }
-  if (prefs.relayMode === "http") {
-    const endpoint = new URL(normalizeRelayUrl(prefs.relayUrl).replace(/^ws:/i, "http:").replace(/^wss:/i, "https:"));
-    endpoint.pathname = "/chat";
-    fetch(endpoint.toString(), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        type: "typing",
-        room,
-        clientId: relayClientId(),
-        username: current.username,
-        typing: typingPayload
-      })
-    }).catch(() => {
-      setRelayStatus("error", "HTTP relay typing failed");
-    });
-    relayLocalTypingState.active = Boolean(active);
-    relayLocalTypingState.room = room;
-    relayLocalTypingState.chatState = chatStateNode;
-    relayLocalTypingState.lastSentAt = now;
-    return true;
-  }
-  if (!relaySocket || relaySocket.readyState !== WebSocket.OPEN) return false;
-  if (relayJoinedRoom !== room) joinRelayRoom(room);
-  const ok = sendRelayPacket({
+  const ok = sendRelayTransportPacket({
     type: "typing",
     room,
-    clientId: relayClientId(),
+    clientId: relayTransportClientId(prefs.relayMode),
     username: current.username,
     typing: typingPayload
-  });
+  }, { mode: prefs.relayMode, room });
   if (ok) {
     relayLocalTypingState.active = Boolean(active);
     relayLocalTypingState.room = room;
