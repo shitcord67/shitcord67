@@ -252,21 +252,50 @@ function renderMessageText(container, rawText) {
   };
   const flushFence = () => {
     if (!inFence) return;
-    const pre = document.createElement("pre");
-    pre.className = "message-text-file";
-    pre.textContent = fenceBuffer.join("\n");
+    const content = fenceBuffer.join("\n");
+    const wrapper = document.createElement("div");
+    wrapper.className = "message-codeblock";
+    const header = document.createElement("div");
+    header.className = "message-codeblock__header";
     if (fenceLang) {
-      const wrapper = document.createElement("div");
-      wrapper.className = "message-codeblock";
       const label = document.createElement("div");
       label.className = "message-codeblock__lang";
       label.textContent = fenceLang;
-      wrapper.appendChild(label);
-      wrapper.appendChild(pre);
-      container.appendChild(wrapper);
+      header.appendChild(label);
     } else {
-      container.appendChild(pre);
+      const spacer = document.createElement("div");
+      spacer.className = "message-codeblock__spacer";
+      header.appendChild(spacer);
     }
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "message-codeblock__copy";
+    copyBtn.textContent = "Copy";
+    copyBtn.title = "Copy code block";
+    copyBtn.addEventListener("click", () => {
+      let copied = false;
+      if (typeof copyText === "function") {
+        copyText(content);
+        copied = true;
+      } else if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(content).catch(() => {});
+        copied = true;
+      }
+      if (copied) {
+        copyBtn.textContent = "Copied";
+        if (typeof showToast === "function") showToast("Code copied.");
+        window.setTimeout(() => {
+          copyBtn.textContent = "Copy";
+        }, 1200);
+      }
+    });
+    header.appendChild(copyBtn);
+    wrapper.appendChild(header);
+    const pre = document.createElement("pre");
+    pre.className = "message-text-file";
+    pre.textContent = content;
+    wrapper.appendChild(pre);
+    container.appendChild(wrapper);
     inFence = false;
     fenceBuffer = [];
     fenceLang = "";
@@ -318,7 +347,8 @@ function renderMessageText(container, rawText) {
     const quoteMatch = line.match(/^\s*(>{1,3})\s?(.*)$/);
     if (quoteMatch) {
       const quote = document.createElement("span");
-      quote.className = "message-quote";
+      const depth = Math.min(quoteMatch[1].length, 3);
+      quote.className = `message-quote message-quote--${depth}`;
       appendInlineRichText(quote, quoteMatch[2] || "", context);
       container.appendChild(quote);
     } else {

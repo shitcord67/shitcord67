@@ -2111,6 +2111,16 @@ body[data-hide-channel-panel="on"] .chat-panel {
   background: rgba(38, 42, 52, 0.5);
 }
 
+.message-quote--2 {
+  border-left-color: #606878;
+  background: rgba(34, 38, 48, 0.5);
+}
+
+.message-quote--3 {
+  border-left-color: #707a8c;
+  background: rgba(28, 31, 40, 0.55);
+}
+
 .message-heading {
   display: inline-block;
   font-size: 0.92rem;
@@ -4494,6 +4504,13 @@ body[data-platform="android"] .composer-stack {
   margin: 0.1rem 0;
 }
 
+.message-codeblock__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
 .message-codeblock__lang {
   align-self: start;
   display: inline-flex;
@@ -4507,6 +4524,26 @@ body[data-platform="android"] .composer-stack {
   font-weight: 650;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.message-codeblock__spacer {
+  height: 1px;
+  flex: 1;
+}
+
+.message-codeblock__copy {
+  border: 1px solid #363b46;
+  background: #1a1e27;
+  color: #dbe2f0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.message-codeblock__copy:hover {
+  border-color: #4a5161;
+  background: #23293a;
 }
 
 .swf-pip {
