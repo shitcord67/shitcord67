@@ -135,6 +135,7 @@ function renderPinsDialog() {
   if (!channel && !dmThread) return;
   const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
   let pinned = messageBucket.filter((message) => message.pinned);
+  if (ui.pinsClearBtn) ui.pinsClearBtn.disabled = pinned.length === 0;
   const term = (pinsSearchTerm || "").trim().toLowerCase();
   if (term) {
     pinned = pinned.filter((message) => {

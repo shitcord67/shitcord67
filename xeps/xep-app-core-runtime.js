@@ -1237,6 +1237,7 @@ const ui = {
   pinsForm: document.getElementById("pinsForm"),
   pinsSearchInput: document.getElementById("pinsSearchInput"),
   pinsSortInput: document.getElementById("pinsSortInput"),
+  pinsClearBtn: document.getElementById("pinsClearBtn"),
   pinsList: document.getElementById("pinsList"),
   pinsCloseBtn: document.getElementById("pinsCloseBtn"),
   debugDialog: document.getElementById("debugDialog"),

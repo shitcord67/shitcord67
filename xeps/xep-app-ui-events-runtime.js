@@ -1882,6 +1882,38 @@ ui.pinsSortInput?.addEventListener("change", () => {
   pinsSortMode = ["latest", "oldest", "author-asc", "author-desc"].includes(next) ? next : "latest";
   renderPinsDialog();
 });
+ui.pinsClearBtn?.addEventListener("click", async () => {
+  const conversation = getActiveConversation();
+  if (!conversation) return;
+  const isDm = conversation.type === "dm";
+  const dmThread = isDm ? conversation.thread : null;
+  const channel = !isDm ? getActiveChannel() : null;
+  const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
+  const pinnedMessages = messageBucket.filter((message) => message.pinned);
+  if (pinnedMessages.length === 0) return;
+  const confirmed = await showInAppConfirmDialog({
+    title: "Unpin all messages",
+    message: `This will remove ${pinnedMessages.length} pinned message${pinnedMessages.length === 1 ? "" : "s"} from this ${isDm ? "DM" : "channel"}.`,
+    confirmLabel: "Unpin All",
+    cancelLabel: "Cancel"
+  });
+  if (!confirmed) return;
+  if (isDm) {
+    if (!dmThread) return;
+    dmThread.messages = dmThread.messages.map((message) => (
+      message.pinned ? { ...message, pinned: false } : message
+    ));
+  } else {
+    const scopedChannel = channel ? findChannelById(channel.id) : null;
+    if (!scopedChannel) return;
+    scopedChannel.messages = scopedChannel.messages.map((message) => (
+      message.pinned ? { ...message, pinned: false } : message
+    ));
+  }
+  saveState();
+  renderPinsDialog();
+  renderMessages();
+});
 
 ui.markChannelReadBtn?.addEventListener("click", () => {
   const conversation = getActiveConversation();

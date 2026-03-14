@@ -6789,7 +6789,7 @@ body[data-compact-members="on"] .member-item {
 
 .pins-toolbar {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 0.45rem;
   margin: 0.4rem 0 0.55rem;
 }
@@ -6797,6 +6797,24 @@ body[data-compact-members="on"] .member-item {
 .pins-toolbar input,
 .pins-toolbar select {
   margin: 0;
+}
+
+.pins-clear-btn {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #4a505c;
+  background: #262a33;
+  color: #edf0f7;
+  font-weight: 600;
+}
+
+.pins-clear-btn:hover {
+  border-color: #707887;
+}
+
+.pins-clear-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .pin-item {
