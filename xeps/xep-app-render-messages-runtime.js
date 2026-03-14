@@ -89,6 +89,28 @@ function parseLinkMetaFromHtml(html = "") {
   }
 }
 
+function togglePinnedMessageForConversation({
+  conversation = null,
+  message = null,
+  channel = null,
+  dmThread = null
+} = {}) {
+  if (!message?.id) return false;
+  if (conversation?.type === "dm") {
+    if (!dmThread) return false;
+    const scopedMessage = dmThread.messages.find((entry) => entry.id === message.id) || null;
+    if (!scopedMessage) return false;
+    scopedMessage.pinned = !scopedMessage.pinned;
+    return true;
+  }
+  if (!channel) return false;
+  const scopedChannel = findChannelById(channel.id);
+  const scopedMessage = findMessageInChannel(scopedChannel, message.id);
+  if (!scopedChannel || !scopedMessage) return false;
+  scopedMessage.pinned = !scopedMessage.pinned;
+  return true;
+}
+
 function buildMessageInspectorSnapshot({
   message,
   conversationId = "",
@@ -669,11 +691,11 @@ function renderMessages() {
   const dmUnreadStats = isDm && dmThread && currentAccount ? getDmUnreadStats(dmThread, currentAccount) : { unread: 0, mentions: 0 };
   const firstUnreadMessageId = !isDm ? findFirstUnreadMessageId(channel, currentAccount) : null;
   const guildUnreadChannels = !isDm ? listUnreadGuildChannels(getActiveGuild(), currentAccount) : [];
-  const channelPinnedCount = !isDm ? messageBucket.filter((message) => message.pinned).length : 0;
+  const pinnedCount = messageBucket.filter((message) => message.pinned).length;
   if (ui.openPinsBtn) {
     setHeaderActionButtonLabel(
       ui.openPinsBtn,
-      channelPinnedCount > 0 ? `Pins (${channelPinnedCount})` : "Pins"
+      pinnedCount > 0 ? `Pins (${pinnedCount})` : "Pins"
     );
   }
   if (ui.markChannelReadBtn) {
@@ -1525,17 +1547,14 @@ function renderMessages() {
     });
     actionBar.appendChild(markUnreadBtn);
 
-    const canPin = !isDm && currentUser && (message.userId === currentUser.id || canCurrentUser("manageMessages"));
+    const canPin = currentUser && (isDm || message.userId === currentUser.id || canCurrentUser("manageMessages"));
     if (canPin) {
       const pinBtn = document.createElement("button");
       pinBtn.type = "button";
       pinBtn.className = "message-action-btn";
       pinBtn.textContent = message.pinned ? "Unpin" : "Pin";
       pinBtn.addEventListener("click", () => {
-        const scopedChannel = findChannelById(channel.id);
-        const scopedMessage = findMessageInChannel(scopedChannel, message.id);
-        if (!scopedChannel || !scopedMessage) return;
-        scopedMessage.pinned = !scopedMessage.pinned;
+        if (!togglePinnedMessageForConversation({ conversation, message, channel, dmThread })) return;
         saveState();
         renderMessages();
       });
@@ -1752,21 +1771,18 @@ function renderMessages() {
           ]
         },
         ...(
-          isDm || !(currentUser && (message.userId === currentUser.id || canManageMessages))
-            ? []
-            : [
+          currentUser && (isDm || message.userId === currentUser.id || canManageMessages)
+            ? [
               {
                 label: message.pinned ? "Unpin Message" : "Pin Message",
                 action: () => {
-                  const scopedChannel = findChannelById(channel.id);
-                  const scopedMessage = findMessageInChannel(scopedChannel, message.id);
-                  if (!scopedChannel || !scopedMessage) return;
-                  scopedMessage.pinned = !scopedMessage.pinned;
+                  if (!togglePinnedMessageForConversation({ conversation, message, channel, dmThread })) return;
                   saveState();
                   renderMessages();
                 }
               }
             ]
+            : []
         ),
         {
           label: "Mark Unread From Here",

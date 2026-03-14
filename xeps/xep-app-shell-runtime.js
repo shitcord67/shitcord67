@@ -121,7 +121,10 @@ function renderRolesDialog() {
 }
 
 function renderPinsDialog() {
-  const channel = getActiveChannel();
+  const conversation = getActiveConversation();
+  const isDm = conversation?.type === "dm";
+  const channel = !isDm ? getActiveChannel() : null;
+  const dmThread = isDm ? conversation?.thread : null;
   if (ui.pinsSearchInput && ui.pinsSearchInput.value !== pinsSearchTerm) {
     ui.pinsSearchInput.value = pinsSearchTerm;
   }
@@ -129,8 +132,9 @@ function renderPinsDialog() {
     ui.pinsSortInput.value = pinsSortMode;
   }
   ui.pinsList.innerHTML = "";
-  if (!channel) return;
-  let pinned = channel.messages.filter((message) => message.pinned);
+  if (!channel && !dmThread) return;
+  const messageBucket = isDm ? (dmThread?.messages || []) : (channel?.messages || []);
+  let pinned = messageBucket.filter((message) => message.pinned);
   const term = (pinsSearchTerm || "").trim().toLowerCase();
   if (term) {
     pinned = pinned.filter((message) => {
