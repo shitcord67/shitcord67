@@ -84,7 +84,11 @@
     const payload = trimXmppRawFn(xmppSerializePayloadFn(errorStanza)).toLowerCase();
     if (!payload) return false;
     const hasServiceUnavailable = payload.includes("service-unavailable");
-    const hasSessionMissingText = payload.includes("user session not found") || payload.includes("session not found");
+    const hasSessionMissingText = payload.includes("user session not found")
+      || payload.includes("session not found")
+      || payload.includes("unknown session")
+      || payload.includes("unknown-session")
+      || payload.includes("item-not-found");
     return hasServiceUnavailable || hasSessionMissingText;
   }
 
