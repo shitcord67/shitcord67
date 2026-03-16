@@ -98,6 +98,13 @@ function notifyDevtoolsUnavailable(reason = "") {
   const message = reason || "DevTools is unavailable in this runtime.";
   showToast(message, { tone: "error", duration: 4200 });
   if (typeof openXmppConsoleDialog === "function") openXmppConsoleDialog();
+  const activeConversation = typeof getActiveConversation === "function" ? getActiveConversation() : null;
+  if (activeConversation && typeof addSystemMessageToConversation === "function") {
+    if (addSystemMessageToConversation(activeConversation, message)) {
+      if (typeof refreshConversationUi === "function") refreshConversationUi(activeConversation);
+      return;
+    }
+  }
   if (typeof getActiveChannel === "function" && typeof addSystemMessage === "function") {
     const channel = getActiveChannel();
     if (channel) {
