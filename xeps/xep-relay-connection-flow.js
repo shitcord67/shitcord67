@@ -331,10 +331,17 @@ function connectRelaySocket({ force = false } = {}) {
               ? (callInvite.id || xmppStanzaStableId(stanza) || stanzaMessageId)
               : callInvite.id || "";
             const inferredFromText = parseCallInviteFromText(text);
+            const fallbackTextUrl = (() => {
+              if (inferredFromText?.url) return "";
+              const rawMatch = (text || "").toString().match(/https?:\/\/\S+/i);
+              if (!rawMatch) return "";
+              return normalizeCallInviteUrl(stripTrailingUrlPunctuation(rawMatch[0]));
+            })();
             const inviteUrl = (callInvite.externals || [])
               .map((entry) => normalizeCallInviteUrl(entry))
               .find(Boolean)
-              || (inferredFromText?.url || "");
+              || (inferredFromText?.url || "")
+              || fallbackTextUrl;
             const mappedSessionId = inviteId
               ? (xmppCallSessionIdByInviteId.get(inviteId) || "")
               : "";
@@ -347,7 +354,7 @@ function connectRelaySocket({ force = false } = {}) {
               video: callInvite.video,
               jingleSid: callInvite.jingleSid || "",
               mappedSessionId,
-              inferredUrl: inferredFromText?.url ? "yes" : "no"
+              inferredUrl: inferredFromText?.url ? "yes" : (fallbackTextUrl ? "fallback" : "no")
             });
             if (callInvite.action === "invite" && inviteUrl) {
               const thread = getOrCreateDmThread(current, peer);
