@@ -330,9 +330,11 @@ function connectRelaySocket({ force = false } = {}) {
             const inviteId = callInvite.action === "invite"
               ? (callInvite.id || xmppStanzaStableId(stanza) || stanzaMessageId)
               : callInvite.id || "";
+            const inferredFromText = parseCallInviteFromText(text);
             const inviteUrl = (callInvite.externals || [])
               .map((entry) => normalizeCallInviteUrl(entry))
-              .find(Boolean) || "";
+              .find(Boolean)
+              || (inferredFromText?.url || "");
             const mappedSessionId = inviteId
               ? (xmppCallSessionIdByInviteId.get(inviteId) || "")
               : "";
@@ -344,10 +346,10 @@ function connectRelaySocket({ force = false } = {}) {
               audio: callInvite.audio,
               video: callInvite.video,
               jingleSid: callInvite.jingleSid || "",
-              mappedSessionId
+              mappedSessionId,
+              inferredUrl: inferredFromText?.url ? "yes" : "no"
             });
             if (callInvite.action === "invite" && inviteUrl) {
-              const inferred = parseCallInviteFromText(text);
               const thread = getOrCreateDmThread(current, peer);
               maybeHandleIncomingXmppCallInvite({
                 conversation: { type: "dm", id: thread.id, thread },
@@ -355,7 +357,7 @@ function connectRelaySocket({ force = false } = {}) {
                 invite: {
                   id: inviteId,
                   url: inviteUrl,
-                  screenShare: Boolean(inferred?.screenShare)
+                  screenShare: Boolean(inferredFromText?.screenShare)
                 },
                 history
               });
