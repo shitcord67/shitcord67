@@ -77,8 +77,7 @@ function initElectronPlatformBridge() {
     if (typeof bridge.onDevtoolsUnavailable === "function") {
       bridge.onDevtoolsUnavailable((payload) => {
         const reason = (payload?.reason || "").toString().trim();
-        showToast(reason || "DevTools is unavailable in this runtime.", { tone: "error", duration: 4200 });
-        if (typeof openXmppConsoleDialog === "function") openXmppConsoleDialog();
+        notifyDevtoolsUnavailable(reason);
       });
     }
     return;
@@ -91,9 +90,21 @@ function initElectronPlatformBridge() {
   runtime.ipcRenderer.send("s67-request-platform-info");
   runtime.ipcRenderer.on("s67-devtools-unavailable", (_event, payload) => {
     const reason = (payload?.reason || "").toString().trim();
-    showToast(reason || "DevTools is unavailable in this runtime.", { tone: "error", duration: 4200 });
-    if (typeof openXmppConsoleDialog === "function") openXmppConsoleDialog();
+    notifyDevtoolsUnavailable(reason);
   });
+}
+
+function notifyDevtoolsUnavailable(reason = "") {
+  const message = reason || "DevTools is unavailable in this runtime.";
+  showToast(message, { tone: "error", duration: 4200 });
+  if (typeof openXmppConsoleDialog === "function") openXmppConsoleDialog();
+  if (typeof getActiveChannel === "function" && typeof addSystemMessage === "function") {
+    const channel = getActiveChannel();
+    if (channel) {
+      addSystemMessage(channel, message);
+      if (typeof renderMessages === "function") renderMessages();
+    }
+  }
 }
 
 function requestDevtoolsToggle() {

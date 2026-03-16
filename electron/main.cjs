@@ -964,13 +964,13 @@ function devtoolsShmAvailabilityReason() {
   const shmOk = canAccessDir("/dev/shm");
   const usesTmpShmFallback = app.commandLine.hasSwitch("disable-dev-shm-usage");
   if (!tmpOk && !shmOk) {
-    return "DevTools unavailable: neither /tmp nor /dev/shm is writable/accessible in this runtime environment.";
+    return "DevTools unavailable: neither /tmp nor /dev/shm is writable/accessible in this runtime environment. Ensure at least one temp directory is writable (e.g. fix permissions on /tmp or mount /dev/shm with mode 1777).";
   }
   if (usesTmpShmFallback && !tmpOk) {
-    return "DevTools unavailable: Chromium is configured to use /tmp for shared memory, but /tmp is not writable/accessible.";
+    return "DevTools unavailable: Chromium is configured to use /tmp for shared memory, but /tmp is not writable/accessible. Fix /tmp permissions or remove --disable-dev-shm-usage to use /dev/shm.";
   }
   if (!usesTmpShmFallback && !shmOk) {
-    return "DevTools unavailable: Chromium is configured to use /dev/shm for shared memory, but /dev/shm is not writable/accessible.";
+    return "DevTools unavailable: Chromium is configured to use /dev/shm for shared memory, but /dev/shm is not writable/accessible. Fix /dev/shm permissions/mount, or launch with --disable-dev-shm-usage to use /tmp.";
   }
   return "";
 }
