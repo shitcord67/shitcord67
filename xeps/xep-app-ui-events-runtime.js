@@ -14,6 +14,8 @@ const DM_GENERIC_SLASH_FALLBACK_COMMANDS = new Set([
   "lenny",
   "roll",
   "timestamp",
+  "pin",
+  "unpin",
   "poll",
   "pollm",
   "closepoll",

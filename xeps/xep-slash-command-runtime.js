@@ -55,6 +55,40 @@ function formatRuntimeLogSessionSummaryLine(entry, index = 0) {
   return `${index + 1}. ${shortSessionId} · ${events} event${events === 1 ? "" : "s"} · ${detail}${message ? `\n   ${message.slice(0, 120)}` : ""}`;
 }
 
+function getSlashCommandActiveConversation(channel = null) {
+  const conversation = getActiveConversation();
+  if (!conversation || !channel?.id) return conversation;
+  if ((conversation.id || "") === (channel.id || "")) return conversation;
+  return conversation;
+}
+
+function resolveSlashTargetMessage(channel, rawNeedle = "", {
+  defaultToLast = true
+} = {}) {
+  const conversation = getSlashCommandActiveConversation(channel);
+  const bucket = Array.isArray(channel?.messages) ? channel.messages : [];
+  if (bucket.length === 0) {
+    return { conversation, bucket, message: null };
+  }
+  const needle = (rawNeedle || "").toString().trim().toLowerCase();
+  let message = null;
+  if (!needle || needle === "last") {
+    message = defaultToLast ? bucket[bucket.length - 1] : null;
+  } else {
+    message = bucket.find((entry) => (entry?.id || "").toString().toLowerCase().startsWith(needle)) || null;
+    if (!message && typeof messageMatchesXmppReference === "function") {
+      message = bucket.find((entry) => messageMatchesXmppReference(entry, needle)) || null;
+    }
+  }
+  return { conversation, bucket, message };
+}
+
+function canPinSlashTargetMessage(message, account, conversation) {
+  if (!message?.id || !account?.id || !conversation) return false;
+  if (conversation.type === "dm") return true;
+  return message.userId === account.id || canCurrentUser("manageMessages");
+}
+
 function handleSlashCommandRuntime(rawText, channel, account) {
   if (!rawText.startsWith("/")) return false;
   const [commandRaw, ...rest] = rawText.slice(1).split(" ");
@@ -363,6 +397,32 @@ function handleSlashCommandRuntime(rawText, channel, account) {
   if (command === "pins") {
     renderPinsDialog();
     ui.pinsDialog.showModal();
+    return true;
+  }
+
+  if (command === "pin" || command === "unpin") {
+    const { conversation, bucket, message } = resolveSlashTargetMessage(channel, arg);
+    if (bucket.length === 0) {
+      addSystemMessage(channel, "No messages available to pin.");
+      return true;
+    }
+    if (!message) {
+      addSystemMessage(channel, `Usage: /${command} [message-id-prefix|last]`);
+      return true;
+    }
+    if (!canPinSlashTargetMessage(message, account, conversation)) {
+      addSystemMessage(channel, "You can only pin your own messages unless you have Manage Messages.");
+      return true;
+    }
+    const shouldPin = command === "pin";
+    if (Boolean(message.pinned) === shouldPin) {
+      addSystemMessage(channel, shouldPin ? "That message is already pinned." : "That message is not pinned.");
+      return true;
+    }
+    message.pinned = shouldPin;
+    saveState();
+    renderMessages();
+    showToast(shouldPin ? `Pinned ${message.id.slice(0, 8)}.` : `Unpinned ${message.id.slice(0, 8)}.`);
     return true;
   }
 

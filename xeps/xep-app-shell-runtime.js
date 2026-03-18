@@ -159,17 +159,65 @@ function renderPinsDialog() {
     return;
   }
   pinned.forEach((message) => {
-    const item = document.createElement("button");
-    item.type = "button";
+    const item = document.createElement("article");
     item.className = "pin-item";
     const author = displayNameForMessage(message);
-    item.innerHTML = `<strong>${author}</strong><small>${formatTime(message.ts)}</small>${message.text}`;
-    item.addEventListener("click", () => {
+    const attachments = Array.isArray(message.attachments) ? message.attachments : [];
+    const heading = document.createElement("div");
+    heading.className = "pin-item__head";
+    const title = document.createElement("div");
+    title.className = "pin-item__title";
+    const authorEl = document.createElement("strong");
+    authorEl.textContent = author;
+    const metaEl = document.createElement("small");
+    metaEl.textContent = formatFullTimestamp(message.ts || "");
+    title.append(authorEl, metaEl);
+    heading.appendChild(title);
+    if (attachments.length > 0) {
+      const attachmentMeta = document.createElement("span");
+      attachmentMeta.className = "pin-item__meta";
+      attachmentMeta.textContent = attachments.length === 1 ? "1 attachment" : `${attachments.length} attachments`;
+      heading.appendChild(attachmentMeta);
+    }
+    item.appendChild(heading);
+    const text = document.createElement("div");
+    text.className = "pin-item__text";
+    text.textContent = ((message.text || "").toString().trim() || "(attachment only)").slice(0, 360);
+    item.appendChild(text);
+    const actions = document.createElement("div");
+    actions.className = "pin-item__actions";
+    const jumpBtn = document.createElement("button");
+    jumpBtn.type = "button";
+    jumpBtn.className = "pin-item__action";
+    jumpBtn.textContent = "Jump";
+    jumpBtn.addEventListener("click", () => {
       ui.pinsDialog.close();
-      const target = ui.messageList.querySelector(`[data-message-id=\"${message.id}\"]`);
-      if (!target) return;
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      focusMessageById(message.id);
     });
+    actions.appendChild(jumpBtn);
+    const copyLinkBtn = document.createElement("button");
+    copyLinkBtn.type = "button";
+    copyLinkBtn.className = "pin-item__action";
+    copyLinkBtn.textContent = "Copy Link";
+    copyLinkBtn.addEventListener("click", async () => {
+      const ok = await copyText(buildMessagePermalink(conversation?.id || "", message.id || ""));
+      showToast(ok ? "Message link copied." : "Failed to copy message link.", { tone: ok ? "info" : "error" });
+    });
+    actions.appendChild(copyLinkBtn);
+    const unpinBtn = document.createElement("button");
+    unpinBtn.type = "button";
+    unpinBtn.className = "pin-item__action pin-item__action--danger";
+    unpinBtn.textContent = "Unpin";
+    unpinBtn.addEventListener("click", () => {
+      const changed = togglePinnedMessageForConversation({ conversation, message, channel, dmThread });
+      if (!changed) return;
+      saveState();
+      renderPinsDialog();
+      renderMessages();
+      showToast("Message unpinned.");
+    });
+    actions.appendChild(unpinBtn);
+    item.appendChild(actions);
     ui.pinsList.appendChild(item);
   });
 }

@@ -553,3 +553,4 @@ Resources to get you up to speed:
 - [done] SWF PiP body-host anchoring now enabled for message runtimes on mobile/Android so PiP can detach correctly from message DOM
 - [done] Android insets now include tappable-element area and larger runtime safe-area fallbacks to better avoid notch/nav overlap
 - [done] Composer attachment chips now use larger media thumbnails for easier pre-send preview selection
+- [done] Pins workflow now supports `/pin` and `/unpin` target commands plus per-pin Jump/Copy Link/Unpin actions directly inside the pinned-messages dialog

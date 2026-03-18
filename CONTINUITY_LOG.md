@@ -10198,3 +10198,18 @@ Continue: › I noticed call between shitcord67 on Android an on Linux does not 
 [2026-03-12 15:10:26] Please continue working on stuff from the TODO
 
 [2026-03-12 15:37:43] Please continue working on stuff from the TODO
+
+[2026-03-12 19:24:23 UTC] Work on TODOs, XEPs improvements, general polish to make it look more like Discord, etc.
+
+[2026-03-12 19:30:17 UTC] Maybe
+
+[2026-03-12 19:30:42 UTC] You decide
+2026-03-14T18:50:08Z | I would appreciate it if you could continue improving this app by adding more functionality and making it more like Discord.
+2026-03-14T18:50:25Z | You can autonomously work on something, then commit, work on something, then commit, etc.
+2026-03-14T19:29:02Z | Yeah
+
+[2026-03-16T09:52:50.431216+00:00] Can you work independently and autonomously on some stuff that you think should be worked on? I will make me some food so feel free to work on something, commit, work on something else, commit, etc. and that for how often you like
+
+[2026-03-16T09:57:53.975096+00:00] Yeah continue forever without ever asking me. You get a free pass on what you want to do!
+
+[2026-03-19T00:32:57+01:00] Feel free to work on more features

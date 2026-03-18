@@ -6824,11 +6824,65 @@ body[data-compact-members="on"] .member-item {
   color: #e6e9ee;
   text-align: left;
   padding: 0.45rem 0.55rem;
+  display: grid;
+  gap: 0.45rem;
 }
 
 .pin-item small {
   display: block;
   color: #adb4bf;
+}
+
+.pin-item__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pin-item__title {
+  min-width: 0;
+}
+
+.pin-item__meta {
+  color: #9da7b7;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.pin-item__text {
+  color: #f1f4fa;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.pin-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.pin-item__action {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #555d6a;
+  background: #262b35;
+  color: #f3f6fb;
+  font-weight: 600;
+}
+
+.pin-item__action:hover {
+  border-color: #7b8697;
+}
+
+.pin-item__action--danger {
+  border-color: #7a4a50;
+  background: #3a262b;
+}
+
+.pin-item__action--danger:hover {
+  border-color: #b86d76;
 }
 
 .cosmetics-toolbar {

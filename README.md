@@ -117,15 +117,15 @@ Notes:
 - Send messages as current user.
 - Message actions: reply, edit, delete.
 - Edited-message indicator (`(edited)`).
-- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`, `/nextunread`, `/prevunread`, `/unreadcount`, `/pins`, `/unpinall`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
+- Slash commands with live autocomplete popup (`/help`, `/me`, `/shrug`, `/note`, `/topic`, `/slowmode`, `/rename`, `/channelinfo`, `/whereami`, `/jumpunread`, `/nextunread`, `/prevunread`, `/unreadcount`, `/pins`, `/pin`, `/unpin`, `/unpinall`, `/clear`, `/nick`, `/status`, `/markread`, `/mediaprivacy`, `/trustdomain`, `/untrustdomain`, `/tableflip`, `/unflip`, `/lenny`, `/roll`, `/timestamp`).
 - Added `/presence <online|idle|dnd|invisible>` to change online presence quickly.
 - Self profile popout now includes a presence selector (Online/Idle/DND/Invisible) and publishes presence updates to XMPP when connected.
 - Send-later workflow: `/schedule <when> | <text>`, `/scheduled`, `/unschedule <id|last|all>` (channels and DMs).
 - `@mention` autocomplete popup with keyboard and mouse selection.
 - Lightweight emoji reactions on messages.
 - Inline image URL preview for common image links.
-- Pin/unpin messages per channel, with a pinned-messages panel.
-- Pinned-messages panel now supports live filter and sort modes (newest/oldest/author).
+- Pin/unpin messages per conversation, with a pinned-messages panel.
+- Pinned-messages panel now supports live filter and sort modes (newest/oldest/author) plus jump, copy-link, and inline unpin actions.
 - Guild rail now scrolls as one native-feeling column (brand, guild icons, and `+` create button).
 - Unread + mention badges for channels and guilds, with per-account read tracking.
 - Quick channel filter input in the sidebar.
