@@ -198,7 +198,7 @@ function connectRelaySocket({ force = false } = {}) {
         const knownRoom = isKnownXmppRoomJid(bareFrom);
         const isGroupchat = type === "groupchat";
         const isMucLike = isGroupchat || isXmppMucRoomJid(bareFrom);
-        const isDirectLike = (type === "chat" || type === "normal" || type === "headline") && !isMucLike;
+        const isDirectLike = (type === "" || type === "chat" || type === "normal" || type === "headline") && !isMucLike;
         const incomingChatState = xmppChatStateFromStanza(stanza);
         const preferredBodyText = xmppPreferredBodyText(stanza);
         const bodyNode = xmppDirectChildByLocalName(stanza, "body");
