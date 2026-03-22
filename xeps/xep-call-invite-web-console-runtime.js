@@ -443,6 +443,27 @@ function refreshCallBarForPeer(peerJid = "") {
   }
 }
 
+function bindCallGateButton(button, handler) {
+  if (!(button instanceof HTMLElement) || typeof handler !== "function") return;
+  let lastTouchAt = 0;
+  const run = (event, fromTouch = false) => {
+    if (fromTouch) {
+      lastTouchAt = Date.now();
+      event?.preventDefault?.();
+    } else if (lastTouchAt && Date.now() - lastTouchAt < 750) {
+      event?.preventDefault?.();
+      return;
+    }
+    const result = handler(event);
+    if (result && typeof result.then === "function") void result;
+  };
+  button.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "touch") return;
+    run(event, true);
+  });
+  button.addEventListener("click", (event) => run(event, false));
+}
+
 function showIncomingWebCallPrompt({
   conversation,
   url,
@@ -473,7 +494,7 @@ function showIncomingWebCallPrompt({
   acceptBtn.type = "button";
   acceptBtn.className = "incoming-call-gate__accept";
   acceptBtn.textContent = "Join Call";
-  acceptBtn.addEventListener("click", () => {
+  bindCallGateButton(acceptBtn, () => {
     stopWebCallRingtone(inviteToken);
     if (inviteToken) {
       const pending = webCallInvitePendingByToken.get(inviteToken);
@@ -498,7 +519,7 @@ function showIncomingWebCallPrompt({
   declineBtn.type = "button";
   declineBtn.className = "incoming-call-gate__decline";
   declineBtn.textContent = "Ignore";
-  declineBtn.addEventListener("click", () => {
+  bindCallGateButton(declineBtn, () => {
     stopWebCallRingtone(inviteToken);
     if (inviteToken) {
       const pending = webCallInvitePendingByToken.get(inviteToken);
@@ -517,7 +538,7 @@ function showIncomingWebCallPrompt({
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.textContent = "Copy Link";
-  copyBtn.addEventListener("click", () => {
+  bindCallGateButton(copyBtn, () => {
     void copyText(url).then((ok) => showToast(ok ? "Call link copied." : "Failed to copy call link.", { tone: ok ? "info" : "error" }));
   });
   actions.appendChild(acceptBtn);
@@ -721,7 +742,7 @@ function showIncomingXmppCallPrompt({
   acceptBtn.type = "button";
   acceptBtn.className = "incoming-call-gate__accept";
   acceptBtn.textContent = "Accept";
-  acceptBtn.addEventListener("click", async () => {
+  bindCallGateButton(acceptBtn, async () => {
     acceptBtn.disabled = true;
     declineBtn.disabled = true;
     stopWebCallRingtone(sid);
@@ -735,7 +756,7 @@ function showIncomingXmppCallPrompt({
   declineBtn.type = "button";
   declineBtn.className = "incoming-call-gate__decline";
   declineBtn.textContent = "Decline";
-  declineBtn.addEventListener("click", () => {
+  bindCallGateButton(declineBtn, () => {
     stopWebCallRingtone(sid);
     declineIncomingXmppCall(sid);
     closeMediaLightbox();

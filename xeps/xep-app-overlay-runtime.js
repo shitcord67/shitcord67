@@ -58,9 +58,24 @@ function ensureMediaLightbox() {
     "<div class=\"media-lightbox__caption\"></div>"
   ].join("");
   const closeBtn = overlay.querySelector(".media-lightbox__close");
-  closeBtn?.addEventListener("click", () => {
-    closeMediaLightbox();
-  });
+  if (closeBtn) {
+    let lastTouchAt = 0;
+    const runClose = (event, fromTouch = false) => {
+      if (fromTouch) {
+        lastTouchAt = Date.now();
+        event?.preventDefault?.();
+      } else if (lastTouchAt && Date.now() - lastTouchAt < 750) {
+        event?.preventDefault?.();
+        return;
+      }
+      closeMediaLightbox();
+    };
+    closeBtn.addEventListener("pointerup", (event) => {
+      if (event.pointerType !== "touch") return;
+      runClose(event, true);
+    });
+    closeBtn.addEventListener("click", (event) => runClose(event, false));
+  }
   const shouldKeepOpenForTarget = (target) => {
     if (!(target instanceof HTMLElement)) return false;
     if (target.closest("[data-lightbox-close=\"1\"]")) return false;
