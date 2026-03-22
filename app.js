@@ -2033,6 +2033,7 @@ function createOrSwitchAccount(usernameInput, options = {}) {
       ensureAccountCosmetics(account);
     }
   }
+  account.pendingLogin = false;
 
   state.preferences = getPreferences();
   const requestedRelayMode = typeof options.relayMode === "string"

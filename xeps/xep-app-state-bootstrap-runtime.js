@@ -196,6 +196,7 @@ function createAccount(username, displayName = "") {
     id: createId(),
     username,
     displayName: displayName || username,
+    pendingLogin: false,
     bio: "",
     banner: "",
     avatarColor: "#57f287",
@@ -597,16 +598,30 @@ function loadState() {
       return restored;
     }
     if (restored.currentAccountId && validIds.has(restored.currentAccountId)) {
+      const active = restored.accounts.find((account) => account?.id === restored.currentAccountId) || null;
+      if (active?.pendingLogin) {
+        restored.currentAccountId = null;
+        localStorage.removeItem(SESSION_ACCOUNT_KEY);
+        return restored;
+      }
       localStorage.setItem(SESSION_ACCOUNT_KEY, restored.currentAccountId);
       return restored;
     }
     const remembered = localStorage.getItem(SESSION_ACCOUNT_KEY);
     if (remembered && validIds.has(remembered)) {
+      const active = restored.accounts.find((account) => account?.id === remembered) || null;
+      if (active?.pendingLogin) {
+        localStorage.removeItem(SESSION_ACCOUNT_KEY);
+      } else {
       restored.currentAccountId = remembered;
       return restored;
+      }
     }
     if (!restored.currentAccountId && accountIds.length === 1) {
-      [restored.currentAccountId] = accountIds;
+      const candidate = restored.accounts.find((account) => account?.id === accountIds[0]) || null;
+      if (!candidate?.pendingLogin) {
+        [restored.currentAccountId] = accountIds;
+      }
     }
     return restored;
   };

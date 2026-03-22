@@ -1689,8 +1689,8 @@ async function hydrateNativeCredentialsIntoState({ force = false } = {}) {
     } else if (account) {
       account.xmppJid = normalizeXmppJid(jid);
     }
-    if (account && !state.currentAccountId) {
-      state.currentAccountId = account.id;
+    if (account) {
+      account.pendingLogin = true;
     }
   }
   state.preferences = prefs;
