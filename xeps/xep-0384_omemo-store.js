@@ -128,8 +128,8 @@
     }
 
     async loadPreKey(keyId) {
-      const data = this.getJson(`preKey:${keyId}`, null);
-      if (!data) return null;
+      const data = this.getJson(`preKey:${keyId}`, undefined);
+      if (!data) return undefined;
       return {
         pubKey: base64ToArrayBuffer(data.pubKey || ""),
         privKey: base64ToArrayBuffer(data.privKey || "")
@@ -148,8 +148,8 @@
     }
 
     loadCompleteSignedPreKey(keyId) {
-      const data = this.getJson(`signedPreKey:${keyId}`, null);
-      if (!data) return null;
+      const data = this.getJson(`signedPreKey:${keyId}`, undefined);
+      if (!data) return undefined;
       return {
         keyId,
         keyPair: {
@@ -162,7 +162,7 @@
 
     async loadSignedPreKey(keyId) {
       const data = this.loadCompleteSignedPreKey(keyId);
-      return data ? data.keyPair : null;
+      return data ? data.keyPair : undefined;
     }
 
     async storeSignedPreKey(keyId, key) {
@@ -180,7 +180,7 @@
     }
 
     async loadSession(identifier) {
-      return this.getString(`session:${identifier}`, null);
+      return this.getString(`session:${identifier}`);
     }
 
     async storeSession(identifier, record) {

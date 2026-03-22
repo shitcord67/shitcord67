@@ -69,9 +69,10 @@
     [...headerNode.getElementsByTagName("key")].forEach((node) => {
       const rid = (node.getAttribute("rid") || "").toString().trim();
       if (!rid) return;
+      const prekeyRaw = (node.getAttribute("prekey") || "").toString().trim().toLowerCase();
       keys[rid] = {
         payload: xmppNodeText(node).trim(),
-        prekey: (node.getAttribute("prekey") || "").toString() === "1"
+        prekey: prekeyRaw === "1" || prekeyRaw === "true"
       };
     });
     return {
