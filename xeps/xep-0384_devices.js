@@ -99,8 +99,120 @@
     return false;
   }
 
+  function xmppOmemoHandlePubsubEventCore(stanza, {
+    bareJidFn,
+    nodeHasXmlnsFn,
+    nodeHasAnyXmlnsFn,
+    namespaceNodeSetFn,
+    omemoNamespaces,
+    deviceListByJid,
+    bundleCache,
+    preferredNamespaceByJid,
+    debugEventFn
+  } = {}) {
+    if (!stanza || typeof stanza.getElementsByTagName !== "function") return { handled: false, jid: "", changed: false };
+    if (typeof bareJidFn !== "function" || typeof nodeHasXmlnsFn !== "function" || typeof namespaceNodeSetFn !== "function") {
+      return { handled: false, jid: "", changed: false };
+    }
+    const eventNode = [...stanza.getElementsByTagName("event")]
+      .find((node) => nodeHasXmlnsFn(node, "http://jabber.org/protocol/pubsub#event")) || null;
+    if (!eventNode) return { handled: false, jid: "", changed: false };
+    const fromBare = bareJidFn(stanza.getAttribute("from") || "");
+    if (!fromBare) return { handled: false, jid: "", changed: false };
+
+    const namespaceEntries = (Array.isArray(omemoNamespaces) ? omemoNamespaces : [omemoNamespaces])
+      .map((namespace) => namespaceNodeSetFn(namespace))
+      .filter((entry) => entry?.namespace && entry?.devicelistNode && entry?.bundleNodePrefix);
+    if (namespaceEntries.length === 0) return { handled: false, jid: fromBare, changed: false };
+
+    let handled = false;
+    let changed = false;
+    const invalidateBundlesForJid = () => {
+      if (!bundleCache || typeof bundleCache.keys !== "function" || typeof bundleCache.delete !== "function") return;
+      for (const key of [...bundleCache.keys()]) {
+        if ((key || "").toString().startsWith(`${fromBare}|`)) {
+          bundleCache.delete(key);
+        }
+      }
+    };
+
+    const itemNodes = [...eventNode.getElementsByTagName("items")];
+    itemNodes.forEach((itemsNode) => {
+      const node = (itemsNode.getAttribute("node") || "").toString().trim();
+      if (!node) return;
+      const namespaceEntry = namespaceEntries.find((entry) => node === entry.devicelistNode || node.startsWith(entry.bundleNodePrefix));
+      if (!namespaceEntry) return;
+      handled = true;
+      preferredNamespaceByJid?.set(fromBare, namespaceEntry.namespace);
+      if (node === namespaceEntry.devicelistNode) {
+        const listNode = [...itemsNode.getElementsByTagName("list")]
+          .find((entry) => nodeHasAnyXmlnsFn(entry, omemoNamespaces)) || null;
+        const devices = listNode
+          ? [...listNode.getElementsByTagName("device")]
+            .map((entry) => (entry.getAttribute("id") || "").toString().trim())
+            .filter(Boolean)
+          : [];
+        const unique = [...new Set(devices)];
+        const previous = Array.isArray(deviceListByJid?.get(fromBare)) ? deviceListByJid.get(fromBare) : [];
+        const nextSignature = unique.join(",");
+        const previousSignature = previous.join(",");
+        deviceListByJid?.set(fromBare, unique);
+        invalidateBundlesForJid();
+        changed = changed || nextSignature !== previousSignature;
+        if (typeof debugEventFn === "function") {
+          debugEventFn("message", "Received OMEMO device list pubsub update", {
+            jid: fromBare,
+            namespace: namespaceEntry.namespace,
+            devices: unique.length
+          });
+        }
+        return;
+      }
+
+      const deviceId = node.slice(namespaceEntry.bundleNodePrefix.length).trim();
+      if (deviceId) {
+        bundleCache?.delete?.(`${fromBare}|${deviceId}`);
+        changed = true;
+        if (typeof debugEventFn === "function") {
+          debugEventFn("message", "Received OMEMO bundle pubsub update", {
+            jid: fromBare,
+            namespace: namespaceEntry.namespace,
+            deviceId
+          });
+        }
+      }
+    });
+
+    const deleteNodes = [
+      ...eventNode.getElementsByTagName("delete"),
+      ...eventNode.getElementsByTagName("purge")
+    ];
+    deleteNodes.forEach((deleteNode) => {
+      const node = (deleteNode.getAttribute("node") || "").toString().trim();
+      if (!node) return;
+      const namespaceEntry = namespaceEntries.find((entry) => node === entry.devicelistNode || node.startsWith(entry.bundleNodePrefix));
+      if (!namespaceEntry) return;
+      handled = true;
+      preferredNamespaceByJid?.set(fromBare, namespaceEntry.namespace);
+      if (node === namespaceEntry.devicelistNode) {
+        const previous = Array.isArray(deviceListByJid?.get(fromBare)) ? deviceListByJid.get(fromBare) : [];
+        deviceListByJid?.set(fromBare, []);
+        invalidateBundlesForJid();
+        changed = changed || previous.length > 0;
+        return;
+      }
+      const deviceId = node.slice(namespaceEntry.bundleNodePrefix.length).trim();
+      if (deviceId) {
+        changed = bundleCache?.delete?.(`${fromBare}|${deviceId}`) || changed;
+      }
+    });
+
+    return { handled, jid: fromBare, changed };
+  }
+
   globalScope.SHITCORD67_XEP_0384_DEVICES = Object.freeze({
     xmppOmemoFetchDeviceListCore,
-    xmppOmemoPublishDeviceListCore
+    xmppOmemoPublishDeviceListCore,
+    xmppOmemoHandlePubsubEventCore
   });
 })(typeof window !== "undefined" ? window : globalThis);

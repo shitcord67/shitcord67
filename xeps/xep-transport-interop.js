@@ -1560,6 +1560,20 @@ async function xmppOmemoFetchDeviceList(jid, { connection = xmppConnection } = {
   });
 }
 
+function xmppHandleOmemoPubsubEvent(stanza) {
+  return xmppOmemoHandlePubsubEventCore(stanza, {
+    bareJidFn: xmppBareJid,
+    nodeHasXmlnsFn: xmppNodeHasXmlns,
+    nodeHasAnyXmlnsFn: xmppNodeHasAnyXmlns,
+    namespaceNodeSetFn: xmppOmemoNamespaceNodeSet,
+    omemoNamespaces: XMPP_OMEMO_NAMESPACES,
+    deviceListByJid: xmppOmemoDeviceListByJid,
+    bundleCache: xmppOmemoBundleByJidDevice,
+    preferredNamespaceByJid: xmppOmemoPreferredNamespaceByJid,
+    debugEventFn: addXmppDebugEvent
+  });
+}
+
 async function xmppOmemoPublishDeviceList(ownBare, deviceIds, {
   connection = xmppConnection,
   namespaces = XMPP_OMEMO_NAMESPACES

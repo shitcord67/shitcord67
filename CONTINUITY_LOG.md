@@ -10213,3 +10213,15 @@ Continue: › I noticed call between shitcord67 on Android an on Linux does not 
 [2026-03-16T09:57:53.975096+00:00] Yeah continue forever without ever asking me. You get a free pass on what you want to do!
 
 [2026-03-19T00:32:57+01:00] Feel free to work on more features
+[2026-03-23T07:38:57Z] [2062352:0323/083744.454931:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.PtXxH8 failed: No such process (3)
+[2062352:0323/083744.455068:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[2062352:0323/083744.455098:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+[2062793:0323/083750.968063:ERROR:platform_shared_memory_region_posix.cc(221)] Creating shared memory in /dev/shm/.org.chromium.Chromium.Om1GyY failed: No such process (3)
+[2062793:0323/083750.968143:ERROR:platform_shared_memory_region_posix.cc(224)] Unable to access(W_OK|X_OK) /dev/shm: No such process (3)
+[2062793:0323/083750.968166:FATAL:platform_shared_memory_region_posix.cc(226)] This is frequently caused by incorrect permissions on /dev/shm.  Try 'sudo chmod 1777 /dev/shm' to fix.
+For S67_PACKAGED_LINUX_SHM_MODE=runtime. And for npm run electron: [2064811:0323/083828.710639:ERROR:CONSOLE(1)] "Request Autofill.enable failed. {"code":-32601,"message":"'Autofill.enable' wasn't found"}", source: devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)
+[2064811:0323/083828.710701:ERROR:CONSOLE(1)] "Request Autofill.setAddresses failed. {"code":-32601,"message":"'Autofill.setAddresses' wasn't found"}", source: devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)
+But there devtools work without any environment variable.
+
+## 2026-03-24T15:17:56+01:00
+Please try completing the OMEMO stuff!

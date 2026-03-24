@@ -151,6 +151,7 @@ const xmppOmemoEnsureSessionCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsureSessi
 const xmppOmemoEnsurePeerSessionsCore = XEP_0384_SESSIONS_GLOBAL.xmppOmemoEnsurePeerSessionsCore || (async () => []);
 const xmppOmemoFetchDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoFetchDeviceListCore || (async () => []);
 const xmppOmemoPublishDeviceListCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoPublishDeviceListCore || (async () => false);
+const xmppOmemoHandlePubsubEventCore = XEP_0384_DEVICES_GLOBAL.xmppOmemoHandlePubsubEventCore || (() => ({ handled: false, jid: "", changed: false }));
 const xmppOmemoPublishBundleCore = XEP_0384_BUNDLES_GLOBAL.xmppOmemoPublishBundleCore || (async () => false);
 const xmppOmemoFetchBundleCore = XEP_0384_BUNDLES_GLOBAL.xmppOmemoFetchBundleCore || (async () => null);
 const xmppOmemoEnsureOwnBundleCore = XEP_0384_OWN_BUNDLE_GLOBAL.xmppOmemoEnsureOwnBundleCore || (async () => false);

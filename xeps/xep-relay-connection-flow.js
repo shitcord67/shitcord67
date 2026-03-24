@@ -1254,6 +1254,27 @@ function connectRelaySocket({ force = false } = {}) {
           if (xmppHandleBookmarksPubsubEvent(stanza, { account: current, prefs: getPreferences() })) {
             return true;
           }
+          const omemoPubsubResult = xmppHandleOmemoPubsubEvent(stanza);
+          if (omemoPubsubResult?.handled) {
+            const peerBare = xmppBareJid(omemoPubsubResult.jid || "");
+            const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+            if (peerBare && ownBare && peerBare !== ownBare && xmppOmemoEnabledForPeer(peerBare)) {
+              void (async () => {
+                if (!xmppOmemoRuntimeAvailable()) {
+                  const loaded = await ensureXmppOmemoRuntime();
+                  if (!loaded || !xmppOmemoRuntimeAvailable()) return;
+                }
+                await xmppOmemoEnsureOwnBundle(ownBare);
+                await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
+              })().catch((error) => {
+                addXmppDebugEvent("error", "OMEMO pubsub session refresh failed", {
+                  jid: peerBare,
+                  error: String(error?.message || error)
+                });
+              });
+            }
+            return true;
+          }
           const forwarded = xmppMamForwardedMessagesFromStanza(stanza);
           if (forwarded.length > 0) {
             forwarded.forEach((entry) => {

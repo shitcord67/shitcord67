@@ -106,6 +106,7 @@
 - [done] Added `/spacesxmpp` command (`list|open|sync|discover|join`) to prioritize practical XMPP Spaces management and discovery.
 - [priority] Implement OpenPGP encryption for XMPP (XEP-0373/0374) and OTR (XEP-0378) for DM parity.
 - [done] Added OMEMO 2 namespace support (XEP-0384 updates) alongside legacy OMEMO payloads.
+- [done] Added OMEMO pubsub event handling for device-list and bundle updates, including cache invalidation and automatic peer-session refresh after incoming OMEMO PEP changes.
 - [priority] Improve cross-client call interoperability for standards-compliant XMPP clients (including Movim-facing behavior compatibility).
 - [done] Implemented native-call whiteboard path for XMPP sessions (in-call open + invite-post actions bound to session conversation context).
 - [done] Added whiteboard quick actions to compact native-call message tiles (`WB`, `Post WB`) for faster collaboration entry.
