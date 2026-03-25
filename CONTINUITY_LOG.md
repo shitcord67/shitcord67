@@ -10225,3 +10225,9 @@ But there devtools work without any environment variable.
 
 ## 2026-03-24T15:17:56+01:00
 Please try completing the OMEMO stuff!
+
+## 2026-03-25T00:57:44+01:00
+Are you 100% sure receiving & decrypting and encrypting & sending OMEMO messages works now in shirtcord67?
+
+## 2026-03-25T01:11:25+01:00
+Yeah maybe do it?

@@ -22,6 +22,21 @@
     return btoa(binary);
   };
 
+  function normalizeSerializedSessionRecord(serialized) {
+    if (typeof serialized !== "string") return undefined;
+    const trimmed = serialized.trim();
+    if (!trimmed || trimmed === "null" || trimmed === "undefined") return undefined;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== "object") return undefined;
+      if (parsed.version !== undefined && typeof parsed.version !== "string") return undefined;
+      if (!parsed.sessions || typeof parsed.sessions !== "object") return undefined;
+      return trimmed;
+    } catch {
+      return undefined;
+    }
+  }
+
   class XmppOmemoStore {
     constructor(jid) {
       const bare = (jid || "").toString().split("/")[0] || "";
@@ -180,11 +195,25 @@
     }
 
     async loadSession(identifier) {
-      return this.getString(`session:${identifier}`);
+      const key = `session:${identifier}`;
+      const serialized = this.getString(key);
+      const normalized = normalizeSerializedSessionRecord(serialized);
+      if (normalized !== undefined) return normalized;
+      if (serialized !== undefined) this.remove(key);
+      return undefined;
     }
 
     async storeSession(identifier, record) {
-      this.putString(`session:${identifier}`, record);
+      const key = `session:${identifier}`;
+      const serialized = typeof record === "string"
+        ? record
+        : (record == null ? "" : JSON.stringify(record));
+      const normalized = normalizeSerializedSessionRecord(serialized);
+      if (normalized === undefined) {
+        this.remove(key);
+        return;
+      }
+      this.putString(key, normalized);
     }
 
     async removeSession(identifier) {
