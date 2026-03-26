@@ -260,9 +260,32 @@
     if (sub === "refresh") {
       void (async () => {
         await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+        const store = xmppOmemoStoreForAccount(ownBare);
+        const localId = store ? await store.getLocalRegistrationId() : null;
+        const ownDevices = await xmppOmemoFetchDeviceList(ownBare);
         const devices = await xmppOmemoFetchDeviceList(peerBare);
         await xmppOmemoEnsurePeerSessions(peerBare, ownBare);
-        addSystemMessage(channel, `OMEMO refresh complete (${devices.length} device${devices.length === 1 ? "" : "s"}).`);
+        const localMissing = localId ? !ownDevices.includes(String(localId)) : false;
+        addSystemMessage(
+          channel,
+          `OMEMO refresh complete (${devices.length} device${devices.length === 1 ? "" : "s"}).` +
+            (localMissing ? ` Warning: server device list missing local device ${localId}.` : "")
+        );
+      })();
+      return true;
+    }
+    if (sub === "self" || sub === "mine") {
+      void (async () => {
+        const store = xmppOmemoStoreForAccount(ownBare);
+        const localId = store ? await store.getLocalRegistrationId() : null;
+        const ownDevices = await xmppOmemoFetchDeviceList(ownBare);
+        const localIdText = localId ? String(localId) : "not set";
+        const serverList = ownDevices.length > 0 ? ownDevices.join(", ") : "none";
+        const hasLocal = localId ? ownDevices.includes(String(localId)) : false;
+        addSystemMessage(
+          channel,
+          `OMEMO local device ID: ${localIdText} · Server device list: ${serverList} · Local ID ${hasLocal ? "present" : "missing"} on server`
+        );
       })();
       return true;
     }
@@ -288,13 +311,14 @@
             `OMEMO for ${peerBare}: ${enabled ? "enabled" : "disabled"}`,
             localId ? `Local device ID: ${localId}` : "Local device ID: not set",
             `Known peer devices: ${devices.length}`,
-            `Namespace: ${preferredNamespace === XMPP_OMEMO_NAMESPACE_V2 ? "OMEMO 2" : "legacy"}`
+            `Namespace: ${preferredNamespace === XMPP_OMEMO_NAMESPACE_V2 ? "OMEMO 2" : "legacy"}`,
+            "Tip: use /omemo self to see your server device list."
           ].join(" · ")
         );
       })();
       return true;
     }
-    addSystemMessage(channel, "Usage: /omemo [on|off|status|devices|refresh]");
+    addSystemMessage(channel, "Usage: /omemo [on|off|status|devices|refresh|self]");
     return true;
   }
 

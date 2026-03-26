@@ -1817,6 +1817,25 @@ function xmppOmemoTryDecryptIntoMessage({
   ownBare,
   onUpdated
 }) {
+  const maybeHandleMissingKey = async (errorMessage) => {
+    const match = /Missing OMEMO key for device (\d+)/.exec((errorMessage || "").toString());
+    if (!match) return;
+    if (!peerBare || !ownBare) return;
+    if (xmppOmemoMissingKeyNoticeByPeer.has(peerBare)) return;
+    const store = xmppOmemoStoreForAccount(ownBare);
+    const localId = store ? await store.getLocalRegistrationId() : null;
+    if (!localId || String(localId) !== match[1]) return;
+    const ownDevices = await xmppOmemoFetchDeviceList(ownBare);
+    const localIdText = String(localId);
+    const hasLocal = ownDevices.includes(localIdText);
+    const warning = hasLocal
+      ? `OMEMO warning: peer did not include your device ${localIdText}. Ask them to refresh their OMEMO device list.`
+      : `OMEMO warning: your local device ${localIdText} is missing from your server device list. Try /omemo refresh and ask the peer to refresh their device list.`;
+    xmppOmemoMissingKeyNoticeByPeer.add(peerBare);
+    if (addSystemDmMessageByPeerJid(peerBare, warning)) {
+      refreshDmUiForPeerJid(peerBare);
+    }
+  };
   const runDecrypt = () => {
     const payloadOverride = message?.xmppOmemoPayload || null;
     xmppOmemoTryDecryptIntoMessageCore({
@@ -1837,6 +1856,7 @@ function xmppOmemoTryDecryptIntoMessage({
         message.xmppOmemoDecryptFailed = true;
         message.xmppOmemoDecryptError = (error || "").toString();
         if (typeof onUpdated === "function") onUpdated();
+        void maybeHandleMissingKey(error);
         if (message.xmppOmemoRetryAttempted) return;
         message.xmppOmemoRetryAttempted = true;
         const retry = async () => {

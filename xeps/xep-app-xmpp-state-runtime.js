@@ -534,6 +534,7 @@ const xmppOmemoBundleByJidDevice = new Map();
 const xmppOmemoPreferredNamespaceByJid = new Map();
 const xmppOmemoSessionSetupInFlight = new Map();
 const xmppOmemoDecryptInFlightByMessageId = new Map();
+const xmppOmemoMissingKeyNoticeByPeer = new Set();
 const XMPP_DISCO_INFO_TTL_MS = 5 * 60 * 1000;
 const xmppAvailableFullJidsByBare = new Map();
 const xmppCallSessionById = new Map();
