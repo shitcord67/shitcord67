@@ -3,6 +3,7 @@
 
   async function xmppOmemoEnsureOwnBundleCore(ownBare, {
     force = false,
+    replaceDeviceList = false,
     ensureLocalIdentityFn,
     fetchDeviceListFn,
     publishDeviceListFn,
@@ -27,8 +28,10 @@
     if (!deviceList || deviceList.length === 0) {
       deviceList = await fetchDeviceListFn(ownBare);
     }
-    const nextList = [...new Set([...(deviceList || []), String(registrationId)])];
-    if (force || !deviceList || !deviceList.includes(String(registrationId))) {
+    const nextList = replaceDeviceList
+      ? [String(registrationId)]
+      : [...new Set([...(deviceList || []), String(registrationId)])];
+    if (replaceDeviceList || force || !deviceList || !deviceList.includes(String(registrationId))) {
       await publishDeviceListFn(ownBare, nextList);
     }
 

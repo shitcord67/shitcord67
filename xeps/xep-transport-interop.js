@@ -1612,10 +1612,11 @@ function xmppOmemoNamespaceForSend(targetJids = []) {
   return xmppOmemoSelectNamespaceForSend(preferredNamespaces);
 }
 
-async function xmppOmemoEnsureOwnBundle(ownBare, { force = false } = {}) {
+async function xmppOmemoEnsureOwnBundle(ownBare, { force = false, replaceDeviceList = false } = {}) {
   await ensureXmppOmemoRuntime();
   return xmppOmemoEnsureOwnBundleCore(ownBare, {
     force,
+    replaceDeviceList,
     ensureLocalIdentityFn: xmppOmemoEnsureLocalIdentity,
     fetchDeviceListFn: xmppOmemoFetchDeviceList,
     publishDeviceListFn: xmppOmemoPublishDeviceList,

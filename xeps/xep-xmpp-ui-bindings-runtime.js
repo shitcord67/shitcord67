@@ -976,6 +976,32 @@ ui.omemoHeaderBtn?.addEventListener("contextmenu", (event) => {
       }
     },
     {
+      label: "Repair Own Device List (This Device Only)",
+      disabled: !state.runtimeReady || !ownBare,
+      action: async () => {
+        await xmppOmemoEnsureOwnBundle(ownBare, {
+          force: true,
+          replaceDeviceList: true
+        });
+        const store = xmppOmemoStoreForAccount(ownBare);
+        const localId = store ? await store.getLocalRegistrationId() : null;
+        const ownDevices = await xmppOmemoFetchDeviceList(ownBare);
+        const localIdText = localId ? String(localId) : "not set";
+        const deviceText = ownDevices.length > 0 ? ownDevices.join(", ") : "none";
+        const hasOnlyLocal = Boolean(localId) && ownDevices.length === 1 && ownDevices[0] === String(localId);
+        const text = hasOnlyLocal
+          ? `OMEMO device list repaired. Server device list now contains only current local device ${localIdText}. Other logged-in clients on this account may need OMEMO setup again.`
+          : `OMEMO device-list repair finished. Current local device ${localIdText}; server device list is now: ${deviceText}`;
+        if (addSystemDmMessageByPeerJid(state.peerBare, text)) {
+          refreshDmUiForPeerJid(state.peerBare);
+        }
+        showToast(text, {
+          tone: hasOnlyLocal ? "info" : "error",
+          duration: hasOnlyLocal ? 4200 : 5200
+        });
+      }
+    },
+    {
       label: "Show Local OMEMO Status",
       disabled: !state.runtimeReady || !ownBare,
       action: async () => {
