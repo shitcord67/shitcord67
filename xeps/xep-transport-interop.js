@@ -1778,15 +1778,23 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
 async function xmppOmemoDecryptPayload(peerBare, payload, ownBare) {
   await ensureXmppOmemoRuntime();
   if (!xmppOmemoRuntimeAvailable()) return null;
-  if (!payload || !payload.keys) return null;
+  if (!payload || !payload.keys) {
+    throw new Error("Missing OMEMO payload keys");
+  }
   const store = await xmppOmemoEnsureLocalIdentity(ownBare);
   if (!store) return null;
   const deviceId = await store.getLocalRegistrationId();
-  if (!deviceId) return null;
+  if (!deviceId) {
+    throw new Error("Missing local OMEMO registration id");
+  }
   const keyEntry = payload.keys[String(deviceId)];
-  if (!keyEntry || !keyEntry.payload) return null;
+  if (!keyEntry || !keyEntry.payload) {
+    throw new Error(`Missing OMEMO key for device ${deviceId}`);
+  }
   const senderDevice = payload.sid;
-  if (!senderDevice) return null;
+  if (!senderDevice) {
+    throw new Error("Missing OMEMO sender device id");
+  }
   if (!keyEntry.prekey) {
     await xmppOmemoEnsureSession(peerBare, senderDevice, ownBare);
   }

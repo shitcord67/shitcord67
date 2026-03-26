@@ -1332,7 +1332,10 @@ function renderMessages() {
       encryptedBadge.className = `message-encrypted${failed ? " message-encrypted--error" : ""}`;
       encryptedBadge.textContent = failed ? "OMEMO Failed" : label;
       if (failed) {
-        encryptedBadge.title = "OMEMO encrypted message could not be decrypted yet.";
+        const errorDetail = (message.xmppOmemoDecryptError || "").toString().trim();
+        encryptedBadge.title = errorDetail
+          ? `OMEMO encrypted message could not be decrypted yet. (${errorDetail})`
+          : "OMEMO encrypted message could not be decrypted yet.";
         encryptedBadge.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
