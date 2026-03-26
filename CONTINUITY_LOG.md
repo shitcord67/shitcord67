@@ -10231,3 +10231,529 @@ Are you 100% sure receiving & decrypting and encrypting & sending OMEMO messages
 
 ## 2026-03-25T01:11:25+01:00
 Yeah maybe do it?
+
+[2026-03-26T19:16:53Z] I noticed that previously seen OMEMO messages are not readable/decrypted anymore when I launch shitcord67 again. {\n  "relayMode": "xmpp",\n  "relayStatus": "connected",\n  "xmppConnected": true,\n  "xmppRuntimeReady": true,\n  "xmppRuntimeLastError": "",\n  "filter": "all",\n  "search": "kazue@xmpp.jp",\n  "paused": true,\n  "eventsTotal": 600,\n  "eventsShown": 166,\n  "activeCallSessions": []\n}\n\n[2026-03-26T19:09:41.593Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1791-58d6-7400-a439-ed234fcfd953'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:01:34Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/87272435393297678454900750786' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:0' id='jmi-50e4744d-c93'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.593Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1791-58d6-7400-a439-ed234fcfd953"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:01:34Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/87272435393297678454900750786" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:0" id="jmi-50e4744d-c93"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.595Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1791-58d8-7eaf-a1f8-139ea8ae2fe6'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:01:34Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/87272435393297678454900750786' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:1' id='jmi-50e4744d-c93'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.595Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1791-58d8-7eaf-a1f8-139ea8ae2fe6"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:01:34Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/87272435393297678454900750786" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:1" id="jmi-50e4744d-c93"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.596Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1791-58da-795c-99be-9205839222b8'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:01:34Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/87272435393297678454900750786' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:0' id='jmi-50e4744d-c93'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.596Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1791-58da-795c-99be-9205839222b8"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:01:34Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/87272435393297678454900750786" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:0" id="jmi-50e4744d-c93"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.596Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1791-867d-7e4a-92df-0ae16a6fbbd2'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:01:46Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/87272435393297678454900750786' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><proceed xmlns='urn:xmpp:jingle-message:1' id='jmi-50e4744d-c93'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.596Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1791-867d-7e4a-92df-0ae16a6fbbd2"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:01:46Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/87272435393297678454900750786" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><proceed xmlns="urn:xmpp:jingle-message:1" id="jmi-50e4744d-c93"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.600Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1791-867f-75f6-9e34-de8b97e05fd7'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:01:46Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/87272435393297678454900750786' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><proceed xmlns='urn:xmpp:jingle-message:0' id='jmi-50e4744d-c93'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.600Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1791-867f-75f6-9e34-de8b97e05fd7"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:01:46Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/87272435393297678454900750786" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><proceed xmlns="urn:xmpp:jingle-message:0" id="jmi-50e4744d-c93"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.600Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1792-ae55-7ea6-a132-0006797f8181'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:02Z'/><message type='error' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><delay stamp='2026-03-22T22:02:58.366075Z' xmlns='urn:xmpp:delay' from='xmpp.jp'>Client Inactive</delay><error type='cancel'><service-unavailable xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas' xml:lang='en'>User session terminated</text></error></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.600Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1792-ae55-7ea6-a132-0006797f8181"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:02Z"/><message xmlns="jabber:client" type="error" from="kazue@xmpp.jp" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:02:58.366075Z" from="xmpp.jp">Client Inactive</delay><error type="cancel"><service-unavailable xmlns="urn:ietf:params:xml:ns:xmpp-stanzas"/><text xmlns="urn:ietf:params:xml:ns:xmpp-stanzas" xml:lang="en">User session terminated</text></error></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.601Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-082e-7fc2-9a7b-c60f53bcc5a6'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:25Z'/><message type='chat' xmlns='jabber:client' from='derberg@pimux.de/4ofiVSU1CT-j' to='kazue@xmpp.jp/dino.b35389dc' xml:lang='en'><propose xmlns='urn:xmpp:jingle-message:1' id='jmi-099f4d9e-6fa'><description media='audio' xmlns='urn:xmpp:jingle:apps:rtp:1'/></propose></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.601Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-082e-7fc2-9a7b-c60f53bcc5a6"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:25Z"/><message xmlns="jabber:client" type="chat" from="derberg@pimux.de/4ofiVSU1CT-j" to="kazue@xmpp.jp/dino.b35389dc" xml:lang="en"><propose xmlns="urn:xmpp:jingle-message:1" id="jmi-099f4d9e-6fa"><description xmlns="urn:xmpp:jingle:apps:rtp:1" media="audio"/></propose></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.601Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-0830-7f39-9131-17ce8057b09e'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:25Z'/><message type='chat' xmlns='jabber:client' from='derberg@pimux.de/4ofiVSU1CT-j' to='kazue@xmpp.jp/dino.b35389dc' xml:lang='en'><propose xmlns='urn:xmpp:jingle-message:0' id='jmi-099f4d9e-6fa'><description media='audio' xmlns='urn:xmpp:jingle:apps:rtp:1'/></propose></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.601Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-0830-7f39-9131-17ce8057b09e"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:25Z"/><message xmlns="jabber:client" type="chat" from="derberg@pimux.de/4ofiVSU1CT-j" to="kazue@xmpp.jp/dino.b35389dc" xml:lang="en"><propose xmlns="urn:xmpp:jingle-message:0" id="jmi-099f4d9e-6fa"><description xmlns="urn:xmpp:jingle:apps:rtp:1" media="audio"/></propose></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.602Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-0832-78bf-9fdf-af5783f089da'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:25Z'/><message type='chat' xmlns='jabber:client' from='derberg@pimux.de/4ofiVSU1CT-j' to='kazue@xmpp.jp/dino.b35389dc' xml:lang='en' id='ci-ad54ae7f-b64'><invite audio='true' video='false' xmlns='urn:xmpp:call-invites:0' id='ci-ad54ae7f-b64'><jingle xmlns='urn:xmpp:jingle:1' sid='jmi-099f4d9e-6fa'/></invite><propose multi='false' video='false' xmlns='urn:xmpp:call-message:1' id='ci-ad54ae7f-b64'><jingle sid='jmi-099f4d9e-6fa'/></propose><body>Incoming XMPP call invite.</body></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.602Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-0832-78bf-9fdf-af5783f089da"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:25Z"/><message xmlns="jabber:client" type="chat" from="derberg@pimux.de/4ofiVSU1CT-j" to="kazue@xmpp.jp/dino.b35389dc" xml:lang="en" id="ci-ad54ae7f-b64"><invite xmlns="urn:xmpp:call-invites:0" audio="true" video="false" id="ci-ad54ae7f-b64"><jingle xmlns="urn:xmpp:jingle:1" sid="jmi-099f4d9e-6fa"/></invite><propose xmlns="urn:xmpp:call-message:1" multi="false" video="false" id="ci-ad54ae7f-b64"><jingle sid="jmi-099f4d9e-6fa"/></propose><body>Incoming XMPP call invite.</body></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.605Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-0b11-7e59-80a7-97268863b44b'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:25Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/77892608832412051404900795682' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:1' id='jmi-099f4d9e-6fa'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.605Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-0b11-7e59-80a7-97268863b44b"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:25Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/77892608832412051404900795682" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:1" id="jmi-099f4d9e-6fa"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.605Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-0c1c-7206-b01f-9dad3f5b3a68'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:26Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/77892608832412051404900795682' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:0' id='jmi-099f4d9e-6fa'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.605Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-0c1c-7206-b01f-9dad3f5b3a68"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:26Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/77892608832412051404900795682" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:0" id="jmi-099f4d9e-6fa"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.606Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-0c1e-75b8-baf5-251e7f25a193'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:26Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/77892608832412051404900795682' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:1' id='jmi-099f4d9e-6fa'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.606Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-0c1e-75b8-baf5-251e7f25a193"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:26Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/77892608832412051404900795682" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:1" id="jmi-099f4d9e-6fa"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.606Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-0c1f-75e7-b491-7af86e0e433a'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:26Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/77892608832412051404900795682' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:0' id='jmi-099f4d9e-6fa'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.606Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-0c1f-75e7-b491-7af86e0e433a"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:26Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/77892608832412051404900795682" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:0" id="jmi-099f4d9e-6fa"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.607Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-0d28-7ea1-9ba2-f9147aaa162c'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:26Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/Cheogram.FljqAHoesf' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:0' id='jmi-099f4d9e-6fa'/><store xmlns='urn:xmpp:hints'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.607Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-0d28-7ea1-9ba2-f9147aaa162c"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:26Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/Cheogram.FljqAHoesf" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:0" id="jmi-099f4d9e-6fa"/><store xmlns="urn:xmpp:hints"/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.607Z] [raw] RX\n<message xmlns='jabber:client' to='derberg@pimux.de/0VM_yQ96WVzR'><result queryid='mam-dm-7c85b06e-3' xmlns='urn:xmpp:mam:2' id='019d1793-809a-79e9-babb-d970ce125de3'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-22T22:03:55Z'/><message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/Cheogram.FljqAHoesf' to='derberg@pimux.de/4ofiVSU1CT-j' xml:lang='en'><reject xmlns='urn:xmpp:jingle-message:0' id='jmi-099f4d9e-6fa'/><store xmlns='urn:xmpp:hints'/></message></forwarded></result></message>\n\n[2026-03-26T19:09:41.607Z] [message] Incoming stanza\n<message xmlns="jabber:client" to="derberg@pimux.de/0VM_yQ96WVzR"><result xmlns="urn:xmpp:mam:2" queryid="mam-dm-7c85b06e-3" id="019d1793-809a-79e9-babb-d970ce125de3"><forwarded xmlns="urn:xmpp:forward:0"><delay xmlns="urn:xmpp:delay" stamp="2026-03-22T22:03:55Z"/><message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/Cheogram.FljqAHoesf" to="derberg@pimux.de/4ofiVSU1CT-j" xml:lang="en"><reject xmlns="urn:xmpp:jingle-message:0" id="jmi-099f4d9e-6fa"/><store xmlns="urn:xmpp:hints"/></message></forwarded></result></message\n...\n[2026-03-26T19:10:11.739Z] [raw] TX\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://jabber.org/protocol/chatstates"/></message>. \n￼kazue\n20:03\nOMEMO FAILED\n￼👍\n￼❤️\n￼😂\n￼☺\n￼Reply\n￼Quote\n￼Mark Unread\n￼Pin\n[This message is OMEMO encrypted]
+
+[2026-03-26T19:50:56Z] {\n  "relayMode": "xmpp",\n  "relayStatus": "connected",\n  "xmppConnected": true,\n  "xmppRuntimeReady": true,\n  "xmppRuntimeLastError": "",\n  "filter": "all",\n  "search": "kazue@xmpp.jp",\n  "paused": false,\n  "eventsTotal": 601,\n  "eventsShown": 37,\n  "activeCallSessions": []\n}\n\n[2026-03-26T19:46:40.904Z] [iq] sendIQ()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="urn:xmpp:omemo:2:devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:40.904Z] [stanza] send()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="ef5638bc-3b58-4373-8668-920f9750911d:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="urn:xmpp:omemo:2:devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:40.904Z] [raw] TX\n<iq id="ef5638bc-3b58-4373-8668-920f9750911d:sendIQ" to="kazue@xmpp.jp" type="get" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="urn:xmpp:omemo:2:devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:40.905Z] [iq] sendIQ()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="urn:xmpp:omemo:2:devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:40.905Z] [stanza] send()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="95dc4eec-67fb-4c1e-9f48-28fe4795c879:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="urn:xmpp:omemo:2:devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:40.905Z] [raw] TX\n<iq id="95dc4eec-67fb-4c1e-9f48-28fe4795c879:sendIQ" to="kazue@xmpp.jp" type="get" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="urn:xmpp:omemo:2:devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:41.040Z] [raw] RX\n<iq type='result' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='7f7e79f7-0f5f-42c8-a7fe-b5dc6551707a:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='eu.siacs.conversations.axolotl.devicelist'><item id='current'><list xmlns='eu.siacs.conversations.axolotl'><device id='64212584'/><device id='1091998160'/><device id='753685729'/></list></item></items></pubsub></iq>\n\n[2026-03-26T19:46:41.041Z] [iq] sendIQ()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:64212584"/></pubsub></iq>\n\n[2026-03-26T19:46:41.041Z] [stanza] send()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="15d9b37a-07b2-4565-90b0-927cd93425bf:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:64212584"/></pubsub></iq>\n\n[2026-03-26T19:46:41.041Z] [raw] TX\n<iq id="15d9b37a-07b2-4565-90b0-927cd93425bf:sendIQ" to="kazue@xmpp.jp" type="get" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:64212584"/></pubsub></iq>\n\n[2026-03-26T19:46:41.041Z] [iq] sendIQ()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:1091998160"/></pubsub></iq>\n\n[2026-03-26T19:46:41.041Z] [stanza] send()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="04ef07ac-72fa-437f-899b-1a11a7d03c1c:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:1091998160"/></pubsub></iq>\n\n[2026-03-26T19:46:41.041Z] [raw] TX\n<iq id="04ef07ac-72fa-437f-899b-1a11a7d03c1c:sendIQ" to="kazue@xmpp.jp" type="get" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:1091998160"/></pubsub></iq>\n\n[2026-03-26T19:46:41.041Z] [iq] sendIQ()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:753685729"/></pubsub></iq>\n\n[2026-03-26T19:46:41.042Z] [stanza] send()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="a281199a-a038-4a5c-89e6-6caf902b9ed0:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:753685729"/></pubsub></iq>\n\n[2026-03-26T19:46:41.042Z] [raw] TX\n<iq id="a281199a-a038-4a5c-89e6-6caf902b9ed0:sendIQ" to="kazue@xmpp.jp" type="get" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.bundles:753685729"/></pubsub></iq>\n\n[2026-03-26T19:46:41.313Z] [raw] RX\n<iq type='error' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='ef5638bc-3b58-4373-8668-920f9750911d:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='urn:xmpp:omemo:2:devicelist'/></pubsub><error type='cancel'><item-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas' xml:lang='en'>Node not found</text></error></iq>\n\n[2026-03-26T19:46:41.313Z] [iq] sendIQ()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:41.313Z] [stanza] send()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="e8cfc36d-798c-43c0-b02f-8e63c6871f18:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:41.313Z] [raw] TX\n<iq id="e8cfc36d-798c-43c0-b02f-8e63c6871f18:sendIQ" to="kazue@xmpp.jp" type="get" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:41.581Z] [raw] RX\n<iq type='error' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='95dc4eec-67fb-4c1e-9f48-28fe4795c879:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='urn:xmpp:omemo:2:devicelist'/></pubsub><error type='cancel'><item-not-found xmlns='urn:ietf:params:xml:ns:xmpp-stanzas'/><text xmlns='urn:ietf:params:xml:ns:xmpp-stanzas' xml:lang='en'>Node not found</text></error></iq>\n\n[2026-03-26T19:46:41.581Z] [iq] sendIQ()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:41.581Z] [stanza] send()\n<iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="9a50fdbe-90db-4284-afbe-f6d8804d4ecb:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:41.581Z] [raw] TX\n<iq id="9a50fdbe-90db-4284-afbe-f6d8804d4ecb:sendIQ" to="kazue@xmpp.jp" type="get" xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>\n\n[2026-03-26T19:46:41.601Z] [raw] RX\n<iq type='result' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='15d9b37a-07b2-4565-90b0-927cd93425bf:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='eu.siacs.conversations.axolotl.bundles:64212584'><item id='current'><bundle xmlns='eu.siacs.conversations.axolotl'><signedPreKeyPublic signedPreKeyId='1'>BVHj6cVeWfPYuxn4P0fkwTFCqSkjreUyFUoOXV0x3Hci</signedPreKeyPublic><signedPreKeySignature>XQO22h/z/+eqlY+TERWa7pIpiFHe18aBBgNqpgLuu9SjrHcGkpJ0f3e0kjuyAGidPnTYCK5FawjEnewpP9EfCA==</signedPreKeySignature><identityKey>BTtF/95iy+suF2N4VEJ0fgKMjG9bPieXbllY0+cbWSFz</identityKey><prekeys><preKeyPublic preKeyId='17'>BURDXRPPPv5Dv4soA0/rMw7fBpZiuBhppmHJWNg6zH1a</preKeyPublic><preKeyPublic preKeyId='23'>BayX3atB6EejJkvZMVRdkXaBKoqXHVT9EK1YHJFy0eR1</preKeyPublic><preKeyPublic preKeyId='40'>BTq5LEbLYUOF045M7X0tLu3XD1zoU9gL/Ka7og8TD45v</preKeyPublic><preKeyPublic preKeyId='65'>BQ7GSFxC4XyFO+xkKp9MdAi7U6XXYElYpF6YPmYq1FQl</preKeyPublic><preKeyPublic preKeyId='70'>BRbv9997b5zVQ38AZOKo/yr62aBdbKNPTzvJGJ1Q1xog</preKeyPublic><preKeyPublic preKeyId='4'>BR7fVRHobyPmRRf99l6+JjawfPDuhGV3QEAs7Q976wJ2</preKeyPublic><preKeyPublic preKeyId='6'>BSC4dlBWsK/mJ9bpCoC4mnGGd32/acB+4O6a+gOlhXg5</preKeyPublic><preKeyPublic preKeyId='105'>BUcKjCx01ppzbMb1JJHfMXsn0CiRKT4wCdlJf5dQfTFr</preKeyPublic><preKeyPublic preKeyId='21'>BQmPK7gNhe/UerbfEyYvO6IG19IVL1Ez4GxrgchPh387</preKeyPublic><preKeyPublic preKeyId='67'>BTSjuPjuUhEew7TSgjSN6FW3O0ECZADNP0asc8ybszJA</preKeyPublic><preKeyPublic preKeyId='62'>BQalUTqZyckijXAY1wBaP+pakNmc7eZx6wfB3yj/Y71R</preKeyPublic><preKeyPublic preKeyId='66'>BbZLzTN7vgfxeBFdKqNeRmykh4V0OL7SJx3Ib6SvRFFz</preKeyPublic><preKeyPublic preKeyId='10'>BVlyvp3MQ/0LEKaCXWZFzMQo7MGflw4z3fdA/KnWRl1F</preKeyPublic> ... [truncated 27 chars]\n\n[2026-03-26T19:46:41.860Z] [raw] RX\n<iq type='result' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='04ef07ac-72fa-437f-899b-1a11a7d03c1c:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='eu.siacs.conversations.axolotl.bundles:1091998160'><item id='1'><bundle xmlns='eu.siacs.conversations.axolotl'><signedPreKeyPublic signedPreKeyId='181501648'>BdndUQMSCaYXp5MkLNGaYYy8lsHdDTg7G4VufEj3TsUc</signedPreKeyPublic><signedPreKeySignature>ZAMnOLOVF2eX2i2pQd44XuYAiNb7h/VTula17O3/pOSJpvD/oSWUaxS3cmD4hoHcGo/yRebq5jqGYgGK/kvCAg==</signedPreKeySignature><identityKey>BYl0JYQBa1aW03Lxk+wE+TY+FTd/jX9xcyF8jri8P+FB</identityKey><prekeys><preKeyPublic preKeyId='1631006296'>BYj4e/ccpisoOwnCY3zFNR0EfyN48IaoMBNjYVGQx6Q5</preKeyPublic><preKeyPublic preKeyId='1631006329'>BdGLddJdDQYP4I8KmpTlw0gAsZxMY6c7Q/puTulrpxtP</preKeyPublic><preKeyPublic preKeyId='1631006316'>BZiAJw1B2w0vfDbE+e3hltuxNbkmg7VAwH2klSq52hQa</preKeyPublic><preKeyPublic preKeyId='1631006318'>BXvbsf14hqVkEDLzxtat7v8oWZJ6IKW+7Z+U1t0S3joH</preKeyPublic><preKeyPublic preKeyId='1631006290'>BXCN5EFkwiUbwkznoWZTJDnKYblxNiuc9ClXKTpAhpY0</preKeyPublic><preKeyPublic preKeyId='1631006300'>Bag73lXZzvmw8TJYH81O5+jgeosjPgyx7UUdhV0NdlJb</preKeyPublic><preKeyPublic preKeyId='1631006275'>Bed7lo2syJtfrnPMGzRcRHu3TFb6t5DomPtIzjO+puZE</preKeyPublic><preKeyPublic preKeyId='1631006280'>BUnUEx/tsQMXRoF3JY/3G7gUbToQtXf0K9MFXc6tzVVs</preKeyPublic><preKeyPublic preKeyId='1631006357'>BT7GdQnewdSuHPX6GpJm8WyXaxmMUIsCIWDIZIksnDge</preKeyPublic><preKeyPublic preKeyId='1631006285'>BQ0qCnZgK61c20Q0dRmtYZi2ql7QNprevUkRqIuHq1Ii</preKeyPublic><preKeyPublic preKeyId='1631006298'>BeUvcS1BgkXHnlidKyp/U3GOuj0VIiiJAizpj9+Th+M+</preKeyPublic><preKeyPublic preKeyId='1631006297'>BT7QB5SbJgxvg0JR2gxvwTMCzTwiA6bF2idESQEhOa9t</preKeyPublic> ... [truncated 27 chars]\n\n[2026-03-26T19:46:41.976Z] [raw] RX\n<iq type='result' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='a281199a-a038-4a5c-89e6-6caf902b9ed0:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='eu.siacs.conversations.axolotl.bundles:753685729'><item id='1'><bundle xmlns='eu.siacs.conversations.axolotl'><signedPreKeyPublic signedPreKeyId='1349281737'>BWgNWynTnuNWF1m+NAI23LW6lnMv5Y3dnidKiMTQ58p4</signedPreKeyPublic><signedPreKeySignature>urfspMV9wumEzgI00VwIy5dTTkrxCdzc0iTVg8W6zp28C7rtZGKfsZOUS/wD2cXdUqIeR43OVcjmeuouViVmBQ==</signedPreKeySignature><identityKey>BVQeMgxOCTJOdyeAxmJ/xZBzh2rBmOCLSrynaJQ4uVVu</identityKey><prekeys><preKeyPublic preKeyId='1845321983'>BTtF2LUtLMiPk84tFvr3zhLFUSgYJFc2JEd8Arfg508p</preKeyPublic><preKeyPublic preKeyId='1845322064'>BRBHoeu9hg1xDvGjwz1CovF3sW4y1YNeVaSlaOG2Iw4p</preKeyPublic><preKeyPublic preKeyId='1845322080'>BSZ+F6cNhX5ONPnuOFrP5QNLiufJfDtMgQv1gZcdLmN6</preKeyPublic><preKeyPublic preKeyId='1845322017'>BdcYJMzI1r+T3kBkqUoUwjw2S7S+jwI/ffSS1WKfsFhF</preKeyPublic><preKeyPublic preKeyId='1845322067'>BUUpYw6+V0HnzJ7JVEywi9jguZ7+wSDasQgm+Nou1KpY</preKeyPublic><preKeyPublic preKeyId='1845322055'>BRCYjzSu1MGgSrh7R8tNwffKvS44CdCHF2dZ+CxECm0r</preKeyPublic><preKeyPublic preKeyId='1845322000'>BXxgThRHID11VRTemcX7vB8Lp8PmNMfixqSta9dSyTYO</preKeyPublic><preKeyPublic preKeyId='1845322041'>BaAAdsGO5nH+9d0VA6z0EaHC6rnR1qPkeOoUczqIIbUH</preKeyPublic><preKeyPublic preKeyId='1845322012'>Bbhehpnupykcywa278XnkmnVmQjxuKl8RmTu32taDz41</preKeyPublic><preKeyPublic preKeyId='1845321993'>BTFzTbRAl7dmvvKBje+K0W/1MOJbp30Y4CEmLWcUJmdt</preKeyPublic><preKeyPublic preKeyId='1845322039'>BZXqsUg8QB/nlpuT7P2iLmmfVK6mAAkK9HK4IdQB/C5P</preKeyPublic><preKeyPublic preKeyId='1845322079'>BaAl1z+K6keN7948xdGeuXJhPyQSNPb7vvVoHYOZJRh3</preKeyPublic> ... [truncated 27 chars]\n\n[2026-03-26T19:46:42.160Z] [stanza] send()\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>\n\n[2026-03-26T19:46:42.160Z] [raw] TX\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>\n\n[2026-03-26T19:46:42.189Z] [raw] RX\n<iq type='result' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='e8cfc36d-798c-43c0-b02f-8e63c6871f18:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='eu.siacs.conversations.axolotl.devicelist'><item id='current'><list xmlns='eu.siacs.conversations.axolotl'><device id='64212584'/><device id='1091998160'/><device id='753685729'/></list></item></items></pubsub></iq>\n\n[2026-03-26T19:46:42.395Z] [raw] RX\n<iq type='result' xmlns='jabber:client' from='kazue@xmpp.jp' to='derberg@pimux.de/XYGuvUCUKFrM' id='9a50fdbe-90db-4284-afbe-f6d8804d4ecb:sendIQ' xml:lang='en'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items node='eu.siacs.conversations.axolotl.devicelist'><item id='current'><list xmlns='eu.siacs.conversations.axolotl'><device id='64212584'/><device id='1091998160'/><device id='753685729'/></list></item></items></pubsub></iq>\n\n[2026-03-26T19:46:44.420Z] [stanza] send()\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>\n\n[2026-03-26T19:46:44.420Z] [raw] TX\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://jabber.org/protocol/chatstates"/></message>\n\n[2026-03-26T19:46:45.945Z] [stanza] send()\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://jabber.org/protocol/chatstates"/></message>\n\n[2026-03-26T19:46:45.946Z] [raw] TX\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://jabber.org/protocol/chatstates"/></message>\n\n[2026-03-26T19:46:45.966Z] [stanza] send()\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://jabber.org/protocol/chatstates"/></message>\n\n[2026-03-26T19:46:45.967Z] [raw] TX\n<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://jabber.org/protocol/chatstates"/></message>\nkazue\n20:46\nOMEMO FAILED\n\nReply\nQuote\nMark Unread\nPin\n[This message is OMEMO encrypted] Console when I send a encrypted message from a different client to shitcord67 user: libsignal_protocol.min.js:22851 Invalid asm.js: Expected shift of word size\nlibsignal_protocol.min.js:136 pre-main prep time: 1 ms\nlibsignal_protocol.min.js:35699 closing session\nlibsignal_protocol.min.js:36320 New remote ephemeral key
+
+[2026-03-26T20:03:42Z] Missing OMEMO key for device 7370. system messages OMEMO enabled. OMEMO devices for kazue@xmpp.jp: 64212584, 1091998160, 753685729. Also tried refresh. Console shows libsignal asm.js warning and electron startup log.
+
+[2026-03-26T20:07:37Z] User wants messages visible after re-login with same account (persist OMEMO across logout).
+
+[2026-03-26T20:08:25Z] I might logout and then login with a different account. That different account should ofc not see the messages. But when that account then is logged out and I relogin with my first account then that first account should have access to its messages
+
+[2026-03-26T20:08:53Z] You should investigate what other XMPP clients do to store data, to provide a good UX.
+
+[2026-03-26T20:09:35Z] We also have a directory xmppmessengers where XMPP clients have been forked...
+
+[2026-03-26T20:10:34Z] You decide on what makes sense UX wise and implement that.
+[2026-03-26T20:13:31Z] 
+You decide on what makes sense UX wise and implement that.
+
+[2026-03-26T21:45:48Z] libsignal_protocol.min.js:22851 Invalid asm.js: Expected shift of word size
+libsignal_protocol.min.js:136 pre-main prep time: 1 ms
+libsignal_protocol.min.js:36320 New remote ephemeral key
+libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+    at libsignal_protocol.min.js:36264:25 [This message is OMEMO encrypted]
+kazue
+21:01
+OMEMO FAILED
+😂
+👍
+❤️
+☺
+Reply
+Quote
+Mark Unread
+Pin
+[This message is OMEMO encrypted]
+system
+22:40
+😂
+👍
+❤️
+☺
+Reply
+Quote
+Mark Unread
+Pin
+OMEMO warning: your local device 4890 is missing from your server device list. Try /omemo refresh and ask the peer to refresh their device list.
+system
+22:40
+😂
+👍
+❤️
+☺
+Reply
+Quote
+Mark Unread
+Pin
+OMEMO warning: your local device 4890 is missing from your server device list. Try /omemo refresh and ask the peer to refresh their device list.
+derberg
+22:41
+✓✓ Read
+😂
+👍
+❤️
+☺
+Reply
+Quote
+Mark Unread
+Pin
+Edit
+Delete
+/omemo self
+system
+22:41
+😂
+👍
+❤️
+☺
+Reply
+Quote
+Mark Unread
+Pin
+OMEMO enabled for this DM.
+derberg
+22:41
+OMEMO
+✓✓ Read
+😂
+👍
+❤️
+☺
+Reply
+Quote
+Mark Unread
+Pin
+Edit
+Delete
+/omemo self
+Seen
+kazue
+22:41
+OMEMO FAILED
+HINTS
+😂
+👍
+❤️
+☺
+Reply
+Quote
+Mark Unread
+Pin
+[Encrypted XMPP message (OMEMO) — decryption is not available in this client yet] ...
+
+[2026-03-26T22:06:39Z] {\n  "relayMode": "xmpp",\n  "relayStatus": "connected",\n  "xmppConnected": true,\n  "xmppRuntimeReady": true,\n  "xmppRuntimeLastError": "",\n  "filter": "all",\n  "search": "kazue@xmpp.jp",\n  "paused": false,\n  "eventsTotal": 600,\n  "eventsShown": 141,\n  "activeCallSessions": []\n} ... Btw. are the /omemo commands really executed? Also why are they sent as regular messages to other people?
+
+[2026-03-26T22:11:45Z] Well maybe as a context menu option where the other omemo stuff is, aka behind the lock symbol?
+
+[2026-03-26T22:26:24Z] OMEMO local device ID: 5008 · Server device list contains many foreign peer device IDs, indicating self devicelist corruption. Need trace where own device list is polluted.
+
+[2026-03-26T22:30:04Z] If you think that makes sense
+
+[2026-03-26T22:39:29Z] Republish succeeded but peer still misses device 5008; likely need explicit repair/prune of own OMEMO device list to current device only.
+
+[2026-03-26T22:41:07Z] system
+23:35
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+OMEMO republished. Current local device 5008 is present on your server list. Ask the peer to refresh OMEMO devices if they still miss it.
+￼derberg
+23:36
+OMEMO
+✓✓ Read
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+ES
+23:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+ES
+￼kazue
+23:36
+OMEMO
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+ESSO
+￼system
+23:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+OMEMO enabled for this DM.
+￼derberg
+23:36
+OMEMO
+✓✓ Read
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+BRU
+Seen
+￼kazue
+23:36
+OMEMO
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+SIS
+23:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+[Encrypted XMPP message (OMEMO) — decryption is not available in this client yet] libsignal_protocol.min.js:22851 Invalid asm.js: Expected shift of word size
+libsignal_protocol.min.js:136 pre-main prep time: 1 ms
+libsignal_protocol.min.js:35868 Duplicate PreKeyMessage for session
+libsignal_protocol.min.js:35868 Duplicate PreKeyMessage for session
+libsignal_protocol.min.js:35868 Duplicate PreKeyMessage for session
+libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+    at libsignal_protocol.min.js:36264:25
+(anonymous) @ libsignal_protocol.min.js:36264
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36261
+Promise.then
+doDecryptWhisperMessage @ libsignal_protocol.min.js:36255
+(anonymous) @ libsignal_protocol.min.js:36218
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36216
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36204
+Promise.then
+queueJobForNumber @ libsignal_protocol.min.js:36458
+decryptPreKeyWhisperMessage @ libsignal_protocol.min.js:36202
+xmppOmemoDecryptPayload @ xep-transport-interop.js:1805
+await in xmppOmemoDecryptPayload
+(anonymous) @ xep-0384_decrypt-flow.js:37
+xmppOmemoTryDecryptIntoMessageCore @ xep-0384_decrypt-flow.js:92
+runDecrypt @ xep-transport-interop.js:1841
+xmppOmemoTryDecryptIntoMessage @ xep-transport-interop.js:1904
+tryDecrypt @ xep-relay-connection-flow.js:764
+handleXmppIncomingMessage @ xep-relay-connection-flow.js:779
+(anonymous) @ xep-relay-connection-flow.js:1281
+(anonymous) @ xep-relay-connection-flow.js:1280
+run @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+v @ strophe.umd.min.js:1
+_dataRecv @ strophe.umd.min.js:1
+_onMessage @ strophe.umd.min.js:1
+socket.onmessage @ strophe.umd.min.js:1
+libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+    at libsignal_protocol.min.js:36264:25
+(anonymous) @ libsignal_protocol.min.js:36264
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36261
+Promise.then
+doDecryptWhisperMessage @ libsignal_protocol.min.js:36255
+(anonymous) @ libsignal_protocol.min.js:36218
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36216
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36204
+Promise.then
+queueJobForNumber @ libsignal_protocol.min.js:36458
+decryptPreKeyWhisperMessage @ libsignal_protocol.min.js:36202
+xmppOmemoDecryptPayload @ xep-transport-interop.js:1805
+await in xmppOmemoDecryptPayload
+(anonymous) @ xep-0384_decrypt-flow.js:37
+xmppOmemoTryDecryptIntoMessageCore @ xep-0384_decrypt-flow.js:92
+runDecrypt @ xep-transport-interop.js:1841
+xmppOmemoTryDecryptIntoMessage @ xep-transport-interop.js:1904
+tryDecrypt @ xep-relay-connection-flow.js:764
+handleXmppIncomingMessage @ xep-relay-connection-flow.js:779
+(anonymous) @ xep-relay-connection-flow.js:1281
+(anonymous) @ xep-relay-connection-flow.js:1280
+run @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+v @ strophe.umd.min.js:1
+_dataRecv @ strophe.umd.min.js:1
+_onMessage @ strophe.umd.min.js:1
+socket.onmessage @ strophe.umd.min.js:1
+libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+    at libsignal_protocol.min.js:36264:25
+(anonymous) @ libsignal_protocol.min.js:36264
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36261
+Promise.then
+doDecryptWhisperMessage @ libsignal_protocol.min.js:36255
+(anonymous) @ libsignal_protocol.min.js:36218
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36216
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36204
+Promise.then
+queueJobForNumber @ libsignal_protocol.min.js:36458
+decryptPreKeyWhisperMessage @ libsignal_protocol.min.js:36202
+xmppOmemoDecryptPayload @ xep-transport-interop.js:1805
+await in xmppOmemoDecryptPayload
+(anonymous) @ xep-0384_decrypt-flow.js:37
+xmppOmemoTryDecryptIntoMessageCore @ xep-0384_decrypt-flow.js:92
+runDecrypt @ xep-transport-interop.js:1841
+xmppOmemoTryDecryptIntoMessage @ xep-transport-interop.js:1904
+tryDecrypt @ xep-relay-connection-flow.js:764
+handleXmppIncomingMessage @ xep-relay-connection-flow.js:779
+(anonymous) @ xep-relay-connection-flow.js:1281
+(anonymous) @ xep-relay-connection-flow.js:1280
+run @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+v @ strophe.umd.min.js:1
+_dataRecv @ strophe.umd.min.js:1
+_onMessage @ strophe.umd.min.js:1
+socket.onmessage @ strophe.umd.min.js:1
+libsignal_protocol.min.js:36264 Uncaught (in promise) 
+(anonymous) @ libsignal_protocol.min.js:36264
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36261
+Promise.then
+doDecryptWhisperMessage @ libsignal_protocol.min.js:36255
+decryptWithSessionList @ libsignal_protocol.min.js:36150
+(anonymous) @ libsignal_protocol.min.js:36170
+Promise.then
+(anonymous) @ libsignal_protocol.min.js:36165
+Promise.then
+queueJobForNumber @ libsignal_protocol.min.js:36458
+decryptWhisperMessage @ libsignal_protocol.min.js:36163
+xmppOmemoDecryptPayload @ xep-transport-interop.js:1806
+await in xmppOmemoDecryptPayload
+(anonymous) @ xep-0384_decrypt-flow.js:37
+xmppOmemoTryDecryptIntoMessageCore @ xep-0384_decrypt-flow.js:92
+runDecrypt @ xep-transport-interop.js:1841
+xmppOmemoTryDecryptIntoMessage @ xep-transport-interop.js:1904
+tryDecrypt @ xep-relay-connection-flow.js:764
+handleXmppIncomingMessage @ xep-relay-connection-flow.js:779
+(anonymous) @ xep-relay-connection-flow.js:1281
+(anonymous) @ xep-relay-connection-flow.js:1280
+run @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+(anonymous) @ strophe.umd.min.js:1
+v @ strophe.umd.min.js:1
+_dataRecv @ strophe.umd.min.js:1
+_onMessage @ strophe.umd.min.js:1
+socket.onmessage @ strophe.umd.min.js:1
+strophe.umd.min.js:1 [Violation] 'message' handler took 529ms
+ derberg
+23:23
+HINTS
+✓✓ Read
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+Bruder was
+23:23
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+ja
+￼kazue
+23:24
+OMEMO FAILED
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+[This message is OMEMO encrypted]
+￼derberg
+23:24
+OMEMO FAILED
+✓✓ Read
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+[This message is OMEMO encrypted]
+￼kazue
+23:24
+OMEMO FAILED
+HINTS
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+[Encrypted XMPP message (OMEMO) — decryption is not available in this client yet]
+23:24
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+[This message is OMEMO encrypted]
+￼derberg
+23:36
+OMEMO FAILED
+✓✓ Read
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+[This message is OMEMO encrypted]
+23:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+￼Edit
+￼Delete
+ES
+Seen
+￼kazue
+23:36
+OMEMO FAILED
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+[This message is OMEMO encrypted]
+23:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+[This message is OMEMO encrypted]
+23:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+[Encrypted XMPP message (OMEMO) — decryption is not available in this client yet]
+￼system
+23:38
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+OMEMO warning: peer did not include your device 5008. Ask them to refresh their OMEMO device list.
+￼system
+23:38
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+OMEMO local device ID: 5008 · Server device list: 11264, 8768, 3139, 1694076157, 16261, 9478, 8520, 7370, 6156, 9997, 1077279780, 11473, 10707, 342, 1634511220, 8345, 9753, 13913, 4890, 2204, 14428, 350, 14302, 5727, 8928, 10464, 1953, 965557803, 13291, 12972, 40884034, 16045, 288048070, 12976, 1201, 49, 14321, 10804, 840462060, 6772, 822, 13431, 14071, 2874, 7930, 14783, 14463, 11007, 8399, 5008 · Local ID present on server
+￼system
+23:38
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+OMEMO enabled for this DM.
+
+[2026-03-26T22:44:37Z] Maybe commit it
+[2026-03-26T22:46:34Z] It looks like when a Movim user starts a call and I accept it on shitcord67, that my  shitcord67 user does not really seem to join the call?: {    "relayMode": "xmpp",    "relayStatus": "connected",    "xmppConnected": true,    "xmppRuntimeReady": true,    "xmppRuntimeLastError": "",    "filter": "all",    "search": "kazue@xmpp.jp",    "paused": true,    "eventsTotal": 600,    "eventsShown": 91,    "activeCallSessions": [      {        "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",        "sid": "3de68fd1",        "peer": "kazue@xmpp.jp",        "direction": "incoming",        "state": "peer-left",        "media": [],        "localRole": "responder",        "remoteRole": "initiator",        "pendingLocalRenegotiation": false,        "queuedTask": false,        "pendingReprime": false,        "localCandidates": 0,        "remoteCandidates": 0,        "createdAt": "2026-03-26T19:12:38.192Z"      }    ]  }    [2026-03-26T19:12:15.708Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:15.708Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:17.823Z] [raw] RX  <message xml:lang='en' to='derberg@pimux.de' xmlns='jabber:client' from='kazue@xmpp.jp/  Movim.r6xMa7.5-2SOya/jR'><propose xmlns='urn:xmpp:jingle-message:0' id='3de68fd1-4829-  481a-ae56-70f5bb91f533'><description media='audio' xmlns='urn:xmpp:jingle:apps:rtp:1'/  ></propose><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b8f-cd90-  76bf-bbd1-9f5ceb9f21a3'/></message>    [2026-03-26T19:12:17.823Z] [message] Incoming stanza  <message xmlns="jabber:client" xml:lang="en" to="derberg@pimux.de" from="kazue@xmpp.jp/  Movim.r6xMa7.5-2SOya/jR"><propose xmlns="urn:xmpp:jingle-message:0" id="3de68fd1-4829-  481a-ae56-70f5bb91f533"><description xmlns="urn:xmpp:jingle:apps:rtp:1" media="audio"/  ></propose><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b8f-cd90-  76bf-bbd1-9f5ceb9f21a3"/></message>    [2026-03-26T19:12:17.824Z] [call] Incoming Jingle Message  {    "from": "kazue@xmpp.jp",    "action": "propose",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "media": [      "audio"    ],    "raw": "<message xmlns=\"jabber:client\" xml:lang=\"en\" to=\"derberg@pimux.de\"  from=\"kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR\"><propose xmlns=\"urn:xmpp:jingle-  message:0\" id=\"3de68fd1-4829-481a-ae56-70f5bb91f533\"><description  xmlns=\"urn:xmpp:jingle:apps:rtp:1\" media=\"audio\"/></propose><stanza-id  xmlns=\"urn:xmpp:sid:0\" by=\"derberg@pimux.de\" id=\"019d2b8f-cd90-76bf-bbd1-  9f5ceb9f21a3\"/></message>"  }    [2026-03-26T19:12:17.825Z] [stanza] send()  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><ringing xmlns="urn:xmpp:jingle-message:1" id="3de68fd1-4829-  481a-ae56-70f5bb91f533"/></message>    [2026-03-26T19:12:17.825Z] [raw] TX  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><ringing id="3de68fd1-4829-481a-ae56-70f5bb91f533"  xmlns="urn:xmpp:jingle-message:1"/></message>    [2026-03-26T19:12:17.825Z] [stanza] send()  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><ringing xmlns="urn:xmpp:jingle-message:0" id="3de68fd1-4829-  481a-ae56-70f5bb91f533"/></message>    [2026-03-26T19:12:17.825Z] [raw] TX  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><ringing id="3de68fd1-4829-481a-ae56-70f5bb91f533"  xmlns="urn:xmpp:jingle-message:0"/></message>    [2026-03-26T19:12:17.825Z] [call] Sent Jingle Message  {    "to": "kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR",    "action": "ringing",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "xmlns": "urn:xmpp:jingle-message:1,urn:xmpp:jingle-message:0",    "media": []  }    [2026-03-26T19:12:17.825Z] [call] Sent Jingle Message compatibility fallback  {    "to": "kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR",    "action": "ringing",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "namespaces": [      "urn:xmpp:jingle-message:1",      "urn:xmpp:jingle-message:0"    ]  }    [2026-03-26T19:12:17.825Z] [message] Sent XMPP jingle-message action  {    "to": "kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR",    "action": "ringing",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533"  }    [2026-03-26T19:12:17.906Z] [message] Received XMPP jingle propose  {    "from": "kazue@xmpp.jp",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "media": "audio"  }    [2026-03-26T19:12:17.958Z] [raw] RX  <message type='chat' to='derberg@pimux.de/0VM_yQ96WVzR' xmlns='jabber:client'  from='derberg@pimux.de'><sent xmlns='urn:xmpp:carbons:2'><forwarded  xmlns='urn:xmpp:forward:0'><message type='chat' xmlns='jabber:client'  from='derberg@pimux.de/Cheogram~FGHQiAQdTdfV' to='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR' xml:lang='en'><ringing xmlns='urn:xmpp:jingle-message:0' id='3de68fd1-4829-481a-  ae56-70f5bb91f533'/><store xmlns='urn:xmpp:hints'/><stanza-id by='derberg@pimux.de'  xmlns='urn:xmpp:sid:0' id='019d2b8f-ce1b-7e32-b644-63a2913311f9'/></message></  forwarded></sent></message>    [2026-03-26T19:12:17.958Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" to="derberg@pimux.de/0VM_yQ96WVzR"  from="derberg@pimux.de"><sent xmlns="urn:xmpp:carbons:2"><forwarded  xmlns="urn:xmpp:forward:0"><message xmlns="jabber:client" type="chat"  from="derberg@pimux.de/Cheogram~FGHQiAQdTdfV" to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR" xml:lang="en"><ringing xmlns="urn:xmpp:jingle-message:0" id="3de68fd1-4829-481a-  ae56-70f5bb91f533"/><store xmlns="urn:xmpp:hints"/><stanza-id xmlns="urn:xmpp:sid:0"  by="derberg@pimux.de" id="019d2b8f-ce1b-7e32-b644-63a2913311f9"/></message></  forwarded></sent></message>    [2026-03-26T19:12:18.581Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:18.581Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:19.355Z] [stanza] send()  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><proceed xmlns="urn:xmpp:jingle-message:1" id="3de68fd1-4829-  481a-ae56-70f5bb91f533"/></message>    [2026-03-26T19:12:19.355Z] [raw] TX  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><proceed id="3de68fd1-4829-481a-ae56-70f5bb91f533"  xmlns="urn:xmpp:jingle-message:1"/></message>    [2026-03-26T19:12:19.355Z] [stanza] send()  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><proceed xmlns="urn:xmpp:jingle-message:0" id="3de68fd1-4829-  481a-ae56-70f5bb91f533"/></message>    [2026-03-26T19:12:19.355Z] [raw] TX  <message to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="chat"  xmlns="jabber:client"><proceed id="3de68fd1-4829-481a-ae56-70f5bb91f533"  xmlns="urn:xmpp:jingle-message:0"/></message>    [2026-03-26T19:12:19.355Z] [call] Sent Jingle Message  {    "to": "kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR",    "action": "proceed",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "xmlns": "urn:xmpp:jingle-message:1,urn:xmpp:jingle-message:0",    "media": []  }    [2026-03-26T19:12:19.355Z] [call] Sent Jingle Message compatibility fallback  {    "to": "kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR",    "action": "proceed",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "namespaces": [      "urn:xmpp:jingle-message:1",      "urn:xmpp:jingle-message:0"    ]  }    [2026-03-26T19:12:19.355Z] [message] Sent XMPP jingle-message action  {    "to": "kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR",    "action": "proceed",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533"  }    [2026-03-26T19:12:19.355Z] [iq] sendIQ()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><query xmlns="http://  jabber.org/protocol/disco#info"/></iq>    [2026-03-26T19:12:19.355Z] [stanza] send()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="05f58e9e-d2d9-4336-ab08-  353f00c7e94e:sendIQ"><query xmlns="http://jabber.org/protocol/disco#info"/></iq>    [2026-03-26T19:12:19.355Z] [raw] TX  <iq id="05f58e9e-d2d9-4336-ab08-353f00c7e94e:sendIQ" to="kazue@xmpp.jp" type="get"  xmlns="jabber:client"><query xmlns="http://jabber.org/protocol/disco#info"/></iq>    [2026-03-26T19:12:19.922Z] [raw] RX  <iq type='result' xmlns='jabber:client' id='05f58e9e-d2d9-4336-ab08-  353f00c7e94e:sendIQ' to='derberg@pimux.de/0VM_yQ96WVzR' xml:lang='en'  from='kazue@xmpp.jp'><query xmlns='http://jabber.org/protocol/disco#info'><identity  type='pep' category='pubsub'/><identity type='registered' category='account'/><feature  var='http://jabber.org/protocol/disco#info'/><feature var='http://jabber.org/protocol/  disco#items'/><feature var='vcard-temp'/><feature var='urn:xmpp:bookmarks-  conversion:0'/><feature var='urn:xmpp:bookmarks:1#compat'/><feature  var='urn:xmpp:bookmarks:1#compat-pep'/><feature  var='urn:ejabberd:block-strangers'/  ><feature var='urn:xmpp:pep-vcard-conversion:0'/><feature var='msgoffline'/><feature  var='http://jabber.org/protocol/offline'/><feature var='http://jabber.org/protocol/  pubsub'/><feature var='http://jabber.org/protocol/rsm'/><feature var='http://  jabber.org/protocol/pubsub#create-nodes'/><feature var='http://jabber.org/protocol/  pubsub#auto-create'/><feature var='http://jabber.org/protocol/pubsub#auto-subscribe'/  ><feature var='http://jabber.org/protocol/pubsub#config-node'/><feature var='http://  jabber.org/protocol/pubsub#config-node-max'/><feature var='http://jabber.org/protocol/  pubsub#delete-nodes'/><feature var='http://jabber.org/protocol/pubsub#delete-items'/  ><feature var='http://jabber.org/protocol/pubsub#filtered-notifications'/><feature  var='http://jabber.org/protocol/pubsub#item-ids'/><feature var='http://jabber.org/  protocol/pubsub#modify-affiliations'/><feature var='http://jabber.org/protocol/  pubsub#multi-items'/><feature var='http://jabber.org/protocol/pubsub#outcast-  affiliation'/><feature var='http://jabber.org/protocol/pubsub#persistent-items'/  ><feature var='http://jabber.org/protocol/pubsub#publish'/><feature var='http://  jabber.org/protocol/pubsub#publi ... [truncated 26 chars]    [2026-03-26T19:12:19.923Z] [call] Call interop check for incoming propose  {    "peer": "kazue@xmpp.jp",    "ready": false,    "features": [      "http://jabber.org/protocol/disco#info",      "http://jabber.org/protocol/disco#items",      "vcard-temp",      "urn:xmpp:bookmarks-conversion:0",      "urn:xmpp:bookmarks:1#compat",      "urn:xmpp:bookmarks:1#compat-pep",      "urn:ejabberd:block-strangers",      "urn:xmpp:pep-vcard-conversion:0",      "msgoffline",      "http://jabber.org/protocol/offline",      "http://jabber.org/protocol/pubsub",      "http://jabber.org/protocol/rsm",      "http://jabber.org/protocol/pubsub#create-nodes",      "http://jabber.org/protocol/pubsub#auto-create",      "http://jabber.org/protocol/pubsub#auto-subscribe",      "http://jabber.org/protocol/pubsub#config-node",      "http://jabber.org/protocol/pubsub#config-node-max",      "http://jabber.org/protocol/pubsub#delete-nodes",      "http://jabber.org/protocol/pubsub#delete-items",      "http://jabber.org/protocol/pubsub#filtered-notifications",      "http://jabber.org/protocol/pubsub#item-ids",      "http://jabber.org/protocol/pubsub#modify-affiliations",      "http://jabber.org/protocol/pubsub#multi-items",      "http://jabber.org/protocol/pubsub#outcast-affiliation",      "http://jabber.org/protocol/pubsub#persistent-items",      "http://jabber.org/protocol/pubsub#publish",      "http://jabber.org/protocol/pubsub#publish-options",      "http://jabber.org/protocol/pubsub#purge-nodes",      "http://jabber.org/protocol/pubsub#retract-items",      "http://jabber.org/protocol/pubsub#retrieve-affiliations",      "http://jabber.org/protocol/pubsub#retrieve-items",      "http://jabber.org/protocol/pubsub#retrieve-subscriptions",      "http://jabber.org/protocol/pubsub#subscribe",      "http://jabber.org/protocol/commands"    ]  }    [2026-03-26T19:12:21.555Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:21.555Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:21.939Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:21.939Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:23.595Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:23.595Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:26.840Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:26.840Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:34.995Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:34.995Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:37.925Z] [raw] RX  <message xml:lang='en' to='derberg@pimux.de' xmlns='jabber:client' from='kazue@xmpp.jp/  Movim.r6xMa7.5-2SOya/jR'><finish xmlns='urn:xmpp:jingle-message:0' id='3de68fd1-4829-  481a-ae56-70f5bb91f533'><reason xmlns='urn:xmpp:jingle:1'><success/><text>Success</  text></reason></finish><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0'  id='019d2b90-1c1a-78da-8269-656bd3b4c595'/></message>    [2026-03-26T19:12:37.925Z] [message] Incoming stanza  <message xmlns="jabber:client" xml:lang="en" to="derberg@pimux.de" from="kazue@xmpp.jp/  Movim.r6xMa7.5-2SOya/jR"><finish xmlns="urn:xmpp:jingle-message:0" id="3de68fd1-4829-  481a-ae56-70f5bb91f533"><reason xmlns="urn:xmpp:jingle:1"><success/><text>Success</  text></reason></finish><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de"  id="019d2b90-1c1a-78da-8269-656bd3b4c595"/></message>    [2026-03-26T19:12:37.925Z] [call] Incoming Jingle Message  {    "from": "kazue@xmpp.jp",    "action": "finish",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "media": [],    "raw": "<message xmlns=\"jabber:client\" xml:lang=\"en\" to=\"derberg@pimux.de\"  from=\"kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR\"><finish xmlns=\"urn:xmpp:jingle-  message:0\" id=\"3de68fd1-4829-481a-ae56-70f5bb91f533\"><reason  xmlns=\"urn:xmpp:jingle:1\"><success/><text>Success</text></reason></finish><stanza-id  xmlns=\"urn:xmpp:sid:0\" by=\"derberg@pimux.de\" id=\"019d2b90-1c1a-78da-8269-  656bd3b4c595\"/></message>"  }    [2026-03-26T19:12:37.926Z] [message] Received XMPP jingle stop action  {    "from": "kazue@xmpp.jp",    "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "action": "retract"  }    [2026-03-26T19:12:38.190Z] [raw] RX  <iq type='set' xmlns='jabber:client' id='M5H3gu' to='derberg@pimux.de/0VM_yQ96WVzR'  xml:lang='en' from='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR'><jingle action='session-  terminate' xmlns='urn:xmpp:jingle:1' sid='3de68fd1-4829-481a-ae56-  70f5bb91f533'><reason><success/></reason></jingle></iq>    [2026-03-26T19:12:38.191Z] [call] Incoming Jingle IQ  {    "from": "kazue@xmpp.jp",    "action": "session-terminate",    "sid": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "media": [],    "raw": "<iq xmlns=\"jabber:client\" type=\"set\" id=\"M5H3gu\"  to=\"derberg@pimux.de/0VM_yQ96WVzR\" xml:lang=\"en\" from=\"kazue@xmpp.jp/  Movim.r6xMa7.5-2SOya/jR\"><jingle xmlns=\"urn:xmpp:jingle:1\" action=\"session-  terminate\" sid=\"3de68fd1-4829-481a-ae56-70f5bb91f533\"><reason><success/></reason></  jingle></iq>"  }    [2026-03-26T19:12:38.191Z] [stanza] send()  <iq type="result" id="M5H3gu" to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR"  xmlns="jabber:client"/>    [2026-03-26T19:12:38.192Z] [raw] TX  <iq id="M5H3gu" to="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR" type="result"  xmlns="jabber:client"/>    [2026-03-26T19:12:38.232Z] [iq] Received XMPP jingle session-terminate  {    "from": "kazue@xmpp.jp",    "sid": "3de68fd1-4829-481a-ae56-70f5bb91f533",    "reason": "success"  }    [2026-03-26T19:12:39.244Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:39.244Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:42.743Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:42.743Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:44.828Z] [iq] sendIQ()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://  jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></  pubsub></iq>    [2026-03-26T19:12:44.828Z] [stanza] send()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="ac263473-2bb3-4659-9d5f-  f0f9173ec560:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items  node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>    [2026-03-26T19:12:44.828Z] [raw] TX  <iq id="ac263473-2bb3-4659-9d5f-f0f9173ec560:sendIQ" to="kazue@xmpp.jp" type="get"  xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items  node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>    [2026-03-26T19:12:45.283Z] [raw] RX  <iq type='result' xmlns='jabber:client' id='ac263473-2bb3-4659-9d5f-  f0f9173ec560:sendIQ' to='derberg@pimux.de/0VM_yQ96WVzR' xml:lang='en'  from='kazue@xmpp.jp'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items  node='eu.siacs.conversations.axolotl.devicelist'><item id='current'><list  xmlns='eu.siacs.conversations.axolotl'><device id='64212584'/><device id='1091998160'/  ><device id='753685729'/></list></item></items></pubsub></iq>    [2026-03-26T19:12:49.849Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:49.850Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:50.834Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:50.835Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:51.165Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:51.165Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:53.155Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" id="s67-5cc604a8-685"  xmlns="jabber:client"><body>This message is encrypted with OMEMO.</body><origin-id  xmlns="urn:xmpp:sid:0" id="s67-origin-31185bc9-3b3"/><no-store xmlns="urn:xmpp:hints"/>  <no-permanent-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><no-  permanent-copy xmlns="urn:xmpp:hints"/><encrypted  xmlns="eu.siacs.conversations.axolotl"><header sid="10707"><key rid="49"  prekey="1">MyjTUwgaMAESIQV24xzd+f0ZNo8aDuVaPk8Naf1fE+4PdYS6KNdwXrLicRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEF7+JbZOTOg6EDiNb37FgIABoba/LWmIREKfdg/  iKrb2QQABgAIjC4U2DmmvtNHlUnfgfKP9s+jYZb4LDGqc459zWvUeQdfCAAd7hus1myMbr3hwNcBXvxpJIxjtpj  Nw==</key><key rid="342"  prekey="1">MyjTUwgCMAESIQVuw1OBDO6RP18n3ppACFg6JBF6togHk9BLMcMh6emVVRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFmA2AUGbwNIab/  iSzZo8HYqeDj8MOoPQrV86lZX6aSUgQABgAIjBoaCIPUCLC11bROhb8ecIKnZpqFrHktyXH2zknZcUuQxTiP6Ll  9aU9kjNET09R62mD6PjYJkR9gQ==</key><key rid="350"  prekey="1">MyjTUwgMMAESIQU8COV6VOS2q3bKcci2BmB0233iAYF2pMxOy2qmfhbefRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFpf6pqOnsHmun062hkAFXqKtWuP7LtVFqgId29of1/  UcQABgAIjARCYH1q0OXXCeG1oJ63k/  OC0DE6frKsXDMuQQ+b0dDgwdMq2s8Pu49JDDP8lgR+mInTGtA/9GYDw==</key><key rid="822"  prekey="1">MyjTUwgPMAESIQUoBNjejQ5yj4GhxIdIQyrWMpJd2WE+KNQq6RrCdc9kIRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFJA1przXckyG4YYJsK9tMzkfD3Z7GLlQig2orEGZbNjoQABgAIjA  X4GuuGcJ19jitTfm6MtzNFWFHN83wDjuZ/7j8HbufFx3TyJ96NJtHwKF2Efsoh4616YtoySUIlw==</key><key  rid="1201" prekey="1">MyjTUwgcMAESIQUmmPZ9nWQXr2fOZ/  oL9ytNItASTHAtyGEEb6adHsIMXhohBapsIs7pztbZZtNmdHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFgBFpF  Y1SBoIQpZGUDn4QKqfGP4TCEs8803n20xux0xsQABgAIjDIPM5k+cTPtZORHIZ7b31borgaBfMR/  jVsWY0Yy1WPlj1i/CQB2RHjA/BskgU8YFXffiqpth5KWA==</key><key rid="1953" pr ... [truncated  28 chars]    [2026-03-26T19:12:53.155Z] [raw] TX  <message id="s67-5cc604a8-685" to="kazue@xmpp.jp" type="chat"  xmlns="jabber:client"><body>This message is encrypted with OMEMO.</body><origin-id  id="s67-origin-31185bc9-3b3" xmlns="urn:xmpp:sid:0"/><no-store xmlns="urn:xmpp:hints"/>  <no-permanent-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><no-  permanent-copy xmlns="urn:xmpp:hints"/><encrypted  xmlns="eu.siacs.conversations.axolotl"><header sid="10707"><key prekey="1"  rid="49">MyjTUwgaMAESIQV24xzd+f0ZNo8aDuVaPk8Naf1fE+4PdYS6KNdwXrLicRohBapsIs7pztbZZtNmdH  j4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEF7+JbZOTOg6EDiNb37FgIABoba/LWmIREKfdg/  iKrb2QQABgAIjC4U2DmmvtNHlUnfgfKP9s+jYZb4LDGqc459zWvUeQdfCAAd7hus1myMbr3hwNcBXvxpJIxjtpj  Nw==</key><key prekey="1"  rid="342">MyjTUwgCMAESIQVuw1OBDO6RP18n3ppACFg6JBF6togHk9BLMcMh6emVVRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFmA2AUGbwNIab/  iSzZo8HYqeDj8MOoPQrV86lZX6aSUgQABgAIjBoaCIPUCLC11bROhb8ecIKnZpqFrHktyXH2zknZcUuQxTiP6Ll  9aU9kjNET09R62mD6PjYJkR9gQ==</key><key prekey="1"  rid="350">MyjTUwgMMAESIQU8COV6VOS2q3bKcci2BmB0233iAYF2pMxOy2qmfhbefRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFpf6pqOnsHmun062hkAFXqKtWuP7LtVFqgId29of1/  UcQABgAIjARCYH1q0OXXCeG1oJ63k/  OC0DE6frKsXDMuQQ+b0dDgwdMq2s8Pu49JDDP8lgR+mInTGtA/9GYDw==</key><key prekey="1"  rid="822">MyjTUwgPMAESIQUoBNjejQ5yj4GhxIdIQyrWMpJd2WE+KNQq6RrCdc9kIRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFJA1przXckyG4YYJsK9tMzkfD3Z7GLlQig2orEGZbNjoQABgAIjAX  4GuuGcJ19jitTfm6MtzNFWFHN83wDjuZ/7j8HbufFx3TyJ96NJtHwKF2Efsoh4616YtoySUIlw==</key><key  prekey="1" rid="1201">MyjTUwgcMAESIQUmmPZ9nWQXr2fOZ/  oL9ytNItASTHAtyGEEb6adHsIMXhohBapsIs7pztbZZtNmdHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFgBFpF  Y1SBoIQpZGUDn4QKqfGP4TCEs8803n20xux0xsQABgAIjDIPM5k+cTPtZORHIZ7b31borgaBfMR/  jVsWY0Yy1WPlj1i/CQB2RHjA/BskgU8YFXffiqpth5KWA==</key><key prekey="1" ri ... [truncated  28 chars]    [2026-03-26T19:12:53.773Z] [raw] RX  <message xmlns='jabber:client' from='kazue@xmpp.jp/dino.b35389dc'  to='derberg@pimux.de/0VM_yQ96WVzR' id='eacb3de4-653e-4657-a238-61b5d615d418'  xml:lang='en'><received xmlns='urn:xmpp:receipts' id='s67-origin-31185bc9-3b3'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b90-5a04-7edf-a9ad-  1757f7cdf37e'/></message>    [2026-03-26T19:12:53.773Z] [message] Incoming stanza  <message xmlns="jabber:client" from="kazue@xmpp.jp/dino.b35389dc"  to="derberg@pimux.de/0VM_yQ96WVzR" id="eacb3de4-653e-4657-a238-61b5d615d418"  xml:lang="en"><received xmlns="urn:xmpp:receipts" id="s67-origin-31185bc9-3b3"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b90-5a04-7edf-a9ad-  1757f7cdf37e"/></message>    [2026-03-26T19:12:53.804Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-31185bc9-3b3",    "matched": true  }    [2026-03-26T19:12:53.848Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:53.848Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:54.159Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='c9d9fdf3-a725-4ba2-ab50-c65e269f59b3'  to='derberg@pimux.de/0VM_yQ96WVzR' from='kazue@xmpp.jp/dino.b35389dc'  xml:lang='en'><received xmlns='urn:xmpp:chat-markers:0' id='s67-origin-31185bc9-3b3'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b90-5b10-7214-82b7-  4a3146f30f1d'/></message>    [2026-03-26T19:12:54.159Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="c9d9fdf3-a725-4ba2-ab50-c65e269f59b3"  to="derberg@pimux.de/0VM_yQ96WVzR" from="kazue@xmpp.jp/dino.b35389dc"  xml:lang="en"><received xmlns="urn:xmpp:chat-markers:0" id="s67-origin-31185bc9-3b3"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b90-5b10-7214-82b7-  4a3146f30f1d"/></message>    [2026-03-26T19:12:54.160Z] [message] Received XMPP chat marker  {    "from": "kazue@xmpp.jp",    "marker": "received",    "id": "s67-origin-31185bc9-3b3",    "matched": false  }    [2026-03-26T19:12:54.160Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='59ae7fe8-5f23-4fa3-bd57-74c0e49644d4'  to='derberg@pimux.de' xml:lang='en' from='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR'><received xmlns='urn:xmpp:receipts' id='s67-origin-31185bc9-3b3'/><no-store  xmlns='urn:xmpp:hints'/><no-copy xmlns='urn:xmpp:hints'/><delay stamp='2026-03-  26T19:12:54Z' xmlns='urn:xmpp:delay' from='derberg@pimux.de'/></message>    [2026-03-26T19:12:54.160Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="59ae7fe8-5f23-4fa3-bd57-74c0e49644d4"  to="derberg@pimux.de" xml:lang="en" from="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR"><received xmlns="urn:xmpp:receipts" id="s67-origin-31185bc9-3b3"/><no-store  xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><delay xmlns="urn:xmpp:delay"  stamp="2026-03-26T19:12:54Z" from="derberg@pimux.de"/></message>    [2026-03-26T19:12:54.161Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-31185bc9-3b3",    "matched": false  }    [2026-03-26T19:12:54.356Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='a6bd7492-16fc-41bf-89bf-ba4b4c3f5f77'  to='derberg@pimux.de' xml:lang='en' from='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR'><displayed xmlns='urn:xmpp:chat-markers:0' id='s67-5cc604a8-685'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b90-5c23-7617-bcf9-  dadbaf95dd87'/></message>    [2026-03-26T19:12:54.356Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="a6bd7492-16fc-41bf-89bf-ba4b4c3f5f77"  to="derberg@pimux.de" from="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR"  xml:lang="en"><displayed xmlns="urn:xmpp:chat-markers:0" id="s67-5cc604a8-685"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b90-5c23-7617-bcf9-  dadbaf95dd87"/></message>    [2026-03-26T19:12:54.410Z] [message] Received XMPP chat marker  {    "from": "kazue@xmpp.jp",    "marker": "displayed",    "id": "s67-5cc604a8-685",    "matched": true  }    [2026-03-26T19:12:56.077Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:56.077Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:56.564Z] [raw] RX  <message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/Cheogram.FljqAHoesf'  to='derberg@pimux.de' xml:lang='en'><encrypted  xmlns='eu.siacs.conversations.axolotl'><header sid='64212584'><key  rid='10707'>MwohBUlEMWZO6AIXxHnCMJwORsx5qyEYRbntlNlYpAijWQEIEAAYACIgIqJYhTPdWezxGd1p3hx  78YCYs6zqnu8bjXv9DIw/tWt5BgniIYVdaw==</key><iv>ydljb8YZSoC18k2W</iv></header></  encrypted><store xmlns='urn:xmpp:hints'/><stanza-id by='derberg@pimux.de'  xmlns='urn:xmpp:sid:0' id='019d2b90-64e7-768b-b806-526760487c19'/></message>    [2026-03-26T19:12:56.564Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/Cheogram.FljqAHoesf"  to="derberg@pimux.de" xml:lang="en"><encrypted  xmlns="eu.siacs.conversations.axolotl"><header sid="64212584"><key  rid="10707">MwohBUlEMWZO6AIXxHnCMJwORsx5qyEYRbntlNlYpAijWQEIEAAYACIgIqJYhTPdWezxGd1p3hx  78YCYs6zqnu8bjXv9DIw/tWt5BgniIYVdaw==</key><iv>ydljb8YZSoC18k2W</iv></header></  encrypted><store xmlns="urn:xmpp:hints"/><stanza-id xmlns="urn:xmpp:sid:0"  by="derberg@pimux.de" id="019d2b90-64e7-768b-b806-526760487c19"/></message>    [2026-03-26T19:12:56.590Z] [raw] RX  <message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/Cheogram.FljqAHoesf'  to='derberg@pimux.de/0VM_yQ96WVzR' xml:lang='en'><received xmlns='urn:xmpp:receipts'  id='s67-origin-31185bc9-3b3'/><store xmlns='urn:xmpp:hints'/><stanza-id  by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b90-64ea-7d3b-ac03-abcd77ea1518'/  ><delay stamp='2026-03-26T19:12:56Z' xmlns='urn:xmpp:delay' from='derberg@pimux.de'/></  message>    [2026-03-26T19:12:56.590Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/Cheogram.FljqAHoesf"  to="derberg@pimux.de/0VM_yQ96WVzR" xml:lang="en"><received xmlns="urn:xmpp:receipts"  id="s67-origin-31185bc9-3b3"/><store xmlns="urn:xmpp:hints"/><stanza-id  xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b90-64ea-7d3b-ac03-abcd77ea1518"/  ><delay xmlns="urn:xmpp:delay" stamp="2026-03-26T19:12:56Z" from="derberg@pimux.de"/></  message>    [2026-03-26T19:12:56.591Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-31185bc9-3b3",    "matched": false  }    [2026-03-26T19:12:56.630Z] [error] OMEMO decrypt failed  {    "peer": "kazue@xmpp.jp",    "error": "The provided data is too small"  }    [2026-03-26T19:12:56.661Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" id="s67-mark-9975c0b9-3ae"  xmlns="jabber:client"><displayed xmlns="urn:xmpp:chat-markers:0" id="019d2b90-64e7-  768b-b806-526760487c19"/></message>    [2026-03-26T19:12:56.661Z] [raw] TX  <message id="s67-mark-9975c0b9-3ae" to="kazue@xmpp.jp" type="chat"  xmlns="jabber:client"><displayed id="019d2b90-64e7-768b-b806-526760487c19"  xmlns="urn:xmpp:chat-markers:0"/></message>    [2026-03-26T19:12:56.661Z] [message] Sent XMPP chat marker  {    "to": "kazue@xmpp.jp",    "marker": "displayed",    "id": "019d2b90-64e7-768b-b806-526760487c19",    "stanzaId": "s67-mark-9975c0b9-3ae",    "trigger": "mark-read"  }    [2026-03-26T19:12:57.619Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:12:57.619Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>. Also there might be some issues with  starting a DM call from shitcord67 cause the Movim user does not see this? But starting  a Screenshare seems to work well: {    "relayMode": "xmpp",    "relayStatus": "connected",    "xmppConnected": true,    "xmppRuntimeReady": true,    "xmppRuntimeLastError": "",    "filter": "all",    "search": "kazue@xmpp.jp",    "paused": true,    "eventsTotal": 600,    "eventsShown": 242,    "activeCallSessions": [      {        "id": "3de68fd1-4829-481a-ae56-70f5bb91f533",        "sid": "3de68fd1",        "peer": "kazue@xmpp.jp",        "direction": "incoming",        "state": "peer-left",        "media": [],        "localRole": "responder",        "remoteRole": "initiator",        "pendingLocalRenegotiation": false,        "queuedTask": false,        "pendingReprime": false,        "localCandidates": 0,        "remoteCandidates": 0,        "createdAt": "2026-03-26T19:12:38.192Z"      }    ]  }    [2026-03-26T19:13:45.267Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:45.854Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:45.854Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:46.245Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:46.245Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:46.418Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:46.418Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:46.547Z] [iq] sendIQ()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://  jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></  pubsub></iq>    [2026-03-26T19:13:46.547Z] [stanza] send()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="08107610-d109-41cf-886d-  93e21bfd23c4:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items  node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>    [2026-03-26T19:13:46.547Z] [raw] TX  <iq id="08107610-d109-41cf-886d-93e21bfd23c4:sendIQ" to="kazue@xmpp.jp" type="get"  xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items  node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>    [2026-03-26T19:13:47.083Z] [raw] RX  <iq type='result' xmlns='jabber:client' id='08107610-d109-41cf-886d-  93e21bfd23c4:sendIQ' to='derberg@pimux.de/0VM_yQ96WVzR' xml:lang='en'  from='kazue@xmpp.jp'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items  node='eu.siacs.conversations.axolotl.devicelist'><item id='current'><list  xmlns='eu.siacs.conversations.axolotl'><device id='64212584'/><device id='1091998160'/  ><device id='753685729'/></list></item></items></pubsub></iq>    [2026-03-26T19:13:47.131Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" id="s67-083aa3ee-be4"  xmlns="jabber:client"><body>This message is encrypted with OMEMO.</body><origin-id  xmlns="urn:xmpp:sid:0" id="s67-origin-d61697c1-3ec"/><no-store xmlns="urn:xmpp:hints"/>  <no-permanent-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><no-  permanent-copy xmlns="urn:xmpp:hints"/><encrypted  xmlns="eu.siacs.conversations.axolotl"><header sid="10707"><key rid="49"  prekey="1">MyjTUwgaMAESIQV24xzd+f0ZNo8aDuVaPk8Naf1fE+4PdYS6KNdwXrLicRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEF7+JbZOTOg6EDiNb37FgIABoba/LWmIREKfdg/  iKrb2QQARgAIjBQqfFByJeyeEC3PU3Pi9kqfIaQiP4C4rrJ7EWCWlsFzIvJ5LKtT3uiq5gL8eAlZr4TOhmlQoeu  Lg==</key><key rid="342"  prekey="1">MyjTUwgCMAESIQVuw1OBDO6RP18n3ppACFg6JBF6togHk9BLMcMh6emVVRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFmA2AUGbwNIab/  iSzZo8HYqeDj8MOoPQrV86lZX6aSUgQARgAIjDXYygJZJvU0/  oOLuL8HRinh964dtFAvrFKlYy5BOGync+0hVT8mtqTSzEePokDY1F1meM2SnCG6w==</key><key rid="350"  prekey="1">MyjTUwgMMAESIQU8COV6VOS2q3bKcci2BmB0233iAYF2pMxOy2qmfhbefRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFpf6pqOnsHmun062hkAFXqKtWuP7LtVFqgId29of1/  UcQARgAIjAbwVyPB3ZgV8PblGajMGd0KFBDshRC9bY8XAwSRp778J5MVeTaQy3aO1vpZSCmelpEYu0e0hgAmw==  </key><key rid="822"  prekey="1">MyjTUwgPMAESIQUoBNjejQ5yj4GhxIdIQyrWMpJd2WE+KNQq6RrCdc9kIRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFJA1przXckyG4YYJsK9tMzkfD3Z7GLlQig2orEGZbNjoQARgAIjC  mRSLbu136NMs6pjdPr27ytT8FjM2THUDf5JM9a7GjkZ6sGyEgmy0uQ/88mVV+ISWbS6roljTwZg==</key><key  rid="1201" prekey="1">MyjTUwgcMAESIQUmmPZ9nWQXr2fOZ/  oL9ytNItASTHAtyGEEb6adHsIMXhohBapsIs7pztbZZtNmdHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFgBFpF  Y1SBoIQpZGUDn4QKqfGP4TCEs8803n20xux0xsQARgAIjCZB5cg4tjYOd6kVjLlvs4gfDmXqBz5mHtuHhJPORIH  /AddS9MnQZu2UHUiaUW2+x4XAEJGtRLjnQ==</key><key rid="1953" pr ... [truncated 28 chars]    [2026-03-26T19:13:47.131Z] [raw] TX  <message id="s67-083aa3ee-be4" to="kazue@xmpp.jp" type="chat"  xmlns="jabber:client"><body>This message is encrypted with OMEMO.</body><origin-id  id="s67-origin-d61697c1-3ec" xmlns="urn:xmpp:sid:0"/><no-store xmlns="urn:xmpp:hints"/>  <no-permanent-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><no-  permanent-copy xmlns="urn:xmpp:hints"/><encrypted  xmlns="eu.siacs.conversations.axolotl"><header sid="10707"><key prekey="1"  rid="49">MyjTUwgaMAESIQV24xzd+f0ZNo8aDuVaPk8Naf1fE+4PdYS6KNdwXrLicRohBapsIs7pztbZZtNmdH  j4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEF7+JbZOTOg6EDiNb37FgIABoba/LWmIREKfdg/  iKrb2QQARgAIjBQqfFByJeyeEC3PU3Pi9kqfIaQiP4C4rrJ7EWCWlsFzIvJ5LKtT3uiq5gL8eAlZr4TOhmlQoeu  Lg==</key><key prekey="1"  rid="342">MyjTUwgCMAESIQVuw1OBDO6RP18n3ppACFg6JBF6togHk9BLMcMh6emVVRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFmA2AUGbwNIab/  iSzZo8HYqeDj8MOoPQrV86lZX6aSUgQARgAIjDXYygJZJvU0/  oOLuL8HRinh964dtFAvrFKlYy5BOGync+0hVT8mtqTSzEePokDY1F1meM2SnCG6w==</key><key prekey="1"  rid="350">MyjTUwgMMAESIQU8COV6VOS2q3bKcci2BmB0233iAYF2pMxOy2qmfhbefRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFpf6pqOnsHmun062hkAFXqKtWuP7LtVFqgId29of1/  UcQARgAIjAbwVyPB3ZgV8PblGajMGd0KFBDshRC9bY8XAwSRp778J5MVeTaQy3aO1vpZSCmelpEYu0e0hgAmw==  </key><key prekey="1"  rid="822">MyjTUwgPMAESIQUoBNjejQ5yj4GhxIdIQyrWMpJd2WE+KNQq6RrCdc9kIRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFJA1przXckyG4YYJsK9tMzkfD3Z7GLlQig2orEGZbNjoQARgAIjCm  RSLbu136NMs6pjdPr27ytT8FjM2THUDf5JM9a7GjkZ6sGyEgmy0uQ/88mVV+ISWbS6roljTwZg==</key><key  prekey="1" rid="1201">MyjTUwgcMAESIQUmmPZ9nWQXr2fOZ/  oL9ytNItASTHAtyGEEb6adHsIMXhohBapsIs7pztbZZtNmdHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFgBFpF  Y1SBoIQpZGUDn4QKqfGP4TCEs8803n20xux0xsQARgAIjCZB5cg4tjYOd6kVjLlvs4gfDmXqBz5mHtuHhJPORIH  /AddS9MnQZu2UHUiaUW2+x4XAEJGtRLjnQ==</key><key prekey="1" ri ... [truncated 28 chars]    [2026-03-26T19:13:47.749Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='1095c89c-5841-490b-93f6-e146dcfc8813'  to='derberg@pimux.de' xml:lang='en' from='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR'><received xmlns='urn:xmpp:receipts' id='s67-origin-d61697c1-3ec'/><no-store  xmlns='urn:xmpp:hints'/><no-copy xmlns='urn:xmpp:hints'/><delay stamp='2026-03-  26T19:13:47Z' xmlns='urn:xmpp:delay' from='derberg@pimux.de'/></message>    [2026-03-26T19:13:47.749Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="1095c89c-5841-490b-93f6-e146dcfc8813"  to="derberg@pimux.de" xml:lang="en" from="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR"><received xmlns="urn:xmpp:receipts" id="s67-origin-d61697c1-3ec"/><no-store  xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><delay xmlns="urn:xmpp:delay"  stamp="2026-03-26T19:13:47Z" from="derberg@pimux.de"/></message>    [2026-03-26T19:13:47.782Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-d61697c1-3ec",    "matched": true  }    [2026-03-26T19:13:48.022Z] [raw] RX  <message xmlns='jabber:client' from='kazue@xmpp.jp/dino.b35389dc'  to='derberg@pimux.de/0VM_yQ96WVzR' id='d3bc3e7e-60b7-4d64-bb47-971fb10b73e7'  xml:lang='en'><received xmlns='urn:xmpp:receipts' id='s67-origin-d61697c1-3ec'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-2de9-7c88-8554-  83dcbbfc064c'/></message>    [2026-03-26T19:13:48.022Z] [message] Incoming stanza  <message xmlns="jabber:client" from="kazue@xmpp.jp/dino.b35389dc"  to="derberg@pimux.de/0VM_yQ96WVzR" id="d3bc3e7e-60b7-4d64-bb47-971fb10b73e7"  xml:lang="en"><received xmlns="urn:xmpp:receipts" id="s67-origin-d61697c1-3ec"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-2de9-7c88-8554-  83dcbbfc064c"/></message>    [2026-03-26T19:13:48.023Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-d61697c1-3ec",    "matched": false  }    [2026-03-26T19:13:48.023Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='1cc1023f-11ec-4de6-b29d-1cab7057b4ca'  to='derberg@pimux.de/0VM_yQ96WVzR' from='kazue@xmpp.jp/dino.b35389dc'  xml:lang='en'><received xmlns='urn:xmpp:chat-markers:0' id='s67-origin-d61697c1-3ec'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-2deb-7b76-9376-  04614732cf19'/></message>    [2026-03-26T19:13:48.023Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="1cc1023f-11ec-4de6-b29d-1cab7057b4ca"  to="derberg@pimux.de/0VM_yQ96WVzR" from="kazue@xmpp.jp/dino.b35389dc"  xml:lang="en"><received xmlns="urn:xmpp:chat-markers:0" id="s67-origin-d61697c1-3ec"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-2deb-7b76-9376-  04614732cf19"/></message>    [2026-03-26T19:13:48.024Z] [message] Received XMPP chat marker  {    "from": "kazue@xmpp.jp",    "marker": "received",    "id": "s67-origin-d61697c1-3ec",    "matched": false  }    [2026-03-26T19:13:48.080Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:48.080Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:48.579Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:48.579Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:49.388Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='ae23d92a-0281-4d9a-ab88-bf1efc2105ac'  to='derberg@pimux.de' from='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR'  xml:lang='en'><displayed xmlns='urn:xmpp:chat-markers:0' id='s67-083aa3ee-be4'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-333d-7d4b-a150-  a2ae5f3e2dc6'/></message>    [2026-03-26T19:13:49.388Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="ae23d92a-0281-4d9a-ab88-bf1efc2105ac"  to="derberg@pimux.de" from="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR"  xml:lang="en"><displayed xmlns="urn:xmpp:chat-markers:0" id="s67-083aa3ee-be4"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-333d-7d4b-a150-  a2ae5f3e2dc6"/></message>    [2026-03-26T19:13:49.420Z] [message] Received XMPP chat marker  {    "from": "kazue@xmpp.jp",    "marker": "displayed",    "id": "s67-083aa3ee-be4",    "matched": true  }    [2026-03-26T19:13:51.138Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:51.138Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:51.367Z] [iq] sendIQ()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client"><pubsub xmlns="http://  jabber.org/protocol/pubsub"><items node="eu.siacs.conversations.axolotl.devicelist"/></  pubsub></iq>    [2026-03-26T19:13:51.367Z] [stanza] send()  <iq type="get" to="kazue@xmpp.jp" xmlns="jabber:client" id="039ac21d-1d50-4f05-b201-  a3acfdb1ad0f:sendIQ"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items  node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>    [2026-03-26T19:13:51.367Z] [raw] TX  <iq id="039ac21d-1d50-4f05-b201-a3acfdb1ad0f:sendIQ" to="kazue@xmpp.jp" type="get"  xmlns="jabber:client"><pubsub xmlns="http://jabber.org/protocol/pubsub"><items  node="eu.siacs.conversations.axolotl.devicelist"/></pubsub></iq>    [2026-03-26T19:13:51.706Z] [raw] RX  <iq type='result' xmlns='jabber:client' id='039ac21d-1d50-4f05-b201-  a3acfdb1ad0f:sendIQ' to='derberg@pimux.de/0VM_yQ96WVzR' xml:lang='en'  from='kazue@xmpp.jp'><pubsub xmlns='http://jabber.org/protocol/pubsub'><items  node='eu.siacs.conversations.axolotl.devicelist'><item id='current'><list  xmlns='eu.siacs.conversations.axolotl'><device id='64212584'/><device id='1091998160'/  ><device id='753685729'/></list></item></items></pubsub></iq>    [2026-03-26T19:13:51.761Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" id="s67-7727ac8f-a75"  xmlns="jabber:client"><body>This message is encrypted with OMEMO.</body><origin-id  xmlns="urn:xmpp:sid:0" id="s67-origin-82ec4f8b-237"/><no-store xmlns="urn:xmpp:hints"/>  <no-permanent-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><no-  permanent-copy xmlns="urn:xmpp:hints"/><encrypted  xmlns="eu.siacs.conversations.axolotl"><header sid="10707"><key rid="49"  prekey="1">MyjTUwgaMAESIQV24xzd+f0ZNo8aDuVaPk8Naf1fE+4PdYS6KNdwXrLicRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEF7+JbZOTOg6EDiNb37FgIABoba/LWmIREKfdg/  iKrb2QQAhgAIjCrBKmBinAv9NzVafetuHUUWhv7pPtlK+KBvGxpx1U3buittKpOGmg2iWyWZJ7EXB2uXDclxvey  nw==</key><key rid="342"  prekey="1">MyjTUwgCMAESIQVuw1OBDO6RP18n3ppACFg6JBF6togHk9BLMcMh6emVVRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFmA2AUGbwNIab/  iSzZo8HYqeDj8MOoPQrV86lZX6aSUgQAhgAIjBMOg7kwq5G4tH693Rbp0pzAQ7ulQf+hoVmXCNTTJW5vz2k6Z+z  YhbtUfVb8n7l+m/rBP+ITAurDw==</key><key rid="350"  prekey="1">MyjTUwgMMAESIQU8COV6VOS2q3bKcci2BmB0233iAYF2pMxOy2qmfhbefRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFpf6pqOnsHmun062hkAFXqKtWuP7LtVFqgId29of1/  UcQAhgAIjCRYn/96spTLOk3/GkH7Ii642F+maTPgP9RY/zACUg9qOlCl1LUu/MhI62iZlRpYaN/  cGLxf7IA2w==</key><key rid="822"  prekey="1">MyjTUwgPMAESIQUoBNjejQ5yj4GhxIdIQyrWMpJd2WE+KNQq6RrCdc9kIRohBapsIs7pztbZZtNm  dHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFJA1przXckyG4YYJsK9tMzkfD3Z7GLlQig2orEGZbNjoQAhgAIjB  BpwndLxLTa7UutUfH6b6Qs/obtqODtg0NmgFCqRUs1wUlJ5t/hEs0vhhO1ZLO1PG1KS/VOdNDZg==</key><key  rid="1201" prekey="1">MyjTUwgcMAESIQUmmPZ9nWQXr2fOZ/  oL9ytNItASTHAtyGEEb6adHsIMXhohBapsIs7pztbZZtNmdHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFgBFpF  Y1SBoIQpZGUDn4QKqfGP4TCEs8803n20xux0xsQAhgAIjBQ8wVZ8Yi4tp5bZqEeUDair3YjCA46aSughsqv+gyM  YqLmoYiWEpaC5uXcCsA3X3A2odK8Lu2ONg==</key><key rid="1953" pr ... [truncated 28 chars]    [2026-03-26T19:13:51.761Z] [raw] TX  <message id="s67-7727ac8f-a75" to="kazue@xmpp.jp" type="chat"  xmlns="jabber:client"><body>This message is encrypted with OMEMO.</body><origin-id  id="s67-origin-82ec4f8b-237" xmlns="urn:xmpp:sid:0"/><no-store xmlns="urn:xmpp:hints"/>  <no-permanent-store xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><no-  permanent-copy xmlns="urn:xmpp:hints"/><encrypted  xmlns="eu.siacs.conversations.axolotl"><header sid="10707"><key prekey="1"  rid="49">MyjTUwgaMAESIQV24xzd+f0ZNo8aDuVaPk8Naf1fE+4PdYS6KNdwXrLicRohBapsIs7pztbZZtNmdH  j4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEF7+JbZOTOg6EDiNb37FgIABoba/LWmIREKfdg/  iKrb2QQAhgAIjCrBKmBinAv9NzVafetuHUUWhv7pPtlK+KBvGxpx1U3buittKpOGmg2iWyWZJ7EXB2uXDclxvey  nw==</key><key prekey="1"  rid="342">MyjTUwgCMAESIQVuw1OBDO6RP18n3ppACFg6JBF6togHk9BLMcMh6emVVRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFmA2AUGbwNIab/  iSzZo8HYqeDj8MOoPQrV86lZX6aSUgQAhgAIjBMOg7kwq5G4tH693Rbp0pzAQ7ulQf+hoVmXCNTTJW5vz2k6Z+z  YhbtUfVb8n7l+m/rBP+ITAurDw==</key><key prekey="1"  rid="350">MyjTUwgMMAESIQU8COV6VOS2q3bKcci2BmB0233iAYF2pMxOy2qmfhbefRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFpf6pqOnsHmun062hkAFXqKtWuP7LtVFqgId29of1/  UcQAhgAIjCRYn/96spTLOk3/GkH7Ii642F+maTPgP9RY/zACUg9qOlCl1LUu/MhI62iZlRpYaN/  cGLxf7IA2w==</key><key prekey="1"  rid="822">MyjTUwgPMAESIQUoBNjejQ5yj4GhxIdIQyrWMpJd2WE+KNQq6RrCdc9kIRohBapsIs7pztbZZtNmd  Hj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFJA1przXckyG4YYJsK9tMzkfD3Z7GLlQig2orEGZbNjoQAhgAIjBB  pwndLxLTa7UutUfH6b6Qs/obtqODtg0NmgFCqRUs1wUlJ5t/hEs0vhhO1ZLO1PG1KS/VOdNDZg==</key><key  prekey="1" rid="1201">MyjTUwgcMAESIQUmmPZ9nWQXr2fOZ/  oL9ytNItASTHAtyGEEb6adHsIMXhohBapsIs7pztbZZtNmdHj4LKYMH6Zg+DkPz2Q8KwIBeRNvImIzCiEFgBFpF  Y1SBoIQpZGUDn4QKqfGP4TCEs8803n20xux0xsQAhgAIjBQ8wVZ8Yi4tp5bZqEeUDair3YjCA46aSughsqv+gyM  YqLmoYiWEpaC5uXcCsA3X3A2odK8Lu2ONg==</key><key prekey="1" ri ... [truncated 28 chars]    [2026-03-26T19:13:52.383Z] [raw] RX  <message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/Cheogram.FljqAHoesf'  to='derberg@pimux.de/0VM_yQ96WVzR' xml:lang='en'><received xmlns='urn:xmpp:receipts'  id='s67-origin-d61697c1-3ec'/><store xmlns='urn:xmpp:hints'/><stanza-id  by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-3ef5-744c-ab1f-d8e9ba7974bb'/  ><delay stamp='2026-03-26T19:13:52Z' xmlns='urn:xmpp:delay' from='derberg@pimux.de'/></  message>    [2026-03-26T19:13:52.383Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/Cheogram.FljqAHoesf"  to="derberg@pimux.de/0VM_yQ96WVzR" xml:lang="en"><received xmlns="urn:xmpp:receipts"  id="s67-origin-d61697c1-3ec"/><store xmlns="urn:xmpp:hints"/><stanza-id  xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-3ef5-744c-ab1f-d8e9ba7974bb"/  ><delay xmlns="urn:xmpp:delay" stamp="2026-03-26T19:13:52Z" from="derberg@pimux.de"/></  message>    [2026-03-26T19:13:52.384Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-d61697c1-3ec",    "matched": false  }    [2026-03-26T19:13:52.651Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='5eb65aac-9629-49ef-a2d1-b53ea4e45b07'  to='derberg@pimux.de' xml:lang='en' from='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR'><received xmlns='urn:xmpp:receipts' id='s67-origin-82ec4f8b-237'/><no-store  xmlns='urn:xmpp:hints'/><no-copy xmlns='urn:xmpp:hints'/><delay stamp='2026-03-  26T19:13:52Z' xmlns='urn:xmpp:delay' from='derberg@pimux.de'/></message>    [2026-03-26T19:13:52.651Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="5eb65aac-9629-49ef-a2d1-b53ea4e45b07"  to="derberg@pimux.de" xml:lang="en" from="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/  jR"><received xmlns="urn:xmpp:receipts" id="s67-origin-82ec4f8b-237"/><no-store  xmlns="urn:xmpp:hints"/><no-copy xmlns="urn:xmpp:hints"/><delay xmlns="urn:xmpp:delay"  stamp="2026-03-26T19:13:52Z" from="derberg@pimux.de"/></message>    [2026-03-26T19:13:52.690Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-82ec4f8b-237",    "matched": true  }    [2026-03-26T19:13:52.921Z] [raw] RX  <message xmlns='jabber:client' from='kazue@xmpp.jp/dino.b35389dc'  to='derberg@pimux.de/0VM_yQ96WVzR' id='7a139b62-4850-4722-b0e2-3ab9dd3a63cb'  xml:lang='en'><received xmlns='urn:xmpp:receipts' id='s67-origin-82ec4f8b-237'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-410d-7d18-8f3a-  658937f27b99'/></message>    [2026-03-26T19:13:52.922Z] [message] Incoming stanza  <message xmlns="jabber:client" from="kazue@xmpp.jp/dino.b35389dc"  to="derberg@pimux.de/0VM_yQ96WVzR" id="7a139b62-4850-4722-b0e2-3ab9dd3a63cb"  xml:lang="en"><received xmlns="urn:xmpp:receipts" id="s67-origin-82ec4f8b-237"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-410d-7d18-8f3a-  658937f27b99"/></message>    [2026-03-26T19:13:52.922Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-82ec4f8b-237",    "matched": false  }    [2026-03-26T19:13:52.922Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='97ab5034-9085-47cf-91cf-e4743d576de2'  to='derberg@pimux.de/0VM_yQ96WVzR' from='kazue@xmpp.jp/dino.b35389dc'  xml:lang='en'><received xmlns='urn:xmpp:chat-markers:0' id='s67-origin-82ec4f8b-237'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-410e-76a9-9a28-  67c8490600ce'/></message>    [2026-03-26T19:13:52.922Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="97ab5034-9085-47cf-91cf-e4743d576de2"  to="derberg@pimux.de/0VM_yQ96WVzR" from="kazue@xmpp.jp/dino.b35389dc"  xml:lang="en"><received xmlns="urn:xmpp:chat-markers:0" id="s67-origin-82ec4f8b-237"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-410e-76a9-9a28-  67c8490600ce"/></message>    [2026-03-26T19:13:52.923Z] [message] Received XMPP chat marker  {    "from": "kazue@xmpp.jp",    "marker": "received",    "id": "s67-origin-82ec4f8b-237",    "matched": false  }    [2026-03-26T19:13:52.923Z] [raw] RX  <message type='chat' xmlns='jabber:client' id='4f59f901-7098-4c6b-8a7e-02cf5ff4c180'  to='derberg@pimux.de' from='kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR'  xml:lang='en'><displayed xmlns='urn:xmpp:chat-markers:0' id='s67-7727ac8f-a75'/  ><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-4110-77e3-a84a-  7967a505b3ae'/></message>    [2026-03-26T19:13:52.923Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" id="4f59f901-7098-4c6b-8a7e-02cf5ff4c180"  to="derberg@pimux.de" from="kazue@xmpp.jp/Movim.r6xMa7.5-2SOya/jR"  xml:lang="en"><displayed xmlns="urn:xmpp:chat-markers:0" id="s67-7727ac8f-a75"/  ><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-4110-77e3-a84a-  7967a505b3ae"/></message>    [2026-03-26T19:13:52.957Z] [message] Received XMPP chat marker  {    "from": "kazue@xmpp.jp",    "marker": "displayed",    "id": "s67-7727ac8f-a75",    "matched": true  }    [2026-03-26T19:13:54.374Z] [raw] RX  <message type='chat' xmlns='jabber:client' from='kazue@xmpp.jp/Cheogram.FljqAHoesf'  to='derberg@pimux.de/0VM_yQ96WVzR' xml:lang='en'><received xmlns='urn:xmpp:receipts'  id='s67-origin-82ec4f8b-237'/><store xmlns='urn:xmpp:hints'/><stanza-id  by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d2b91-46bd-7e8d-9ca7-089d6d5afd0e'/  ><delay stamp='2026-03-26T19:13:54Z' xmlns='urn:xmpp:delay' from='derberg@pimux.de'/></  message>    [2026-03-26T19:13:54.374Z] [message] Incoming stanza  <message xmlns="jabber:client" type="chat" from="kazue@xmpp.jp/Cheogram.FljqAHoesf"  to="derberg@pimux.de/0VM_yQ96WVzR" xml:lang="en"><received xmlns="urn:xmpp:receipts"  id="s67-origin-82ec4f8b-237"/><store xmlns="urn:xmpp:hints"/><stanza-id  xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d2b91-46bd-7e8d-9ca7-089d6d5afd0e"/  ><delay xmlns="urn:xmpp:delay" stamp="2026-03-26T19:13:54Z" from="derberg@pimux.de"/></  message>    [2026-03-26T19:13:54.375Z] [message] Received XMPP delivery receipt  {    "from": "kazue@xmpp.jp",    "id": "s67-origin-82ec4f8b-237",    "matched": false  }    [2026-03-26T19:13:58.832Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:13:58.832Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:14:02.709Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:14:02.709Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><composing xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:14:02.930Z] [stanza] send()  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>    [2026-03-26T19:14:02.930Z] [raw] TX  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://  jabber.org/protocol/chatstates"/></message>.

@@ -1,14 +1,33 @@
 (function initXmppCallTargetUtils(globalScope) {
   if (!globalScope || globalScope.SHITCORD67_XMPP_CALL_TARGET_UTILS) return;
 
+  function xmppNormalizeFullJidPreserveResource(jid = "", {
+    normalizeXmppJidFn = (value) => (value || "").toString().trim()
+  } = {}) {
+    const raw = (jid || "").toString().trim();
+    if (!raw) return "";
+    const slashIndex = raw.indexOf("/");
+    if (slashIndex < 0) {
+      const bareOnly = typeof normalizeXmppJidFn === "function" ? normalizeXmppJidFn(raw) : raw;
+      return (bareOnly || "").toString().trim().toLowerCase();
+    }
+    const bareRaw = raw.slice(0, slashIndex);
+    const resourceRaw = raw.slice(slashIndex + 1);
+    const bare = (typeof normalizeXmppJidFn === "function" ? normalizeXmppJidFn(bareRaw) : bareRaw).toLowerCase();
+    const resource = (resourceRaw || "").toString().trim();
+    if (!bare) return "";
+    if (!resource) return bare;
+    return `${bare}/${resource}`;
+  }
+
   function xmppRememberPeerFullJid(jid = "", {
     seenAt = Date.now(),
-    normalizeXmppJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    normalizeXmppJidFn = (value) => (value || "").toString().trim(),
     xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
     poolByBare = null
   } = {}) {
     if (!(poolByBare instanceof Map)) return;
-    const normalized = normalizeXmppJidFn(jid).toLowerCase();
+    const normalized = xmppNormalizeFullJidPreserveResource(jid, { normalizeXmppJidFn });
     if (!normalized || !normalized.includes("/")) return;
     const bare = xmppBareJidFn(normalized);
     if (!bare) return;
@@ -22,12 +41,12 @@
   }
 
   function xmppForgetPeerFullJid(jid = "", {
-    normalizeXmppJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    normalizeXmppJidFn = (value) => (value || "").toString().trim(),
     xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
     poolByBare = null
   } = {}) {
     if (!(poolByBare instanceof Map)) return;
-    const normalized = normalizeXmppJidFn(jid).toLowerCase();
+    const normalized = xmppNormalizeFullJidPreserveResource(jid, { normalizeXmppJidFn });
     if (!normalized) return;
     if (!normalized.includes("/")) {
       poolByBare.delete(xmppBareJidFn(normalized));
@@ -46,12 +65,12 @@
   }
 
   function xmppMostRecentPeerFullJid(jid = "", {
-    normalizeXmppJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    normalizeXmppJidFn = (value) => (value || "").toString().trim(),
     xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
     poolByBare = null
   } = {}) {
     if (!(poolByBare instanceof Map)) return "";
-    const normalized = normalizeXmppJidFn(jid).toLowerCase();
+    const normalized = xmppNormalizeFullJidPreserveResource(jid, { normalizeXmppJidFn });
     if (!normalized) return "";
     if (normalized.includes("/")) return normalized;
     const bare = xmppBareJidFn(normalized);
@@ -94,7 +113,7 @@
 
   function xmppResolveRetryCallTargetForSession(sessionId = "", attemptedTo = "", {
     sessionById = null,
-    normalizeXmppJidFn = (value) => (value || "").toString().trim().toLowerCase(),
+    normalizeXmppJidFn = (value) => (value || "").toString().trim(),
     xmppBareJidFn = (value) => (value || "").toString().trim().toLowerCase(),
     xmppMostRecentPeerFullJidFn = (value) => (value || "").toString().trim(),
     xmppRememberPeerFullJidFn = () => {}
@@ -104,13 +123,14 @@
     if (!sid) return "";
     const session = sessionById.get(sid) || null;
     if (!session) return "";
-    const attempted = normalizeXmppJidFn((attemptedTo || "").toString().trim()).toLowerCase();
+    const attempted = xmppNormalizeFullJidPreserveResource((attemptedTo || "").toString().trim(), { normalizeXmppJidFn });
+    const attemptedBare = attempted ? xmppBareJidFn(attempted) : "";
     const sessionBare = xmppBareJidFn(session.peerJid || session.peerFullJid || "");
     if (!sessionBare) return "";
     const recentFull = xmppMostRecentPeerFullJidFn(sessionBare);
     const candidates = [];
     if (recentFull && recentFull !== attempted) candidates.push(recentFull);
-    if (sessionBare && sessionBare !== attempted) candidates.push(sessionBare);
+    if (sessionBare && sessionBare !== attemptedBare) candidates.push(sessionBare);
     const retryTo = candidates.find(Boolean) || "";
     if (!retryTo) return "";
     if (retryTo.includes("/")) {
