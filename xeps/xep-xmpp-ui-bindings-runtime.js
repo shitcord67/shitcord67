@@ -954,6 +954,28 @@ ui.omemoHeaderBtn?.addEventListener("contextmenu", (event) => {
       }
     },
     {
+      label: "Force Republish Own OMEMO Device",
+      disabled: !state.runtimeReady || !ownBare,
+      action: async () => {
+        await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+        const store = xmppOmemoStoreForAccount(ownBare);
+        const localId = store ? await store.getLocalRegistrationId() : null;
+        const ownDevices = await xmppOmemoFetchDeviceList(ownBare);
+        const localIdText = localId ? String(localId) : "not set";
+        const hasLocal = localId ? ownDevices.includes(String(localId)) : false;
+        const text = hasLocal
+          ? `OMEMO republished. Current local device ${localIdText} is present on your server list. Ask the peer to refresh OMEMO devices if they still miss it.`
+          : `OMEMO republish finished, but local device ${localIdText} is still missing from your server list.`;
+        if (addSystemDmMessageByPeerJid(state.peerBare, text)) {
+          refreshDmUiForPeerJid(state.peerBare);
+        }
+        showToast(text, {
+          tone: hasLocal ? "info" : "error",
+          duration: hasLocal ? 3200 : 4500
+        });
+      }
+    },
+    {
       label: "Show Local OMEMO Status",
       disabled: !state.runtimeReady || !ownBare,
       action: async () => {
