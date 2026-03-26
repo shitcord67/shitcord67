@@ -26,15 +26,7 @@
     if (typeof serialized !== "string") return undefined;
     const trimmed = serialized.trim();
     if (!trimmed || trimmed === "null" || trimmed === "undefined") return undefined;
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (!parsed || typeof parsed !== "object") return undefined;
-      if (parsed.version !== undefined && typeof parsed.version !== "string") return undefined;
-      if (!parsed.sessions || typeof parsed.sessions !== "object") return undefined;
-      return trimmed;
-    } catch {
-      return undefined;
-    }
+    return trimmed;
   }
 
   class XmppOmemoStore {
