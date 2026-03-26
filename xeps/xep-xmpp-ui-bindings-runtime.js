@@ -940,9 +940,33 @@ ui.omemoHeaderBtn?.addEventListener("contextmenu", (event) => {
       disabled: !state.runtimeReady || !ownBare,
       action: async () => {
         await xmppOmemoEnsureOwnBundle(ownBare, { force: true });
+        const store = xmppOmemoStoreForAccount(ownBare);
+        const localId = store ? await store.getLocalRegistrationId() : null;
+        const ownDevices = await xmppOmemoFetchDeviceList(ownBare);
         await xmppOmemoFetchDeviceList(state.peerBare);
         await xmppOmemoEnsurePeerSessions(state.peerBare, ownBare);
-        showToast("OMEMO sessions refreshed.", { tone: "info" });
+        const localMissing = localId ? !ownDevices.includes(String(localId)) : false;
+        const detail = localMissing ? ` Local device ${localId} is missing from your server device list.` : "";
+        showToast(`OMEMO sessions refreshed.${detail}`, {
+          tone: localMissing ? "error" : "info",
+          duration: localMissing ? 4200 : 2400
+        });
+      }
+    },
+    {
+      label: "Show Local OMEMO Status",
+      disabled: !state.runtimeReady || !ownBare,
+      action: async () => {
+        const store = xmppOmemoStoreForAccount(ownBare);
+        const localId = store ? await store.getLocalRegistrationId() : null;
+        const ownDevices = await xmppOmemoFetchDeviceList(ownBare);
+        const localIdText = localId ? String(localId) : "not set";
+        const serverList = ownDevices.length > 0 ? ownDevices.join(", ") : "none";
+        const hasLocal = localId ? ownDevices.includes(String(localId)) : false;
+        const text = `OMEMO local device ID: ${localIdText} · Server device list: ${serverList} · Local ID ${hasLocal ? "present" : "missing"} on server`;
+        if (addSystemDmMessageByPeerJid(state.peerBare, text)) {
+          refreshDmUiForPeerJid(state.peerBare);
+        }
       }
     },
     {
