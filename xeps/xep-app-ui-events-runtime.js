@@ -30,6 +30,23 @@ const DM_GENERIC_SLASH_FALLBACK_COMMANDS = new Set([
   "logs",
   "logdir"
 ]);
+const DM_XMPP_RUNTIME_COMMANDS = new Set([
+  "call",
+  "callscreen",
+  "callweb",
+  "callxmpp",
+  "devtools",
+  "invitexmpp",
+  "joinxmpp",
+  "leavexmpp",
+  "logdir",
+  "logs",
+  "omemo",
+  "spacesxmpp",
+  "whiteboard",
+  "xmppconsole",
+  "xmppinspect"
+]);
 
 const SED_SUB_FLAGS = new Set(["g", "i", "m", "s", "u", "y"]);
 
@@ -278,6 +295,9 @@ ui.messageForm.addEventListener("submit", (event) => {
   let handledSlashMessage = null;
   let handledSlashCommand = false;
   if (conversation.type === "dm" && text.startsWith("/")) {
+    const [dmRawCommand, ...dmRawArgs] = text.slice(1).split(" ");
+    const dmSlashName = (dmRawCommand || "").toLowerCase();
+    const dmSlashArg = dmRawArgs.join(" ").trim();
     const handledDmSlash = typeof XEP_DM_COMMAND_RUNTIME_GLOBAL.handleDmSlashCommandRuntime === "function"
       ? XEP_DM_COMMAND_RUNTIME_GLOBAL.handleDmSlashCommandRuntime({ text, conversation, account })
       : false;
@@ -285,7 +305,19 @@ ui.messageForm.addEventListener("submit", (event) => {
       handledSlashCommand = true;
       return;
     }
-    const dmSlashName = (text.slice(1).split(/\s+/, 1)[0] || "").toLowerCase();
+    if (DM_XMPP_RUNTIME_COMMANDS.has(dmSlashName)) {
+      const handledXmppSlash = globalThis.SHITCORD67_XEP_XMPP_COMMAND_RUNTIME?.handleXmppCommandRuntime;
+      if (typeof handledXmppSlash === "function") {
+        handledSlashCommand = true;
+        void handledXmppSlash({
+          command: dmSlashName,
+          arg: dmSlashArg,
+          channel: conversation.thread,
+          account
+        });
+        return;
+      }
+    }
     if (DM_GENERIC_SLASH_FALLBACK_COMMANDS.has(dmSlashName)) {
       const beforeCount = Array.isArray(conversation.thread?.messages) ? conversation.thread.messages.length : 0;
       if (handleSlashCommand(text, { id: conversation.id, messages: conversation.thread.messages }, account)) {
