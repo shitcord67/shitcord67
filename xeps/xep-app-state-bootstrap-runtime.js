@@ -587,6 +587,32 @@ function migrateState(raw) {
 }
 
 function loadState() {
+  const storageGet = (key) => {
+    const bridge = window?.s67Electron || null;
+    const bridged = bridge && typeof bridge.storageGet === "function"
+      ? bridge.storageGet(key)
+      : null;
+    if (bridged !== null && bridged !== undefined) return bridged;
+    const local = localStorage.getItem(key);
+    if (local !== null && local !== undefined && bridge && typeof bridge.storageSet === "function") {
+      bridge.storageSet(key, local);
+    }
+    return local;
+  };
+  const storageSet = (key, value) => {
+    const bridge = window?.s67Electron || null;
+    if (bridge && typeof bridge.storageSet === "function") {
+      bridge.storageSet(key, value);
+    }
+    localStorage.setItem(key, value);
+  };
+  const storageRemove = (key) => {
+    const bridge = window?.s67Electron || null;
+    if (bridge && typeof bridge.storageRemove === "function") {
+      bridge.storageRemove(key);
+    }
+    localStorage.removeItem(key);
+  };
   const applySessionRestore = (restored) => {
     if (!restored || !Array.isArray(restored.accounts)) return restored;
     const persistSession = isSessionPersistenceEnabled();
@@ -594,24 +620,24 @@ function loadState() {
     const validIds = new Set(accountIds);
     if (!persistSession) {
       restored.currentAccountId = null;
-      localStorage.removeItem(SESSION_ACCOUNT_KEY);
+      storageRemove(SESSION_ACCOUNT_KEY);
       return restored;
     }
     if (restored.currentAccountId && validIds.has(restored.currentAccountId)) {
       const active = restored.accounts.find((account) => account?.id === restored.currentAccountId) || null;
       if (active?.pendingLogin) {
         restored.currentAccountId = null;
-        localStorage.removeItem(SESSION_ACCOUNT_KEY);
+        storageRemove(SESSION_ACCOUNT_KEY);
         return restored;
       }
-      localStorage.setItem(SESSION_ACCOUNT_KEY, restored.currentAccountId);
+      storageSet(SESSION_ACCOUNT_KEY, restored.currentAccountId);
       return restored;
     }
-    const remembered = localStorage.getItem(SESSION_ACCOUNT_KEY);
+    const remembered = storageGet(SESSION_ACCOUNT_KEY);
     if (remembered && validIds.has(remembered)) {
       const active = restored.accounts.find((account) => account?.id === remembered) || null;
       if (active?.pendingLogin) {
-        localStorage.removeItem(SESSION_ACCOUNT_KEY);
+        storageRemove(SESSION_ACCOUNT_KEY);
       } else {
       restored.currentAccountId = remembered;
       return restored;
@@ -626,20 +652,20 @@ function loadState() {
     return restored;
   };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = storageGet(STORAGE_KEY);
     if (raw) return applySessionRestore(migrateState(JSON.parse(raw)));
 
-    const v2Raw = localStorage.getItem("flashcord-state-v2");
+    const v2Raw = storageGet("flashcord-state-v2");
     if (v2Raw) {
       const migrated = applySessionRestore(migrateState(JSON.parse(v2Raw)));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      storageSet(STORAGE_KEY, JSON.stringify(migrated));
       return migrated;
     }
 
-    const legacyRaw = localStorage.getItem("flashcord-state-v1");
+    const legacyRaw = storageGet("flashcord-state-v1");
     if (legacyRaw) {
       const migrated = applySessionRestore(migrateState(JSON.parse(legacyRaw)));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      storageSet(STORAGE_KEY, JSON.stringify(migrated));
       return migrated;
     }
 

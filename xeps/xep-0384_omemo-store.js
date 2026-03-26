@@ -29,6 +29,16 @@
     return trimmed;
   }
 
+  function getStableStorageBridge() {
+    const bridge = globalScope?.s67Electron || null;
+    if (!bridge) return null;
+    if (typeof bridge.storageGet !== "function") return null;
+    if (typeof bridge.storageSet !== "function") return null;
+    if (typeof bridge.storageRemove !== "function") return null;
+    if (typeof bridge.storageList !== "function") return null;
+    return bridge;
+  }
+
   class XmppOmemoStore {
     constructor(jid) {
       const bare = (jid || "").toString().split("/")[0] || "";
@@ -50,12 +60,22 @@
 
     putString(key, value) {
       if (!key) throw new Error("OMEMO store missing key");
-      localStorage.setItem(this.key(key), value == null ? "" : String(value));
+      const fullKey = this.key(key);
+      const nextValue = value == null ? "" : String(value);
+      const bridge = getStableStorageBridge();
+      if (bridge) bridge.storageSet(fullKey, nextValue);
+      localStorage.setItem(fullKey, nextValue);
     }
 
     getString(key, fallback) {
       if (!key) throw new Error("OMEMO store missing key");
-      const value = localStorage.getItem(this.key(key));
+      const fullKey = this.key(key);
+      const bridge = getStableStorageBridge();
+      let value = bridge ? bridge.storageGet(fullKey) : null;
+      if ((value === null || value === undefined) && typeof localStorage !== "undefined") {
+        value = localStorage.getItem(fullKey);
+        if (value !== null && value !== undefined && bridge) bridge.storageSet(fullKey, value);
+      }
       if (value === null || value === undefined) return fallback;
       return value;
     }
@@ -76,17 +96,32 @@
 
     remove(key) {
       if (!key) return;
-      localStorage.removeItem(this.key(key));
+      const fullKey = this.key(key);
+      const bridge = getStableStorageBridge();
+      if (bridge) bridge.storageRemove(fullKey);
+      localStorage.removeItem(fullKey);
     }
 
     filter(prefix) {
       const base = this.key(prefix);
-      const keys = [];
+      const keys = new Set();
+      const bridge = getStableStorageBridge();
+      if (bridge) {
+        bridge.storageList(base).forEach((key) => {
+          if (key) keys.add(key);
+        });
+      }
       for (let i = 0; i < localStorage.length; i += 1) {
         const localKey = localStorage.key(i);
-        if (localKey && localKey.startsWith(base)) keys.push(localKey);
+        if (localKey && localKey.startsWith(base)) {
+          keys.add(localKey);
+          if (bridge) {
+            const value = localStorage.getItem(localKey);
+            if (value !== null && value !== undefined) bridge.storageSet(localKey, value);
+          }
+        }
       }
-      return keys;
+      return [...keys];
     }
 
     async setIdentityKeyPair(identityKeyPair) {

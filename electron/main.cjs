@@ -178,6 +178,35 @@ const START_TIMEOUT_MS = Math.max(3000, Number(process.env.ELECTRON_START_TIMEOU
 const DYNAMIC_PORT_ATTEMPTS = Math.max(0, Number(process.env.ELECTRON_DYNAMIC_PORT_ATTEMPTS || 12));
 const CLIENT_CSP = "default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' data: blob: https: http:; connect-src 'self' data: blob: ws: wss: https: http:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';";
 const CLIENT_PORT_FALLBACKS = [6771, 6772, 6773, 6970];
+const PERSISTENT_RENDERER_STORAGE_FILE = "renderer-storage.json";
+
+function resolvePersistentRendererStoragePath() {
+  try {
+    return path.join(app.getPath("userData"), PERSISTENT_RENDERER_STORAGE_FILE);
+  } catch {
+    return path.join(ROOT_DIR, ".shitcord67-renderer-storage.json");
+  }
+}
+
+function readPersistentRendererStorageSnapshot() {
+  const filePath = resolvePersistentRendererStoragePath();
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePersistentRendererStorageSnapshot(snapshot) {
+  const filePath = resolvePersistentRendererStoragePath();
+  const dirPath = path.dirname(filePath);
+  fs.mkdirSync(dirPath, { recursive: true });
+  const tempPath = `${filePath}.tmp`;
+  fs.writeFileSync(tempPath, JSON.stringify(snapshot || {}, null, 2), "utf8");
+  fs.renameSync(tempPath, filePath);
+}
 
 function resolveShmMode(rawMode) {
   const normalized = String(rawMode || "").toLowerCase();
@@ -1357,6 +1386,60 @@ async function createMainWindow({ startupWarning = "" } = {}) {
         error: String(error?.message || error || "Could not read dropped file path.")
       };
     }
+  });
+  ipcMain.removeAllListeners("s67-storage-get-sync");
+  ipcMain.on("s67-storage-get-sync", (event, payload = {}) => {
+    const key = (payload?.key || "").toString();
+    if (!key) {
+      event.returnValue = { ok: false, hasValue: false, value: null };
+      return;
+    }
+    const snapshot = readPersistentRendererStorageSnapshot();
+    const hasValue = Object.prototype.hasOwnProperty.call(snapshot, key);
+    event.returnValue = {
+      ok: true,
+      hasValue,
+      value: hasValue ? snapshot[key] : null
+    };
+  });
+  ipcMain.removeAllListeners("s67-storage-set-sync");
+  ipcMain.on("s67-storage-set-sync", (event, payload = {}) => {
+    const key = (payload?.key || "").toString();
+    if (!key) {
+      event.returnValue = { ok: false };
+      return;
+    }
+    const snapshot = readPersistentRendererStorageSnapshot();
+    snapshot[key] = payload?.value == null ? "" : String(payload.value);
+    try {
+      writePersistentRendererStorageSnapshot(snapshot);
+      event.returnValue = { ok: true };
+    } catch (error) {
+      event.returnValue = { ok: false, error: String(error?.message || error || "write failed") };
+    }
+  });
+  ipcMain.removeAllListeners("s67-storage-remove-sync");
+  ipcMain.on("s67-storage-remove-sync", (event, payload = {}) => {
+    const key = (payload?.key || "").toString();
+    if (!key) {
+      event.returnValue = { ok: false };
+      return;
+    }
+    const snapshot = readPersistentRendererStorageSnapshot();
+    delete snapshot[key];
+    try {
+      writePersistentRendererStorageSnapshot(snapshot);
+      event.returnValue = { ok: true };
+    } catch (error) {
+      event.returnValue = { ok: false, error: String(error?.message || error || "remove failed") };
+    }
+  });
+  ipcMain.removeAllListeners("s67-storage-list-sync");
+  ipcMain.on("s67-storage-list-sync", (event, payload = {}) => {
+    const prefix = (payload?.prefix || "").toString();
+    const snapshot = readPersistentRendererStorageSnapshot();
+    const keys = Object.keys(snapshot).filter((key) => !prefix || key.startsWith(prefix));
+    event.returnValue = { ok: true, keys };
   });
 
   let loadedClient = false;

@@ -102,5 +102,38 @@ contextBridge.exposeInMainWorld("s67Electron", {
         error: String(error?.message || error || "IPC bridge unavailable")
       };
     }
+  },
+  storageGet(key = "") {
+    try {
+      const response = ipcRenderer.sendSync("s67-storage-get-sync", { key });
+      if (!response?.ok || !response.hasValue) return null;
+      return response.value == null ? "" : String(response.value);
+    } catch {
+      return null;
+    }
+  },
+  storageSet(key = "", value = "") {
+    try {
+      const response = ipcRenderer.sendSync("s67-storage-set-sync", { key, value });
+      return Boolean(response?.ok);
+    } catch {
+      return false;
+    }
+  },
+  storageRemove(key = "") {
+    try {
+      const response = ipcRenderer.sendSync("s67-storage-remove-sync", { key });
+      return Boolean(response?.ok);
+    } catch {
+      return false;
+    }
+  },
+  storageList(prefix = "") {
+    try {
+      const response = ipcRenderer.sendSync("s67-storage-list-sync", { prefix });
+      return Array.isArray(response?.keys) ? response.keys : [];
+    } catch {
+      return [];
+    }
   }
 });
