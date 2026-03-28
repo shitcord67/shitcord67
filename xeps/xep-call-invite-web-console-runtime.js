@@ -564,6 +564,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
   if (!session || !peerBare) return false;
   if (session.state === "proceeded" || session.state === "accepted") {
     showToast("Call already accepted. Waiting for session-initiate.", { tone: "info", duration: 2400 });
+    openNativeXmppCallSurface(sid);
     return true;
   }
   const isJinglePhase = (session.state || "").includes("session");
@@ -692,6 +693,16 @@ async function acceptIncomingXmppCall(sessionId = "") {
     }
     openNativeXmppCallSurface(sid);
     refreshCallBarForPeer(peerBare);
+  } else {
+    addXmppDebugEvent("call", "Failed to send incoming call accept signaling", {
+      peer: peerBare,
+      sid,
+      peerTarget: peerTarget || peerBare,
+      callInviteId,
+      callInviteOnly,
+      isMovimPeer
+    });
+    showToast("Failed to send XMPP call accept signaling.", { tone: "error", duration: 3200 });
   }
   return sent;
 }
@@ -764,10 +775,12 @@ function showIncomingXmppCallPrompt({
     declineBtn.disabled = true;
     stopWebCallRingtone(sid);
     const ok = await acceptIncomingXmppCall(sid);
-    if (!ok) {
-      acceptBtn.disabled = false;
-      declineBtn.disabled = false;
+    if (ok) {
+      openNativeXmppCallSurface(sid);
+      return;
     }
+    acceptBtn.disabled = false;
+    declineBtn.disabled = false;
   });
   const declineBtn = document.createElement("button");
   declineBtn.type = "button";
