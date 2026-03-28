@@ -619,7 +619,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
   const peerResource = peerFull.includes("/") ? peerFull.split("/").slice(1).join("/") : "";
   const isMovimPeer = peerResource.toLowerCase().startsWith("movim");
   const movimAcceptNamespaces = ["urn:xmpp:jingle:jingle-message:0", "urn:xmpp:jingle-message:0"];
-  const movimProceedNamespaces = ["urn:xmpp:jingle-message:0"];
+  const shouldSkipProceedForPeer = isMovimPeer;
   const sentCallInviteAccept = callInviteId
     ? Boolean(xmppSendCallInviteAction(peerTarget || peerBare, "accept", {
       inviteId: callInviteId,
@@ -628,20 +628,14 @@ async function acceptIncomingXmppCall(sessionId = "") {
       video: session.media?.includes("video") !== false
     }))
     : false;
-  const sentProceed = callInviteOnly
+  const sentProceed = (callInviteOnly || shouldSkipProceedForPeer)
     ? false
     : xmppSendJingleMessageAction(peerTarget || peerBare, "proceed", {
       sessionId: sid,
-      namespaces: isMovimPeer ? movimProceedNamespaces : xmppPreferredJingleMessageNamespaces(session),
+      namespaces: xmppPreferredJingleMessageNamespaces(session),
       preferFull: true
     });
-  const sentProceedBare = (!callInviteOnly && isMovimPeer && peerBare && peerTarget?.includes("/"))
-    ? xmppSendJingleMessageAction(peerBare, "proceed", {
-      sessionId: sid,
-      namespaces: movimProceedNamespaces,
-      preferFull: false
-    })
-    : false;
+  const sentProceedBare = false;
   // Keep compatibility action opt-in per session to avoid duplicate JMI state on strict clients.
   const sentAcceptCompat = (callInviteOnly || (!session.sendAcceptCompat && !isMovimPeer))
     ? false
@@ -654,7 +648,14 @@ async function acceptIncomingXmppCall(sessionId = "") {
   if (sent) {
     const entry = xmppCallSessionById.get(sid);
     if (entry) {
-      entry.state = callInviteOnly ? "accepted" : "proceeded";
+      entry.state = (callInviteOnly || shouldSkipProceedForPeer) ? "accepted" : "proceeded";
+      if (shouldSkipProceedForPeer) {
+        addXmppDebugEvent("call", "Skipping Jingle Message proceed for Movim-compatible peer", {
+          peer: peerBare,
+          sid,
+          resource: peerResource
+        });
+      }
       try {
         const info = await xmppFetchDiscoInfoCached(peerBare, { force: false });
         const evalResult = xmppEvaluateCallFeatures(info?.features || new Set());
