@@ -1348,7 +1348,21 @@ function connectRelaySocket({ force = false } = {}) {
           session.peerFullJid = fromFull || session.peerFullJid || "";
           session.localJingleRole = xmppResolveLocalJingleRole({ session, jingle });
           session.remoteJingleRole = session.localJingleRole === "initiator" ? "responder" : "initiator";
-          if (Array.isArray(jingle.media) && jingle.media.length > 0) session.media = [...jingle.media];
+          const incomingMedia = Array.isArray(jingle.media)
+            ? jingle.media
+              .map((item) => (item || "").toString().trim().toLowerCase())
+              .filter((item) => item === "audio" || item === "video")
+            : [];
+          // Preserve the originally negotiated local media for outgoing sessions.
+          // Some peers (Movim) include additional m-sections in session-accept,
+          // and blindly replacing session.media here poisons later SDP mapping.
+          const shouldReplaceSessionMedia = incomingMedia.length > 0 && (
+            !Array.isArray(session.media)
+            || session.media.length === 0
+            || jingle.action === "session-initiate"
+            || session.direction !== "outgoing"
+          );
+          if (shouldReplaceSessionMedia) session.media = [...incomingMedia];
           if (Array.isArray(jingle.contents) && jingle.contents.length > 0) {
             session.remoteContents = jingle.contents;
             const audioContent = jingle.contents.find((entry) => (entry?.media || "").toString().trim().toLowerCase() === "audio");
