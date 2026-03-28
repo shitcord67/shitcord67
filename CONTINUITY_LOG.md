@@ -11258,3 +11258,39 @@ OMEMO
     1281    const requestedMedia = screenShare ? ["audio", "video"] : XMPP_CALL_DEFAULT_MEDIA;
 
 ■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Apr 4th, 2026 7:09 AM.
+[2026-03-28T06:23:51Z] User prompt:
+movim user started call, shitcord67 user clicked accept, no conversation starts: {
+  "relayMode": "xmpp",
+  "relayStatus": "connected",
+  "xmppConnected": true,
+  "xmppRuntimeReady": true,
+  "xmppRuntimeLastError": "",
+  "filter": "all",
+  "search": "",
+  "paused": true,
+  "eventsTotal": 307,
+  "eventsShown": 307,
+  "activeCallSessions": [
+    {
+      "id": "d4b6bc8f-0065-4bd6-bdc6-3d6e2cf49922",
+      "sid": "d4b6bc8f",
+      "peer": "kazue@xmpp.jp",
+      "direction": "incoming",
+      "state": "peer-left",
+      "media": [],
+      "localRole": "responder",
+      "remoteRole": "initiator",
+      "pendingLocalRenegotiation": false,
+      "queuedTask": false,
+      "pendingReprime": false,
+      "localCandidates": 0,
+      "remoteCandidates": 0,
+      "createdAt": "2026-03-28T05:45:00.423Z"
+    }
+  ]
+}
+
+[prompt continued with full runtime logs pasted in chat during this investigation turn; retained in conversation transcript and summarized here to avoid duplicating another multi-thousand-line log block in continuity. Key points from the pasted prompt:
+- Incoming Movim -> shitcord67 call: proposal `d4b6bc8f`, local accept sent `proceed`, disco check reported `ready: false`, no `session-initiate` arrived, peer then sent `finish` and `session-terminate success`.
+- Outgoing shitcord67 -> Movim call: proposal `jmi-3ed17946-c7a`, Movim sent `ringing` and `proceed`, shitcord67 sent `session-initiate` plus multiple `transport-info` IQs to `kazue@xmpp.jp/Movim...`, Movim ACKed those IQs, then sent `finish`, `session-terminate success`, and later a `reject` from another resource.
+- Repeated OMEMO decrypt failures also appeared in the pasted logs: `MessageCounterError: Message key not found. The counter was repeated or the key was not filled.` ]

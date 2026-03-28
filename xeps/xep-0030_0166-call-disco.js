@@ -276,6 +276,9 @@
         .map((item) => (item || "").toString().trim().toLowerCase())
         .filter((item) => item === "audio" || item === "video")
     )];
+    // Audio-only calls interoperate better with the richer SDP-derived RTP description,
+    // even when disco data is missing or incomplete for the selected target resource.
+    if (!normalizedMedia.includes("video")) return false;
     const features = typeof deps.xmppCachedCallFeaturesForPeerFn === "function"
       ? deps.xmppCachedCallFeaturesForPeerFn(peerJid)
       : xmppCachedCallFeaturesForPeer(peerJid, deps);
@@ -289,9 +292,6 @@
       (item === "audio" && !supportsAudio) || (item === "video" && !supportsVideo)
     ));
     if (mediaMismatch) return true;
-    // For audio-only calls (especially Dino full-JID targets), full RTP payload descriptions
-    // interoperate better than sparse fallback payloads.
-    if (!normalizedMedia.includes("video")) return false;
     if (dinoResource && normalizedMedia.length === 1 && normalizedMedia[0] === "audio") return false;
     return !hasRtpFb || !hasHdrExt || !hasSsma;
   }
