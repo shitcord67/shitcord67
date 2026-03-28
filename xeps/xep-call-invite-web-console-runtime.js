@@ -615,6 +615,11 @@ async function acceptIncomingXmppCall(sessionId = "") {
     && (session.inviteSignal || "").toString().trim().toLowerCase() === "call-invite"
     && !session.callInviteHasJingleSid
   );
+  const peerFull = (session.peerFullJid || peerTarget || "").toString().trim();
+  const peerResource = peerFull.includes("/") ? peerFull.split("/").slice(1).join("/") : "";
+  const isMovimPeer = peerResource.toLowerCase().startsWith("movim");
+  const movimAcceptNamespaces = ["urn:xmpp:jingle:jingle-message:0", "urn:xmpp:jingle-message:0"];
+  const movimProceedNamespaces = ["urn:xmpp:jingle-message:0"];
   const sentCallInviteAccept = callInviteId
     ? Boolean(xmppSendCallInviteAction(peerTarget || peerBare, "accept", {
       inviteId: callInviteId,
@@ -627,18 +632,25 @@ async function acceptIncomingXmppCall(sessionId = "") {
     ? false
     : xmppSendJingleMessageAction(peerTarget || peerBare, "proceed", {
       sessionId: sid,
-      namespaces: xmppPreferredJingleMessageNamespaces(session),
+      namespaces: isMovimPeer ? movimProceedNamespaces : xmppPreferredJingleMessageNamespaces(session),
       preferFull: true
     });
+  const sentProceedBare = (!callInviteOnly && isMovimPeer && peerBare && peerTarget?.includes("/"))
+    ? xmppSendJingleMessageAction(peerBare, "proceed", {
+      sessionId: sid,
+      namespaces: movimProceedNamespaces,
+      preferFull: false
+    })
+    : false;
   // Keep compatibility action opt-in per session to avoid duplicate JMI state on strict clients.
-  const sentAcceptCompat = (callInviteOnly || !session.sendAcceptCompat)
+  const sentAcceptCompat = (callInviteOnly || (!session.sendAcceptCompat && !isMovimPeer))
     ? false
     : xmppSendJingleMessageAction(peerTarget || peerBare, "accept", {
       sessionId: sid,
-      namespaces: xmppPreferredJingleMessageNamespaces(session),
+      namespaces: isMovimPeer ? movimAcceptNamespaces : xmppPreferredJingleMessageNamespaces(session),
       preferFull: true
     });
-  const sent = Boolean(sentCallInviteAccept || sentProceed || sentAcceptCompat);
+  const sent = Boolean(sentCallInviteAccept || sentProceed || sentProceedBare || sentAcceptCompat);
   if (sent) {
     const entry = xmppCallSessionById.get(sid);
     if (entry) {

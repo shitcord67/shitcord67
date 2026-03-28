@@ -15373,3 +15373,4 @@ No session-initiate received for XMPP call (8c1461a8). Keeping the native call i
 }.
 2026-03-28T20:44:10+01:00	You might also need to investigate xmppmessengers/movim/
 2026-03-28T20:56:31+01:00	Target Movim stuff
+2026-03-28T21:27:27+01:00	Still 'Quality …' after Movim call accept. Need Movim-specific handling.
