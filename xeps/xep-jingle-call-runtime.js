@@ -986,6 +986,9 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull });
   const id = (sessionId || "").toString().trim();
   if (!to || !id || !xmppConnection || relayStatus !== "connected" || !globalThis.$msg) return false;
+  const resource = to.includes("/") ? to.split("/").slice(1).join("/") : "";
+  const isMovim = resource.toLowerCase().startsWith("movim");
+  const requestedNamespaces = isMovim ? [XMPP_JINGLE_MESSAGE_INIT_NAMESPACE] : namespaces;
   const barePeer = xmppBareJid(to);
   const cachedDisco = barePeer ? xmppDiscoInfoCacheByJid.get(barePeer) : null;
   const featureList = Array.isArray(cachedDisco?.features) ? cachedDisco.features : [];
@@ -996,7 +999,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
       action,
       sessionId: id,
       featureSet,
-      namespaces,
+      namespaces: requestedNamespaces,
       media
     }, {
       namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
