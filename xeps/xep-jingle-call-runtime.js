@@ -1067,7 +1067,22 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     }
   }
   let sentCount = 0;
+  const sentVariants = [];
   stanzasToSend.forEach((builder) => {
+    const raw = (typeof xmppSerializePayload === "function")
+      ? trimXmppRaw(xmppSerializePayload(builder))
+      : "";
+    const tree = builder?.tree?.() || null;
+    sentVariants.push({
+      to: (tree?.attrs?.to || to || "").toString(),
+      type: (tree?.attrs?.type || "").toString(),
+      stanzaId: (tree?.attrs?.id || "").toString(),
+      action: (tree?.children?.[0]?.name || tag || "").toString(),
+      xmlns: (tree?.children?.[0]?.attrs?.xmlns || "").toString(),
+      actionId: (tree?.children?.[0]?.attrs?.id || id || "").toString(),
+      hasStoreHint: raw.includes("<store ") || raw.includes("<store/>"),
+      raw
+    });
     xmppConnection.send(builder);
     sentCount += 1;
   });
@@ -1094,6 +1109,14 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     });
   }
   addXmppDebugEvent("message", "Sent XMPP jingle-message action", { to, action: tag, id });
+  if (isMovim) {
+    addXmppDebugEvent("call", "Sent Movim-compatible Jingle Message variants", {
+      to,
+      action: tag,
+      id,
+      variants: sentVariants
+    });
+  }
   return true;
 }
 
