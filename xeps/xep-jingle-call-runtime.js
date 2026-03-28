@@ -1032,7 +1032,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     ? builtStanzas
     : uniqueNamespaces
       .map((namespace) => {
-        const builder = globalThis.$msg({ to, type: "chat" }).c(tag, { xmlns: namespace, id });
+        const builder = globalThis.$msg({ to }).c(tag, { xmlns: namespace, id });
         if (tag === "propose") {
           const medias = [...new Set(
             (Array.isArray(sendMedia) ? sendMedia : XMPP_CALL_DEFAULT_MEDIA)

@@ -156,7 +156,7 @@
     const xmlns = (namespace || "").toString().trim();
     if (!target || !id || !tag || !xmlns) return null;
     if (!xmppIsJingleMessageActionSupported(tag)) return null;
-    const builder = deps.$msg({ to: target, type: "chat" }).c(tag, { xmlns, id });
+    const builder = deps.$msg({ to: target }).c(tag, { xmlns, id });
     if (tag === "propose") {
       const medias = xmppNormalizeJingleMessageMedia(media, { defaultMedia: deps.defaultMedia });
       medias.forEach((mediaType) => {
