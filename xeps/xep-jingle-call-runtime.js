@@ -1031,7 +1031,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
       defaultMedia: XMPP_CALL_DEFAULT_MEDIA
     })
     : [];
-  const stanzasToSend = builtStanzas.length > 0
+  let stanzasToSend = builtStanzas.length > 0
     ? builtStanzas
     : uniqueNamespaces
       .map((namespace) => {
@@ -1049,6 +1049,22 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
         return builder;
       })
       .filter(Boolean);
+  const movimCompatTypes = isMovim && (tag === "proceed" || tag === "accept")
+    ? ["chat"]
+    : [];
+  if (movimCompatTypes.length > 0) {
+    const compatStanzas = movimCompatTypes.flatMap((type) => uniqueNamespaces
+      .map((namespace) => {
+        const stanzaId = `jm-${tag}-${id}`;
+        const builder = globalThis.$msg({ to, type, id: stanzaId }).c(tag, { xmlns: namespace, id });
+        builder.up().c("store", { xmlns: "urn:xmpp:hints" });
+        return builder;
+      })
+      .filter(Boolean));
+    if (compatStanzas.length > 0) {
+      stanzasToSend = stanzasToSend.concat(compatStanzas);
+    }
+  }
   let sentCount = 0;
   stanzasToSend.forEach((builder) => {
     xmppConnection.send(builder);
