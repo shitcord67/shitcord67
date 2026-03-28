@@ -89,7 +89,8 @@
       return {
         action,
         id,
-        media: [...new Set(media)]
+        media: [...new Set(media)],
+        namespace: xmppNodeXmlns(node)
       };
     }
     return null;
@@ -115,6 +116,19 @@
     const primary = hasV0 && !hasV1 ? v0 : v1;
     const list = (!hasV0 && !hasV1) ? [primary, v0] : [primary];
     return [...new Set(list.filter(Boolean))];
+  }
+
+  function xmppNormalizeJingleMessageNamespaces(namespaces = [], deps = {}) {
+    const v0 = (deps.namespaceV0 || "urn:xmpp:jingle-message:0").toString().trim().toLowerCase();
+    const v1 = (deps.namespaceV1 || "urn:xmpp:jingle-message:1").toString().trim().toLowerCase();
+    const legacyAccept = "urn:xmpp:jingle:jingle-message:0";
+    const allowed = new Set([v0, v1, legacyAccept]);
+    const source = Array.isArray(namespaces) ? namespaces : [namespaces];
+    return [...new Set(
+      source
+        .map((entry) => (entry || "").toString().trim().toLowerCase())
+        .filter((entry) => allowed.has(entry))
+    )];
   }
 
   function xmppNormalizeJingleMessageMedia(media = [], deps = {}) {
@@ -184,14 +198,21 @@
     action = "",
     sessionId = "",
     featureSet = new Set(),
+    namespaces = [],
     media = []
   } = {}, deps = {}) {
     const tag = xmppNormalizeJingleMessageAction(action);
     if (!to || !sessionId || !xmppIsJingleMessageActionSupported(tag)) return null;
-    const namespaces = xmppJingleMessageNamespacesForFeatures(featureSet, {
+    const explicitNamespaces = xmppNormalizeJingleMessageNamespaces(namespaces, {
       namespaceV0: deps.namespaceV0,
       namespaceV1: deps.namespaceV1
     });
+    const resolvedNamespaces = explicitNamespaces.length > 0
+      ? explicitNamespaces
+      : xmppJingleMessageNamespacesForFeatures(featureSet, {
+        namespaceV0: deps.namespaceV0,
+        namespaceV1: deps.namespaceV1
+      });
     const normalizedMedia = xmppNormalizeJingleMessageMedia(media, {
       defaultMedia: deps.defaultMedia
     });
@@ -199,7 +220,7 @@
       to: (to || "").toString().trim(),
       action: tag,
       sessionId: (sessionId || "").toString().trim(),
-      namespaces,
+      namespaces: resolvedNamespaces,
       media: normalizedMedia
     };
   }
@@ -210,6 +231,7 @@
     xmppNormalizeJingleMessageAction,
     xmppIsJingleMessageActionSupported,
     xmppJingleMessageNamespacesForFeatures,
+    xmppNormalizeJingleMessageNamespaces,
     xmppNormalizeJingleMessageMedia,
     xmppBuildJingleMessageStanza,
     xmppBuildJingleMessageStanzas,

@@ -956,6 +956,19 @@ function latestXmppCallSessionIdForPeer(peerJid, direction = "incoming") {
   return (xmppLatestIncomingCallSessionByPeer.get(peer) || "").toString();
 }
 
+function xmppPreferredJingleMessageNamespaces(session = null) {
+  const raw = Array.isArray(session?.jingleMessageNamespaces) ? session.jingleMessageNamespaces : [];
+  if (typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces === "function") {
+    return XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces(raw, {
+      namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+      namespaceV1: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
+    });
+  }
+  return raw
+    .map((entry) => (entry || "").toString().trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShareFallback = false } = {}) {
   const peerFull = (peerJid || "").toString().trim();
   const peer = xmppBareJid(peerFull);
@@ -977,7 +990,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
   if (action === "propose") {
     const existingIncomingId = latestXmppCallSessionIdForPeer(peer, "incoming");
     if (existingIncomingId && existingIncomingId !== id) forgetXmppCallSession(existingIncomingId);
-    xmppCallSessionById.set(id, {
+    const session = {
       id,
       peerJid: peer,
       peerFullJid: peerFull || "",
@@ -991,9 +1004,21 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       state: "proposed",
       createdAt: Date.now(),
       media: Array.isArray(actionPayload.media) ? actionPayload.media : []
-    });
+    };
+    const incomingNamespaces = typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces === "function"
+      ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces(actionPayload?.namespace || "", {
+        namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+        namespaceV1: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
+      })
+      : [];
+    if (incomingNamespaces.length > 0) session.jingleMessageNamespaces = incomingNamespaces;
+    xmppCallSessionById.set(id, session);
     xmppLatestIncomingCallSessionByPeer.set(peer, id);
-    xmppSendJingleMessageAction(replyTarget, "ringing", { sessionId: id, preferFull: true });
+    xmppSendJingleMessageAction(replyTarget, "ringing", {
+      sessionId: id,
+      namespaces: xmppPreferredJingleMessageNamespaces(session),
+      preferFull: true
+    });
     startWebCallRingtone(id);
     showIncomingXmppCallPrompt({
       sessionId: id,
@@ -1032,6 +1057,15 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
         session = fallbackSession;
       }
     }
+  }
+  if (session) {
+    const incomingNamespaces = typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces === "function"
+      ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces(actionPayload?.namespace || "", {
+        namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,
+        namespaceV1: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE_V1
+      })
+      : [];
+    if (incomingNamespaces.length > 0) session.jingleMessageNamespaces = incomingNamespaces;
   }
   if (action === "ringing") {
     if (session?.direction === "outgoing") {

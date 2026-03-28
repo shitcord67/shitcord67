@@ -980,6 +980,7 @@ async function xmppSwitchLocalMediaMode(sessionId = "", mode = "camera", { scree
 function xmppSendJingleMessageAction(peerJid, action = "propose", {
   sessionId = "",
   media = XMPP_CALL_DEFAULT_MEDIA,
+  namespaces = [],
   preferFull = false
 } = {}) {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull });
@@ -995,6 +996,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
       action,
       sessionId: id,
       featureSet,
+      namespaces,
       media
     }, {
       namespaceV0: XMPP_JINGLE_MESSAGE_INIT_NAMESPACE,

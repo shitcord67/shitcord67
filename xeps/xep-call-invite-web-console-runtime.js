@@ -627,6 +627,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
     ? false
     : xmppSendJingleMessageAction(peerTarget || peerBare, "proceed", {
       sessionId: sid,
+      namespaces: xmppPreferredJingleMessageNamespaces(session),
       preferFull: true
     });
   // Keep compatibility action opt-in per session to avoid duplicate JMI state on strict clients.
@@ -634,6 +635,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
     ? false
     : xmppSendJingleMessageAction(peerTarget || peerBare, "accept", {
       sessionId: sid,
+      namespaces: xmppPreferredJingleMessageNamespaces(session),
       preferFull: true
     });
   const sent = Boolean(sentCallInviteAccept || sentProceed || sentAcceptCompat);
@@ -661,14 +663,13 @@ async function acceptIncomingXmppCall(sessionId = "") {
           const current = xmppCallSessionById.get(sid);
           if (!current || (current.state || "").includes("session")) return;
           showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
-          if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Opening local Web Call fallback without auto-inviting peer.`)) {
+          if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Keeping the native call idle; no local Web Call fallback was opened.`)) {
             refreshDmUiForPeerJid(peerBare);
           }
           if (!current.fallbackInviteSent) {
-            const fallbackScreenShare = Boolean(current.screenShare);
             current.fallbackInviteSent = true;
-            forgetXmppCallSession(sid);
-            launchConversationCall({ screenShare: fallbackScreenShare, autoPost: false, allowNative: false });
+            current.state = "proceed-timeout";
+            if (xmppActiveNativeCallSessionId === sid) closeMediaLightbox();
           }
         }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
       }
@@ -710,7 +711,11 @@ function declineIncomingXmppCall(sessionId = "") {
           video: session.media?.includes("video") !== false
         })
         : false)
-      || xmppSendJingleMessageAction(peerTarget || peerBare, "reject", { sessionId: sid, preferFull: true })
+      || xmppSendJingleMessageAction(peerTarget || peerBare, "reject", {
+        sessionId: sid,
+        namespaces: xmppPreferredJingleMessageNamespaces(session),
+        preferFull: true
+      })
     );
   forgetXmppCallSession(sid);
   return sent;

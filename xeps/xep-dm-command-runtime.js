@@ -300,7 +300,10 @@
         } else if (sub === "ring") {
           sent = isJinglePhase
             ? xmppSendJingleSessionInfo(peerTarget, targetId, { info: "ringing" })
-            : xmppSendJingleMessageAction(peerTarget, "ringing", { sessionId: targetId });
+            : xmppSendJingleMessageAction(peerTarget, "ringing", {
+              sessionId: targetId,
+              namespaces: xmppPreferredJingleMessageNamespaces(session)
+            });
         } else if (sub === "transport") {
           const localTransport = session?.localTransport && typeof session.localTransport === "object"
             ? session.localTransport
@@ -308,7 +311,10 @@
           if (session) session.localTransport = localTransport;
           sent = xmppQueueTransportInfoGatherAndSend(peerTarget, targetId, { force: true });
         } else {
-          sent = xmppSendJingleMessageAction(peerTarget, action, { sessionId: targetId });
+          sent = xmppSendJingleMessageAction(peerTarget, action, {
+            sessionId: targetId,
+            namespaces: xmppPreferredJingleMessageNamespaces(session)
+          });
         }
         if (!sent) {
           showToast("Failed to send XMPP call action.", { tone: "error" });
