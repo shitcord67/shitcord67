@@ -1739,6 +1739,19 @@ function connectRelaySocket({ force = false } = {}) {
             return true;
           }
           if (jingle.action === "session-terminate") {
+            if (session?.direction === "outgoing") {
+              const selectedPeerFull = (session.peerFullJid || "").toString().trim();
+              const incomingPeerFull = (fromFull || "").toString().trim();
+              if (selectedPeerFull && incomingPeerFull && selectedPeerFull !== incomingPeerFull) {
+                addXmppDebugEvent("iq", "Ignored XMPP jingle session-terminate from non-selected resource", {
+                  sid: jingle.sid,
+                  selectedPeerFull,
+                  from: incomingPeerFull,
+                  reason: jingle.reason || ""
+                });
+                return true;
+              }
+            }
             session.state = "terminated";
             stopWebCallRingtone(jingle.sid);
             clearXmppRemoteTrackWaitHint(jingle.sid);

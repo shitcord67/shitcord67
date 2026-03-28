@@ -1274,7 +1274,10 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
     targetCount: interop.targets.length
   });
   const peerJid = xmppPeerJidForConversation(conversation, getCurrentAccount());
-  const peerTargetJid = xmppNormalizeCallTargetJid(peerJid, { preferFull: true }) || peerJid;
+  const preferredInteropTarget = (interop.chosenTarget || "").toString().trim();
+  const peerTargetJid = preferredInteropTarget
+    || xmppNormalizeCallTargetJid(peerJid, { preferFull: true })
+    || peerJid;
   const requestedMedia = screenShare ? ["audio", "video"] : XMPP_CALL_DEFAULT_MEDIA;
   const negotiatedMedia = xmppNegotiatedCallMediaForPeer(peerTargetJid || peerJid, requestedMedia);
   if (xmppPeerLikelyWebCallOnly(peerTargetJid || peerJid)) {
