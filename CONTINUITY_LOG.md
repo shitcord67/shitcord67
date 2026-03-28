@@ -11294,3 +11294,8 @@ movim user started call, shitcord67 user clicked accept, no conversation starts:
 - Incoming Movim -> shitcord67 call: proposal `d4b6bc8f`, local accept sent `proceed`, disco check reported `ready: false`, no `session-initiate` arrived, peer then sent `finish` and `session-terminate success`.
 - Outgoing shitcord67 -> Movim call: proposal `jmi-3ed17946-c7a`, Movim sent `ringing` and `proceed`, shitcord67 sent `session-initiate` plus multiple `transport-info` IQs to `kazue@xmpp.jp/Movim...`, Movim ACKed those IQs, then sent `finish`, `session-terminate success`, and later a `reject` from another resource.
 - Repeated OMEMO decrypt failures also appeared in the pasted logs: `MessageCounterError: Message key not found. The counter was repeated or the key was not filled.` ]
+[2026-03-28T06:29:15Z] User prompt:
+I hope you really investigated xmppmessengers/movim/ to make sure it REALLY works.
+
+## 2026-03-28T07:31:15+01:00
+I hope you really investigated xmppmessengers/movim/ to make sure it REALLY works.

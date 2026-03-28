@@ -1276,7 +1276,9 @@
         const contentName = (content.name || `${content.media}${index}`).toString().trim() || `${content.media}${index}`;
         const contentMedia = (content.media || "").toString().trim().toLowerCase();
         const contentSenders = (content.senders || "both").toString().trim().toLowerCase() || "both";
-        const contentCreator = "responder";
+        // Jingle content creator is fixed by the original offerer. For answers,
+        // preserve the remote creator when we have it instead of flipping to responder.
+        const contentCreator = (content.creator || "initiator").toString().trim().toLowerCase() || "initiator";
         sentContents.push({
           ...content,
           name: contentName,
@@ -1309,7 +1311,7 @@
         sentContents.push({
           name: contentName,
           media: mediaType,
-          creator: "responder",
+          creator: "initiator",
           senders: "both",
           transport: localTransport
         });
@@ -1317,7 +1319,7 @@
         xmppBuildJingleRtpContent(iq, {
           media: mediaType,
           name: contentName,
-          creator: "responder",
+          creator: "initiator",
           transport: localTransport,
           dtls: localDtls
         }, deps);
