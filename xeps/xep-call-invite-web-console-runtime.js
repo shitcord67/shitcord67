@@ -634,13 +634,15 @@ async function acceptIncomingXmppCall(sessionId = "") {
     : xmppSendJingleMessageAction(peerTarget || peerBare, "proceed", {
       sessionId: sid,
       namespaces: isMovimPeer ? movimProceedNamespaces : xmppPreferredJingleMessageNamespaces(session),
-      preferFull: true
+      preferFull: true,
+      forceMovimCompat: isMovimPeer
     });
   const sentProceedBare = (!callInviteOnly && isMovimPeer && peerBare && peerTarget?.includes("/"))
     ? xmppSendJingleMessageAction(peerBare, "proceed", {
       sessionId: sid,
       namespaces: movimProceedNamespaces,
-      preferFull: false
+      preferFull: false,
+      forceMovimCompat: true
     })
     : false;
   // Keep compatibility action opt-in per session to avoid duplicate JMI state on strict clients.
@@ -649,9 +651,18 @@ async function acceptIncomingXmppCall(sessionId = "") {
     : xmppSendJingleMessageAction(peerTarget || peerBare, "accept", {
       sessionId: sid,
       namespaces: isMovimPeer ? movimAcceptNamespaces : xmppPreferredJingleMessageNamespaces(session),
-      preferFull: true
+      preferFull: true,
+      forceMovimCompat: isMovimPeer
     });
-  const sent = Boolean(sentCallInviteAccept || sentProceed || sentProceedBare || sentAcceptCompat);
+  const sentAcceptCompatBare = (!callInviteOnly && isMovimPeer && peerBare && peerTarget?.includes("/"))
+    ? xmppSendJingleMessageAction(peerBare, "accept", {
+      sessionId: sid,
+      namespaces: movimAcceptNamespaces,
+      preferFull: false,
+      forceMovimCompat: true
+    })
+    : false;
+  const sent = Boolean(sentCallInviteAccept || sentProceed || sentProceedBare || sentAcceptCompat || sentAcceptCompatBare);
   if (sent) {
     const entry = xmppCallSessionById.get(sid);
     if (entry) {

@@ -981,13 +981,14 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
   sessionId = "",
   media = XMPP_CALL_DEFAULT_MEDIA,
   namespaces = [],
-  preferFull = false
+  preferFull = false,
+  forceMovimCompat = false
 } = {}) {
   const to = xmppNormalizeCallTargetJid(peerJid, { preferFull });
   const id = (sessionId || "").toString().trim();
   if (!to || !id || !xmppConnection || relayStatus !== "connected" || !globalThis.$msg) return false;
   const resource = to.includes("/") ? to.split("/").slice(1).join("/") : "";
-  const isMovim = resource.toLowerCase().startsWith("movim");
+  const isMovim = forceMovimCompat || resource.toLowerCase().startsWith("movim");
   const requestedNamespaces = isMovim ? [XMPP_JINGLE_MESSAGE_INIT_NAMESPACE] : namespaces;
   const barePeer = xmppBareJid(to);
   const cachedDisco = barePeer ? xmppDiscoInfoCacheByJid.get(barePeer) : null;
