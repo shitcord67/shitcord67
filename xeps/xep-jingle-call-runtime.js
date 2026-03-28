@@ -1050,7 +1050,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
         return builder;
       })
       .filter(Boolean);
-  const movimCompatTypes = isMovim && (tag === "proceed" || tag === "accept")
+  const movimCompatTypes = forceMovimCompat && (tag === "proceed" || tag === "accept")
     ? ["chat"]
     : [];
   if (movimCompatTypes.length > 0) {
@@ -1109,7 +1109,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
     });
   }
   addXmppDebugEvent("message", "Sent XMPP jingle-message action", { to, action: tag, id });
-  if (isMovim) {
+  if (forceMovimCompat) {
     addXmppDebugEvent("call", "Sent Movim-compatible Jingle Message variants", {
       to,
       action: tag,
