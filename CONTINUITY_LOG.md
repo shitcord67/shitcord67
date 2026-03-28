@@ -11299,3 +11299,17 @@ I hope you really investigated xmppmessengers/movim/ to make sure it REALLY work
 
 ## 2026-03-28T07:31:15+01:00
 I hope you really investigated xmppmessengers/movim/ to make sure it REALLY works.
+
+## 2026-03-28T08:06:56+01:00
+Still the same issue. Also maybe this helps.. why is a jitsu meet link sent when I press "DM Call"? (electron) 'console-message' arguments are deprecated and will be removed. Please use Event<WebContentsConsoleMessageEventParams> object instead.
+[electron] renderer [level=2] http://127.0.0.1:35919/assets/libsignal_protocol.min.js:22851 Invalid asm.js: Expected shift of word size
+[electron] renderer [level=3] http://127.0.0.1:35919/assets/libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+[electron] renderer [level=3] http://127.0.0.1:35919/assets/libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+[electron] renderer [level=2] https://meet.jit.si/v1/_cdn/meetjitsi_9139.6212/libs/app.bundle.min.js?v=9139.6212:2 2026-03-28T07:05:42.708Z [WARN] [app:sounds] PLAY_SOUND: no sound found for id: RECORDING_OFF_SOUND
+[electron] renderer [level=2] https://meet.jit.si/v1/_cdn/meetjitsi_9139.6212/libs/app.bundle.min.js?v=9139.6212:2 2026-03-28T07:05:42.771Z [WARN] [app:web-hid] <I$.sendDeviceReport>:  There are currently non-compliant conditions
+[electron] renderer [level=3] http://127.0.0.1:35919/assets/libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+[electron] renderer [level=3] http://127.0.0.1:35919/assets/libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+[electron] renderer [level=3] https://meet.jit.si/v1/_cdn/meetjitsi_9139.6212/libs/app.bundle.min.js?v=9139.6212:44 Amplitude Logger [Error]: Failed to fetch remote configuration because of error:  Error: Remote config fetch rejected due to timeout after 5 seconds
+[electron] renderer [level=2] https://meet.jit.si/v1/_cdn/meetjitsi_9139.6212/libs/app.bundle.min.js?v=9139.6212:44 Amplitude Logger [Warn]: Plugin name is undefined. 
+      Generating a random UUID for plugin name: b46c7cac-ab49-4499-89f7-f943df2392f1. 
+      Set a name for the plugin to prevent it from being added multiple times.

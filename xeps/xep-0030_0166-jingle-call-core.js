@@ -103,9 +103,7 @@ function xmppSendDiscoInfoResultForIncomingGet(stanza) {
 function xmppPeerLikelyWebCallOnly(peerJid = "") {
   const raw = (peerJid || "").toString().trim().toLowerCase();
   if (!raw || !raw.includes("/")) return false;
-  const resource = raw.split("/").slice(1).join("/");
-  if (!resource) return false;
-  return resource.includes("movim");
+  return false;
 }
 
 function xmppPostWebCallInviteFallback({
@@ -1250,7 +1248,7 @@ function xmppStartOutgoingCallProposal({
   return true;
 }
 
-async function launchNativeXmppConversationCall({ screenShare = false, allowWebFallback = true } = {}) {
+async function launchNativeXmppConversationCall({ screenShare = false, allowWebFallback = false } = {}) {
   const conversation = getActiveConversation();
   if (!conversation) {
     showToast("Open a channel or DM first.", { tone: "error" });
@@ -1390,7 +1388,7 @@ async function launchNativeXmppConversationCall({ screenShare = false, allowWebF
       return false;
     }
   }
-  showToast("Native XMPP signaling is not fully wired in-client yet. Opening Web Call fallback.", { tone: "error", duration: 2800 });
+  showToast("Native XMPP signaling is not fully wired in-client yet.", { tone: "error", duration: 2800 });
   if (allowWebFallback) {
     xmppPostWebCallInviteFallback({
       conversationId: conversation.id || "",
