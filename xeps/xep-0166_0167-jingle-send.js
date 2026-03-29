@@ -788,6 +788,7 @@
         session,
         transport,
         candidates,
+        sessionLocalContents: Array.isArray(session?.localContents) ? session.localContents : [],
         sessionRemoteContents: Array.isArray(session?.remoteContents) ? session.remoteContents : [],
         localSdpContents,
         sessionMedia: typeof callSessionMediaListFn === "function" ? callSessionMediaListFn(session) : []

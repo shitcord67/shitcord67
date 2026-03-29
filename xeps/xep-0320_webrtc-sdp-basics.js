@@ -1348,6 +1348,7 @@
   }
 
   function xmppBuildTransportInfoContentCatalog({
+    sessionLocalContents = [],
     sessionRemoteContents = [],
     localSdpContents = [],
     sessionMedia = []
@@ -1362,6 +1363,16 @@
       seenContentNames.add(normalizedName);
       contentCatalog.push({ name: normalizedName, media: normalizedMedia });
     };
+    const localEntries = (Array.isArray(sessionLocalContents) ? sessionLocalContents : []);
+    localEntries.forEach((entry, index) => {
+      const media = (entry?.media || "").toString().trim().toLowerCase();
+      if (media !== "audio" && media !== "video") return;
+      const name = (entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`;
+      pushContent(name, media);
+    });
+    if (contentCatalog.length > 0) {
+      return contentCatalog;
+    }
     const remoteEntries = (Array.isArray(sessionRemoteContents) ? sessionRemoteContents : []);
     remoteEntries.forEach((entry, index) => {
       const media = (entry?.media || "").toString().trim().toLowerCase();
@@ -1500,12 +1511,14 @@
     session = null,
     transport = null,
     candidates = [],
+    sessionLocalContents = [],
     sessionRemoteContents = [],
     localSdpContents = [],
     sessionMedia = []
   } = {}, deps = {}) {
     const preferredMedia = Array.isArray(sessionMedia) ? sessionMedia : [];
     const contentCatalog = xmppBuildTransportInfoContentCatalog({
+      sessionLocalContents,
       sessionRemoteContents,
       localSdpContents,
       sessionMedia: preferredMedia
