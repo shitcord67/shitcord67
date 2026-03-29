@@ -1261,6 +1261,11 @@ function xmppForceNativeCallSessionTerminate(sessionId = "") {
   return true;
 }
 
+function xmppSessionIsAlreadyEnded(session = null) {
+  const state = (session?.state || "").toString().trim().toLowerCase();
+  return ["peer-left", "terminated", "ended", "idle", "proceed-timeout"].includes(state);
+}
+
 function renderNativeXmppCallDebugDialog(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid || nativeCallDebugDialogSessionId !== sid) return null;
@@ -1604,12 +1609,15 @@ function renderNativeXmppCallSurface(sessionId = "") {
   endBtn.textContent = "End";
   endBtn.className = "native-call-surface__end";
   bindNativeCallActionButton(endBtn, () => {
-    const targetPeer = xmppBareJid(session?.peerJid || "");
-    if (targetPeer) {
+    const currentSession = xmppCallSessionById.get(sid) || session || null;
+    const targetPeer = xmppBareJid(currentSession?.peerJid || "");
+    if (targetPeer && !xmppSessionIsAlreadyEnded(currentSession)) {
       xmppSendJingleSessionTerminate(targetPeer, sid, {
         reason: "success",
         text: "Ended from in-app native call surface"
       });
+    } else if (xmppSessionIsAlreadyEnded(currentSession)) {
+      showToast("Call already ended.", { tone: "info", duration: 2200 });
     }
     clearNativeCallSurfaceTicker();
     forgetXmppCallSession(sid);

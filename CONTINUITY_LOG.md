@@ -15374,3 +15374,1878 @@ No session-initiate received for XMPP call (8c1461a8). Keeping the native call i
 2026-03-28T20:44:10+01:00	You might also need to investigate xmppmessengers/movim/
 2026-03-28T20:56:31+01:00	Target Movim stuff
 2026-03-28T21:27:27+01:00	Still 'Quality …' after Movim call accept. Need Movim-specific handling.
+2026-03-28T21:37:33+01:00	Still no session-initiate from Movim after proceed; investigating Movim handlers.
+
+[2026-03-28T20:39:11Z] Prompt:
+# AGENTS.md instructions for /home/duda/shitcord67
+
+<INSTRUCTIONS>
+# Project Agent Instructions (Persistent)
+
+## Delivery Mode
+- Default to execution over discussion: implement requested features directly unless blocked.
+- Minimize back-and-forth questions; ask only when a decision is truly ambiguous or high-risk.
+- Keep running with follow-up improvements after tests pass.
+
+## Continuity Logging
+- First action after receiving a new user prompt: append the full prompt text to `CONTINUITY_LOG.md` with a timestamp.
+- Treat `CONTINUITY_LOG.md` as a handoff journal for future LLM instances when context/token limits are hit.
+- Keep entries append-only; never rewrite prior prompt entries.
+
+## Git and Change Flow
+- It is explicitly allowed to add/update local `TODO` entries during implementation.
+- If `TODO` is modified, include it in the next coherent commit by default (do not leave TODO edits uncommitted).
+- It is explicitly allowed to commit incremental local changes without extra confirmation.
+- By default, after implementing and validating changes, create coherent local commits automatically unless the user explicitly asks not to commit.
+- Do not wait for a separate "please commit" prompt after code changes.
+- Use small, coherent commits with clear messages.
+- Do not revert unrelated user changes.
+
+## Product Direction
+- Primary goal: Discord-like UX with strong realtime behavior.
+- Prioritize transport/realtime robustness (WebSocket, HTTP/SSE, XMPP).
+- Prefer feature completeness and UX polish over placeholder scaffolding.
+
+## XMPP Direction
+- Continue implementing practical XEPs where useful for UX parity.
+- Favor broad compatibility and cross-platform behavior.
+- Keep credentials in local ignored files when needed for testing.
+- Keep `SUPPORTED_XEPS.md` updated when XMPP capability changes.
+
+## Content and Naming Constraints
+- Keep naming independent from external reference projects.
+- Do not add references to Plutonium, Sweden, or Humpus in product-facing copy.
+
+## Validation
+- Run syntax/tests after changes whenever feasible.
+- Perform end-to-end checks for transport-related features.
+- Record meaningful outcomes in commit messages and README when behavior changes.
+
+## XEP Docs Policy
+- XEP documents in this repo may be updated anytime, but do not fetch new external sources unless explicitly asked or granted after requesting approval.
+
+## Android Legacy Strategy
+- Use git worktrees for exploratory replacement of downgraded Android libraries to keep mainline clean.
+- Prefer self-written or minimal-dependency Android libraries that support the lowest feasible API levels.
+- Default to API level 22 when necessary, but do not raise the project-wide minSdk above 22 unless explicitly approved.
+- Split functionality into separate libraries/modules when that enables lower minSdk for apps that only need a subset.
+- When feasible, isolate newer-API Android code into separate files/modules (optionally encoding minSdk in filenames) to keep legacy builds slim.
+- Keep compatibility with the latest Android target SDK (currently API 36 / Android 16) while preserving minSdk 22.
+- Add replacement libraries to the repo incrementally and reassess which foreign dependencies can be removed after each step.
+- Prefer moving reusable DroidVendorsSuck* libraries into a separate repository instead of worktrees when they should serve multiple projects; avoid keeping project-specific commits in that shared repo.
+ - For replacement-library work, operate inside the submodule directory (e.g. `android/droidvendorssuck-filesystem`) and use git worktrees within that submodule repo for experimentation.
+
+## Long-Term Platform Direction
+- Long-term goal is native apps; Electron remains a supported delivery target for now.
+- Prefer C (or C-ABI compatible) code where feasible for shared core logic.
+
+## Dependency Policy
+- When adding dependencies, always look up and prefer the latest version.
+- If the latest version violates project requirements (minSdk, size, licensing, etc.), use the newest version that satisfies them.
+- Where possible, replace dependency functionality step-by-step with in-house code to remove the dependency over time.
+- Track any dependency that violates requirements in a running list so replacement work is visible and prioritized.
+
+## Build Autonomy
+- When replacing libraries, it is allowed to run `build.sh android` autonomously to validate changes.
+
+
+## Skills
+A skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of skills that can be used. Each entry includes a name, description, and file path so you can open the source for full instructions when using a specific skill.
+### Available skills
+- skill-creator: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations. (file: /home/duda/.codex/skills/.system/skill-creator/SKILL.md)
+- skill-installer: Install Codex skills into $CODEX_HOME/skills from a curated list or a GitHub repo path. Use when a user asks to list installable skills, install a curated skill, or install a skill from another repo (including private repos). (file: /home/duda/.codex/skills/.system/skill-installer/SKILL.md)
+### How to use skills
+- Discovery: The list above is the skills available in this session (name + description + file path). Skill bodies live on disk at the listed paths.
+- Trigger rules: If the user names a skill (with `$SkillName` or plain text) OR the task clearly matches a skill's description shown above, you must use that skill for that turn. Multiple mentions mean use them all. Do not carry skills across turns unless re-mentioned.
+- Missing/blocked: If a named skill isn't in the list or the path can't be read, say so briefly and continue with the best fallback.
+- How to use a skill (progressive disclosure):
+  1) After deciding to use a skill, open its `SKILL.md`. Read only enough to follow the workflow.
+  2) When `SKILL.md` references relative paths (e.g., `scripts/foo.py`), resolve them relative to the skill directory listed above first, and only consider other paths if needed.
+  3) If `SKILL.md` points to extra folders such as `references/`, load only the specific files needed for the request; don't bulk-load everything.
+  4) If `scripts/` exist, prefer running or patching them instead of retyping large code blocks.
+  5) If `assets/` or templates exist, reuse them instead of recreating from scratch.
+- Coordination and sequencing:
+  - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.
+  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.
+- Context hygiene:
+  - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.
+  - Avoid deep reference-chasing: prefer opening only files directly linked from `SKILL.md` unless you're blocked.
+  - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.
+- Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.
+</INSTRUCTIONS>
+
+<environment_context>
+  <cwd>/home/duda/shitcord67</cwd>
+  <shell>bash</shell>
+</environment_context>
+
+sTILL THE CASE. system
+21:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+Incoming XMPP call proposal (bffe09e3). Use ￼/callxmpp accept bffe09e3 or ￼/callxmpp reject bffe09e3.
+￼system
+21:36
+￼👍
+￼❤️
+￼😂
+￼☺
+￼Reply
+￼Quote
+￼Mark Unread
+￼Pin
+Accepted XMPP call proposal (bffe09e3). Waiting for session-initiate. {
+  "relayMode": "xmpp",
+  "relayStatus": "connected",
+  "xmppConnected": true,
+  "xmppRuntimeReady": true,
+  "xmppRuntimeLastError": "",
+  "filter": "all",
+  "search": "",
+  "paused": false,
+  "eventsTotal": 600,
+  "eventsShown": 600,
+  "activeCallSessions": []
+}
+
+[2026-03-28T20:36:19.819Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.819Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.819Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.820Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.820Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.820Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.820Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.820Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.820Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.820Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.820Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.821Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.821Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.821Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.821Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.821Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.822Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.822Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.822Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.822Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.822Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.822Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.822Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.823Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.823Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.823Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.823Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.824Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.824Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.824Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.824Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.824Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.824Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.825Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.825Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.825Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.825Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.825Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.825Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.826Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.826Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.826Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.826Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.826Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.826Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.827Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.827Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.827Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.827Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.827Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.827Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.828Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.828Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.828Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.828Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.828Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.828Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.828Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.828Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.828Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.829Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.829Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.829Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.829Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.829Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.829Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.829Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.830Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.830Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.830Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.830Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.830Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.830Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.830Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.830Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.831Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.831Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.831Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.831Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.831Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.831Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.832Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.832Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.832Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.832Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.832Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.833Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.833Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.833Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.833Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.833Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.833Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.833Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.834Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.834Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.834Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.834Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.834Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.834Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.834Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.834Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.834Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.835Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.835Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.835Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.835Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.835Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.835Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.835Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.835Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.836Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.837Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.837Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.842Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.842Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.842Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.842Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.842Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.843Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.843Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.843Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.843Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.843Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.843Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.843Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.843Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.843Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.844Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.844Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.844Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.844Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.844Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.844Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.844Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.844Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.844Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.845Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.845Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.845Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.845Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.845Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.845Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.845Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.846Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.847Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.847Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.848Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.848Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.848Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.848Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.848Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.848Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.848Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.848Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.848Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.848Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.848Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.848Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.848Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.849Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.849Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.849Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.849Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.849Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.849Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.849Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.849Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.901Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.901Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.902Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.902Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.902Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.902Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.902Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.902Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.902Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.902Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.902Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.902Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.902Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.903Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.903Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.903Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.903Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.903Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.903Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.903Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.903Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.903Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.903Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.903Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.903Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.903Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.906Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.907Z] [raw] RX
+<a xmlns='urn:xmpp:sm:3' h='52'/>
+
+[2026-03-28T20:36:19.907Z] [iq] Received XMPP stream-management ack
+{
+  "h": 52,
+  "hasCounter": true,
+  "outboundCount": 36
+}
+
+[2026-03-28T20:36:19.907Z] [raw] RX
+<r xmlns='urn:xmpp:sm:3'/>
+
+[2026-03-28T20:36:19.907Z] [stanza] send()
+<a xmlns="urn:xmpp:sm:3" h="134"/>
+
+[2026-03-28T20:36:19.907Z] [raw] TX
+<a h="134" xmlns="urn:xmpp:sm:3"/>
+
+[2026-03-28T20:36:19.907Z] [iq] Answered XMPP stream-management ack request
+{
+  "h": 134
+}
+
+[2026-03-28T20:36:21.090Z] [stanza] send()
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-28T20:36:21.090Z] [raw] TX
+<message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://jabber.org/protocol/chatstates"/></message>
+
+[2026-03-28T20:36:21.090Z] [stanza] send()
+<inactive xmlns="urn:xmpp:csi:0"/>
+
+[2026-03-28T20:36:21.090Z] [raw] TX
+<inactive xmlns="urn:xmpp:csi:0"/>
+
+[2026-03-28T20:36:21.090Z] [presence] Sent XMPP client state hint
+{
+  "state": "inactive",
+  "reason": "window-blur"
+}
+
+[2026-03-28T20:36:26.414Z] [raw] RX
+<message xml:lang='en' to='derberg@pimux.de' xmlns='jabber:client' from='kazue@xmpp.jp/Movim.gmYN0e.j8PTVntQcq'><propose xmlns='urn:xmpp:jingle-message:0' id='bffe09e3-353e-4b65-ba8b-56ea87f4f868'><description media='audio' xmlns='urn:xmpp:jingle:apps:rtp:1'/></propose><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d3629-8ea0-7c9d-98f1-44ac978562b6'/></message>
+
+... (truncated in log above) ...
+[2026-03-28T20:46:59Z] Prompt:
+Please continue: Noticed Movim may expect proceed/accept messages in legacy namespace too and handles messages by namespace and name, not type. The real issue might be that Movim ignores proceed and expects no proceed from callee before session-initiate IQ, diverging from the current flow.
+Continuing from prior investigation into Movim session keying, proceed handling, and session-initiate delivery.
+
+[2026-03-28T21:15:27Z] Prompt:
+Still "Quality …" and "Waiting for local/remote media tracks..." when Movim user calls. {...incoming session dump...}. While it does work when shitcord67 user calls and Movim user accepts: "Quality good · loss 0%" {...outgoing session dump...}.
+
+[2026-03-28T21:19:29Z] Prompt:
+Still "Quality …" and "Waiting for local/remote media tracks..." when Movim user calls. The incoming session reaches proceed-timeout with no Jingle state, while outgoing calls to Movim work. Please continue from the current Movim proceed/accept investigation and current workspace state.
+Need to verify whether Movim requires a differently-shaped proceed stanza and finish/validate the current fallback changes.
+
+[2026-03-28T21:36:34Z] Prompt:
+When shitcord67 user calls and Movim user accepts, everything looks fine. But when Movim user calls and shitcord67 user accepts then apparently it refuses the call even when Accept is clicked, and the Incoming XMPP voice/video call banner stays until Decline is pressed.
+Need to inspect incoming accept state/UI handling and any reject timeout/regression in the Movim proceed compatibility change.
+
+[2026-03-28T22:23:59Z] Prompt:
+When shitcord67 user accepts call from Movim user, the session still reaches proceed-timeout with no Jingle state or peer connection. System messages show the incoming proposal was accepted but no session-initiate arrived.
+Need to continue the Movim proceed investigation and broaden compatibility for the outgoing proceed/accept stanzas we send on incoming accepts.
+
+[2026-03-28T22:30:06Z] Prompt:
+Well if you think all of that makes sense
+Proceed with exact Movim interop comparison work: instrument the outgoing incoming-call proceed/accept path, compare actual stanza variants, and reduce the Movim path toward Movim's own minimal proceed shape if that looks more correct.
+
+[2026-03-28T22:40:04Z] Prompt:
+Waiting for local/remote media tracks... [included full failing Movim incoming-call accept log showing propose, ringing, then full+bare proceed and accept variants, but still no session-initiate]
+The exact TX log now shows we send multiple full and bare proceed/accept variants to Movim. Next step is to reduce the Movim path toward Movim's own behavior: one minimal proceed to the full JID and no accept compatibility spam.
+
+[2026-03-28T23:01:03Z] Prompt:
+Waiting for local/remote media tracks... [included snapshot showing incoming Movim call still ends in proceed-timeout after reducing accept path to plain full-JID proceed]
+Question: What now?
+
+[2026-03-28T23:09:37Z] Prompt:
+I thing you just did not investigaste Movim source code enough. But well do as you wish
+Need deeper Movim source inspection, especially what exactly gates the caller-side transition from Jingle Message proceed to session-initiate IQ.
+
+[2026-03-28T23:15:59Z] Prompt:
+If you think so
+Need to inspect Movim deeper: trace where MovimJingles.sessions[jid] is created for outgoing calls and what might leave it undefined by the time onProceed runs.
+
+[2026-03-28T23:20:40Z] Prompt:
+Okay do that all
+Trace the full Movim caller race around getUserMedia, lobby init, initSession, ajaxPropose, and onProceed/sessionInitiate; determine whether a credible workaround exists on our side.
+
+[2026-03-29T00:25:58Z] Continue:  Now the next step is to inspect Movim itself while reproducing the failing call.
+
+  What to do:
+
+  1. Open the browser devtools on the Movim caller.
+  2. Start the failing call: Movim user calls, shitcord67 accepts.
+  3. Check the JS console for:
+      - Proceed from a non initiated session
+      - localStream is not ready
+      - any error from createOffer, setLocalDescription, or Visio_ajaxSessionInitiate
+  4. If possible, also watch Network/WebSocket traffic for whether
+     MovimJingles.onProceed(...) is called at all.
+
+  Why:
+
+  - We already reduced our side to a plain Movim-style proceed.
+  - Movim still sends no session-initiate.
+  - The remaining gate is almost certainly in Movim’s browser state, not our stanza shape.
+
+  If you want, paste:
+
+  - the Movim browser console output from that call
+  - any console.log/error around onProceed
+  - any failed XHR/WebSocket/RPC related to Visio_ajaxSessionInitiate
+
+  Then I can tell you the exact failing branch in Movim and whether there is any realistic
+  workaround we can implement on our side.
+
+
+
+› shitcord67 side: Stuck at "Waiting for local/remote media tracks...". {
+    "generatedAt": "2026-03-29T00:08:50.916Z",
+    "session": {
+      "id": "9f8ababd-2458-4690-9500-0d0f5bda17bc",
+      "sid": "9f8ababd",
+      "peer": "kazue@xmpp.jp",
+      "peerFullJid": "kazue@xmpp.jp/Movim.gmYN0e.j8PTVntQcq",
+      "direction": "incoming",
+      "state": "proceed-timeout",
+      "media": [
+        "audio"
+      ],
+      "localRole": "responder",
+      "remoteRole": "initiator",
+      "localMediaMode": "camera",
+      "inviteSignal": "jmi",
+      "screenShare": false,
+      "createdAt": "2026-03-29T00:08:20.471Z",
+      "ageMs": 30445,
+      "signalTimeoutActive": false,
+      "acceptTimeoutActive": true,
+      "pendingLocalRenegotiation": false
+    },
+    "taskState": {
+      "taskQueued": false,
+      "pendingReprime": false,
+      "pendingReprimeAgeMs": 0,
+      "pendingRemoteIceCandidates": 0,
+      "localCandidateCacheSize": 0
+    },
+    "jingle": {
+      "localCandidates": 0,
+      "remoteCandidates": 0,
+      "remoteContents": [],
+      "localTransport": null,
+      "remoteTransport": null
+    },
+    "localMedia": {
+      "hasStream": false,
+      "streamId": "",
+      "mode": "camera",
+      "audioEnabled": false,
+      "videoEnabled": false,
+      "audioTracks": [],
+      "videoTracks": []
+    },
+    "remoteMedia": {
+      "streamCount": 0,
+      "streams": []
+    },
+    "peerConnection": null
+  }
+  Today
+  ￼system
+  01:08
+  ￼👍
+  ￼❤️
+  ￼😂
+  ￼☺
+  ￼Reply
+  ￼Quote
+  ￼Mark Unread
+  ￼Pin
+  Incoming XMPP call proposal (9f8ababd). Use ￼/callxmpp accept 9f8ababd or ￼/callxmpp
+  reject 9f8ababd.
+  ￼system
+  01:08
+  ￼👍
+  ￼❤️
+  ￼😂
+  ￼☺
+  ￼Reply
+  ￼Quote
+  ￼Mark Unread
+  ￼Pin
+  Accepted XMPP call proposal (9f8ababd). Waiting for session-initiate.
+  New messages
+  ￼system
+  01:08
+  ￼👍
+  ￼❤️
+  ￼😂
+  ￼☺
+  ￼Reply
+  ￼Quote
+  ￼Mark Unread
+  ￼Pin
+  No session-initiate received for XMPP call (9f8ababd). Keeping the native call idle; no
+  local Web Call fallback was opened. {
+    "relayMode": "xmpp",
+    "relayStatus": "connected",
+    "xmppConnected": true,
+    "xmppRuntimeReady": true,
+    "xmppRuntimeLastError": "",
+    "filter": "all",
+    "search": "",
+    "paused": false,
+    "eventsTotal": 406,
+    "eventsShown": 406,
+    "activeCallSessions": []
+  }
+
+  [2026-03-29T00:07:21.261Z] [runtime] XMPP console log cleared
+
+  [2026-03-29T00:07:22.296Z] [stanza] send()
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:22.298Z] [raw] TX
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:22.315Z] [presence] Sent XMPP client state hint
+  {
+    "state": "inactive",
+    "reason": "window-blur"
+  }
+
+  [2026-03-29T00:07:22.676Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:22.676Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:22.676Z] [stanza] send()
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:22.676Z] [raw] TX
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:22.678Z] [presence] Sent XMPP client state hint
+  {
+    "state": "active",
+    "reason": "window-focus"
+  }
+
+  [2026-03-29T00:07:22.710Z] [raw] RX
+  <r xmlns='urn:xmpp:sm:3'/>
+
+  [2026-03-29T00:07:22.711Z] [stanza] send()
+  <a xmlns="urn:xmpp:sm:3" h="130"/>
+
+  [2026-03-29T00:07:22.711Z] [raw] TX
+  <a h="130" xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:07:22.711Z] [iq] Answered XMPP stream-management ack request
+  {
+    "h": 130
+  }
+
+  [2026-03-29T00:07:23.364Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:23.365Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:23.366Z] [stanza] send()
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:23.366Z] [raw] TX
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:23.366Z] [presence] Sent XMPP client state hint
+  {
+    "state": "inactive",
+    "reason": "window-blur"
+  }
+
+  [2026-03-29T00:07:23.475Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:23.476Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:23.564Z] [stanza] send()
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:23.565Z] [raw] TX
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:23.565Z] [presence] Sent XMPP client state hint
+  {
+    "state": "active",
+    "reason": "visibilitychange"
+  }
+
+  [2026-03-29T00:07:23.599Z] [raw] RX
+  <r xmlns='urn:xmpp:sm:3'/>
+
+  [2026-03-29T00:07:23.600Z] [stanza] send()
+  <a xmlns="urn:xmpp:sm:3" h="130"/>
+
+  [2026-03-29T00:07:23.601Z] [raw] TX
+  <a h="130" xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:07:23.601Z] [iq] Answered XMPP stream-management ack request
+  {
+    "h": 130
+  }
+
+  [2026-03-29T00:07:34.663Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:34.685Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:34.709Z] [stanza] send()
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:34.709Z] [raw] TX
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:34.709Z] [presence] Sent XMPP client state hint
+  {
+    "state": "inactive",
+    "reason": "visibilitychange"
+  }
+
+  [2026-03-29T00:07:34.732Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:34.732Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:34.758Z] [stanza] send()
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:34.766Z] [raw] TX
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:34.766Z] [presence] Sent XMPP client state hint
+  {
+    "state": "active",
+    "reason": "visibilitychange"
+  }
+
+  [2026-03-29T00:07:34.803Z] [raw] RX
+  <r xmlns='urn:xmpp:sm:3'/>
+
+  [2026-03-29T00:07:34.803Z] [stanza] send()
+  <a xmlns="urn:xmpp:sm:3" h="130"/>
+
+  [2026-03-29T00:07:34.804Z] [raw] TX
+  <a h="130" xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:07:34.804Z] [iq] Answered XMPP stream-management ack request
+  {
+    "h": 130
+  }
+
+  [2026-03-29T00:07:36.329Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:36.330Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:07:36.335Z] [stanza] send()
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:36.336Z] [raw] TX
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:07:36.338Z] [presence] Sent XMPP client state hint
+  {
+    "state": "inactive",
+    "reason": "window-blur"
+  }
+
+  [2026-03-29T00:07:52.180Z] [iq] sendIQ()
+  <iq type="get" id="s67-ping-mnb030c4-f9f1d8" xmlns="jabber:client"><ping
+  xmlns="urn:xmpp:ping"/></iq>
+
+  [2026-03-29T00:07:52.180Z] [stanza] send()
+  <iq type="get" id="s67-ping-mnb030c4-f9f1d8" xmlns="jabber:client"><ping
+  xmlns="urn:xmpp:ping"/></iq>
+
+  [2026-03-29T00:07:52.181Z] [raw] TX
+  <iq id="s67-ping-mnb030c4-f9f1d8" type="get" xmlns="jabber:client"><ping
+  xmlns="urn:xmpp:ping"/></iq>
+
+  [2026-03-29T00:07:52.181Z] [stanza] send()
+  <r xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:07:52.192Z] [raw] TX
+  <r xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:07:52.197Z] [iq] Requested XMPP stream-management ack
+  {
+    "reason": "ping-loop",
+    "outboundCount": 32
+  }
+
+  [2026-03-29T00:07:52.230Z] [raw] RX
+  <iq type='result' to='derberg@pimux.de/8qdPQoruHyAc' xmlns='jabber:client' id='s67-
+  ping-mnb030c4-f9f1d8'/>
+
+  [2026-03-29T00:07:52.268Z] [raw] RX
+  <r xmlns='urn:xmpp:sm:3'/>
+
+  [2026-03-29T00:07:52.270Z] [stanza] send()
+  <a xmlns="urn:xmpp:sm:3" h="130"/>
+
+  [2026-03-29T00:07:52.272Z] [raw] TX
+  <a h="130" xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:07:52.275Z] [iq] Answered XMPP stream-management ack request
+  {
+    "h": 130
+  }
+
+  [2026-03-29T00:07:52.281Z] [raw] RX
+  <a xmlns='urn:xmpp:sm:3' h='59'/>
+
+  [2026-03-29T00:07:52.281Z] [iq] Received XMPP stream-management ack
+  {
+    "h": 59,
+    "hasCounter": true,
+    "outboundCount": 32
+  }
+
+  [2026-03-29T00:08:02.512Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:02.512Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:02.542Z] [stanza] send()
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:02.550Z] [raw] TX
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:02.562Z] [presence] Sent XMPP client state hint
+  {
+    "state": "active",
+    "reason": "window-focus"
+  }
+
+  [2026-03-29T00:08:02.610Z] [raw] RX
+  <r xmlns='urn:xmpp:sm:3'/>
+
+  [2026-03-29T00:08:02.611Z] [stanza] send()
+  <a xmlns="urn:xmpp:sm:3" h="130"/>
+
+  [2026-03-29T00:08:02.615Z] [raw] TX
+  <a h="130" xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:08:02.621Z] [iq] Answered XMPP stream-management ack request
+  {
+    "h": 130
+  }
+
+  [2026-03-29T00:08:04.005Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:04.006Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:04.007Z] [stanza] send()
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:04.007Z] [raw] TX
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:04.008Z] [presence] Sent XMPP client state hint
+  {
+    "state": "inactive",
+    "reason": "window-blur"
+  }
+
+  [2026-03-29T00:08:17.720Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:17.721Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><active xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:17.721Z] [stanza] send()
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:17.721Z] [raw] TX
+  <active xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:17.724Z] [presence] Sent XMPP client state hint
+  {
+    "state": "active",
+    "reason": "window-focus"
+  }
+
+  [2026-03-29T00:08:17.743Z] [raw] RX
+  <r xmlns='urn:xmpp:sm:3'/>
+
+  [2026-03-29T00:08:17.743Z] [stanza] send()
+  <a xmlns="urn:xmpp:sm:3" h="130"/>
+
+  [2026-03-29T00:08:17.743Z] [raw] TX
+  <a h="130" xmlns="urn:xmpp:sm:3"/>
+
+  [2026-03-29T00:08:17.744Z] [iq] Answered XMPP stream-management ack request
+  {
+    "h": 130
+  }
+
+  [2026-03-29T00:08:18.976Z] [stanza] send()
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:18.976Z] [raw] TX
+  <message to="kazue@xmpp.jp" type="chat" xmlns="jabber:client"><inactive xmlns="http://
+  jabber.org/protocol/chatstates"/></message>
+
+  [2026-03-29T00:08:18.977Z] [stanza] send()
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:18.977Z] [raw] TX
+  <inactive xmlns="urn:xmpp:csi:0"/>
+
+  [2026-03-29T00:08:18.977Z] [presence] Sent XMPP client state hint
+  {
+    "state": "inactive",
+    "reason": "window-blur"
+  }
+
+  [2026-03-29T00:08:20.470Z] [raw] RX
+  <message xml:lang='en' to='derberg@pimux.de' xmlns='jabber:client' from='kazue@xmpp.jp/
+  Movim.gmYN0e.j8PTVntQcq'><propose xmlns='urn:xmpp:jingle-message:0' id='9f8ababd-2458-
+  4690-9500-0d0f5bda17bc'><description media='audio' xmlns='urn:xmpp:jingle:apps:rtp:1'/
+  ></propose><stanza-id by='derberg@pimux.de' xmlns='urn:xmpp:sid:0' id='019d36eb-8edf-
+  7b8e-8ce6-7945a7a61548'/></message>
+
+  [2026-03-29T00:08:20.470Z] [message] Incoming stanza
+  <message xmlns="jabber:client" xml:lang="en" to="derberg@pimux.de" from="kazue@xmpp.jp/
+  Movim.gmYN0e.j8PTVntQcq"><propose xmlns="urn:xmpp:jingle-message:0" id="9f8ababd-2458-
+  4690-9500-0d0f5bda17bc"><description xmlns="urn:xmpp:jingle:apps:rtp:1" media="audio"/
+  ></propose><stanza-id xmlns="urn:xmpp:sid:0" by="derberg@pimux.de" id="019d36eb-8edf-
+  7b8e-8ce6-7945a7a61548"/></message>
+[2026-03-29T00:25:58Z] NOTE: Prompt logging truncated in this entry due to command size limits. Full prompt remains in the chat transcript.
+[2026-03-29T02:08:25Z] ﻿
+xep-app-xmpp-state-runtime.js:55 Uncaught SyntaxError: Identifier 'XMPP_CALL_ENABLE_RESPONDER_SESSION_INITIATE_FALLBACK' has already been declared (at xep-app-xmpp-state-runtime.js:55:7)
+xep-app-state-bootstrap-runtime.js:135 Uncaught ReferenceError: MESSAGE_CHAR_LIMIT_DEFAULT is not defined
+    at buildInitialState (xep-app-state-bootst…p-runtime.js:135:25)
+    at loadState (xep-app-state-bootst…p-runtime.js:674:12)
+    at xep-app-core-runtime.js:680:13
+app.js:7 Uncaught ReferenceError: ui is not defined
+    at app.js:7:1
+xep-app-overlay-runtime.js:625 Uncaught ReferenceError: nativeWindowOpen is not defined
+    at initAppOverlayRuntime (xep-app-overlay-runtime.js:625:1)
+    at xep-app-overlay-runtime.js:665:3
+xep-xmpp-ui-bindings-runtime.js:147 Uncaught ReferenceError: ui is not defined
+    at renderLoginSavedAccountSelect (xep-xmpp-ui-bindings-runtime.js:147:5)
+    at refreshLoginRuntimeUi (xep-xmpp-ui-bindings-runtime.js:188:5)
+    at Object.bindXmppLoginUiRuntimeBindings (xep-xmpp-ui-bindings-runtime.js:194:1)
+    at xep-app-ui-events-runtime.js:243:38
+xep-0066_0071_0231-swf-runtime.js:2870 Uncaught ReferenceError: ui is not defined
+    at bindPipInteractionListeners (xep-0066_0071_0231-s…-runtime.js:2870:17)
+    at xep-0066_0071_0231-s…-runtime.js:2954:10 I don't even see the drop-down to select from accounts? I can't login at all as it seems
+
+[2026-03-29T02:49:42Z] system\n04:48\n👍\n❤️\n😂\n☺\nReply\nQuote\nMark Unread\nPin\nIncoming XMPP call proposal (53cfcac3). Use /callxmpp accept 53cfcac3 or /callxmpp reject 53cfcac3.\nsystem\n04:48\n👍\n❤️\n😂\n☺\nReply\nQuote\nMark Unread\nPin\nXMPP call proposal rejected from another logged-in client (53cfcac3).\nsystem\n04:48\n👍\n❤️\n😂\n☺\nReply\nQuote\nMark Unread\nPin\nIncoming XMPP call proposal (53cfcac3). Use /callxmpp accept 53cfcac3 or /callxmpp reject 53cfcac3.\nsystem\n04:48\n👍\n❤️\n😂\n☺\nReply\nQuote\nMark Unread\nPin\nXMPP call proposal rejected from another logged-in client (53cfcac3).
+
+[2026-03-29T02:55:35Z] Please continue: Okay then just keep it maybe? Oh also can you investigate why I can't Accept a new call after one has endeed? I literally can't press the Accept button anymore then in shitcord67
+
+• Unrecognized command '/statis'. Type "/" for a list of supported commands.
+
+• Explored
+  └ Search acceptBtn|incoming-call-gate|incoming-call|bindCallGateButton|openNativeXmppCallSurface|closeMediaLightbox|stopWebCallRingtone in xep-call-invite-web-console-runtime.js
+
+/status
+
+╭────────────────────────────────────────────────────────────────────────────────╮
+│  >_ OpenAI Codex (v0.104.0)                                                    │
+│                                                                                │
+│ Visit https://chatgpt.com/codex/settings/usage for up-to-date                  │
+│ information on rate limits and credits                                         │
+│                                                                                │
+│  Model:                gpt-5.2-codex (reasoning none, summaries auto)          │
+│  Directory:            ~/shitcord67                                            │
+│  Permissions:          Default                                                 │
+│  Agents.md:            AGENTS.md                                               │
+│  Account:              madlenegehheim+mail3@gmail.com (Free)                   │
+│  Collaboration mode:   Default                                                 │
+│  Session:              019d36ef-f3ef-79f1-abc6-928735448229                    │
+│                                                                                │
+│  Context window:       18% left (213K used / 258K)                             │
+│  Weekly limit:         [█████░░░░░░░░░░░░░░░] 25% left (resets 02:25 on 5 Apr) │
+╰────────────────────────────────────────────────────────────────────────────────╯
+
+• Explored
+  └ Read xep-call-invite-web-console-runtime.js
+    Search closeMediaLightbox\(|openNativeXmppCallSurface\(|xmppActiveNativeCallSessionId|incoming-call-gate in xep-jingle-call-runtime.js
+    Read xep-jingle-call-runtime.js
+    Search ensureMediaLightbox|closeMediaLightbox|bindCallGateButton in xep-app-overlay-runtime.js
+    Read xep-app-overlay-runtime.js
+    Search openNativeXmppCallSurface|xmppActiveNativeCallSessionId in xep-call-invite-web-console-runtime.js
+    Read xep-app-overlay-runtime.js
+
+• The accept button likely stays disabled due to interaction between pinned native call checks and overlay state; overlay pointer events or prior handler disabling may be preventing clicks despite session clearing logic working as expected.
+
+• Explored
+  └ Read xep-call-invite-web-console-runtime.js
+
+• User can't accept calls after ending one, likely due to an overlay stuck from a still-pinned native call session. I’m checking if the session-terminate event triggers cleanup and whether forgetXmppCallSession gets called to clear the session and allow the overlay to close properly. Next, I'll trace session-terminate handling to confirm.
+
+• Explored
+  └ Search session-terminate|terminate in xep-0030_0166-jingle-call-core.js
+    Read xep-relay-connection-flow.js
+
+• The native call session isn't properly cleared on termination, leaving the lightbox pinned in an ended state and blocking interactions like accepting new calls, likely due to the pinned native call overlay still intercepting events without being removed.
+
+  Diagnosing overlay blocking accept button
+
+  The persistent native call overlay likely keeps re-rendering after call termination due to an uncleared active call session ID, repeatedly overwriting the incoming call prompt and disabling Accept button clicks; clearing the active session and stopping the overlay refresh on termination should fix this.
+
+• Explored
+  └ Search nativeCallSurfaceTicker|renderNativeXmppCallSurface in xep-app-overlay-runtime.js
+
+• Considering clearing the active native call session ID and closing the media lightbox on session termination to prevent prompt blocking, while preserving ended call info if pinned. The plan is to ensure new incoming call prompts can show by closing any existing native call surface linked to a different session, resolving accept-block issues.
+
+  Refining incoming call prompt handling
+
+  Planning to clear the active native call session and stop its ticker before showing a new incoming call prompt if the existing session is ended or terminated. This avoids blocking accept on new calls while preserving ongoing call integrity by checking session states conservatively in the prompt display logic.
+
+• Explored
+  └ Search peer-left|terminated|ended in xep-jingle-call-runtime.js
+
+• I'm preparing a helper to clear stale active native call sessions that are peer-left or terminated, resetting relevant globals and ticker timers before showing incoming XMPP call prompts to avoid blocking new calls. I'll patch showIncomingXmppCallPrompt to invoke this helper after computing session ID and before setting up the media lightbox.
+
+  Adding safe checks and debug logging for native call ticker clearance
+
+  I'll ensure nativeCallSurfaceTickerId is defined before clearing it to prevent errors and add debug logging with addXmppDebugEvent to help trace the cleanup actions.
+
+• Edited xeps/xep-call-invite-web-console-runtime.js (+18 -0)
+    466
+    467 +function clearStaleXmppNativeCallSurface() {
+    468 +  const activeSid = (xmppActiveNativeCallSessionId || "").toString().trim();
+    469 +  if (!activeSid) return;
+    470 +  const session = xmppCallSessionById.get(activeSid) || null;
+    471 +  const state = (session?.state || "").toString().trim().toLowerCase();
+    472 +  const staleStates = new Set(["peer-left", "terminated", "ended", "idle", "proceed-timeout"]);
+    473 +  if (session && !staleStates.has(state)) return;
+    474 +  xmppActiveNativeCallSessionId = "";
+    475 +  if (typeof nativeCallSurfaceTickerId !== "undefined" && nativeCallSurfaceTickerId) {
+    476 +    clearTimeout(nativeCallSurfaceTickerId);
+    477 +    nativeCallSurfaceTickerId = 0;
+    478 +  }
+    479 +  if (typeof nativeCallSurfaceTickerSessionId !== "undefined") {
+    480 +    nativeCallSurfaceTickerSessionId = "";
+    481 +  }
+    482 +}
+    483 +
+    484  function showIncomingWebCallPrompt({
+        ⋮
+    826    if (!sid) return;
+    827 +  clearStaleXmppNativeCallSurface();
+    828    const overlay = ensureMediaLightbox();
+
+• Planning to improve the overlay flow by ensuring it properly closes before showing a new prompt, along with adding logging and preparing to commit these fixes.
+
+• Ran git add xeps/xep-call-invite-web-console-runtime.js
+  └ (no output)
+
+• Ran git commit -m "Clear stale native call surface before incoming prompt"
+  └ [master 9787804] Clear stale native call surface before incoming prompt
+     1 file changed, 18 insertions(+)
+
+──────────────────────────────────────────────────────────────────────────────────────────
+
+• Likely cause: the old native call surface stays “active” after a call ends (peer-left), and the native-call render ticker keeps repainting over the incoming prompt. That makes the new Accept button effectively unclickable.
+
+  I added a fix: before showing the incoming XMPP prompt, we clear any stale native call surface (ended/terminated/idle/proceed-timeout). This prevents the old call UI from overriding the new prompt.
+
+  Commit:
+
+  - 9787804 — Clear stale native call surface before incoming prompt
+
+  Try again:
+
+  1. End a call.
+  2. Receive a new call.
+  3. Accept should now be clickable immediately.
+
+  If it still fails, tell me exactly what you see (prompt appears? button disabled? click does nothing?), and I’ll dig deeper.
+
+
+› Now Movim gets " Refused call" when shitcord67 users clicks "Accept" { ... trimmed in continuation ... }
+
+• Edited xeps/xep-relay-connection-flow.js (+16 -4)
+    309                  || latestXmppCallSessionIdForPeer(peerBare, "incoming");
+    310 +              const stopSession = stopId ? (xmppCallSessionById.get(stopId) || null) : null;
+    311 +              const preserveIncoming = Boolean(
+    312 +                stopSession
+    313 +                && stopSession.direction === "incoming"
+    314 +                && (stopSession.state === "proposed" || stopSession.state === "ringing")
+    315 +              );
+    316                if (stopId) {
+    311 -                stopWebCallRingtone(stopId);
+    312 -                forgetXmppCallSession(stopId);
+    317 +                if (!preserveIncoming) {
+    318 +                  stopWebCallRingtone(stopId);
+    319 +                  forgetXmppCallSession(stopId);
+    320 +                }
+    321                }
+        ⋮
+    325                  action: jingleAction.action,
+    318 -                id: stopId || ""
+    326 +                id: stopId || "",
+    327 +                preserved: preserveIncoming
+    328                });
+    329                const label = jingleAction.action === "reject" ? "rejected" : "cancelled";
+    321 -              showToast();
+    330 +              const note = preserveIncoming
+    331 +                ? 
+    332 +                : ;
+    333 +              showToast(note);
+    334                if (addSystemDmMessageByPeerJid(peerBare, )) {
+
+■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Apr 5th, 2026 2:26 AM.
+
+[2026-03-29T02:55:45Z] Please continue: Okay then just keep it maybe? Oh also can you investigate why I can't Accept a new call after one has endeed? I literally can't press the Accept button anymore then in shitcord67
+
+• Unrecognized command '/statis'. Type "/" for a list of supported commands.
+
+• Explored
+  └ Search acceptBtn|incoming-call-gate|incoming-call|bindCallGateButton|openNativeXmppCallSurface|closeMediaLightbox|stopWebCallRingtone in xep-call-invite-web-console-runtime.js
+
+/status
+
+[Previous context and logs continued, including the partial patch to xeps/xep-relay-connection-flow.js that was interrupted by usage limits.]
+
+[2026-03-29T03:34:19Z] Great calling with Movim seems to work well now. The only thing left is making it work well with (older?) clients like Dino. Dino user calls: "Waiting for local/remote media tracks..." ... Also on Dino: "Anruf abgelehnt" immediately after the shitcord67 user clicked on "Accept".
+
+[2026-03-29T03:36:36Z] Okay so you are sure stuff is fixed? I also have Dino source code at xmppmessengers/dino/ so you could investigate it if you want
+
+[2026-03-29T03:46:35Z] "Waiting for local/remote media tracks..." and the dino user gets "Anruf abgelehnt". But then after a bit of time the Dino user gets a call automatically?! [trace showing responder session-initiate fallback succeeds, but early transport-info fails with unknown content for name="audio" and later succeeds with name="0"].
+
+[2026-03-29T03:52:47Z] Yeah. Also you need to investigate if our shitcord67 client is not what you think is Movim.
+
+[2026-03-29T18:59:48Z] Still "Waiting for local/remote media tracks..." for several seconds. And dino user gets "Anruf abgelehnt". Then after a while the shitcord67 client seems to send a call invite... [trace showing fallback session-initiate followed by transport-info with content name="audio" and unknown content errors].
+
+[2026-03-29T20:35:07Z] Okay I think it was actually just a bug in dino. I switched to a different account and there it does not end the call immiadetly. But it looks like it does not correctly get established. [trace showing incoming Dino call reaches session-initiate, session-accept, ICE connected, but localMedia.hasStream=false and senders empty/recvonly].
+
+[2026-03-29T20:37:11Z] Okay I think it was actually just a bug in dino. I switched to a different account and there it does not end the call immiadetly. But it looks like it does not correctly get established. { ... huge XMPP/Jingle log omitted in continuity entry for brevity; full prompt was received in chat context and investigated as Dino normal JMI session-initiate not auto-transitioning to session-accept. }
+
+[2026-03-29T21:42:31Z] I wonder why when the shitcord67 user calls in the Dino user chat there is "Du hast\n  diesen Anruf abgelehnt". Also when the dino user calls and shitcord67 user accepts and\n  then the call is ended then there is "Call failed to establish" in the dino user chat?!\n  Seen\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP call proposal (jmi-02a0). Waiting for peer response.\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Incoming XMPP call proposal (3f10c53d). Use ￼/callxmpp accept 3f10c53d or ￼/callxmpp\n  reject 3f10c53d.\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Accepted XMPP call proposal (3f10c53d). Waiting for session-initiate.\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Received XMPP transport-info (3f10c53d · 1 update · 1 candidate).\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP session-accept (3f10c53d).\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP call proposal (jmi-7c3f). Waiting for peer response.\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Incoming XMPP call proposal (1babef79). Use ￼/callxmpp accept 1babef79 or ￼/callxmpp\n  reject 1babef79.\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Accepted XMPP call proposal (1babef79). Waiting for session-initiate.\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Received XMPP transport-info (1babef79 · 1 update · 1 candidate).\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP session-accept (1babef79).\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  XMPP media session terminated (1babef79) reason: cancel.\n  New messages\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP call proposal (jmi-fbdd). Waiting for peer response....

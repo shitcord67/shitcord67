@@ -1058,7 +1058,7 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
       .map((namespace) => {
         const stanzaId = `jm-${tag}-${id}`;
         const builder = globalThis.$msg({ to, type, id: stanzaId }).c(tag, { xmlns: namespace, id });
-        builder.up().c("store", { xmlns: "urn:xmpp:hints" });
+        builder.up().c("store", { xmlns: "urn:xmpp:hints" }).up().c("no-copy", { xmlns: "urn:xmpp:hints" });
         return builder;
       })
       .filter(Boolean));
@@ -1069,6 +1069,10 @@ function xmppSendJingleMessageAction(peerJid, action = "propose", {
   let sentCount = 0;
   const sentVariants = [];
   stanzasToSend.forEach((builder) => {
+    if (typeof builder?.c === "function") {
+      builder.c("no-copy", { xmlns: "urn:xmpp:hints" }).up();
+      builder.c("no-store", { xmlns: "urn:xmpp:hints" }).up();
+    }
     const raw = (typeof xmppSerializePayload === "function")
       ? trimXmppRaw(xmppSerializePayload(builder))
       : "";

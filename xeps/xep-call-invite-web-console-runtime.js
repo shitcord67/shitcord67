@@ -169,6 +169,8 @@ function xmppSendCallInviteAction(peerJid = "", action = "invite", {
   if (trimmedFallbackBody) {
     stanza.c("body").t(trimmedFallbackBody.slice(0, 220)).up();
   }
+  stanza.c("no-copy", { xmlns: "urn:xmpp:hints" }).up();
+  stanza.c("no-store", { xmlns: "urn:xmpp:hints" }).up();
   xmppConnection.send(stanza);
   addXmppDebugEvent("call", `Sent call-invite ${tag}`, {
     to,

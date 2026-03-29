@@ -869,7 +869,9 @@ function renderMessages() {
         subtitleText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
         openAction = () => openNativeXmppCallSurface(sessionId);
         endAction = () => {
-          if (peerBare) {
+          const currentSession = xmppCallSessionById.get(sessionId) || session || null;
+          const staleStates = new Set(["peer-left", "terminated", "ended", "idle", "proceed-timeout"]);
+          if (peerBare && !staleStates.has((currentSession?.state || "").toString().trim().toLowerCase())) {
             xmppSendJingleSessionTerminate(peerBare, sessionId, {
               reason: "success",
               text: "Ended from call bar"
