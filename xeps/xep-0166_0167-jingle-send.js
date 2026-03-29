@@ -736,6 +736,13 @@
         seen.add(normalizedName);
         catalog.push({ name: normalizedName, media: normalizedMedia });
       };
+      if (Array.isArray(session?.localContents)) {
+        session.localContents.forEach((entry, index) => {
+          const media = (entry?.media || "").toString().trim().toLowerCase();
+          if (media !== "audio" && media !== "video") return;
+          push((entry?.name || `${media}${index}`).toString().trim() || `${media}${index}`, media);
+        });
+      }
       if (Array.isArray(session?.remoteContents)) {
         session.remoteContents.forEach((entry, index) => {
           const media = (entry?.media || "").toString().trim().toLowerCase();
