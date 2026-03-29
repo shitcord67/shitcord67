@@ -191,6 +191,19 @@ function buildInitialState() {
   };
 }
 
+function normalizePersistedMessageForReload(message) {
+  if (!message || typeof message !== "object") return message;
+  const next = { ...message };
+  const hasPendingOmemoPayload = Boolean(next.xmppOmemoPayload && !next.xmppOmemoDecrypted);
+  if (hasPendingOmemoPayload) {
+    next.xmppOmemoAutoAttempted = false;
+    next.xmppOmemoRetryAttempted = false;
+    next.xmppOmemoDecryptFailed = false;
+    next.xmppOmemoDecryptError = "";
+  }
+  return next;
+}
+
 function createAccount(username, displayName = "") {
   return {
     id: createId(),
@@ -425,7 +438,7 @@ function migrateState(raw) {
                 slowmodeState: typeof channel.slowmodeState === "object" && channel.slowmodeState ? { ...channel.slowmodeState } : {},
                 messages: Array.isArray(channel.messages)
                   ? channel.messages.map((message) => ({
-                      ...message,
+                      ...normalizePersistedMessageForReload(message),
                       reactions: Array.isArray(message.reactions) ? message.reactions : [],
                       pinned: Boolean(message.pinned),
                       attachments: normalizeAttachments(message.attachments),
@@ -448,7 +461,7 @@ function migrateState(raw) {
           readState: typeof thread.readState === "object" && thread.readState ? { ...thread.readState } : {},
           messages: Array.isArray(thread.messages)
             ? thread.messages.map((message) => ({
-                ...message,
+                ...normalizePersistedMessageForReload(message),
                 reactions: Array.isArray(message.reactions) ? message.reactions : [],
                 pinned: Boolean(message.pinned),
                 attachments: normalizeAttachments(message.attachments),

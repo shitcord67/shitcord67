@@ -2215,6 +2215,14 @@ function connectRelaySocket({ force = false } = {}) {
             void ensureXmppOmemoRuntime().then(() => {
               if (xmppOmemoRuntimeAvailable()) {
                 void xmppOmemoEnsureOwnBundle(ownBare, { force: false });
+                xmppRetryPersistedOmemoMessages({
+                  ownBare,
+                  onUpdated: () => {
+                    renderDmList();
+                    const activeConversation = getActiveConversation();
+                    if (activeConversation?.type === "dm") renderMessages();
+                  }
+                });
               }
             });
           }

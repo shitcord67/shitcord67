@@ -7,6 +7,13 @@ function xmppShouldPersistMessage(message) {
   if (!message || typeof message !== "object") return true;
   const hints = message.xmppProcessingHints;
   if (!hints || typeof hints !== "object") return true;
+  const text = (message.text || "").toString().trim();
+  const hasAttachments = Array.isArray(message.attachments) && message.attachments.length > 0;
+  const hasPoll = Boolean(message.poll);
+  const hasReply = Boolean(message.replyTo && typeof message.replyTo === "object");
+  const isEncryptedUserMessage = Boolean(message.xmppEncrypted || message.xmppOmemoPayload);
+  const hasUserContent = Boolean(text || hasAttachments || hasPoll || hasReply || isEncryptedUserMessage);
+  if (hasUserContent) return true;
   return !(hints.noStore || hints.noPermanentStore);
 }
 

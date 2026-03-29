@@ -1910,6 +1910,34 @@ function xmppOmemoTryDecryptIntoMessage({
   });
 }
 
+function xmppRetryPersistedOmemoMessages({
+  ownBare = xmppBareJid(getPreferences().xmppJid || ""),
+  onUpdated = null
+} = {}) {
+  if (!ownBare || typeof xmppOmemoTryDecryptIntoMessage !== "function") return 0;
+  let attempted = 0;
+  const tryMessage = (message = null) => {
+    if (!message || typeof message !== "object") return;
+    if (!message.xmppOmemoPayload || message.xmppOmemoDecrypted) return;
+    const peerBare = xmppBareJid(message.authorJid || "");
+    if (!peerBare || peerBare === ownBare) return;
+    attempted += 1;
+    xmppOmemoTryDecryptIntoMessage({
+      stanza: null,
+      message,
+      peerBare,
+      ownBare,
+      onUpdated
+    });
+  };
+  (Array.isArray(state?.dmThreads) ? state.dmThreads : []).forEach((thread) => {
+    (Array.isArray(thread?.messages) ? thread.messages : []).forEach((message) => {
+      tryMessage(message);
+    });
+  });
+  return attempted;
+}
+
 function resolveOmemoHeaderState(conversation, account = getCurrentAccount()) {
   if (!conversation || conversation.type !== "dm" || !account) return { visible: false };
   const peerJid = xmppPeerJidForDmThread(conversation.thread, account);

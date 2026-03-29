@@ -1311,12 +1311,12 @@ function renderMessages() {
     });
     let encryptedBadge = null;
     if (message.xmppEncrypted) {
-      if (message.xmppOmemoPayload && !message.xmppOmemoDecrypted && !message.xmppOmemoDecryptFailed && !message.xmppOmemoAutoAttempted) {
+      if (message.xmppOmemoPayload && !message.xmppOmemoDecrypted && !message.xmppOmemoAutoAttempted) {
         const ownBare = xmppBareJid(getPreferences().xmppJid || "");
         const peerBare = xmppBareJid(message.authorJid || "");
-        if (ownBare && peerBare && typeof xmppOmemoTryDecryptIntoMessage === "function" && xmppOmemoRuntimeAvailable()) {
+        if (ownBare && peerBare && typeof xmppOmemoTryDecryptIntoMessage === "function") {
           message.xmppOmemoAutoAttempted = true;
-          xmppOmemoTryDecryptIntoMessage({
+          const retryDecrypt = () => xmppOmemoTryDecryptIntoMessage({
             stanza: null,
             message,
             peerBare,
@@ -1326,6 +1326,14 @@ function renderMessages() {
               renderMessages();
             }
           });
+          if (xmppOmemoRuntimeAvailable()) {
+            retryDecrypt();
+          } else {
+            void ensureXmppOmemoRuntime().then((loaded) => {
+              if (!loaded || !xmppOmemoRuntimeAvailable()) return;
+              retryDecrypt();
+            });
+          }
         }
       }
       const label = (message.xmppEncryptedLabel || "").toString().trim() || "Encrypted";
