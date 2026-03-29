@@ -464,6 +464,23 @@ function bindCallGateButton(button, handler) {
   button.addEventListener("click", (event) => run(event, false));
 }
 
+function clearStaleXmppNativeCallSurface() {
+  const activeSid = (xmppActiveNativeCallSessionId || "").toString().trim();
+  if (!activeSid) return;
+  const session = xmppCallSessionById.get(activeSid) || null;
+  const state = (session?.state || "").toString().trim().toLowerCase();
+  const staleStates = new Set(["peer-left", "terminated", "ended", "idle", "proceed-timeout"]);
+  if (session && !staleStates.has(state)) return;
+  xmppActiveNativeCallSessionId = "";
+  if (typeof nativeCallSurfaceTickerId !== "undefined" && nativeCallSurfaceTickerId) {
+    clearTimeout(nativeCallSurfaceTickerId);
+    nativeCallSurfaceTickerId = 0;
+  }
+  if (typeof nativeCallSurfaceTickerSessionId !== "undefined") {
+    nativeCallSurfaceTickerSessionId = "";
+  }
+}
+
 function showIncomingWebCallPrompt({
   conversation,
   url,
@@ -807,6 +824,7 @@ function showIncomingXmppCallPrompt({
 } = {}) {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
+  clearStaleXmppNativeCallSurface();
   const overlay = ensureMediaLightbox();
   const stage = overlay.querySelector(".media-lightbox__stage");
   const caption = overlay.querySelector(".media-lightbox__caption");
