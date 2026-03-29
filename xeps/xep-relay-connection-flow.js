@@ -307,19 +307,34 @@ function connectRelaySocket({ force = false } = {}) {
               const stopId = (jingleAction.id || "").toString().trim()
                 || latestXmppCallSessionIdForPeer(peerBare, "outgoing")
                 || latestXmppCallSessionIdForPeer(peerBare, "incoming");
+              const stopSession = stopId ? (xmppCallSessionById.get(stopId) || null) : null;
+              const preserveIncoming = Boolean(
+                stopSession
+                && stopSession.direction === "incoming"
+                && (stopSession.state === "proposed" || stopSession.state === "ringing")
+              );
               if (stopId) {
-                stopWebCallRingtone(stopId);
-                forgetXmppCallSession(stopId);
+                if (!preserveIncoming) {
+                  stopWebCallRingtone(stopId);
+                  forgetXmppCallSession(stopId);
+                }
               }
               addXmppDebugEvent("call", "Observed own-resource jingle stop action", {
                 from: fromFullJid,
                 peer: peerBare,
                 action: jingleAction.action,
-                id: stopId || ""
+                id: stopId || "",
+                preserved: preserveIncoming
               });
               const label = jingleAction.action === "reject" ? "rejected" : "cancelled";
-              showToast(`Call ${label} from another logged-in XMPP client.`);
-              if (addSystemDmMessageByPeerJid(peerBare, `XMPP call proposal ${label} from another logged-in client (${(stopId || "").slice(0, 8)}).`)) {
+              const note = preserveIncoming
+                ? `Call ${label} on another logged-in XMPP client. Keeping this proposal active.`
+                : `Call ${label} from another logged-in XMPP client.`;
+              showToast(note);
+              const systemNote = preserveIncoming
+                ? `XMPP call proposal ${label} on another logged-in client, but this proposal is still active here (${(stopId || "").slice(0, 8)}).`
+                : `XMPP call proposal ${label} from another logged-in client (${(stopId || "").slice(0, 8)}).`;
+              if (addSystemDmMessageByPeerJid(peerBare, systemNote)) {
                 refreshDmUiForPeerJid(peerBare);
               }
               return;
