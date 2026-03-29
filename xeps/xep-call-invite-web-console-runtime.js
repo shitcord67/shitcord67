@@ -667,6 +667,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
       }
       if (!entry.fallbackInviteSent) {
         if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);
+        const timeoutMs = isMovimPeer ? Math.min(2500, XMPP_CALL_SIGNAL_TIMEOUT_MS) : XMPP_CALL_SIGNAL_TIMEOUT_MS;
         entry.acceptTimeoutId = window.setTimeout(() => {
           void (async () => {
             const current = xmppCallSessionById.get(sid);
@@ -674,6 +675,12 @@ async function acceptIncomingXmppCall(sessionId = "") {
             const currentPeerFull = (current.peerFullJid || peerFull || peerTarget || "").toString().trim();
             const currentResource = currentPeerFull.includes("/") ? currentPeerFull.split("/").slice(1).join("/") : "";
             const isMovimTimeoutPeer = isMovimPeer || currentResource.toLowerCase().startsWith("movim");
+            const proposedMedia = Array.isArray(current?.proposedMedia)
+              ? current.proposedMedia.filter((entry) => entry === "audio" || entry === "video")
+              : [];
+            const fallbackMedia = proposedMedia.length > 0
+              ? proposedMedia
+              : (Array.isArray(current?.media) && current.media.length > 0 ? current.media : XMPP_CALL_DEFAULT_MEDIA);
             if (isMovimTimeoutPeer) {
               addXmppDebugEvent("call", "Movim stalled before session-initiate", {
                 peer: peerBare,
@@ -709,15 +716,15 @@ async function acceptIncomingXmppCall(sessionId = "") {
                 current.state = "proceed-timeout";
               } else {
                 const initiated = await xmppSendJingleSessionInitiate(retryTarget, sid, {
-                  media: Array.isArray(current?.media) && current.media.length > 0 ? current.media : XMPP_CALL_DEFAULT_MEDIA,
+                  media: fallbackMedia,
                   screenShare: Boolean(current?.screenShare),
                   onSuccess: () => {
                     const latest = xmppCallSessionById.get(sid);
                     if (latest) latest.state = "session-initiate-sent";
-                  if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP session-initiate (${sid.slice(0, 8)}) via responder fallback.`)) {
-                    refreshDmUiForPeerJid(peerBare);
-                  }
-                },
+                    if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP session-initiate (${sid.slice(0, 8)}) via responder fallback.`)) {
+                      refreshDmUiForPeerJid(peerBare);
+                    }
+                  },
                   onError: () => {
                     const latest = xmppCallSessionById.get(sid);
                     if (latest) latest.state = "proceed-timeout";
@@ -733,7 +740,7 @@ async function acceptIncomingXmppCall(sessionId = "") {
               if (xmppActiveNativeCallSessionId === sid) closeMediaLightbox();
             }
           })();
-        }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
+        }, timeoutMs);
       }
     }
     const acceptedLabel = callInviteOnly ? "invite" : "proposal";

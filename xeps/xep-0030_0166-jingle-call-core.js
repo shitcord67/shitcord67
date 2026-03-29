@@ -1003,7 +1003,10 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
       sendAcceptCompat: false,
       state: "proposed",
       createdAt: Date.now(),
-      media: Array.isArray(actionPayload.media) ? actionPayload.media : []
+      media: Array.isArray(actionPayload.media) ? actionPayload.media : [],
+      proposedMedia: Array.isArray(actionPayload.media)
+        ? actionPayload.media.map((entry) => (entry || "").toString().trim().toLowerCase()).filter(Boolean)
+        : []
     };
     const incomingNamespaces = typeof XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces === "function"
       ? XEP_0353_JINGLE_MESSAGE_PARSE_GLOBAL.xmppNormalizeJingleMessageNamespaces(actionPayload?.namespace || "", {
