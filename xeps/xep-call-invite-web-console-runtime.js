@@ -668,17 +668,71 @@ async function acceptIncomingXmppCall(sessionId = "") {
       if (!entry.fallbackInviteSent) {
         if (entry.acceptTimeoutId) clearTimeout(entry.acceptTimeoutId);
         entry.acceptTimeoutId = window.setTimeout(() => {
-          const current = xmppCallSessionById.get(sid);
-          if (!current || (current.state || "").includes("session")) return;
-          showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
-          if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Keeping the native call idle; no local Web Call fallback was opened.`)) {
-            refreshDmUiForPeerJid(peerBare);
-          }
-          if (!current.fallbackInviteSent) {
-            current.fallbackInviteSent = true;
-            current.state = "proceed-timeout";
-            if (xmppActiveNativeCallSessionId === sid) closeMediaLightbox();
-          }
+          void (async () => {
+            const current = xmppCallSessionById.get(sid);
+            if (!current || (current.state || "").includes("session")) return;
+            const currentPeerFull = (current.peerFullJid || peerFull || peerTarget || "").toString().trim();
+            const currentResource = currentPeerFull.includes("/") ? currentPeerFull.split("/").slice(1).join("/") : "";
+            const isMovimTimeoutPeer = isMovimPeer || currentResource.toLowerCase().startsWith("movim");
+            if (isMovimTimeoutPeer) {
+              addXmppDebugEvent("call", "Movim stalled before session-initiate", {
+                peer: peerBare,
+                sid,
+                error: "setCodecPreferences on undefined video transceiver"
+              });
+              showToast("Movim stalled before session-initiate (caller JS crash).", { tone: "error", duration: 4200 });
+              if (addSystemDmMessageByPeerJid(peerBare, `Movim stalled before session-initiate (${sid.slice(0, 8)}). Likely Movim JS error: setCodecPreferences on missing video transceiver. Ask the caller to update Movim or try enabling video.`)) {
+                refreshDmUiForPeerJid(peerBare);
+              }
+            } else {
+              showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
+              if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Keeping the native call idle; no local Web Call fallback was opened.`)) {
+                refreshDmUiForPeerJid(peerBare);
+              }
+            }
+            if (isMovimTimeoutPeer && XMPP_CALL_ENABLE_RESPONDER_SESSION_INITIATE_FALLBACK && !current.responderInitiateAttempted) {
+              current.responderInitiateAttempted = true;
+              current.state = "responder-session-initiate";
+              const retryTarget = xmppResolveSessionPeerJid(current, peerBare, { preferFull: true }) || peerBare;
+              addXmppDebugEvent("call", "Attempting responder session-initiate fallback", {
+                peer: retryTarget,
+                sid
+              });
+              if (addSystemDmMessageByPeerJid(peerBare, `Attempting responder session-initiate fallback for Movim (${sid.slice(0, 8)}).`)) {
+                refreshDmUiForPeerJid(peerBare);
+              }
+              if (typeof xmppSendJingleSessionInitiate !== "function") {
+                addXmppDebugEvent("error", "Responder session-initiate fallback unavailable", {
+                  peer: retryTarget,
+                  sid
+                });
+                current.state = "proceed-timeout";
+              } else {
+                const initiated = await xmppSendJingleSessionInitiate(retryTarget, sid, {
+                  media: Array.isArray(current?.media) && current.media.length > 0 ? current.media : XMPP_CALL_DEFAULT_MEDIA,
+                  screenShare: Boolean(current?.screenShare),
+                  onSuccess: () => {
+                    const latest = xmppCallSessionById.get(sid);
+                    if (latest) latest.state = "session-initiate-sent";
+                  if (addSystemDmMessageByPeerJid(peerBare, `Sent XMPP session-initiate (${sid.slice(0, 8)}) via responder fallback.`)) {
+                    refreshDmUiForPeerJid(peerBare);
+                  }
+                },
+                  onError: () => {
+                    const latest = xmppCallSessionById.get(sid);
+                    if (latest) latest.state = "proceed-timeout";
+                  }
+                });
+                if (initiated) return;
+                current.state = "proceed-timeout";
+              }
+            }
+            if (!current.fallbackInviteSent) {
+              current.fallbackInviteSent = true;
+              current.state = "proceed-timeout";
+              if (xmppActiveNativeCallSessionId === sid) closeMediaLightbox();
+            }
+          })();
         }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
       }
     }

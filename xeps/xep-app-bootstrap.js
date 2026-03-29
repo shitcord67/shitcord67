@@ -52,6 +52,7 @@
     XMPP_CALL_INVITES_NAMESPACE: "urn:xmpp:call-invites:0",
     XMPP_CALL_INVITES_NAMESPACE_PREFIX: "urn:xmpp:call-invites",
     XMPP_CALL_MESSAGE_NAMESPACE: "urn:xmpp:call-message:1",
+    XMPP_CALL_ENABLE_RESPONDER_SESSION_INITIATE_FALLBACK: true,
     XMPP_JINGLE_AUDIO_NAMESPACE: "urn:xmpp:jingle:apps:rtp:audio",
     XMPP_JINGLE_VIDEO_NAMESPACE: "urn:xmpp:jingle:apps:rtp:video",
     XMPP_SIMS_NAMESPACE: "urn:xmpp:sims:1",
