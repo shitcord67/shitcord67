@@ -1392,6 +1392,7 @@ function connectRelaySocket({ force = false } = {}) {
           xmppCallSessionById.set(jingle.sid, session);
           xmppLatestIncomingCallSessionByPeer.set(fromBare, jingle.sid);
           if (jingle.action === "session-initiate") {
+            const autoAcceptSession = session.state === "proceeded" || session.state === "accepted";
             session.state = "incoming-session-initiate";
             const remoteTransport = Array.isArray(jingle.transportUpdates) ? (jingle.transportUpdates[0] || null) : null;
             if (remoteTransport?.ufrag || remoteTransport?.pwd) {
@@ -1418,14 +1419,23 @@ function connectRelaySocket({ force = false } = {}) {
             }));
             startWebCallRingtone(jingle.sid);
             xmppSendJingleSessionInfo(session.peerFullJid || fromBare, jingle.sid, { info: "ringing" });
-            showIncomingXmppCallPrompt({
-              sessionId: jingle.sid,
-              peerLabel: fromBare,
-              screenShare: false
-            });
-            showToast(`Incoming XMPP media session from ${fromBare}. Use /callxmpp accept ${jingle.sid.slice(0, 8)} or /callxmpp reject ${jingle.sid.slice(0, 8)}.`);
-            if (addSystemDmMessageByPeerJid(fromBare, `Incoming XMPP session-initiate (${jingle.sid.slice(0, 8)}). Use /callxmpp accept ${jingle.sid.slice(0, 8)} or /callxmpp reject ${jingle.sid.slice(0, 8)}.`)) {
-              refreshDmUiForPeerJid(fromBare);
+            if (autoAcceptSession && typeof acceptIncomingXmppCall === "function") {
+              stopWebCallRingtone(jingle.sid);
+              addXmppDebugEvent("call", "Auto-accepting incoming session-initiate after prior JMI accept", {
+                from: fromBare,
+                sid: jingle.sid
+              });
+              void Promise.resolve(acceptIncomingXmppCall(jingle.sid));
+            } else {
+              showIncomingXmppCallPrompt({
+                sessionId: jingle.sid,
+                peerLabel: fromBare,
+                screenShare: false
+              });
+              showToast(`Incoming XMPP media session from ${fromBare}. Use /callxmpp accept ${jingle.sid.slice(0, 8)} or /callxmpp reject ${jingle.sid.slice(0, 8)}.`);
+              if (addSystemDmMessageByPeerJid(fromBare, `Incoming XMPP session-initiate (${jingle.sid.slice(0, 8)}). Use /callxmpp accept ${jingle.sid.slice(0, 8)} or /callxmpp reject ${jingle.sid.slice(0, 8)}.`)) {
+                refreshDmUiForPeerJid(fromBare);
+              }
             }
             addXmppDebugEvent("iq", "Received XMPP jingle session-initiate", {
               from: fromBare,
