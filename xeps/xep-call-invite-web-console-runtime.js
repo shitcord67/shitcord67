@@ -671,12 +671,16 @@ async function acceptIncomingXmppCall(sessionId = "") {
       try {
         const info = await xmppFetchDiscoInfoCached(peerBare, { force: false });
         const evalResult = xmppEvaluateCallFeatures(info?.features || new Set());
+        entry.interopReady = Boolean(evalResult.ready);
+        entry.interopFeatureReason = evalResult.ready ? "ok" : "missing-features";
         addXmppDebugEvent("call", "Call interop check for incoming propose", {
           peer: peerBare,
           ready: evalResult.ready,
           features: [...(info?.features || [])]
         });
       } catch (error) {
+        entry.interopReady = false;
+        entry.interopFeatureReason = "discovery-failed";
         addXmppDebugEvent("call", "Call interop check failed for incoming propose", {
           peer: peerBare,
           error: String(error?.message || error)
@@ -698,6 +702,15 @@ async function acceptIncomingXmppCall(sessionId = "") {
             const fallbackMedia = proposedMedia.length > 0
               ? proposedMedia
               : (Array.isArray(current?.media) && current.media.length > 0 ? current.media : XMPP_CALL_DEFAULT_MEDIA);
+            const shouldAttemptResponderInitiate = Boolean(
+              XMPP_CALL_ENABLE_RESPONDER_SESSION_INITIATE_FALLBACK
+              && !current.responderInitiateAttempted
+              && (
+                isMovimTimeoutPeer
+                || current.interopReady === false
+                || current.interopFeatureReason === "discovery-failed"
+              )
+            );
             if (isMovimTimeoutPeer) {
               addXmppDebugEvent("call", "Movim stalled before session-initiate", {
                 peer: peerBare,
@@ -710,19 +723,30 @@ async function acceptIncomingXmppCall(sessionId = "") {
               }
             } else {
               showToast("No session-initiate received yet. The caller may not support native calls.", { tone: "error", duration: 3200 });
-              if (addSystemDmMessageByPeerJid(peerBare, `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Keeping the native call idle; no local Web Call fallback was opened.`)) {
+              const reasonLabel = (current.interopFeatureReason || "").toString().trim();
+              const systemDetail = shouldAttemptResponderInitiate
+                ? `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Trying responder-side session-initiate fallback for this peer.`
+                : `No session-initiate received for XMPP call (${sid.slice(0, 8)}). Keeping the native call idle; no local Web Call fallback was opened.`;
+              addXmppDebugEvent("call", "Peer stalled before session-initiate", {
+                peer: peerBare,
+                sid,
+                interopReady: current.interopReady !== false,
+                reason: reasonLabel || "unknown"
+              });
+              if (addSystemDmMessageByPeerJid(peerBare, systemDetail)) {
                 refreshDmUiForPeerJid(peerBare);
               }
             }
-            if (isMovimTimeoutPeer && XMPP_CALL_ENABLE_RESPONDER_SESSION_INITIATE_FALLBACK && !current.responderInitiateAttempted) {
+            if (shouldAttemptResponderInitiate) {
               current.responderInitiateAttempted = true;
               current.state = "responder-session-initiate";
               const retryTarget = xmppResolveSessionPeerJid(current, peerBare, { preferFull: true }) || peerBare;
+              const peerKind = isMovimTimeoutPeer ? "Movim" : "peer";
               addXmppDebugEvent("call", "Attempting responder session-initiate fallback", {
                 peer: retryTarget,
                 sid
               });
-              if (addSystemDmMessageByPeerJid(peerBare, `Attempting responder session-initiate fallback for Movim (${sid.slice(0, 8)}).`)) {
+              if (addSystemDmMessageByPeerJid(peerBare, `Attempting responder session-initiate fallback for ${peerKind} (${sid.slice(0, 8)}).`)) {
                 refreshDmUiForPeerJid(peerBare);
               }
               if (typeof xmppSendJingleSessionInitiate !== "function") {
