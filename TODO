@@ -372,6 +372,7 @@
 - [done] Added transport adapter modes with experimental XMPP connector (Strophe load + connect/auth + MUC room join/send/receive).
 - [done] Added profile identity fields: avatar decoration emoji, guild tag, profile effect, and nameplate SVG/URL
 - [done] Avatar decorations now render on dock/member/message/popout avatars
+- [done] DM list avatars now use Discord-like 32px sizing and improved status indicator glyphs/decorations
 - [done] Guild tag chips now render across name surfaces with click-to-inspect behavior
 - [done] Nameplate SVG background styling now renders on member/message/popout names
 - [done] Animated profile effects (`aurora`, `flame`, `ocean`) now apply on profile popouts

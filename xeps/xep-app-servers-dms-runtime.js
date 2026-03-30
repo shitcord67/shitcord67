@@ -627,6 +627,7 @@ function renderDmList() {
     avatar.className = "channel-dm-avatar";
     if (peer) {
       applyAvatarStyle(avatar, peer, null);
+      applyAvatarDecoration(avatar, peer);
       const dot = document.createElement("span");
       dot.className = `presence-dot presence-${peerPresence}`;
       avatar.appendChild(dot);

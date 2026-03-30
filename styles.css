@@ -996,6 +996,10 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
 
 .channel-item.channel-item--dm {
   color: #d7dce5;
+  gap: 0.75rem;
+  min-height: 44px;
+  padding: 0.38rem 0.5rem;
+  border-radius: 4px;
 }
 
 .channel-item.active {
@@ -1039,6 +1043,18 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   white-space: nowrap;
 }
 
+.channel-item--dm .channel-item__name {
+  color: #f2f3f5;
+  font-size: 0.96rem;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.channel-item--dm.active .channel-item__name,
+.channel-item--unread.channel-item--dm .channel-item__name {
+  font-weight: 600;
+}
+
 .channel-item.active .channel-item__description {
   color: #cfd6e2;
 }
@@ -1049,6 +1065,12 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   gap: 0.08rem;
 }
 
+.channel-item--dm .channel-item__meta {
+  flex: 1 1 auto;
+  gap: 0.14rem;
+  align-content: center;
+}
+
 .channel-item__preview {
   color: #9ca5b2;
   font-size: 0.68rem;
@@ -1056,6 +1078,14 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   display: flex;
   align-items: center;
   gap: 0.2rem;
+  overflow: hidden;
+}
+
+.channel-item--dm .channel-item__preview {
+  color: #b5bac1;
+  font-size: 0.74rem;
+  line-height: 1.15;
+  gap: 0.28rem;
 }
 
 .channel-item__preview-prefix {
@@ -1108,8 +1138,9 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
 }
 
 .channel-dm-avatar {
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   border-radius: 50%;
   background: #5f6af5;
   background-size: cover;
@@ -1117,16 +1148,16 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   position: relative;
   display: grid;
   place-items: center;
-  font-size: 0.68rem;
+  font-size: 0.88rem;
   color: #fff;
+  flex: 0 0 auto;
 }
 
 .channel-dm-avatar .presence-dot {
-  width: 8px;
-  height: 8px;
-  border-width: 1px;
-  right: -2px;
-  bottom: -2px;
+  width: 10px;
+  height: 10px;
+  right: -1px;
+  bottom: -1px;
 }
 
 .dm-request-item {
@@ -5170,10 +5201,17 @@ body[data-compact-members="on"] .member-item {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid #2b2d31;
+  border: 3px solid #2b2d31;
   position: absolute;
   right: -1px;
   bottom: -1px;
+  box-sizing: border-box;
+}
+
+.presence-dot::after {
+  content: "";
+  position: absolute;
+  display: none;
 }
 
 .member-avatar .presence-dot {
@@ -5181,22 +5219,62 @@ body[data-compact-members="on"] .member-item {
   height: 12px;
   right: -3px;
   bottom: -3px;
-  border: 2px solid var(--bg-member);
+  border: 3px solid var(--bg-member);
   box-shadow: 0 0 0 1px rgba(9, 11, 17, 0.7);
 }
 
 .channel-dm-avatar .presence-dot,
 .dm-home__avatar .presence-dot {
-  width: 12px;
-  height: 12px;
-  right: -3px;
-  bottom: -3px;
-  border: 2px solid var(--bg-channel);
+  width: 13px;
+  height: 13px;
+  right: -2px;
+  bottom: -2px;
+  border: 3px solid var(--bg-channel);
   box-shadow: 0 0 0 1px rgba(9, 11, 17, 0.68);
 }
 
 .presence-online {
   background: #23a55a;
+}
+
+.presence-idle::after {
+  display: block;
+  width: 5px;
+  height: 5px;
+  top: 1px;
+  right: 1px;
+  border-radius: 50%;
+  background: var(--bg-channel);
+}
+
+.member-avatar .presence-idle::after {
+  background: var(--bg-member);
+}
+
+.presence-dnd::after {
+  display: block;
+  width: 5px;
+  height: 2px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: var(--bg-channel);
+}
+
+.member-avatar .presence-dnd::after {
+  background: var(--bg-member);
+}
+
+.presence-invisible::after {
+  display: block;
+  inset: 2px;
+  border-radius: 50%;
+  background: var(--bg-channel);
+}
+
+.member-avatar .presence-invisible::after {
+  background: var(--bg-member);
 }
 
 .media-lightbox {
