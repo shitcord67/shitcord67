@@ -107,6 +107,48 @@ function bindNativeCallActionButton(button, handler) {
   button.addEventListener("click", (event) => run(event, false));
 }
 
+function findAccountByBareXmppJid(bareJid = "") {
+  const bare = xmppBareJid(bareJid || "");
+  if (!bare) return null;
+  return (Array.isArray(state?.accounts) ? state.accounts : []).find((account) => (
+    xmppBareJid(accountBareXmppJid(account) || "") === bare
+  )) || null;
+}
+
+function decorateNativeCallActionButton(button, {
+  icon = "",
+  label = "",
+  variant = "dock"
+} = {}) {
+  if (!(button instanceof HTMLElement)) return button;
+  const safeLabel = (label || button.textContent || button.title || "").toString().trim();
+  const safeIcon = (icon || "").toString().trim();
+  button.dataset.label = safeLabel;
+  button.dataset.variant = variant;
+  button.textContent = "";
+  if (safeLabel) {
+    button.setAttribute("aria-label", safeLabel);
+    if (!button.title) button.title = safeLabel;
+  }
+  const iconEl = document.createElement("span");
+  iconEl.className = "native-call-surface__button-icon";
+  iconEl.textContent = safeIcon || "•";
+  button.appendChild(iconEl);
+  return button;
+}
+
+function createNativeCallAvatarNode(account, label = "") {
+  const avatar = document.createElement("div");
+  avatar.className = "native-call-surface__avatar";
+  if (account) {
+    applyAvatarStyle(avatar, account, null);
+  } else {
+    avatar.style.backgroundColor = fallbackAvatarColorForSeed(label || "peer");
+    applyAvatarInitialGlyph(avatar, label || "Peer");
+  }
+  return avatar;
+}
+
 function closeNativeCallPickerDialogByClass(className = "") {
   const selector = (className || "").toString().trim();
   if (!selector) return;
@@ -712,6 +754,8 @@ function updateNativeCallSurfaceTickerUi(sessionId = "") {
   if (!(shell instanceof HTMLElement)) return false;
   const session = xmppCallSessionById.get(sid) || null;
   const peer = xmppBareJid(session?.peerJid || "");
+  const peerAccount = findAccountByBareXmppJid(peer);
+  const currentAccount = getCurrentAccount();
   const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
   const pcState = (pcEntry?.pc?.connectionState || "").toString().trim();
   const iceState = (pcEntry?.pc?.iceConnectionState || "").toString().trim();
@@ -1364,6 +1408,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
   if (!stage || !caption) return;
   const session = xmppCallSessionById.get(sid) || null;
   const peer = xmppBareJid(session?.peerJid || "");
+  const peerAccount = findAccountByBareXmppJid(peer);
+  const currentAccount = getCurrentAccount();
   const pcEntry = xmppCallPeerConnectionBySessionId.get(sid) || null;
   const pcState = (pcEntry?.pc?.connectionState || "").toString().trim();
   const iceState = (pcEntry?.pc?.iceConnectionState || "").toString().trim();
@@ -1373,10 +1419,19 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const shell = document.createElement("div");
   shell.className = "native-call-surface";
   shell.dataset.sessionId = sid;
-  const header = document.createElement("div");
-  header.className = "native-call-surface__header";
+  const topbar = document.createElement("div");
+  topbar.className = "native-call-surface__topbar";
+  const channelCard = document.createElement("div");
+  channelCard.className = "native-call-surface__channel";
+  const channelAvatar = createNativeCallAvatarNode(peerAccount, peer || "Peer");
+  const channelText = document.createElement("div");
+  channelText.className = "native-call-surface__channel-text";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "native-call-surface__eyebrow";
+  eyebrow.textContent = "Direct Message Call";
   const title = document.createElement("strong");
-  title.textContent = `Native XMPP Call ${sid.slice(0, 8)}`;
+  title.className = "native-call-surface__title";
+  title.textContent = peerAccount ? displayNameForAccount(peerAccount, null) : (peer || `Native XMPP Call ${sid.slice(0, 8)}`);
   const meta = document.createElement("span");
   meta.className = "native-call-surface__meta";
   const state = (session?.state || "starting").toString().trim();
@@ -1395,7 +1450,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     session?.remoteHold ? "peer-hold" : ""
   ].filter(Boolean);
   const stateBits = [
-    peer || "peer",
+    peerAccount ? `@${peerAccount.username}` : (peer || "peer"),
     state,
     durationText ? `dur:${durationText}` : "",
     pcState ? `pc:${pcState}` : "",
@@ -1403,12 +1458,20 @@ function renderNativeXmppCallSurface(sessionId = "") {
     ...(flags.length > 0 ? flags : [])
   ].filter(Boolean);
   meta.textContent = stateBits.join(" · ");
+  channelText.appendChild(eyebrow);
+  channelText.appendChild(title);
+  channelText.appendChild(meta);
+  channelCard.appendChild(channelAvatar);
+  channelCard.appendChild(channelText);
   void refreshXmppCallQualitySnapshot(sid, { force: false });
   const quality = xmppCallQualityChipData(sid, { pcState: pcStateLower, iceState: iceStateLower });
   const qualityChip = document.createElement("span");
   qualityChip.className = `native-call-surface__quality native-call-surface__quality--${quality.level}`;
   qualityChip.textContent = quality.text;
   qualityChip.title = "Estimated from WebRTC connection stats (RTT and packet loss).";
+  const utilityBar = document.createElement("div");
+  utilityBar.className = "native-call-surface__utility";
+  utilityBar.appendChild(qualityChip);
   const reconnectNoticeNeeded = ["disconnected", "failed"].includes(pcStateLower)
     || ["disconnected", "failed"].includes(iceStateLower);
   const reconnectNotice = reconnectNoticeNeeded
@@ -1441,12 +1504,10 @@ function renderNativeXmppCallSurface(sessionId = "") {
     reconnectNotice.appendChild(label);
     reconnectNotice.appendChild(recoverBtn);
   }
-  const actions = document.createElement("div");
-  actions.className = "native-call-surface__actions";
   const localSnapshot = xmppLocalMediaSnapshot(sid);
   const micBtn = document.createElement("button");
   micBtn.type = "button";
-  micBtn.className = "native-call-surface__toggle";
+  micBtn.className = "native-call-surface__toggle native-call-surface__dock-btn";
   micBtn.textContent = localSnapshot.audioEnabled ? "Mute Mic" : "Unmute Mic";
   micBtn.title = localSnapshot.audioEnabled ? "Mute microphone" : "Unmute microphone";
   micBtn.disabled = localSnapshot.audioTracks.length === 0;
@@ -1460,7 +1521,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   });
   const camBtn = document.createElement("button");
   camBtn.type = "button";
-  camBtn.className = "native-call-surface__toggle";
+  camBtn.className = "native-call-surface__toggle native-call-surface__dock-btn";
   camBtn.textContent = localSnapshot.videoEnabled ? "Stop Cam" : "Start Cam";
   camBtn.title = localSnapshot.videoEnabled ? "Disable camera" : "Enable camera";
   camBtn.disabled = localSnapshot.videoTracks.length === 0 && localSnapshot.mode !== "camera";
@@ -1479,7 +1540,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   });
   const screenBtn = document.createElement("button");
   screenBtn.type = "button";
-  screenBtn.className = "native-call-surface__toggle";
+  screenBtn.className = "native-call-surface__toggle native-call-surface__dock-btn";
   const screenActive = localSnapshot.mode === "screen";
   screenBtn.textContent = screenActive ? "Stop Share" : "Share Screen";
   screenBtn.title = screenActive ? "Stop screen sharing" : "Share your screen";
@@ -1550,7 +1611,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   });
   const holdBtn = document.createElement("button");
   holdBtn.type = "button";
-  holdBtn.className = "native-call-surface__toggle";
+  holdBtn.className = "native-call-surface__toggle native-call-surface__dock-btn";
   const localHoldActive = Boolean(session?.localHold);
   holdBtn.textContent = localHoldActive ? "Resume" : "Hold";
   holdBtn.title = localHoldActive ? "Resume call media and notify peer" : "Temporarily hold local call media";
@@ -1568,12 +1629,14 @@ function renderNativeXmppCallSurface(sessionId = "") {
   });
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
+  copyBtn.className = "native-call-surface__utility-btn";
   copyBtn.textContent = "Copy SID";
   bindNativeCallActionButton(copyBtn, () => {
     void copyText(sid).then((ok) => showToast(ok ? "Session ID copied." : "Failed to copy session ID.", { tone: ok ? "info" : "error" }));
   });
   const refreshBtn = document.createElement("button");
   refreshBtn.type = "button";
+  refreshBtn.className = "native-call-surface__utility-btn";
   refreshBtn.textContent = "Refresh";
   bindNativeCallActionButton(refreshBtn, () => renderNativeXmppCallSurface(sid));
   const reconnectBtn = document.createElement("button");
@@ -1607,7 +1670,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const endBtn = document.createElement("button");
   endBtn.type = "button";
   endBtn.textContent = "End";
-  endBtn.className = "native-call-surface__end";
+  endBtn.className = "native-call-surface__end native-call-surface__dock-btn";
   bindNativeCallActionButton(endBtn, () => {
     const currentSession = xmppCallSessionById.get(sid) || session || null;
     const targetPeer = xmppBareJid(currentSession?.peerJid || "");
@@ -1633,23 +1696,24 @@ function renderNativeXmppCallSurface(sessionId = "") {
   bindNativeCallActionButton(rejoinBtn, () => {
     void xmppRejoinNativeCallSession(sid);
   });
-  actions.appendChild(micBtn);
-  actions.appendChild(camBtn);
-  actions.appendChild(screenBtn);
-  actions.appendChild(whiteboardBtn);
-  actions.appendChild(whiteboardPostBtn);
-  actions.appendChild(holdBtn);
-  actions.appendChild(audioTestBtn);
-  actions.appendChild(copyBtn);
-  actions.appendChild(refreshBtn);
-  actions.appendChild(reconnectBtn);
-  actions.appendChild(debugBtn);
-  actions.appendChild(rejoinBtn);
-  actions.appendChild(endBtn);
-  header.appendChild(title);
-  header.appendChild(meta);
-  header.appendChild(qualityChip);
-  header.appendChild(actions);
+  decorateNativeCallActionButton(micBtn, { icon: localSnapshot.audioEnabled ? "🎙" : "🔇", label: localSnapshot.audioEnabled ? "Mute" : "Unmute" });
+  decorateNativeCallActionButton(camBtn, { icon: localSnapshot.videoEnabled ? "📷" : "📹", label: localSnapshot.videoEnabled ? "Camera Off" : "Camera On" });
+  decorateNativeCallActionButton(screenBtn, { icon: "🖥", label: screenActive ? "Stop Share" : "Share Screen" });
+  decorateNativeCallActionButton(holdBtn, { icon: localHoldActive ? "▶" : "⏸", label: localHoldActive ? "Resume" : "Hold" });
+  decorateNativeCallActionButton(endBtn, { icon: "✕", label: "Disconnect", variant: "danger" });
+  decorateNativeCallActionButton(whiteboardBtn, { icon: "📝", label: "Whiteboard", variant: "ghost" });
+  decorateNativeCallActionButton(whiteboardPostBtn, { icon: "➕", label: "Post Board", variant: "ghost" });
+  decorateNativeCallActionButton(audioTestBtn, { icon: audioTestActive ? "■" : "🧪", label: audioTestActive ? "Stop Test" : "Audio Test", variant: "ghost" });
+  decorateNativeCallActionButton(reconnectBtn, { icon: "↻", label: "Reconnect", variant: "ghost" });
+  decorateNativeCallActionButton(debugBtn, { icon: "⌘", label: debugOpen ? "Hide Debug" : "Debug", variant: "ghost" });
+  decorateNativeCallActionButton(rejoinBtn, { icon: "⤴", label: "Rejoin", variant: "ghost" });
+  decorateNativeCallActionButton(copyBtn, { icon: "⧉", label: "Copy SID", variant: "utility" });
+  decorateNativeCallActionButton(refreshBtn, { icon: "↺", label: "Refresh", variant: "utility" });
+  utilityBar.appendChild(copyBtn);
+  utilityBar.appendChild(refreshBtn);
+  utilityBar.appendChild(debugBtn);
+  topbar.appendChild(channelCard);
+  topbar.appendChild(utilityBar);
   if (reconnectNotice) shell.appendChild(reconnectNotice);
   const devicesRow = document.createElement("div");
   devicesRow.className = "native-call-surface__devices";
@@ -1761,11 +1825,20 @@ function renderNativeXmppCallSurface(sessionId = "") {
   devicesRow.appendChild(videoWrap);
   devicesRow.appendChild(outputWrap);
   const debugDialog = renderNativeXmppCallDebugDialog(sid);
-  const grid = document.createElement("div");
-  grid.className = "native-call-surface__grid";
+  const body = document.createElement("div");
+  body.className = "native-call-surface__body";
+  const roster = document.createElement("div");
+  roster.className = "native-call-surface__roster";
+  const stageWrap = document.createElement("div");
+  stageWrap.className = "native-call-surface__stage-wrap";
+  const stageHero = document.createElement("div");
+  stageHero.className = "native-call-surface__stage";
+  const filmstrip = document.createElement("div");
+  filmstrip.className = "native-call-surface__filmstrip";
   const localStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
   ensureXmppNativeCallTileSpeakingMonitor(sid);
   const speakingByKey = xmppNativeCallTileSpeakingSnapshot(sid);
+  const participants = [];
   if (localStream instanceof MediaStream) {
     const localTile = document.createElement("div");
     localTile.className = "native-call-surface__tile";
@@ -1803,7 +1876,14 @@ function renderNativeXmppCallSurface(sessionId = "") {
     localTile.appendChild(video);
     appendNativeCallTileBadges(localTile, badges);
     localTile.appendChild(label);
-    grid.appendChild(localTile);
+    participants.push({
+      key: "local",
+      label: "You",
+      account: currentAccount,
+      tile: localTile,
+      badges,
+      speaking: Boolean(speakingByKey.get("local"))
+    });
   }
   const remoteStreams = xmppRemoteStreamListForSession(sid);
   syncXmppNativeCallRemoteAudioSinks(sid, remoteStreams, prefs.callAudioOutputId || "");
@@ -1848,18 +1928,83 @@ function renderNativeXmppCallSurface(sessionId = "") {
     tile.appendChild(video);
     appendNativeCallTileBadges(tile, badges);
     tile.appendChild(label);
-    grid.appendChild(tile);
+    participants.push({
+      key: speakerKey,
+      label: baseLabel,
+      account: peerAccount,
+      tile,
+      badges,
+      speaking: Boolean(speakingByKey.get(speakerKey))
+    });
+  });
+  const availableKeys = participants.map((entry) => entry.key);
+  const preferredFocus = (session?.focusedSpeakerKey || "").toString().trim();
+  const focusedKey = availableKeys.includes(preferredFocus)
+    ? preferredFocus
+    : (availableKeys.find((entry) => entry !== "local") || availableKeys[0] || "");
+  if (session && focusedKey && session.focusedSpeakerKey !== focusedKey) session.focusedSpeakerKey = focusedKey;
+  participants.forEach((participant) => {
+    const isFocused = participant.key === focusedKey;
+    participant.tile.classList.toggle("native-call-surface__tile--focused", isFocused);
+    if (isFocused) stageHero.appendChild(participant.tile);
+    else filmstrip.appendChild(participant.tile);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `native-call-surface__participant ${isFocused ? "is-active" : ""}`;
+    if (participant.speaking) button.classList.add("is-speaking");
+    const avatar = createNativeCallAvatarNode(participant.account, participant.label);
+    const name = document.createElement("span");
+    name.className = "native-call-surface__participant-name";
+    name.textContent = participant.label;
+    button.appendChild(avatar);
+    button.appendChild(name);
+    if (participant.badges.length > 0) {
+      const detail = document.createElement("span");
+      detail.className = "native-call-surface__participant-meta";
+      detail.textContent = participant.badges[0];
+      button.appendChild(detail);
+    }
+    bindNativeCallActionButton(button, () => {
+      const liveSession = xmppCallSessionById.get(sid) || session || null;
+      if (liveSession) liveSession.focusedSpeakerKey = participant.key;
+      renderNativeXmppCallSurface(sid);
+    });
+    roster.appendChild(button);
   });
   if (!localStream && remoteStreams.length === 0) {
     const empty = document.createElement("div");
     empty.className = "native-call-surface__empty";
     empty.textContent = "Waiting for local/remote media tracks...";
-    grid.appendChild(empty);
+    stageHero.appendChild(empty);
   }
-  shell.appendChild(header);
-  shell.appendChild(devicesRow);
-  if (debugDialog) shell.appendChild(debugDialog);
-  shell.appendChild(grid);
+  const dock = document.createElement("div");
+  dock.className = "native-call-surface__dock";
+  const dockMain = document.createElement("div");
+  dockMain.className = "native-call-surface__dock-main";
+  dockMain.appendChild(micBtn);
+  dockMain.appendChild(camBtn);
+  dockMain.appendChild(screenBtn);
+  dockMain.appendChild(holdBtn);
+  dockMain.appendChild(endBtn);
+  const dockExtras = document.createElement("div");
+  dockExtras.className = "native-call-surface__dock-extras";
+  dockExtras.appendChild(whiteboardBtn);
+  dockExtras.appendChild(whiteboardPostBtn);
+  dockExtras.appendChild(audioTestBtn);
+  dockExtras.appendChild(reconnectBtn);
+  dockExtras.appendChild(rejoinBtn);
+  dock.appendChild(dockMain);
+  dock.appendChild(dockExtras);
+  stageWrap.appendChild(stageHero);
+  if (filmstrip.childElementCount > 0) stageWrap.appendChild(filmstrip);
+  stageWrap.appendChild(devicesRow);
+  if (debugDialog) stageWrap.appendChild(debugDialog);
+  stageWrap.appendChild(dock);
+  body.appendChild(roster);
+  body.appendChild(stageWrap);
+  shell.appendChild(topbar);
+  if (reconnectNotice) shell.appendChild(reconnectNotice);
+  shell.appendChild(body);
   stage.appendChild(shell);
   caption.textContent = `Native session ${sid.slice(0, 8)} · l${Array.isArray(session?.localCandidates) ? session.localCandidates.length : 0}/r${Array.isArray(session?.remoteCandidates) ? session.remoteCandidates.length : 0}`;
   scheduleNativeCallSurfaceTicker(sid);

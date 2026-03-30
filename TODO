@@ -135,6 +135,7 @@
 - [done] Added native call keyboard shortcuts in lightbox: `M` mic toggle, `V` camera toggle, `H` hold/resume, `R` soft reconnect.
 - [done] Added native call participant status chips in tiles (`on hold`, `mic off`, `cam off`, `reconnecting`) for quicker call-state readability.
 - [done] Added active-speaker tile highlighting for native XMPP call surfaces (local + remote audio-level detection with cleanup on end/close).
+- [done] Redesigned native XMPP call overlay toward Discord-style composition with focused stage, participant rail, conversation header, and bottom-centered control dock.
 - [done] Added in-call source pickers: Electron display/window chooser for screenshare and camera picker with live preview before apply.
 - [done] Fixed native call device preference writes crashing (`callAudioOutputId`) by hardening mutable preference state updates in call UI controls.
 - [done] Improved cross-client Jingle interop by preserving negotiated content creator in `content-modify` and limiting `transport-info` targets to negotiated remote contents.
