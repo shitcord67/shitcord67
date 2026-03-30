@@ -208,6 +208,146 @@ function writePersistentRendererStorageSnapshot(snapshot) {
   fs.renameSync(tempPath, filePath);
 }
 
+function gpgBinaryPath() {
+  return String(process.env.S67_GPG_PATH || "gpg").trim() || "gpg";
+}
+
+function runBufferedProcess(command, args = [], {
+  input = null,
+  timeoutMs = 15000,
+  maxBytes = 16 * 1024 * 1024
+} = {}) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let stdoutSize = 0;
+    let stderrSize = 0;
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    let child = null;
+    let timer = null;
+    const finish = (callback) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      callback();
+    };
+    try {
+      child = spawn(command, args, {
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    timer = setTimeout(() => {
+      finish(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // Ignore kill failures on already-exited processes.
+        }
+        reject(new Error(`Process timed out after ${Math.max(1000, Number(timeoutMs) || 15000)}ms`));
+      });
+    }, Math.max(1000, Number(timeoutMs) || 15000));
+    child.stdout.on("data", (chunk) => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      stdoutSize += buffer.length;
+      if (stdoutSize > maxBytes) {
+        finish(() => {
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // Ignore.
+          }
+          reject(new Error("Process stdout exceeded size limit"));
+        });
+        return;
+      }
+      stdoutChunks.push(buffer);
+    });
+    child.stderr.on("data", (chunk) => {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      stderrSize += buffer.length;
+      if (stderrSize > maxBytes) {
+        finish(() => {
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // Ignore.
+          }
+          reject(new Error("Process stderr exceeded size limit"));
+        });
+        return;
+      }
+      stderrChunks.push(buffer);
+    });
+    child.on("error", (error) => {
+      finish(() => reject(error));
+    });
+    child.on("close", (code, signal) => {
+      finish(() => {
+        resolve({
+          code: Number.isInteger(code) ? code : -1,
+          signal: signal || "",
+          stdout: Buffer.concat(stdoutChunks),
+          stderr: Buffer.concat(stderrChunks)
+        });
+      });
+    });
+    if (input !== null && input !== undefined) {
+      child.stdin.write(Buffer.isBuffer(input) ? input : Buffer.from(String(input)));
+    }
+    child.stdin.end();
+  });
+}
+
+function extractEmailsFromUid(uid = "") {
+  const value = (uid || "").toString();
+  const matches = [...value.matchAll(/<([^>]+)>/g)];
+  return matches
+    .map((match) => (match?.[1] || "").toString().trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function parseGpgColonKeyListing(raw = "", { secret = false } = {}) {
+  const lines = (raw || "").toString().split(/\r?\n/);
+  const out = [];
+  let current = null;
+  lines.forEach((line) => {
+    const parts = line.split(":");
+    const type = (parts[0] || "").toString().trim();
+    if (type === (secret ? "sec" : "pub")) {
+      current = {
+        type,
+        keyId: (parts[4] || "").toString().trim(),
+        fingerprint: "",
+        capabilities: (parts[11] || "").toString().trim(),
+        uids: [],
+        emails: []
+      };
+      out.push(current);
+      return;
+    }
+    if (!current) return;
+    if (type === "fpr" && !current.fingerprint) {
+      current.fingerprint = (parts[9] || "").toString().trim();
+      return;
+    }
+    if (type === "uid") {
+      const uid = (parts[9] || "").toString().trim();
+      if (!uid) return;
+      current.uids.push(uid);
+      current.emails.push(...extractEmailsFromUid(uid));
+    }
+  });
+  return out
+    .filter((entry) => entry.fingerprint)
+    .map((entry) => ({
+      ...entry,
+      emails: [...new Set(entry.emails)]
+    }));
+}
+
 function resolveShmMode(rawMode) {
   const normalized = String(rawMode || "").toLowerCase();
   const shmOk = canAccessDir("/dev/shm");
@@ -1353,6 +1493,258 @@ async function createMainWindow({ startupWarning = "" } = {}) {
       ok: false,
       error: "No readable .xmpp.local.json file found."
     };
+  });
+  ipcMain.removeHandler("s67-gpg-status");
+  ipcMain.handle("s67-gpg-status", async () => {
+    try {
+      const result = await runBufferedProcess(gpgBinaryPath(), ["--batch", "--with-colons", "--list-keys"], {
+        timeoutMs: 12000
+      });
+      const stderr = result.stderr.toString("utf8").trim();
+      if (result.code !== 0) {
+        return {
+          ok: false,
+          available: false,
+          error: stderr || `gpg exited with code ${result.code}`
+        };
+      }
+      return {
+        ok: true,
+        available: true,
+        error: stderr || ""
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        available: false,
+        error: String(error?.message || error || "GPG unavailable")
+      };
+    }
+  });
+  ipcMain.removeHandler("s67-gpg-list-keys");
+  ipcMain.handle("s67-gpg-list-keys", async (_event, payload = {}) => {
+    const secret = Boolean(payload?.secret);
+    try {
+      const result = await runBufferedProcess(
+        gpgBinaryPath(),
+        ["--batch", "--with-colons", secret ? "--list-secret-keys" : "--list-keys"],
+        { timeoutMs: 12000 }
+      );
+      const stderr = result.stderr.toString("utf8").trim();
+      if (result.code !== 0) {
+        return {
+          ok: false,
+          keys: [],
+          error: stderr || `gpg exited with code ${result.code}`
+        };
+      }
+      return {
+        ok: true,
+        keys: parseGpgColonKeyListing(result.stdout.toString("utf8"), { secret }),
+        error: stderr || ""
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        keys: [],
+        error: String(error?.message || error || "Failed to list GPG keys")
+      };
+    }
+  });
+  ipcMain.removeHandler("s67-gpg-export-public-key");
+  ipcMain.handle("s67-gpg-export-public-key", async (_event, payload = {}) => {
+    const fingerprint = (payload?.fingerprint || "").toString().trim();
+    if (!fingerprint) return { ok: false, dataBase64: "", error: "Missing fingerprint." };
+    try {
+      const result = await runBufferedProcess(
+        gpgBinaryPath(),
+        ["--batch", "--yes", "--export", fingerprint],
+        { timeoutMs: 12000 }
+      );
+      const stderr = result.stderr.toString("utf8").trim();
+      if (result.code !== 0 || !result.stdout.length) {
+        return {
+          ok: false,
+          dataBase64: "",
+          error: stderr || `gpg export failed for ${fingerprint}`
+        };
+      }
+      return {
+        ok: true,
+        dataBase64: result.stdout.toString("base64"),
+        error: stderr || ""
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        dataBase64: "",
+        error: String(error?.message || error || "Failed to export GPG public key")
+      };
+    }
+  });
+  ipcMain.removeHandler("s67-gpg-import-public-key");
+  ipcMain.handle("s67-gpg-import-public-key", async (_event, payload = {}) => {
+    const dataBase64 = (payload?.dataBase64 || "").toString().trim();
+    if (!dataBase64) return { ok: false, fingerprints: [], error: "Missing key payload." };
+    try {
+      const result = await runBufferedProcess(
+        gpgBinaryPath(),
+        ["--batch", "--yes", "--import", "--import-options", "show-only", "--dry-run"],
+        {
+          input: Buffer.from(dataBase64, "base64"),
+          timeoutMs: 12000
+        }
+      );
+      const previewKeys = parseGpgColonKeyListing(result.stdout.toString("utf8"), { secret: false });
+      const fingerprints = previewKeys.map((entry) => entry.fingerprint).filter(Boolean);
+      const importResult = await runBufferedProcess(
+        gpgBinaryPath(),
+        ["--batch", "--yes", "--import"],
+        {
+          input: Buffer.from(dataBase64, "base64"),
+          timeoutMs: 12000
+        }
+      );
+      const stderr = importResult.stderr.toString("utf8").trim();
+      if (importResult.code !== 0) {
+        return {
+          ok: false,
+          fingerprints,
+          error: stderr || `gpg import exited with code ${importResult.code}`
+        };
+      }
+      return {
+        ok: true,
+        fingerprints,
+        error: stderr || ""
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        fingerprints: [],
+        error: String(error?.message || error || "Failed to import GPG public key")
+      };
+    }
+  });
+  ipcMain.removeHandler("s67-gpg-encrypt-openpgp");
+  ipcMain.handle("s67-gpg-encrypt-openpgp", async (_event, payload = {}) => {
+    const recipients = Array.isArray(payload?.recipients)
+      ? payload.recipients.map((entry) => (entry || "").toString().trim()).filter(Boolean)
+      : [];
+    const signer = (payload?.signer || "").toString().trim();
+    const dataBase64 = (payload?.dataBase64 || "").toString().trim();
+    if (!dataBase64) return { ok: false, dataBase64: "", error: "Missing encryption payload." };
+    if (recipients.length === 0) return { ok: false, dataBase64: "", error: "Missing GPG recipients." };
+    const args = ["--batch", "--yes", "--trust-model", "always", "--output", "-", "--encrypt"];
+    if (signer) {
+      args.push("--sign", "--local-user", signer);
+    }
+    recipients.forEach((recipient) => {
+      args.push("--recipient", recipient);
+    });
+    try {
+      const result = await runBufferedProcess(gpgBinaryPath(), args, {
+        input: Buffer.from(dataBase64, "base64"),
+        timeoutMs: 20000
+      });
+      const stderr = result.stderr.toString("utf8").trim();
+      if (result.code !== 0 || !result.stdout.length) {
+        return {
+          ok: false,
+          dataBase64: "",
+          error: stderr || `gpg encrypt exited with code ${result.code}`
+        };
+      }
+      return {
+        ok: true,
+        dataBase64: result.stdout.toString("base64"),
+        error: stderr || ""
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        dataBase64: "",
+        error: String(error?.message || error || "Failed to encrypt OpenPGP payload")
+      };
+    }
+  });
+  ipcMain.removeHandler("s67-gpg-encrypt-legacy-pgp");
+  ipcMain.handle("s67-gpg-encrypt-legacy-pgp", async (_event, payload = {}) => {
+    const recipients = Array.isArray(payload?.recipients)
+      ? payload.recipients.map((entry) => (entry || "").toString().trim()).filter(Boolean)
+      : [];
+    const signer = (payload?.signer || "").toString().trim();
+    const plaintext = (payload?.plaintext || "").toString();
+    if (!plaintext) return { ok: false, armored: "", error: "Missing plaintext." };
+    if (recipients.length === 0) return { ok: false, armored: "", error: "Missing GPG recipients." };
+    const args = ["--batch", "--yes", "--armor", "--trust-model", "always", "--output", "-", "--encrypt"];
+    if (signer) {
+      args.push("--sign", "--local-user", signer);
+    }
+    recipients.forEach((recipient) => {
+      args.push("--recipient", recipient);
+    });
+    try {
+      const result = await runBufferedProcess(gpgBinaryPath(), args, {
+        input: Buffer.from(plaintext, "utf8"),
+        timeoutMs: 20000
+      });
+      const stderr = result.stderr.toString("utf8").trim();
+      if (result.code !== 0 || !result.stdout.length) {
+        return {
+          ok: false,
+          armored: "",
+          error: stderr || `gpg legacy encrypt exited with code ${result.code}`
+        };
+      }
+      return {
+        ok: true,
+        armored: result.stdout.toString("utf8"),
+        error: stderr || ""
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        armored: "",
+        error: String(error?.message || error || "Failed to encrypt legacy PGP payload")
+      };
+    }
+  });
+  ipcMain.removeHandler("s67-gpg-decrypt");
+  ipcMain.handle("s67-gpg-decrypt", async (_event, payload = {}) => {
+    const dataBase64 = (payload?.dataBase64 || "").toString().trim();
+    const armored = (payload?.armored || "").toString();
+    const input = dataBase64 ? Buffer.from(dataBase64, "base64") : Buffer.from(armored, "utf8");
+    if (!input.length) return { ok: false, plaintext: "", error: "Missing decrypt payload." };
+    try {
+      const result = await runBufferedProcess(
+        gpgBinaryPath(),
+        ["--batch", "--yes", "--decrypt", "--output", "-"],
+        {
+          input,
+          timeoutMs: 20000
+        }
+      );
+      const stderr = result.stderr.toString("utf8").trim();
+      if (result.code !== 0) {
+        return {
+          ok: false,
+          plaintext: "",
+          error: stderr || `gpg decrypt exited with code ${result.code}`
+        };
+      }
+      return {
+        ok: true,
+        plaintext: result.stdout.toString("utf8"),
+        error: stderr || ""
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        plaintext: "",
+        error: String(error?.message || error || "Failed to decrypt GPG payload")
+      };
+    }
   });
   ipcMain.removeHandler("s67-read-dropped-file-path");
   ipcMain.handle("s67-read-dropped-file-path", async (_event, payload) => {

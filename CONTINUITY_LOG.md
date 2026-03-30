@@ -17333,3 +17333,5 @@ xep-0066_0071_0231-swf-runtime.js:2870 Uncaught ReferenceError: ui is not define
   You received a message encrypted with OMEMO but your client doesn't support OMEMO. { ... }
 
   [logs omitted here in CONTINUITY_LOG append context for brevity in terminal copy]
+
+[2026-03-30T03:32:29Z] Can you please work on the priority items until they are completely done then? You might want to investigate the xmppmessengers/

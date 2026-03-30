@@ -62,6 +62,94 @@ contextBridge.exposeInMainWorld("s67Electron", {
       };
     }
   },
+  async gpgStatus() {
+    try {
+      return await ipcRenderer.invoke("s67-gpg-status");
+    } catch (error) {
+      return {
+        ok: false,
+        available: false,
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
+  async gpgListKeys({ secret = false } = {}) {
+    try {
+      return await ipcRenderer.invoke("s67-gpg-list-keys", { secret });
+    } catch (error) {
+      return {
+        ok: false,
+        keys: [],
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
+  async gpgExportPublicKey(fingerprint = "") {
+    try {
+      return await ipcRenderer.invoke("s67-gpg-export-public-key", { fingerprint });
+    } catch (error) {
+      return {
+        ok: false,
+        dataBase64: "",
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
+  async gpgImportPublicKey(dataBase64 = "") {
+    try {
+      return await ipcRenderer.invoke("s67-gpg-import-public-key", { dataBase64 });
+    } catch (error) {
+      return {
+        ok: false,
+        fingerprints: [],
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
+  async gpgEncryptOpenPgp({ dataBase64 = "", recipients = [], signer = "" } = {}) {
+    try {
+      return await ipcRenderer.invoke("s67-gpg-encrypt-openpgp", {
+        dataBase64,
+        recipients,
+        signer
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        dataBase64: "",
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
+  async gpgEncryptLegacyPgp({ plaintext = "", recipients = [], signer = "" } = {}) {
+    try {
+      return await ipcRenderer.invoke("s67-gpg-encrypt-legacy-pgp", {
+        plaintext,
+        recipients,
+        signer
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        armored: "",
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
+  async gpgDecrypt({ dataBase64 = "", armored = "" } = {}) {
+    try {
+      return await ipcRenderer.invoke("s67-gpg-decrypt", {
+        dataBase64,
+        armored
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        plaintext: "",
+        error: String(error?.message || error || "IPC bridge unavailable")
+      };
+    }
+  },
   async readDroppedFilePath(fileUri = "") {
     try {
       return await ipcRenderer.invoke("s67-read-dropped-file-path", { fileUri });

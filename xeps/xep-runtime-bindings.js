@@ -24,6 +24,9 @@ const XEP_0203_0319_DELAY_IDLE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0203_0319_DE
 const XEP_0421_0045_MUC_OCCUPANT_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0421_0045_MUC_OCCUPANT_GLOBAL || globalThis.SHITCORD67_XEP_0421_0045_MUC_OCCUPANT || {};
 const XEP_0153_PRESENCE_PHOTO_HASH_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0153_PRESENCE_PHOTO_HASH_GLOBAL || globalThis.SHITCORD67_XEP_0153_PRESENCE_PHOTO_HASH || {};
 const XEP_0156_HOST_META_PARSE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0156_HOST_META_PARSE_GLOBAL || globalThis.SHITCORD67_XEP_0156_HOST_META_PARSE || {};
+const XEP_0373_0374_OPENPGP_STANZA_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0373_0374_OPENPGP_STANZA_GLOBAL || globalThis.SHITCORD67_XEP_0373_0374_OPENPGP_STANZA || {};
+const XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0373_0374_OPENPGP_PUBSUB_GLOBAL || globalThis.SHITCORD67_XEP_0373_0374_OPENPGP_PUBSUB || {};
+const XEP_0373_0374_OPENPGP_GPG_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0373_0374_OPENPGP_GPG_GLOBAL || globalThis.SHITCORD67_XEP_0373_0374_OPENPGP_GPG || {};
 const XMPP_XML_BINDINGS = RUNTIME_APP_BOOTSTRAP.XMPP_XML_GLOBAL || globalThis.SHITCORD67_XMPP_XML || {};
 const XMPP_ENCRYPTION_PAYLOAD_BINDINGS = RUNTIME_APP_BOOTSTRAP.XMPP_ENCRYPTION_PAYLOAD_GLOBAL || globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD || {};
 const CALL_ROOM_URL_UTILS_BINDINGS = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
@@ -924,6 +927,60 @@ const xmppEncryptedPlaceholderLabel = typeof XMPP_ENCRYPTION_PAYLOAD_BINDINGS.xm
     if (!label) return "Encrypted XMPP message — decryption is not available in this client yet";
     return `Encrypted XMPP message (${label}) — decryption is not available in this client yet`;
   });
+const xmppOpenPgpParsePayload = typeof XEP_0373_0374_OPENPGP_STANZA_BINDINGS.xmppOpenPgpParsePayload === "function"
+  ? XEP_0373_0374_OPENPGP_STANZA_BINDINGS.xmppOpenPgpParsePayload
+  : (() => null);
+const xmppLegacyPgpParsePayload = typeof XEP_0373_0374_OPENPGP_STANZA_BINDINGS.xmppLegacyPgpParsePayload === "function"
+  ? XEP_0373_0374_OPENPGP_STANZA_BINDINGS.xmppLegacyPgpParsePayload
+  : (() => null);
+const buildXmppOpenPgpSigncryptXml = typeof XEP_0373_0374_OPENPGP_STANZA_BINDINGS.buildXmppOpenPgpSigncryptXml === "function"
+  ? XEP_0373_0374_OPENPGP_STANZA_BINDINGS.buildXmppOpenPgpSigncryptXml
+  : ((plaintext = "") => `<body xmlns="jabber:client">${plaintext}</body>`);
+const appendXmppOpenPgpNode = typeof XEP_0373_0374_OPENPGP_STANZA_BINDINGS.appendXmppOpenPgpNode === "function"
+  ? XEP_0373_0374_OPENPGP_STANZA_BINDINGS.appendXmppOpenPgpNode
+  : ((stanza) => stanza);
+const appendXmppLegacyPgpNode = typeof XEP_0373_0374_OPENPGP_STANZA_BINDINGS.appendXmppLegacyPgpNode === "function"
+  ? XEP_0373_0374_OPENPGP_STANZA_BINDINGS.appendXmppLegacyPgpNode
+  : ((stanza) => stanza);
+const parseXmppOpenPgpDecryptedText = typeof XEP_0373_0374_OPENPGP_STANZA_BINDINGS.parseXmppOpenPgpDecryptedText === "function"
+  ? XEP_0373_0374_OPENPGP_STANZA_BINDINGS.parseXmppOpenPgpDecryptedText
+  : ((plaintext = "") => (plaintext || "").toString().trim());
+const xmppOpenPgpFetchKeylistCore = typeof XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpFetchKeylistCore === "function"
+  ? XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpFetchKeylistCore
+  : (async () => []);
+const xmppOpenPgpFetchPublicKeyCore = typeof XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpFetchPublicKeyCore === "function"
+  ? XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpFetchPublicKeyCore
+  : (async () => null);
+const xmppOpenPgpPublishKeylistCore = typeof XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpPublishKeylistCore === "function"
+  ? XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpPublishKeylistCore
+  : (async () => false);
+const xmppOpenPgpPublishPublicKeyCore = typeof XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpPublishPublicKeyCore === "function"
+  ? XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS.xmppOpenPgpPublishPublicKeyCore
+  : (async () => false);
+const xmppOpenPgpBackendStatus = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpBackendStatus === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpBackendStatus
+  : (async () => ({ ok: false, available: false, error: "OpenPGP backend unavailable." }));
+const xmppOpenPgpListKeys = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpListKeys === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpListKeys
+  : (async () => ({ ok: false, keys: [], error: "OpenPGP backend unavailable." }));
+const findBestGpgKeyForJid = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.findBestGpgKeyForJid === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.findBestGpgKeyForJid
+  : (() => null);
+const xmppOpenPgpExportPublicKey = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpExportPublicKey === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpExportPublicKey
+  : (async () => ({ ok: false, dataBase64: "", error: "OpenPGP backend unavailable." }));
+const xmppOpenPgpImportPublicKey = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpImportPublicKey === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpImportPublicKey
+  : (async () => ({ ok: false, fingerprints: [], error: "OpenPGP backend unavailable." }));
+const xmppOpenPgpEncryptBinary = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpEncryptBinary === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpEncryptBinary
+  : (async () => ({ ok: false, dataBase64: "", error: "OpenPGP backend unavailable." }));
+const xmppOpenPgpEncryptLegacy = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpEncryptLegacy === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpEncryptLegacy
+  : (async () => ({ ok: false, armored: "", error: "OpenPGP backend unavailable." }));
+const xmppOpenPgpDecryptPayload = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpDecryptPayload === "function"
+  ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpDecryptPayload
+  : (async () => ({ ok: false, plaintext: "", error: "OpenPGP backend unavailable." }));
 const XEP_0454_GLOBAL = xepModule("xep-0454", globalThis.SHITCORD67_XEP_0454);
 const XEP_0454_UTILS_GLOBAL = XEP_0454_GLOBAL.media || xepModule("xep-0454_omemo-media-sharing-utils", globalThis.SHITCORD67_XEP_0454_UTILS);
 const xep0454Fn = (name, fallback) => (typeof XEP_0454_UTILS_GLOBAL[name] === "function" ? XEP_0454_UTILS_GLOBAL[name] : fallback);

@@ -887,6 +887,17 @@ ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
 function xmppEncryptionPickerItems(state, conversation, account, ownBare) {
   const setMode = async (mode, { warmSessions = false } = {}) => {
     if (!state.peerBare) return;
+    if (mode === "omemo") {
+      const loaded = await ensureXmppOmemoRuntime();
+      if (!loaded || !xmppOmemoRuntimeAvailable()) {
+        showToast("OMEMO runtime is not available in this build.", { tone: "error" });
+        return;
+      }
+    }
+    if ((mode === "openpgp" || mode === "pgp") && !(await xmppOpenPgpIsBackendAvailable())) {
+      showToast("OpenPGP backend is not available in this build.", { tone: "error" });
+      return;
+    }
     xmppSetEncryptionModeForPeer(state.peerBare, mode);
     updateOmemoHeaderControl(conversation, account);
     const label = mode === "omemo" ? "OMEMO" : (mode === "openpgp" ? "OpenPGP" : (mode === "pgp" ? "PGP" : "Off"));
@@ -903,20 +914,24 @@ function xmppEncryptionPickerItems(state, conversation, account, ownBare) {
   return [
     {
       label: state.encryptionMode === "omemo" ? "OMEMO (Recommended) ✓" : "OMEMO (Recommended)",
-      disabled: !state.runtimeReady,
+      disabled: false,
       action: async () => {
         await setMode("omemo", { warmSessions: true });
       }
     },
     {
       label: state.encryptionMode === "openpgp" ? "OpenPGP ✓" : "OpenPGP",
-      disabled: true,
-      action: () => {}
+      disabled: !state.openPgpReady,
+      action: async () => {
+        await setMode("openpgp");
+      }
     },
     {
       label: state.encryptionMode === "pgp" ? "PGP (Legacy) ✓" : "PGP (Legacy)",
-      disabled: true,
-      action: () => {}
+      disabled: !state.openPgpReady,
+      action: async () => {
+        await setMode("pgp");
+      }
     },
     {
       label: state.encryptionMode === "off" ? "Encryption Off ✓" : "Encryption Off",
@@ -930,16 +945,8 @@ function xmppEncryptionPickerItems(state, conversation, account, ownBare) {
 ui.omemoHeaderBtn?.addEventListener("click", async (event) => {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
-  let state = resolveOmemoHeaderState(conversation, account);
+  const state = resolveOmemoHeaderState(conversation, account);
   if (!state.visible) return;
-  if (!state.runtimeReady) {
-    const loaded = await ensureXmppOmemoRuntime();
-    state = resolveOmemoHeaderState(conversation, account);
-    if (!loaded || !state.runtimeReady) {
-      showToast("OMEMO runtime is not available in this build.", { tone: "error" });
-      return;
-    }
-  }
   const ownBare = xmppBareJid(getPreferences().xmppJid || "");
   openContextMenu(event, xmppEncryptionPickerItems(state, conversation, account, ownBare));
 });

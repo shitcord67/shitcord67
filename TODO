@@ -105,7 +105,8 @@
 - [done] Reduced Android SWF scroll lag by disabling body-hosted SWF anchoring on mobile/Android (keeps runtime attached inline to scroll with message content).
 - [done] Added `/spacesxmpp` command (`list|open|sync|discover|join`) to prioritize practical XMPP Spaces management and discovery.
 - [priority] Implement OpenPGP encryption for XMPP (XEP-0373/0374) and OTR (XEP-0378) for DM parity.
-- [priority] Add actual OpenPGP/PGP send-decrypt backend behind the DM encryption picker; the picker can expose the modes now, but stanza composition, key discovery, trust UX, and persistence still need implementation.
+- [done] Added actual OpenPGP/PGP DM send-decrypt backend behind the encryption picker, including XMPP pubsub key discovery/publish, GPG-backed stanza composition/decryption, and picker wiring for OpenPGP plus legacy PGP mode.
+- [todo] Extend OpenPGP/PGP DM support with encrypted attachment handling, trust-management UX, and explicit fingerprint/account mapping overrides.
 - [todo] Research whether MLS or other post-OMEMO XMPP encryption work is mature enough for practical interop, but keep OMEMO as the recommended default until deployment is broad.
 - [done] Added OMEMO 2 namespace support (XEP-0384 updates) alongside legacy OMEMO payloads.
 - [done] Added OMEMO pubsub event handling for device-list and bundle updates, including cache invalidation and automatic peer-session refresh after incoming OMEMO PEP changes.

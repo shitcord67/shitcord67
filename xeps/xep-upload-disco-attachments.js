@@ -1282,7 +1282,9 @@ function publishRelayDirectMessage(thread, message, account) {
       if (!xmppConnection || relayStatus !== "connected") return;
       if (peerJid) {
         const peerBare = xmppBareJid(peerJid);
-        const omemoEnabled = peerBare ? xmppOmemoEnabledForPeer(peerBare, prefs) : false;
+        const encryptionMode = peerBare ? xmppEncryptionModeForPeer(peerBare, prefs) : "off";
+        const omemoEnabled = encryptionMode === "omemo";
+        const openPgpEnabled = encryptionMode === "openpgp" || encryptionMode === "pgp";
         const hasAttachments = normalizeAttachments(message.attachments).length > 0;
         if (omemoEnabled) {
           const loaded = await ensureXmppOmemoRuntime();
@@ -1290,6 +1292,10 @@ function publishRelayDirectMessage(thread, message, account) {
             showToast("OMEMO runtime is not available here. Message not sent.", { tone: "error" });
             return;
           }
+        }
+        if (openPgpEnabled && !(await xmppOpenPgpIsBackendAvailable())) {
+          showToast("OpenPGP backend is not available here. Message not sent.", { tone: "error" });
+          return;
         }
         let omemoAttachmentUrls = [];
         if (omemoEnabled && hasAttachments) {
@@ -1303,7 +1309,11 @@ function publishRelayDirectMessage(thread, message, account) {
             return;
           }
         }
-        if (!omemoEnabled) {
+        if (openPgpEnabled && hasAttachments) {
+          showToast(`${encryptionMode === "pgp" ? "PGP" : "OpenPGP"} DM encryption does not support attachments yet. Message not sent.`, { tone: "error" });
+          return;
+        }
+        if (!omemoEnabled && !openPgpEnabled) {
           await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: thread.id || "" });
           if (!xmppConnection || relayStatus !== "connected") return;
         }
@@ -1322,12 +1332,14 @@ function publishRelayDirectMessage(thread, message, account) {
           ? omemoAttachmentUrls.join("\n")
           : baseBody;
         const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId });
-        if (!omemoEnabled) {
+        if (!omemoEnabled && !openPgpEnabled) {
           stanza.c("body").t(baseBody).up();
         }
-        appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+        if (!openPgpEnabled) {
+          appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
+        }
         appendXmppOriginIdNode(stanza, originId);
-        appendXmppMessageProcessingHints(stanza, { encrypted: omemoEnabled, preferStore: !omemoEnabled });
+        appendXmppMessageProcessingHints(stanza, { encrypted: omemoEnabled || openPgpEnabled, preferStore: !(omemoEnabled || openPgpEnabled) });
         if (omemoEnabled) {
           const ownBare = xmppBareJid(prefs.xmppJid || "");
           if (!ownBare) {
@@ -1368,11 +1380,41 @@ function publishRelayDirectMessage(thread, message, account) {
           message.xmppEncryptedType = omemoNamespace === XMPP_OMEMO_NAMESPACE_V2 ? "omemo2" : "omemo";
           message.xmppEncryptedLabel = "OMEMO";
           saveState();
+        } else if (openPgpEnabled) {
+          const ownBare = xmppBareJid(prefs.xmppJid || "");
+          if (!ownBare) {
+            showToast(`${encryptionMode === "pgp" ? "PGP" : "OpenPGP"} encryption requires a valid XMPP JID.`, { tone: "error" });
+            return;
+          }
+          try {
+            const encryptedPayload = await xmppOpenPgpEncryptForPeer(peerBare, baseBody, {
+              mode: encryptionMode,
+              connection: xmppConnection,
+              ownBare
+            });
+            if (encryptedPayload.encryptedType === "pgp") {
+              appendXmppLegacyPgpNode(stanza, encryptedPayload.armored);
+            } else {
+              appendXmppOpenPgpNode(stanza, encryptedPayload.dataBase64);
+            }
+            message.xmppEncrypted = true;
+            message.xmppEncryptedType = encryptedPayload.encryptedType;
+            message.xmppEncryptedLabel = encryptedPayload.label;
+            saveState();
+          } catch (error) {
+            showToast(`${encryptionMode === "pgp" ? "PGP" : "OpenPGP"} encryption failed. Message not sent.`, { tone: "error" });
+            addXmppDebugEvent("error", "OpenPGP DM encryption failed", {
+              to: peerBare || "",
+              mode: encryptionMode,
+              error: String(error?.message || error)
+            });
+            return;
+          }
         } else {
           appendXmppAttachmentMetadataNodes(stanza, xmppShareableAttachmentsForStanza(message));
         }
         const callInvite = parseCallInviteFromText(message.text || "");
-        if (!omemoEnabled && callInvite?.url) {
+        if (!omemoEnabled && !openPgpEnabled && callInvite?.url) {
           appendXmppCallInviteNode(stanza, {
             url: callInvite.url,
             audio: true,

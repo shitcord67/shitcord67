@@ -23,6 +23,9 @@ function xmppRoomJidForToken(roomToken, prefs = getPreferences()) {
   return xmppRoomJidForTokenViaXep(roomToken, prefs);
 }
 
+const xmppOpenPgpDecryptInFlightByMessageId = new Map();
+const xmppOpenPgpPublishedFingerprintByJid = new Map();
+
 function clearXmppPingLoop() {
   if (typeof XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearXmppPingLoop !== "function") return;
   XEP_0199_0410_0313_PRESENCE_PING_GLOBAL.clearXmppPingLoop({
@@ -1534,6 +1537,244 @@ function xmppOmemoSetPeerEnabled(peerBare, enabled, prefs = getPreferences()) {
   xmppSetEncryptionModeForPeer(peerBare, enabled ? "omemo" : "off", prefs);
 }
 
+function xmppUtf8ToBase64(value = "") {
+  const text = (value || "").toString();
+  if (typeof TextEncoder !== "undefined") {
+    return arrayBufferToBase64(new TextEncoder().encode(text).buffer);
+  }
+  return btoa(unescape(encodeURIComponent(text)));
+}
+
+function xmppOpenPgpBridgeReady() {
+  return Boolean(globalThis.s67Electron && typeof globalThis.s67Electron.gpgStatus === "function");
+}
+
+async function xmppOpenPgpIsBackendAvailable() {
+  if (!xmppOpenPgpBridgeReady()) return false;
+  try {
+    const status = await xmppOpenPgpBackendStatus();
+    return Boolean(status?.ok && status?.available);
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function xmppOpenPgpLocalKeyForJid(jid, { secret = false } = {}) {
+  const result = await xmppOpenPgpListKeys({ secret });
+  if (!result?.ok) return null;
+  return findBestGpgKeyForJid(result.keys || [], jid || "");
+}
+
+async function xmppOpenPgpFetchKeylist(jid, { connection = xmppConnection } = {}) {
+  if (!jid || !connection || typeof xmppSendIqPromise !== "function") return [];
+  try {
+    return await xmppOpenPgpFetchKeylistCore(jid, {
+      toBareJid: xmppBareJid,
+      connection,
+      sendIqPromiseFn: xmppSendIqPromise,
+      nodeTextFn: xmppNodeText
+    });
+  } catch (_error) {
+    return [];
+  }
+}
+
+async function xmppOpenPgpFetchPublicKey(jid, fingerprint, { connection = xmppConnection } = {}) {
+  if (!jid || !fingerprint || !connection || typeof xmppSendIqPromise !== "function") return null;
+  try {
+    return await xmppOpenPgpFetchPublicKeyCore(jid, fingerprint, {
+      toBareJid: xmppBareJid,
+      connection,
+      sendIqPromiseFn: xmppSendIqPromise,
+      nodeTextFn: xmppNodeText
+    });
+  } catch (_error) {
+    return null;
+  }
+}
+
+async function xmppOpenPgpEnsureOwnKeyPublished(ownBare, { connection = xmppConnection } = {}) {
+  const bare = xmppBareJid(ownBare || "");
+  if (!bare) throw new Error("OpenPGP requires a valid local XMPP JID.");
+  const secretKey = await xmppOpenPgpLocalKeyForJid(bare, { secret: true });
+  if (!secretKey?.fingerprint) {
+    throw new Error(`No local OpenPGP secret key matches ${bare}.`);
+  }
+  if (xmppOpenPgpPublishedFingerprintByJid.get(bare) === secretKey.fingerprint) {
+    return secretKey;
+  }
+  const exported = await xmppOpenPgpExportPublicKey(secretKey.fingerprint);
+  if (!exported?.ok || !exported.dataBase64) {
+    throw new Error(exported?.error || "Failed to export local OpenPGP public key.");
+  }
+  const publishedKey = await xmppOpenPgpPublishPublicKeyCore(bare, {
+    fingerprint: secretKey.fingerprint,
+    dataBase64: exported.dataBase64,
+    date: new Date().toISOString()
+  }, {
+    connection,
+    sendIqPromiseFn: xmppSendIqPromise,
+    debugEventFn: addXmppDebugEvent
+  });
+  if (!publishedKey) {
+    throw new Error("Failed to publish local OpenPGP public key to XMPP pubsub.");
+  }
+  const publishedList = await xmppOpenPgpPublishKeylistCore(bare, [{
+    fingerprint: secretKey.fingerprint,
+    date: new Date().toISOString()
+  }], {
+    connection,
+    sendIqPromiseFn: xmppSendIqPromise,
+    debugEventFn: addXmppDebugEvent
+  });
+  if (!publishedList) {
+    throw new Error("Failed to publish local OpenPGP key list to XMPP pubsub.");
+  }
+  xmppOpenPgpPublishedFingerprintByJid.set(bare, secretKey.fingerprint);
+  addXmppDebugEvent("iq", "Published OpenPGP key material", {
+    jid: bare,
+    fingerprint: secretKey.fingerprint
+  });
+  return secretKey;
+}
+
+async function xmppOpenPgpEnsurePeerKey(peerBare, { connection = xmppConnection } = {}) {
+  const bare = xmppBareJid(peerBare || "");
+  if (!bare) throw new Error("Missing peer JID for OpenPGP.");
+  const localKey = await xmppOpenPgpLocalKeyForJid(bare, { secret: false });
+  if (localKey?.fingerprint) return localKey;
+  const keylist = await xmppOpenPgpFetchKeylist(bare, { connection });
+  const candidates = [...keylist].sort((left, right) => {
+    const leftTs = Date.parse(left?.date || left?.rawDate || "") || 0;
+    const rightTs = Date.parse(right?.date || right?.rawDate || "") || 0;
+    return rightTs - leftTs;
+  });
+  for (const candidate of candidates) {
+    const publicKey = await xmppOpenPgpFetchPublicKey(bare, candidate.fingerprint, { connection });
+    if (!publicKey?.dataBase64) continue;
+    const imported = await xmppOpenPgpImportPublicKey(publicKey.dataBase64);
+    if (!imported?.ok) continue;
+    const resolved = await xmppOpenPgpLocalKeyForJid(bare, { secret: false });
+    if (resolved?.fingerprint) {
+      addXmppDebugEvent("iq", "Imported peer OpenPGP key from XMPP pubsub", {
+        jid: bare,
+        fingerprint: resolved.fingerprint
+      });
+      return resolved;
+    }
+  }
+  throw new Error(`No OpenPGP public key is published for ${bare}.`);
+}
+
+async function xmppOpenPgpEncryptForPeer(peerBare, plaintext, {
+  mode = "openpgp",
+  connection = xmppConnection,
+  ownBare = xmppBareJid(getPreferences().xmppJid || "")
+} = {}) {
+  if (!(await xmppOpenPgpIsBackendAvailable())) {
+    throw new Error("OpenPGP backend is not available in this build.");
+  }
+  const senderKey = await xmppOpenPgpEnsureOwnKeyPublished(ownBare, { connection });
+  const peerKey = await xmppOpenPgpEnsurePeerKey(peerBare, { connection });
+  if (!senderKey?.fingerprint || !peerKey?.fingerprint) {
+    throw new Error("OpenPGP keys are missing for this conversation.");
+  }
+  const recipients = [...new Set([peerKey.fingerprint, senderKey.fingerprint].filter(Boolean))];
+  if (mode === "pgp") {
+    const encrypted = await xmppOpenPgpEncryptLegacy({
+      plaintext,
+      recipients,
+      signer: senderKey.fingerprint
+    });
+    if (!encrypted?.ok || !encrypted.armored) {
+      throw new Error(encrypted?.error || "Legacy PGP encryption failed.");
+    }
+    return {
+      encryptedType: "pgp",
+      label: "PGP",
+      armored: encrypted.armored
+    };
+  }
+  const signcryptXml = buildXmppOpenPgpSigncryptXml(plaintext, recipients);
+  const encrypted = await xmppOpenPgpEncryptBinary({
+    dataBase64: xmppUtf8ToBase64(signcryptXml),
+    recipients,
+    signer: senderKey.fingerprint
+  });
+  if (!encrypted?.ok || !encrypted.dataBase64) {
+    throw new Error(encrypted?.error || "OpenPGP encryption failed.");
+  }
+  return {
+    encryptedType: "openpgp",
+    label: "OpenPGP",
+    dataBase64: encrypted.dataBase64
+  };
+}
+
+function xmppOpenPgpResolveMessageId({ stanza, message, peerBare }) {
+  return [
+    peerBare || "",
+    xmppStanzaStableId(stanza) || stanza?.getAttribute?.("id") || message?.id || "msg",
+    message?.id || ""
+  ].join("|");
+}
+
+function xmppOpenPgpApplyDecryptedMessage(message, plaintext, encryptedType) {
+  if (!message) return;
+  message.text = (encryptedType === "openpgp"
+    ? parseXmppOpenPgpDecryptedText(plaintext)
+    : (plaintext || "").toString().trim()) || message.text || "";
+  message.xmppEncrypted = true;
+  message.xmppEncryptedType = encryptedType;
+  message.xmppEncryptedLabel = encryptedType === "pgp" ? "PGP" : "OpenPGP";
+  message.xmppOpenPgpDecrypted = true;
+  message.xmppOpenPgpDecryptFailed = false;
+  message.xmppOpenPgpPayload = null;
+}
+
+function xmppOpenPgpTryDecryptIntoMessage({
+  stanza,
+  message,
+  peerBare,
+  encryptedType = "",
+  onUpdated
+}) {
+  if (!stanza || !message || !peerBare) return;
+  const messageId = xmppOpenPgpResolveMessageId({ stanza, message, peerBare });
+  if (xmppOpenPgpDecryptInFlightByMessageId.has(messageId)) return;
+  const payload = encryptedType === "pgp"
+    ? xmppLegacyPgpParsePayload(stanza)
+    : xmppOpenPgpParsePayload(stanza);
+  if (!payload) return;
+  const task = (async () => {
+    try {
+      const decrypted = await xmppOpenPgpDecryptPayload({
+        dataBase64: encryptedType === "pgp" ? "" : payload.dataBase64,
+        armored: encryptedType === "pgp" ? payload.armored : ""
+      });
+      if (!decrypted?.ok || !decrypted.plaintext) {
+        throw new Error(decrypted?.error || "OpenPGP decrypt failed.");
+      }
+      xmppOpenPgpApplyDecryptedMessage(message, decrypted.plaintext, encryptedType);
+      saveState();
+      if (typeof onUpdated === "function") onUpdated();
+    } catch (error) {
+      message.xmppOpenPgpDecryptFailed = true;
+      addXmppDebugEvent("error", "OpenPGP decrypt failed", {
+        peer: peerBare,
+        type: encryptedType,
+        error: String(error?.message || error)
+      });
+      saveState();
+      if (typeof onUpdated === "function") onUpdated();
+    }
+  })();
+  xmppOpenPgpDecryptInFlightByMessageId.set(messageId, task);
+  task.finally(() => {
+    xmppOpenPgpDecryptInFlightByMessageId.delete(messageId);
+  });
+}
+
 function xmppOmemoNamespaceCandidatesForPeer(peerJid = "", {
   includeLegacy = true
 } = {}) {
@@ -1961,6 +2202,7 @@ function resolveOmemoHeaderState(conversation, account = getCurrentAccount()) {
   const encryptionMode = xmppEncryptionModeForPeer(peerBare, prefs);
   const enabled = encryptionMode !== "off";
   const runtimeReady = xmppOmemoRuntimeAvailable();
+  const openPgpReady = xmppOpenPgpBridgeReady();
   const connected = prefs.relayMode === "xmpp" && relayStatus === "connected";
   return {
     visible: true,
@@ -1968,6 +2210,7 @@ function resolveOmemoHeaderState(conversation, account = getCurrentAccount()) {
     encryptionMode,
     enabled,
     runtimeReady,
+    openPgpReady,
     connected
   };
 }
@@ -1988,9 +2231,11 @@ function updateOmemoHeaderControl(conversation = getActiveConversation(), accoun
   const modeLabel = state.encryptionMode === "omemo"
     ? "OMEMO"
     : (state.encryptionMode === "openpgp" ? "OpenPGP" : (state.encryptionMode === "pgp" ? "PGP" : "Off"));
-  const detail = !state.runtimeReady
-    ? "OMEMO runtime unavailable"
-    : (!state.connected ? "XMPP offline" : "XMPP connected");
+  const detail = state.encryptionMode === "omemo"
+    ? (!state.runtimeReady ? "OMEMO runtime unavailable" : (!state.connected ? "XMPP offline" : "XMPP connected"))
+    : ((state.encryptionMode === "openpgp" || state.encryptionMode === "pgp")
+      ? (!state.openPgpReady ? "OpenPGP backend unavailable" : (!state.connected ? "XMPP offline" : "XMPP connected"))
+      : (!state.connected ? "XMPP offline" : "XMPP connected"));
   ui.omemoHeaderBtn.title = `${modeLabel} · ${detail}`;
 }
 

@@ -52,6 +52,9 @@ Status labels:
 | XEP-0054 | vcard-temp | Partial | vCard retrieval is used for avatar lookup. |
 | XEP-0454 | OMEMO Media Sharing | Partial | Encrypts attachments with AES-256-GCM and shares `aesgcm://` URLs; inbound `aesgcm://` payloads can be decrypted/downloaded, plain-text `aesgcm://` links are auto-detected as encrypted attachments in message rendering, and media picker URL adds now accept `aesgcm://` links directly. |
 | XEP-0384 | OMEMO Encryption | Partial | Supports OMEMO payload handling across legacy (`eu.siacs.conversations.axolotl`) and OMEMO 2 (`urn:xmpp:omemo:2`) namespaces, including dual-namespace device-list/bundle publish+fetch, incoming OMEMO pubsub device-list/bundle update handling with bundle-cache invalidation and automatic enabled-peer session refresh, and namespace-aware EME markers for DM and non-anonymous MUC text payloads; anonymous-room OMEMO remains unsupported. |
+| XEP-0373 | OpenPGP for XMPP: OpenPGP Signcrypt Message Element | Partial | Direct messages can now send and decrypt `urn:xmpp:openpgp:0` signcrypt payloads through the encryption picker using the local GPG backend, including XMPP pubsub public-key publish/fetch/import flow for peer discovery. Attachment encryption, trust UX, and non-DM flows are still incomplete. |
+| XEP-0374 | OpenPGP for XMPP: Public Key Distribution | Partial | Publishes the local OpenPGP public key and keylist to PEP (`urn:xmpp:openpgp:0:public-keys`) and fetches/imports peer keys from the same nodes for DM encryption interop. Advanced trust/account-selection UX is not implemented yet. |
+| Legacy (`jabber:x:encrypted`) | PGP Encrypted Messages | Partial | Direct messages can now send and decrypt legacy PGP-encrypted DM stanzas via the same local GPG backend for compatibility with older clients. Modern OpenPGP (`XEP-0373/0374`) remains the preferred option. |
 
 ## Planned / Not Yet Implemented
 

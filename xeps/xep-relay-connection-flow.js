@@ -798,6 +798,24 @@ function connectRelaySocket({ force = false } = {}) {
                   if (loaded && xmppOmemoRuntimeAvailable()) tryDecrypt();
                 });
               }
+            } else if (encryptedInfo.type === "openpgp" || encryptedInfo.type === "pgp") {
+              inserted.xmppOpenPgpPayload = encryptedInfo.type === "pgp"
+                ? xmppLegacyPgpParsePayload(stanza)
+                : xmppOpenPgpParsePayload(stanza);
+              xmppOpenPgpTryDecryptIntoMessage({
+                stanza,
+                message: inserted,
+                peerBare: ownAuthor ? ownBare : peerBare,
+                encryptedType: encryptedInfo.type,
+                onUpdated: () => {
+                  renderDmList();
+                  const activeConversation = getActiveConversation();
+                  if (activeConversation?.type !== "dm") return;
+                  const activePeer = xmppBareJid(xmppPeerJidForDmThread(activeConversation.thread, getCurrentAccount()));
+                  if (!activePeer || activePeer !== peerBare) return;
+                  renderMessages();
+                }
+              });
             }
           }
           if (!ownAuthor) applyXmppPhotoStateForJid(peerBare, stanza);
