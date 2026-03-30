@@ -66,6 +66,16 @@
     return "all";
   }
 
+  function normalizeBadgeDisplayMode(value) {
+    if (value === "mentions" || value === "off") return value;
+    return "all";
+  }
+
+  function normalizeDmPreviewMode(value) {
+    if (value === "compact" || value === "off") return value;
+    return "full";
+  }
+
   function normalizeGuildNotificationsMap(value, {
     normalizeGuildNotificationModeFn = normalizeGuildNotificationMode
   } = {}) {
@@ -354,6 +364,8 @@
     normalizeDmHomeTab,
     normalizeDmHomeRequestsFilter,
     normalizeGuildNotificationMode,
+    normalizeBadgeDisplayMode,
+    normalizeDmPreviewMode,
     normalizeGuildNotificationsMap,
     normalizeForumCollapsedThreadsMap,
     normalizeForumThreadReadStateMap,

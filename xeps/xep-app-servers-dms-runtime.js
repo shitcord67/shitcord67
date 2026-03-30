@@ -23,10 +23,11 @@ function renderServers() {
   }
   const dmStats = getTotalDmUnreadStats(currentAccount);
   if (ui.serverBrandBadge) {
+    const badgeStyle = prefs.streamerMode === "on" ? "mentions" : prefs.unreadBadgeStyle;
     const mentionCount = Math.max(0, Number(dmStats.mentions) || 0);
     const unreadCount = Math.max(0, Number(dmStats.unread) || 0);
     const count = mentionCount > 0 ? mentionCount : unreadCount;
-    if (count > 0) {
+    if (shouldRenderUnreadBadge(dmStats, badgeStyle)) {
       ui.serverBrandBadge.hidden = false;
       ui.serverBrandBadge.classList.toggle("server-brand__badge--mention", mentionCount > 0);
       ui.serverBrandBadge.textContent = count > 99 ? "99+" : String(count);
@@ -43,6 +44,7 @@ function renderServers() {
   ensureFolderState();
   const renderGuildButton = (server) => {
     const xmppBackedGuild = isXmppBackedGuild(server);
+    const badgeStyle = prefs.streamerMode === "on" ? "mentions" : prefs.unreadBadgeStyle;
     const button = document.createElement("button");
     button.className = `server-item ${server.id === state.activeGuildId ? "active" : ""}`;
     if (showXmppWarning && !xmppBackedGuild) button.classList.add("server-item--non-xmpp");
@@ -59,7 +61,7 @@ function renderServers() {
     if (showXmppWarning && !xmppBackedGuild) {
       button.title = [button.title, "Not mapped from XMPP"].filter(Boolean).join(" • ");
     }
-    if (guildStats.mentions > 0) {
+    if (guildStats.mentions > 0 && shouldRenderUnreadBadge(guildStats, badgeStyle)) {
       const dot = document.createElement("span");
       dot.className = "server-unread-pill server-unread-pill--mention";
       dot.textContent = guildStats.mentions > 99 ? "99+" : String(guildStats.mentions);
@@ -675,12 +677,31 @@ function renderDmList() {
     }
     content.appendChild(preview);
     button.appendChild(content);
-    const unread = getDmUnreadStats(thread, currentAccount);
+    const previewMode = prefs.streamerMode === "on" ? "off" : prefs.dmPreviewMode;
+    const unread = applyDmNotificationModeToStats(getDmUnreadStats(thread, currentAccount), prefs.dmNotificationMode);
     const hasDraft = hasDraftForConversation(thread.id);
-    if (unread.unread > 0) {
+    if (preview && previewMode === "off") {
+      preview.hidden = true;
+      preview.textContent = "";
+      preview.title = "";
+    } else if (preview && previewMode === "compact") {
+      const body = preview.querySelector(".channel-item__preview-text");
+      const prefix = preview.querySelector(".channel-item__preview-prefix");
+      if (body) body.textContent = "Message preview hidden";
+      if (prefix) prefix.textContent = "";
+      preview.title = `${label.textContent || "DM"} · Preview hidden`;
+    }
+    const badgeStyle = prefs.streamerMode === "on" ? "mentions" : prefs.unreadBadgeStyle;
+    if (shouldRenderUnreadBadge(unread, badgeStyle)) {
       const badge = document.createElement("span");
       badge.className = `channel-badge ${unread.mentions > 0 ? "channel-badge--mention" : ""}`;
-      badge.textContent = unread.unread > 99 ? "99+" : String(unread.unread);
+      const count = unread.mentions > 0 ? unread.mentions : unread.unread;
+      badge.textContent = count > 99 ? "99+" : String(count);
+      button.appendChild(badge);
+    } else if (shouldRenderUnreadDot(unread, badgeStyle)) {
+      const badge = document.createElement("span");
+      badge.className = "channel-badge channel-badge--dot";
+      badge.textContent = "";
       button.appendChild(badge);
     } else if (hasDraft) {
       const draftBadge = document.createElement("span");
@@ -823,7 +844,8 @@ function renderChannels() {
     if (heading) heading.textContent = chunks.join(" • ");
   }
 
-  const notificationMode = getGuildNotificationMode(server.id);
+    const notificationMode = getGuildNotificationMode(server.id);
+    const badgeStyle = prefs.streamerMode === "on" ? "mentions" : prefs.unreadBadgeStyle;
   const filter = channelFilterTerm.trim().toLowerCase();
   if (ui.channelFilterInput && ui.channelFilterInput.value !== channelFilterTerm) {
     ui.channelFilterInput.value = channelFilterTerm;
@@ -937,13 +959,13 @@ function renderChannels() {
         button.appendChild(liveBadge);
       }
     }
-    if (unreadStats.mentions > 0) {
+    if (shouldRenderUnreadBadge(unreadStats, badgeStyle) && unreadStats.mentions > 0) {
       const mentionBadge = document.createElement("span");
       mentionBadge.className = "channel-badge channel-badge--mention";
       mentionBadge.textContent = unreadStats.mentions > 99 ? "99+" : String(unreadStats.mentions);
       button.appendChild(mentionBadge);
       button.classList.add("channel-item--unread");
-    } else if (unreadStats.unread > 0) {
+    } else if (shouldRenderUnreadDot(unreadStats, badgeStyle)) {
       const unreadBadge = document.createElement("span");
       unreadBadge.className = "channel-badge channel-badge--dot";
       unreadBadge.textContent = "";

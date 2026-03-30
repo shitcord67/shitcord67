@@ -541,6 +541,11 @@ function renderSettingsScreen() {
     ui.guildNotifModeInput.value = guild ? getGuildNotificationMode(guild.id) : "all";
     ui.guildNotifModeInput.disabled = !guild;
   }
+  if (ui.dmNotifModeInput) ui.dmNotifModeInput.value = prefs.dmNotificationMode || "all";
+  if (ui.unreadBadgeStyleInput) ui.unreadBadgeStyleInput.value = prefs.streamerMode === "on" ? "mentions" : (prefs.unreadBadgeStyle || "all");
+  if (ui.titleBadgeModeInput) ui.titleBadgeModeInput.value = prefs.titleBadgeMode || "all";
+  if (ui.dmPreviewModeInput) ui.dmPreviewModeInput.value = prefs.streamerMode === "on" ? "off" : (prefs.dmPreviewMode || "full");
+  if (ui.streamerModeInput) ui.streamerModeInput.value = prefs.streamerMode || "off";
 }
 
 function openSettingsScreen() {
@@ -667,6 +672,7 @@ function updateDocumentTitle() {
     document.title = base;
     return;
   }
+  const prefs = getPreferences();
   const dmStats = getTotalDmUnreadStats(current);
   const guildStats = state.guilds.reduce((acc, guild) => {
     const stats = getGuildUnreadStats(guild, current);
@@ -674,7 +680,11 @@ function updateDocumentTitle() {
   }, { unread: 0, mentions: 0 });
   const mentions = dmStats.mentions + guildStats.mentions;
   const unread = dmStats.unread + guildStats.unread;
-  const badge = mentions > 0 ? `@${mentions > 99 ? "99+" : mentions}` : (unread > 0 ? `${unread > 99 ? "99+" : unread}` : "");
+  const badge = prefs.titleBadgeMode === "off"
+    ? ""
+    : mentions > 0
+      ? `@${mentions > 99 ? "99+" : mentions}`
+      : (prefs.titleBadgeMode === "all" && unread > 0 ? `${unread > 99 ? "99+" : unread}` : "");
   document.title = badge ? `(${badge}) ${base}` : base;
 }
 

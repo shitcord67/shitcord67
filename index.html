@@ -403,15 +403,61 @@
 
         <section class="settings-panel" data-settings-panel="notifications">
           <form id="guildNotifForm" class="settings-card">
-            <h3>Guild Notifications</h3>
-            <p>Configure notification mode for the currently active guild.</p>
-            <p><strong id="guildNotifGuildName">No guild selected</strong></p>
-            <label for="guildNotifModeInput">Notification mode</label>
-            <select id="guildNotifModeInput">
-              <option value="all">All messages</option>
-              <option value="mentions">Mentions only</option>
-              <option value="mute">Mute guild</option>
-            </select>
+            <h3>Notifications</h3>
+            <p class="settings-note">Tune how unread state, badges, and previews surface across guilds and DMs.</p>
+            <div class="settings-grid">
+              <section class="settings-subcard">
+                <div class="settings-subcard__eyebrow">Current guild</div>
+                <p><strong id="guildNotifGuildName">No guild selected</strong></p>
+                <label for="guildNotifModeInput">Guild notification mode</label>
+                <select id="guildNotifModeInput">
+                  <option value="all">All messages</option>
+                  <option value="mentions">Mentions only</option>
+                  <option value="mute">Mute guild</option>
+                </select>
+              </section>
+              <section class="settings-subcard">
+                <div class="settings-subcard__eyebrow">Direct messages</div>
+                <label for="dmNotifModeInput">DM notification mode</label>
+                <select id="dmNotifModeInput">
+                  <option value="all">All messages</option>
+                  <option value="mentions">Mentions only</option>
+                  <option value="mute">Mute DMs</option>
+                </select>
+                <label for="dmPreviewModeInput">DM list preview</label>
+                <select id="dmPreviewModeInput">
+                  <option value="full">Show sender and message preview</option>
+                  <option value="compact">Show sender only</option>
+                  <option value="off">Hide DM previews</option>
+                </select>
+              </section>
+            </div>
+            <div class="settings-grid">
+              <section class="settings-subcard">
+                <div class="settings-subcard__eyebrow">Badges</div>
+                <label for="unreadBadgeStyleInput">Unread badge display</label>
+                <select id="unreadBadgeStyleInput">
+                  <option value="all">Show all unread and mentions</option>
+                  <option value="mentions">Only show mention badges</option>
+                  <option value="off">Hide badges</option>
+                </select>
+                <label for="titleBadgeModeInput">Window title badge</label>
+                <select id="titleBadgeModeInput">
+                  <option value="all">Unread and mentions</option>
+                  <option value="mentions">Mentions only</option>
+                  <option value="off">Off</option>
+                </select>
+              </section>
+              <section class="settings-subcard">
+                <div class="settings-subcard__eyebrow">Dock controls</div>
+                <label for="streamerModeInput">Streamer mode</label>
+                <select id="streamerModeInput">
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+                <p class="settings-note">Hides message previews in the DM list and keeps badges mention-only.</p>
+              </section>
+            </div>
             <button type="submit">Save Notifications</button>
           </form>
         </section>

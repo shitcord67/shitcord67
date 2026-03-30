@@ -17335,3 +17335,10 @@ xep-0066_0071_0231-swf-runtime.js:2870 Uncaught ReferenceError: ui is not define
   [logs omitted here in CONTINUITY_LOG append context for brevity in terminal copy]
 
 [2026-03-30T03:32:29Z] Can you please work on the priority items until they are completely done then? You might want to investigate the xmppmessengers/
+
+[2026-03-30T03:59:51Z] Yeah
+
+[2026-03-30T04:15:08Z] Please continue: What about the other priority items?
+
+## 2026-03-31T00:17:32+02:00
+Can you work on some TODO items autonomously, ideally the high priority ones or some that make the UX more close to Discord (maybe also style-wise?)

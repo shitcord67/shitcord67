@@ -90,25 +90,43 @@ function saveState() {
   const snapshot = typeof accountRuntime?.snapshotStateForStorage === "function"
     ? accountRuntime.snapshotStateForStorage(state)
     : state;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  const raw = JSON.stringify(snapshot);
+  if (window.s67Electron?.storageSet instanceof Function) {
+    window.s67Electron.storageSet(STORAGE_KEY, raw);
+  }
+  localStorage.setItem(STORAGE_KEY, raw);
 }
 
 function isSessionPersistenceEnabled() {
-  return localStorage.getItem(SESSION_PERSIST_KEY) !== "off";
+  const stored = window.s67Electron?.storageGet instanceof Function
+    ? window.s67Electron.storageGet(SESSION_PERSIST_KEY)
+    : localStorage.getItem(SESSION_PERSIST_KEY);
+  return stored !== "off";
 }
 
 function rememberAccountSession(accountId, remember = true) {
   if (!accountId) return;
   if (!remember) {
+    if (window.s67Electron?.storageSet instanceof Function) {
+      window.s67Electron.storageSet(SESSION_PERSIST_KEY, "off");
+      window.s67Electron.storageRemove(SESSION_ACCOUNT_KEY);
+    }
     localStorage.setItem(SESSION_PERSIST_KEY, "off");
     localStorage.removeItem(SESSION_ACCOUNT_KEY);
     return;
+  }
+  if (window.s67Electron?.storageSet instanceof Function) {
+    window.s67Electron.storageSet(SESSION_PERSIST_KEY, "on");
+    window.s67Electron.storageSet(SESSION_ACCOUNT_KEY, accountId);
   }
   localStorage.setItem(SESSION_PERSIST_KEY, "on");
   localStorage.setItem(SESSION_ACCOUNT_KEY, accountId);
 }
 
 function clearRememberedAccountSession() {
+  if (window.s67Electron?.storageRemove instanceof Function) {
+    window.s67Electron.storageRemove(SESSION_ACCOUNT_KEY);
+  }
   localStorage.removeItem(SESSION_ACCOUNT_KEY);
 }
 
@@ -130,6 +148,8 @@ function getActiveGuild() {
 
 function canAccountAccessGuild(guild, account = getCurrentAccount()) {
   if (!guild || !account) return false;
+  const ownerId = (guild.ownerAccountId || "").toString();
+  if (ownerId && ownerId !== account.id) return false;
   const accountRuntime = window.SHITCORD67_APP_ACCOUNT_RUNTIME || null;
   if (typeof accountRuntime?.canAccountAccessProtocolGuild === "function") {
     const allowed = accountRuntime.canAccountAccessProtocolGuild(guild, account);
@@ -325,11 +345,36 @@ function getDmUnreadStats(thread, account) {
   return { unread, mentions };
 }
 
+function applyDmNotificationModeToStats(stats, mode = "") {
+  if (mode === "mute") return { unread: 0, mentions: 0 };
+  if (mode === "mentions") return { unread: 0, mentions: Math.max(0, Number(stats?.mentions) || 0) };
+  return {
+    unread: Math.max(0, Number(stats?.unread) || 0),
+    mentions: Math.max(0, Number(stats?.mentions) || 0)
+  };
+}
+
+function shouldRenderUnreadBadge(stats, style = "") {
+  const mentions = Math.max(0, Number(stats?.mentions) || 0);
+  const unread = Math.max(0, Number(stats?.unread) || 0);
+  if (style === "off") return false;
+  if (style === "mentions") return mentions > 0;
+  return mentions > 0 || unread > 0;
+}
+
+function shouldRenderUnreadDot(stats, style = "") {
+  const mentions = Math.max(0, Number(stats?.mentions) || 0);
+  const unread = Math.max(0, Number(stats?.unread) || 0);
+  if (style === "off" || style === "mentions") return false;
+  return mentions <= 0 && unread > 0;
+}
+
 function getTotalDmUnreadStats(account) {
   if (!account) return { unread: 0, mentions: 0 };
+  const prefs = getPreferences();
   return state.dmThreads.reduce((acc, thread) => {
     if (!Array.isArray(thread.participantIds) || !thread.participantIds.includes(account.id)) return acc;
-    const stats = getDmUnreadStats(thread, account);
+    const stats = applyDmNotificationModeToStats(getDmUnreadStats(thread, account), prefs.dmNotificationMode);
     return {
       unread: acc.unread + stats.unread,
       mentions: acc.mentions + stats.mentions
@@ -1654,6 +1699,7 @@ function applyPreferencesToUI() {
   }
   document.body.dataset.developerMode = prefs.developerMode;
   document.body.dataset.debugOverlay = prefs.debugOverlay;
+  document.body.dataset.streamerMode = prefs.streamerMode;
   document.body.dataset.hideChannelPanel = prefs.hideChannelPanel;
   document.body.dataset.hideMemberPanel = prefs.hideMemberPanel;
   document.body.dataset.dmOnlySidebar = prefs.dmOnlySidebar;

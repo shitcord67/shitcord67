@@ -506,13 +506,22 @@ requestAnimationFrame(() => {
 refreshSettingsMediaDeviceOptions({ force: false }).catch(() => {});
 ui.guildNotifForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  state.preferences = getPreferences();
   const guild = getActiveGuild();
-  if (!guild) return;
-  setGuildNotificationMode(guild.id, ui.guildNotifModeInput.value);
+  if (guild) {
+    setGuildNotificationMode(guild.id, ui.guildNotifModeInput.value);
+  }
+  state.preferences.dmNotificationMode = normalizeGuildNotificationMode(ui.dmNotifModeInput?.value || "all");
+  state.preferences.unreadBadgeStyle = normalizeBadgeDisplayMode(ui.unreadBadgeStyleInput?.value || "all");
+  state.preferences.titleBadgeMode = normalizeBadgeDisplayMode(ui.titleBadgeModeInput?.value || "all");
+  state.preferences.dmPreviewMode = normalizeDmPreviewMode(ui.dmPreviewModeInput?.value || "full");
+  state.preferences.streamerMode = normalizeToggle(ui.streamerModeInput?.value || "off");
+  if (state.preferences.streamerMode === "on") {
+    state.preferences.unreadBadgeStyle = "mentions";
+    state.preferences.dmPreviewMode = "off";
+  }
   saveState();
-  renderServers();
-  renderChannels();
-  renderSettingsScreen();
+  render();
 });
 
 ui.appearanceForm.addEventListener("submit", (event) => {
