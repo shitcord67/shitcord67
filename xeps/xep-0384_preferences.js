@@ -3,7 +3,7 @@
 
   function normalizeXmppEncryptionMode(value) {
     const mode = (value || "").toString().trim().toLowerCase();
-    if (mode === "omemo" || mode === "openpgp" || mode === "pgp") return mode;
+    if (mode === "omemo" || mode === "openpgp" || mode === "pgp" || mode === "otr") return mode;
     return "off";
   }
 

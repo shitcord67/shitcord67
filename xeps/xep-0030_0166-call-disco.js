@@ -179,6 +179,7 @@
       deps.XMPP_BOOKMARKS_NOTIFY_FEATURE,
       deps.XMPP_IDLE_NAMESPACE,
       deps.XMPP_EME_NAMESPACE,
+      deps.XMPP_OTR_NAMESPACE,
       "urn:xmpp:ping"
     ].filter(Boolean);
     if (typeof deps.xmppOmemoRuntimeAvailableFn === "function" && deps.xmppOmemoRuntimeAvailableFn()) {

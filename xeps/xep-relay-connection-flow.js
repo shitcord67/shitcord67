@@ -223,7 +223,7 @@ function connectRelaySocket({ force = false } = {}) {
         const attachmentHint = xmppHasOobAttachmentHint(stanza);
         const fallbackAttachmentText = xmppLooksLikeAttachmentFallbackText(bodyText);
         let text = bodyText;
-        const otrEncrypted = !encrypted && text.startsWith(XMPP_OTR_PREFIX);
+        const otrEncrypted = !encrypted && (text.startsWith(XMPP_OTR_PREFIX) || text.startsWith("?OTR"));
         if (otrEncrypted) {
           encryptedInfo = { encrypted: true, type: "otr", label: "OTR" };
           encrypted = true;
@@ -713,6 +713,35 @@ function connectRelaySocket({ force = false } = {}) {
             return;
           }
           const replyMeta = xmppReplyMetaFromStanza(stanza, "", peerBare);
+          if (encryptedInfo.type === "otr") {
+            if (ownAuthor) return;
+            const thread = getOrCreateDmThread(current, peer);
+            const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
+              from,
+              ts: timestamp,
+              text: "",
+              attachments: [],
+              replyId: replyMeta?.stanzaId || ""
+            });
+            void xmppOtrReceiveMessage(peerBare, bodyText, {
+              ownBare,
+              peerJid: stanza.getAttribute("from") || peerBare,
+              threadId: thread.id || "",
+              timestamp,
+              stanzaRefs,
+              xmppMessageId,
+              authorJid: peerBare,
+              authorUsername: peer.username,
+              authorDisplay: peer.displayName || peer.username,
+              history: Boolean(history)
+            }).catch((error) => {
+              addXmppDebugEvent("error", "OTR DM decrypt failed", {
+                from: peerBare,
+                error: String(error?.message || error)
+              });
+            });
+            return;
+          }
           if (!text.trim() && attachments.length === 0 && !replyMeta) return;
           const xmppMessageId = xmppStanzaStableId(stanza) || xmppSyntheticMessageId({
             from,

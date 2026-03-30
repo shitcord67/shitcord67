@@ -38,6 +38,13 @@
     const hasPgp = [...stanza.getElementsByTagName("x")]
       .some((node) => xmppNodeHasXmlns(node, ns.XMPP_OPENPGP_LEGACY_NAMESPACE || "jabber:x:encrypted"));
     if (hasPgp) return { encrypted: true, type: "pgp", label: "OpenPGP" };
+    const hasOtrEme = [...stanza.getElementsByTagName("encryption")]
+      .some((node) => {
+        if (!xmppNodeHasXmlns(node, ns.XMPP_EME_NAMESPACE || "urn:xmpp:eme:0")) return false;
+        const otrNs = (node.getAttribute("namespace") || "").toString().trim().toLowerCase();
+        return otrNs === (ns.XMPP_OTR_NAMESPACE || "urn:xmpp:otr:0");
+      });
+    if (hasOtrEme) return { encrypted: true, type: "otr", label: "OTR" };
     return { encrypted: false, type: "", label: "" };
   }
 

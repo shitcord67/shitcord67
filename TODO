@@ -106,7 +106,9 @@
 - [done] Added `/spacesxmpp` command (`list|open|sync|discover|join`) to prioritize practical XMPP Spaces management and discovery.
 - [priority] Implement OpenPGP encryption for XMPP (XEP-0373/0374) and OTR (XEP-0378) for DM parity.
 - [done] Added actual OpenPGP/PGP DM send-decrypt backend behind the encryption picker, including XMPP pubsub key discovery/publish, GPG-backed stanza composition/decryption, and picker wiring for OpenPGP plus legacy PGP mode.
+- [done] Added text-only OTR DM send/decrypt flow behind the XMPP encryption picker, including local DSA key persistence, OTR discovery advertising, and incoming/outgoing session handling for `?OTR` packets.
 - [todo] Extend OpenPGP/PGP DM support with encrypted attachment handling, trust-management UX, and explicit fingerprint/account mapping overrides.
+- [todo] Extend OTR DM support with trust/fingerprint verification UX, richer session controls, and any safe metadata-preserving path for replies/attachments if that is still worth carrying.
 - [todo] Research whether MLS or other post-OMEMO XMPP encryption work is mature enough for practical interop, but keep OMEMO as the recommended default until deployment is broad.
 - [done] Added OMEMO 2 namespace support (XEP-0384 updates) alongside legacy OMEMO payloads.
 - [done] Added OMEMO pubsub event handling for device-list and bundle updates, including cache invalidation and automatic peer-session refresh after incoming OMEMO PEP changes.

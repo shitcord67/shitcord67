@@ -27,6 +27,7 @@ const XEP_0156_HOST_META_PARSE_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0156_HOST_ME
 const XEP_0373_0374_OPENPGP_STANZA_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0373_0374_OPENPGP_STANZA_GLOBAL || globalThis.SHITCORD67_XEP_0373_0374_OPENPGP_STANZA || {};
 const XEP_0373_0374_OPENPGP_PUBSUB_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0373_0374_OPENPGP_PUBSUB_GLOBAL || globalThis.SHITCORD67_XEP_0373_0374_OPENPGP_PUBSUB || {};
 const XEP_0373_0374_OPENPGP_GPG_BINDINGS = RUNTIME_APP_BOOTSTRAP.XEP_0373_0374_OPENPGP_GPG_GLOBAL || globalThis.SHITCORD67_XEP_0373_0374_OPENPGP_GPG || {};
+const XEP_0378_OTR_BINDINGS = xepModule("xep-0378_otr", globalThis.SHITCORD67_XEP_0378_OTR);
 const XMPP_XML_BINDINGS = RUNTIME_APP_BOOTSTRAP.XMPP_XML_GLOBAL || globalThis.SHITCORD67_XMPP_XML || {};
 const XMPP_ENCRYPTION_PAYLOAD_BINDINGS = RUNTIME_APP_BOOTSTRAP.XMPP_ENCRYPTION_PAYLOAD_GLOBAL || globalThis.SHITCORD67_XMPP_ENCRYPTION_PAYLOAD || {};
 const CALL_ROOM_URL_UTILS_BINDINGS = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
@@ -137,7 +138,7 @@ const createXmppOmemoStoreRegistry = XEP_0384_RUNTIME_GLOBAL.createXmppOmemoStor
 const xmppOmemoStoreRegistry = createXmppOmemoStoreRegistry();
 const normalizeXmppEncryptionModeViaModule = XEP_0384_PREFERENCES_GLOBAL.normalizeXmppEncryptionMode || ((value) => {
   const mode = (value || "").toString().trim().toLowerCase();
-  return mode === "omemo" || mode === "openpgp" || mode === "pgp" ? mode : "off";
+  return mode === "omemo" || mode === "openpgp" || mode === "pgp" || mode === "otr" ? mode : "off";
 });
 const xmppEncryptionModeForPeerFromPrefs = XEP_0384_PREFERENCES_GLOBAL.xmppEncryptionModeForPeer || function xmppEncryptionModeForPeerFromPrefsFallback(
   peerBare,
@@ -981,6 +982,22 @@ const xmppOpenPgpEncryptLegacy = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppO
 const xmppOpenPgpDecryptPayload = typeof XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpDecryptPayload === "function"
   ? XEP_0373_0374_OPENPGP_GPG_BINDINGS.xmppOpenPgpDecryptPayload
   : (async () => ({ ok: false, plaintext: "", error: "OpenPGP backend unavailable." }));
+const xmppOtrRuntimeAvailable = typeof XEP_0378_OTR_BINDINGS.xmppOtrRuntimeAvailable === "function"
+  ? XEP_0378_OTR_BINDINGS.xmppOtrRuntimeAvailable
+  : (() => false);
+const xmppOtrEnsureIdentity = typeof XEP_0378_OTR_BINDINGS.xmppOtrEnsureIdentity === "function"
+  ? XEP_0378_OTR_BINDINGS.xmppOtrEnsureIdentity
+  : (() => {
+    throw new Error("OTR runtime unavailable.");
+  });
+const xmppOtrSendTextMessage = typeof XEP_0378_OTR_BINDINGS.xmppOtrSendTextMessage === "function"
+  ? XEP_0378_OTR_BINDINGS.xmppOtrSendTextMessage
+  : (async () => {
+    throw new Error("OTR runtime unavailable.");
+  });
+const xmppOtrReceiveMessage = typeof XEP_0378_OTR_BINDINGS.xmppOtrReceiveMessage === "function"
+  ? XEP_0378_OTR_BINDINGS.xmppOtrReceiveMessage
+  : (async () => false);
 const XEP_0454_GLOBAL = xepModule("xep-0454", globalThis.SHITCORD67_XEP_0454);
 const XEP_0454_UTILS_GLOBAL = XEP_0454_GLOBAL.media || xepModule("xep-0454_omemo-media-sharing-utils", globalThis.SHITCORD67_XEP_0454_UTILS);
 const xep0454Fn = (name, fallback) => (typeof XEP_0454_UTILS_GLOBAL[name] === "function" ? XEP_0454_UTILS_GLOBAL[name] : fallback);

@@ -221,7 +221,7 @@
       const bare = bareJidFn(jid || "");
       if (!bare) return acc;
       const normalized = (mode || "").toString().trim().toLowerCase();
-      acc[bare] = normalized === "omemo" || normalized === "openpgp" || normalized === "pgp"
+      acc[bare] = normalized === "omemo" || normalized === "openpgp" || normalized === "pgp" || normalized === "otr"
         ? normalized
         : "off";
       return acc;

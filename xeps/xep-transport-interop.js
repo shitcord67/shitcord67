@@ -2203,6 +2203,7 @@ function resolveOmemoHeaderState(conversation, account = getCurrentAccount()) {
   const enabled = encryptionMode !== "off";
   const runtimeReady = xmppOmemoRuntimeAvailable();
   const openPgpReady = xmppOpenPgpBridgeReady();
+  const otrReady = xmppOtrRuntimeAvailable();
   const connected = prefs.relayMode === "xmpp" && relayStatus === "connected";
   return {
     visible: true,
@@ -2211,6 +2212,7 @@ function resolveOmemoHeaderState(conversation, account = getCurrentAccount()) {
     enabled,
     runtimeReady,
     openPgpReady,
+    otrReady,
     connected
   };
 }
@@ -2230,14 +2232,194 @@ function updateOmemoHeaderControl(conversation = getActiveConversation(), accoun
   ui.omemoHeaderBtn.dataset.encryptionMode = state.encryptionMode || "off";
   const modeLabel = state.encryptionMode === "omemo"
     ? "OMEMO"
-    : (state.encryptionMode === "openpgp" ? "OpenPGP" : (state.encryptionMode === "pgp" ? "PGP" : "Off"));
+    : (state.encryptionMode === "openpgp" ? "OpenPGP" : (state.encryptionMode === "pgp" ? "PGP" : (state.encryptionMode === "otr" ? "OTR" : "Off")));
   const detail = state.encryptionMode === "omemo"
     ? (!state.runtimeReady ? "OMEMO runtime unavailable" : (!state.connected ? "XMPP offline" : "XMPP connected"))
+    : (state.encryptionMode === "otr"
+      ? (!state.otrReady ? "OTR runtime unavailable" : (!state.connected ? "XMPP offline" : "XMPP connected"))
     : ((state.encryptionMode === "openpgp" || state.encryptionMode === "pgp")
       ? (!state.openPgpReady ? "OpenPGP backend unavailable" : (!state.connected ? "XMPP offline" : "XMPP connected"))
-      : (!state.connected ? "XMPP offline" : "XMPP connected"));
+      : (!state.connected ? "XMPP offline" : "XMPP connected")));
   ui.omemoHeaderBtn.title = `${modeLabel} · ${detail}`;
 }
+
+function findXmppDmThreadByPeerBare(peerBare = "", account = getCurrentAccount()) {
+  const bare = xmppBareJid(peerBare || "");
+  if (!bare || !account) return null;
+  return (Array.isArray(state?.dmThreads) ? state.dmThreads : []).find((thread) => {
+    const threadPeerJid = xmppPeerJidForDmThread(thread, account);
+    return xmppBareJid(threadPeerJid || "") === bare;
+  }) || null;
+}
+
+function findXmppDmMessageByPeerBare(peerBare = "", messageId = "", account = getCurrentAccount()) {
+  const thread = findXmppDmThreadByPeerBare(peerBare, account);
+  if (!thread || !messageId) return { thread, message: null };
+  const message = (Array.isArray(thread.messages) ? thread.messages : [])
+    .find((entry) => (entry?.id || "").toString() === (messageId || "").toString()) || null;
+  return { thread, message };
+}
+
+function findXmppDmThreadById(threadId = "") {
+  if (!threadId) return null;
+  return (Array.isArray(state?.dmThreads) ? state.dmThreads : [])
+    .find((thread) => (thread?.id || "").toString() === (threadId || "").toString()) || null;
+}
+
+async function xmppOtrSendControlPacket({
+  ownBare = "",
+  peerBare = "",
+  packet = "",
+  meta = {}
+} = {}) {
+  if (!xmppConnection || relayStatus !== "connected" || !packet || !peerBare) return false;
+  const peerJid = (meta?.peerJid || "").toString().trim() || peerBare;
+  const stanza = globalThis.$msg({
+    to: peerJid,
+    type: "chat",
+    id: (meta?.stanzaId || `s67-otr-${createId().slice(0, 12)}`).toString()
+  });
+  stanza.c("body").t(packet).up();
+  appendXmppEmeNode(stanza, { namespace: XMPP_OTR_NAMESPACE, name: "OTR" });
+  appendXmppMessageProcessingHints(stanza, { encrypted: true, preferStore: false });
+  const hasUserMessage = Boolean(meta?.messageId);
+  if (hasUserMessage) {
+    appendXmppOriginIdNode(stanza, meta.originId || `s67-origin-${createId().slice(0, 12)}`);
+    appendXmppChatMarkableNode(stanza);
+    appendXmppReceiptRequestNode(stanza);
+  }
+  xmppConnection.send(stanza);
+  addXmppDebugEvent("message", hasUserMessage ? "Sent OTR DM payload" : "Sent OTR control packet", {
+    to: peerBare,
+    id: stanza.getAttribute("id") || "",
+    messageId: meta?.messageId || ""
+  });
+  if (!hasUserMessage) return true;
+  const currentAccount = getCurrentAccount();
+  const thread = findXmppDmThreadByPeerBare(peerBare, currentAccount);
+  const message = thread
+    ? (Array.isArray(thread.messages) ? thread.messages : []).find((entry) => entry?.id === meta.messageId) || null
+    : null;
+  if (!thread || !message) return true;
+  const stanzaId = (stanza.getAttribute("id") || meta.stanzaId || "").toString();
+  const originId = (meta.originId || "").toString();
+  rememberXmppLocalSentRefs([stanzaId, originId]);
+  rememberXmppPendingReceipt(stanzaId, thread, message, peerJid);
+  message.xmppStanzaId = stanzaId;
+  message.xmppRefIds = normalizeXmppRefIdsList([
+    ...(Array.isArray(message.xmppRefIds) ? message.xmppRefIds : []),
+    stanzaId,
+    originId
+  ]);
+  message.xmppEncrypted = true;
+  message.xmppEncryptedType = "otr";
+  message.xmppEncryptedLabel = "OTR";
+  rememberXmppDmMessage(peerJid, stanzaId, message);
+  if (originId) rememberXmppDmMessage(peerJid, originId, message);
+  saveState();
+  return true;
+}
+
+function xmppOtrApplyIncomingPlaintext({
+  peerBare = "",
+  plaintext = "",
+  meta = {}
+} = {}) {
+  const currentAccount = getCurrentAccount();
+  let thread = findXmppDmThreadById(meta?.threadId || "");
+  if (!thread) {
+    thread = findXmppDmThreadByPeerBare(peerBare, currentAccount);
+  }
+  if (!thread) return false;
+  let message = null;
+  if (meta?.messageId) {
+    message = (Array.isArray(thread.messages) ? thread.messages : [])
+      .find((entry) => (entry?.id || "").toString() === (meta.messageId || "").toString()) || null;
+  }
+  if (!message) {
+    const messageRefIds = normalizeXmppRefIdsList(Array.isArray(meta?.stanzaRefs) ? meta.stanzaRefs : []);
+    const existingByRef = (Array.isArray(thread.messages) ? thread.messages : []).find((entry) => {
+      const refs = Array.isArray(entry?.xmppRefIds) ? entry.xmppRefIds : [];
+      return refs.some((refId) => messageRefIds.includes(refId));
+    }) || null;
+    message = existingByRef;
+  }
+  if (!message) {
+    let authorAccount = null;
+    if (typeof ensureAccountByXmppJid === "function" && peerBare) {
+      authorAccount = ensureAccountByXmppJid(peerBare, meta?.authorUsername || meta?.authorDisplay || peerBare.split("@")[0] || "peer");
+    }
+    message = {
+      id: (meta?.xmppMessageId || createId()).toString(),
+      userId: authorAccount?.id || null,
+      authorName: meta?.authorDisplay || meta?.authorUsername || authorAccount?.displayName || authorAccount?.username || peerBare || "peer",
+      text: "",
+      ts: meta?.timestamp || new Date().toISOString(),
+      reactions: [],
+      attachments: [],
+      xmppRefIds: normalizeXmppRefIdsList(Array.isArray(meta?.stanzaRefs) ? meta.stanzaRefs : []),
+      xmppEncrypted: true,
+      xmppEncryptedType: "otr",
+      xmppEncryptedLabel: "OTR",
+      history: Boolean(meta?.history)
+    };
+    if (!Array.isArray(thread.messages)) thread.messages = [];
+    thread.messages.push(message);
+    const peerJid = (meta?.peerJid || "").toString().trim() || peerBare;
+    message.xmppRefIds.forEach((refId) => rememberXmppDmMessage(peerJid, refId, message));
+  }
+  message.text = (plaintext || "").toString();
+  message.xmppEncrypted = true;
+  message.xmppEncryptedType = "otr";
+  message.xmppEncryptedLabel = "OTR";
+  message.xmppOtrDecrypted = true;
+  message.xmppOtrPending = false;
+  saveState();
+  renderDmList();
+  const activeConversation = getActiveConversation();
+  if (activeConversation?.type === "dm" && activeConversation.thread?.id === thread.id) {
+    renderMessages();
+  }
+  return true;
+}
+
+function xmppOtrNoteStatus(peerBare = "", status = 0) {
+  if (!peerBare || !globalThis.OTR?.CONST) return;
+  const CONST = globalThis.OTR.CONST;
+  let text = "";
+  if (status === CONST.STATUS_AKE_SUCCESS) text = "OTR session established.";
+  else if (status === CONST.STATUS_END_OTR) text = "OTR session ended.";
+  else if (status === CONST.STATUS_SEND_QUERY) text = "OTR negotiation started.";
+  if (!text) return;
+  if (addSystemDmMessageByPeerJid(peerBare, text)) refreshDmUiForPeerJid(peerBare);
+}
+
+window.addEventListener("s67:xmpp-otr-io", (event) => {
+  const detail = event?.detail || {};
+  void xmppOtrSendControlPacket(detail);
+});
+
+window.addEventListener("s67:xmpp-otr-ui", (event) => {
+  const detail = event?.detail || {};
+  xmppOtrApplyIncomingPlaintext(detail);
+});
+
+window.addEventListener("s67:xmpp-otr-status", (event) => {
+  const detail = event?.detail || {};
+  xmppOtrNoteStatus(detail.peerBare || "", detail.status);
+});
+
+window.addEventListener("s67:xmpp-otr-error", (event) => {
+  const detail = event?.detail || {};
+  const peerBare = xmppBareJid(detail.peerBare || "");
+  const severity = (detail.severity || "error").toString();
+  const text = `OTR ${severity}: ${(detail.error || "unknown error").toString()}`;
+  addXmppDebugEvent(severity === "warn" ? "warn" : "error", "OTR runtime event", {
+    peer: peerBare,
+    error: text
+  });
+  if (peerBare && addSystemDmMessageByPeerJid(peerBare, text)) refreshDmUiForPeerJid(peerBare);
+});
 
 function ensureXmppMamState(roomJid) {
   if (typeof XEP_0313_MAM_LOADING_GLOBAL.ensureXmppMamStateByJid !== "function") return null;

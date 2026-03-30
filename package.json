@@ -43,6 +43,7 @@
     "@capacitor/filesystem": "^6.0.4",
     "@xmpp/client": "^0.14.0",
     "@xmpp/debug": "^0.14.0",
+    "otr": "^0.2.16",
     "strophe.js": "^1.6.2",
     "ws": "^8.19.0"
   },

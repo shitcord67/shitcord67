@@ -342,6 +342,7 @@ function xmppClientDiscoFeatures() {
     XMPP_BOOKMARKS_NOTIFY_FEATURE,
     XMPP_IDLE_NAMESPACE,
     XMPP_EME_NAMESPACE,
+    XMPP_OTR_NAMESPACE,
     XMPP_OMEMO_NAMESPACE,
     XMPP_OMEMO_NAMESPACE_V2,
     XMPP_OMEMO_DEVICELIST_NOTIFY_FEATURE,
@@ -1285,6 +1286,7 @@ function publishRelayDirectMessage(thread, message, account) {
         const encryptionMode = peerBare ? xmppEncryptionModeForPeer(peerBare, prefs) : "off";
         const omemoEnabled = encryptionMode === "omemo";
         const openPgpEnabled = encryptionMode === "openpgp" || encryptionMode === "pgp";
+        const otrEnabled = encryptionMode === "otr";
         const hasAttachments = normalizeAttachments(message.attachments).length > 0;
         if (omemoEnabled) {
           const loaded = await ensureXmppOmemoRuntime();
@@ -1292,6 +1294,10 @@ function publishRelayDirectMessage(thread, message, account) {
             showToast("OMEMO runtime is not available here. Message not sent.", { tone: "error" });
             return;
           }
+        }
+        if (otrEnabled && !xmppOtrRuntimeAvailable()) {
+          showToast("OTR runtime is not available here. Message not sent.", { tone: "error" });
+          return;
         }
         if (openPgpEnabled && !(await xmppOpenPgpIsBackendAvailable())) {
           showToast("OpenPGP backend is not available here. Message not sent.", { tone: "error" });
@@ -1313,16 +1319,58 @@ function publishRelayDirectMessage(thread, message, account) {
           showToast(`${encryptionMode === "pgp" ? "PGP" : "OpenPGP"} DM encryption does not support attachments yet. Message not sent.`, { tone: "error" });
           return;
         }
-        if (!omemoEnabled && !openPgpEnabled) {
+        if (otrEnabled && hasAttachments) {
+          showToast("OTR DM encryption does not support attachments yet. Message not sent.", { tone: "error" });
+          return;
+        }
+        const replyMeta = resolveXmppReplyMetaForDm(thread, message, account, peerJid);
+        if (otrEnabled && replyMeta) {
+          showToast("OTR DM encryption does not support XMPP reply metadata yet. Message not sent.", { tone: "error" });
+          return;
+        }
+        if (!omemoEnabled && !openPgpEnabled && !otrEnabled) {
           await xmppPrepareMessageAttachmentsForUpload(message, { conversationId: thread.id || "" });
           if (!xmppConnection || relayStatus !== "connected") return;
         }
         const stanzaId = `s67-${createId().slice(0, 12)}`;
         const originId = `s67-origin-${createId().slice(0, 12)}`;
-        const replyMeta = resolveXmppReplyMetaForDm(thread, message, account, peerJid);
         const bodyPayload = buildXmppMessageBody(message, replyMeta);
         let baseBody = (bodyPayload.body || "").trim();
         if (!baseBody && omemoAttachmentUrls.length === 0) return;
+        if (otrEnabled) {
+          const ownBare = xmppBareJid(prefs.xmppJid || "");
+          if (!ownBare) {
+            showToast("OTR encryption requires a valid XMPP JID.", { tone: "error" });
+            return;
+          }
+          const callInvite = parseCallInviteFromText(message.text || "");
+          if (callInvite?.url) {
+            showToast("OTR DM encryption does not support call invite metadata. Message not sent.", { tone: "error" });
+            return;
+          }
+          try {
+            await xmppOtrSendTextMessage(peerBare, baseBody, {
+              ownBare,
+              peerJid,
+              stanzaId,
+              originId,
+              threadId: thread.id || "",
+              messageId: message.id || "",
+              messageText: baseBody
+            });
+            message.xmppEncrypted = true;
+            message.xmppEncryptedType = "otr";
+            message.xmppEncryptedLabel = "OTR";
+            saveState();
+          } catch (error) {
+            showToast("OTR encryption failed. Message not sent.", { tone: "error" });
+            addXmppDebugEvent("error", "OTR DM encryption failed", {
+              to: peerBare || "",
+              error: String(error?.message || error)
+            });
+          }
+          return;
+        }
         if (omemoEnabled && omemoAttachmentUrls.length > 0 && baseBody) {
           showToast("OMEMO attachments must be sent without extra text. Text was not sent.", { tone: "error" });
           baseBody = "";

@@ -4,6 +4,7 @@
   const XMPP_EME_NAMESPACE = "urn:xmpp:eme:0";
   const XMPP_OPENPGP_NAMESPACE = "urn:xmpp:openpgp:0";
   const XMPP_OPENPGP_LEGACY_NAMESPACE = "jabber:x:encrypted";
+  const XMPP_OTR_NAMESPACE = "urn:xmpp:otr:0";
   const XMPP_OTR_PREFIX = "?OTR:";
   const XMPP_OMEMO_NAMESPACE = "eu.siacs.conversations.axolotl";
   const XMPP_OMEMO_NAMESPACE_V2 = "urn:xmpp:omemo:2";
@@ -21,6 +22,7 @@
     XMPP_EME_NAMESPACE,
     XMPP_OPENPGP_NAMESPACE,
     XMPP_OPENPGP_LEGACY_NAMESPACE,
+    XMPP_OTR_NAMESPACE,
     XMPP_OTR_PREFIX,
     XMPP_OMEMO_NAMESPACE,
     XMPP_OMEMO_NAMESPACE_V2,

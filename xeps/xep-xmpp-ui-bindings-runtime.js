@@ -894,13 +894,19 @@ function xmppEncryptionPickerItems(state, conversation, account, ownBare) {
         return;
       }
     }
+    if (mode === "otr" && !xmppOtrRuntimeAvailable()) {
+      showToast("OTR runtime is not available in this build.", { tone: "error" });
+      return;
+    }
     if ((mode === "openpgp" || mode === "pgp") && !(await xmppOpenPgpIsBackendAvailable())) {
       showToast("OpenPGP backend is not available in this build.", { tone: "error" });
       return;
     }
     xmppSetEncryptionModeForPeer(state.peerBare, mode);
     updateOmemoHeaderControl(conversation, account);
-    const label = mode === "omemo" ? "OMEMO" : (mode === "openpgp" ? "OpenPGP" : (mode === "pgp" ? "PGP" : "Off"));
+    const label = mode === "omemo"
+      ? "OMEMO"
+      : (mode === "openpgp" ? "OpenPGP" : (mode === "pgp" ? "PGP" : (mode === "otr" ? "OTR" : "Off")));
     if (addSystemDmMessageByPeerJid(state.peerBare, `Encryption mode set to ${label}.`)) {
       refreshDmUiForPeerJid(state.peerBare);
     }
@@ -917,6 +923,13 @@ function xmppEncryptionPickerItems(state, conversation, account, ownBare) {
       disabled: false,
       action: async () => {
         await setMode("omemo", { warmSessions: true });
+      }
+    },
+    {
+      label: state.encryptionMode === "otr" ? "OTR ✓" : "OTR",
+      disabled: !xmppOtrRuntimeAvailable(),
+      action: async () => {
+        await setMode("otr");
       }
     },
     {
