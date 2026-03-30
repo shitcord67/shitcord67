@@ -1510,14 +1510,28 @@ function xmppOmemoStoreForAccount(jid) {
   });
 }
 
+function xmppEncryptionModeForPeer(peerBare, prefs = getPreferences()) {
+  return xmppEncryptionModeForPeerFromPrefs(peerBare, prefs, normalizeXmppEncryptionModeViaModule, normalizeToggle);
+}
+
+function xmppSetEncryptionModeForPeer(peerBare, mode, prefs = getPreferences()) {
+  if (!peerBare) return;
+  state.preferences = xmppApplyEncryptionModeForPeer(
+    prefs,
+    peerBare,
+    mode,
+    normalizeXmppEncryptionModeViaModule,
+    normalizeToggle
+  );
+  saveState();
+}
+
 function xmppOmemoEnabledForPeer(peerBare, prefs = getPreferences()) {
-  return xmppOmemoEnabledForPeerFromPrefs(peerBare, prefs, normalizeToggle);
+  return xmppEncryptionModeForPeer(peerBare, prefs) === "omemo";
 }
 
 function xmppOmemoSetPeerEnabled(peerBare, enabled, prefs = getPreferences()) {
-  if (!peerBare) return;
-  state.preferences = xmppOmemoApplyPeerEnabled(prefs, peerBare, enabled, normalizeToggle);
-  saveState();
+  xmppSetEncryptionModeForPeer(peerBare, enabled ? "omemo" : "off", prefs);
 }
 
 function xmppOmemoNamespaceCandidatesForPeer(peerJid = "", {
@@ -1920,7 +1934,7 @@ function xmppRetryPersistedOmemoMessages({
     if (!message || typeof message !== "object") return;
     if (!message.xmppOmemoPayload || message.xmppOmemoDecrypted) return;
     const peerBare = xmppBareJid(message.authorJid || "");
-    if (!peerBare || peerBare === ownBare) return;
+    if (!peerBare) return;
     attempted += 1;
     xmppOmemoTryDecryptIntoMessage({
       stanza: null,
@@ -1944,12 +1958,14 @@ function resolveOmemoHeaderState(conversation, account = getCurrentAccount()) {
   const peerBare = xmppBareJid(peerJid || "");
   if (!peerBare) return { visible: false };
   const prefs = getPreferences();
-  const enabled = xmppOmemoEnabledForPeer(peerBare, prefs);
+  const encryptionMode = xmppEncryptionModeForPeer(peerBare, prefs);
+  const enabled = encryptionMode !== "off";
   const runtimeReady = xmppOmemoRuntimeAvailable();
   const connected = prefs.relayMode === "xmpp" && relayStatus === "connected";
   return {
     visible: true,
     peerBare,
+    encryptionMode,
     enabled,
     runtimeReady,
     connected
@@ -1968,10 +1984,14 @@ function updateOmemoHeaderControl(conversation = getActiveConversation(), accoun
   ui.omemoHeaderBtn.setAttribute("aria-hidden", "false");
   ui.omemoHeaderBtn.textContent = state.enabled ? "🔒" : "🔓";
   ui.omemoHeaderBtn.setAttribute("aria-pressed", state.enabled ? "true" : "false");
+  ui.omemoHeaderBtn.dataset.encryptionMode = state.encryptionMode || "off";
+  const modeLabel = state.encryptionMode === "omemo"
+    ? "OMEMO"
+    : (state.encryptionMode === "openpgp" ? "OpenPGP" : (state.encryptionMode === "pgp" ? "PGP" : "Off"));
   const detail = !state.runtimeReady
     ? "OMEMO runtime unavailable"
     : (!state.connected ? "XMPP offline" : "XMPP connected");
-  ui.omemoHeaderBtn.title = `OMEMO ${state.enabled ? "on" : "off"} · ${detail}`;
+  ui.omemoHeaderBtn.title = `${modeLabel} · ${detail}`;
 }
 
 function ensureXmppMamState(roomJid) {

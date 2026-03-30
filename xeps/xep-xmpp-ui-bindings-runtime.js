@@ -884,7 +884,50 @@ ui.refreshXmppConsoleBtn?.addEventListener("click", () => {
   renderXmppConsoleDialog();
 });
 
-ui.omemoHeaderBtn?.addEventListener("click", async () => {
+function xmppEncryptionPickerItems(state, conversation, account, ownBare) {
+  const setMode = async (mode, { warmSessions = false } = {}) => {
+    if (!state.peerBare) return;
+    xmppSetEncryptionModeForPeer(state.peerBare, mode);
+    updateOmemoHeaderControl(conversation, account);
+    const label = mode === "omemo" ? "OMEMO" : (mode === "openpgp" ? "OpenPGP" : (mode === "pgp" ? "PGP" : "Off"));
+    if (addSystemDmMessageByPeerJid(state.peerBare, `Encryption mode set to ${label}.`)) {
+      refreshDmUiForPeerJid(state.peerBare);
+    }
+    showToast(`Encryption mode: ${label}.`, { tone: "info" });
+    if (warmSessions && mode === "omemo" && ownBare) {
+      await xmppOmemoEnsureOwnBundle(ownBare);
+      await xmppOmemoFetchDeviceList(state.peerBare);
+      await xmppOmemoEnsurePeerSessions(state.peerBare, ownBare);
+    }
+  };
+  return [
+    {
+      label: state.encryptionMode === "omemo" ? "OMEMO (Recommended) ✓" : "OMEMO (Recommended)",
+      disabled: !state.runtimeReady,
+      action: async () => {
+        await setMode("omemo", { warmSessions: true });
+      }
+    },
+    {
+      label: state.encryptionMode === "openpgp" ? "OpenPGP ✓" : "OpenPGP",
+      disabled: true,
+      action: () => {}
+    },
+    {
+      label: state.encryptionMode === "pgp" ? "PGP (Legacy) ✓" : "PGP (Legacy)",
+      disabled: true,
+      action: () => {}
+    },
+    {
+      label: state.encryptionMode === "off" ? "Encryption Off ✓" : "Encryption Off",
+      action: async () => {
+        await setMode("off");
+      }
+    }
+  ];
+}
+
+ui.omemoHeaderBtn?.addEventListener("click", async (event) => {
   const conversation = getActiveConversation();
   const account = getCurrentAccount();
   let state = resolveOmemoHeaderState(conversation, account);
@@ -897,24 +940,8 @@ ui.omemoHeaderBtn?.addEventListener("click", async () => {
       return;
     }
   }
-  if (!state.peerBare) return;
-  const nextEnabled = !state.enabled;
-  xmppOmemoSetPeerEnabled(state.peerBare, nextEnabled);
-  const label = nextEnabled ? "enabled" : "disabled";
-  if (addSystemDmMessageByPeerJid(state.peerBare, `OMEMO ${label} for this DM.`)) {
-    refreshDmUiForPeerJid(state.peerBare);
-  }
-  showToast(`OMEMO ${label}.`, { tone: "info" });
-  if (nextEnabled) {
-    const ownBare = xmppBareJid(getPreferences().xmppJid || "");
-    void (async () => {
-      if (!ownBare) return;
-      await xmppOmemoEnsureOwnBundle(ownBare);
-      await xmppOmemoFetchDeviceList(state.peerBare);
-      await xmppOmemoEnsurePeerSessions(state.peerBare, ownBare);
-    })();
-  }
-  updateOmemoHeaderControl(conversation, account);
+  const ownBare = xmppBareJid(getPreferences().xmppJid || "");
+  openContextMenu(event, xmppEncryptionPickerItems(state, conversation, account, ownBare));
 });
 
 ui.omemoHeaderBtn?.addEventListener("contextmenu", (event) => {
@@ -924,17 +951,7 @@ ui.omemoHeaderBtn?.addEventListener("contextmenu", (event) => {
   if (!state.visible) return;
   const ownBare = xmppBareJid(getPreferences().xmppJid || "");
   openContextMenu(event, [
-    {
-      label: state.enabled ? "Disable OMEMO" : "Enable OMEMO",
-      disabled: !state.runtimeReady,
-      action: () => {
-        xmppOmemoSetPeerEnabled(state.peerBare, !state.enabled);
-        updateOmemoHeaderControl(conversation, account);
-        if (addSystemDmMessageByPeerJid(state.peerBare, `OMEMO ${state.enabled ? "disabled" : "enabled"} for this DM.`)) {
-          refreshDmUiForPeerJid(state.peerBare);
-        }
-      }
-    },
+    ...xmppEncryptionPickerItems(state, conversation, account, ownBare),
     {
       label: "Refresh OMEMO Sessions",
       disabled: !state.runtimeReady || !ownBare,

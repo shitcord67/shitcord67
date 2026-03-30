@@ -213,6 +213,21 @@
     }, {});
   }
 
+  function normalizeXmppEncryptionByJid(value, {
+    bareJidFn = (jid) => (jid || "").toString().trim().toLowerCase()
+  } = {}) {
+    if (!value || typeof value !== "object") return {};
+    return Object.entries(value).reduce((acc, [jid, mode]) => {
+      const bare = bareJidFn(jid || "");
+      if (!bare) return acc;
+      const normalized = (mode || "").toString().trim().toLowerCase();
+      acc[bare] = normalized === "omemo" || normalized === "openpgp" || normalized === "pgp"
+        ? normalized
+        : "off";
+      return acc;
+    }, {});
+  }
+
   function normalizeXmppIgnoredRoomsByAccount(value, {
     bareJidFn = (jid) => (jid || "").toString().trim().toLowerCase()
   } = {}) {
@@ -355,6 +370,7 @@
     detectBrowserUiLocale,
     resolveUiLocale,
     normalizeXmppOmemoEnabledByJid,
+    normalizeXmppEncryptionByJid,
     normalizeXmppIgnoredRoomsByAccount,
     xmppShowValueForPresence,
     normalizeVoiceState,

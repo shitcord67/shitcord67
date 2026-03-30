@@ -17251,3 +17251,85 @@ xep-0066_0071_0231-swf-runtime.js:2870 Uncaught ReferenceError: ui is not define
 [2026-03-29T21:42:31Z] I wonder why when the shitcord67 user calls in the Dino user chat there is "Du hast\n  diesen Anruf abgelehnt". Also when the dino user calls and shitcord67 user accepts and\n  then the call is ended then there is "Call failed to establish" in the dino user chat?!\n  Seen\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP call proposal (jmi-02a0). Waiting for peer response.\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Incoming XMPP call proposal (3f10c53d). Use ￼/callxmpp accept 3f10c53d or ￼/callxmpp\n  reject 3f10c53d.\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Accepted XMPP call proposal (3f10c53d). Waiting for session-initiate.\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Received XMPP transport-info (3f10c53d · 1 update · 1 candidate).\n  ￼system\n  23:35\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP session-accept (3f10c53d).\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP call proposal (jmi-7c3f). Waiting for peer response.\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Incoming XMPP call proposal (1babef79). Use ￼/callxmpp accept 1babef79 or ￼/callxmpp\n  reject 1babef79.\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Accepted XMPP call proposal (1babef79). Waiting for session-initiate.\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Received XMPP transport-info (1babef79 · 1 update · 1 candidate).\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP session-accept (1babef79).\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  XMPP media session terminated (1babef79) reason: cancel.\n  New messages\n  ￼system\n  23:36\n  ￼👍\n  ￼❤️\n  ￼😂\n  ￼☺\n  ￼Reply\n  ￼Quote\n  ￼Mark Unread\n  ￼Pin\n  Sent XMPP call proposal (jmi-fbdd). Waiting for peer response....
 
 [2026-03-29T23:39:44Z] Well, whatever. Let's say this stuff works now (without us knowing for certain). Can you focus now on retaining the message history of users and then focus hard on keeping the OMEMO messages from previous sessions decrypted?
+
+[2026-03-30T03:04:44Z] When I send a message with lock icon aka OMEMO enabled then dino receives a unencrypted message saying "This message is encrypted with OMEMO." Can you investigate xmppmessengers/dino/ for causes? Oh also can you support OpenPGP and PGP as well? When the lock icon is left-clicked then there should be a drop-down like in dino or gajim where it can be selected which encryption the user wants, maybe ideally with some highlight or icon to show OMEMO as recommended? You might also want to add some online investigation for some better encryption as a TODO? Also in gajim xmppmessengers/gajim/ when I select OMEMO encryption and send a message then in shitcord67 I see ...
+
+[2026-03-30T03:22:02Z] Please continue: So you can 100% guarantue that our messages are stored locally persistent?
+
+• No.
+
+  I can say:
+
+  - local DM/user-content persistence is now stronger than before
+  - encrypted messages are no longer filtered out of saved state just because of XMPP no-
+    store
+  - persisted OMEMO messages now get another decryption chance after restart
+
+  I cannot guarantee 100% without an end-to-end restart test in your actual runtime,
+  because persistence here depends on the real storage path used by saveState() and
+  s67Electron.storage*, plus whether the app/session clears storage elsewhere.
+
+  What I can say from code:
+
+  - app state is persisted via saveState() to local storage and Electron bridge storage in
+    app.js (/home/duda/shitcord67/app.js#L88)
+  - stored DM threads/messages are loaded back in xep-app-state-bootstrap-runtime.js (/
+    home/duda/shitcord67/xeps/xep-app-state-bootstrap-runtime.js#L589)
+  - message filtering no longer removes encrypted/user messages in xep-0334-processing-
+    hints-storage.js (/home/duda/shitcord67/xeps/xep-0334-processing-hints-storage.js#L6)
+
+  If you want certainty, the next step is a real persistence check:
+
+  1. send/receive a few plain and OMEMO DM messages
+  2. close the app fully
+  3. reopen it
+  4. verify the same thread still contains them before any server history fetch finishes
+
+  If you want, I can now trace the exact storage keys and add a small in-app debug command
+  that dumps whether the current DM thread is present in persisted storage.
+
+
+› But the logic is already there?
+
+• Yes, the persistence logic is already there.
+
+  What existed before:
+
+  - app state, including dmThreads, was already being saved and reloaded
+  - OMEMO store/session material was already being persisted separately
+
+  What I changed:
+
+  - stopped local save filtering from throwing away encrypted/user messages
+  - made persisted OMEMO messages retry decryption after reload/runtime startup
+  - reset stale per-message OMEMO retry flags on reload
+
+  So the answer is: yes, the logic is there, but “logic exists” is not the same as
+  “guaranteed in practice” until it’s verified in a real restart flow.
+
+
+› When I send a message with lock icon aka OMEMO enabled then dino receives a unencrypted message
+  saying "This message is encrypted with OMEMO." Can you investigate xmppmessengers/dino/ for
+  causes? Oh also can you support OpenPGP and PGP as well? When the lock icon is left-clicked then
+  there should be a drop-down like in dino or gajim where it can be selected which encryption the
+  user wants, maybe ideally with some highlight or icon to show OMEMO as recommended? You might
+  also want to add some online investigation for some better encryption as a TODO? Also in gajim
+  xmppmessengers/gajim/ when I select OMEMO encryption and send a message then in shitcord67 I see:
+  derberg
+  05:03
+  OMEMO FAILED
+  HINTS
+  ✓✓
+  ￼👍
+  ￼❤️
+  ￼😂
+  ￼☺
+  ￼Reply
+  ￼Quote
+  ￼Mark Unread
+  ￼Pin
+  ￼Edit
+  ￼Delete
+  You received a message encrypted with OMEMO but your client doesn't support OMEMO. { ... }
+
+  [logs omitted here in CONTINUITY_LOG append context for brevity in terminal copy]

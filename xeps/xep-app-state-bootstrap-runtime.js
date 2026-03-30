@@ -173,6 +173,7 @@ function buildInitialState() {
       xmppWsUrl: "",
       xmppMucService: "",
       xmppHideNonXmpp: "on",
+      xmppEncryptionByJid: {},
       xmppOmemoEnabledByJid: {},
       xmppIgnoredRoomsByAccount: {},
       callProviderUrl: "https://meet.jit.si",

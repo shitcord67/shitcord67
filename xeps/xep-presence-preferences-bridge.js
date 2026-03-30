@@ -218,6 +218,10 @@ function normalizeXmppOmemoEnabledByJid(value) {
   return normalizeXmppOmemoEnabledByJidViaModule(value);
 }
 
+function normalizeXmppEncryptionByJid(value) {
+  return normalizeXmppEncryptionByJidViaModule(value);
+}
+
 function normalizeXmppIgnoredRoomsByAccount(value) {
   return normalizeXmppIgnoredRoomsByAccountViaModule(value);
 }
@@ -400,6 +404,7 @@ function getPreferences() {
     xmppWsUrl: normalizeXmppWsUrl(current.xmppWsUrl),
     xmppMucService: normalizeXmppMucService(current.xmppMucService),
     xmppHideNonXmpp: normalizeToggle(current.xmppHideNonXmpp ?? "on"),
+    xmppEncryptionByJid: normalizeXmppEncryptionByJid(current.xmppEncryptionByJid),
     xmppOmemoEnabledByJid: normalizeXmppOmemoEnabledByJid(current.xmppOmemoEnabledByJid),
     xmppIgnoredRoomsByAccount: normalizeXmppIgnoredRoomsByAccount(current.xmppIgnoredRoomsByAccount),
     callProviderUrl: normalizeConferenceProviderUrl(current.callProviderUrl),

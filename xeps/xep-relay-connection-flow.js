@@ -776,10 +776,11 @@ function connectRelaySocket({ force = false } = {}) {
               if (typeof xmppOmemoParseEncryptedPayload === "function") {
                 inserted.xmppOmemoPayload = xmppOmemoParseEncryptedPayload(stanza);
               }
+              const decryptPeerBare = ownAuthor ? ownBare : peerBare;
               const tryDecrypt = () => xmppOmemoTryDecryptIntoMessage({
                 stanza,
                 message: inserted,
-                peerBare,
+                peerBare: decryptPeerBare,
                 ownBare,
                 onUpdated: () => {
                   renderDmList();

@@ -1163,9 +1163,10 @@ function publishRelayChannelMessage(channel, message, account) {
         : baseBody;
       const stanzaId = `s67-${createId().slice(0, 12)}`;
       const originId = `s67-origin-${createId().slice(0, 12)}`;
-      const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId })
-        .c("body")
-        .t(omemoEnabled ? "This message is encrypted with OMEMO." : baseBody);
+      const stanza = globalThis.$msg({ to: roomJid, type: "groupchat", id: stanzaId });
+      if (!omemoEnabled) {
+        stanza.c("body").t(baseBody).up();
+      }
       appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
       appendXmppOriginIdNode(stanza, originId);
       appendXmppMessageProcessingHints(stanza, { encrypted: omemoEnabled, preferStore: !omemoEnabled });
@@ -1321,7 +1322,9 @@ function publishRelayDirectMessage(thread, message, account) {
           ? omemoAttachmentUrls.join("\n")
           : baseBody;
         const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId });
-        stanza.c("body").t(omemoEnabled ? "This message is encrypted with OMEMO." : baseBody).up();
+        if (!omemoEnabled) {
+          stanza.c("body").t(baseBody).up();
+        }
         appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
         appendXmppOriginIdNode(stanza, originId);
         appendXmppMessageProcessingHints(stanza, { encrypted: omemoEnabled, preferStore: !omemoEnabled });

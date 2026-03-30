@@ -132,6 +132,41 @@ const createXmppOmemoStoreRegistry = XEP_0384_RUNTIME_GLOBAL.createXmppOmemoStor
   });
 };
 const xmppOmemoStoreRegistry = createXmppOmemoStoreRegistry();
+const normalizeXmppEncryptionModeViaModule = XEP_0384_PREFERENCES_GLOBAL.normalizeXmppEncryptionMode || ((value) => {
+  const mode = (value || "").toString().trim().toLowerCase();
+  return mode === "omemo" || mode === "openpgp" || mode === "pgp" ? mode : "off";
+});
+const xmppEncryptionModeForPeerFromPrefs = XEP_0384_PREFERENCES_GLOBAL.xmppEncryptionModeForPeer || function xmppEncryptionModeForPeerFromPrefsFallback(
+  peerBare,
+  prefs = {},
+  normalizeModeFn = normalizeXmppEncryptionModeViaModule,
+  normalizeToggleFn = (value) => value
+) {
+  const explicit = prefs?.xmppEncryptionByJid?.[peerBare];
+  if (typeof explicit !== "undefined") return normalizeModeFn(explicit);
+  const enabled = prefs?.xmppOmemoEnabledByJid?.[peerBare];
+  return normalizeToggleFn(enabled) === "on" ? "omemo" : "off";
+};
+const xmppApplyEncryptionModeForPeer = XEP_0384_PREFERENCES_GLOBAL.xmppApplyEncryptionModeForPeer || function xmppApplyEncryptionModeForPeerFallback(
+  prefs = {},
+  peerBare,
+  mode,
+  normalizeModeFn = normalizeXmppEncryptionModeViaModule,
+  normalizeToggleFn = (value) => value
+) {
+  const normalizedMode = normalizeModeFn(mode);
+  return {
+    ...prefs,
+    xmppEncryptionByJid: {
+      ...(prefs?.xmppEncryptionByJid || {}),
+      [peerBare]: normalizedMode
+    },
+    xmppOmemoEnabledByJid: {
+      ...(prefs?.xmppOmemoEnabledByJid || {}),
+      [peerBare]: normalizeToggleFn(normalizedMode === "omemo" ? "on" : "off")
+    }
+  };
+};
 const xmppOmemoEnabledForPeerFromPrefs = XEP_0384_PREFERENCES_GLOBAL.xmppOmemoEnabledForPeer || function xmppOmemoEnabledForPeerFromPrefsFallback(peerBare, prefs = {}, normalizeToggleFn = (value) => value) {
   const enabled = prefs?.xmppOmemoEnabledByJid?.[peerBare];
   return normalizeToggleFn(enabled) === "on";
@@ -670,6 +705,11 @@ const normalizeXmppOmemoEnabledByJidViaModule = typeof UI_STATE_NORMALIZERS_GLOB
   ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeXmppOmemoEnabledByJid(value, {
     bareJidFn: xmppBareJid,
     normalizeToggleFn: normalizeToggle
+  }))
+  : ((value) => (value && typeof value === "object" ? value : {}));
+const normalizeXmppEncryptionByJidViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeXmppEncryptionByJid === "function"
+  ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeXmppEncryptionByJid(value, {
+    bareJidFn: xmppBareJid
   }))
   : ((value) => (value && typeof value === "object" ? value : {}));
 const normalizeXmppIgnoredRoomsByAccountViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeXmppIgnoredRoomsByAccount === "function"
