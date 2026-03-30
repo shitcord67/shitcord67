@@ -746,9 +746,15 @@
       </div>
       <div id="profileIdentityPreview" class="profile-identity-preview">
         <div id="profileIdentityPreviewBanner" class="profile-identity-preview__banner"></div>
-        <div id="profileIdentityPreviewAvatar" class="profile-identity-preview__avatar"></div>
-        <strong id="profileIdentityPreviewName" class="profile-identity-preview__name">Preview User</strong>
-        <small id="profileIdentityPreviewStatus" class="profile-identity-preview__status">Online</small>
+        <div class="profile-identity-preview__body">
+          <div id="profileIdentityPreviewAvatar" class="profile-identity-preview__avatar"></div>
+          <div class="profile-identity-preview__identity">
+            <strong id="profileIdentityPreviewName" class="profile-identity-preview__name">Preview User</strong>
+            <small id="profileIdentityPreviewUsername" class="profile-identity-preview__username">@preview</small>
+          </div>
+          <div id="profileIdentityPreviewCustomStatus" class="profile-identity-preview__status-bubble" hidden></div>
+          <small id="profileIdentityPreviewStatus" class="profile-identity-preview__status">Online</small>
+        </div>
       </div>
       <button id="profileIdentityClearBtn" type="button">Clear Identity Extras</button>
       <button id="profileOpenCosmeticsBtn" type="button">Open Cosmetics Shop</button>
@@ -1028,30 +1034,79 @@
     </form>
   </dialog>
 
-  <dialog id="selfMenuDialog" class="modal profile-popout">
-    <div class="profile-preview">
+  <dialog id="selfMenuDialog" class="modal profile-popout profile-popout--self">
+    <div class="profile-preview profile-preview--discordish">
       <div id="selfPopoutBanner" class="profile-preview__banner"></div>
       <div class="profile-preview__body">
-        <div id="selfPopoutAvatar" class="profile-preview__avatar"></div>
-        <h4 id="selfPopoutName">User</h4>
-        <p id="selfPopoutStatus">Online</p>
+        <div class="profile-preview__hero">
+          <div id="selfPopoutAvatar" class="profile-preview__avatar"></div>
+          <div class="profile-preview__identity">
+            <h4 id="selfPopoutName">User</h4>
+            <p id="selfPopoutUsername" class="profile-preview__username">@user</p>
+          </div>
+        </div>
+        <div id="selfPopoutCustomStatus" class="profile-preview__status-bubble" hidden></div>
+        <p id="selfPopoutStatus" class="profile-preview__status-line">Online</p>
         <p id="selfPopoutXmppMeta" class="profile-preview__presence-meta" hidden></p>
-        <label for="selfPresenceSelect">Presence</label>
-        <select id="selfPresenceSelect">
-          <option value="online">Online</option>
-          <option value="idle">Idle</option>
-          <option value="dnd">Do Not Disturb</option>
-          <option value="invisible">Invisible</option>
-        </select>
         <p id="selfPopoutBio">No bio yet.</p>
         <div id="selfPopoutRoles" class="role-chip-list"></div>
-      </div>
-      <div class="modal-actions modal-actions--stack">
-        <button type="button" id="selfEditProfile">Edit Profile</button>
-        <button type="button" id="selfCosmeticsShop">Cosmetics Shop</button>
-        <button type="button" id="selfQuestStats">Quest Stats</button>
-        <button type="button" id="selfSwitchAccount">Switch Account</button>
-        <button type="button" id="selfLogout">Log Out</button>
+        <div class="profile-preview__menu-group">
+          <button type="button" class="profile-preview__menu-item profile-preview__menu-item--status active" data-self-presence="online">
+            <span class="profile-preview__menu-status presence-dot presence-online"></span>
+            <span class="profile-preview__menu-copy">
+              <strong>Online</strong>
+            </span>
+          </button>
+          <button type="button" class="profile-preview__menu-item profile-preview__menu-item--status" data-self-presence="idle">
+            <span class="profile-preview__menu-status presence-dot presence-idle"></span>
+            <span class="profile-preview__menu-copy">
+              <strong>Idle</strong>
+            </span>
+          </button>
+          <button type="button" class="profile-preview__menu-item profile-preview__menu-item--status" data-self-presence="dnd">
+            <span class="profile-preview__menu-status presence-dot presence-dnd"></span>
+            <span class="profile-preview__menu-copy">
+              <strong>Do Not Disturb</strong>
+              <small>No desktop notifications</small>
+            </span>
+          </button>
+          <button type="button" class="profile-preview__menu-item profile-preview__menu-item--status" data-self-presence="invisible">
+            <span class="profile-preview__menu-status presence-dot presence-invisible"></span>
+            <span class="profile-preview__menu-copy">
+              <strong>Invisible</strong>
+              <small>Show as offline</small>
+            </span>
+          </button>
+        </div>
+        <div class="profile-preview__menu-group">
+          <button type="button" id="selfEditProfile" class="profile-preview__menu-item">
+            <span class="profile-preview__menu-copy">
+              <strong>Edit Profile</strong>
+            </span>
+          </button>
+          <button type="button" id="selfCosmeticsShop" class="profile-preview__menu-item">
+            <span class="profile-preview__menu-copy">
+              <strong>Cosmetics Shop</strong>
+            </span>
+          </button>
+          <button type="button" id="selfQuestStats" class="profile-preview__menu-item">
+            <span class="profile-preview__menu-copy">
+              <strong>Quest Stats</strong>
+            </span>
+          </button>
+        </div>
+        <div class="profile-preview__menu-group">
+          <button type="button" id="selfSwitchAccount" class="profile-preview__menu-item">
+            <span class="profile-preview__menu-copy">
+              <strong>Switch Account</strong>
+            </span>
+          </button>
+          <button type="button" id="selfLogout" class="profile-preview__menu-item profile-preview__menu-item--danger">
+            <span class="profile-preview__menu-copy">
+              <strong>Log Out</strong>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   </dialog>
@@ -1156,15 +1211,20 @@
     </form>
   </dialog>
 
-  <dialog id="accountSwitchDialog" class="modal">
-    <form id="accountSwitchForm" class="modal-form" method="dialog">
-      <h3>Switch account</h3>
+  <dialog id="accountSwitchDialog" class="modal account-switch-dialog">
+    <form id="accountSwitchForm" class="modal-form account-switch-form" method="dialog">
+      <div class="account-switch-form__header">
+        <h3>Manage Accounts</h3>
+        <p>Switch between local identities, or sign in as another username.</p>
+      </div>
       <div id="accountList" class="account-list"></div>
-      <label for="newAccountInput">Login as another username</label>
-      <input id="newAccountInput" type="text" maxlength="24" placeholder="new_username" />
+      <div class="account-switch-form__footer">
+        <label for="newAccountInput">Add another account</label>
+        <input id="newAccountInput" type="text" maxlength="24" placeholder="new_username" />
+      </div>
       <div class="modal-actions">
-        <button type="button" id="accountCancel">Cancel</button>
-        <button type="submit">Use account</button>
+        <button type="button" id="accountCancel">Close</button>
+        <button type="submit">Use selected account</button>
       </div>
     </form>
   </dialog>

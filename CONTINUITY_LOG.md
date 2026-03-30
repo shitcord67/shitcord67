@@ -17348,3 +17348,6 @@ Could you make the calling UI closer to Discord? Can you heavily investigate how
 
 ## 2026-03-31T01:05:07+02:00
 Great, in general can you fix some UX and display issues? Maybe you can identify some yourself? But also e.g. the online indicator looks weird in some places for some users like in DM list. Maybe this from Discord can help: <ul role="list" aria-label="Direktnachrichten" class="content_d125d2" style="height: 5849px;">[...]</ul>
+
+## 2026-03-31T01:13:08+02:00
+Also here is something for when a user clicks in the lower-left on his pfp or name. Can you also see the banner thing, this is a custom decoration for example: <div aria-labelledby="«rpi1»" class="popoutContainer_ce8328 accountPopout__37e49" data-layer="base" role="dialog" tabindex="-1" aria-modal="true">[...]</div>. Also this for setting the online indicator: <div id="popout_5760" class="theme-dark theme-darker images-dark layer__59d0d" style="position: absolute; left: 285.26px; top: 1071px; --reference-position-layer-max-height: 228px;">[...]</div>. Account switcher: <div data-mana-component="modal" class="container__8a031 size-md__8a031 padding-size-sm__8a031" style="opacity: 1; transform: scale(1);">[...]</div>. Profile editor: <div class="modalContent_e44912">[...]</div>

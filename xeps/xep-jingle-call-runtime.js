@@ -1803,6 +1803,9 @@ function renderProfileIdentityPreview() {
   applyAvatarDecoration(ui.profileIdentityPreviewAvatar, previewAccount);
   applyBannerStyle(ui.profileIdentityPreviewBanner, previewAccount.banner);
   ui.profileIdentityPreviewName.textContent = previewAccount.displayName;
+  if (ui.profileIdentityPreviewUsername) {
+    ui.profileIdentityPreviewUsername.textContent = `@${previewAccount.username}`;
+  }
   applyNameplateStyle(ui.profileIdentityPreviewName, previewAccount);
   const tag = accountGuildTag(previewAccount);
   if (tag) {
@@ -1811,6 +1814,14 @@ function renderProfileIdentityPreview() {
     chip.className = "guild-tag-chip";
     chip.textContent = tag;
     ui.profileIdentityPreviewName.appendChild(chip);
+  }
+  if (ui.profileIdentityPreviewCustomStatus) {
+    const emoji = (previewAccount.customStatusEmoji || "").trim();
+    const statusText = (previewAccount.customStatus || "").trim();
+    const customStatus = [emoji, statusText].filter(Boolean).join(" ");
+    ui.profileIdentityPreviewCustomStatus.textContent = customStatus;
+    ui.profileIdentityPreviewCustomStatus.hidden = !customStatus;
+    ui.profileIdentityPreviewCustomStatus.title = customStatus;
   }
   ui.profileIdentityPreviewStatus.textContent = displayStatus(previewAccount, null);
   ui.profileIdentityPreview.classList.remove("profile-effect-aurora", "profile-effect-flame", "profile-effect-ocean");

@@ -33,7 +33,8 @@ function renderDock() {
 function renderSelfPopout() {
   const account = getCurrentAccount();
   if (!account) return;
-  ui.selfPopoutName.textContent = displayNameForAccount(account, getActiveGuild()?.id || null);
+  const guildId = getActiveGuild()?.id || null;
+  ui.selfPopoutName.textContent = displayNameForAccount(account, guildId);
   const selfRoleColor = getActiveServer() ? getMemberTopRoleColor(getActiveServer(), account.id) : "";
   ui.selfPopoutName.style.color = selfRoleColor || "";
   applyNameplateStyle(ui.selfPopoutName, account);
@@ -48,7 +49,18 @@ function renderSelfPopout() {
     chip.addEventListener("click", () => showGuildTagInfo(account));
     ui.selfPopoutName.appendChild(chip);
   }
-  const selfStatus = displayStatus(account, getActiveGuild()?.id || null);
+  if (ui.selfPopoutUsername) {
+    ui.selfPopoutUsername.textContent = `@${account.username || "user"}`;
+  }
+  if (ui.selfPopoutCustomStatus) {
+    const emoji = (account.customStatusEmoji || "").trim();
+    const statusText = (account.customStatus || "").trim();
+    const customStatus = [emoji, statusText].filter(Boolean).join(" ");
+    ui.selfPopoutCustomStatus.textContent = customStatus;
+    ui.selfPopoutCustomStatus.hidden = !customStatus;
+    ui.selfPopoutCustomStatus.title = customStatus;
+  }
+  const selfStatus = displayStatus(account, guildId);
   const selfActivity = accountActivitySummary(account);
   ui.selfPopoutStatus.textContent = selfActivity ? `${selfStatus} · ${selfActivity}` : selfStatus;
   let selfXmppNeedsRefresh = false;
@@ -61,11 +73,16 @@ function renderSelfPopout() {
   }
   selfPopoutXmppNeedsRefresh = selfXmppNeedsRefresh;
   schedulePopoutPresenceRefresh();
-  if (ui.selfPresenceSelect) ui.selfPresenceSelect.value = normalizePresence(account.presence || "online");
+  const currentPresence = normalizePresence(account.presence || "online");
+  ui.selfMenuDialog.dataset.currentPresence = currentPresence;
+  ui.selfMenuDialog.querySelectorAll("[data-self-presence]").forEach((button) => {
+    if (!(button instanceof HTMLElement)) return;
+    button.classList.toggle("active", normalizePresence(button.dataset.selfPresence || "online") === currentPresence);
+  });
   ui.selfPopoutBio.textContent = account.bio?.trim() || "No bio yet.";
-  applyAvatarStyle(ui.selfPopoutAvatar, account, getActiveGuild()?.id || null);
+  applyAvatarStyle(ui.selfPopoutAvatar, account, guildId);
   applyAvatarDecoration(ui.selfPopoutAvatar, account);
-  applyBannerStyle(ui.selfPopoutBanner, resolveAccountBanner(account, getActiveGuild()?.id || null));
+  applyBannerStyle(ui.selfPopoutBanner, resolveAccountBanner(account, guildId));
   ui.selfMenuDialog.classList.remove("profile-effect-aurora", "profile-effect-flame", "profile-effect-ocean");
   const selfEffect = accountProfileEffect(account);
   if (selfEffect !== "none") ui.selfMenuDialog.classList.add(`profile-effect-${selfEffect}`);
@@ -76,21 +93,69 @@ function renderSelfPopout() {
 function renderAccountSwitchList() {
   ui.accountList.innerHTML = "";
   state.accounts.forEach((account) => {
-    const row = document.createElement("button");
-    row.type = "button";
+    const row = document.createElement("div");
     row.className = `account-option ${selectedSwitchAccountId === account.id ? "active" : ""}`;
-    const label = document.createElement("span");
+    const left = document.createElement("button");
+    left.type = "button";
+    left.className = "account-option__identity";
+    const avatar = document.createElement("div");
+    avatar.className = "account-option__avatar";
+    applyAvatarStyle(avatar, account, null);
+    applyAvatarDecoration(avatar, account);
+    const body = document.createElement("div");
+    body.className = "account-option__meta";
+    const label = document.createElement("strong");
     label.textContent = account.displayName || account.username;
     const tag = document.createElement("small");
     tag.textContent = `@${account.username}`;
-    row.appendChild(label);
-    row.appendChild(tag);
-    row.addEventListener("click", () => {
+    body.appendChild(label);
+    body.appendChild(tag);
+    const status = document.createElement("small");
+    status.className = "account-option__status";
+    status.textContent = displayStatus(account, null);
+    body.appendChild(status);
+    left.appendChild(avatar);
+    left.appendChild(body);
+    left.addEventListener("click", () => {
       selectedSwitchAccountId = account.id;
       renderAccountSwitchList();
     });
+    row.appendChild(left);
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = `account-option__action ${state.currentAccountId === account.id ? "is-current" : ""}`;
+    action.textContent = state.currentAccountId === account.id ? "Current" : "Switch";
+    action.disabled = state.currentAccountId === account.id;
+    action.addEventListener("click", () => {
+      selectedSwitchAccountId = account.id;
+      state.currentAccountId = account.id;
+      rememberAccountSession(account.id);
+      const prefs = getPreferences();
+      if (["local", "ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") {
+        connectRelaySocket({ force: true });
+      }
+      ensureActiveGuildForCurrentAccount();
+      ensureCurrentUserInActiveServer();
+      saveState();
+      ui.accountSwitchDialog.close();
+      render();
+    });
+    row.appendChild(action);
     ui.accountList.appendChild(row);
   });
+}
+
+if (ui.selfMenuDialog && !ui.selfMenuDialog.dataset.presenceClickBound) {
+  ui.selfMenuDialog.addEventListener("click", (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest("[data-self-presence]")
+      : null;
+    if (!(button instanceof HTMLElement)) return;
+    const next = normalizePresence(button.dataset.selfPresence || "online");
+    const changed = setCurrentAccountPresence(next, { persist: true, rerender: true, announceXmpp: true });
+    if (changed) showToast(`Presence: ${presenceLabel(next)}`);
+  });
+  ui.selfMenuDialog.dataset.presenceClickBound = "true";
 }
 
 function renderRolesDialog() {
