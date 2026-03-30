@@ -45,6 +45,7 @@ function renderMemberList() {
     dmAccounts.forEach((account) => {
         const row = document.createElement("button");
         row.className = "member-item";
+        applyNameplatePlateStyle(row, account);
         const avatar = document.createElement("div");
         avatar.className = "member-avatar";
         if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
@@ -58,7 +59,6 @@ function renderMemberList() {
         const label = document.createElement("span");
         label.className = "member-meta__name";
         label.textContent = displayNameForAccount(account, null);
-        applyNameplateStyle(label, account);
         const tag = accountGuildTag(account);
         if (tag) {
           const tagChip = document.createElement("span");
@@ -141,6 +141,7 @@ function renderMemberList() {
     connectedAccounts.forEach((account) => {
       const row = document.createElement("button");
       row.className = "member-item";
+      applyNameplatePlateStyle(row, account);
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
       if (account?.xmppJid) maybeFetchXmppAvatarForJid(account.xmppJid);
@@ -154,6 +155,8 @@ function renderMemberList() {
       const label = document.createElement("span");
       label.className = "member-meta__name";
       label.textContent = displayNameForAccount(account, server.id);
+      const roleColor = getMemberTopRoleColor(server, account.id);
+      if (roleColor) label.style.color = roleColor;
       const status = document.createElement("small");
       status.className = "member-meta__status";
       const flags = [];
@@ -240,6 +243,7 @@ function renderMemberList() {
       }
       const row = document.createElement("button");
       row.className = "member-item";
+      if (account) applyNameplatePlateStyle(row, account);
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
       if (account) {
@@ -267,7 +271,6 @@ function renderMemberList() {
         ? displayNameForAccount(account, server.id)
         : (entry.nick || entry.jid?.split("@")[0] || "occupant");
       label.textContent = fallbackName;
-      if (account) applyNameplateStyle(label, account);
       const status = document.createElement("small");
       status.className = "member-meta__status";
       status.textContent = [entry.role || "", entry.affiliation || "", entry.jid || ""].filter(Boolean).join(" · ") || "XMPP occupant";
@@ -438,6 +441,7 @@ function renderMemberList() {
     group.items.forEach((account) => {
       const row = document.createElement("button");
       row.className = "member-item";
+      applyNameplatePlateStyle(row, account);
 
       const avatar = document.createElement("div");
       avatar.className = "member-avatar";
@@ -454,7 +458,6 @@ function renderMemberList() {
       const label = document.createElement("span");
       label.className = "member-meta__name";
       label.textContent = displayNameForAccount(account, server.id);
-      applyNameplateStyle(label, account);
       const roleColor = getMemberTopRoleColor(server, account.id);
       if (roleColor) label.style.color = roleColor;
       appendMemberDecorators(label, account);
@@ -526,4 +529,3 @@ function renderMemberList() {
     ui.memberList.appendChild(empty);
   }
 }
-

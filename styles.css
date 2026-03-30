@@ -1313,6 +1313,26 @@ body[data-platform="android"] .left-bottom-dock {
   min-height: 52px;
   border: 1px solid #34363b;
   overflow: hidden;
+  position: relative;
+  isolation: isolate;
+}
+
+.account-dock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+    linear-gradient(160deg, rgba(92, 133, 90, 0.12), rgba(35, 36, 40, 0.1));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.account-dock.has-nameplate-plate::before {
+  background:
+    linear-gradient(90deg, rgba(1, 49, 194, 0.06) 0%, rgba(1, 49, 194, 0.24) 100%),
+    var(--nameplate-image) center / cover no-repeat;
+  opacity: 0.9;
 }
 
 .account-dock__main {
@@ -1325,6 +1345,8 @@ body[data-platform="android"] .left-bottom-dock {
   text-align: left;
   padding: 0.35rem 0.35rem;
   min-height: 50px;
+  position: relative;
+  z-index: 1;
 }
 
 .account-dock__main:hover,
@@ -1332,10 +1354,17 @@ body[data-platform="android"] .left-bottom-dock {
   background: #3d4047;
 }
 
+.account-dock.has-nameplate-plate .account-dock__main:hover,
+.account-dock.has-nameplate-plate .account-dock__icon:hover {
+  background: rgba(0, 0, 0, 0.26);
+}
+
 .account-dock__actions {
   display: flex;
   align-items: center;
   padding-right: 0.2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .account-dock__icon {
@@ -1373,6 +1402,11 @@ body[data-platform="android"] .left-bottom-dock {
 .dock-meta {
   display: grid;
   line-height: 1.1;
+}
+
+.account-dock.has-nameplate-plate .dock-meta strong,
+.account-dock.has-nameplate-plate .dock-meta span {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 .dock-meta strong {
@@ -5054,6 +5088,29 @@ body[data-mobile="on"] .message-attachment--swf .message-swf-player {
   padding: 0.32rem 0.36rem;
   border-radius: 4px;
   text-align: left;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.member-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.member-item.has-nameplate-plate::before {
+  background:
+    linear-gradient(90deg, rgba(1, 49, 194, 0) 0%, rgba(1, 49, 194, 0.08) 18%, rgba(1, 49, 194, 0.1) 52%, rgba(1, 49, 194, 0.42) 100%),
+    var(--nameplate-image) center / cover no-repeat;
+  opacity: 0.82;
+}
+
+.member-item > * {
+  position: relative;
+  z-index: 1;
 }
 
 .member-meta {
@@ -5124,6 +5181,10 @@ body[data-compact-members="on"] .member-item {
 
 .member-item:hover {
   background: rgba(79, 84, 92, 0.32);
+}
+
+.member-item.has-nameplate-plate:hover {
+  background: rgba(79, 84, 92, 0.16);
 }
 
 .member-avatar {

@@ -17351,3 +17351,857 @@ Great, in general can you fix some UX and display issues? Maybe you can identify
 
 ## 2026-03-31T01:13:08+02:00
 Also here is something for when a user clicks in the lower-left on his pfp or name. Can you also see the banner thing, this is a custom decoration for example: <div aria-labelledby="«rpi1»" class="popoutContainer_ce8328 accountPopout__37e49" data-layer="base" role="dialog" tabindex="-1" aria-modal="true">[...]</div>. Also this for setting the online indicator: <div id="popout_5760" class="theme-dark theme-darker images-dark layer__59d0d" style="position: absolute; left: 285.26px; top: 1071px; --reference-position-layer-max-height: 228px;">[...]</div>. Account switcher: <div data-mana-component="modal" class="container__8a031 size-md__8a031 padding-size-sm__8a031" style="opacity: 1; transform: scale(1);">[...]</div>. Profile editor: <div class="modalContent_e44912">[...]</div>
+
+## 2026-03-31T01:21:43+02:00
+The container in the lower-left that has the user pfp, name and quick settings for microphone and headset mute and settings wheel: <div class="container__37e49">[...]</div>. Note that this too has some custom decoration from the shop; the custom nameplate! Custom nameplate stuff can also be found in the member list for people in a guild: <div class="container_c8ffbb">[...]</div>.
+
+## ${timestamp}
+
+Continue: The container in the lower-left that has the user pfp, name and quick settings for microphone and headset mute and settings wheel: <div
+  class="container__37e49"><div class="container_df39b2 fitInAccount_df39b2" aria-hidden="true" style="background: linear-gradient(90deg,
+  rgba(1, 49, 194, 0.1) 0%, rgba(1, 49, 194, 0.4) 100%);"><img class="img_df39b2 account_df39b2" alt="" src="https://cdn.discordapp.com/
+  media/v1/collectibles-shop/1461062060279464048/static"></div><div class="accountPopoutButtonWrapper__37e49 plated__37e49" style="--custom-
+  nameplate: #0131C233; --custom-nameplate-neutral: rgba(0, 0, 0, 0.22); --custom-nameplate-neutral-hovered: rgba(0, 0, 0, 0.33);"><div
+  class="accountPopoutButton__37e49" aria-expanded="false" aria-label="Profil und Status verwalten" data-jump-section="global" role="button"
+  tabindex="0"></div><div class="wrapper__44b0c avatar__37e49" role="img" aria-hidden="true" style="width: 32px; height: 32px;"><svg
+  width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32"
+  height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-
+  hidden="true" src="https://cdn.discordapp.com/avatars/230800661837512705/f9c1a2f05f332acd1d23964d6b619f75.webp?size=28"></div></
+  foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#da3e44" mask="url(#svg-mask-status-dnd)" class="pointerEvents__44b0c"></
+  rect></g></svg><svg width="46.4" height="38.4" viewBox="0 0 46.4 38.4" class="avatarDecorationContainer__44b0c" aria-
+  hidden="true"><foreignObject x="0" y="0" width="38.4" height="38.4" mask="url(#svg-mask-avatar-decoration-status-round-32)"><img
+  class="avatarDecoration__44b0c" alt=" " aria-hidden="true" src="https://cdn.discordapp.com/avatar-decoration-presets/
+  a_c1fba076919b76b5170df846d285117d.png?size=40&amp;passthrough=false"></foreignObject></svg></div><div class="nameTag__37e49"><div
+  class="panelTitleContainer__37e49"><div class="text-md/medium_cf4812 title_b6c092" data-text-variant="text-md/medium">derberg🛘 </div></
+  div><div class="panelSubtextContainer__37e49"><div class="text-xs/medium_cf4812 subtext__339d0" data-text-variant="text-xs/medium"><div
+  class="hoverRoll__0263c"><div class="hovered__0263c">derberg</div><div class="default__0263c"><span class="hiddenVisually_b18fe2">Bitte
+  nicht stören</span><div class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812 truncated_c9d15c
+  activityStatusText__37e49" data-text-variant="text-xs/medium">swf2svg.github.io/limewire.svg 🕵 vector format that doesn't suck for
+  animations and games?!</div></div></div></div></div></div></div></div><div class="buttons__37e49" style="--custom-nameplate: #0131C233;
+  --custom-nameplate-neutral: rgba(0, 0, 0, 0.22); --custom-nameplate-neutral-hovered: rgba(0, 0, 0, 0.33);"><button data-migration-
+  pending="true" role="switch" aria-checked="false" aria-label="Disable Game Activity" type="button" class="button__67645 enabled__67645
+  plated__67645 button__201d5 lookBlank__201d5 colorBrand__201d5 grow__201d5 button__67645"><div class="contents__201d5"><svg width="20"
+  height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M3.06 20.4q-1.53 0-2.37-1.065T.06 16.74l1.26-9q.27-1.8 1.605-2.97T6.06
+  3.6h11.88q1.8 0 3.135 1.17t1.605 2.97l1.26 9q.21 1.53-.63 2.595T20.94 20.4q-.63 0-1.17-.225T18.78 19.5l-2.7-2.7H7.92l-2.7
+  2.7q-.45.45-.99.675t-1.17.225Zm14.94-7.2q.51 0 .855-.345T19.2 12q0-.51-.345-.855T18 10.8q-.51 0-.855.345T16.8 12q0 .51.345 .855T18 13.2Zm-
+  2.4-3.6q.51 0 .855-.345T16.8 8.4q0-.51-.345-.855T15.6 7.2q-.51 0-.855.345T14.4 8.4q0 .51.345 .855T15.6 9.6ZM6.9 13.2h1.8v-2.1h2.1v-1.8h-
+  2.1v-2.1h-1.8v2.1h-2.1v1.8h2.1v2.1Z"></path></svg></div></button><div class="audioButtonParent__5e764"><button data-migration-
+  pending="true" role="switch" aria-checked="false" aria-label="Stummschalten" type="button" class="button__67645 audioButtonWithMenu__5e764
+  enabled__67645 plated__67645 button__201d5 lookBlank__201d5 colorBrand__201d5 grow__201d5 button__67645 audioButtonWithMenu__5e764"><div
+  class="contents__201d5"><div class="lottieIcon__5eb9b lottieIconColors__5eb9b iconForeground__37e49" style="--__lottieIconColor:
+  currentColor; display: flex; width: 20px; height: 20px;"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+  viewBox="0 0 24 24" width="24" height="24" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; transform:
+  translate3d(0px, 0px, 0px); content-visibility: visible;"><defs><clipPath id="__lottie_element_881"><rect width="24" height="24" x="0"
+  y="0"></rect></clipPath><clipPath id="__lottie_element_883"><path d="M0,0 L600,0 L600,600 L0,600z"></path></clipPath><clipPath
+  id="__lottie_element_887"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></clipPath><clipPath id="__lottie_element_894"><path d="M0,0
+  L1000,0 L1000,1000 L0,1000z"></path></clipPath><clipPath id="__lottie_element_904"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></
+  clipPath><mask id="__lottie_element_905"><rect fill="#ffffff" width="600" height="600" transform="matrix(1,0,0,1,200,200)"></rect><path
+  fill="#000000" clip-rule="nonzero" d=" M1025.219970703125,-87.2040023803711 C1025.219970703125,-87.2040023803711 853.697021484375,87.75
+  853.697021484375,87.75 C853.697021484375,87.75 789.760009765625,155.23199462890625 839.1370239257812,204.86199951171875 C893,259
+  957.6799926757812,191.05599975585938 957.6799926757812,191.05599975585938 C957.6799926757812,191.05599975585938
+  1129.2030029296875,16.101999282836914 1129.2030029296875,16.101999282836914 C1129.2030029296875,16.101999282836914 1212,-66
+  1160.2149658203125,-115.55400085449219 C1108.781005859375,-164.77200317382812 1025.219970703125,-87.2040023803711
+  1025.219970703125,-87.2040023803711" fill-opacity="1"></path><path fill="#ffffff" clip-rule="nonzero" d=" M698,405 C698,405 642,405 642,405
+  C642,405 642,479 642,479 C642,479 698,479 698,479 C698,479 698,405 698,405" fill-opacity="1"></path></mask></defs><g clip-
+  path="url(#__lottie_element_881)"><g clip-path="url(#__lottie_element_883)"
+  transform="matrix(0.03999999910593033,0,0,0.03999999910593033,0,0)" opacity="1" style="display: block;"><g clip-
+  path="url(#__lottie_element_904)" transform="matrix(1,0,0,1,-200,-200)" opacity="1" style="display: block;"><g
+  mask="url(#__lottie_element_905)"><g transform="matrix(-25,0,0,25,800,173)" opacity="1" style="display: none;"><g opacity="1"
+  transform="matrix(1,0,0,1,12,8.5)"><path fill="rgb(88,101,242)" fill-opacity="1" d=" M-4,-1.3799999952316284 C-4,-3.5889999866485596
+  -2.2090001106262207,-5.380000114440918 0,-5.380000114440918 C2.2090001106262207,-5.380000114440918 4,-3.5889999866485596
+  4,-1.3799999952316284 C4,-1.3799999952316284 4,2.509999990463257 4,2.509999990463257 C4,4.718999862670898 2.2090001106262207,6.5 0,6.5 C-
+  2.2090001106262207,6.5 -4,4.718999862670898 -4,2.509999990463257 C-4,2.509999990463257 -4,-1.3799999952316284 -4,-1.3799999952316284z"></
+  path></g><g opacity="1" transform="matrix(1,0,0,1,12,14)"><path stroke-linecap="round" stroke-linejoin="miter" fill-opacity="0" stroke-
+  miterlimit="4" stroke="rgb(88,101,242)" stroke-opacity="1" stroke-width="2" d=" M-7,-2.990000009536743 C-7,0.8759999871253967
+  -3.865999937057495,4.010000228881836 0,4.010000228881836 C3.865999937057495,4.010000228881836 7,0.8759999871253967 7,-2.990000009536743"></
+  path></g><g opacity="1" transform="matrix(1,0,0,1,12,20)"><path fill="rgb(88,101,242)" fill-opacity="1" d=" M-1,-2 C-1,-2.2760000228881836
+  -0.7760000228881836,-2.5 -0.5,-2.5 C-0.5,-2.5 0.5,-2.5 0.5,-2.5 C0.7760000228881836,-2.5 1,-2.2760000228881836 1,-2 C1,-2 1,2 1,2
+  C1,2.2760000228881836 0.7760000228881836,2.5 0.5,2.5 C0.5,2.5 -0.5,2.5 -0.5,2.5 C-0.7760000228881836,2.5 -1,2.2760000228881836 -1,2 C-1,2
+  -1,-2 -1,-2z"></path></g><g opacity="1" transform="matrix(1,0,0,1,12,22)"><path fill="rgb(88,101,242)" fill-opacity="1" d=" M3,-1
+  C3.552000045776367,-1 4,-0.5519999861717224 4,0 C4,0.5519999861717224 3.552000045776367,1 3,1 C3,1 -3,1 -3,1 C-3.552000045776367,1
+  -4,0.5519999861717224 -4,0 C-4,-0.5519999861717224 -3.552000045776367,-1 -3,-1 C-3,-1 3,-1 3,-1z"></path></g></g><g style="display: block;"
+  transform="matrix(-25,0,0,25,800,173)" opacity="1"><g opacity="1" transform="matrix(1,0,0,1,12,8.5)"><path fill="rgb(88,101,242)" fill-
+  opacity="1" d=" M-4,-1.4600000381469727 C-4,-3.6689999103546143 -2.2090001106262207,-5.460000038146973 0,-5.460000038146973
+  C2.2090001106262207,-5.460000038146973 4,-3.6689999103546143 4,-1.4600000381469727 C4,-1.4600000381469727 4,2.5 4,2.5 C4,4.709000110626221
+  2.2090001106262207,6.5 0,6.5 C-2.2090001106262207,6.5 -4,4.709000110626221 -4,2.5 C-4,2.5 -4,-1.4600000381469727
+  -4,-1.4600000381469727z"></path></g><g opacity="1" transform="matrix(1,0,0,1,12,14)"><path stroke-linecap="round" stroke-linejoin="miter"
+  fill-opacity="0" stroke-miterlimit="4" stroke="rgb(88,101,242)" stroke-opacity="1" stroke-width="2" d=" M-7,-3 C-7,0.8659999966621399
+  -3.865999937057495,4 0,4 C3.865999937057495,4 7,0.8659999966621399 7,-3"></path></g><g opacity="1" transform="matrix(1,0,0,1,12,20)"><path
+  fill="rgb(88,101,242)" fill-opacity="1" d=" M-1,-2 C-1,-2.2760000228881836 -0.7760000228881836,-2.5 -0.5,-2.5 C-0.5,-2.5 0.5,-2.5 0.5,-2.5
+  C0.7760000228881836,-2.5 1,-2.2760000228881836 1,-2 C1,-2 1,2 1,2 C1,2.2760000228881836 0.7760000228881836,2.5 0.5,2.5 C0.5,2.5 -0.5,2.5
+  -0.5,2.5 C-0.7760000228881836,2.5 -1,2.2760000228881836 -1,2 C-1,2 -1,-2 -1,-2z"></path></g><g opacity="1"
+  transform="matrix(1,0,0,1,12,22)"><path fill="rgb(88,101,242)" fill-opacity="1" d=" M3,-1 C3.552000045776367,-1 4,-0.5519999861717224 4,0
+  C4,0.5519999861717224 3.552000045776367,1 3,1 C3,1 -3,1 -3,1 C-3.552000045776367,1 -4,0.5519999861717224 -4,0 C-4,-0.5519999861717224
+  -3.552000045776367,-1 -3,-1 C-3,-1 3,-1 3,-1z"></path></g></g></g></g><g clip-path="url(#__lottie_element_894)"
+  transform="matrix(1,0,0,1,-200,-200)" opacity="1" style="display: none;"><g style="display: none;"><g><path stroke-linecap="round" stroke-
+  linejoin="miter" fill-opacity="0" stroke-miterlimit="4"></path></g></g><g style="display: none;"><g><path stroke-linecap="round" stroke-
+  linejoin="miter" fill-opacity="0" stroke-miterlimit="4"></path></g></g></g><g clip-path="url(#__lottie_element_887)" style="display: none;"
+  transform="matrix(1,0,0,1,-200,-200)" opacity="1"><g style="display: block;" transform="matrix(25,0,0,25,200,200)" opacity="1"><g
+  opacity="1" transform="matrix(1,0,0,1,12,12)"><path stroke-linecap="round" stroke-linejoin="miter" fill-opacity="0" stroke-miterlimit="4"
+  stroke="rgb(88,101,242)" stroke-opacity="1" stroke-width="2" d=" M-10,10 C-10,10 10,-10 10,-10"></path></g></g></g></g></g></svg></div></
+  div></button><button data-migration-pending="true" aria-label="Eingabeoptionen" type="button" class="button__67645 buttonChevron__5e764
+  enabled__67645 plated__67645 button__201d5 lookBlank__201d5 colorBrand__201d5 grow__201d5 button__67645 buttonChevron__5e764"><div
+  class="contents__201d5"><svg class="buttonChevronIcon__5e764" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="12"
+  height="12" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M5.3 9.3a1 1 0 0 1 1.4 0l5.3 5.29 5.3-5.3a1 1 0 1 1 1.4 1.42l-6
+  6a1 1 0 0 1-1.4 0l-6-6a1 1 0 0 1 0-1.42Z" class=""></path></svg></div></button></div><div class="audioButtonParent__5e764"><button data-
+  migration-pending="true" role="switch" aria-checked="false" aria-label="Ein- und Ausgabe deaktivieren" type="button" class="button__67645
+  audioButtonWithMenu__5e764 enabled__67645 plated__67645 button__201d5 lookBlank__201d5 colorBrand__201d5 grow__201d5 button__67645
+  audioButtonWithMenu__5e764"><div class="contents__201d5"><div class="lottieIcon__5eb9b lottieIconColors__5eb9b iconForeground__37e49"
+  style="--__lottieIconColor: currentColor; display: flex; width: 20px; height: 20px;"><svg xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="24" height="24" preserveAspectRatio="xMidYMid meet" style="width:
+  100%; height: 100%; transform: translate3d(0px, 0px, 0px); content-visibility: visible;"><defs><clipPath id="__lottie_element_918"><rect
+  width="24" height="24" x="0" y="0"></rect></clipPath><clipPath id="__lottie_element_920"><path d="M0,0 L600,0 L600,600 L0,600z"></path></
+  clipPath><clipPath id="__lottie_element_927"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></clipPath><clipPath
+  id="__lottie_element_937"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></clipPath><mask id="__lottie_element_938"><rect fill="#ffffff"
+  width="600" height="600" transform="matrix(0.9615384936332703,0,0,0.9615384936332703,211.53846740722656,211.53846740722656)"></rect><path
+  fill="#000000" clip-rule="nonzero" d=" M67.22000122070312,823.7960205078125 C67.22000122070312,823.7960205078125 -126.3030014038086,1017.75
+  -126.3030014038086,1017.75 C-126.3030014038086,1017.75 -76.63800048828125,1067.092041015625 -76.63800048828125,1067.092041015625 C-
+  76.63800048828125,1067.092041015625 -22.31999969482422,1121.0560302734375 -22.31999969482422,1121.0560302734375 C-
+  22.31999969482422,1121.0560302734375 171.2030029296875,927.1019897460938 171.2030029296875,927.1019897460938
+  C171.2030029296875,927.1019897460938 239.677001953125,860.3419799804688 186.88099670410156,810.114013671875 C130,756
+  67.22000122070312,823.7960205078125 67.22000122070312,823.7960205078125" fill-opacity="1"></path></mask><clipPath
+  id="__lottie_element_941"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></clipPath><path></path><clipPath
+  id="__lottie_element_948"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></clipPath><path d=" M0.5009999871253967,-0.10000000149011612
+  C0.5009999871253967,-0.10000000149011612 -0.09300000220537186,-0.10000000149011612 -0.09300000220537186,-0.10000000149011612 C-
+  0.09300000220537186,-0.10000000149011612 -0.09300000220537186,1.0759999752044678 -0.09300000220537186,1.0759999752044678 C-
+  0.09300000220537186,1.0759999752044678 0.5009999871253967,1.0759999752044678 0.5009999871253967,1.0759999752044678
+  C0.5009999871253967,1.0759999752044678 0.5009999871253967,-0.10000000149011612 0.5009999871253967,-0.10000000149011612" fill-opacity="1"></
+  path><clipPath id="__lottie_element_955"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></clipPath><mask id="__lottie_element_956"><rect
+  fill="#ffffff" width="600" height="600"
+  transform="matrix(0.9615384936332703,0,0,0.9615384936332703,211.53846740722656,211.53846740722656)"></rect><path fill="#000000" clip-
+  rule="nonzero" d=" M67.44400024414062,823.5819702148438 C67.44400024414062,823.5819702148438 -126.11100006103516,1017.5659790039062
+  -126.11100006103516,1017.5659790039062 C-126.11100006103516,1017.5659790039062 -76.44599914550781,1066.907958984375
+  -76.44599914550781,1066.907958984375 C-76.44599914550781,1066.907958984375 -22.128000259399414,1120.8719482421875
+  -22.128000259399414,1120.8719482421875 C-22.128000259399414,1120.8719482421875 171.427001953125,926.8880004882812
+  171.427001953125,926.8880004882812 C171.427001953125,926.8880004882812 239.9010009765625,860.1279907226562
+  187.10499572753906,809.9000244140625 C130.2239990234375,755.7860107421875 67.44400024414062,823.5819702148438
+  67.44400024414062,823.5819702148438" fill-opacity="1"></path></mask><clipPath id="__lottie_element_959"><path d="M0,0 L1000,0 L1000,1000
+  L0,1000z"></path></clipPath><path></path><clipPath id="__lottie_element_966"><path d="M0,0 L1000,0 L1000,1000 L0,1000z"></path></
+  clipPath><path d=" M0.5009999871253967,-0.10000000149011612 C0.5009999871253967,-0.10000000149011612
+  -0.09300000220537186,-0.10000000149011612 -0.09300000220537186,-0.10000000149011612 C-0.09300000220537186,-0.10000000149011612
+  -0.09300000220537186,1.0759999752044678 -0.09300000220537186,1.0759999752044678 C-0.09300000220537186,1.0759999752044678
+  0.5009999871253967,1.0759999752044678 0.5009999871253967,1.0759999752044678 C0.5009999871253967,1.0759999752044678
+  0.5009999871253967,-0.10000000149011612 0.5009999871253967,-0.10000000149011612" fill-opacity="1"></path></defs><g clip-
+  path="url(#__lottie_element_918)"><g clip-path="url(#__lottie_element_920)"
+  transform="matrix(0.03999999910593033,0,0,0.03999999910593033,0,0)" opacity="1" style="display: block;"><g clip-
+  path="url(#__lottie_element_955)" transform="matrix(1.0399999618530273,0,0,1.0399999618530273,-220,-220)" opacity="1" style="display:
+  none;"><g mask="url(#__lottie_element_956)"><g clip-path="url(#__lottie_element_966)" transform="matrix(1,0,0,1,0,0)" opacity="1"
+  style="display: block;"><g transform="matrix(25,0,0,25,200,200)" opacity="1" style="display: block;"><g opacity="1"
+  transform="matrix(1,0,0,1,12,12.288000106811523)"><path fill="rgb(88,101,242)" fill-opacity="1" d=" M-8.000072479248047,-0.2881828546524048
+  C-7.999939918518066,-4.706087589263916 -4.418000221252441,-8.288000106811523 0,-8.288000106811523 C4.418000221252441,-8.288000106811523
+  7.999929904937744,-4.706122875213623 8.000077247619629,-0.2881803512573242 C8.000102043151855,0.40481603145599365
+  7.954133987426758,1.0718117952346802 7.854161262512207,1.7118114233016968 C7.854161262512207,1.7118114233016968
+  6.000174522399902,1.7118886709213257 6.000174522399902,1.7118886709213257 C5.05618143081665,1.7119280099868774
+  4.167206287384033,2.156961679458618 3.6002418994903564,2.911979913711548 C3.6002418994903564,2.911979913711548
+  1.6273654699325562,5.542043209075928 1.6273654699325562,5.542043209075928 C1.1583948135375977,6.168058395385742
+  1.03643000125885,6.988057613372803 1.3044586181640625,7.72304105758667 C1.8895213603973389,9.332005500793457
+  3.8875467777252197,10.287915229797363 5.482487678527832,9.131856918334961 C8.839362144470215,6.700735092163086
+  10.00019359588623,3.3797173500061035 10.000062942504883,-0.28826361894607544 C9.999899864196777,-5.811119556427002
+  5.5229997634887695,-10.288000106811523 0,-10.288000106811523 C-5.5229997634887695,-10.288000106811523 -9.99986457824707,-5.81110954284668
+  -10.000057220458984,-0.2882695198059082 C-10.000213623046875,3.3797030448913574 -8.83936882019043,6.700726509094238
+  -5.482500076293945,9.131853103637695 C-3.8875625133514404,10.28791332244873 -1.8895366191864014,9.33200740814209
+  -1.304471492767334,7.7230448722839355 C-1.036441683769226,6.988062381744385 -1.1584053039550781,6.168063640594482
+  -1.627374529838562,5.54204797744751 C-1.627374529838562,5.54204797744751 -3.600245475769043,2.911982774734497
+  -3.600245475769043,2.911982774734497 C-4.167208194732666,2.156964063644409 -5.056182384490967,1.7119290828704834
+  -6.0001749992370605,1.7118881940841675 C-6.0001749992370605,1.7118881940841675 -7.854179859161377,1.7118425369262695
+  -7.854179859161377,1.7118425369262695 C-7.954162120819092,1.0720000267028809 -8.000097274780273,0.40481364727020264
+  -8.000072479248047,-0.2881828546524048z"></path></g></g></g><g clip-path="url(#__lottie_element_959)" style="display: none;"><g
+  style="display: none;"><g><path></path></g></g></g></g></g><g clip-path="url(#__lottie_element_937)" style="display: block;"
+  transform="matrix(1.0399999618530273,0,0,1.0399999618530273,-220,-220)" opacity="1"><g mask="url(#__lottie_element_938)"><g clip-
+  path="url(#__lottie_element_948)" style="display: block;" transform="matrix(1,0,0,1,0,0)" opacity="1"><g style="display: block;"
+  transform="matrix(25,0,0,25,200,200)" opacity="1"><g opacity="1" transform="matrix(1,0,0,1,12,12.288000106811523)"><path
+  fill="rgb(88,101,242)" fill-opacity="1" d=" M-8,-0.2879999876022339 C-8,-4.705999851226807 -4.418000221252441,-8.288000106811523
+  0,-8.288000106811523 C4.418000221252441,-8.288000106811523 8,-4.705999851226807 8,-0.2879999876022339 C8,0.4050000011920929
+  7.953999996185303,1.0720000267028809 7.854000091552734,1.7120000123977661 C7.854000091552734,1.7120000123977661 6,1.7120000123977661
+  6,1.7120000123977661 C5.056000232696533,1.7120000123977661 4.166999816894531,2.1570000648498535 3.5999999046325684,2.9119999408721924
+  C3.5999999046325684,2.9119999408721924 1.6269999742507935,5.541999816894531 1.6269999742507935,5.541999816894531
+  C1.1579999923706055,6.168000221252441 1.0360000133514404,6.98799991607666 1.3040000200271606,7.7230000495910645
+  C1.8890000581741333,9.331999778747559 3.88700008392334,10.288000106811523 5.48199987411499,9.131999969482422
+  C8.83899974822998,6.701000213623047 10,3.380000114440918 10,-0.2879999876022339 C10,-5.810999870300293
+  5.5229997634887695,-10.288000106811523 0,-10.288000106811523 C-5.5229997634887695,-10.288000106811523 -10,-5.810999870300293
+  -10,-0.2879999876022339 C-10,3.380000114440918 -8.83899974822998,6.701000213623047 -5.48199987411499,9.131999969482422 C-
+  3.88700008392334,10.288000106811523 -1.8890000581741333,9.331999778747559 -1.3040000200271606,7.7230000495910645 C-
+  1.0360000133514404,6.98799991607666 -1.1579999923706055,6.168000221252441 -1.6269999742507935,5.541999816894531 C-
+  1.6269999742507935,5.541999816894531 -3.5999999046325684,2.9119999408721924 -3.5999999046325684,2.9119999408721924 C-
+  4.166999816894531,2.1570000648498535 -5.056000232696533,1.7120000123977661 -6,1.7120000123977661 C-6,1.7120000123977661
+  -7.854000091552734,1.7120000123977661 -7.854000091552734,1.7120000123977661 C-7.953999996185303,1.0720000267028809 -8,0.4050000011920929
+  -8,-0.2879999876022339z"></path></g></g></g><g clip-path="url(#__lottie_element_941)" style="display: none;"><g style="display:
+  none;"><g><path></path></g></g></g></g></g><g clip-path="url(#__lottie_element_927)" transform="matrix(1,0,0,1,-200,-200)" opacity="1"
+  style="display: none;"><g style="display: none;"><g><path stroke-linecap="round" stroke-linejoin="miter" fill-opacity="0" stroke-
+  miterlimit="4"></path></g></g><g style="display: none;"><g><path stroke-linecap="round" stroke-linejoin="miter" fill-opacity="0" stroke-
+  miterlimit="4"></path></g></g></g><g style="display: none;"><g><path stroke-linecap="round" stroke-linejoin="miter" fill-opacity="0"
+  stroke-miterlimit="4"></path></g></g></g></g></svg></div></div></button><button data-migration-pending="true" aria-label="Ausgabeoptionen"
+  type="button" class="button__67645 buttonChevron__5e764 enabled__67645 plated__67645 button__201d5 lookBlank__201d5 colorBrand__201d5
+  grow__201d5 button__67645 buttonChevron__5e764"><div class="contents__201d5"><svg class="buttonChevronIcon__5e764" aria-hidden="true"
+  role="img" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24"><path fill="currentColor" d="M5.3
+  9.3a1 1 0 0 1 1.4 0l5.3 5.29 5.3-5.3a1 1 0 1 1 1.4 1.42l-6 6a1 1 0 0 1-1.4 0l-6-6a1 1 0 0 1 0-1.42Z" class=""></path></svg></div></
+  button></div><button data-migration-pending="true" aria-label="Benutzereinstellungen" type="button" class="button__67645 enabled__67645
+  plated__67645 button__201d5 lookBlank__201d5 colorBrand__201d5 grow__201d5 button__67645"><div class="contents__201d5"><div
+  class="lottieIcon__5eb9b lottieIconColors__5eb9b iconForeground__37e49" style="--__lottieIconColor: currentColor; display: flex; width:
+  20px; height: 20px;"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="24"
+  height="24" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; transform: translate3d(0px, 0px, 0px); content-
+  visibility: visible;"><defs><clipPath id="__lottie_element_973"><rect width="24" height="24" x="0" y="0"></rect></clipPath><clipPath
+  id="__lottie_element_975"><path d="M0,0 L600,0 L600,600 L0,600z"></path></clipPath></defs><g clip-path="url(#__lottie_element_973)"><g
+  clip-path="url(#__lottie_element_975)" transform="matrix(0.03999999910593033,0,0,0.03999999910593033,0,0)" opacity="1" style="display:
+  block;"><g transform="matrix(25,0,0,25,300,300)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path
+  fill="rgb(88,101,242)" fill-opacity="1" d=" M-1.4420000314712524,-10.906000137329102 C-1.8949999809265137,-10.847000122070312
+  -2.1470000743865967,-10.375 -2.078000068664551,-9.92300033569336 C-1.899999976158142,-8.756999969482422
+  -2.265000104904175,-7.7210001945495605 -3.061000108718872,-7.390999794006348 C-3.8570001125335693,-7.060999870300293
+  -4.8480000495910645,-7.534999847412109 -5.546000003814697,-8.484999656677246 C-5.816999912261963,-8.852999687194824
+  -6.329999923706055,-9.008999824523926 -6.691999912261963,-8.730999946594238 C-7.458000183105469,-8.142999649047852
+  -8.142999649047852,-7.458000183105469 -8.730999946594238,-6.691999912261963 C-9.008999824523926,-6.329999923706055
+  -8.852999687194824,-5.816999912261963 -8.484999656677246,-5.546000003814697 C-7.534999847412109,-4.8480000495910645
+  -7.060999870300293,-3.8570001125335693 -7.390999794006348,-3.061000108718872 C-7.7210001945495605,-2.265000104904175
+  -8.756999969482422,-1.899999976158142 -9.92300033569336,-2.078000068664551 C-10.375,-2.1470000743865967
+  -10.847000122070312,-1.8949999809265137 -10.906000137329102,-1.4420000314712524 C-10.968000411987305,-0.9700000286102295
+  -11,-0.48899999260902405 -11,0 C-11,0.48899999260902405 -10.968000411987305,0.9700000286102295 -10.906000137329102,1.4420000314712524 C-
+  10.847000122070312,1.8949999809265137 -10.375,2.1470000743865967 -9.92300033569336,2.078000068664551 C-8.756999969482422,1.899999976158142
+  -7.7210001945495605,2.265000104904175 -7.390999794006348,3.061000108718872 C-7.060999870300293,3.8570001125335693
+  -7.534999847412109,4.8470001220703125 -8.484999656677246,5.546000003814697 C-8.852999687194824,5.816999912261963
+  -9.008999824523926,6.328999996185303 -8.730999946594238,6.691999912261963 C-8.142999649047852,7.458000183105469
+  -7.458000183105469,8.142999649047852 -6.691999912261963,8.730999946594238 C-6.329999923706055,9.008999824523926
+  -5.816999912261963,8.852999687194824 -5.546000003814697,8.484999656677246 C-4.8480000495910645,7.534999847412109
+  -3.8570001125335693,7.060999870300293 -3.061000108718872,7.390999794006348 C-2.265000104904175,7.7210001945495605
+  -1.899999976158142,8.756999969482422 -2.078000068664551,9.92300033569336 C-2.1470000743865967,10.375 -1.8949999809265137,10.847000122070312
+  -1.4420000314712524,10.906000137329102 C-0.9700000286102295,10.968000411987305 -0.48899999260902405,11 0,11 C0.48899999260902405,11
+  0.9700000286102295,10.968000411987305 1.4420000314712524,10.906000137329102 C1.8949999809265137,10.847000122070312
+  2.1470000743865967,10.375 2.078000068664551,9.92300033569336 C1.899999976158142,8.756999969482422 2.2660000324249268,7.7210001945495605
+  3.062000036239624,7.390999794006348 C3.8580000400543213,7.060999870300293 4.8480000495910645,7.534999847412109
+  5.546000003814697,8.484999656677246 C5.816999912261963,8.852999687194824 6.328999996185303,9.008999824523926
+  6.691999912261963,8.730999946594238 C7.458000183105469,8.142999649047852 8.142999649047852,7.458000183105469
+  8.730999946594238,6.691999912261963 C9.008999824523926,6.328999996185303 8.852999687194824,5.816999912261963
+  8.484999656677246,5.546000003814697 C7.534999847412109,4.8480000495910645 7.060999870300293,3.8570001125335693
+  7.390999794006348,3.061000108718872 C7.7210001945495605,2.265000104904175 8.756999969482422,1.899999976158142
+  9.92300033569336,2.078000068664551 C10.375,2.1470000743865967 10.847000122070312,1.8949999809265137 10.906000137329102,1.4420000314712524
+  C10.968000411987305,0.9700000286102295 11,0.48899999260902405 11,0 C11,-0.48899999260902405 10.968000411987305,-0.9700000286102295
+  10.906000137329102,-1.4420000314712524 C10.847000122070312,-1.8949999809265137 10.375,-2.1470000743865967
+  9.92300033569336,-2.078000068664551 C8.756999969482422,-1.899999976158142 7.7210001945495605,-2.265000104904175
+  7.390999794006348,-3.061000108718872 C7.060999870300293,-3.8570001125335693 7.534999847412109,-4.8480000495910645
+  8.484999656677246,-5.546000003814697 C8.852999687194824,-5.816999912261963 9.008999824523926,-6.329999923706055
+  8.730999946594238,-6.691999912261963 C8.142999649047852,-7.458000183105469 7.458000183105469,-8.142999649047852
+  6.691999912261963,-8.730999946594238 C6.328999996185303,-9.008999824523926 5.817999839782715,-8.852999687194824
+  5.546999931335449,-8.484999656677246 C4.848999977111816,-7.534999847412109 3.8580000400543213,-7.060999870300293
+  3.062000036239624,-7.390999794006348 C2.2660000324249268,-7.7210001945495605 1.9010000228881836,-8.756999969482422
+  2.0789999961853027,-9.92300033569336 C2.1480000019073486,-10.375 1.8949999809265137,-10.847000122070312
+  1.4420000314712524,-10.906000137329102 C0.9700000286102295,-10.968000411987305 0.48899999260902405,-11 0,-11 C-0.48899999260902405,-11
+  -0.9700000286102295,-10.968000411987305 -1.4420000314712524,-10.906000137329102z M4,0 C4,2.2090001106262207 2.2090001106262207,4 0,4 C-
+  2.2090001106262207,4 -4,2.2090001106262207 -4,0 C-4,-2.2090001106262207 -2.2090001106262207,-4 0,-4 C2.2090001106262207,-4
+  4,-2.2090001106262207 4,0z"></path></g></g></g></g></svg></div></div></button></div></div>. Note that this too has some custom decoration
+  from the shop; the custom nameplate! Custom nameplate stuff can also be found in the member list for people in a guild: <div
+  class="container_c8ffbb"><aside class="membersWrap_c8ffbb hiddenMembers_c8ffbb" aria-labelledby="uid_6540"><span
+  class="hiddenVisually_b18fe2"><h2 id="uid_6540">Mitgliederliste von tech (Kanal)</h2></span><div class="members_c8ffbb thin_d125d2
+  scrollerBase_d125d2 fade_d125d2" tabindex="0" data-list-id="members-417756997887459333" aria-orientation="vertical" data-jump-
+  section="global" style="overflow: hidden scroll; padding-right: 0px;"><div class="vc-membercount-widget vc-membercount-member-list"><div
+  aria-label="1.257 online in this channel" class="vc-membercount-container"><svg viewBox="0 0 24 24" class="vc-membercount-online-
+  count"><circle cx="12" cy="12" r="8"></circle></svg><span class="vc-membercount-online">1.257</span></div><span style="display: none;"></
+  span><div aria-label="6.131 total server members" class="vc-membercount-container"><svg viewBox="0 0 24 24" class="vc-membercount-total-
+  count"><circle cx="12" cy="12" r="8"></circle></svg><span class="vc-membercount-total">6.131</span></div><span style="display: none;"></
+  span></div><div role="list" aria-label="Mitglieder" class="content_d125d2" style="height: 53046px;"><div aria-hidden="true" style="height:
+  0px;"></div><h3 class="membersGroup_c8ffbb container__13cf1 header__13cf1 text-sm/medium__13cf1"><span class="hiddenVisually_b18fe2">Admin,
+  2 Mitglieder</span><div class="membersGroupHeader_c8ffbb" aria-hidden="true"><span class="membersGroupName_c8ffbb">Admin</span><span>&nbsp;
+  — 2</span></div></h3><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1"
+  index="0" role="listitem" data-list-item-id="members-417756997887459333___0" aria-selected="false"><div class="childContainer__91a9d"><div
+  class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="axelsilverdew, Bitte
+  nicht stören" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c
+  svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/212423947495538688/45e8edba48d9136e28f6ede2ded97769.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#da3e44" mask="url(#svg-mask-status-dnd)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(52, 152, 219);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">Axel</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"><span
+  class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17" width="17" viewBox="0 0 24 24" fill="#da3e44"><path
+  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9
+  2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41
+  0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></span></span></div></div><div class="subText__91a9d"></div></div></
+  div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="1"
+  role="listitem" data-list-item-id="members-417756997887459333___1" aria-selected="false"><div class="childContainer__91a9d"><div
+  class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="shacomancer, Online"
+  aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-
+  hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/133053172234190848/89417752199393e500f40a2a18240a81.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(29, 191, 255);"><span class="name__703b9
+  dnsFont__89a31 museoModerno__89a31 username__703b9 desaturateUserColors__41f68">Krabomancer</span></span></span></span></div><div
+  class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17"
+  width="17" viewBox="0 0 24 24" fill="#45a366"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-
+  3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55
+  0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></span></
+  span></div><span><div class="" tabindex="-1" role="button"><svg class="premiumIcon__5d473 icon__5d473" aria-hidden="true" role="img"
+  xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path fill="var(--guild-boosting-pink)" d="M11.47
+  6.55a.75.75 0 0 1 1.06 0l2.2 2.14c.14.14.23.34.23.55v5.52c0 .21-.09.4-.23.55l-2.2 2.14a.75.75 0 0 1-1.06 0l-2.2-2.14a.77.77 0 0
+  1-.23-.55V9.24c0-.21.09-.41.23-.55l2.2-2.14Z" class=""></path><path fill="var(--guild-boosting-pink)" fill-rule="evenodd" d="M10.95
+  1.43a1.5 1.5 0 0 1 2.1 0l5.49 5.33c.3.29.46.68.46 1.1v8.44c-.04.35-.2.69-.46.94l-5.49 5.33-.11.1a1.5 1.5 0 0 1-2-.1l-5.48-
+  5.33c-.3-.29-.46-.68-.46-1.1V7.86c0-.42.17-.81.46-1.1l5.49-5.33ZM7.29 7.76c-.2.2-.3.46-.3.73v7.02c0 .27.1.54.3.73l4 3.9a1 1 0 0 0 1.41 0l4-
+  3.9c.2-.2.31-.46.31-.73V8.49c0-.27-.1-.54-.3-.73l-4-3.9a1 1 0 0 0-1.41 0l-4 3.9Z" clip-rule="evenodd" class=""></path></svg></div></
+  span><span id="«rrk2»" class="hiddenVisually_b18fe2">Boostet Server seit 1. Sept. 2024</span></div><div class="subText__91a9d"></div></
+  div></div></div></div><h3 class="membersGroup_c8ffbb container__13cf1 header__13cf1 text-sm/medium__13cf1"><span
+  class="hiddenVisually_b18fe2">Botnet, 4 Mitglieder</span><div class="membersGroupHeader_c8ffbb" aria-hidden="true"><span
+  class="membersGroupName_c8ffbb">Botnet</span><span>&nbsp;— 4</span></div></h3><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="2" role="listitem" data-list-item-id="members-417756997887459333___2" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="jerbot, Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40"
+  height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32"
+  mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true"
+  src="https://cdn.discordapp.com/avatars/244915328310575104/5cf7195448acd148fe0f92f3aec21c4c.webp?size=32"></div></foreignObject><g><rect
+  width="10" height="10" x="22" y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></
+  div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(153, 170, 181);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">jerbot</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"></
+  div><span role="img" aria-label="App" class="botTag__5d473 botTagRegular__82f07 botTag__82f07 px__82f07"><span class="botText__82f07">APP</
+  span></span></div><div class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="3" role="listitem" data-list-item-id="members-417756997887459333___3" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="Modmail, Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40"
+  height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32"
+  mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true"
+  src="https://cdn.discordapp.com/avatars/1249273162760196116/a802fb0e9f08b3aa8785bf20782d19b2.webp?size=32"></div></foreignObject><g><rect
+  width="10" height="10" x="22" y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></
+  div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(153, 170, 181);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">Modmail</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"></
+  div><span role="img" aria-label="App" class="botTag__5d473 botTagRegular__82f07 botTag__82f07 px__82f07"><span class="botText__82f07">APP</
+  span></span></div><div class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><span><div class="container_c9d15c
+  textWithIconContainer_c9d15c textXs_c9d15c" aria-label="Spielt DM me to reach mods!"><div class="text-xs/medium_cf4812 truncated_c9d15c"
+  data-text-variant="text-xs/medium">DM me to reach mods!</div></div></span><span id="«rrk5»" class="hiddenVisually_b18fe2"><div
+  class="richTooltipContent_a89985 noAsset_a89985"><div class="textContent_a89985"><div class="text-sm/normal_cf4812" data-text-
+  variant="text-sm/normal" style="color: var(--text-default);">DM me to reach mods!</div></div></div></span></div></div></div></div></div></
+  div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="4"
+  role="listitem" data-list-item-id="members-417756997887459333___4" aria-selected="false"><div class="childContainer__91a9d"><div
+  class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="PluralKit, Online"
+  aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-
+  hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/466378653216014359/b78ef67a081737a830b60aa47d9ebcd9.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(153, 170, 181);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">PluralKit</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"></
+  div><span role="img" aria-label="Verifizierte App" class="botTag__5d473 botTagRegular__82f07 botTag__82f07 px__82f07"><svg
+  class="botTagVerified__82f07" aria-describedby="«rrk7»" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="24"
+  height="24" fill="none" viewBox="0 0 24 24"><path fill="var(--white)" fill-rule="evenodd" d="M19.06 6.94a1.5 1.5 0 0 1 0 2.12l-8 8a1.5 1.5
+  0 0 1-2.12 0l-4-4a1.5 1.5 0 0 1 2.12-2.12L10 13.88l6.94-6.94a1.5 1.5 0 0 1 2.12 0Z" clip-rule="evenodd" class=""></path></svg><span
+  id="«rrk7»" class="hiddenVisually_b18fe2">Verifizierte App</span><span class="botText__82f07">APP</span></span></div><div
+  class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><span><div class="container_c9d15c textWithIconContainer_c9d15c
+  textXs_c9d15c" aria-label="Spielt pk;help | in 1,049,862 servers"><div class="text-xs/medium_cf4812 truncated_c9d15c" data-text-variant="text-xs/
+  medium">pk;help | in 1,049,862 servers</div></div></span><span id="«rrk8»" class="hiddenVisually_b18fe2"><div
+  class="richTooltipContent_a89985 noAsset_a89985"><div class="textContent_a89985"><div class="text-sm/normal_cf4812" data-text-
+  variant="text-sm/normal" style="color: var(--text-default);">pk;help | in 1,049,862 servers</div></div></div></span></div></div></div></
+  div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="5"
+  role="listitem" data-list-item-id="members-417756997887459333___5" aria-selected="false"><div class="childContainer__91a9d"><div
+  class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="Valkyrja, Online"
+  aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-
+  hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/278834060053446666/02b660875216fe6e69f23ff77aa5f79a.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(153, 170, 181);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">Valkyrja</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"></
+  div><span role="img" aria-label="Verifizierte App" class="botTag__5d473 botTagRegular__82f07 botTag__82f07 px__82f07"><svg
+  class="botTagVerified__82f07" aria-describedby="«rrka»" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="24"
+  height="24" fill="none" viewBox="0 0 24 24"><path fill="var(--white)" fill-rule="evenodd" d="M19.06 6.94a1.5 1.5 0 0 1 0 2.12l-8 8a1.5 1.5
+  0 0 1-2.12 0l-4-4a1.5 1.5 0 0 1 2.12-2.12L10 13.88l6.94-6.94a1.5 1.5 0 0 1 2.12 0Z" clip-rule="evenodd" class=""></path></svg><span
+  id="«rrka»" class="hiddenVisually_b18fe2">Verifizierte App</span><span class="botText__82f07">APP</span></span></div><div
+  class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><span><div class="container_c9d15c textWithIconContainer_c9d15c
+  textXs_c9d15c" aria-label="Spielt at https://valkyrja.app"><div class="text-xs/medium_cf4812 truncated_c9d15c" data-text-variant="text-xs/
+  medium">at https://valkyrja.app</div></div></span><span id="«rrkb»" class="hiddenVisually_b18fe2"><div class="richTooltipContent_a89985
+  noAsset_a89985"><div class="textContent_a89985"><div class="text-sm/normal_cf4812" data-text-variant="text-sm/normal" style="color:
+  var(--text-default);">at https://valkyrja.app</div></div></div></span></div></div></div></div></div></div><h3 class="membersGroup_c8ffbb
+  container__13cf1 header__13cf1 text-sm/medium__13cf1"><span class="hiddenVisually_b18fe2">Moderator, 3 Mitglieder</span><div
+  class="membersGroupHeader_c8ffbb" aria-hidden="true"><span class="membersGroupName_c8ffbb">Moderator</span><span>&nbsp;— 3</span></div></
+  h3><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="6" role="listitem"
+  data-list-item-id="members-417756997887459333___6" aria-selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473
+  layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="w8l.sh, Abwesend" aria-hidden="false"
+  style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-
+  hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/343312709607096320/5323c1e92a8368d962267eb170eddbca.webp?size=64"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#ffc04e" mask="url(#svg-mask-status-idle)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(0, 139, 139);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">$USER</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"><span
+  class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17" width="17" viewBox="0 0 24 24" fill="#ffc04e"><path
+  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9
+  2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41
+  0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></span></span></div></div><div class="subText__91a9d"><div
+  class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812 truncated_c9d15c" data-text-variant="text-xs/medium"><div
+  class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2">beep beep boop boop bop</div><span style="display: none;"></span></div></
+  div></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false"
+  tabindex="-1" index="7" role="listitem" data-list-item-id="members-417756997887459333___7" aria-selected="false"><div
+  class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c"
+  role="img" aria-label="cali666, Abwesend" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0
+  40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-
+  status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/474305151679856653/7d38e94e99aba7dac2cb165cddb0b916.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#ffc04e" mask="url(#svg-mask-status-idle)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(120, 81, 169);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">Cali666</span></span></span><span class="chipletContainerInner__10651
+  chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: DAWN" tabindex="-1" role="button"><span
+  class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold" style="color: var(--text-default);"><img
+  alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/910869215857217596/71ad19a2603191a0dc56568625dabb50.png?size=16"><span class="tagText__10651">DAWN</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17"
+  width="17" viewBox="0 0 24 24" fill="#ffc04e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-
+  3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55
+  0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></span></
+  span></div></div><div class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812
+  truncated_c9d15c" data-text-variant="text-xs/medium"><div class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2">Dead</div><span
+  style="display: none;"></span></div></div></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d
+  selected__91a9d" aria-expanded="true" tabindex="0" index="8" role="listitem" data-list-item-id="members-417756997887459333___8" aria-
+  selected="true" aria-controls="popout_6601"><div class="childContainer__91a9d nameplated__91a9d"><div class="container_df39b2" aria-
+  hidden="true" style="background: linear-gradient(90deg, transparent 0%, rgba(1, 49, 194, 0.08) 20%, rgba(1, 49, 194, 0.08) 50%, rgba(1, 49,
+  194, 0.5) 100%);"><img class="img_df39b2 selected_df39b2" alt="" src="https://cdn.discordapp.com/media/v1/collectibles-
+  shop/1461062060279464048/static" style="mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.3) 218px, rgb(0, 0, 0) 268px);"></div><div
+  class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="derberg, Bitte nicht
+  stören" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c
+  svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/230800661837512705/f9c1a2f05f332acd1d23964d6b619f75.webp?size=64"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#da3e44" mask="url(#svg-mask-status-dnd)" class="pointerEvents__44b0c"></rect></g></svg><svg width="46.4" height="38.4"
+  viewBox="0 0 46.4 38.4" class="avatarDecorationContainer__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="38.4" height="38.4"
+  mask="url(#svg-mask-avatar-decoration-status-round-32)"><img class="avatarDecoration__44b0c" alt=" " aria-hidden="true" src="https://
+  cdn.discordapp.com/avatar-decoration-presets/a_c1fba076919b76b5170df846d285117d.png?size=80&amp;passthrough=false"></foreignObject></svg></
+  div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(230, 126, 34);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">🯁🯂🯃ｗ🛘berg<span class="emoji_e5de78">🫠</span>▙▟𝐰▙▟о𝟳<span class="emoji_e5de78">🪿</span>𝋁웃
+  ⎘𓀠</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap:
+  2px;"><svg aria-label="Desktop" height="17" width="17" viewBox="0 0 24 24" fill="#da3e44"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0
+  1.104.897 2 2 2h7v2H7v2h10v-2h-4v-2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display:
+  none;"></span></span></div></div><div class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812
+  truncated_c9d15c" data-text-variant="text-xs/medium"><div class="overflow_b0dfc2">swf2svg.github.io/limewire.svg 🕵 vector format that
+  doesn't suck for animations and games?!</div><span style="display: none;"></span></div></div></div></div></div></div></div><h3
+  class="membersGroup_c8ffbb container__13cf1 header__13cf1 text-sm/medium__13cf1"><span class="hiddenVisually_b18fe2">Helper, 1 Mitglied</
+  span><div class="membersGroupHeader_c8ffbb" aria-hidden="true"><span class="membersGroupName_c8ffbb">Helper</span><span>&nbsp;— 1</span></
+  div></h3><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="9"
+  role="listitem" data-list-item-id="members-417756997887459333___9" aria-selected="false"><div class="childContainer__91a9d"><div
+  class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="cheetahpixie,
+  Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c
+  svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/66124551620141056/350919a6f6dd531180b7945362ea8aa6.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(37, 89, 255);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">CheetahPixie</span></span></span></span></div><div class="vc-member-list-decorators-
+  wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop" height="17" width="17" viewBox="0 0 24 24"
+  fill="#45a366"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-
+  2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display: none;"></span><svg aria-label="Web" height="17" width="17" viewBox="0 0 24 24"
+  fill="#ffc04e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-
+  1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-
+  2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></span></span></div></div><div
+  class="subText__91a9d"></div></div></div></div></div><h3 class="membersGroup_c8ffbb container__13cf1 header__13cf1 text-sm/
+  medium__13cf1"><span class="hiddenVisually_b18fe2">Server Booster, 1 Mitglied</span><div class="membersGroupHeader_c8ffbb" aria-
+  hidden="true"><span class="membersGroupName_c8ffbb">Server Booster</span><span>&nbsp;— 1</span></div></h3><div class="member__5d473
+  member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="10" role="listitem" data-list-item-id="members-
+  417756997887459333___10" aria-selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div
+  class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="d0r31, Online" aria-hidden="false" style="width: 32px; height:
+  32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0"
+  width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c"
+  aria-hidden="true" src="https://cdn.discordapp.com/avatars/821168466211635300/d6bf6fc0b3d2ae9e9d8d7faddbfa88e9.webp?size=32"></div></
+  foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#45a366" mask="url(#svg-mask-status-online)"
+  class="pointerEvents__44b0c"></rect></g></svg><svg width="46.4" height="38.4" viewBox="0 0 46.4 38.4"
+  class="avatarDecorationContainer__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="38.4" height="38.4" mask="url(#svg-mask-
+  avatar-decoration-status-round-32)"><img class="avatarDecoration__44b0c" alt=" " aria-hidden="true" src="https://cdn.discordapp.com/avatar-
+  decoration-presets/a_0559ecfc5e0d72ed1a2c5f1a6fd84558.png?size=40&amp;passthrough=false"></foreignObject></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(10, 88, 163);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">D0R31</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"><span
+  class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop" height="17" width="17" viewBox="0 0 24 24" fill="#45a366"><path
+  d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></
+  path></svg><span style="display: none;"></span></span></div><span><div class="" tabindex="-1" role="button"><svg class="premiumIcon__5d473
+  icon__5d473" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path
+  fill="var(--guild-boosting-pink)" d="M11.47 6.55a.75.75 0 0 1 1.06 0l2.2 2.14c.14.14.23.34.23.55v5.52c0 .21-.09.4-.23.55l-2.2 2.14a.75.75 0
+  0 1-1.06 0l-2.2-2.14a.77.77 0 0 1-.23-.55V9.24c0-.21.09-.41.23-.55l2.2-2.14Z" class=""></path><path fill="var(--guild-boosting-pink)" fill-
+  rule="evenodd" d="M10.95 1.43a1.5 1.5 0 0 1 2.1 0l5.49 5.33c.3.29.46.68.46 1.1v8.44c-.04.35-.2.69-.46.94l-5.49 5.33-.11.1a1.5 1.5 0 0 1-
+  2-.1l-5.48-5.33c-.3-.29-.46-.68-.46-1.1V7.86c0-.42.17-.81.46-1.1l5.49-5.33ZM7.29 7.76c-.2.2-.3.46-.3.73v7.02c0 .27.1.54.3.73l4 3.9a1 1 0 0
+  0 1.41 0l4-3.9c.2-.2.31-.46.31-.73V8.49c0-.27-.1-.54-.3-.73l-4-3.9a1 1 0 0 0-1.41 0l-4 3.9Z" clip-rule="evenodd" class=""></path></svg></
+  div></span><span id="«rrkh»" class="hiddenVisually_b18fe2">Boostet Server seit 3. Dez. 2025</span></div><div class="subText__91a9d"><div
+  class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812 truncated_c9d15c" data-text-variant="text-xs/medium"><div
+  class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2">D0R31 AI</div><span style="display: none;"></span></div></div></div></div></
+  div></div></div><h3 class="membersGroup_c8ffbb container__13cf1 header__13cf1 text-sm/medium__13cf1"><span
+  class="hiddenVisually_b18fe2">Online, 1.246 Mitglieder</span><div class="membersGroupHeader_c8ffbb" aria-hidden="true"><span
+  class="membersGroupName_c8ffbb">Online</span><span>&nbsp;— 1.246</span></div></h3><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="11" role="listitem" data-list-item-id="members-417756997887459333___11" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="youdonexist3333, Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg
+  width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32"
+  height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-
+  hidden="true" src="https://cdn.discordapp.com/avatars/1041137381736185898/7860dc19f4d25a3aad1b49f263f88173.webp?size=32"></div></
+  foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#45a366" mask="url(#svg-mask-status-online)"
+  class="pointerEvents__44b0c"></rect></g></svg><svg width="46.4" height="38.4" viewBox="0 0 46.4 38.4"
+  class="avatarDecorationContainer__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="38.4" height="38.4" mask="url(#svg-mask-
+  avatar-decoration-status-round-32)"><img class="avatarDecoration__44b0c" alt=" " aria-hidden="true" src="https://cdn.discordapp.com/avatar-
+  decoration-presets/a_f6fbc6e9dedd53a1b70e5573499ddd11.png?size=40&amp;passthrough=false"></foreignObject></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(130, 200, 223);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">! Hollow</span></span></span><span class="chipletContainerInner__10651
+  chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: RE" tabindex="-1" role="button"><span
+  class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold" style="color: var(--text-default);"><img
+  alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/982343221344628746/79366e8660935912726217b413fcc19b.png?size=16"><span class="tagText__10651">RE</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop"
+  height="17" width="17" viewBox="0 0 24 24" fill="#45a366"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-
+  2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display: none;"></span><svg aria-label="Mobile"
+  height="14" width="14" viewBox="0 0 1000 1500" fill="#ffc04e"><path d="M 187 0 L 813 0 C 916.277 0 1000 83.723 1000 187 L 1000 1313 C 1000
+  1416.277 916.277 1500 813 1500 L 187 1500 C 83.723 1500 0 1416.277 0 1313 L 0 187 C 0 83.723 83.723 0 187 0 Z M 125 1000 L 875 1000 L 875
+  250 L 125 250 Z M 500 1125 C 430.964 1125 375 1180.964 375 1250 C 375 1319.036 430.964 1375 500 1375 C 569.036 1375 625 1319.036 625 1250 C
+  625 1180.964 569.036 1125 500 1125 Z"></path></svg><span style="display: none;"></span></span></div></div><div class="subText__91a9d"><div
+  class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812 truncated_c9d15c" data-text-variant="text-xs/medium"><div
+  class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2"><img class="emoji emoji_c9d15c" data-type="emoji" data-
+  id="1445804602510540800" alt="002_skullpray" draggable="false" src="https://cdn.discordapp.com/emojis/1445804602510540800.webp?size=96"> Oh
+  what the hell</div><span style="display: none;"></span></div></div></div></div></div></div></div><div class="member__5d473 member_c8ffbb
+  container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="12" role="listitem" data-list-item-id="members-
+  417756997887459333___12" aria-selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div
+  class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="hq40, Abwesend" aria-hidden="false" style="width: 32px; height:
+  32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0"
+  width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c"
+  aria-hidden="true" src="https://cdn.discordapp.com/avatars/788795343084847134/c7badd062392b74aab679e6dcfd7afdb.webp?size=32"></div></
+  foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#ffc04e" mask="url(#svg-mask-status-idle)"
+  class="pointerEvents__44b0c"></rect></g></svg></div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div
+  class="name__91a9d"><span class="username__5d473"><span class="name__5d473 container__703b9"><span class="nameContainer__703b9"
+  style="color: rgb(221, 72, 20);"><span class="name__703b9 username__703b9 desaturateUserColors__41f68">! 𝐀𝐭𝐨𝐦_𝟎𝟗 ~</span></span></span></
+  span></div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop"
+  height="17" width="17" viewBox="0 0 24 24" fill="#ffc04e"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-
+  2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display: none;"></span></span></div></div><div
+  class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-
+  expanded="false" tabindex="-1" index="13" role="listitem" data-list-item-id="members-417756997887459333___13" aria-selected="false"><div
+  class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c"
+  role="img" aria-label="riley1870, Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0
+  40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-
+  status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/72912672605081600/fdf598c1dceb9c8ad4e074d994537170.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(130, 200, 223);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">!! Riley1870 !!</span></span></span><span class="chipletContainerInner__10651
+  chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: HXI" tabindex="-1" role="button"><span
+  class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold" style="color: var(--text-default);"><img
+  alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/933423693848260678/8d61abb8b5da075befaff858861dba54.png?size=16"><span class="tagText__10651">HXI</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop"
+  height="17" width="17" viewBox="0 0 24 24" fill="#45a366"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-
+  2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display: none;"></span></span></div></div><div
+  class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-
+  expanded="false" tabindex="-1" index="14" role="listitem" data-list-item-id="members-417756997887459333___14" aria-selected="false"><div
+  class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c"
+  role="img" aria-label="parasitic_hollow, Bitte nicht stören" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40"
+  height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32"
+  mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true"
+  src="https://cdn.discordapp.com/avatars/1105518478032638042/5e26f34125b2cc20a5e27ae9561c59d6.webp?size=32"></div></foreignObject><g><rect
+  width="10" height="10" x="22" y="22" fill="#da3e44" mask="url(#svg-mask-status-dnd)" class="pointerEvents__44b0c"></rect></g></svg></div></
+  div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(23, 147, 209);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">*Andre*</span></span></span></span></div><div class="vc-member-list-decorators-wrapper"><span
+  class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17" width="17" viewBox="0 0 24 24" fill="#da3e44"><path
+  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9
+  2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41
+  0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></span></span></div></div><div class="subText__91a9d"></div></
+  div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="15"
+  role="listitem" data-list-item-id="members-417756997887459333___15" aria-selected="false"><div class="childContainer__91a9d"><div
+  class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="barnaba, Abwesend"
+  aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-
+  hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div
+  class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/
+  avatars/115810091336204294/f459a4a27b94a529f1eba69f4970151b.webp?size=32"></div></foreignObject><g><rect width="10" height="10" x="22"
+  y="22" fill="#ffc04e" mask="url(#svg-mask-status-idle)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(130, 200, 223);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">*h₂ŕ̥tḱos</span></span></span><span class="chipletContainerInner__10651
+  chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: RA" tabindex="-1" role="button"><span
+  class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold" style="color: var(--text-default);"><img
+  alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/310192285306454017/1a728dd26f17934ebbac3dd3c05bb4a3.png?size=16"><span class="tagText__10651">RA</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17"
+  width="17" viewBox="0 0 24 24" fill="#ffc04e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-
+  3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55
+  0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></
+  span></div></div><div class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="16" role="listitem" data-list-item-id="members-417756997887459333___16" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="mi.lk__, Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40"
+  height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32"
+  mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true"
+  src="https://cdn.discordapp.com/avatars/249659775535546372/e7bcfc81e7ec98e06cd18b47500e48ed.webp?size=32"></div></foreignObject><g><rect
+  width="10" height="10" x="22" y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg><svg
+  width="46.4" height="38.4" viewBox="0 0 46.4 38.4" class="avatarDecorationContainer__44b0c" aria-hidden="true"><foreignObject x="0" y="0"
+  width="38.4" height="38.4" mask="url(#svg-mask-avatar-decoration-status-round-32)"><img class="avatarDecoration__44b0c" alt=" " aria-
+  hidden="true" src="https://cdn.discordapp.com/avatar-decoration-presets/a_13913a00bd9990ab4102a3bf069f0f3f.png?
+  size=40&amp;passthrough=false"></foreignObject></svg></div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div
+  class="name__91a9d"><span class="username__5d473"><span class="name__5d473 container__703b9"><span class="nameContainer__703b9"
+  style="color: rgb(117, 187, 37);"><span class="name__703b9 username__703b9 desaturateUserColors__41f68">-Milk-</span></span></span><span
+  class="chipletContainerInner__10651 chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: EAF"
+  tabindex="-1" role="button"><span class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold"
+  style="color: var(--text-default);"><img alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/726985544038612993/4c6b987648217084cc4371c4f129b87b.png?size=16"><span class="tagText__10651">EAF</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17"
+  width="17" viewBox="0 0 24 24" fill="#45a366"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-
+  3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55
+  0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></
+  span></div></div><div class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812
+  truncated_c9d15c" data-text-variant="text-xs/medium"><div class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2">Maybe one
+  day . . .</div><span style="display: none;"></span></div></div></div></div></div></div></div><div class="member__5d473 member_c8ffbb
+  container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="17" role="listitem" data-list-item-id="members-
+  417756997887459333___17" aria-selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div
+  class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label=".bloodasp., Abwesend" aria-hidden="false" style="width: 32px;
+  height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0"
+  width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c"
+  aria-hidden="true" src="https://cdn.discordapp.com/avatars/343829098570711042/23714adb1da3d80f346905b55c80dd76.webp?size=32"></div></
+  foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#ffc04e" mask="url(#svg-mask-status-idle)"
+  class="pointerEvents__44b0c"></rect></g></svg></div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div
+  class="name__91a9d"><span class="username__5d473"><span class="name__5d473 container__703b9"><span class="nameContainer__703b9"
+  style="color: rgb(130, 200, 223);"><span class="name__703b9 username__703b9 desaturateUserColors__41f68">.̔̏̊\̔̏̊𝔅𝔩𝔬𝔬𝔡̔̏̊𝔄𝔰𝔭/̔̏̊.</span></span></
+  span></span></div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-
+  label="Web" height="17" width="17" viewBox="0 0 24 24" fill="#ffc04e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2
+  12 2Zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-
+  1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display:
+  none;"></span></span></div></div><div class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb
+  container__91a9d clickable__91a9d" aria-expanded="false" tabindex="-1" index="18" role="listitem" data-list-item-id="members-
+  417756997887459333___18" aria-selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div
+  class="avatar__91a9d"><div class="wrapper__44b0c" role="img" aria-label="lasanya1673, Bitte nicht stören" aria-hidden="false" style="width:
+  32px; height: 32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0"
+  y="0" width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" "
+  class="avatar__44b0c" aria-hidden="true" src="https://cdn.discordapp.com/avatars/322026657194049536/6f1ad43a62121e6a64d6f1dbaf548f47.webp?
+  size=32"></div></foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#da3e44" mask="url(#svg-mask-status-dnd)"
+  class="pointerEvents__44b0c"></rect></g></svg></div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div
+  class="name__91a9d"><span class="username__5d473"><span class="name__5d473 container__703b9"><span class="nameContainer__703b9"
+  style="color: rgb(23, 147, 209);"><span class="name__703b9 username__703b9 desaturateUserColors__41f68">/bin/dumm</span></span></span></
+  span></div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web"
+  height="17" width="17" viewBox="0 0 24 24" fill="#da3e44"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1
+  17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-
+  2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></
+  span></div></div><div class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812
+  truncated_c9d15c" data-text-variant="text-xs/medium"><div class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2">:3</div><span
+  style="display: none;"></span></div></div></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="19" role="listitem" data-list-item-id="members-417756997887459333___19" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="macrowavetechnologies, Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg
+  width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32"
+  height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-
+  hidden="true" src="https://cdn.discordapp.com/avatars/474270423203184641/173371672b144e52d668879644051558.webp?size=32"></div></
+  foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#45a366" mask="url(#svg-mask-status-online)"
+  class="pointerEvents__44b0c"></rect></g></svg></div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div
+  class="name__91a9d"><span class="username__5d473"><span class="name__5d473 container__703b9"><span class="nameContainer__703b9"
+  style="color: rgb(23, 147, 209);"><span class="name__703b9 username__703b9 desaturateUserColors__41f68">/bin/mt-st</span></span></span></
+  span></div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop"
+  height="17" width="17" viewBox="0 0 24 24" fill="#45a366"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-
+  2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display: none;"></span></span></div></div><div
+  class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-
+  expanded="false" tabindex="-1" index="20" role="listitem" data-list-item-id="members-417756997887459333___20" aria-selected="false"><div
+  class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c"
+  role="img" aria-label="insertnamehere1111111, Abwesend" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40"
+  viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-
+  mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://
+  cdn.discordapp.com/avatars/1376976477094019213/c42b041cdfe642e575744957cc612d57.webp?size=32"></div></foreignObject><g><rect width="10"
+  height="10" x="22" y="22" fill="#ffc04e" mask="url(#svg-mask-status-idle)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(233, 30, 99);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">/dev/tty1</span></span></span><span class="chipletContainerInner__10651
+  chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: ARCH" tabindex="-1" role="button"><span
+  class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold" style="color: var(--text-default);"><img
+  alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/399812551963049995/176416ced6db0ec5ff8014ce2be3297f.png?size=16"><span class="tagText__10651">ARCH</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17"
+  width="17" viewBox="0 0 24 24" fill="#ffc04e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-
+  3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55
+  0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></
+  span></div></div><div class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="21" role="listitem" data-list-item-id="members-417756997887459333___21" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="deadmem_e, Online" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40"
+  height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32"
+  mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true"
+  src="https://cdn.discordapp.com/avatars/531876592419471370/391e5f8eaf45c1112905cbcf769fa9d0.webp?size=32"></div></foreignObject><g><rect
+  width="10" height="10" x="22" y="22" fill="#45a366" mask="url(#svg-mask-status-online)" class="pointerEvents__44b0c"></rect></g></svg></
+  div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(23, 147, 209);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">/home/deadmeme/</span></span></span><span class="chipletContainerInner__10651
+  chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: ARCH" tabindex="-1" role="button"><span
+  class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold" style="color: var(--text-default);"><img
+  alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/399812551963049995/176416ced6db0ec5ff8014ce2be3297f.png?size=16"><span class="tagText__10651">ARCH</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop"
+  height="17" width="17" viewBox="0 0 24 24" fill="#45a366"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-
+  2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display: none;"></span></span></div></div><div
+  class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><span><div class="container_c9d15c textWithIconContainer_c9d15c
+  textXs_c9d15c" aria-label="Spielt SlimeVR"><svg class="icon_c9d15c" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg"
+  fill="none" viewBox="0 0 24 24"><path fill="#45a366" fill-rule="evenodd" d="M20.97 4.06c0 .18.08.35.24.43.55.28.9.82 1.04 1.42.3 1.24.75
+  3.7.75 7.09v4.91a3.09 3.09 0 0 1-5.85 1.38l-1.76-3.51a1.09 1.09 0 0 0-1.23-.55c-.57.13-1.36.27-2.16.27s-1.6-.14-2.16-.27c-.49-.11-1 .1-
+  1.23.55l-1.76 3.51A3.09 3.09 0 0 1 1 17.91V13c0-3.38.46-5.85.75-7.1.15-.6.49-1.13 1.04-1.4a.47.47 0 0 0 .24-.44c0-.7.48-1.32 1.2-
+  1.47l2.93-.62c.5-.1 1 .06 1.36.4.35.34.78.71 1.28.68a42.4 42.4 0 0 1 4.4 0c.5.03.93-.34 1.28-.69.35-.33.86-.5 1.36-.39l2.94.62c.7.15
+  1.19.78 1.19 1.47ZM20 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM15.5 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM5 7a1 1 0 0 1 2 0v1h1a1 1 0 0 1
+  0 2H7v1a1 1 0 1 1-2 0v-1H4a1 1 0 1 1 0-2h1V7Z" clip-rule="evenodd" class=""></path></svg></div></span><span id="«rrkt»"
+  class="hiddenVisually_b18fe2"><div class="richTooltipContent_a89985"><div class="assetContainer_a89985" style="width: 16px;"><svg
+  class="icon_c9d15c" aria-hidden="true" role="img" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path fill="#45a366"
+  fill-rule="evenodd" d="M20.97 4.06c0 .18.08.35.24.43.55.28.9.82 1.04 1.42.3 1.24.75 3.7.75 7.09v4.91a3.09 3.09 0 0 1-5.85 1.38l-1.76-
+  3.51a1.09 1.09 0 0 0-1.23-.55c-.57.13-1.36.27-2.16.27s-1.6-.14-2.16-.27c-.49-.11-1 .1-1.23.55l-1.76 3.51A3.09 3.09 0 0 1 1 17.91V13c0-
+  3.38.46-5.85.75-7.1.15-.6.49-1.13 1.04-1.4a.47.47 0 0 0 .24-.44c0-.7.48-1.32 1.2-1.47l2.93-.62c.5-.1 1 .06 1.36.4.35.34.78.71 1.28.68a42.4
+  42.4 0 0 1 4.4 0c.5.03.93-.34 1.28-.69.35-.33.86-.5 1.36-.39l2.94.62c.7.15 1.19.78 1.19 1.47ZM20 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3
+  0ZM15.5 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM5 7a1 1 0 0 1 2 0v1h1a1 1 0 0 1 0 2H7v1a1 1 0 1 1-2 0v-1H4a1 1 0 1 1 0-2h1V7Z" clip-
+  rule="evenodd" class=""></path></svg></div><div class="textContent_a89985"><div class="text-sm/normal_cf4812" data-text-variant="text-sm/
+  normal" style="color: var(--text-default);">SlimeVR</div></div></div></span><div class="defaultColor__4bd52 text-xs/normal_cf4812
+  dot_c9d15c" aria-hidden="true" data-text-variant="text-xs/normal">•</div><div class="text-xs/medium_cf4812 truncated_c9d15c" data-text-
+  variant="text-xs/medium"><div class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2">arch btw</div><span style="display: none;"></
+  span></div></div></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d clickable__91a9d" aria-
+  expanded="false" tabindex="-1" index="22" role="listitem" data-list-item-id="members-417756997887459333___22" aria-selected="false"><div
+  class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div class="wrapper__44b0c"
+  role="img" aria-label="homemcpengu1, Abwesend" aria-hidden="false" style="width: 32px; height: 32px;"><svg width="40" height="40"
+  viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-
+  mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c" aria-hidden="true" src="https://
+  cdn.discordapp.com/avatars/749303685129175122/0d826d421e98cd9a77cf8cd9c930f4a4.webp?size=32"></div></foreignObject><g><rect width="10"
+  height="10" x="22" y="22" fill="#ffc04e" mask="url(#svg-mask-status-idle)" class="pointerEvents__44b0c"></rect></g></svg></div></div><div
+  class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span class="username__5d473"><span
+  class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(130, 200, 223);"><span class="name__703b9
+  username__703b9 desaturateUserColors__41f68">/home/mcpengu1/corgi.jpg</span></span></span><span class="chipletContainerInner__10651
+  chipletContainerInline__10651 noTooltip__10651 clanTag__5d473" aria-label="Server-Tag: SUKI" tabindex="-1" role="button"><span
+  class="lineClamp1__4bd52 text-xs/semibold_cf4812 text__10651" data-text-variant="text-xs/semibold" style="color: var(--text-default);"><img
+  alt="" class="badge__10651" width="14" height="14" src="https://cdn.discordapp.com/clan-
+  badges/246213715228229632/439c5b7117f3f3e8e574b4766d1b7e73.png?size=16"><span class="tagText__10651">SUKI</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Web" height="17"
+  width="17" viewBox="0 0 24 24" fill="#ffc04e"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm-1 17.93c-
+  3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93Zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55
+  0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39Z"></path></svg><span style="display: none;"></
+  span></div></div><div class="subText__91a9d"></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="23" role="listitem" data-list-item-id="members-417756997887459333___23" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="01010101anonym, Bitte nicht stören" aria-hidden="false" style="width: 32px; height:
+  32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0"
+  width="32" height="32" mask="url(#svg-mask-avatar-status-round-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c"
+  aria-hidden="true" src="https://cdn.discordapp.com/avatars/267100613051940894/afc771345d6dd9f0911ab51dc1f3b3da.webp?size=32"></div></
+  foreignObject><g><rect width="10" height="10" x="22" y="22" fill="#da3e44" mask="url(#svg-mask-status-dnd)" class="pointerEvents__44b0c"></
+  rect></g></svg></div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div class="name__91a9d"><span
+  class="username__5d473"><span class="name__5d473 container__703b9"><span class="nameContainer__703b9" style="color: rgb(130, 200,
+  223);"><span class="name__703b9 username__703b9 desaturateUserColors__41f68">01010101anonym</span></span></span></span></div><div
+  class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Desktop" height="17"
+  width="17" viewBox="0 0 24 24" fill="#da3e44"><path d="M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-2h7c1.103 0 2-.896
+  2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z"></path></svg><span style="display: none;"></span></span></div></div><div
+  class="subText__91a9d"><div class="container_c9d15c textXs_c9d15c"><div class="text-xs/medium_cf4812 truncated_c9d15c" data-text-
+  variant="text-xs/medium"><div class="containerWithoutTruncatedText_c9d15c overflow_b0dfc2">Always trust Russian babushka</div><span
+  style="display: none;"></span></div></div></div></div></div></div></div><div class="member__5d473 member_c8ffbb container__91a9d
+  clickable__91a9d" aria-expanded="false" tabindex="-1" index="24" role="listitem" data-list-item-id="members-417756997887459333___24" aria-
+  selected="false"><div class="childContainer__91a9d"><div class="memberInner__5d473 layout__91a9d"><div class="avatar__91a9d"><div
+  class="wrapper__44b0c" role="img" aria-label="0som, Via Mobilgerät online" aria-hidden="false" style="width: 32px; height:
+  32px;"><svg width="40" height="40" viewBox="0 0 40 40" class="mask__44b0c svg__44b0c" aria-hidden="true"><foreignObject x="0" y="0"
+  width="32" height="32" mask="url(#svg-mask-avatar-status-mobile-32)"><div class="avatarStack__44b0c"><img alt=" " class="avatar__44b0c"
+  aria-hidden="true" src="https://cdn.discordapp.com/avatars/238421622833283072/bac037da4f4eff93df1a876a350b4f6b.webp?size=64"></div></
+  foreignObject><g><rect width="10" height="15" x="22" y="17" fill="#45a366" mask="url(#svg-mask-status-online-mobile)"
+  class="pointerEvents__44b0c"></rect></g></svg></div></div><div class="content__91a9d"><div class="nameAndDecorators__91a9d"><div
+  class="name__91a9d"><span class="username__5d473"><span class="name__5d473 container__703b9"><span class="nameContainer__703b9"
+  style="color: rgb(130, 200, 223);"><span class="name__703b9 username__703b9 desaturateUserColors__41f68">0som</span></span></span></span></
+  div><div class="vc-member-list-decorators-wrapper"><span class="vc-platform-indicator" style="gap: 2px;"><svg aria-label="Mobile"
+  height="14" width="14" viewBox="0 0 1000 1500" fill="#45a366"><path d="M 187 0 L 813 0 C 916.277 0 1000 83.723 1000 187 L 1000 1313 C 1000
+  1416.277 916.277 1500 813 1500 L 187 1500 C 83.723 1500 0 1416.277 0 1313 L 0 187 C 0 83.723 83.723 0 187 0 Z M 125 1000 L 875 1000 L 875
+  250 L 125 250 Z M 500 1125 C 430.964 1125 375 1180.964 375 1250 C 375 1319.036 430.964 1375 500 1375 C 569.036 1375 625 1319.036 625 1250 C
+  625 1180.964 569.036 1125 500 1125 Z"></path></svg><span style="display: none;"></span></span></div></div><div class="subText__91a9d"></
+  div></div></div></div></div></div></div></aside> </div>.
+
+
+/status
+
+╭────────────────────────────────────────────────────────────────────────────────╮
+│  >_ OpenAI Codex (v0.104.0)                                                    │
+│                                                                                │
+│ Visit https://chatgpt.com/codex/settings/usage for up-to-date                  │
+│ information on rate limits and credits                                         │
+│                                                                                │
+│  Model:                gpt-5.4 (reasoning none, summaries auto)                │
+│  Directory:            ~/shitcord67                                            │
+│  Permissions:          Default                                                 │
+│  Agents.md:            AGENTS.md                                               │
+│  Account:              kurthelikopter@gmail.com (Free)                         │
+│  Collaboration mode:   Default                                                 │
+│  Session:              019d40d2-4f87-7bc3-858d-8fa780eedab7                    │
+│                                                                                │
+│  Context window:       25% left (197K used / 258K)                             │
+│  Weekly limit:         [██████░░░░░░░░░░░░░░] 28% left (resets 00:17 on 7 Apr) │
+╰────────────────────────────────────────────────────────────────────────────────╯
+
+• I need to ensure continuity by starting with the first steps. I'll inspect the relevant files for the dock and member list nameplate. It
+  seems like I can implement a better dock container and enhance the member list nameplate's background. I should probably add commentary
+  first. However, there might be no web access since there's no internet, but the user-provided snippets should be enough for now. So, I’ll go
+  ahead and inspect those files!
+
+• I’m focusing on two linked surfaces: the dock account strip in the lower-left, and guild member rows when a user has a nameplate. I’ll
+  inspect the current dock/member-list rendering and then patch both so the nameplate treatment is consistent instead of only showing up in
+  isolated profile views.
+
+• Explored
+  └ Search dock-|dockAvatar|dockName|dockStatus|member-item|member-name|nameplate|has-nameplate|applyNameplateStyle|member list|
+renderMemberList|
+           member-avatar|guild-tag-chip in index.html
+
+⚠ Heads up, you have less than 25% of your weekly limit left. Run /status for a breakdown.
+
+• I need to take a closer look at the dock markup and styles. There might be some details I need to inspect, especially regarding the member
+  list. It seems essential to ensure everything is correctly styled and laid out. I want to make sure there's clarity and no discrepancies
+  before moving forward. I'll focus on finding any adjustments that might be necessary and make them properly.
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I found the right rendering hooks. The dock already applies a nameplate to the username text only, but Discord treats the whole account
+  strip as plated; member rows have the same gap, where the selected row gets a plate-like backdrop but normal rows don’t. I’m fixing both
+  surfaces together so the treatment is consistent.
+
+• Explored
+  └ Read index.html, xep-app-member-list-runtime.js, styles.css
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Context compacted
+
+⚠ Heads up, you have less than 10% of your weekly limit left. Run /status for a breakdown.
+
+• I’ve mapped where the lower-left dock and member list nameplate behavior live. Next I’m wiring the dock and guild member rows to carry full
+  nameplate state instead of only tinting the username text, then I’ll tighten the CSS around that.
+
+• Explored
+  └ Read index.html, styles.css, xep-app-member-list-runtime.js
+    Search renderDock|applyNameplateStyle|account-dock|dockName|dockStatus in xep-app-shell-runtime.js
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The dock already has the data flow for avatar decorations and nameplate URLs; the missing piece is that the plate isn’t being rendered as a
+  plate. I’m updating the HTML/CSS structure now so the dock and member rows can show the collectible background as part of the row, not just
+  as a text underline.
+
+• Explored
+  └ Read xep-app-shell-runtime.js
+    Search member-item\"|member-meta__name|applyNameplateStyle\(label in xep-app-member-list-runtime.js
+    Read TODO
+
+• I need to edit the index, styles, member list runtime, and shell runtime. I'll also keep track of the TODOs. It seems important to inspect
+  the member list further, especially around the relevant branches, so I can apply patches consistently. I've got to make sure everything
+  aligns properly with my goals. It might take some time, but I want to get this right, ensuring everything is functioning smoothly.
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’ve got four member-row code paths to touch, not just one. I’m patching them together so DM members, guild members, voice lists, and room
+  occupants all inherit the same plated behavior instead of diverging again later.
+
+• Explored
+  └ Read xep-app-member-list-runtime.js
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’ve confirmed the guild member list already exposes nameplate URLs, avatar decorations, platform markers, and role color. The cleanest fix
+  is a shared “plate state” helper instead of more ad hoc styling in each renderer, so I’m folding that into the runtime now.
+
+• Explored
+  └ Search function applyNameplateStyle|const applyNameplateStyle|applyNameplateStyle\( in xeps
+    Read app.js, xep-jingle-call-runtime.js
+
+• I need to think about adding a helper near the applyNameplateStyle, possibly in the shell or member list runtime. I could use an existing
+  function, which sounds efficient. We can manually set the class or style with the accountNameplateSvg in those situations. Also, it might be
+  wise to include the nameplate in the main button style. It seems like a solid plan, so let’s work on that patch!
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’m editing the dock markup and the shared member-row renderers now. After that I’ll run syntax checks and a tight git diff to make sure
+  only the intended UX files are in the commit.
+
+■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Apr 7th, 2026 12:17
+AM.
+2026-03-31T01:46:13+02:00 USER PROMPT (continuation): Continue the partial implementation for the lower-left account dock container so the user profile strip, quick mic/deafen/settings controls, and guild member-list rows render Discord-like collectible nameplates across the full row/container rather than only tinting or underlining the username text. The continuation includes the provided Discord DOM snippets for the dock account strip, member-list selected row with nameplate, and repeated `/status` plus prior-agent handoff notes describing existing partial edits in `xeps/xep-app-member-list-runtime.js`, `xeps/xep-app-shell-runtime.js`, `xeps/xep-jingle-call-runtime.js`, and missing CSS work in `styles.css`. Finish the nameplate plate/background behavior consistently for dock and all member-row code paths, validate, and continue from the existing partial state without disturbing unrelated worktree changes.

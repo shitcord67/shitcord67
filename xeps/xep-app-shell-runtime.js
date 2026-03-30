@@ -8,8 +8,12 @@ function renderDock() {
   if (!account) return;
   const conversation = getActiveConversation();
   const guildId = conversation?.type === "channel" ? getActiveGuild()?.id || null : null;
+  const dockPlate = ui.selfProfileBtn instanceof HTMLElement
+    ? ui.selfProfileBtn.closest(".account-dock")
+    : null;
+  applyNameplatePlateStyle(dockPlate, account);
   ui.dockName.textContent = displayNameForAccount(account, guildId);
-  applyNameplateStyle(ui.dockName, account);
+  applyNameplateStyle(ui.dockName, null);
   const dockTag = accountGuildTag(account);
   if (dockTag) {
     ui.dockName.appendChild(document.createTextNode(" "));

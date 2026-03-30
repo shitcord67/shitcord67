@@ -1759,16 +1759,25 @@ function applyAvatarDecoration(element, account) {
   element.classList.toggle("has-decoration", true);
 }
 
-function applyNameplateStyle(element, account) {
-  if (!(element instanceof HTMLElement)) return;
+function applyNameplateClass(element, account, className) {
+  if (!(element instanceof HTMLElement)) return false;
   const image = accountNameplateSvg(account);
   if (!image) {
     element.style.removeProperty("--nameplate-image");
-    element.classList.remove("has-nameplate");
-    return;
+    element.classList.remove(className);
+    return false;
   }
   element.style.setProperty("--nameplate-image", `url(${image})`);
-  element.classList.add("has-nameplate");
+  element.classList.add(className);
+  return true;
+}
+
+function applyNameplateStyle(element, account) {
+  applyNameplateClass(element, account, "has-nameplate");
+}
+
+function applyNameplatePlateStyle(element, account) {
+  applyNameplateClass(element, account, "has-nameplate-plate");
 }
 
 function renderProfileAvatarPreview() {
