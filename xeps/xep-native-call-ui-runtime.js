@@ -1449,6 +1449,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     return;
   }
   const session = xmppCallSessionById.get(sid) || null;
+  const conversation = nativeCallConversationForSession(sid);
   const peer = xmppBareJid(session?.peerJid || "");
   const peerAccount = findAccountByBareXmppJid(peer);
   const currentAccount = getCurrentAccount();

@@ -18257,3 +18257,21 @@ Can you do all of that?
 
 ## 2026-03-31T02:57:12.421526+00:00
 Uhm did you move the input field in the chat area? Please fix it and make it stay at the bottom all the time.
+
+## 2026-03-31T02:58:27.478258+00:00
+Also why do I only see a black rectangle without anything when I start a call? Alls controls and user info is missing there... And what is this error stuff?: libsignal_protocol.min.js:22851 Invalid asm.js: Expected shift of word size
+libsignal_protocol.min.js:136 pre-main prep time: 1 ms
+libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+    at libsignal_protocol.min.js:36264:25
+libsignal_protocol.min.js:36264 Uncaught (in promise) MessageCounterError: Message key not found. The counter was repeated or the key was not filled.
+    at libsignal_protocol.min.js:36264:25
+xep-native-call-ui-runtime.js:1530 Uncaught (in promise) ReferenceError: conversation is not defined
+    at renderNativeXmppCallSurface (xep-native-call-ui-runtime.js:1530:3)
+    at openNativeXmppCallSurface (xep-native-call-ui-runtime.js:2164:3)
+    at xmppStartOutgoingCallProposal (xep-0030_0166-jingle-call-core.js:1275:3)
+    at launchNativeXmppConversationCall (xep-0030_0166-jingle-call-core.js:1367:21)
+xep-native-call-ui-runtime.js:1530 Uncaught (in promise) ReferenceError: conversation is not defined
+    at renderNativeXmppCallSurface (xep-native-call-ui-runtime.js:1530:3)
+    at xmppAttachLocalMediaToSessionPeerConnection (xep-jingle-call-runtime.js:561:46)
+    at async Object.xmppSendJingleSessionInitiate (xep-0166_0167-jingle-send.js:960:9)
+    at async xep-0030_0166-jingle-call-core.js:1130:27
