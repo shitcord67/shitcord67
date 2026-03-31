@@ -421,11 +421,12 @@
     }
     if (dmCommand === "spacesxmpp" || dmCommand === "xmppspaces") {
       const raw = (dmArg || "").trim();
-      const [subRaw, ...restParts] = raw.split(/\s+/).filter(Boolean);
+      const [subRaw] = raw.split(/\s+/).filter(Boolean);
       const sub = (subRaw || "list").toLowerCase();
+      const subArg = subRaw ? raw.slice(subRaw.length).trim() : "";
       const dmConversation = { type: "dm", id: conversation.thread?.id || "", thread: conversation.thread };
       if (sub === "join") {
-        const result = handleJoinXmppCommand(restParts.join(" "), account, { focus: true });
+        const result = handleJoinXmppCommand(subArg, account, { focus: true });
         if (addSystemMessageToConversation(dmConversation, result.message)) {
           refreshConversationUi(dmConversation);
         }
@@ -433,7 +434,7 @@
         return;
       }
       if (sub === "leave") {
-        const result = handleLeaveXmppCommand(restParts.join(" "), account);
+        const result = handleLeaveXmppCommand(subArg, account);
         if (addSystemMessageToConversation(dmConversation, result.message)) {
           refreshConversationUi(dmConversation);
         }
@@ -442,6 +443,70 @@
           renderServers();
           renderChannels();
         }
+        return;
+      }
+      if (sub === "set") {
+        const parsed = xmppParseSpacesSetArgs(subArg);
+        if (!parsed.ok) {
+          if (addSystemMessageToConversation(dmConversation, parsed.message)) {
+            refreshConversationUi(dmConversation);
+          }
+          showToast(parsed.message, { tone: "error", duration: 3400 });
+          return;
+        }
+        void updateXmppSpaceMapping({
+          roomArg: parsed.roomJid,
+          spaceId: parsed.spaceId,
+          spaceName: parsed.spaceName,
+          parentSpaceId: parsed.parentSpaceId,
+          account,
+          prefs: getPreferences()
+        }).then((result) => {
+          if (addSystemMessageToConversation(dmConversation, result.message)) {
+            refreshConversationUi(dmConversation);
+          }
+          showToast(result.message, { tone: result.ok ? "info" : "error", duration: result.ok ? 2800 : 3400 });
+          if (result.ok) {
+            renderServers();
+            renderChannels();
+          }
+        }).catch(() => {
+          showToast(`Failed to update XMPP Space mapping for ${parsed.roomJid}.`, { tone: "error" });
+        });
+        return;
+      }
+      if (sub === "clear") {
+        void updateXmppSpaceMapping({
+          roomArg: subArg,
+          clear: true,
+          account,
+          prefs: getPreferences()
+        }).then((result) => {
+          if (addSystemMessageToConversation(dmConversation, result.message)) {
+            refreshConversationUi(dmConversation);
+          }
+          showToast(result.message, { tone: result.ok ? "info" : "error", duration: result.ok ? 2800 : 3400 });
+          if (result.ok) {
+            renderServers();
+            renderChannels();
+          }
+        }).catch(() => {
+          showToast("Failed to clear XMPP Space mapping.", { tone: "error" });
+        });
+        return;
+      }
+      if (sub === "info") {
+        const result = inspectXmppSpaceMapping({
+          roomArg: subArg,
+          prefs: getPreferences()
+        });
+        if (addSystemMessageToConversation(dmConversation, result.message)) {
+          refreshConversationUi(dmConversation);
+        }
+        showToast(result.ok ? "XMPP Space mapping inspected." : result.message, {
+          tone: result.ok ? "info" : "error",
+          duration: result.ok ? 2400 : 3200
+        });
         return;
       }
       if (sub === "open") {
@@ -483,7 +548,7 @@
         });
         return;
       }
-      showToast("Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>|leave [room@conference.domain]]", {
+      showToast("Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>|leave [room@conference.domain]|set [room@conference.domain] | <space-id> | [space-name] | [parent-space-id]|clear [room@conference.domain]|info [room@conference.domain]]", {
         tone: "error",
         duration: 3200
       });

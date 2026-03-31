@@ -330,20 +330,70 @@
 
   if (command === "spacesxmpp" || command === "xmppspaces") {
     const raw = (arg || "").trim();
-    const [subRaw, ...restParts] = raw.split(/\s+/).filter(Boolean);
+    const [subRaw] = raw.split(/\s+/).filter(Boolean);
     const sub = (subRaw || "list").toLowerCase();
+    const subArg = subRaw ? raw.slice(subRaw.length).trim() : "";
     if (sub === "join") {
-      const result = handleJoinXmppCommand(restParts.join(" "), account, { focus: true });
+      const result = handleJoinXmppCommand(subArg, account, { focus: true });
       addSystemMessage(channel, result.message);
       return true;
     }
     if (sub === "leave") {
-      const result = handleLeaveXmppCommand(restParts.join(" "), account);
+      const result = handleLeaveXmppCommand(subArg, account);
       addSystemMessage(channel, result.message);
       if (result.ok) {
         renderServers();
         renderChannels();
       }
+      return true;
+    }
+    if (sub === "set") {
+      const parsed = xmppParseSpacesSetArgs(subArg);
+      if (!parsed.ok) {
+        addSystemMessage(channel, parsed.message);
+        return true;
+      }
+      void updateXmppSpaceMapping({
+        roomArg: parsed.roomJid,
+        spaceId: parsed.spaceId,
+        spaceName: parsed.spaceName,
+        parentSpaceId: parsed.parentSpaceId,
+        account,
+        prefs: getPreferences()
+      }).then((result) => {
+        addSystemMessage(channel, result.message);
+        if (result.ok) {
+          renderServers();
+          renderChannels();
+        }
+      }).catch(() => {
+        addSystemMessage(channel, `Failed to update XMPP Space mapping for ${parsed.roomJid}.`);
+      });
+      return true;
+    }
+    if (sub === "clear") {
+      void updateXmppSpaceMapping({
+        roomArg: subArg,
+        clear: true,
+        account,
+        prefs: getPreferences()
+      }).then((result) => {
+        addSystemMessage(channel, result.message);
+        if (result.ok) {
+          renderServers();
+          renderChannels();
+        }
+      }).catch(() => {
+        addSystemMessage(channel, "Failed to clear XMPP Space mapping.");
+      });
+      return true;
+    }
+    if (sub === "info") {
+      const result = inspectXmppSpaceMapping({
+        roomArg: subArg,
+        prefs: getPreferences()
+      });
+      addSystemMessage(channel, result.message);
       return true;
     }
     if (sub === "open") {
@@ -378,7 +428,7 @@
       );
       return true;
     }
-    addSystemMessage(channel, "Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>|leave [room@conference.domain]]");
+    addSystemMessage(channel, "Usage: /spacesxmpp [list|open|sync|discover|join <room@conference.domain>|leave [room@conference.domain]|set [room@conference.domain] | <space-id> | [space-name] | [parent-space-id]|clear [room@conference.domain]|info [room@conference.domain]]");
     return true;
   }
 

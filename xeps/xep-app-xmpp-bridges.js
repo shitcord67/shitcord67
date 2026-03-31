@@ -234,6 +234,88 @@ function xmppSpacesSummaryLines({ limit = 12, prefs = getPreferences() } = {}) {
   });
 }
 
+function xmppParseSpacesSetArgs(raw = "") {
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppParseSpacesSetArgs !== "function") {
+    return {
+      ok: false,
+      roomJid: "",
+      spaceId: "",
+      spaceName: "",
+      parentSpaceId: "",
+      message: "Usage: /spacesxmpp set [room@conference.domain] | <space-id> | [space-name] | [parent-space-id]"
+    };
+  }
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.xmppParseSpacesSetArgs(raw, {
+    normalizeXmppRoomJoinArgFn: normalizeXmppRoomJoinArg,
+    getActiveChannelFn: getActiveChannel,
+    isXmppBackedChannelFn: isXmppBackedChannel,
+    xmppBareJidFn: xmppBareJid
+  });
+}
+
+async function updateXmppSpaceMapping({
+  roomArg = "",
+  spaceId = "",
+  spaceName = "",
+  parentSpaceId = "",
+  clear = false,
+  account = getCurrentAccount(),
+  prefs = getPreferences()
+} = {}) {
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.updateXmppSpaceMapping !== "function") {
+    return {
+      ok: false,
+      roomJid: "",
+      channelId: "",
+      message: "XMPP Spaces update module unavailable."
+    };
+  }
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.updateXmppSpaceMapping({
+    roomArg,
+    spaceId,
+    spaceName,
+    parentSpaceId,
+    clear,
+    account,
+    prefs
+  }, {
+    normalizeXmppRoomJoinArgFn: normalizeXmppRoomJoinArg,
+    getActiveChannelFn: getActiveChannel,
+    isXmppBackedChannelFn: isXmppBackedChannel,
+    xmppBareJidFn: xmppBareJid,
+    upsertXmppRoomChannelFn: upsertXmppRoomChannel,
+    findGuildByChannelIdFn: findGuildByChannelId,
+    sanitizeChannelNameFn: sanitizeChannelName,
+    xmppPublishBookmarkFn: xmppPublishBookmark,
+    saveStateFn: saveState,
+    renderFn: render
+  });
+}
+
+function inspectXmppSpaceMapping({
+  roomArg = "",
+  prefs = getPreferences()
+} = {}) {
+  if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.inspectXmppSpaceMapping !== "function") {
+    return {
+      ok: false,
+      message: "XMPP Spaces inspection module unavailable."
+    };
+  }
+  return XEP_0482_0503_SPACES_FLOW_GLOBAL.inspectXmppSpaceMapping({ roomArg, prefs }, {
+    normalizeXmppRoomJoinArgFn: normalizeXmppRoomJoinArg,
+    getActiveChannelFn: getActiveChannel,
+    isXmppBackedChannelFn: isXmppBackedChannel,
+    xmppBareJidFn: xmppBareJid,
+    xmppListSpaceRecordsFn: xmppListSpaceRecords,
+    state,
+    looksLikeXmppMucJidFn: looksLikeXmppMucJid,
+    decodeHtmlEntitiesFn: decodeHtmlEntities,
+    xmppRoomByJid,
+    xmppMucJoinStateByRoomJid
+  });
+}
+
 function focusXmppSpacesGuild(account = getCurrentAccount(), prefs = getPreferences()) {
   if (typeof XEP_0482_0503_SPACES_FLOW_GLOBAL.focusXmppSpacesGuild !== "function") return false;
   return XEP_0482_0503_SPACES_FLOW_GLOBAL.focusXmppSpacesGuild(account, prefs, {
