@@ -1503,9 +1503,48 @@ function accountProfileEffect(account) {
 function accountNameplateSvg(account) {
   const raw = (account?.profileNameplateSvg || "").toString().trim().slice(0, 280);
   if (!raw) return "";
-  if (/^data:image\/svg\+xml/i.test(raw)) return raw;
+  if (/^data:image\//i.test(raw)) return raw;
   if (/^https?:\/\//i.test(raw)) return raw;
   return "";
+}
+
+let nameplateDotLottieRequested = false;
+
+function nameplateAssetKind(value = "") {
+  const raw = (value || "").toString().trim().toLowerCase();
+  if (!raw) return "";
+  if (raw.includes(".lottie")) return "lottie";
+  return "image";
+}
+
+function ensureNameplateDotLottieRuntime() {
+  if (typeof customElements !== "undefined" && customElements.get("dotlottie-player")) return true;
+  if (!nameplateDotLottieRequested) {
+    nameplateDotLottieRequested = true;
+    if (typeof deployMediaRuntimes === "function") {
+      void deployMediaRuntimes();
+    }
+  }
+  return false;
+}
+
+function ensureNameplateTextWrap(element) {
+  if (!(element instanceof HTMLElement)) return null;
+  const existing = element.querySelector(":scope > .nameplate-text");
+  if (existing) return existing;
+  const wrapper = document.createElement("span");
+  wrapper.className = "nameplate-text";
+  while (element.firstChild) {
+    wrapper.appendChild(element.firstChild);
+  }
+  element.appendChild(wrapper);
+  return wrapper;
+}
+
+function clearNameplateMedia(element) {
+  if (!(element instanceof HTMLElement)) return;
+  element.classList.remove("has-nameplate-lottie");
+  element.querySelectorAll(":scope > .nameplate-media").forEach((node) => node.remove());
 }
 
 function showGuildTagInfo(account) {
@@ -1783,13 +1822,42 @@ function applyAvatarDecoration(element, account) {
 function applyNameplateClass(element, account, className) {
   if (!(element instanceof HTMLElement)) return false;
   const image = accountNameplateSvg(account);
+  clearNameplateMedia(element);
   if (!image) {
     element.style.removeProperty("--nameplate-image");
     element.classList.remove(className);
     return false;
   }
-  element.style.setProperty("--nameplate-image", `url(${image})`);
-  element.classList.add(className);
+  const kind = nameplateAssetKind(image);
+  if (kind === "lottie") {
+    const canRender = ensureNameplateDotLottieRuntime();
+    if (!canRender) {
+      element.style.removeProperty("--nameplate-image");
+      element.classList.remove(className);
+      return false;
+    }
+    const prefersReducedMotion = typeof window !== "undefined"
+      && typeof window.matchMedia === "function"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    element.style.removeProperty("--nameplate-image");
+    element.classList.add(className);
+    element.classList.add("has-nameplate-lottie");
+    ensureNameplateTextWrap(element);
+    const media = document.createElement("span");
+    media.className = "nameplate-media";
+    const player = document.createElement("dotlottie-player");
+    player.setAttribute("src", image);
+    player.setAttribute("loop", "");
+    if (!prefersReducedMotion) {
+      player.setAttribute("autoplay", "");
+    }
+    player.setAttribute("aria-hidden", "true");
+    media.appendChild(player);
+    element.insertBefore(media, element.firstChild);
+  } else {
+    element.style.setProperty("--nameplate-image", `url(${image})`);
+    element.classList.add(className);
+  }
   return true;
 }
 

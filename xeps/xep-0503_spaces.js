@@ -1,6 +1,12 @@
 /* XEP-0503 (Draft): Spaces local registry with room + hierarchy metadata. */
 
 const XEP_0503_STORAGE_KEY = "s67:xep-0503:spaces";
+const XEP_0503_SERVICE_CACHE = new Map();
+const XEP_0503_SERVICE_IN_FLIGHT = new Map();
+const XEP_0503_SPACE_NODE_CACHE = new Map();
+const XEP_0503_SPACE_NODE_IN_FLIGHT = new Map();
+const XEP_0503_SERVICE_TTL_MS = 10 * 60 * 1000;
+const XEP_0503_NODE_TTL_MS = 10 * 60 * 1000;
 
 function safeParseJson(value, fallback) {
   try {
@@ -43,6 +49,210 @@ function normalizeSpaceDescription(value = "") {
   return (value || "").toString().replace(/\s+/g, " ").trim().slice(0, 280);
 }
 
+function spaceIdFromServiceNode(serviceJid = "", node = "") {
+  const jid = (serviceJid || "").toString().trim().toLowerCase();
+  const nodeId = (node || "").toString().trim();
+  if (!jid || !nodeId) return "";
+  return normalizeSpaceKey(`${jid}/${nodeId}`);
+}
+
+function parseDiscoFeatures(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+  return [...stanza.getElementsByTagName("feature")]
+    .map((node) => (node.getAttribute("var") || "").toString().trim())
+    .filter(Boolean);
+}
+
+function parseDiscoInfoFields(stanza) {
+  if (!stanza || typeof stanza.getElementsByTagName !== "function") return [];
+  return [...stanza.getElementsByTagName("field")]
+    .map((node) => ({
+      key: (node.getAttribute("var") || "").toString().trim().toLowerCase(),
+      value: (node.getElementsByTagName("value")[0]?.textContent || "").toString().trim()
+    }))
+    .filter((entry) => entry.key && entry.value);
+}
+
+function parseSpaceMetaFromDiscoInfo(stanza) {
+  const fields = parseDiscoInfoFields(stanza);
+  const fieldValue = (patterns = []) => {
+    const hit = fields.find((entry) => patterns.some((pattern) => pattern.test(entry.key)));
+    return hit ? hit.value : "";
+  };
+  const identity = stanza?.getElementsByTagName?.("identity")?.[0] || null;
+  const identityName = (identity?.getAttribute?.("name") || "").toString().trim();
+  const title = fieldValue([/^pubsub#title$/, /^title$/, /^name$/]);
+  const description = fieldValue([/^description$/, /^desc$/]);
+  return {
+    name: normalizeSpaceLabel(title || identityName),
+    description: normalizeSpaceDescription(description)
+  };
+}
+
+async function discoverXmppSpacesService({
+  connection = null,
+  prefs = {},
+  force = false
+} = {}, deps = {}) {
+  if (!connection || typeof deps.$iq !== "function" || typeof deps.xmppSendIqPromiseFn !== "function") return null;
+  const domain = typeof deps.xmppDomainFromJidFn === "function"
+    ? deps.xmppDomainFromJidFn(prefs?.xmppJid || "")
+    : "";
+  if (!domain) return null;
+  const cacheKey = domain.toLowerCase();
+  const now = Date.now();
+  const cached = XEP_0503_SERVICE_CACHE.get(cacheKey);
+  if (!force && cached && cached.expiresAt > now) return cached.value;
+  if (!force && XEP_0503_SERVICE_IN_FLIGHT.has(cacheKey)) {
+    return XEP_0503_SERVICE_IN_FLIGHT.get(cacheKey);
+  }
+  const task = (async () => {
+    const candidates = new Set([domain, `pubsub.${domain}`]);
+    try {
+      const itemsStanza = await deps.xmppSendIqPromiseFn(
+        connection,
+        deps.$iq({ type: "get", to: domain }).c("query", { xmlns: "http://jabber.org/protocol/disco#items" }),
+        7000
+      );
+      [...itemsStanza.getElementsByTagName("item")].forEach((node) => {
+        const jid = (node.getAttribute("jid") || "").toString().trim();
+        if (jid) candidates.add(jid);
+      });
+    } catch {
+      // Ignore discovery failures.
+    }
+    const namespace = (deps.XMPP_SPACES_NAMESPACE || "urn:xmpp:spaces:0").toString();
+    const checks = [...candidates].slice(0, 18);
+    for (const jid of checks) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const infoStanza = await deps.xmppSendIqPromiseFn(
+          connection,
+          deps.$iq({ type: "get", to: jid }).c("query", { xmlns: "http://jabber.org/protocol/disco#info" }),
+          7000
+        );
+        const features = parseDiscoFeatures(infoStanza);
+        if (features.includes(namespace)) {
+          return jid;
+        }
+      } catch {
+        // Ignore candidates that error.
+      }
+    }
+    return null;
+  })()
+    .then((value) => {
+      XEP_0503_SERVICE_CACHE.set(cacheKey, {
+        value,
+        expiresAt: Date.now() + XEP_0503_SERVICE_TTL_MS
+      });
+      return value;
+    })
+    .finally(() => {
+      XEP_0503_SERVICE_IN_FLIGHT.delete(cacheKey);
+    });
+  XEP_0503_SERVICE_IN_FLIGHT.set(cacheKey, task);
+  return task;
+}
+
+async function fetchXmppSpacesNodes({
+  connection = null,
+  serviceJid = "",
+  force = false
+} = {}, deps = {}) {
+  if (!connection || !serviceJid || typeof deps.$iq !== "function" || typeof deps.xmppSendIqPromiseFn !== "function") return [];
+  const cacheKey = `${serviceJid}`.toLowerCase();
+  const now = Date.now();
+  const cached = XEP_0503_SPACE_NODE_CACHE.get(cacheKey);
+  if (!force && cached && cached.expiresAt > now) return cached.value || [];
+  if (!force && XEP_0503_SPACE_NODE_IN_FLIGHT.has(cacheKey)) {
+    return XEP_0503_SPACE_NODE_IN_FLIGHT.get(cacheKey);
+  }
+  const task = (async () => {
+    try {
+      const stanza = await deps.xmppSendIqPromiseFn(
+        connection,
+        deps.$iq({ type: "get", to: serviceJid }).c("query", { xmlns: "http://jabber.org/protocol/disco#items" }),
+        7000
+      );
+      const rawNodes = [...stanza.getElementsByTagName("item")]
+        .map((node) => {
+          const nodeId = (node.getAttribute("node") || "").toString().trim();
+          if (!nodeId) return null;
+          const name = (node.getAttribute("name") || "").toString().trim();
+          return {
+            node: nodeId,
+            name,
+            spaceId: spaceIdFromServiceNode(serviceJid, nodeId)
+          };
+        })
+        .filter(Boolean);
+      const namespace = (deps.XMPP_SPACES_NAMESPACE || "urn:xmpp:spaces:0").toString();
+      const annotated = [];
+      for (const entry of rawNodes.slice(0, 40)) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const infoStanza = await deps.xmppSendIqPromiseFn(
+            connection,
+            deps.$iq({ type: "get", to: serviceJid }).c("query", {
+              xmlns: "http://jabber.org/protocol/disco#info",
+              node: entry.node
+            }),
+            7000
+          );
+          const fields = parseDiscoInfoFields(infoStanza);
+          const typeField = fields.find((field) => field.key === "pubsub#type");
+          if (typeField && typeField.value && typeField.value !== namespace) continue;
+          const meta = parseSpaceMetaFromDiscoInfo(infoStanza);
+          annotated.push({
+            ...entry,
+            name: meta.name || entry.name,
+            description: meta.description || ""
+          });
+        } catch {
+          annotated.push(entry);
+        }
+      }
+      return annotated;
+    } catch {
+      return [];
+    }
+  })()
+    .then((value) => {
+      XEP_0503_SPACE_NODE_CACHE.set(cacheKey, {
+        value,
+        expiresAt: Date.now() + XEP_0503_NODE_TTL_MS
+      });
+      return value;
+    })
+    .finally(() => {
+      XEP_0503_SPACE_NODE_IN_FLIGHT.delete(cacheKey);
+    });
+  XEP_0503_SPACE_NODE_IN_FLIGHT.set(cacheKey, task);
+  return task;
+}
+
+async function fetchXmppSpaceNodeItems({
+  connection = null,
+  serviceJid = "",
+  node = ""
+} = {}, deps = {}) {
+  if (!connection || !serviceJid || !node || typeof deps.$iq !== "function" || typeof deps.xmppSendIqPromiseFn !== "function") return [];
+  const stanza = await deps.xmppSendIqPromiseFn(
+    connection,
+    deps.$iq({ type: "get", to: serviceJid })
+      .c("pubsub", { xmlns: deps.XMPP_PUBSUB_NAMESPACE || "http://jabber.org/protocol/pubsub" })
+      .c("items", { node }),
+    7000
+  );
+  if (typeof deps.parseXmppBookmarksFn === "function") {
+    return deps.parseXmppBookmarksFn(stanza);
+  }
+  if (typeof deps.parseXmppBookmarksViaXepFn === "function") {
+    return deps.parseXmppBookmarksViaXepFn(stanza);
+  }
+  return [];
+}
 function parseSpaceMetadataFromBookmarkExtensions(extensionsXml = "", {
   fallbackJid = ""
 } = {}) {
@@ -188,5 +398,10 @@ globalThis.SHITCORD67_XEP_0503_SPACES = {
   registerSpaceRecord,
   listSpaceRecords,
   normalizeSpaceKey,
-  parseSpaceMetadataFromBookmarkExtensions
+  parseSpaceMetadataFromBookmarkExtensions,
+  discoverXmppSpacesService,
+  fetchXmppSpacesNodes,
+  fetchXmppSpaceNodeItems,
+  parseSpaceMetaFromDiscoInfo,
+  spaceIdFromServiceNode
 };

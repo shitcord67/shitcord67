@@ -510,11 +510,82 @@
         })
         : Promise.resolve([])
     ]);
+    let spaceRooms = [];
+    let spaceNodes = [];
+    let spaceService = "";
+    if (typeof deps.discoverXmppSpacesServiceFn === "function") {
+      try {
+        spaceService = await deps.discoverXmppSpacesServiceFn({
+          connection: deps.xmppConnection,
+          prefs,
+          force: forceDiscovery
+        }, {
+          $iq: deps.$iq,
+          xmppSendIqPromiseFn: deps.xmppSendIqPromiseFn,
+          xmppDomainFromJidFn: deps.xmppDomainFromJidFn,
+          XMPP_SPACES_NAMESPACE: deps.XMPP_SPACES_NAMESPACE
+        });
+      } catch {
+        spaceService = "";
+      }
+    }
+    if (spaceService && typeof deps.fetchXmppSpacesNodesFn === "function") {
+      try {
+        spaceNodes = await deps.fetchXmppSpacesNodesFn({
+          connection: deps.xmppConnection,
+          serviceJid: spaceService,
+          force: forceDiscovery
+        }, {
+          $iq: deps.$iq,
+          xmppSendIqPromiseFn: deps.xmppSendIqPromiseFn,
+          XMPP_SPACES_NAMESPACE: deps.XMPP_SPACES_NAMESPACE
+        });
+      } catch {
+        spaceNodes = [];
+      }
+    }
+    if (spaceService && spaceNodes.length > 0 && typeof deps.fetchXmppSpaceNodeItemsFn === "function") {
+      const fetched = await Promise.allSettled(spaceNodes.map((space) => (
+        deps.fetchXmppSpaceNodeItemsFn({
+          connection: deps.xmppConnection,
+          serviceJid: spaceService,
+          node: space.node
+        }, {
+          $iq: deps.$iq,
+          xmppSendIqPromiseFn: deps.xmppSendIqPromiseFn,
+          XMPP_PUBSUB_NAMESPACE: deps.XMPP_PUBSUB_NAMESPACE,
+          parseXmppBookmarksFn: deps.parseXmppBookmarksFn,
+          parseXmppBookmarksViaXepFn: deps.parseXmppBookmarksViaXepFn
+        })
+      )));
+      fetched.forEach((result, index) => {
+        if (result.status !== "fulfilled") return;
+        const items = Array.isArray(result.value) ? result.value : [];
+        const space = spaceNodes[index];
+        const spaceId = (space?.spaceId || "").toString().trim();
+        const spaceName = (space?.name || "").toString().trim();
+        const spaceDescription = (space?.description || "").toString().trim();
+        if (spaceId && typeof deps.xmppRegisterSpaceRecordFn === "function") {
+          deps.xmppRegisterSpaceRecordFn({
+            spaceId,
+            spaceName,
+            spaceDescription
+          });
+        }
+        items.forEach((entry) => {
+          const next = { ...entry };
+          if (spaceId && !next.spaceId) next.spaceId = spaceId;
+          if (spaceName && !next.spaceName) next.spaceName = spaceName;
+          if (spaceDescription && !next.spaceDescription) next.spaceDescription = spaceDescription;
+          spaceRooms.push(next);
+        });
+      });
+    }
     const bookmarkItems = bookmarkResult.status === "fulfilled" ? bookmarkResult.value : [];
     const discoveredRooms = discoveryResult.status === "fulfilled" ? discoveryResult.value : [];
     const mergedRoomsRaw = typeof deps.mergeXmppBookmarksFn === "function"
-      ? deps.mergeXmppBookmarksFn(bookmarkItems, discoveredRooms)
-      : [...bookmarkItems, ...discoveredRooms];
+      ? deps.mergeXmppBookmarksFn(bookmarkItems, discoveredRooms, spaceRooms)
+      : [...bookmarkItems, ...discoveredRooms, ...spaceRooms];
     const mergedByJid = new Map();
     for (const entry of mergedRoomsRaw) {
       const bare = typeof deps.xmppBareJidFn === "function" ? deps.xmppBareJidFn(entry?.jid || "") : "";

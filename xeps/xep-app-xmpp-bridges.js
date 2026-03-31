@@ -351,7 +351,19 @@ async function syncXmppSpacesNow({
     looksLikeXmppMucJidFn: looksLikeXmppMucJid,
     decodeHtmlEntitiesFn: decodeHtmlEntities,
     xmppRoomByJid,
-    xmppMucJoinStateByRoomJid
+    xmppMucJoinStateByRoomJid,
+    discoverXmppSpacesServiceFn: XEP_0503_SPACES_GLOBAL.discoverXmppSpacesService,
+    fetchXmppSpacesNodesFn: XEP_0503_SPACES_GLOBAL.fetchXmppSpacesNodes,
+    fetchXmppSpaceNodeItemsFn: XEP_0503_SPACES_GLOBAL.fetchXmppSpaceNodeItems,
+    parseSpaceMetaFromDiscoInfoFn: XEP_0503_SPACES_GLOBAL.parseSpaceMetaFromDiscoInfo,
+    spaceIdFromServiceNodeFn: XEP_0503_SPACES_GLOBAL.spaceIdFromServiceNode,
+    xmppRegisterSpaceRecordFn: xmppRegisterSpaceRecord,
+    XMPP_SPACES_NAMESPACE,
+    XMPP_PUBSUB_NAMESPACE,
+    $iq,
+    xmppSendIqPromiseFn: xmppSendIqPromise,
+    xmppDomainFromJidFn: xmppDomainFromJid,
+    parseXmppBookmarksViaXepFn: parseXmppBookmarksViaXep
   });
 }
 

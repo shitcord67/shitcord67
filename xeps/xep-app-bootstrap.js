@@ -23,6 +23,7 @@
     XMPP_PLAIN_ONLY_DOMAINS: new Set(["xmpp.jp"]),
     XMPP_MAM_NAMESPACE: "urn:xmpp:mam:2",
     XMPP_PUBSUB_NAMESPACE: "http://jabber.org/protocol/pubsub",
+    XMPP_SPACES_NAMESPACE: "urn:xmpp:spaces:0",
     XMPP_BOOKMARKS_NAMESPACE: "urn:xmpp:bookmarks:1",
     XMPP_BOOKMARKS_NOTIFY_FEATURE: "urn:xmpp:bookmarks:1+notify",
     XMPP_BOOKMARKS_LEGACY_NAMESPACE: "storage:bookmarks",
