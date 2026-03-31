@@ -8,11 +8,14 @@ function renderDock() {
   if (!account) return;
   const conversation = getActiveConversation();
   const guildId = conversation?.type === "channel" ? getActiveGuild()?.id || null : null;
+  const displayName = displayNameForAccount(account, guildId);
+  const username = `@${account.username || "user"}`;
+  const statusText = displayStatus(account, guildId);
   const dockPlate = ui.selfProfileBtn instanceof HTMLElement
     ? ui.selfProfileBtn.closest(".account-dock")
     : null;
   applyNameplatePlateStyle(dockPlate, account);
-  ui.dockName.textContent = displayNameForAccount(account, guildId);
+  ui.dockName.textContent = displayName;
   applyNameplateStyle(ui.dockName, null);
   const dockTag = accountGuildTag(account);
   if (dockTag) {
@@ -28,7 +31,21 @@ function renderDock() {
     });
     ui.dockName.appendChild(chip);
   }
-  ui.dockStatus.textContent = displayStatus(account, guildId);
+  if (ui.dockStatus) {
+    ui.dockStatus.textContent = "";
+    const status = document.createElement("span");
+    status.className = "dock-status__status";
+    status.textContent = statusText;
+    const usernameLine = document.createElement("span");
+    usernameLine.className = "dock-status__username";
+    usernameLine.textContent = username;
+    ui.dockStatus.appendChild(status);
+    ui.dockStatus.appendChild(usernameLine);
+  }
+  if (ui.selfProfileBtn) {
+    ui.selfProfileBtn.title = `${displayName} (${username})`;
+    ui.selfProfileBtn.setAttribute("aria-label", `Open profile for ${displayName}`);
+  }
   applyAvatarStyle(ui.dockAvatar, account, guildId);
   applyAvatarDecoration(ui.dockAvatar, account);
   ui.dockPresenceDot.className = `dock-presence-dot presence-${normalizePresence(account.presence)}`;

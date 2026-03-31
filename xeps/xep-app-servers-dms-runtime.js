@@ -483,6 +483,7 @@ function renderDmList() {
   ui.dmList.innerHTML = "";
   const currentAccount = getCurrentAccount();
   if (!currentAccount) return;
+  const prefs = getPreferences();
   renderDmHomeSidebarNav();
   const incomingRequests = listXmppContactRequests("incoming");
   const outgoingRequests = listXmppContactRequests("outgoing");

@@ -18209,3 +18209,4 @@ AM.
 2026-03-31T01:57:54+02:00 USER PROMPT: Continue: Can you please complete implementing the spaces priority TODO?
 2026-03-31T02:46:48+02:00 USER PROMPT: Wait why do I get "Allow Docs Access" on Linux desktop when I do have access to the file system?
 2026-03-31T02:47:16+02:00 USER PROMPT: otr.min.js:12 Uncaught TypeError: BigInt.str2bigInt is not a function ... xep-app-ui-events-runtime.js:243:38
+2026-03-31T03:01:36+02:00 USER PROMPT: build-all/electron run shows prefs is not defined in xep-app-servers-dms-runtime.js, XMPP_OTR_NAMESPACE is not defined, cannot switch to DMs or see chat lists, lower-left shows User instead of my user name; also make the lower-left account dock more Discord-like with avatar + display name + status snippet and @username on hover.

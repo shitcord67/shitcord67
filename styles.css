@@ -1426,6 +1426,28 @@ body[data-platform="android"] .left-bottom-dock {
   text-overflow: ellipsis;
 }
 
+.dock-status__status,
+.dock-status__username {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dock-status__username {
+  display: none;
+}
+
+.account-dock__main:hover .dock-status__status,
+.account-dock__main:focus-visible .dock-status__status {
+  display: none;
+}
+
+.account-dock__main:hover .dock-status__username,
+.account-dock__main:focus-visible .dock-status__username {
+  display: block;
+}
+
 .chat-panel {
   background: var(--bg-main);
   display: grid;
