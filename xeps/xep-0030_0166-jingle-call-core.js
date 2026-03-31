@@ -1092,7 +1092,7 @@ function handleXmppJingleMessageAction(actionPayload, { peerJid = "", screenShar
           reasonTone: "error"
         });
         forgetXmppCallSession(id);
-      }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
+      }, XMPP_CALL_RING_TIMEOUT_MS);
       showToast("XMPP peer is ringing.");
       if (addSystemDmMessageByPeerJid(peer, `XMPP peer is ringing (${id.slice(0, 8)}).`)) {
         refreshDmUiForPeerJid(peer);
@@ -1248,7 +1248,7 @@ function xmppStartOutgoingCallProposal({
     if (!entry || (entry.state !== "proposed" && entry.state !== "ringing")) return;
     if (typeof onNoResponse === "function") onNoResponse();
     forgetXmppCallSession(sessionId);
-  }, XMPP_CALL_SIGNAL_TIMEOUT_MS);
+  }, XMPP_CALL_RING_TIMEOUT_MS);
   xmppCallSessionById.set(sessionId, {
     id: sessionId,
     peerJid: peerBare,

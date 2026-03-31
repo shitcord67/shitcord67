@@ -49,7 +49,7 @@ const {
 } = XEP_APP_BOOTSTRAP;
 const CALL_ROOM_URL_UTILS_GLOBAL = globalThis.SHITCORD67_CALL_ROOM_URL_UTILS || {};
 const WEB_CALL_INVITE_MAX_AGE_MS = 90_000;
-const WEB_CALL_INVITE_TIMEOUT_MS = 35_000;
+const WEB_CALL_INVITE_TIMEOUT_MS = 5 * 60 * 1000;
 const WEB_CALL_INVITE_SEEN_MAX = 240;
 const XMPP_CALL_DEFAULT_MEDIA = ["audio"];
 const XMPP_HTTP_UPLOAD_DISCOVERY_TTL_MS = 8 * 60 * 1000;
@@ -543,6 +543,7 @@ const xmppCallSessionIdByInviteId = new Map();
 const xmppLatestIncomingCallSessionByPeer = new Map();
 const xmppLatestOutgoingCallSessionByPeer = new Map();
 const XMPP_CALL_SIGNAL_TIMEOUT_MS = 15_000;
+const XMPP_CALL_RING_TIMEOUT_MS = 5 * 60 * 1000;
 const XMPP_CALL_ICE_GATHER_TIMEOUT_MS = 4200;
 const XMPP_CALL_ICE_MAX_CANDIDATES = 24;
 const XMPP_CALL_TRANSPORT_NOTICE_INTERVAL_MS = 5000;

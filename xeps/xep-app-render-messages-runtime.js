@@ -349,6 +349,10 @@ async function fetchLinkEmbedMeta(url = "") {
       });
       return next;
     } catch {
+      messageLinkEmbedMetaCache.set(normalized, {
+        value: null,
+        expiresAt: Date.now() + Math.min(MESSAGE_LINK_EMBED_META_TTL_MS, 5 * 60 * 1000)
+      });
       return null;
     }
   })().finally(() => {
@@ -383,7 +387,7 @@ async function hydrateMessageLinkEmbed(card, url, ui = {}) {
     frame.loading = "lazy";
     frame.referrerPolicy = "no-referrer";
     frame.src = meta.embedUrl;
-    frame.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share";
+    frame.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
     frame.allowFullscreen = true;
     card.classList.add("message-link-embed--youtube");
     if (ui.thumb instanceof HTMLElement) {
@@ -835,6 +839,7 @@ function renderMessages() {
 
   const renderCallBar = () => {
     if (!conversation) return;
+    if (xmppActiveNativeCallSessionId || activeWebCallLightbox) return;
     const current = getCurrentAccount();
     const callBar = document.createElement("section");
     callBar.className = "call-grid";

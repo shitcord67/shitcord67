@@ -1986,6 +1986,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
     });
   }
   const remoteStreams = xmppRemoteStreamListForSession(sid);
+  if (remoteStreams.length === 0) shell.classList.add("native-call-surface--waiting");
   syncXmppNativeCallRemoteAudioSinks(sid, remoteStreams, prefs.callAudioOutputId || "");
   remoteStreams.forEach((stream, index) => {
     const tile = document.createElement("div");
