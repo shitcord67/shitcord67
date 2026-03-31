@@ -10,16 +10,25 @@
     const uniquePeers = [...new Set(peers.map((entry) => toBareJid(entry || "")).filter(Boolean))];
     const targets = [];
     const seenIds = new Map();
+    let localDeviceId = "";
+    if (ownBare && typeof storeForAccountFn === "function") {
+      const localStore = storeForAccountFn(ownBare);
+      const localId = localStore ? await localStore.getLocalRegistrationId() : null;
+      localDeviceId = localId ? String(localId) : "";
+    }
     for (const peer of uniquePeers) {
       // eslint-disable-next-line no-await-in-loop
       const devices = await fetchDeviceListFn(peer);
-      if (peer === ownBare && devices.length === 0 && typeof storeForAccountFn === "function") {
-        const store = storeForAccountFn(ownBare);
-        // eslint-disable-next-line no-await-in-loop
-        const localId = store ? await store.getLocalRegistrationId() : null;
-        if (localId) devices.push(String(localId));
-      }
-      devices.forEach((deviceId) => {
+      const filteredDevices = devices.filter((deviceId) => {
+        const normalized = String(deviceId || "").trim();
+        if (!normalized) return false;
+        // Never encrypt for the currently active local device.
+        // Local UI already has the plaintext, and self-sessions on the active device
+        // cause libsignal session corruption and carbon/decrypt failures.
+        if (peer === ownBare && localDeviceId && normalized === localDeviceId) return false;
+        return true;
+      });
+      filteredDevices.forEach((deviceId) => {
         if (!deviceId) return;
         const existing = seenIds.get(deviceId);
         if (existing && existing !== peer) {

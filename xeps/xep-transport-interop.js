@@ -1956,6 +1956,11 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
     addXmppDebugEvent("error", "OMEMO device collision", { error: String(error?.message || error) });
     return null;
   }
+  targets = targets.filter((target) => {
+    const jid = xmppBareJid(target?.jid || "");
+    const deviceId = String(target?.deviceId || "").trim();
+    return !(jid === ownBare && deviceId === String(senderDeviceId));
+  });
   if (targets.length === 0) return null;
   const contentPayload = await xmppOmemoEncryptPlaintextContentCore(plaintext, {
     arrayBufferToBase64,
@@ -2029,6 +2034,22 @@ async function xmppOmemoEncryptMessageForPeers(peers, plaintext, ownBare) {
     iv: contentPayload.ivBase64,
     payload: contentPayload.payloadBase64
   };
+}
+
+function xmppOmemoShouldRetryDecryptError(errorMessage = "") {
+  const text = (errorMessage || "").toString();
+  if (!text) return false;
+  if (/Missing OMEMO key for device/i.test(text)) return true;
+  if (/Missing OMEMO payload keys/i.test(text)) return true;
+  if (/Missing OMEMO sender device id/i.test(text)) return true;
+  if (/Missing local OMEMO registration id/i.test(text)) return true;
+  if (/Missing identity key/i.test(text)) return true;
+  if (/Missing OMEMO key payload/i.test(text)) return true;
+  if (/Message key not found/i.test(text)) return false;
+  if (/counter was repeated/i.test(text)) return false;
+  if (/Bad MAC/i.test(text)) return false;
+  if (/Duplicate PreKeyMessage/i.test(text)) return false;
+  return false;
 }
 
 async function xmppOmemoDecryptPayload(peerBare, payload, ownBare) {
@@ -2113,6 +2134,7 @@ function xmppOmemoTryDecryptIntoMessage({
         message.xmppOmemoDecryptError = (error || "").toString();
         if (typeof onUpdated === "function") onUpdated();
         void maybeHandleMissingKey(error);
+        if (!xmppOmemoShouldRetryDecryptError(error)) return;
         if (message.xmppOmemoRetryAttempted) return;
         message.xmppOmemoRetryAttempted = true;
         const retry = async () => {

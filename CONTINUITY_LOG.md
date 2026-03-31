@@ -18236,3 +18236,7 @@ AM.
 [... full user prompt omitted in this continuity entry for brevity due to terminal transport limits ...]
 
 Also I noticed that sending OMEMO messages to other clients doesn't work. Then online indicators for some users are still behind their profile pictures, why? Also you might take a look at discordinvestigation cause that contains a lot of data that should help in making out client similar looking to Discord.
+[2026-03-31T03:36:00Z] USER PROMPT
+Do you think there is anything that looks a bit weird or could look better or does just not fit to a cool, lean, fancy chat client?
+[2026-03-31T03:40:00Z] USER PROMPT
+Focus on fixing OMEMO/libsignal bugs, explain why Dino shows the plaintext fallback body "This message is encrypted with OMEMO.", and note Discord-like embedded call UI expectations. Full prompt was very large in terminal transport and is omitted here; see conversation transcript for exact logs and examples.
