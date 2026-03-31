@@ -321,7 +321,7 @@ function openWebCallLightbox(url, {
         url
       }
     : null;
-  openConferenceLightbox(url, { title });
+  renderEmbeddedWebCallSurface();
   if (conv) {
     const systemText = incoming
       ? `Joined ${fromLabel || "peer"} ${screenShare ? "screen-share" : "voice/video"} call.`
@@ -331,6 +331,227 @@ function openWebCallLightbox(url, {
       saveState();
     }
   }
+}
+
+function activeConversationMatchesWebCall() {
+  const conversation = getActiveConversation();
+  if (!conversation || !activeWebCallLightbox) return false;
+  return (conversation.id || "") === (activeWebCallLightbox.conversationId || "")
+    && (conversation.type || "") === (activeWebCallLightbox.conversationType || "");
+}
+
+function closeEmbeddedWebCall({ announce = true } = {}) {
+  if (!activeWebCallLightbox) {
+    if (typeof clearEmbeddedCallHost === "function") clearEmbeddedCallHost({ preserveSession: true });
+    return false;
+  }
+  const current = activeWebCallLightbox;
+  activeWebCallLightbox = null;
+  if (typeof clearEmbeddedCallHost === "function") clearEmbeddedCallHost({ preserveSession: true });
+  if (announce) {
+    const conversation = resolveConversationById(current.conversationId, current.conversationType);
+    if (conversation) {
+      const endedText = current.incoming
+        ? `Call with ${current.fromLabel || "peer"} ended.`
+        : `Your ${current.screenShare ? "screen-share" : "voice/video"} call ended.`;
+      if (addSystemMessageToConversation(conversation, endedText)) {
+        refreshConversationUi(conversation);
+        saveState();
+      }
+    }
+  }
+  return true;
+}
+
+function renderEmbeddedWebCallSurface() {
+  if (!(ui?.embeddedCallHost instanceof HTMLElement)) return;
+  if (!activeWebCallLightbox || !activeConversationMatchesWebCall()) {
+    if (typeof clearEmbeddedCallHost === "function" && !xmppActiveNativeCallSessionId) {
+      clearEmbeddedCallHost({ preserveSession: true });
+    }
+    return;
+  }
+  const conversation = getActiveConversation();
+  const current = getCurrentAccount();
+  const peerAccount = conversation?.type === "dm" && current
+    ? dmPeerAccountForThread(conversation.thread, current.id)
+    : null;
+  const fromLabel = activeWebCallLightbox.fromLabel
+    || (peerAccount ? displayNameForAccount(peerAccount, null) : "Participants");
+  const title = activeWebCallLightbox.screenShare ? "Screen-share call" : "Voice/video call";
+  ui.embeddedCallHost.innerHTML = "";
+  ui.embeddedCallHost.hidden = false;
+  document.body.dataset.embeddedCall = "on";
+
+  const shell = document.createElement("div");
+  shell.className = "native-call-surface native-call-surface--embedded native-call-surface--web";
+
+  const topbar = document.createElement("div");
+  topbar.className = "native-call-surface__topbar";
+  const channelCard = document.createElement("div");
+  channelCard.className = "native-call-surface__channel";
+  const avatar = createNativeCallAvatarNode(peerAccount, fromLabel);
+  const channelText = document.createElement("div");
+  channelText.className = "native-call-surface__channel-text";
+  const eyebrow = document.createElement("span");
+  eyebrow.className = "native-call-surface__eyebrow";
+  eyebrow.textContent = conversation?.type === "dm" ? "Direct Message Call" : "Channel Call";
+  const titleEl = document.createElement("strong");
+  titleEl.className = "native-call-surface__title";
+  titleEl.textContent = fromLabel;
+  const meta = document.createElement("span");
+  meta.className = "native-call-surface__meta";
+  meta.textContent = [title, activeWebCallLightbox.incoming ? "joined" : "started"].join(" · ");
+  channelText.append(eyebrow, titleEl, meta);
+  channelCard.append(avatar, channelText);
+
+  const utilityBar = document.createElement("div");
+  utilityBar.className = "native-call-surface__utility";
+  const pinsBtn = document.createElement("button");
+  pinsBtn.type = "button";
+  pinsBtn.className = "native-call-surface__toggle";
+  pinsBtn.textContent = "Pins";
+  bindNativeCallActionButton(pinsBtn, () => ui.openPinsBtn?.click());
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "native-call-surface__toggle";
+  const memberBtn = document.createElement("button");
+  memberBtn.type = "button";
+  memberBtn.className = "native-call-surface__toggle";
+  if (conversation?.type === "dm") {
+    addBtn.textContent = "Add Friend";
+    bindNativeCallActionButton(addBtn, () => {
+      if (ui.addFriendDialog instanceof HTMLDialogElement && typeof ui.addFriendDialog.showModal === "function") {
+        try {
+          ui.addFriendDialog.showModal();
+        } catch {
+          ui.addFriendDialog.setAttribute("open", "open");
+        }
+      }
+    });
+    memberBtn.classList.add("is-disabled-hint");
+    memberBtn.textContent = "Profile Hidden";
+    memberBtn.disabled = true;
+    memberBtn.title = "Profile sidebar is unavailable while the call strip is active.";
+  } else {
+    addBtn.textContent = "Add People";
+    addBtn.classList.add("is-disabled-hint");
+    addBtn.disabled = true;
+    addBtn.title = "Adding participants is not wired for this call yet.";
+    const memberHidden = getPreferences().hideMemberPanel === "on";
+    memberBtn.textContent = memberHidden ? "Show Members" : "Hide Members";
+    bindNativeCallActionButton(memberBtn, () => {
+      toggleMemberPanelVisibility();
+      window.setTimeout(() => renderEmbeddedWebCallSurface(), 0);
+    });
+  }
+  const searchBtn = document.createElement("button");
+  searchBtn.type = "button";
+  searchBtn.className = "native-call-surface__toggle native-call-surface__search";
+  searchBtn.setAttribute("aria-label", "Search chat");
+  searchBtn.title = "Search chat";
+  const searchIcon = document.createElement("span");
+  searchIcon.className = "native-call-surface__button-icon";
+  searchIcon.textContent = "⌕";
+  const searchLabel = document.createElement("span");
+  searchLabel.textContent = "Search chat";
+  searchBtn.append(searchIcon, searchLabel);
+  bindNativeCallActionButton(searchBtn, () => ui.openFindBtn?.click());
+  utilityBar.append(pinsBtn, addBtn, memberBtn, searchBtn);
+  topbar.append(channelCard, utilityBar);
+
+  const body = document.createElement("div");
+  body.className = "native-call-surface__body";
+  const roster = document.createElement("div");
+  roster.className = "native-call-surface__roster";
+  const localParticipant = document.createElement("button");
+  localParticipant.type = "button";
+  localParticipant.className = "native-call-surface__participant is-active";
+  localParticipant.append(
+    createNativeCallAvatarNode(current, "You"),
+    Object.assign(document.createElement("span"), { className: "native-call-surface__participant-name", textContent: "You" }),
+    Object.assign(document.createElement("span"), { className: "native-call-surface__participant-meta", textContent: "local" })
+  );
+  const remoteParticipant = document.createElement("button");
+  remoteParticipant.type = "button";
+  remoteParticipant.className = "native-call-surface__participant";
+  remoteParticipant.append(
+    createNativeCallAvatarNode(peerAccount, fromLabel),
+    Object.assign(document.createElement("span"), { className: "native-call-surface__participant-name", textContent: fromLabel }),
+    Object.assign(document.createElement("span"), { className: "native-call-surface__participant-meta", textContent: activeWebCallLightbox.screenShare ? "sharing" : "in call" })
+  );
+  roster.append(localParticipant, remoteParticipant);
+
+  const stageWrap = document.createElement("div");
+  stageWrap.className = "native-call-surface__stage-wrap";
+  const stageHero = document.createElement("div");
+  stageHero.className = "native-call-surface__stage";
+  const frameTile = document.createElement("div");
+  frameTile.className = "native-call-surface__tile native-call-surface__tile--focused";
+  const frame = document.createElement("iframe");
+  frame.className = "native-call-surface__video native-call-surface__video--frame";
+  frame.src = activeWebCallLightbox.url;
+  frame.loading = "eager";
+  frame.allow = "camera; microphone; display-capture; fullscreen; autoplay; clipboard-write";
+  frame.referrerPolicy = "no-referrer";
+  frameTile.appendChild(frame);
+  stageHero.appendChild(frameTile);
+
+  const dock = document.createElement("div");
+  dock.className = "native-call-surface__dock";
+  const dockMain = document.createElement("div");
+  dockMain.className = "native-call-surface__dock-main";
+  const dockExtras = document.createElement("div");
+  dockExtras.className = "native-call-surface__dock-extras";
+  const addDisabledControl = (label, icon) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "native-call-surface__toggle is-disabled-hint";
+    btn.disabled = true;
+    btn.title = `${label} is controlled inside the call embed.`;
+    btn.textContent = label;
+    decorateNativeCallActionButton(btn, { icon, label, variant: "ghost" });
+    return btn;
+  };
+  const externalBtn = document.createElement("button");
+  externalBtn.type = "button";
+  externalBtn.className = "native-call-surface__toggle";
+  bindNativeCallActionButton(externalBtn, () => {
+    if (nativeWindowOpen) nativeWindowOpen(activeWebCallLightbox.url, "_blank", "noopener,noreferrer");
+    else openExternalUrlInClient(activeWebCallLightbox.url);
+  });
+  decorateNativeCallActionButton(externalBtn, { icon: "↗", label: "Open External", variant: "ghost" });
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.className = "native-call-surface__toggle";
+  bindNativeCallActionButton(copyBtn, async () => {
+    const ok = await copyText(activeWebCallLightbox.url);
+    showToast(ok ? "Call URL copied." : "Could not copy call URL.", { tone: ok ? "info" : "error" });
+  });
+  decorateNativeCallActionButton(copyBtn, { icon: "⧉", label: "Copy URL", variant: "ghost" });
+  const endBtn = document.createElement("button");
+  endBtn.type = "button";
+  endBtn.className = "native-call-surface__end native-call-surface__dock-btn";
+  bindNativeCallActionButton(endBtn, () => closeEmbeddedWebCall({ announce: true }));
+  decorateNativeCallActionButton(endBtn, { icon: "✕", label: "Disconnect", variant: "danger" });
+  dockMain.append(
+    addDisabledControl("Mute", "🎙"),
+    addDisabledControl("Camera", "📷"),
+    addDisabledControl("Share", "🖥"),
+    endBtn
+  );
+  dockExtras.append(
+    addDisabledControl("Apps", "◫"),
+    addDisabledControl("Soundboard", "♪"),
+    addDisabledControl("More", "⋯"),
+    externalBtn,
+    copyBtn
+  );
+  dock.append(dockMain, dockExtras);
+  stageWrap.append(stageHero, dock);
+  body.append(roster, stageWrap);
+  shell.append(topbar, body);
+  ui.embeddedCallHost.appendChild(shell);
 }
 
 function ensureXmppCallSpeakingContext() {

@@ -455,6 +455,8 @@ function appendMessageLinkEmbeds(messageRow, textNode, { attachments = [], limit
 function renderMessages() {
   if (xmppActiveNativeCallSessionId) {
     renderNativeXmppCallSurface(xmppActiveNativeCallSessionId);
+  } else if (activeWebCallLightbox && typeof renderEmbeddedWebCallSurface === "function") {
+    renderEmbeddedWebCallSurface();
   } else if (typeof clearEmbeddedNativeCallHost === "function") {
     clearEmbeddedNativeCallHost({ preserveSession: true });
   }
@@ -857,6 +859,9 @@ function renderMessages() {
     let tiles = [];
 
     if (conversation.type === "dm" && current) {
+      if (activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
+        return;
+      }
       const peerAccount = dmPeerAccountForThread(dmThread, current.id);
       const peerJid = xmppPeerJidForDmThread(dmThread, current);
       peerBare = xmppBareJid(peerJid);
@@ -869,12 +874,7 @@ function renderMessages() {
       if (!session && activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
         labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";
         statusText = activeWebCallLightbox.incoming ? "in progress" : "starting";
-        openAction = () => openWebCallLightbox(activeWebCallLightbox.url || conversationCallUrl(conversation, {}), {
-          conversation,
-          screenShare: Boolean(activeWebCallLightbox.screenShare),
-          incoming: Boolean(activeWebCallLightbox.incoming),
-          fromLabel: activeWebCallLightbox.fromLabel || ""
-        });
+        openAction = () => renderEmbeddedWebCallSurface();
       }
       if (!labelText) return;
       const localTile = {
@@ -895,23 +895,7 @@ function renderMessages() {
       };
       tiles = [localTile, peerTile];
     } else if (activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
-      labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";
-      statusText = activeWebCallLightbox.incoming ? "in progress" : "starting";
-      subtitleText = "External call";
-      openAction = () => openWebCallLightbox(activeWebCallLightbox.url || conversationCallUrl(conversation, {}), {
-        conversation,
-        screenShare: Boolean(activeWebCallLightbox.screenShare),
-        incoming: Boolean(activeWebCallLightbox.incoming),
-        fromLabel: activeWebCallLightbox.fromLabel || ""
-      });
-      tiles = [{
-        id: "local",
-        name: "You",
-        account: current,
-        muted: false,
-        videoOff: false,
-        speakingKey: "local"
-      }];
+      return;
     } else {
       return;
     }

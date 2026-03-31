@@ -188,6 +188,7 @@ function closeMediaLightbox({ force = false } = {}) {
   const overlay = document.getElementById("mediaLightbox");
   if (!overlay) return false;
   const hadNativeSurface = Boolean(overlay.querySelector(".native-call-surface"));
+  const hadWebCallFrame = Boolean(activeWebCallLightbox && overlay.querySelector(".media-lightbox__media--frame"));
   overlay.hidden = true;
   const stage = overlay.querySelector(".media-lightbox__stage");
   if (stage) stage.innerHTML = "";
@@ -206,7 +207,7 @@ function closeMediaLightbox({ force = false } = {}) {
     }
     nativeCallSurfaceTickerSessionId = "";
   }
-  if (activeWebCallLightbox) {
+  if (hadWebCallFrame && activeWebCallLightbox) {
     const { conversationId, conversationType, screenShare, fromLabel, incoming } = activeWebCallLightbox;
     activeWebCallLightbox = null;
     const conversation = resolveConversationById(conversationId, conversationType);

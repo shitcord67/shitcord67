@@ -6326,6 +6326,10 @@ body[data-compact-members="on"] .member-item {
   background: #0a0d12;
 }
 
+.native-call-surface__video--frame {
+  border: 0;
+}
+
 .native-call-surface__video--hidden {
   visibility: hidden;
 }

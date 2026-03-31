@@ -148,6 +148,10 @@ function clearEmbeddedNativeCallHost({ preserveSession = false } = {}) {
   }
 }
 
+function clearEmbeddedCallHost(options = {}) {
+  clearEmbeddedNativeCallHost(options);
+}
+
 function decorateNativeCallActionButton(button, {
   icon = "",
   label = "",
@@ -786,6 +790,7 @@ function updateNativeCallSurfaceTickerUi(sessionId = "") {
   const shell = document.querySelector(`.native-call-surface[data-session-id="${sid}"]`);
   if (!(shell instanceof HTMLElement)) return false;
   const session = xmppCallSessionById.get(sid) || null;
+  const conversation = getActiveConversation();
   const peer = xmppBareJid(session?.peerJid || "");
   const peerAccount = findAccountByBareXmppJid(peer);
   const currentAccount = getCurrentAccount();
@@ -1519,24 +1524,39 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const addFriendBtn = document.createElement("button");
   addFriendBtn.type = "button";
   addFriendBtn.className = "native-call-surface__toggle";
-  addFriendBtn.textContent = "Add Friend";
-  bindNativeCallActionButton(addFriendBtn, () => {
-    if (ui.addFriendDialog instanceof HTMLDialogElement && typeof ui.addFriendDialog.showModal === "function") {
-      try {
-        ui.addFriendDialog.showModal();
-      } catch {
-        ui.addFriendDialog.setAttribute("open", "open");
-      }
-      return;
-    }
-    showToast("Friend dialog unavailable.", { tone: "error", duration: 2200 });
-  });
   const profileBtn = document.createElement("button");
   profileBtn.type = "button";
-  profileBtn.className = "native-call-surface__toggle is-disabled-hint";
-  profileBtn.textContent = "Profile Hidden";
-  profileBtn.disabled = true;
-  profileBtn.title = "Profile sidebar is unavailable while the call strip is active.";
+  profileBtn.className = "native-call-surface__toggle";
+  if (conversation?.type === "dm") {
+    addFriendBtn.textContent = "Add Friend";
+    bindNativeCallActionButton(addFriendBtn, () => {
+      if (ui.addFriendDialog instanceof HTMLDialogElement && typeof ui.addFriendDialog.showModal === "function") {
+        try {
+          ui.addFriendDialog.showModal();
+        } catch {
+          ui.addFriendDialog.setAttribute("open", "open");
+        }
+        return;
+      }
+      showToast("Friend dialog unavailable.", { tone: "error", duration: 2200 });
+    });
+    profileBtn.classList.add("is-disabled-hint");
+    profileBtn.textContent = "Profile Hidden";
+    profileBtn.disabled = true;
+    profileBtn.title = "Profile sidebar is unavailable while the call strip is active.";
+  } else {
+    addFriendBtn.textContent = "Add People";
+    addFriendBtn.classList.add("is-disabled-hint");
+    addFriendBtn.disabled = true;
+    addFriendBtn.title = "Adding participants is not wired for this call yet.";
+    const memberHidden = getPreferences().hideMemberPanel === "on";
+    profileBtn.textContent = memberHidden ? "Show Members" : "Hide Members";
+    profileBtn.title = memberHidden ? "Show member list" : "Hide member list";
+    bindNativeCallActionButton(profileBtn, () => {
+      toggleMemberPanelVisibility();
+      window.setTimeout(() => renderNativeXmppCallSurface(sid), 0);
+    });
+  }
   const searchBtn = document.createElement("button");
   searchBtn.type = "button";
   searchBtn.className = "native-call-surface__toggle native-call-surface__search";
