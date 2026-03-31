@@ -186,6 +186,12 @@ function normalizeDmPreviewMode(value) {
   return normalizeDmPreviewModeViaModule(value);
 }
 
+function normalizeChannelPanelWidth(value, fallback = 270) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(420, Math.max(196, Math.round(numeric)));
+}
+
 function normalizeGuildNotificationsMap(value) {
   return normalizeGuildNotificationsMapViaModule(value);
 }
@@ -402,6 +408,7 @@ function getPreferences() {
     hideChannelPanel: normalizeToggle(current.hideChannelPanel),
     hideMemberPanel: normalizeToggle(current.hideMemberPanel),
     mobilePane: normalizeMobilePane(current.mobilePane),
+    channelPanelWidth: normalizeChannelPanelWidth(current.channelPanelWidth, Number(defaults.channelPanelWidth) || 270),
     collapseDmSection: normalizeToggle(current.collapseDmSection),
     collapseGuildSection: normalizeToggle(current.collapseGuildSection),
     lastChannelByGuild: normalizeLastChannelByGuildMap(current.lastChannelByGuild),

@@ -1688,6 +1688,14 @@ function applyPreferencesToUI() {
   document.documentElement.lang = locale;
   document.body.style.setProperty("--ui-scale", `${prefs.uiScale}%`);
   document.body.style.setProperty("--ui-intensity", `${Math.min(120, Math.max(80, Number(prefs.uiIntensity) || 100))}%`);
+  if (ui.chatScreen) {
+    ui.chatScreen.style.setProperty("--channel-w", `${Math.min(420, Math.max(196, Number(prefs.channelPanelWidth) || 270))}px`);
+  }
+  if (ui.channelPanelResizeHandle) {
+    ui.channelPanelResizeHandle.setAttribute("aria-valuemin", "196");
+    ui.channelPanelResizeHandle.setAttribute("aria-valuemax", "420");
+    ui.channelPanelResizeHandle.setAttribute("aria-valuenow", String(Math.min(420, Math.max(196, Number(prefs.channelPanelWidth) || 270))));
+  }
   document.body.dataset.locale = locale;
   document.body.dataset.theme = prefs.theme;
   document.body.dataset.compactMembers = prefs.compactMembers;

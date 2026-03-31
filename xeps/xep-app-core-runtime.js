@@ -943,6 +943,7 @@ const ui = {
   messageList: document.getElementById("messageList"),
   jumpToBottomBtn: document.getElementById("jumpToBottomBtn"),
   channelPanel: document.getElementById("channelPanel"),
+  channelPanelResizeHandle: document.getElementById("channelPanelResizeHandle"),
   memberPanel: document.getElementById("memberPanel"),
   swfShelf: document.getElementById("swfShelf"),
   swfShelfList: document.getElementById("swfShelfList"),

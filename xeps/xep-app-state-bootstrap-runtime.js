@@ -158,6 +158,7 @@ function buildInitialState() {
       hideChannelPanel: "off",
       hideMemberPanel: "off",
       mobilePane: "chat",
+      channelPanelWidth: 270,
       collapseDmSection: "off",
       collapseGuildSection: "off",
       dmOnlySidebar: "off",

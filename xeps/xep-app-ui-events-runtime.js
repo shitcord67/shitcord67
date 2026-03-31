@@ -49,6 +49,47 @@ const DM_XMPP_RUNTIME_COMMANDS = new Set([
 ]);
 
 const SED_SUB_FLAGS = new Set(["g", "i", "m", "s", "u", "y"]);
+const CHANNEL_PANEL_WIDTH_DEFAULT = 270;
+const CHANNEL_PANEL_WIDTH_MIN = 196;
+const CHANNEL_PANEL_WIDTH_MAX = 420;
+let channelPanelResizeState = null;
+
+function clampChannelPanelWidth(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return CHANNEL_PANEL_WIDTH_DEFAULT;
+  return Math.min(CHANNEL_PANEL_WIDTH_MAX, Math.max(CHANNEL_PANEL_WIDTH_MIN, Math.round(numeric)));
+}
+
+function isDesktopChannelPanelResizable() {
+  if (!ui.channelPanel || !ui.chatScreen || !ui.channelPanelResizeHandle) return false;
+  if (document.body?.dataset.mobile === "on") return false;
+  if (isMobileNarrowLayout()) return false;
+  return getPreferences().hideChannelPanel !== "on";
+}
+
+function setChannelPanelWidthPreference(nextWidth, { persist = false } = {}) {
+  state.preferences = getPreferences();
+  state.preferences.channelPanelWidth = clampChannelPanelWidth(nextWidth);
+  applyPreferencesToUI();
+  if (ui.channelPanelResizeHandle) {
+    ui.channelPanelResizeHandle.setAttribute("aria-valuemin", String(CHANNEL_PANEL_WIDTH_MIN));
+    ui.channelPanelResizeHandle.setAttribute("aria-valuemax", String(CHANNEL_PANEL_WIDTH_MAX));
+    ui.channelPanelResizeHandle.setAttribute("aria-valuenow", String(state.preferences.channelPanelWidth));
+  }
+  if (persist) saveState();
+}
+
+function finishChannelPanelResize({ persist = true } = {}) {
+  if (!channelPanelResizeState) return;
+  if (ui.channelPanelResizeHandle && typeof ui.channelPanelResizeHandle.releasePointerCapture === "function") {
+    try {
+      ui.channelPanelResizeHandle.releasePointerCapture(channelPanelResizeState.pointerId);
+    } catch {}
+  }
+  channelPanelResizeState = null;
+  document.body.dataset.channelPanelResizing = "off";
+  if (persist) saveState();
+}
 
 function countUnescapedOccurrences(text = "", needle = "/") {
   if (!needle) return 0;
@@ -1259,6 +1300,7 @@ ui.createServerForm.addEventListener("submit", (event) => {
     name,
     description: `${template[0] ? template[0].toUpperCase() + template.slice(1) : "Blank"} guild`,
     accentColor: "#5865f2",
+    ownerAccountId: account?.id || "",
     memberIds: account ? [account.id] : [],
     customEmojis: [],
     customStickers: [],
@@ -3603,7 +3645,63 @@ ui.chatScreen?.addEventListener("touchcancel", () => {
   mobileSwipeNavState = null;
 }, { passive: true });
 
+ui.channelPanelResizeHandle?.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 || !isDesktopChannelPanelResizable()) return;
+  event.preventDefault();
+  const prefs = getPreferences();
+  channelPanelResizeState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startWidth: clampChannelPanelWidth(prefs.channelPanelWidth)
+  };
+  document.body.dataset.channelPanelResizing = "on";
+  if (typeof ui.channelPanelResizeHandle.setPointerCapture === "function") {
+    try {
+      ui.channelPanelResizeHandle.setPointerCapture(event.pointerId);
+    } catch {}
+  }
+});
+
+ui.channelPanelResizeHandle?.addEventListener("pointermove", (event) => {
+  if (!channelPanelResizeState || channelPanelResizeState.pointerId !== event.pointerId) return;
+  event.preventDefault();
+  setChannelPanelWidthPreference(channelPanelResizeState.startWidth + (event.clientX - channelPanelResizeState.startX));
+});
+
+ui.channelPanelResizeHandle?.addEventListener("pointerup", () => {
+  finishChannelPanelResize({ persist: true });
+});
+
+ui.channelPanelResizeHandle?.addEventListener("pointercancel", () => {
+  finishChannelPanelResize({ persist: true });
+});
+
+ui.channelPanelResizeHandle?.addEventListener("dblclick", () => {
+  if (!isDesktopChannelPanelResizable()) return;
+  setChannelPanelWidthPreference(CHANNEL_PANEL_WIDTH_DEFAULT, { persist: true });
+});
+
+ui.channelPanelResizeHandle?.addEventListener("keydown", (event) => {
+  if (!isDesktopChannelPanelResizable()) return;
+  const prefs = getPreferences();
+  const currentWidth = clampChannelPanelWidth(prefs.channelPanelWidth);
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    setChannelPanelWidthPreference(currentWidth - (event.shiftKey ? 24 : 12), { persist: true });
+  } else if (event.key === "ArrowRight") {
+    event.preventDefault();
+    setChannelPanelWidthPreference(currentWidth + (event.shiftKey ? 24 : 12), { persist: true });
+  } else if (event.key === "Home") {
+    event.preventDefault();
+    setChannelPanelWidthPreference(CHANNEL_PANEL_WIDTH_MIN, { persist: true });
+  } else if (event.key === "End") {
+    event.preventDefault();
+    setChannelPanelWidthPreference(CHANNEL_PANEL_WIDTH_MAX, { persist: true });
+  }
+});
+
 function handleMobileLayoutViewportChange() {
+  if (!isDesktopChannelPanelResizable()) finishChannelPanelResize({ persist: false });
   if (!state.currentAccountId) return;
   applyPreferencesToUI();
   renderChannels();

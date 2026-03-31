@@ -1,6 +1,6 @@
 :root {
   --rail-w: 72px;
-  --channel-w: clamp(200px, 22vw, 240px);
+  --channel-w: 270px;
   --member-w: clamp(210px, 22vw, 260px);
   --bg-main: #0d0d10;
   --bg-dark: #08090b;
@@ -707,6 +707,50 @@ body[data-dm-only-sidebar="on"] .server-rail-scroll {
   grid-column: 2;
   grid-row: 1;
   min-height: 0;
+  position: relative;
+}
+
+.channel-panel-resize-handle {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  justify-self: end;
+  width: 8px;
+  min-height: 0;
+  position: relative;
+  z-index: 4;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.channel-panel-resize-handle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(3px);
+}
+
+.channel-panel-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 1px;
+  background: rgba(32, 34, 37, 0);
+  transition: background 120ms ease;
+}
+
+body:not([data-mobile="on"]) .channel-panel-resize-handle:hover::after,
+body[data-channel-panel-resizing="on"] .channel-panel-resize-handle::after,
+body:not([data-mobile="on"]) .channel-panel-resize-handle:focus-visible::after {
+  background: rgba(78, 80, 88, 0.9);
+}
+
+body[data-hide-channel-panel="on"] .channel-panel-resize-handle,
+body[data-mobile="on"] .channel-panel-resize-handle {
+  display: none;
 }
 
 .channel-scroll {
@@ -8125,7 +8169,6 @@ body[data-debug-overlay="on"] .chat-panel {
 
 @media (max-width: 1080px) {
   #chatScreen.screen--active {
-    --channel-w: 220px;
     grid-template-columns: var(--rail-w) var(--channel-w) 1fr;
   }
 
@@ -8155,7 +8198,6 @@ body[data-debug-overlay="on"] .chat-panel {
 
 @media (min-width: 1081px) and (max-width: 1320px) {
   #chatScreen.screen--active {
-    --channel-w: 214px;
     --member-w: 220px;
   }
 }
@@ -8178,6 +8220,10 @@ body[data-debug-overlay="on"] .chat-panel {
     max-width: none;
     position: relative;
     border-right: 1px solid var(--line);
+  }
+
+  .channel-panel-resize-handle {
+    display: none;
   }
 
   .chat-panel {
