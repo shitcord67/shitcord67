@@ -177,7 +177,13 @@
       "w3.org",
       "*.w3.org",
       "xmpp.org",
-      "*.xmpp.org"
+      "*.xmpp.org",
+      "youtube-nocookie.com",
+      "*.youtube-nocookie.com",
+      "youtube.com",
+      "*.youtube.com",
+      "youtu.be",
+      "*.ytimg.com"
     ];
     return builtInRules.some((rule) => doesMediaRuleMatchHostFn(rule, normalized));
   }

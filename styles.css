@@ -2189,7 +2189,7 @@ body[data-embedded-call="on"][data-hide-channel-panel="off"] #chatScreen.screen-
 
 .message-day-divider__line {
   height: 1px;
-  background: #343842;
+  background: linear-gradient(90deg, transparent, #3e424d 15%, #3e424d 85%, transparent);
   flex: 1;
 }
 
@@ -3796,6 +3796,8 @@ body[data-platform="android"] .composer-stack {
   display: grid;
   gap: 0.24rem;
   max-width: min(620px, 100%);
+  max-height: min(70vh, 520px);
+  overflow: auto;
   background: linear-gradient(160deg, rgba(34, 39, 48, 0.98), rgba(26, 30, 39, 0.98));
   border-color: #434a59;
   transition: max-width 140ms ease;
@@ -6550,6 +6552,14 @@ body[data-compact-members="on"] .member-item {
 
 .native-call-surface__dock-extras {
   margin-top: 0.45rem;
+}
+
+.native-call-surface--extras-collapsed .native-call-surface__dock-extras {
+  display: none;
+}
+
+.native-call-surface--extras-open .native-call-surface__dock-extras {
+  display: flex;
 }
 
 .native-call-surface__dock-extras .native-call-surface__toggle {

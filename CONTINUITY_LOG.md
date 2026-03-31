@@ -18548,3 +18548,14 @@ AM.
 ## 2026-03-31T03:42:13Z
 Also why does "Switch account" allow me to switch to user accounts of DM contacts instead of my own saved accounts (JSON)? The switch
   should really act like a logout from the current accound and login to the different account.
+
+## 2026-03-31T03:56:49Z
+<image name=[Image #1]>Can you look at the [Image #1]  again? Maybe move the shitcord67 specific options for the call in the more section aka .../three dots. Also one other unrelated thing: in chat for days maybe show horizontal lines left and right to the date so it is easier to see when a day ends/starts. Then another unrelated thing: Please fix YouTube: [D] <n​ik123> https://m.youtube.com/watch?v=LxZgtUGZqAg
+youtube
+Launching EFLC with old Razor1911 Crack from GTAIV
+JohnParrr
+￼
+https://m.youtube.com/watch?v=LxZgtUGZqAg Video auf YouTube ansehen
+Fehler 153
+Fehler bei der Konfiguration des Videoplayers. Also no idea why it shows External HTML hidden
+www.youtube-nocookie.com below the YT embed thing. This is basically just litter. YouTube itself should have a privacy gateway but duh... Also I noticed that it can happen that a privacy gateway is bigger than the chat area at the bottom and thus no option can be selected. Please make sure it is always completely visible in the chat. Then can you please make the mute and deafan buttons in the lower-left functional and respected by calls (basically as preset hints to tell if something is muted when a call is started)? Also can you investigate how the nameplates actually work on discord and if they are animated SVGs or lottie files cause I want to have them. Also can you finish implementing the priority Discord space XEP? Feel free to do some more QoL and UX improvements to make stuff feel and look more like Discord.

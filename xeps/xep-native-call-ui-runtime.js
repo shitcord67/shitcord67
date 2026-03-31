@@ -1463,6 +1463,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   document.body.dataset.embeddedCall = "on";
   const shell = document.createElement("div");
   shell.className = "native-call-surface native-call-surface--embedded";
+  shell.classList.add("native-call-surface--extras-collapsed");
   shell.dataset.sessionId = sid;
   const topbar = document.createElement("div");
   topbar.className = "native-call-surface__topbar";
@@ -1730,6 +1731,17 @@ function renderNativeXmppCallSurface(sessionId = "") {
     });
     if (xmppActiveNativeCallSessionId === sid) renderNativeXmppCallSurface(sid);
   });
+  const moreBtn = document.createElement("button");
+  moreBtn.type = "button";
+  moreBtn.className = "native-call-surface__toggle native-call-surface__dock-btn native-call-surface__more";
+  moreBtn.textContent = "More";
+  moreBtn.title = "More call options";
+  moreBtn.setAttribute("aria-expanded", "false");
+  bindNativeCallActionButton(moreBtn, () => {
+    const nextOpen = !shell.classList.contains("native-call-surface--extras-open");
+    shell.classList.toggle("native-call-surface--extras-open", nextOpen);
+    moreBtn.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+  });
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.className = "native-call-surface__utility-btn";
@@ -1803,6 +1815,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   decorateNativeCallActionButton(camBtn, { icon: localSnapshot.videoEnabled ? "📷" : "📹", label: localSnapshot.videoEnabled ? "Camera Off" : "Camera On" });
   decorateNativeCallActionButton(screenBtn, { icon: "🖥", label: screenActive ? "Stop Share" : "Share Screen" });
   decorateNativeCallActionButton(holdBtn, { icon: localHoldActive ? "▶" : "⏸", label: localHoldActive ? "Resume" : "Hold" });
+  decorateNativeCallActionButton(moreBtn, { icon: "⋯", label: "More", variant: "dock" });
   decorateNativeCallActionButton(endBtn, { icon: "✕", label: "Disconnect", variant: "danger" });
   decorateNativeCallActionButton(whiteboardBtn, { icon: "📝", label: "Whiteboard", variant: "ghost" });
   decorateNativeCallActionButton(whiteboardPostBtn, { icon: "➕", label: "Post Board", variant: "ghost" });
@@ -1936,6 +1949,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const filmstrip = document.createElement("div");
   filmstrip.className = "native-call-surface__filmstrip";
   const localStream = xmppCallLocalMediaStreamBySessionId.get(sid) || null;
+  const callPrefs = getPreferences();
+  const deafenActive = callPrefs.deafen === "on";
   ensureXmppNativeCallTileSpeakingMonitor(sid);
   const speakingByKey = xmppNativeCallTileSpeakingSnapshot(sid);
   const participants = [];
@@ -2006,8 +2021,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
     video.className = "native-call-surface__video";
     video.autoplay = true;
     video.playsInline = true;
-    video.muted = false;
-    video.volume = 1;
+    video.muted = deafenActive;
+    video.volume = deafenActive ? 0 : 1;
     video.srcObject = stream;
     video.addEventListener("loadedmetadata", () => {
       void video.play().catch(() => null);
@@ -2115,6 +2130,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   dockMain.appendChild(camBtn);
   dockMain.appendChild(screenBtn);
   dockMain.appendChild(holdBtn);
+  dockMain.appendChild(moreBtn);
   dockMain.appendChild(endBtn);
   const dockExtras = document.createElement("div");
   dockExtras.className = "native-call-surface__dock-extras";

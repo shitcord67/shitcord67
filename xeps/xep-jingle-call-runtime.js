@@ -490,6 +490,21 @@ async function xmppAcquireLocalMediaStreamForSession(sessionId, {
     const liveSession = xmppCallSessionById.get(sid) || null;
     if (liveSession) liveSession.localVideoMuted = true;
   }
+  const callPrefs = getPreferences();
+  const wantsMute = callPrefs.mute === "on" || callPrefs.deafen === "on";
+  if (wantsMute) {
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = false;
+    });
+    const liveSession = xmppCallSessionById.get(sid) || null;
+    if (liveSession) {
+      liveSession.localMuted = true;
+      liveSession.localDeafened = callPrefs.deafen === "on";
+    }
+  } else {
+    const liveSession = xmppCallSessionById.get(sid) || null;
+    if (liveSession) liveSession.localDeafened = false;
+  }
   xmppCallLocalMediaStreamBySessionId.set(sid, stream);
   if (nextAux) {
     xmppCallLocalAuxStreamsBySessionId.set(sid, nextAux);

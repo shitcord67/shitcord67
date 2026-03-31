@@ -543,7 +543,8 @@ function youtubeEmbedUrlFromAnyUrl(rawUrl = "") {
   }
   const cleanId = (videoId || "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
   if (!cleanId || cleanId.length < 6) return "";
-  return `https://www.youtube-nocookie.com/embed/${cleanId}`;
+  const origin = typeof location !== "undefined" && location.origin ? `&origin=${encodeURIComponent(location.origin)}` : "";
+  return `https://www.youtube-nocookie.com/embed/${cleanId}?rel=0&modestbranding=1&playsinline=1${origin}`;
 }
 
 function inferAttachmentTypeFromMime(mime = "") {
@@ -626,18 +627,7 @@ function extractInlineAttachmentsFromText(text) {
       ? inlineBob.url
       : normalizedLink.replace(/^xmpp:(https?:\/\/.+)$/i, "$1");
     const youtubeEmbedUrl = youtubeEmbedUrlFromAnyUrl(normalized);
-    if (youtubeEmbedUrl) {
-      if (!seen.has(youtubeEmbedUrl)) {
-        seen.add(youtubeEmbedUrl);
-        results.push({
-          type: "html",
-          url: youtubeEmbedUrl,
-          name: "YouTube",
-          format: "embed"
-        });
-      }
-      return;
-    }
+    if (youtubeEmbedUrl) return;
     if (seen.has(normalized)) return;
     const type = inferAttachmentTypeFromUrl(normalized);
     if (!type) return;

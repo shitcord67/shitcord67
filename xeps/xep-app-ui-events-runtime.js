@@ -2473,13 +2473,29 @@ ui.dockMuteBtn.addEventListener("click", () => {
   state.preferences.mute = state.preferences.mute === "on" ? "off" : "on";
   saveState();
   applyPreferencesToUI();
+  if (xmppActiveNativeCallSessionId) {
+    const prefs = getPreferences();
+    const wantsMute = prefs.mute === "on" || prefs.deafen === "on";
+    xmppSetLocalTracksEnabled(xmppActiveNativeCallSessionId, "audio", !wantsMute);
+    renderNativeXmppCallSurface(xmppActiveNativeCallSessionId);
+  }
 });
 
 ui.dockHeadphonesBtn.addEventListener("click", () => {
   state.preferences = getPreferences();
-  state.preferences.deafen = state.preferences.deafen === "on" ? "off" : "on";
+  const nextDeafen = state.preferences.deafen === "on" ? "off" : "on";
+  state.preferences.deafen = nextDeafen;
+  if (nextDeafen === "on") {
+    state.preferences.mute = "on";
+  }
   saveState();
   applyPreferencesToUI();
+  if (xmppActiveNativeCallSessionId) {
+    const prefs = getPreferences();
+    const wantsMute = prefs.mute === "on" || prefs.deafen === "on";
+    xmppSetLocalTracksEnabled(xmppActiveNativeCallSessionId, "audio", !wantsMute);
+    renderNativeXmppCallSurface(xmppActiveNativeCallSessionId);
+  }
 });
 
 ui.selfEditProfile.addEventListener("click", () => {

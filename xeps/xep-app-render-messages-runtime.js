@@ -59,6 +59,13 @@ function extractYouTubeVideoId(url = "") {
   return "";
 }
 
+function formatYouTubeEmbedUrl(videoId = "") {
+  const cleanId = (videoId || "").toString().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
+  if (!cleanId || cleanId.length < 6) return "";
+  const origin = typeof location !== "undefined" && location.origin ? `&origin=${encodeURIComponent(location.origin)}` : "";
+  return `https://www.youtube-nocookie.com/embed/${cleanId}?rel=0&modestbranding=1&playsinline=1${origin}`;
+}
+
 function parseLinkMetaFromHtml(html = "") {
   const output = { title: "", description: "", image: "" };
   const raw = (html || "").toString();
@@ -297,11 +304,12 @@ async function fetchLinkEmbedMeta(url = "") {
   const inFlight = (async () => {
     const youtubeId = extractYouTubeVideoId(normalized);
     if (youtubeId) {
+      const embedUrl = formatYouTubeEmbedUrl(youtubeId);
       const fallback = {
         title: "YouTube video",
         description: "",
         image: `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
-        embedUrl: `https://www.youtube-nocookie.com/embed/${youtubeId}`,
+        embedUrl,
         source: "youtube"
       };
       try {
@@ -385,7 +393,7 @@ async function hydrateMessageLinkEmbed(card, url, ui = {}) {
     const frame = document.createElement("iframe");
     frame.className = "message-link-embed__youtube";
     frame.loading = "lazy";
-    frame.referrerPolicy = "no-referrer";
+    frame.referrerPolicy = "origin";
     frame.src = meta.embedUrl;
     frame.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
     frame.allowFullscreen = true;
