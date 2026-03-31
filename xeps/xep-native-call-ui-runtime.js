@@ -2146,6 +2146,9 @@ async function xmppRejoinNativeCallSession(sessionId = "") {
 function openNativeXmppCallSurface(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
+  if (typeof clearEmbeddedIncomingCallPrompt === "function") {
+    clearEmbeddedIncomingCallPrompt();
+  }
   if (nativeCallSurfaceTickerSessionId && nativeCallSurfaceTickerSessionId !== sid) {
     clearNativeCallSurfaceTicker();
   }

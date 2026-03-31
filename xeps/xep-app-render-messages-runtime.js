@@ -457,6 +457,8 @@ function renderMessages() {
     renderNativeXmppCallSurface(xmppActiveNativeCallSessionId);
   } else if (activeWebCallLightbox && typeof renderEmbeddedWebCallSurface === "function") {
     renderEmbeddedWebCallSurface();
+  } else if (typeof renderEmbeddedIncomingCallPrompt === "function" && renderEmbeddedIncomingCallPrompt()) {
+    // Embedded incoming call prompt now owns the call host until accepted or declined.
   } else if (typeof clearEmbeddedNativeCallHost === "function") {
     clearEmbeddedNativeCallHost({ preserveSession: true });
   }

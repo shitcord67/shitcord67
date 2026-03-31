@@ -3,6 +3,8 @@
  * Functions here intentionally bind to app globals at call time.
  */
 
+let activeEmbeddedIncomingCallPrompt = null;
+
 function shortHashToken(rawValue = "") {
   const input = (rawValue || "").toString();
   let hash = 2166136261;
@@ -203,6 +205,111 @@ function resolveConversationById(conversationId = "", typeHint = "") {
   return null;
 }
 
+function activeConversationMatchesEmbeddedIncomingCallPrompt() {
+  if (!activeEmbeddedIncomingCallPrompt) return false;
+  const conversation = getActiveConversation();
+  if (!conversation) return false;
+  return (conversation.id || "") === (activeEmbeddedIncomingCallPrompt.conversationId || "")
+    && (conversation.type || "") === (activeEmbeddedIncomingCallPrompt.conversationType || "");
+}
+
+function setEmbeddedIncomingCallPrompt(prompt = null) {
+  activeEmbeddedIncomingCallPrompt = prompt && typeof prompt === "object"
+    ? { ...prompt }
+    : null;
+  if (typeof renderMessages === "function") renderMessages();
+}
+
+function clearEmbeddedIncomingCallPrompt({ kind = "", token = "", sessionId = "" } = {}) {
+  if (!activeEmbeddedIncomingCallPrompt) return false;
+  const kindFilter = (kind || "").toString().trim().toLowerCase();
+  const tokenFilter = (token || "").toString().trim();
+  const sessionFilter = (sessionId || "").toString().trim();
+  if (kindFilter && activeEmbeddedIncomingCallPrompt.kind !== kindFilter) return false;
+  if (tokenFilter && activeEmbeddedIncomingCallPrompt.inviteToken !== tokenFilter) return false;
+  if (sessionFilter && activeEmbeddedIncomingCallPrompt.sessionId !== sessionFilter) return false;
+  activeEmbeddedIncomingCallPrompt = null;
+  if (typeof renderMessages === "function") renderMessages();
+  return true;
+}
+
+function renderEmbeddedIncomingCallPrompt() {
+  if (!(ui?.embeddedCallHost instanceof HTMLElement)) return false;
+  if (!activeEmbeddedIncomingCallPrompt || !activeConversationMatchesEmbeddedIncomingCallPrompt()) {
+    return false;
+  }
+  const prompt = activeEmbeddedIncomingCallPrompt;
+  if (prompt.kind === "xmpp") {
+    const sid = (prompt.sessionId || "").toString().trim();
+    if (!sid || !xmppCallSessionById.has(sid)) {
+      activeEmbeddedIncomingCallPrompt = null;
+      return false;
+    }
+  }
+  ui.embeddedCallHost.innerHTML = "";
+  ui.embeddedCallHost.hidden = false;
+  document.body.dataset.embeddedCall = "on";
+  const shell = document.createElement("section");
+  shell.className = "native-call-surface native-call-surface--embedded native-call-surface--incoming";
+  const gate = document.createElement("div");
+  gate.className = "incoming-call-gate";
+  const title = document.createElement("strong");
+  title.className = "incoming-call-gate__title";
+  title.textContent = prompt.title || "Incoming call";
+  const meta = document.createElement("div");
+  meta.className = "incoming-call-gate__meta";
+  meta.textContent = prompt.meta || "Someone is calling";
+  gate.appendChild(title);
+  gate.appendChild(meta);
+  if (prompt.url) {
+    const urlPreview = document.createElement("div");
+    urlPreview.className = "incoming-call-gate__url";
+    urlPreview.textContent = prompt.url;
+    gate.appendChild(urlPreview);
+  }
+  const actions = document.createElement("div");
+  actions.className = "incoming-call-gate__actions";
+  const acceptBtn = document.createElement("button");
+  acceptBtn.type = "button";
+  acceptBtn.className = "incoming-call-gate__accept";
+  acceptBtn.textContent = prompt.acceptLabel || "Accept";
+  bindCallGateButton(acceptBtn, async () => {
+    acceptBtn.disabled = true;
+    if (declineBtn) declineBtn.disabled = true;
+    try {
+      const ok = await prompt.onAccept?.();
+      if (ok === false) {
+        acceptBtn.disabled = false;
+        if (declineBtn) declineBtn.disabled = false;
+      }
+    } catch {
+      acceptBtn.disabled = false;
+      if (declineBtn) declineBtn.disabled = false;
+    }
+  });
+  actions.appendChild(acceptBtn);
+  let declineBtn = null;
+  if (typeof prompt.onDecline === "function") {
+    declineBtn = document.createElement("button");
+    declineBtn.type = "button";
+    declineBtn.className = "incoming-call-gate__decline";
+    declineBtn.textContent = prompt.declineLabel || "Decline";
+    bindCallGateButton(declineBtn, () => prompt.onDecline());
+    actions.appendChild(declineBtn);
+  }
+  if (typeof prompt.onAux === "function") {
+    const auxBtn = document.createElement("button");
+    auxBtn.type = "button";
+    auxBtn.textContent = prompt.auxLabel || "More";
+    bindCallGateButton(auxBtn, () => prompt.onAux());
+    actions.appendChild(auxBtn);
+  }
+  gate.appendChild(actions);
+  shell.appendChild(gate);
+  ui.embeddedCallHost.appendChild(shell);
+  return true;
+}
+
 function addSystemMessageToConversation(conversation, text) {
   if (!conversation || !text) return false;
   if (conversation.type === "dm") {
@@ -308,6 +415,7 @@ function openWebCallLightbox(url, {
   fromLabel = ""
 } = {}) {
   if (!url) return;
+  clearEmbeddedIncomingCallPrompt();
   const conv = conversation || getActiveConversation();
   const title = screenShare ? "Screen-share call" : "Voice/video call";
   activeWebCallLightbox = conv
@@ -712,34 +820,23 @@ function showIncomingWebCallPrompt({
   inviteToken = ""
 } = {}) {
   if (!conversation || !url) return;
-  const overlay = ensureMediaLightbox();
-  const stage = overlay.querySelector(".media-lightbox__stage");
-  const caption = overlay.querySelector(".media-lightbox__caption");
-  if (!stage || !caption) return;
-  stage.innerHTML = "";
-  const gate = document.createElement("div");
-  gate.className = "incoming-call-gate";
-  const title = document.createElement("strong");
-  title.className = "incoming-call-gate__title";
-  title.textContent = screenShare ? "Incoming screen-share call" : "Incoming voice/video call";
-  const meta = document.createElement("div");
-  meta.className = "incoming-call-gate__meta";
-  meta.textContent = `${fromLabel} is calling`;
-  const urlPreview = document.createElement("div");
-  urlPreview.className = "incoming-call-gate__url";
-  urlPreview.textContent = url;
-  const actions = document.createElement("div");
-  actions.className = "incoming-call-gate__actions";
-  const acceptBtn = document.createElement("button");
-  acceptBtn.type = "button";
-  acceptBtn.className = "incoming-call-gate__accept";
-  acceptBtn.textContent = "Join Call";
-  bindCallGateButton(acceptBtn, () => {
-    stopWebCallRingtone(inviteToken);
-    if (inviteToken) {
-      const pending = webCallInvitePendingByToken.get(inviteToken);
-      if (pending?.timeoutId) clearTimeout(pending.timeoutId);
-      if (pending?.xmppInviteId && pending?.xmppPeerJid) {
+  setEmbeddedIncomingCallPrompt({
+    kind: "web",
+    conversationId: conversation.id || "",
+    conversationType: conversation.type || "",
+    inviteToken,
+    url,
+    title: screenShare ? "Incoming screen-share call" : "Incoming voice/video call",
+    meta: `${fromLabel} is calling`,
+    acceptLabel: "Join Call",
+    declineLabel: "Ignore",
+    auxLabel: "Copy Link",
+    onAccept: () => {
+      stopWebCallRingtone(inviteToken);
+      if (inviteToken) {
+        const pending = webCallInvitePendingByToken.get(inviteToken);
+        if (pending?.timeoutId) clearTimeout(pending.timeoutId);
+        if (pending?.xmppInviteId && pending?.xmppPeerJid) {
         xmppSendCallInviteAction(pending.xmppPeerJid, "accept", {
           inviteId: pending.xmppInviteId,
           url
@@ -747,52 +844,38 @@ function showIncomingWebCallPrompt({
       }
       webCallInvitePendingByToken.delete(inviteToken);
       if (pending?.xmppInviteId) xmppCallInviteTokenById.delete(pending.xmppInviteId);
-    }
-    openWebCallLightbox(url, {
-      conversation,
-      screenShare,
-      incoming: true,
-      fromLabel
-    });
-  });
-  const declineBtn = document.createElement("button");
-  declineBtn.type = "button";
-  declineBtn.className = "incoming-call-gate__decline";
-  declineBtn.textContent = "Ignore";
-  bindCallGateButton(declineBtn, () => {
-    stopWebCallRingtone(inviteToken);
-    if (inviteToken) {
-      const pending = webCallInvitePendingByToken.get(inviteToken);
-      if (pending?.timeoutId) clearTimeout(pending.timeoutId);
-      if (pending?.xmppInviteId && pending?.xmppPeerJid) {
+      }
+      clearEmbeddedIncomingCallPrompt({ kind: "web", token: inviteToken });
+      openWebCallLightbox(url, {
+        conversation,
+        screenShare,
+        incoming: true,
+        fromLabel
+      });
+      return true;
+    },
+    onDecline: () => {
+      stopWebCallRingtone(inviteToken);
+      if (inviteToken) {
+        const pending = webCallInvitePendingByToken.get(inviteToken);
+        if (pending?.timeoutId) clearTimeout(pending.timeoutId);
+        if (pending?.xmppInviteId && pending?.xmppPeerJid) {
         xmppSendCallInviteAction(pending.xmppPeerJid, "reject", {
           inviteId: pending.xmppInviteId,
           url
         });
+        }
+        webCallInvitePendingByToken.delete(inviteToken);
+        if (pending?.xmppInviteId) xmppCallInviteTokenById.delete(pending.xmppInviteId);
       }
-      webCallInvitePendingByToken.delete(inviteToken);
-      if (pending?.xmppInviteId) xmppCallInviteTokenById.delete(pending.xmppInviteId);
+      clearEmbeddedIncomingCallPrompt({ kind: "web", token: inviteToken });
+      return true;
+    },
+    onAux: () => {
+      void copyText(url).then((ok) => showToast(ok ? "Call link copied." : "Failed to copy call link.", { tone: ok ? "info" : "error" }));
+      return true;
     }
-    closeMediaLightbox();
   });
-  const copyBtn = document.createElement("button");
-  copyBtn.type = "button";
-  copyBtn.textContent = "Copy Link";
-  bindCallGateButton(copyBtn, () => {
-    void copyText(url).then((ok) => showToast(ok ? "Call link copied." : "Failed to copy call link.", { tone: ok ? "info" : "error" }));
-  });
-  actions.appendChild(acceptBtn);
-  actions.appendChild(declineBtn);
-  actions.appendChild(copyBtn);
-  gate.appendChild(title);
-  gate.appendChild(meta);
-  gate.appendChild(urlPreview);
-  gate.appendChild(actions);
-  stage.appendChild(gate);
-  caption.textContent = "Incoming call";
-  overlay.hidden = false;
-  document.body.style.overflow = "hidden";
-  overlay.focus({ preventScroll: true });
 }
 
 async function acceptIncomingXmppCall(sessionId = "") {
@@ -1078,56 +1161,35 @@ function showIncomingXmppCallPrompt({
   const sid = (sessionId || "").toString().trim();
   if (!sid) return;
   clearStaleXmppNativeCallSurface();
-  const overlay = ensureMediaLightbox();
-  const stage = overlay.querySelector(".media-lightbox__stage");
-  const caption = overlay.querySelector(".media-lightbox__caption");
-  if (!stage || !caption) return;
-  stage.innerHTML = "";
-  const gate = document.createElement("div");
-  gate.className = "incoming-call-gate";
-  const title = document.createElement("strong");
-  title.className = "incoming-call-gate__title";
-  title.textContent = screenShare ? "Incoming XMPP screen-share call" : "Incoming XMPP voice/video call";
-  const meta = document.createElement("div");
-  meta.className = "incoming-call-gate__meta";
-  meta.textContent = `${peerLabel} is calling`;
-  const actions = document.createElement("div");
-  actions.className = "incoming-call-gate__actions";
-  const acceptBtn = document.createElement("button");
-  acceptBtn.type = "button";
-  acceptBtn.className = "incoming-call-gate__accept";
-  acceptBtn.textContent = "Accept";
-  bindCallGateButton(acceptBtn, async () => {
-    acceptBtn.disabled = true;
-    declineBtn.disabled = true;
-    stopWebCallRingtone(sid);
-    const ok = await acceptIncomingXmppCall(sid);
-    if (ok) {
-      openNativeXmppCallSurface(sid);
-      return;
+  const session = xmppCallSessionById.get(sid) || null;
+  const conversation = resolveConversationById(session?.conversationId || "", session?.conversationType || "");
+  if (!conversation) return;
+  setEmbeddedIncomingCallPrompt({
+    kind: "xmpp",
+    sessionId: sid,
+    conversationId: conversation.id || "",
+    conversationType: conversation.type || "",
+    title: screenShare ? "Incoming XMPP screen-share call" : "Incoming XMPP voice/video call",
+    meta: `${peerLabel} is calling`,
+    acceptLabel: "Accept",
+    declineLabel: "Decline",
+    onAccept: async () => {
+      stopWebCallRingtone(sid);
+      const ok = await acceptIncomingXmppCall(sid);
+      if (ok) {
+        clearEmbeddedIncomingCallPrompt({ kind: "xmpp", sessionId: sid });
+        openNativeXmppCallSurface(sid);
+        return true;
+      }
+      return false;
+    },
+    onDecline: () => {
+      stopWebCallRingtone(sid);
+      declineIncomingXmppCall(sid);
+      clearEmbeddedIncomingCallPrompt({ kind: "xmpp", sessionId: sid });
+      return true;
     }
-    acceptBtn.disabled = false;
-    declineBtn.disabled = false;
   });
-  const declineBtn = document.createElement("button");
-  declineBtn.type = "button";
-  declineBtn.className = "incoming-call-gate__decline";
-  declineBtn.textContent = "Decline";
-  bindCallGateButton(declineBtn, () => {
-    stopWebCallRingtone(sid);
-    declineIncomingXmppCall(sid);
-    closeMediaLightbox();
-  });
-  actions.appendChild(acceptBtn);
-  actions.appendChild(declineBtn);
-  gate.appendChild(title);
-  gate.appendChild(meta);
-  gate.appendChild(actions);
-  stage.appendChild(gate);
-  caption.textContent = "Incoming XMPP call";
-  overlay.hidden = false;
-  document.body.style.overflow = "hidden";
-  overlay.focus({ preventScroll: true });
 }
 
 function maybeHandleIncomingWebCallInvite({
@@ -1173,6 +1235,7 @@ function maybeHandleIncomingWebCallInvite({
   const pendingTimeoutId = window.setTimeout(() => {
     webCallInvitePendingByToken.delete(token);
     stopWebCallRingtone(token);
+    clearEmbeddedIncomingCallPrompt({ kind: "web", token });
     const missedText = `${fromLabel} called but you missed it.`;
     if (addSystemMessageToConversation(conversation, missedText)) {
       refreshConversationUi(conversation);
@@ -1221,6 +1284,7 @@ function maybeHandleIncomingXmppCallInvite({
     if (!token) return;
     webCallInvitePendingByToken.delete(token);
     if (inviteId) xmppCallInviteTokenById.delete(inviteId);
+    clearEmbeddedIncomingCallPrompt({ kind: "web", token });
   }, WEB_CALL_INVITE_TIMEOUT_MS);
   webCallInvitePendingByToken.set(token, {
     conversationId: conversation.id || "",
