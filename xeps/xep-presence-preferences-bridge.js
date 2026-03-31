@@ -1377,6 +1377,9 @@ function teardownXmppConnection() {
   xmppCallRemoteStreamsBySessionId.clear();
   xmppActiveNativeCallSessionId = "";
   nativeCallDebugDialogSessionId = "";
+  if (typeof clearEmbeddedNativeCallHost === "function") {
+    clearEmbeddedNativeCallHost({ preserveSession: true });
+  }
   xmppCallPendingReprimeBySessionId.forEach((entry) => {
     if (entry?.timerId) clearTimeout(entry.timerId);
   });

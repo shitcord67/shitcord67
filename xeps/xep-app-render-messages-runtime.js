@@ -453,6 +453,11 @@ function appendMessageLinkEmbeds(messageRow, textNode, { attachments = [], limit
 }
 
 function renderMessages() {
+  if (xmppActiveNativeCallSessionId) {
+    renderNativeXmppCallSurface(xmppActiveNativeCallSessionId);
+  } else if (typeof clearEmbeddedNativeCallHost === "function") {
+    clearEmbeddedNativeCallHost({ preserveSession: true });
+  }
   const conversation = getActiveConversation();
   const isDm = conversation?.type === "dm";
   const channel = !isDm ? conversation?.channel : null;
@@ -859,29 +864,7 @@ function renderMessages() {
         .filter((entry) => xmppBareJid(entry?.peerJid || "") === peerBare)
         .sort((a, b) => (Number(b?.createdAt) || 0) - (Number(a?.createdAt) || 0))[0];
       if (session) {
-        sessionId = session.id || "";
-        screenShare = Boolean(session.screenShare);
-        labelText = screenShare ? "Native screen-share call" : "Native voice/video call";
-        statusText = (session.state || "starting").toString();
-        const elapsedMs = Math.max(0, Date.now() - (Number(session.createdAt) || Date.now()));
-        const minutes = Math.floor(elapsedMs / 60000);
-        const seconds = Math.floor((elapsedMs % 60000) / 1000);
-        subtitleText = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-        openAction = () => openNativeXmppCallSurface(sessionId);
-        endAction = () => {
-          const currentSession = xmppCallSessionById.get(sessionId) || session || null;
-          const staleStates = new Set(["peer-left", "terminated", "ended", "idle", "proceed-timeout"]);
-          if (peerBare && !staleStates.has((currentSession?.state || "").toString().trim().toLowerCase())) {
-            xmppSendJingleSessionTerminate(peerBare, sessionId, {
-              reason: "success",
-              text: "Ended from call bar"
-            });
-          }
-          forgetXmppCallSession(sessionId);
-          closeMediaLightbox();
-        };
-        ensureXmppCallSpeakingMonitor(sessionId);
-        localSnapshot = xmppLocalMediaSnapshot(sessionId);
+        return;
       }
       if (!session && activeWebCallLightbox && activeWebCallLightbox.conversationId === conversation.id) {
         labelText = activeWebCallLightbox.screenShare ? "Web screen-share call" : "Web voice/video call";

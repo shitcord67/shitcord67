@@ -780,7 +780,13 @@ async function acceptIncomingXmppCall(sessionId = "") {
             if (!current.fallbackInviteSent) {
               current.fallbackInviteSent = true;
               current.state = "proceed-timeout";
-              if (xmppActiveNativeCallSessionId === sid) closeMediaLightbox();
+              if (xmppActiveNativeCallSessionId === sid) {
+                if (typeof clearEmbeddedNativeCallHost === "function") {
+                  clearEmbeddedNativeCallHost();
+                } else {
+                  closeMediaLightbox();
+                }
+              }
             }
           })();
         }, timeoutMs);

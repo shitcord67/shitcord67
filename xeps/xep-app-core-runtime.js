@@ -940,6 +940,7 @@ const ui = {
   toggleMemberPanelBtn: document.getElementById("toggleMemberPanelBtn"),
   toggleSwfShelfBtn: document.getElementById("toggleSwfShelfBtn"),
   editTopicBtn: document.getElementById("editTopicBtn"),
+  embeddedCallHost: document.getElementById("embeddedCallHost"),
   messageList: document.getElementById("messageList"),
   jumpToBottomBtn: document.getElementById("jumpToBottomBtn"),
   channelPanel: document.getElementById("channelPanel"),

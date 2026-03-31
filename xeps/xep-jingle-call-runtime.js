@@ -179,7 +179,13 @@ function forgetXmppCallSession(sessionId = "") {
     nativeCallDebugDialogSessionId = "";
   }
   xmppCallSessionById.delete(id);
-  if (xmppActiveNativeCallSessionId === id) closeMediaLightbox();
+  if (xmppActiveNativeCallSessionId === id) {
+    if (typeof clearEmbeddedNativeCallHost === "function") {
+      clearEmbeddedNativeCallHost();
+    } else {
+      closeMediaLightbox();
+    }
+  }
   const peer = xmppBareJid(entry.peerJid || "");
   if (peer && xmppLatestIncomingCallSessionByPeer.get(peer) === id) xmppLatestIncomingCallSessionByPeer.delete(peer);
   if (peer && xmppLatestOutgoingCallSessionByPeer.get(peer) === id) xmppLatestOutgoingCallSessionByPeer.delete(peer);

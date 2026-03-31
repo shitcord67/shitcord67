@@ -187,6 +187,7 @@ function closeMediaLightbox({ force = false } = {}) {
   if (!force && (hasPinnedNativeCallLightbox() || hasPinnedWebCallLightbox())) return false;
   const overlay = document.getElementById("mediaLightbox");
   if (!overlay) return false;
+  const hadNativeSurface = Boolean(overlay.querySelector(".native-call-surface"));
   overlay.hidden = true;
   const stage = overlay.querySelector(".media-lightbox__stage");
   if (stage) stage.innerHTML = "";
@@ -195,14 +196,16 @@ function closeMediaLightbox({ force = false } = {}) {
     closeNativeCallPickerDialogByClass("native-call-picker-dialog--camera");
   }
   const activeNativeSid = (xmppActiveNativeCallSessionId || "").toString().trim();
-  if (activeNativeSid) stopXmppNativeCallTileSpeakingMonitor(activeNativeSid);
-  xmppActiveNativeCallSessionId = "";
-  nativeCallDebugDialogSessionId = "";
-  if (nativeCallSurfaceTickerId) {
-    clearTimeout(nativeCallSurfaceTickerId);
-    nativeCallSurfaceTickerId = 0;
+  if (hadNativeSurface && activeNativeSid) {
+    stopXmppNativeCallTileSpeakingMonitor(activeNativeSid);
+    xmppActiveNativeCallSessionId = "";
+    nativeCallDebugDialogSessionId = "";
+    if (nativeCallSurfaceTickerId) {
+      clearTimeout(nativeCallSurfaceTickerId);
+      nativeCallSurfaceTickerId = 0;
+    }
+    nativeCallSurfaceTickerSessionId = "";
   }
-  nativeCallSurfaceTickerSessionId = "";
   if (activeWebCallLightbox) {
     const { conversationId, conversationType, screenShare, fromLabel, incoming } = activeWebCallLightbox;
     activeWebCallLightbox = null;

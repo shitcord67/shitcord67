@@ -18240,3 +18240,8 @@ Also I noticed that sending OMEMO messages to other clients doesn't work. Then o
 Do you think there is anything that looks a bit weird or could look better or does just not fit to a cool, lean, fancy chat client?
 [2026-03-31T03:40:00Z] USER PROMPT
 Focus on fixing OMEMO/libsignal bugs, explain why Dino shows the plaintext fallback body "This message is encrypted with OMEMO.", and note Discord-like embedded call UI expectations. Full prompt was very large in terminal transport and is omitted here; see conversation transcript for exact logs and examples.
+[2026-03-31T03:45:00Z] USER PROMPT
+Please implement the call stuff
+
+## 2026-03-31T04:15:01+02:00
+Please implement the call stuff

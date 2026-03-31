@@ -115,6 +115,39 @@ function findAccountByBareXmppJid(bareJid = "") {
   )) || null;
 }
 
+function activeConversationMatchesNativeCallSession(sessionId = "") {
+  const sid = (sessionId || "").toString().trim();
+  if (!sid) return false;
+  const conversation = getActiveConversation();
+  const session = xmppCallSessionById.get(sid) || null;
+  if (!conversation || !session) return false;
+  const conversationId = (conversation.id || "").toString().trim();
+  const sessionConversationId = (session.conversationId || "").toString().trim();
+  if (conversationId && sessionConversationId) {
+    return conversationId === sessionConversationId;
+  }
+  if (conversation.type === "dm") {
+    const peer = xmppBareJid(session.peerJid || session.peerFullJid || "");
+    const current = getCurrentAccount();
+    const activePeer = xmppBareJid(xmppPeerJidForConversation(conversation, current) || "");
+    return Boolean(peer && activePeer && peer === activePeer);
+  }
+  return false;
+}
+
+function clearEmbeddedNativeCallHost({ preserveSession = false } = {}) {
+  if (ui?.embeddedCallHost instanceof HTMLElement) {
+    ui.embeddedCallHost.innerHTML = "";
+    ui.embeddedCallHost.hidden = true;
+  }
+  document.body.dataset.embeddedCall = "off";
+  if (!preserveSession) {
+    xmppActiveNativeCallSessionId = "";
+    nativeCallDebugDialogSessionId = "";
+    clearNativeCallSurfaceTicker();
+  }
+}
+
 function decorateNativeCallActionButton(button, {
   icon = "",
   label = "",
@@ -1401,11 +1434,15 @@ function renderNativeXmppCallDebugDialog(sessionId = "") {
 
 function renderNativeXmppCallSurface(sessionId = "") {
   const sid = (sessionId || "").toString().trim();
-  if (!sid) return;
-  const overlay = ensureMediaLightbox();
-  const stage = overlay.querySelector(".media-lightbox__stage");
-  const caption = overlay.querySelector(".media-lightbox__caption");
-  if (!stage || !caption) return;
+  if (!sid) {
+    clearEmbeddedNativeCallHost();
+    return;
+  }
+  if (!(ui?.embeddedCallHost instanceof HTMLElement)) return;
+  if (!xmppCallSessionById.has(sid) || !activeConversationMatchesNativeCallSession(sid)) {
+    clearEmbeddedNativeCallHost({ preserveSession: true });
+    return;
+  }
   const session = xmppCallSessionById.get(sid) || null;
   const peer = xmppBareJid(session?.peerJid || "");
   const peerAccount = findAccountByBareXmppJid(peer);
@@ -1415,9 +1452,11 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const iceState = (pcEntry?.pc?.iceConnectionState || "").toString().trim();
   const pcStateLower = pcState.toLowerCase();
   const iceStateLower = iceState.toLowerCase();
-  stage.innerHTML = "";
+  ui.embeddedCallHost.innerHTML = "";
+  ui.embeddedCallHost.hidden = false;
+  document.body.dataset.embeddedCall = "on";
   const shell = document.createElement("div");
-  shell.className = "native-call-surface";
+  shell.className = "native-call-surface native-call-surface--embedded";
   shell.dataset.sessionId = sid;
   const topbar = document.createElement("div");
   topbar.className = "native-call-surface__topbar";
@@ -1472,6 +1511,49 @@ function renderNativeXmppCallSurface(sessionId = "") {
   const utilityBar = document.createElement("div");
   utilityBar.className = "native-call-surface__utility";
   utilityBar.appendChild(qualityChip);
+  const pinsBtn = document.createElement("button");
+  pinsBtn.type = "button";
+  pinsBtn.className = "native-call-surface__toggle";
+  pinsBtn.textContent = "Pins";
+  bindNativeCallActionButton(pinsBtn, () => ui.openPinsBtn?.click());
+  const addFriendBtn = document.createElement("button");
+  addFriendBtn.type = "button";
+  addFriendBtn.className = "native-call-surface__toggle";
+  addFriendBtn.textContent = "Add Friend";
+  bindNativeCallActionButton(addFriendBtn, () => {
+    if (ui.addFriendDialog instanceof HTMLDialogElement && typeof ui.addFriendDialog.showModal === "function") {
+      try {
+        ui.addFriendDialog.showModal();
+      } catch {
+        ui.addFriendDialog.setAttribute("open", "open");
+      }
+      return;
+    }
+    showToast("Friend dialog unavailable.", { tone: "error", duration: 2200 });
+  });
+  const profileBtn = document.createElement("button");
+  profileBtn.type = "button";
+  profileBtn.className = "native-call-surface__toggle is-disabled-hint";
+  profileBtn.textContent = "Profile Hidden";
+  profileBtn.disabled = true;
+  profileBtn.title = "Profile sidebar is unavailable while the call strip is active.";
+  const searchBtn = document.createElement("button");
+  searchBtn.type = "button";
+  searchBtn.className = "native-call-surface__toggle native-call-surface__search";
+  bindNativeCallActionButton(searchBtn, () => ui.openFindBtn?.click());
+  searchBtn.setAttribute("aria-label", "Search chat");
+  searchBtn.title = "Search chat";
+  const searchIcon = document.createElement("span");
+  searchIcon.className = "native-call-surface__button-icon";
+  searchIcon.textContent = "⌕";
+  const searchLabel = document.createElement("span");
+  searchLabel.textContent = "Search chat";
+  searchBtn.appendChild(searchIcon);
+  searchBtn.appendChild(searchLabel);
+  utilityBar.appendChild(pinsBtn);
+  utilityBar.appendChild(addFriendBtn);
+  utilityBar.appendChild(profileBtn);
+  utilityBar.appendChild(searchBtn);
   const reconnectNoticeNeeded = ["disconnected", "failed"].includes(pcStateLower)
     || ["disconnected", "failed"].includes(iceStateLower);
   const reconnectNotice = reconnectNoticeNeeded
@@ -1709,9 +1791,6 @@ function renderNativeXmppCallSurface(sessionId = "") {
   decorateNativeCallActionButton(rejoinBtn, { icon: "⤴", label: "Rejoin", variant: "ghost" });
   decorateNativeCallActionButton(copyBtn, { icon: "⧉", label: "Copy SID", variant: "utility" });
   decorateNativeCallActionButton(refreshBtn, { icon: "↺", label: "Refresh", variant: "utility" });
-  utilityBar.appendChild(copyBtn);
-  utilityBar.appendChild(refreshBtn);
-  utilityBar.appendChild(debugBtn);
   topbar.appendChild(channelCard);
   topbar.appendChild(utilityBar);
   if (reconnectNotice) shell.appendChild(reconnectNotice);
@@ -1993,6 +2072,9 @@ function renderNativeXmppCallSurface(sessionId = "") {
   dockExtras.appendChild(audioTestBtn);
   dockExtras.appendChild(reconnectBtn);
   dockExtras.appendChild(rejoinBtn);
+  dockExtras.appendChild(refreshBtn);
+  dockExtras.appendChild(copyBtn);
+  dockExtras.appendChild(debugBtn);
   dock.appendChild(dockMain);
   dock.appendChild(dockExtras);
   stageWrap.appendChild(stageHero);
@@ -2005,8 +2087,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   shell.appendChild(topbar);
   if (reconnectNotice) shell.appendChild(reconnectNotice);
   shell.appendChild(body);
-  stage.appendChild(shell);
-  caption.textContent = `Native session ${sid.slice(0, 8)} · l${Array.isArray(session?.localCandidates) ? session.localCandidates.length : 0}/r${Array.isArray(session?.remoteCandidates) ? session.remoteCandidates.length : 0}`;
+  ui.embeddedCallHost.appendChild(shell);
   scheduleNativeCallSurfaceTicker(sid);
   if (!mediaDeviceSnapshot.ready && !mediaDeviceSnapshot.loading) {
     void refreshMediaDeviceSnapshot().then(() => {
@@ -2057,9 +2138,7 @@ function openNativeXmppCallSurface(sessionId = "") {
   }
   xmppActiveNativeCallSessionId = sid;
   scheduleXmppRemoteTrackWaitHint(sid);
-  const overlay = ensureMediaLightbox();
   renderNativeXmppCallSurface(sid);
-  overlay.hidden = false;
-  document.body.style.overflow = "hidden";
-  overlay.focus({ preventScroll: true });
+  renderMessages();
+  ui.embeddedCallHost?.scrollIntoView?.({ block: "start", behavior: "smooth" });
 }
