@@ -5333,6 +5333,8 @@ body[data-compact-members="on"] .member-item {
   right: -1px;
   bottom: -1px;
   box-sizing: border-box;
+  z-index: 3;
+  pointer-events: none;
 }
 
 .presence-dot::after {

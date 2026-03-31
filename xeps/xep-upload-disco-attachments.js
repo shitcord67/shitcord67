@@ -1380,9 +1380,10 @@ function publishRelayDirectMessage(thread, message, account) {
           ? omemoAttachmentUrls.join("\n")
           : baseBody;
         const stanza = globalThis.$msg({ to: peerJid, type: "chat", id: stanzaId });
-        if (!omemoEnabled && !openPgpEnabled) {
-          stanza.c("body").t(baseBody).up();
-        }
+        const fallbackBody = omemoEnabled
+          ? "This message is encrypted with OMEMO."
+          : (openPgpEnabled ? "This message is encrypted with OpenPGP." : baseBody);
+        stanza.c("body").t(fallbackBody).up();
         if (!openPgpEnabled) {
           appendXmppReplyNodes(stanza, replyMeta, bodyPayload.fallbackPrefixLength);
         }

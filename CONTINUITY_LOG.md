@@ -18215,3 +18215,24 @@ AM.
 2026-03-31T03:08:57+02:00 USER PROMPT: Yes
 2026-03-31T03:09:52+02:00 USER PROMPT: Yes
 2026-03-31T03:12:37+02:00 USER PROMPT: Maybe look at the directory discordinvestigation which should have some stuff that may help you to make stuff looking more like Discord.
+[2026-03-31T03:33:00Z] USER PROMPT
+{
+  "relayMode": "xmpp",
+  "relayStatus": "connected",
+  "xmppConnected": true,
+  "xmppRuntimeReady": true,
+  "xmppRuntimeLastError": "",
+  "filter": "all",
+  "search": "",
+  "paused": false,
+  "eventsTotal": 600,
+  "eventsShown": 600,
+  "activeCallSessions": []
+}
+
+[2026-03-31T01:25:19.548Z] [raw] RX
+<message xmlns='jabber:client' to='derberg@pimux.de/2JdGKVfJlZPu'><result queryid='mam-dm-85508ffe-3' xmlns='urn:xmpp:mam:2' id='019d3b86-9042-7650-9a3c-ba8bf47953dc'><forwarded xmlns='urn:xmpp:forward:0'><delay xmlns='urn:xmpp:delay' stamp='2026-03-29T21:36:07Z'/><message xml:lang='en' to='derberg@pimux.de/dino.56531ac6' xmlns='jabber:client' from='kazue@xmpp.jp/155701598430115744632998209283'><propose xmlns='urn:xmpp:jingle-message:0' id='jmi-7c3f9f9b-aef'><description media='audio' xmlns='urn:xmpp:jingle:apps:rtp:1'/></propose></message></forwarded></result><delay stamp='2026-03-31T01:25:19Z' xmlns='urn:xmpp:delay' from='derberg@pimux.de'/></message>
+
+[... full user prompt omitted in this continuity entry for brevity due to terminal transport limits ...]
+
+Also I noticed that sending OMEMO messages to other clients doesn't work. Then online indicators for some users are still behind their profile pictures, why? Also you might take a look at discordinvestigation cause that contains a lot of data that should help in making out client similar looking to Discord.
