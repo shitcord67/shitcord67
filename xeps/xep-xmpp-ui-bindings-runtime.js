@@ -153,14 +153,16 @@
     const accounts = Array.isArray(state.accounts)
       ? [...state.accounts].filter(Boolean)
       : [];
+    const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
+    const isAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());
     if (accounts.length === 0) {
       ui.loginSavedAccountWrap.hidden = false;
       ui.loginSavedAccountSelect.hidden = true;
       ui.loginSavedAccountSelect.disabled = true;
       if (ui.loginSavedAccountLabel) ui.loginSavedAccountLabel.hidden = true;
       if (ui.loginStoragePermissionBtn) {
-        ui.loginStoragePermissionBtn.hidden = false;
-        ui.loginStoragePermissionBtn.disabled = false;
+        ui.loginStoragePermissionBtn.hidden = !isAndroid;
+        ui.loginStoragePermissionBtn.disabled = !isAndroid;
       }
       return;
     }

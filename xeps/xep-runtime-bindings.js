@@ -655,6 +655,12 @@ const normalizeDmHomeRequestsFilterViaModule = typeof UI_STATE_NORMALIZERS_GLOBA
 const normalizeGuildNotificationModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationMode === "function"
   ? UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationMode
   : ((value) => (value === "mentions" || value === "mute" ? value : "all"));
+const normalizeBadgeDisplayModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeBadgeDisplayMode === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeBadgeDisplayMode
+  : ((value) => (value === "mentions" || value === "off" ? value : "all"));
+const normalizeDmPreviewModeViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeDmPreviewMode === "function"
+  ? UI_STATE_NORMALIZERS_GLOBAL.normalizeDmPreviewMode
+  : ((value) => (value === "compact" || value === "off" ? value : "full"));
 const normalizeGuildNotificationsMapViaModule = typeof UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationsMap === "function"
   ? ((value) => UI_STATE_NORMALIZERS_GLOBAL.normalizeGuildNotificationsMap(value, {
     normalizeGuildNotificationModeFn: normalizeGuildNotificationMode

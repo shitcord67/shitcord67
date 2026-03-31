@@ -178,6 +178,14 @@ function normalizeGuildNotificationMode(value) {
   return normalizeGuildNotificationModeViaModule(value);
 }
 
+function normalizeBadgeDisplayMode(value) {
+  return normalizeBadgeDisplayModeViaModule(value);
+}
+
+function normalizeDmPreviewMode(value) {
+  return normalizeDmPreviewModeViaModule(value);
+}
+
 function normalizeGuildNotificationsMap(value) {
   return normalizeGuildNotificationsMapViaModule(value);
 }

@@ -35,6 +35,7 @@ function renderDock() {
 }
 
 function renderSelfPopout() {
+  bindSelfMenuDialogPresenceClicks();
   const account = getCurrentAccount();
   if (!account) return;
   const guildId = getActiveGuild()?.id || null;
@@ -149,8 +150,9 @@ function renderAccountSwitchList() {
   });
 }
 
-if (ui.selfMenuDialog && !ui.selfMenuDialog.dataset.presenceClickBound) {
-  ui.selfMenuDialog.addEventListener("click", (event) => {
+function bindSelfMenuDialogPresenceClicks() {
+  if (!globalThis.ui?.selfMenuDialog || globalThis.ui.selfMenuDialog.dataset.presenceClickBound) return;
+  globalThis.ui.selfMenuDialog.addEventListener("click", (event) => {
     const button = event.target instanceof Element
       ? event.target.closest("[data-self-presence]")
       : null;
@@ -159,7 +161,7 @@ if (ui.selfMenuDialog && !ui.selfMenuDialog.dataset.presenceClickBound) {
     const changed = setCurrentAccountPresence(next, { persist: true, rerender: true, announceXmpp: true });
     if (changed) showToast(`Presence: ${presenceLabel(next)}`);
   });
-  ui.selfMenuDialog.dataset.presenceClickBound = "true";
+  globalThis.ui.selfMenuDialog.dataset.presenceClickBound = "true";
 }
 
 function renderRolesDialog() {

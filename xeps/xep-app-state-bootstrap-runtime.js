@@ -606,6 +606,14 @@ function migrateState(raw) {
 }
 
 function loadState() {
+  const sessionPersistenceEnabled = () => {
+    const bridge = window?.s67Electron || null;
+    const bridged = bridge && typeof bridge.storageGet === "function"
+      ? bridge.storageGet(SESSION_PERSIST_KEY)
+      : null;
+    if (bridged !== null && bridged !== undefined) return bridged !== "off";
+    return localStorage.getItem(SESSION_PERSIST_KEY) !== "off";
+  };
   const storageGet = (key) => {
     const bridge = window?.s67Electron || null;
     const bridged = bridge && typeof bridge.storageGet === "function"
@@ -634,7 +642,7 @@ function loadState() {
   };
   const applySessionRestore = (restored) => {
     if (!restored || !Array.isArray(restored.accounts)) return restored;
-    const persistSession = isSessionPersistenceEnabled();
+    const persistSession = sessionPersistenceEnabled();
     const accountIds = restored.accounts.map((account) => account?.id).filter(Boolean);
     const validIds = new Set(accountIds);
     if (!persistSession) {
