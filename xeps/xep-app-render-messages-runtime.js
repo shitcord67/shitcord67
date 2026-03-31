@@ -763,53 +763,53 @@ function renderMessages() {
   let unreadDividerEl = null;
   if (isDm) {
     if (messageBucket.length > 0) {
-      const tools = document.createElement("div");
-      tools.className = "dm-thread-tools";
-      const info = document.createElement("div");
-      info.className = "dm-thread-tools__info";
       const hasUnread = dmUnreadStats.unread > 0;
-      const mentionPart = dmUnreadStats.mentions > 0
-        ? ` · ${dmUnreadStats.mentions} mention${dmUnreadStats.mentions === 1 ? "" : "s"}`
-        : "";
-      info.textContent = hasUnread
-        ? `${dmUnreadStats.unread} new message${dmUnreadStats.unread === 1 ? "" : "s"}${mentionPart}`
-        : "All caught up";
-      tools.classList.toggle("dm-thread-tools--has-unread", hasUnread);
-      tools.appendChild(info);
+      if (hasUnread) {
+        const tools = document.createElement("div");
+        tools.className = "dm-thread-tools";
+        const info = document.createElement("div");
+        info.className = "dm-thread-tools__info";
+        const mentionPart = dmUnreadStats.mentions > 0
+          ? ` · ${dmUnreadStats.mentions} mention${dmUnreadStats.mentions === 1 ? "" : "s"}`
+          : "";
+        info.textContent = `${dmUnreadStats.unread} new message${dmUnreadStats.unread === 1 ? "" : "s"}${mentionPart}`;
+        tools.classList.toggle("dm-thread-tools--has-unread", true);
+        tools.appendChild(info);
 
-      const actions = document.createElement("div");
-      actions.className = "dm-thread-tools__actions";
-      const jumpNewestBtn = document.createElement("button");
-      jumpNewestBtn.type = "button";
-      jumpNewestBtn.textContent = "Jump to newest";
-      jumpNewestBtn.addEventListener("click", () => {
-        ui.messageList.scrollTop = ui.messageList.scrollHeight;
-      });
-      actions.appendChild(jumpNewestBtn);
-      if (unreadDividerMessageId) {
-        const jumpFirstBtn = document.createElement("button");
-        jumpFirstBtn.type = "button";
-        jumpFirstBtn.textContent = "Jump to first unread";
-        jumpFirstBtn.addEventListener("click", () => {
-          focusMessageById(unreadDividerMessageId);
+        const actions = document.createElement("div");
+        actions.className = "dm-thread-tools__actions";
+        const jumpNewestBtn = document.createElement("button");
+        jumpNewestBtn.type = "button";
+        jumpNewestBtn.textContent = "Jump to newest";
+        jumpNewestBtn.addEventListener("click", () => {
+          ui.messageList.scrollTop = ui.messageList.scrollHeight;
         });
-        actions.appendChild(jumpFirstBtn);
+        actions.appendChild(jumpNewestBtn);
+        if (unreadDividerMessageId) {
+          const jumpFirstBtn = document.createElement("button");
+          jumpFirstBtn.type = "button";
+          jumpFirstBtn.textContent = "Jump to first unread";
+          jumpFirstBtn.addEventListener("click", () => {
+            focusMessageById(unreadDividerMessageId);
+          });
+          actions.appendChild(jumpFirstBtn);
+        }
+        if (currentAccount) {
+          const markBtn = document.createElement("button");
+          markBtn.type = "button";
+          markBtn.textContent = "Mark read";
+          markBtn.addEventListener("click", () => {
+            if (!markDmRead(dmThread, currentAccount.id)) return;
+            saveState();
+            renderServers();
+            renderDmList();
+            renderMessages();
+          });
+          actions.appendChild(markBtn);
+        }
+        tools.appendChild(actions);
+        ui.messageList.appendChild(tools);
       }
-      if (hasUnread && currentAccount) {
-        const markBtn = document.createElement("button");
-        markBtn.type = "button";
-        markBtn.textContent = "Mark read";
-        markBtn.addEventListener("click", () => {
-          if (!markDmRead(dmThread, currentAccount.id)) return;
-          saveState();
-          renderServers();
-          renderDmList();
-          renderMessages();
-        });
-        actions.appendChild(markBtn);
-      }
-      tools.appendChild(actions);
-      ui.messageList.appendChild(tools);
     }
   } else if (currentAccount && unreadStats.unread > 0 && firstUnreadMessageId) {
     const divider = document.createElement("div");

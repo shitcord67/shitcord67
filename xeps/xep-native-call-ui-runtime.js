@@ -1944,7 +1944,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
     localTile.className = "native-call-surface__tile";
     localTile.dataset.nativeCallSpeakerKey = "local";
     const localMeta = xmppLocalMediaSnapshot(sid);
-    const localVideoHidden = localMeta.videoTracks.length > 0 && !localMeta.videoEnabled;
+    const localHasVideoTrack = localMeta.videoTracks.length > 0;
+    const localVideoHidden = !localHasVideoTrack || !localMeta.videoEnabled;
     localTile.classList.toggle("native-call-surface__tile--muted", localMeta.audioTracks.length > 0 && !localMeta.audioEnabled);
     localTile.classList.toggle("native-call-surface__tile--video-off", localVideoHidden);
     localTile.classList.toggle("native-call-surface__tile--speaking", Boolean(speakingByKey.get("local")));
@@ -1982,7 +1983,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
       account: currentAccount,
       tile: localTile,
       badges,
-      speaking: Boolean(speakingByKey.get("local"))
+      speaking: Boolean(speakingByKey.get("local")),
+      videoOff: localVideoHidden
     });
   }
   const remoteStreams = xmppRemoteStreamListForSession(sid);
@@ -1995,7 +1997,8 @@ function renderNativeXmppCallSurface(sessionId = "") {
     const remoteKeySeed = (stream.id || remoteTrack?.id || `${index + 1}`).toString().trim();
     const speakerKey = `remote:${remoteKeySeed}`;
     tile.dataset.nativeCallSpeakerKey = speakerKey;
-    const remoteVideoHidden = Boolean(session?.remoteVideoMuted);
+    const remoteHasVideoTrack = stream.getVideoTracks().length > 0;
+    const remoteVideoHidden = !remoteHasVideoTrack || Boolean(session?.remoteVideoMuted);
     if (session?.remoteMuted) tile.classList.add("native-call-surface__tile--muted");
     if (remoteVideoHidden) tile.classList.add("native-call-surface__tile--video-off");
     tile.classList.toggle("native-call-surface__tile--speaking", Boolean(speakingByKey.get(speakerKey)));
@@ -2035,43 +2038,69 @@ function renderNativeXmppCallSurface(sessionId = "") {
       account: peerAccount,
       tile,
       badges,
-      speaking: Boolean(speakingByKey.get(speakerKey))
+      speaking: Boolean(speakingByKey.get(speakerKey)),
+      videoOff: remoteVideoHidden
     });
   });
+  const avatarOnlyMode = participants.length > 0 && participants.every((entry) => entry.videoOff);
+  if (avatarOnlyMode) shell.classList.add("native-call-surface--avatar-only");
   const availableKeys = participants.map((entry) => entry.key);
   const preferredFocus = (session?.focusedSpeakerKey || "").toString().trim();
   const focusedKey = availableKeys.includes(preferredFocus)
     ? preferredFocus
     : (availableKeys.find((entry) => entry !== "local") || availableKeys[0] || "");
   if (session && focusedKey && session.focusedSpeakerKey !== focusedKey) session.focusedSpeakerKey = focusedKey;
-  participants.forEach((participant) => {
-    const isFocused = participant.key === focusedKey;
-    participant.tile.classList.toggle("native-call-surface__tile--focused", isFocused);
-    if (isFocused) stageHero.appendChild(participant.tile);
-    else filmstrip.appendChild(participant.tile);
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `native-call-surface__participant ${isFocused ? "is-active" : ""}`;
-    if (participant.speaking) button.classList.add("is-speaking");
-    const avatar = createNativeCallAvatarNode(participant.account, participant.label);
-    const name = document.createElement("span");
-    name.className = "native-call-surface__participant-name";
-    name.textContent = participant.label;
-    button.appendChild(avatar);
-    button.appendChild(name);
-    if (participant.badges.length > 0) {
-      const detail = document.createElement("span");
-      detail.className = "native-call-surface__participant-meta";
-      detail.textContent = participant.badges[0];
-      button.appendChild(detail);
-    }
-    bindNativeCallActionButton(button, () => {
-      const liveSession = xmppCallSessionById.get(sid) || session || null;
-      if (liveSession) liveSession.focusedSpeakerKey = participant.key;
-      renderNativeXmppCallSurface(sid);
+  if (avatarOnlyMode) {
+    const avatarStage = document.createElement("div");
+    avatarStage.className = "native-call-surface__avatar-stage";
+    participants.forEach((participant) => {
+      const card = document.createElement("div");
+      card.className = "native-call-surface__avatar-card";
+      const avatar = createNativeCallAvatarNode(participant.account, participant.label);
+      const name = document.createElement("span");
+      name.className = "native-call-surface__avatar-name";
+      name.textContent = participant.label;
+      card.appendChild(avatar);
+      card.appendChild(name);
+      if (participant.badges.length > 0) {
+        const detail = document.createElement("span");
+        detail.className = "native-call-surface__avatar-meta";
+        detail.textContent = participant.badges[0];
+        card.appendChild(detail);
+      }
+      avatarStage.appendChild(card);
     });
-    roster.appendChild(button);
-  });
+    stageHero.appendChild(avatarStage);
+  } else {
+    participants.forEach((participant) => {
+      const isFocused = participant.key === focusedKey;
+      participant.tile.classList.toggle("native-call-surface__tile--focused", isFocused);
+      if (isFocused) stageHero.appendChild(participant.tile);
+      else filmstrip.appendChild(participant.tile);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `native-call-surface__participant ${isFocused ? "is-active" : ""}`;
+      if (participant.speaking) button.classList.add("is-speaking");
+      const avatar = createNativeCallAvatarNode(participant.account, participant.label);
+      const name = document.createElement("span");
+      name.className = "native-call-surface__participant-name";
+      name.textContent = participant.label;
+      button.appendChild(avatar);
+      button.appendChild(name);
+      if (participant.badges.length > 0) {
+        const detail = document.createElement("span");
+        detail.className = "native-call-surface__participant-meta";
+        detail.textContent = participant.badges[0];
+        button.appendChild(detail);
+      }
+      bindNativeCallActionButton(button, () => {
+        const liveSession = xmppCallSessionById.get(sid) || session || null;
+        if (liveSession) liveSession.focusedSpeakerKey = participant.key;
+        renderNativeXmppCallSurface(sid);
+      });
+      roster.appendChild(button);
+    });
+  }
   if (!localStream && remoteStreams.length === 0) {
     const empty = document.createElement("div");
     empty.className = "native-call-surface__empty";
@@ -2104,7 +2133,7 @@ function renderNativeXmppCallSurface(sessionId = "") {
   stageWrap.appendChild(devicesRow);
   if (debugDialog) stageWrap.appendChild(debugDialog);
   stageWrap.appendChild(dock);
-  body.appendChild(roster);
+  if (!avatarOnlyMode) body.appendChild(roster);
   body.appendChild(stageWrap);
   shell.appendChild(topbar);
   if (reconnectNotice) shell.appendChild(reconnectNotice);

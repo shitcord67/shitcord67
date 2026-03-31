@@ -5806,12 +5806,12 @@ body[data-compact-members="on"] .member-item {
 }
 
 .native-call-surface--embedded .native-call-surface__stage-wrap {
-  grid-template-rows: minmax(320px, 420px) auto auto;
+  grid-template-rows: minmax(180px, 1fr) auto auto;
   min-height: 0;
 }
 
 .native-call-surface--embedded .native-call-surface__stage {
-  min-height: 320px;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -5836,7 +5836,7 @@ body[data-compact-members="on"] .member-item {
 }
 
 .native-call-surface--embedded .native-call-surface__tile--focused {
-  min-height: 320px;
+  min-height: 0;
 }
 
 .native-call-surface--embedded .native-call-surface__avatar-placeholder {
@@ -5902,6 +5902,64 @@ body[data-compact-members="on"] .member-item {
   opacity: 0.5;
   cursor: not-allowed;
   border-style: dashed;
+}
+
+.native-call-surface--embedded.native-call-surface--waiting .native-call-surface__stage {
+  min-height: 0;
+}
+
+.native-call-surface--embedded.native-call-surface--waiting .native-call-surface__empty {
+  min-height: 0;
+}
+
+.native-call-surface--avatar-only .native-call-surface__roster,
+.native-call-surface--avatar-only .native-call-surface__filmstrip {
+  display: none;
+}
+
+.native-call-surface--avatar-only .native-call-surface__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.native-call-surface__avatar-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.2rem, 4vw, 3rem);
+}
+
+.native-call-surface__avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: center;
+  color: #e6ebf2;
+}
+
+.native-call-surface__avatar-card .native-call-surface__avatar {
+  width: clamp(96px, 16vw, 164px);
+  height: clamp(96px, 16vw, 164px);
+  flex-basis: clamp(96px, 16vw, 164px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 16px 36px rgba(0, 0, 0, 0.5);
+}
+
+.native-call-surface__avatar-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.native-call-surface__avatar-meta {
+  font-size: 0.7rem;
+  color: #a5acb6;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .native-call-surface__topbar {

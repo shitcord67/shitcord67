@@ -18278,3 +18278,269 @@ xep-native-call-ui-runtime.js:1530 Uncaught (in promise) ReferenceError: convers
 
 ## 2026-03-31T03:13:02.501874+00:00
 Okay stuff looks definitely much better. But some issues: why is there some blurring at the top of the chat at all? Also when the caller GUI is open then some parts of the chats leak straight into the caller GUI thus you need to adjust the chat area height further. Then is this fast calling timeout really necessary? On Discord people can wait 5 minutes before it hangs up when no call is accepted. Also when I scrol up in chat then when a call is running I do see this: <section class="call-grid" data-session-id="jmi-d1bf7571-9d6" data-tile-count="2"><div class="call-grid__header"><strong>In Call</strong><span class="call-grid__meta">Native voice/video call · 0:14</span></div><div class="call-grid__tiles"><div class="call-tile" data-call-speaker="local"><div class="call-tile__avatar call-tile__avatar--local" data-initial="D" aria-label="D" style="background-color: rgb(78, 204, 163); background-image: url(&quot;data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Ctext%20x%3D'50'%20y%3D'56'%20text-anchor%3D'middle'%20dominant-baseline%3D'middle'%20font-family%3D'Inter%2CArial%2Csans-serif'%20font-size%3D'56'%20font-weight%3D'700'%20fill%3D'white'%3ED%3C%2Ftext%3E%3C%2Fsvg%3E&quot;); background-size: cover; background-position: center center;"></div><div class="call-tile__name">You</div><div class="call-tile__badges"><span class="call-tile__badge is-muted">Mic off</span><span class="call-tile__badge is-muted">Cam off</span></div><div class="call-tile__controls"><button type="button">Unmute</button><button type="button">Start Cam</button><button type="button">Share</button><button type="button" title="Open shared whiteboard">WB</button><button type="button" title="Post shared whiteboard link to this conversation">Post WB</button><button type="button">Open</button><button type="button" class="call-tile__end">End</button></div></div><div class="call-tile" data-call-speaker="kazue@xmpp.jp"><div class="call-tile__avatar " data-initial="K" aria-label="K" style="background-color: rgb(87, 242, 135); background-image: url(&quot;data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2Fsvg' ..."></div></div></div></section>. Why? This is just litter. Also maybe fix some issues: libsignal_protocol.min.js... and You can also try to make the calling GUI look more like on Discord. E.g. check out [Image #1] which shows a person waiting for a different person in the call GUI of Discord.
+
+## 2026-03-31T03:28:51.058989+00:00
+<div class="dm-thread-tools"><div class="dm-thread-tools__info">All caught up</div><div class="dm-thread-tools__actions"><button type="button">Jump to newest</button></div></div> Maybe get rid of this? Or at least do not show it when the chat has been loaded. Then why is the following container bigger than the black area and why are the call controls to e.g. end the call not visible?: <div class="native-call-surface native-call-surface--embedded native-call-surface--waiting" data-session-id="jmi-d44664c2-a3a">... And when the call got accepted, why are there rectangles when no screen or webcam sharing happens? User images should be centered in the middle btw! ...
+
+## 2026-03-31T03:38:14Z
+Continue: 
+• I fixed the call-side issues in c0f5c57 (Polish embedded call surface and ring timeouts).
+
+  The main UI changes are:
+
+  - removed the old call-grid fallback whenever an embedded call is active, so that litter should stop appearing in the chat scrollback
+  - made the embedded call host taller and fully clipped, so chat content should stop bleeding into the call area
+  - removed the embedded call’s top gradient haze and switched it to a cleaner black surface
+  - added a waiting-state variant for native calls with no remote stream yet, so the “ringing/waiting” view reads closer to Discord instead of
+    looking like a half-active layout
+
+  I also changed the visible ringing timeouts to 5 minutes:
+
+  - web-call invite timeout is now 5 minutes in xep-app-xmpp-state-runtime.js (/home/duda/shitcord67/xeps/xep-app-xmpp-state-runtime.js#L52)
+  - native XMPP outgoing ring/no-answer timeout now uses a dedicated 5-minute ring timeout in xep-app-xmpp-state-runtime.js (/home/duda/
+    shitcord67/xeps/xep-app-xmpp-state-runtime.js#L545) and xep-0030_0166-jingle-call-core.js (/home/duda/shitcord67/xeps/xep-0030_0166-
+    jingle-call-core.js#L1092)
+
+  I also trimmed two console-noise sources:
+
+  - removed web-share from the YouTube iframe allow string in xep-app-render-messages-runtime.js (/home/duda/shitcord67/xeps/xep-app-render-
+    messages-runtime.js#L387)
+  - added negative caching for failed link-embed metadata fetches in xep-app-render-messages-runtime.js (/home/duda/shitcord67/xeps/xep-app-
+    render-messages-runtime.js#L349), so blocked CORS URLs should not keep retrying every render
+
+  What I did not fully fix in this pass:
+
+  - the OMEMO/libsignal spam (MessageCounterError, Bad MAC, Duplicate PreKeyMessage) is still a real session-state problem, not just UI noise
+  - the first CORS error for a blocked external page can still happen once; the patch mainly stops repeated retries after that
+
+  Validation: node --check passed for the touched JS files. If you retest now, the next useful thing is whether the waiting-state call UI
+  actually looks structurally right in your real DM call flow.
+
+
+
+› <div class="dm-thread-tools"><div class="dm-thread-tools__info">All caught up</div><div class="dm-thread-tools__actions"><button
+  type="button">Jump to newest</button></div></div> Maybe get rid of this? Or at least do not show it when the chat has been loaded. Then why
+  is the following container bigger than the black area and why are the call controls to e.g. end the call not visible?: <div class="native-
+  call-surface native-call-surface--embedded native-call-surface--waiting" data-session-id="jmi-d44664c2-a3a"><div class="native-call-
+  surface__topbar"><div class="native-call-surface__channel"><div class="native-call-surface__avatar" data-initial="K" aria-label="K"
+  style="background-color: rgb(87, 242, 135); background-image: url(&quot;data:image/svg+xml,
+  %3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Ctext%20x%3D'50'%20y%3D'56'%20text-
+  anchor%3D'middle'%20dominant-baseline%3D'middle'%20font-family%3D'Inter%2CArial%2Csans-serif'%20font-size%3D'56'%20font-
+  weight%3D'700'%20fill%3D'white'%3EK%3C%2Ftext%3E%3C%2Fsvg%3E&quot;); background-size: cover; background-position: center center;"></
+  div><div class="native-call-surface__channel-text"><span class="native-call-surface__eyebrow">Direct Message Call</span><strong
+  class="native-call-surface__title">kazue</strong><span class="native-call-surface__meta">kazue@xmpp.jp · proposed · dur:00:31</span></
+  div></div><div class="native-call-surface__utility"><span class="native-call-surface__quality native-call-surface__quality--fair"
+  title="Estimated from WebRTC connection stats (RTT and packet loss).">Quality …</span><button type="button" class="native-call-
+  surface__toggle">Pins</button><button type="button" class="native-call-
+  surface__toggle">Add Friend</button><button type="button"
+  class="native-call-surface__toggle is-disabled-hint" disabled="" title="Profile sidebar is unavailable while the call strip is
+  active.">Profile Hidden</button><button type="button" class="native-call-surface__toggle native-call-
+  surface__search" aria-label="Search
+  chat" title="Search chat"><span class="native-call-surface__button-icon">⌕</span><span>Search chat</span></button></div></div><div
+  class="native-call-surface__body"><div class="native-call-surface__roster"></div><div class="native-call-surface__stage-wrap"><div
+  class="native-call-surface__stage"><div class="native-call-
+  surface__empty">Waiting for local/remote media tracks...</div></div><div
+  class="native-call-surface__devices"><label class="native-call-
+  surface__device">Mic<select class="native-call-surface__select"><option
+  value="">Default Mic</option><option value="default">Default</option><option
+  value="5357057651eb98af2cd77428b1db50ac9ffe6b3d97898425eb25051aa3883734">YouTube</option><option
+  value="4880dbcbbbc861602eeeb3a4e0f034fdd3ede5b31078f84ecf438cdde4dac200">Vorlesung1</option><option
+  value="000fafd70dc20181951d8349b13c37982b4de7eb152aa7252fb512b23e04944b">Vorlesung2</option><option
+  value="6ebe7587f444df39bc74aad7ddea3982ef007e8371c4eef26b5eff22fdf5c323">Vorlesung3</option><option
+  value="3c9cdcd86b1cf2210bf8a9fa01767a54446d81f428a278768809dd868399d3d4">Webcam C270 Pro</option><option
+  value="030fea8549d497e702e8cae3bc1066c8161690f8be7b67bb89b01692ffe71e96">Schleifenschaltung Analoges Stereo</option></select></label><label
+  class="native-call-surface__device">Cam<select class="native-call-surface__select"><option value="">Default Camera</option><option
+  value="80792c663fe9151e177c7e7fec24fd5a3db8758fbad8901c5d2df9a97670a0c2">Droidcam</option><option
+  value="a6a39e65786b62a57f41a64a36539051d77eb23c6582cc14a8351bbb4b46c450">UVC Camera (046d:0825) (046d:0825)</option></select><button
+  type="button" class="native-call-surface__device-preview" title="Open camera picker with live preview">Preview</button></label><label
+  class="native-call-surface__device">Out<select class="native-call-surface__select"><option value="">Default Speaker</option><option
+  value="default">Default</option><option value="c24064164f243aa5cca37807b7a09c4506d8937beecc949c3d73c0a68b7a8de1">YouTube</option><option
+  value="52e1b4f6cceaec12bbc5b8fad7b57e65909db2e43e98a1db350c6715cf615320">Vorlesung1</option><option
+  value="000fafd70dc20181951d8349b13c37982b4de7eb152aa7252fb512b23e04944b">Vorlesung2</option><option
+  value="6ebe7587f444df39bc74aad7ddea3982ef007e8371c4eef26b5eff22fdf5c323">Vorlesung3</option><option
+  value="3c9cdcd86b1cf2210bf8a9fa01767a54446d81f428a278768809dd868399d3d4">Webcam C270 Pro</option><option
+  value="030fea8549d497e702e8cae3bc1066c8161690f8be7b67bb89b01692ffe71e96">Schleifenschaltung Analoges Stereo</option></select></label></div><div class="native-call-surface__dock"><div class="native-call-
+  surface__dock-main"><button type="button" class="native-call-surface__toggle native-call-surface__dock-btn" title="Unmute microphone"
+  disabled="" data-label="Unmute" data-variant="dock" aria-label="Unmute"><span class="native-call-surface__button-icon">🔇</span></
+  button><button type="button" class="native-call-surface__toggle native-call-surface__dock-btn" title="Enable camera" data-label="Camera On"
+  data-variant="dock" aria-label="Camera On"><span class="native-call-surface__button-icon">📹</span></button><button type="button"
+  class="native-call-surface__toggle native-call-surface__dock-btn" title="Share your screen" data-label="Share Screen" data-variant="dock"
+  aria-label="Share Screen"><span class="native-call-surface__button-icon">🖥</span></button><button type="button" class="native-call-
+  surface__toggle native-call-surface__dock-btn" title="Temporarily hold local call media" data-label="Hold" data-variant="dock" aria-
+  label="Hold"><span class="native-call-surface__button-icon">⏸</span></button><button type="button" class="native-call-surface__end native-
+  call-surface__dock-btn" data-label="Disconnect" data-variant="danger" aria-label="Disconnect" title="Disconnect"><span class="native-call-
+  surface__button-icon">✕</span></button></div><div class="native-call-surface__dock-extras"><button type="button" class="native-call-
+  surface__toggle" title="Open shared whiteboard for this call conversation" data-label="Whiteboard" data-variant="ghost" aria-
+  label="Whiteboard"><span class="native-call-surface__button-icon">📝</span></button><button type="button" class="native-call-
+  surface__toggle" title="Post whiteboard invite to this call conversation" data-label="Post Board" data-variant="ghost" aria-label="Post
+  Board"><span class="native-call-surface__button-icon">➕</span></button><button type="button" class="native-call-
+  surface__toggle" title="Play local rickroll.ogg to test output audio" data-label="Audio Test" data-variant="ghost" aria-label="Audio Test"><span
+  class="native-call-surface__button-icon">🧪</span></button><button type="button" class="native-call-surface__toggle" title="Queue media re-
+  prime and transport refresh without ending the call" data-label="Reconnect" data-variant="ghost" aria-label="Reconnect"><span
+  class="native-call-surface__button-icon">↻</span></button><button type="button" class="native-call-surface__toggle" disabled=""
+  title="Rejoin is available after the peer leaves" data-label="Rejoin" data-variant="ghost" aria-label="Rejoin"><span class="native-call-
+  surface__button-icon">⤴</span></button><button type="button" class="native-call-surface__utility-btn" data-label="Refresh" data-
+  variant="utility" aria-label="Refresh" title="Refresh"><span class="native-call-surface__button-icon">↺</span></button><button
+  type="button" class="native-call-surface__utility-btn" data-label="Copy SID" data-variant="utility" aria-label="Copy SID" title="Copy
+  SID"><span class="native-call-surface__button-icon">⧉</span></button><button type="button" class="native-call-surface__toggle" title="Open
+  native call debug dialog" data-label="Debug" data-variant="ghost" aria-label="Debug"><span class="native-call-surface__button-icon">⌘</
+  span></button></div></div></div></div></div>. And when the call got accepted, why are there rectangles when no screen or webcam sharing
+  happens? User images should be centered in the middle btw! And for the rectangles you use some fancy logic that first means left/right,
+  then 4 pane split, etc. But instead we have this heresy in shitcord67: <div class="native-call-surface native-call-surface--embedded" data-
+  session-id="jmi-d44664c2-a3a"><div class="native-call-surface__topbar"><div class="native-call-surface__channel"><div class="native-call-
+  surface__avatar" data-initial="K" aria-label="K" style="background-color: rgb(87, 242, 135); background-image: url(&quot;data:image/
+  svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Ctext%20x%3D'50'%20y%3D'56'%20text-
+  anchor%3D'middle'%20dominant-baseline%3D'middle'%20font-family%3D'Inter%2CArial%2Csans-serif'%20font-size%3D'56'%20font-
+  weight%3D'700'%20fill%3D'white'%3EK%3C%2Ftext%3E%3C%2Fsvg%3E&quot;); background-size: cover; background-position: center center;"></
+  div><div class="native-call-surface__channel-text"><span class="native-call-surface__eyebrow">Direct Message Call</span><strong
+  class="native-call-surface__title">kazue</strong><span class="native-call-surface__meta">kazue@xmpp.jp · transport-info-sent · dur:03:05 ·
+  pc:connected · ice:connected</span></div></div><div class="native-call-surface__utility"><span class="native-call-surface__quality native-
+  call-surface__quality--good" title="Estimated from WebRTC connection stats (RTT and packet loss).">Quality good · loss 0%</span><button
+  type="button" class="native-call-surface__toggle">Pins</button><button type="button" class="native-call-surface__toggle">Add Friend</
+  button><button type="button" class="native-call-surface__toggle is-disabled-hint" disabled="" title="Profile sidebar is unavailable while
+  the call strip is active.">Profile Hidden</button><button type="button" class="native-call-surface__toggle native-call-surface__search"
+  aria-label="Search chat" title="Search chat"><span class="native-call-surface__button-icon">⌕</span><span>Search chat</span></button></
+  div></div><div class="native-call-surface__body"><div class="native-call-surface__roster"><button type="button" class="native-call-
+  surface__participant "><div class="native-call-surface__avatar" data-initial="D" aria-label="D" style="background-color: rgb(78, 204, 163);
+  background-image: url(&quot;data:image/svg+xml,
+  %3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Ctext%20x%3D'50'%20y%3D'56'%20text-
+  anchor%3D'middle'%20dominant-baseline%3D'middle'%20font-family%3D'Inter%2CArial%2Csans-serif'%20font-size%3D'56'%20font-
+  weight%3D'700'%20fill%3D'white'%3ED%3C%2Ftext%3E%3C%2Fsvg%3E&quot;); background-size: cover; background-position: center center;"></
+  div><span class="native-call-surface__participant-name">You</span><span class="native-call-surface__participant-meta">cam off</span></
+  button><button type="button" class="native-call-surface__participant is-active"><div class="native-call-surface__avatar" data-initial="K"
+  aria-label="K" style="background-color: rgb(87, 242, 135); background-image: url(&quot;data:image/svg+xml,
+  %3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Ctext%20x%3D'50'%20y%3D'56'%20text-
+  anchor%3D'middle'%20dominant-baseline%3D'middle'%20font-family%3D'Inter%2CArial%2Csans-serif'%20font-size%3D'56'%20font-
+  weight%3D'700'%20fill%3D'white'%3EK%3C%2Ftext%3E%3C%2Fsvg%3E&quot;); background-size: cover; background-position: center center;"></
+  div><span class="native-call-surface__participant-name">kazue@xmpp.jp</span><span class="native-call-surface__participant-meta">cam off</
+  span></button></div><div class="native-call-surface__stage-wrap"><div class="native-call-surface__stage"><div class="native-call-
+  surface__tile native-call-surface__tile--video-off native-call-surface__tile--focused" data-native-call-speaker-key="remote:6672de7a-fa4d-
+  4f20-86c6-d654b5386cee"><div class="native-call-surface__avatar-placeholder">kazue@xmpp.jp</div><video class="native-call-surface__video
+  native-call-surface__video--hidden" autoplay="" playsinline=""></video><div class="native-call-surface__badges"><span class="native-call-
+  surface__badge">cam off</span></div><span class="native-call-surface__label">kazue@xmpp.jp</span></div></div><div class="native-call-
+  surface__filmstrip"><div class="native-call-surface__tile native-call-surface__tile--video-off" data-native-call-speaker-key="local"><div
+  class="native-call-surface__avatar-placeholder">You</div><video class="native-call-surface__video native-call-surface__video--hidden"
+  autoplay="" playsinline=""></video><div class="native-call-surface__badges"><span class="native-call-surface__badge">cam off</span></
+  div><span class="native-call-surface__label">You</span></div></div><div class="native-call-surface__devices"><label class="native-call-
+  surface__device">Mic<select class="native-call-surface__select"><option value="">Default Mic</option><option value="default">Default</
+  option><option value="5357057651eb98af2cd77428b1db50ac9ffe6b3d97898425eb25051aa3883734">YouTube</option><option
+  value="4880dbcbbbc861602eeeb3a4e0f034fdd3ede5b31078f84ecf438cdde4dac200">Vorlesung1</option><option
+  value="000fafd70dc20181951d8349b13c37982b4de7eb152aa7252fb512b23e04944b">Vorlesung2</option><option
+  value="6ebe7587f444df39bc74aad7ddea3982ef007e8371c4eef26b5eff22fdf5c323">Vorlesung3</option><option
+  value="3c9cdcd86b1cf2210bf8a9fa01767a54446d81f428a278768809dd868399d3d4">Webcam C270 Pro</option><option
+  value="030fea8549d497e702e8cae3bc1066c8161690f8be7b67bb89b01692ffe71e96">Schleifenschaltung Analoges Stereo</option></select></label><label
+  class="native-call-surface__device">Cam<select class="native-call-surface__select"><option value="">Default Camera</option><option
+  value="80792c663fe9151e177c7e7fec24fd5a3db8758fbad8901c5d2df9a97670a0c2">Droidcam</option><option
+  value="a6a39e65786b62a57f41a64a36539051d77eb23c6582cc14a8351bbb4b46c450">UVC Camera (046d:0825) (046d:0825)</option></select><button
+  type="button" class="native-call-surface__device-preview" title="Open camera picker with live preview">Preview</button></label><label
+  class="native-call-surface__device">Out<select class="native-call-surface__select"><option value="">Default Speaker</option><option
+  value="default">Default</option><option value="c24064164f243aa5cca37807b7a09c4506d8937beecc949c3d73c0a68b7a8de1">YouTube</option><option
+  value="52e1b4f6cceaec12bbc5b8fad7b57e65909db2e43e98a1db350c6715cf615320">Vorlesung1</option><option
+  value="000fafd70dc20181951d8349b13c37982b4de7eb152aa7252fb512b23e04944b">Vorlesung2</option><option
+  value="6ebe7587f444df39bc74aad7ddea3982ef007e8371c4eef26b5eff22fdf5c323">Vorlesung3</option><option
+  value="3c9cdcd86b1cf2210bf8a9fa01767a54446d81f428a278768809dd868399d3d4">Webcam C270 Pro</option><option
+  value="030fea8549d497e702e8cae3bc1066c8161690f8be7b67bb89b01692ffe71e96">Schleifenschaltung Analoges Stereo</option></select></label></div><div class="native-call-surface__dock"><div class="native-call-
+  surface__dock-main"><button type="button" class="native-call-surface__toggle native-call-surface__dock-btn is-active" title="Mute
+  microphone" data-label="Mute" data-variant="dock" aria-label="Mute"><span class="native-call-surface__button-icon">🎙</span></button><button
+  type="button" class="native-call-surface__toggle native-call-surface__dock-btn" title="Enable camera" data-label="Camera On" data-
+  variant="dock" aria-label="Camera On"><span class="native-call-surface__button-icon">📹</span></button><button type="button" class="native-
+  call-surface__toggle native-call-surface__dock-btn" title="Share your screen" data-label="Share Screen" data-variant="dock" aria-
+  label="Share Screen"><span class="native-call-surface__button-icon">🖥</span></button><button type="button" class="native-call-
+  surface__toggle native-call-surface__dock-btn" title="Temporarily hold local call media" data-label="Hold" data-variant="dock" aria-
+  label="Hold"><span class="native-call-surface__button-icon">⏸</span></button><button type="button" class="native-call-surface__end native-
+  call-surface__dock-btn" data-label="Disconnect" data-variant="danger" aria-label="Disconnect" title="Disconnect"><span class="native-call-
+  surface__button-icon">✕</span></button></div><div class="native-call-surface__dock-extras"><button type="button" class="native-call-
+  surface__toggle" title="Open shared whiteboard for this call conversation" data-label="Whiteboard" data-variant="ghost" aria-
+  label="Whiteboard"><span class="native-call-surface__button-icon">📝</span></button><button type="button" class="native-call-
+  surface__toggle" title="Post whiteboard invite to this call conversation" data-label="Post Board" data-variant="ghost" aria-label="Post
+  Board"><span class="native-call-surface__button-icon">➕</span></button><button type="button" class="native-call-
+  surface__toggle" title="Play local rickroll.ogg to test output audio" data-label="Audio Test" data-variant="ghost" aria-label="Audio Test"><span
+  class="native-call-surface__button-icon">🧪</span></button><button type="button" class="native-call-surface__toggle" title="Queue media re-
+  prime and transport refresh without ending the call" data-label="Reconnect" data-variant="ghost" aria-label="Reconnect"><span
+  class="native-call-surface__button-icon">↻</span></button><button type="button" class="native-call-surface__toggle" disabled=""
+  title="Rejoin is available after the peer leaves" data-label="Rejoin" data-variant="ghost" aria-label="Rejoin"><span class="native-call-
+  surface__button-icon">⤴</span></button><button type="button" class="native-call-surface__utility-btn" data-label="Refresh" data-
+  variant="utility" aria-label="Refresh" title="Refresh"><span class="native-call-surface__button-icon">↺</span></button><button
+  type="button" class="native-call-surface__utility-btn" data-label="Copy SID" data-variant="utility" aria-label="Copy SID" title="Copy
+  SID"><span class="native-call-surface__button-icon">⧉</span></button><button type="button" class="native-call-surface__toggle" title="Open
+  native call debug dialog" data-label="Debug" data-variant="ghost" aria-label="Debug"><span class="native-call-surface__button-icon">⌘</
+  span></button></div></div></div></div></div>.
+
+
+/status
+
+╭────────────────────────────────────────────────────────────────────────────────╮
+│  >_ OpenAI Codex (v0.104.0)                                                    │
+│                                                                                │
+│ Visit https://chatgpt.com/codex/settings/usage for up-to-date                  │
+│ information on rate limits and credits                                         │
+│                                                                                │
+│  Model:                gpt-5.4 (reasoning none, summaries auto)                │
+│  Directory:            ~/shitcord67                                            │
+│  Permissions:          Default                                                 │
+│  Agents.md:            AGENTS.md                                               │
+│  Account:              alibabamueller96@gmail.com (Free)                       │
+│  Collaboration mode:   Default                                                 │
+│  Session:              019d4186-9d58-7210-ba68-4b60fd7bc611                    │
+│                                                                                │
+│  Context window:       11% left (232K used / 258K)                             │
+│  Weekly limit:         [███░░░░░░░░░░░░░░░░░] 14% left (resets 03:37 on 7 Apr) │
+╰────────────────────────────────────────────────────────────────────────────────╯
+
+• I’m logging this prompt and then I’m fixing two things in one pass: removing the leftover DM “All caught up” chrome, and restructuring the
+  native call waiting/connected layouts so avatar-only calls are centered and the controls remain visible inside the black call area.
+
+• Ran python3 - <<'PY'
+  │ from datetime import datetime, timezone
+  │ prompt = '''<div class="dm-thread-tools"><div class="dm-thread-tools__info">All caught up</div><div
+  │ … +8 lines
+  └ Setting up EMSDK environment (suppress these messages with EMSDK_QUIET=1)
+    Setting environment variables:
+    … +6 lines
+    rustup/bin:/opt/servo:/var/lib/snapd/snap/bin:/opt/sun-wtk/bin:/home/duda/.local/bin:/home/duda/perl5/bin:/home/duda/xtext/examples/
+    animation:/home/duda/.npm-packages/bin:/usr/local/games:/usr/local/share/arm-eabi-4.6/bin:/usr/local/share/toolchain/bin/
+
+• Explored
+  └ Read xep-app-render-messages-runtime.js
+    Search dm-thread-tools|All caught up|Jump to newest in xeps
+    Search native-call-surface__tile--focused|avatar-placeholder|filmstrip|participant|remoteStreams|localStream|video-off in xep-native-call-
+ui-
+           runtime.js
+
+─ Worked for 1m 12s ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Context compacted
+
+⚠ Heads up, you have less than 5% of your weekly limit left. Run /status for a breakdown.
+
+• I’m fixing the DM thread footer and reworking the embedded native call layout so avatar-only calls use centered circles and the dock stays
+  visible instead of being pushed below the black surface.
+
+• Explored
+  └ Search All caught up|Jump to newest|dm-thread-tools in xep-app-render-messages-runtime.js
+    Search native-call-surface__devices|native-call-surface__dock|native-call-surface__stage-wrap|avatar-placeholder|filmstrip|roster|
+participant
+           in xep-native-call-ui-runtime.js
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I found the two concrete causes: the DM footer is always rendered, and the native call strip still builds the old tile/filmstrip path plus a
+  visible device row even for embedded avatar-only calls. I’m editing both now so the footer stops showing and embedded calls use a dedicated
+  avatar stage with the dock kept in view.
+
+• Explored
+  └ Read xep-app-render-messages-runtime.js, xep-native-call-ui-runtime.js, styles.css
+
+• I'm thinking about using grid-template-rows: minmax(180px,1fr) auto auto; for stageWrap instead of a fixed height of 320. I wonder
+  if .embedded-call-host should also have a fixed height. Maybe I should inspect that further since it might not be necessary. The user wants
+  centered images, and I might consider hiding the roster entirely in avatar mode while keeping the top participants visible on the left side.
+  That's an interesting approach!
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’ve narrowed the remaining call issue down to the render path itself: even in embedded avatar-only calls it still builds the full tile/
+  filmstrip layout, so I’m replacing that with a dedicated centered avatar stage and trimming the strip height so the dock stays inside the
+  visible area.
+
+■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Apr 7th, 2026 3:37
+AM.
