@@ -2750,10 +2750,13 @@ ui.accountSwitchForm.addEventListener("submit", (event) => {
   if (typed) {
     createOrSwitchAccount(typed);
   } else if (selectedSwitchAccountId) {
-    state.currentAccountId = selectedSwitchAccountId;
-    rememberAccountSession(selectedSwitchAccountId);
-    const prefs = getPreferences();
-    if (["local", "ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
+    const candidate = state.accounts.find((account) => account?.id === selectedSwitchAccountId) || null;
+    if (candidate && (candidate.isLocalAccount || candidate.pendingLogin || candidate.id === state.currentAccountId)) {
+      state.currentAccountId = selectedSwitchAccountId;
+      rememberAccountSession(selectedSwitchAccountId);
+      const prefs = getPreferences();
+      if (["local", "ws", "http", "xmpp"].includes(prefs.relayMode) && prefs.relayAutoConnect === "on") connectRelaySocket({ force: true });
+    }
   }
 
   ensureActiveGuildForCurrentAccount();

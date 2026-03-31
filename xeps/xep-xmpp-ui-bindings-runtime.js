@@ -151,7 +151,7 @@
     defaultOption.textContent = "Select saved account";
     ui.loginSavedAccountSelect.appendChild(defaultOption);
     const accounts = Array.isArray(state.accounts)
-      ? [...state.accounts].filter(Boolean)
+      ? [...state.accounts].filter((account) => account?.isLocalAccount || account?.pendingLogin)
       : [];
     const nativeCreds = window.SHITCORD67_NATIVE_CREDENTIALS || null;
     const isAndroid = Boolean(nativeCreds && typeof nativeCreds.isAndroid === "function" && nativeCreds.isAndroid());

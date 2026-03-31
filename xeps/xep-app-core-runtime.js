@@ -1701,6 +1701,7 @@ async function hydrateNativeCredentialsIntoState({ force = false } = {}) {
       account.xmppJid = normalizeXmppJid(jid);
     }
     if (account) {
+      account.isLocalAccount = true;
       account.pendingLogin = true;
     }
   }

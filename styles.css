@@ -7889,6 +7889,16 @@ body[data-compact-members="on"] .member-item {
   margin-bottom: 1rem;
 }
 
+.account-list__empty {
+  padding: 0.9rem;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  color: #b5bac1;
+  background: rgba(31, 34, 41, 0.6);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 .account-option {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

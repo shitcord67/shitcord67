@@ -114,7 +114,28 @@ function renderSelfPopout() {
 
 function renderAccountSwitchList() {
   ui.accountList.innerHTML = "";
-  state.accounts.forEach((account) => {
+  const accounts = Array.isArray(state.accounts)
+    ? state.accounts.filter(Boolean)
+    : [];
+  const localAccounts = accounts.filter((account) => account?.isLocalAccount || account?.pendingLogin);
+  if (localAccounts.length === 0 && state.currentAccountId) {
+    const current = accounts.find((account) => account?.id === state.currentAccountId) || null;
+    if (current) localAccounts.push(current);
+  }
+  const localIds = new Set(localAccounts.map((account) => account.id));
+  if (selectedSwitchAccountId && !localIds.has(selectedSwitchAccountId)) {
+    selectedSwitchAccountId = state.currentAccountId && localIds.has(state.currentAccountId)
+      ? state.currentAccountId
+      : (localAccounts[0]?.id || null);
+  }
+  if (localAccounts.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "account-list__empty";
+    empty.textContent = "No saved accounts yet. Log in to add one.";
+    ui.accountList.appendChild(empty);
+    return;
+  }
+  localAccounts.forEach((account) => {
     const row = document.createElement("div");
     row.className = `account-option ${selectedSwitchAccountId === account.id ? "active" : ""}`;
     const left = document.createElement("button");

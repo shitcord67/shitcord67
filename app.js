@@ -2087,6 +2087,7 @@ function createOrSwitchAccount(usernameInput, options = {}) {
       ensureAccountCosmetics(account);
     }
   }
+  account.isLocalAccount = true;
   account.pendingLogin = false;
 
   state.preferences = getPreferences();

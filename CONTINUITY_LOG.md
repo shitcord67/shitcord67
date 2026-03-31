@@ -18544,3 +18544,7 @@ participant
 
 ■ You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at Apr 7th, 2026 3:37
 AM.
+
+## 2026-03-31T03:42:13Z
+Also why does "Switch account" allow me to switch to user accounts of DM contacts instead of my own saved accounts (JSON)? The switch
+  should really act like a logout from the current accound and login to the different account.

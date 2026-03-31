@@ -503,6 +503,7 @@ function migrateState(raw) {
   let account = null;
   if (maybeUser) {
     account = createAccount(maybeUser, raw.currentUser.trim().slice(0, 32));
+    account.isLocalAccount = true;
     if (raw.profile && typeof raw.profile === "object") {
       account.bio = (raw.profile.bio || "").toString();
       account.banner = (raw.profile.banner || "").toString();
